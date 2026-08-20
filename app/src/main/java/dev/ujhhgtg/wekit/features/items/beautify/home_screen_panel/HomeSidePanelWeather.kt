@@ -309,32 +309,6 @@ internal class HomeSidePanelWeather(
 
 }
 
-// Temporary pre-Task-6 bridge for the fixed-card state. The service itself is explicit-input and
-// preference-free; Task 6 removes these extensions together with the fixed state model.
-internal fun HomeSidePanelWeather.loadCached(): WeatherSnapshot? =
-    HomeSidePanelPreferences.weatherLastSuccess
-
-internal suspend fun HomeSidePanelWeather.refresh(city: WeatherCity): WeatherResult {
-    val result = refresh(city, HomeSidePanelPreferences.weatherLastSuccess)
-    if (result is WeatherResult.Success) {
-        HomeSidePanelPreferences.selectedWeatherCity = city
-        HomeSidePanelPreferences.weatherLastSuccess = result.snapshot
-    }
-    return result
-}
-
-internal fun HomeSidePanelWeather.selectedCity(): WeatherCity =
-    HomeSidePanelPreferences.selectedWeatherCity
-
-internal fun HomeSidePanelWeather.selectCity(city: WeatherCity) {
-    HomeSidePanelPreferences.selectedWeatherCity = city
-}
-
-internal fun HomeSidePanelWeather.resetForAccount() {
-    HomeSidePanelPreferences.selectedWeatherCity = DEFAULT_WEATHER_CITY
-    HomeSidePanelPreferences.weatherLastSuccess = null
-}
-
 @Serializable
 private data class XiaomiWeatherPayload(
     val current: XiaomiCurrentWeather? = null,

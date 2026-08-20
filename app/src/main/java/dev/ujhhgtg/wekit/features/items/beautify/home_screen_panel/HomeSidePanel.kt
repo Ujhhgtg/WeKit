@@ -370,20 +370,31 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private val dimView = View(activity)
         private val panelView = ComposeView(activity)
         private val stateScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        private val layoutStore = HomeSidePanelLayoutStore
         private val cityIndex = HomeSidePanelCityIndex(activity)
+        private val weather = HomeSidePanelWeather(
+            cityIndex = cityIndex,
+            client = homeSidePanelHttpClient,
+        )
+        private val hitokoto = HomeSidePanelHitokoto(homeSidePanelHttpClient)
+        private val runtimeStore = HomeSidePanelRuntimeStore(
+            weather = weather,
+            hitokoto = hitokoto,
+            walletBalance = HomeSidePanelWalletBalanceSource,
+            parentScope = stateScope,
+            cacheStore = layoutStore,
+        )
         private val panelState = HomeSidePanelState(
             activity = activity,
             profile = HomeSidePanelProfileLoader(
                 cityIndex = cityIndex,
             ),
-            weather = HomeSidePanelWeather(
-                cityIndex = cityIndex,
-                client = homeSidePanelHttpClient,
-            ),
-            hitokoto = HomeSidePanelHitokoto(homeSidePanelHttpClient),
-            walletBalance = HomeSidePanelWalletBalanceSource,
+            weather = weather,
+            hitokoto = hitokoto,
+            runtimeStore = runtimeStore,
             location = HomeSidePanelLocation(cityIndex),
             scope = stateScope,
+            layoutStore = layoutStore,
             closePanel = { afterClosed ->
                 close(animated = true, oneShot = true, afterClosed = afterClosed)
             },
@@ -470,7 +481,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                                 showToast(activity, message)
                             }
                         }
-                        panelState.startPreload()
+                        panelState.start()
                         messagesJob.join()
                     }
                     val state by panelState.uiState.collectAsStateWithLifecycle()
@@ -753,7 +764,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         fun ownsActivity(candidate: Activity): Boolean = activity === candidate
 
         fun onLauncherResumed() {
-            panelState.resumePendingLocationDetection()
             panelState.onLauncherResumed()
             requestSync(SYNC_ALL)
         }

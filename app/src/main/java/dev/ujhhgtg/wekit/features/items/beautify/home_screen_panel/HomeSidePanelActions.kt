@@ -164,7 +164,7 @@ internal class HomeSidePanelActionExecutor(
         try {
             activity.startActivity(intent)
         } catch (_: ActivityNotFoundException) {
-            publishMessage(beautifyText(R.string.error_unknown))
+            publishMessage(beautifyText(R.string.home_side_panel_action_launch_failed))
         }
     }
 }

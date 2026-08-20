@@ -186,6 +186,7 @@ internal fun HomeSidePanelAddActionItem(
                     editMode = true,
                     onEdit = null,
                     onDelete = onDeleteCard,
+                    deleteDescriptionRes = R.string.home_side_panel_delete_empty_action_card,
                 )
             }
         }
@@ -214,6 +215,7 @@ internal fun HomeSidePanelAddActionItem(
                     editMode = true,
                     onEdit = null,
                     onDelete = onDeleteCard,
+                    deleteDescriptionRes = R.string.home_side_panel_delete_empty_action_card,
                 )
             }
         }
@@ -306,6 +308,7 @@ private fun HomeSidePanelActionItem(
                 editMode = editMode,
                 onEdit = null,
                 onDelete = onDeleteAction?.let { delete -> { delete(cardId, action.id) } },
+                deleteDescriptionRes = R.string.home_side_panel_delete_action,
             )
         }
     }

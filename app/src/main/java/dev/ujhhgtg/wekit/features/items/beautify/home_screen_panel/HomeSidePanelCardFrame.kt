@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -34,6 +35,8 @@ internal fun HomeSidePanelCardFrame(
     editMode: Boolean,
     onEdit: (() -> Unit)?,
     onDelete: (() -> Unit)?,
+    @StringRes editDescriptionRes: Int = R.string.home_side_panel_edit_card,
+    @StringRes deleteDescriptionRes: Int = R.string.home_side_panel_delete_card,
     content: @Composable () -> Unit,
 ) {
     key(cardId) {
@@ -54,6 +57,8 @@ internal fun HomeSidePanelCardFrame(
                     editMode = editMode,
                     onEdit = onEdit,
                     onDelete = onDelete,
+                    editDescriptionRes = editDescriptionRes,
+                    deleteDescriptionRes = deleteDescriptionRes,
                 )
             }
         }
@@ -65,6 +70,8 @@ internal fun HomeSidePanelCardBadge(
     editMode: Boolean,
     onEdit: (() -> Unit)?,
     onDelete: (() -> Unit)?,
+    @StringRes editDescriptionRes: Int = R.string.home_side_panel_edit_card,
+    @StringRes deleteDescriptionRes: Int = R.string.home_side_panel_delete_card,
 ) {
     if (!editMode || (onEdit == null && onDelete == null)) return
     Surface(
@@ -77,14 +84,14 @@ internal fun HomeSidePanelCardBadge(
             onEdit?.let { edit ->
                 HomeSidePanelBadgeButton(
                     onClick = edit,
-                    contentDescription = stringResource(R.string.action_edit),
+                    contentDescription = stringResource(editDescriptionRes),
                     icon = MaterialSymbols.Outlined.Edit,
                 )
             }
             onDelete?.let { delete ->
                 HomeSidePanelBadgeButton(
                     onClick = delete,
-                    contentDescription = stringResource(R.string.action_delete),
+                    contentDescription = stringResource(deleteDescriptionRes),
                     icon = MaterialSymbols.Outlined.Close,
                     tint = MaterialTheme.colorScheme.error,
                 )

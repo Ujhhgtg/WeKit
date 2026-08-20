@@ -7,12 +7,6 @@ internal sealed interface HomeSidePanelRoute {
     data class WeatherSettings(val cardId: String) : HomeSidePanelRoute
     data class WalletSettings(val cardId: String) : HomeSidePanelRoute
     data class HitokotoSettings(val cardId: String) : HomeSidePanelRoute
-    /** Temporary bridge for the fixed legacy panel UI; remove with that UI in Task 6. */
-    data object LegacyWeatherSettings : HomeSidePanelRoute
-    /** Temporary bridge for the fixed legacy panel UI; remove with that UI in Task 6. */
-    data object LegacyWalletSettings : HomeSidePanelRoute
-    /** Temporary bridge for the fixed legacy panel UI; remove with that UI in Task 6. */
-    data object LegacyHitokotoSettings : HomeSidePanelRoute
     data object AddCard : HomeSidePanelRoute
     data class AddAction(val cardId: String) : HomeSidePanelRoute
 }

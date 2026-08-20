@@ -4,24 +4,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
@@ -29,16 +11,32 @@ import dev.ujhhgtg.wekit.features.items.beautify.BeautifyText
 import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
 import dev.ujhhgtg.wekit.features.items.beautify.localizedBeautifyString
 import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal data class HomeSidePanelUiState(
     val profile: HomeSidePanelProfile,
-    val weather: WeatherUiState,
-    val weatherSettings: WeatherSettingsUiState,
-    val hitokoto: HitokotoUiState,
-    val hitokotoSettings: HitokotoSettings,
-    val wallet: HomeSidePanelWalletUiState,
+    val formalLayout: HomeSidePanelLayout,
+    val renderedLayout: HomeSidePanelLayout,
+    val runtimeStates: Map<HomeSidePanelRuntimeKey, HomeSidePanelCardRuntimeState>,
+    val route: HomeSidePanelRoute,
+    val editing: Boolean,
     val showToolbarProfile: Boolean,
     val hideWeChatTitle: Boolean,
 )
@@ -48,23 +46,34 @@ internal class HomeSidePanelState(
     private val profile: HomeSidePanelProfileLoader,
     private val weather: HomeSidePanelWeather,
     private val hitokoto: HomeSidePanelHitokoto,
-    private val walletBalance: HomeSidePanelWalletBalanceSource,
+    private val runtimeStore: HomeSidePanelRuntimeStore,
     private val location: HomeSidePanelLocation,
     private val scope: CoroutineScope,
     private val closePanel: ((() -> Unit)?) -> Unit,
+    private val layoutStore: HomeSidePanelLayoutStore = HomeSidePanelLayoutStore,
+    private val idGenerator: HomeSidePanelIdGenerator = UuidHomeSidePanelIdGenerator,
 ) {
 
+    private data class ActiveEditing(
+        val sessionId: String,
+        val editor: HomeSidePanelEditSession,
+    )
+
     private val started = AtomicBoolean()
-    private var pendingLocationPermission = false
-    private var locationJob: Job? = null
+    private var editing: ActiveEditing? = null
+    private var pendingLocationCardId: String? = null
+    private val weatherActionJobs = mutableMapOf<String, Job>()
     private var statusSyncJob: Job? = null
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    private val _addCandidates = MutableSharedFlow<HomeSidePanelAddCandidate>(extraBufferCapacity = 8)
+    private val _weatherSettings = MutableStateFlow<Map<String, WeatherSettingsUiState>>(emptyMap())
     private val actionExecutor = HomeSidePanelActionExecutor(
         activity = activity,
         scope = scope,
         closePanel = closePanel,
-        publishMessage = { message -> publishMessage(message) },
+        publishMessage = ::publishMessage,
     )
+    private val emptyLayout = HomeSidePanelLayout(cards = emptyList())
     private val _uiState = MutableStateFlow(
         HomeSidePanelUiState(
             profile = HomeSidePanelProfile(
@@ -73,60 +82,52 @@ internal class HomeSidePanelState(
                 avatarUrl = "",
                 status = HomeSidePanelStatusUiState.Loading,
             ),
-            weather = WeatherUiState.Loading,
-            weatherSettings = WeatherSettingsUiState(selectedCity = weather.selectedCity()),
-            hitokoto = HitokotoUiState.Loading,
-            hitokotoSettings = hitokoto.loadSettings(),
-            wallet = HomeSidePanelWalletUiState(
-                displayState = HomeSidePanelWalletDisplayState(
-                    defaultMaskEnabled = HomeSidePanelPreferences.hideWalletBalance,
-                ),
-            ),
+            formalLayout = emptyLayout,
+            renderedLayout = emptyLayout,
+            runtimeStates = emptyMap(),
+            route = HomeSidePanelRoute.Home,
+            editing = false,
             showToolbarProfile = HomeSidePanelPreferences.showToolbarProfile,
             hideWeChatTitle = HomeSidePanelPreferences.hideWeChatTitle,
         ),
     )
 
-    var route by mutableStateOf<HomeSidePanelRoute>(HomeSidePanelRoute.Home)
-        private set
-
     val uiState: StateFlow<HomeSidePanelUiState> = _uiState.asStateFlow()
+    val weatherSettings: StateFlow<Map<String, WeatherSettingsUiState>> = _weatherSettings.asStateFlow()
     val messages: SharedFlow<String> = _messages.asSharedFlow()
+    val addCandidates: SharedFlow<HomeSidePanelAddCandidate> = _addCandidates.asSharedFlow()
 
-    fun startPreload() {
+    fun start() {
         if (!started.compareAndSet(false, true)) return
         scope.launch {
-            walletBalance.updates.collect { balanceFen ->
-                _uiState.update { state ->
-                    state.copy(wallet = state.wallet.copy(balanceFen = balanceFen))
-                }
+            runtimeStore.states.collect { runtimeStates ->
+                _uiState.update { it.copy(runtimeStates = runtimeStates) }
             }
         }
-        refreshWalletBalance()
+        val layout = layoutStore.load().layout
+        _uiState.update {
+            it.copy(
+                formalLayout = layout,
+                renderedLayout = layout,
+            )
+        }
+        runtimeStore.reconcile(HomeSidePanelRuntimeNamespace.Live, old = null, new = layout)
         scheduleIdentitySync(
             waitForChange = false,
             maxAttempts = INITIAL_STATUS_SYNC_ATTEMPTS,
         )
-        scope.launch {
-            loadCachedHitokoto()
-            fetchHitokotoInternal()
-        }
-        scope.launch {
-            val accountId = loadAccountId()
-            prepareWeatherAccount(accountId)
-            loadCachedWeather()
-            initializeWeatherCityFromProfile(accountId)
-            refreshWeatherInternal()
-        }
     }
 
     fun onPanelOpened() {
-        resetWalletDisplay()
-        refreshWalletBalance()
+        runtimeStore.resetWallets(renderedNamespace())
         scheduleIdentitySync(
             waitForChange = false,
             maxAttempts = PANEL_OPEN_STATUS_SYNC_ATTEMPTS,
         )
+    }
+
+    fun onPanelClosed() {
+        runtimeStore.resetWallets(renderedNamespace())
     }
 
     fun refreshStatus() {
@@ -138,149 +139,286 @@ internal class HomeSidePanelState(
     }
 
     fun onLauncherResumed() {
+        resumePendingLocationDetection()
         scheduleIdentitySync(
             waitForChange = true,
             maxAttempts = RESUME_STATUS_SYNC_ATTEMPTS,
         )
     }
 
-    fun refreshWeather() {
-        scope.launch { refreshWeatherInternal() }
+    fun openPanelSettings() {
+        check(editing == null) { "Panel settings cannot open during layout editing" }
+        setRoute(HomeSidePanelRoute.PanelSettings)
     }
 
-    fun readWeatherFromProfile() {
-        scope.launch {
-            setWeatherSettingsProgress(true)
-            val result = profile.readWeatherCityFromProfile()
-            when (result) {
-                is WeatherCityMatchResult.Success -> {
-                    weather.selectCity(result.city)
-                    updateWeatherSettings(
-                        selectedCity = result.city,
-                        actionInProgress = false,
-                    )
-                    HomeSidePanelPreferences.weatherProfileAccount = _uiState.value.profile.wxId
-                    refreshWeatherInternal()
-                }
-
-                is WeatherCityMatchResult.Error -> {
-                    updateWeatherSettings(
-                        actionInProgress = false,
-                    )
-                    publishMessage(beautifyText(result.reason.messageRes))
-                    HomeSidePanelPreferences.weatherProfileAccount = _uiState.value.profile.wxId
-                }
-            }
+    fun enterEditMode() {
+        if (editing != null) {
+            setRoute(HomeSidePanelRoute.EditHome)
+            return
+        }
+        val formal = _uiState.value.formalLayout
+        val active = ActiveEditing(
+            sessionId = idGenerator.nextId(),
+            editor = HomeSidePanelEditSession(formal, idGenerator),
+        )
+        editing = active
+        val namespace = HomeSidePanelRuntimeNamespace.Draft(active.sessionId)
+        runtimeStore.reconcile(namespace, old = null, new = active.editor.draft)
+        _uiState.update {
+            it.copy(
+                renderedLayout = active.editor.draft,
+                route = HomeSidePanelRoute.EditHome,
+                editing = true,
+            )
         }
     }
 
-    fun searchWeatherCities(query: String) {
-        _uiState.update { state ->
-            state.copy(weatherSettings = state.weatherSettings.copy(searchQuery = query))
+    fun discardEditing() {
+        val active = requireEditing()
+        runtimeStore.discardDraft(active.sessionId)
+        editing = null
+        pendingLocationCardId = null
+        cancelWeatherActionJobs()
+        _weatherSettings.value = emptyMap()
+        _uiState.update {
+            it.copy(
+                renderedLayout = it.formalLayout,
+                route = HomeSidePanelRoute.Home,
+                editing = false,
+            )
+        }
+    }
+
+    fun saveEditing() {
+        val active = requireEditing()
+        val committed = runCatching {
+            active.editor.committedLayout().also {
+                layoutStore.save(it).getOrThrow()
+                runtimeStore.promoteDraft(active.sessionId, it)
+            }
+        }.onFailure { error ->
+            WeLogger.w(TAG, "failed to save side panel layout", error)
+            publishMessage(beautifyText(R.string.home_side_panel_save_failed))
+        }.getOrNull() ?: return
+
+        editing = null
+        pendingLocationCardId = null
+        cancelWeatherActionJobs()
+        _weatherSettings.value = emptyMap()
+        _uiState.update {
+            it.copy(
+                formalLayout = committed,
+                renderedLayout = committed,
+                route = HomeSidePanelRoute.Home,
+                editing = false,
+            )
+        }
+    }
+
+    fun openAddCard() {
+        requireEditing()
+        setRoute(HomeSidePanelRoute.AddCard)
+    }
+
+    fun addCard(type: HomeSidePanelCardType) {
+        mutateDraft { addCard(type) }
+        setRoute(HomeSidePanelRoute.EditHome)
+    }
+
+    fun emitAddCardCandidate(
+        type: HomeSidePanelCardType,
+        pointer: HomeSidePanelCandidatePointer,
+    ) {
+        requireEditing()
+        _addCandidates.tryEmit(HomeSidePanelAddCandidate.Card(type, pointer))
+    }
+
+    fun removeCard(cardId: String) {
+        weatherActionJobs.remove(cardId)?.cancel()
+        if (pendingLocationCardId == cardId) pendingLocationCardId = null
+        _weatherSettings.update { it - cardId }
+        mutateDraft { removeCard(cardId) }
+    }
+
+    fun openAddAction(cardId: String) {
+        requireDraftActionCard(cardId)
+        setRoute(HomeSidePanelRoute.AddAction(cardId))
+    }
+
+    fun addAction(cardId: String, kind: HomeSidePanelActionKind) {
+        mutateDraft { addAction(cardId, kind) }
+        setRoute(HomeSidePanelRoute.EditHome)
+    }
+
+    fun emitAddActionCandidate(
+        cardId: String,
+        kind: HomeSidePanelActionKind,
+        pointer: HomeSidePanelCandidatePointer,
+    ) {
+        requireDraftActionCard(cardId)
+        _addCandidates.tryEmit(HomeSidePanelAddCandidate.Action(cardId, kind, pointer))
+    }
+
+    fun removeAction(cardId: String, actionId: String) {
+        mutateDraft { removeAction(cardId, actionId) }
+    }
+
+    fun openWeatherSettings(cardId: String) {
+        val card = requireDraftWeatherCard(cardId)
+        _weatherSettings.update { current ->
+            current + (cardId to (current[cardId] ?: WeatherSettingsUiState(selectedCity = card.city)))
+        }
+        setRoute(HomeSidePanelRoute.WeatherSettings(cardId))
+    }
+
+    fun updateWeatherCity(cardId: String, city: WeatherCity) {
+        mutateDraft { updateWeather(cardId) { it.copy(city = city) } }
+        updateWeatherSettings(
+            cardId = cardId,
+            selectedCity = city,
+            searchResults = emptyList(),
+        )
+    }
+
+    fun searchWeatherCities(cardId: String, query: String) {
+        requireDraftWeatherCard(cardId)
+        _weatherSettings.update { current ->
+            current + (cardId to weatherSettingsFor(cardId).copy(searchQuery = query))
         }
         scope.launch {
             val results = weather.searchCities(query)
-            if (_uiState.value.weatherSettings.searchQuery == query) {
-                _uiState.update { state ->
-                    state.copy(weatherSettings = state.weatherSettings.copy(searchResults = results))
-                }
+            if (_weatherSettings.value[cardId]?.searchQuery == query) {
+                updateWeatherSettings(cardId, searchResults = results)
             }
         }
     }
 
-    fun selectWeatherCity(city: WeatherCity) {
-        weather.selectCity(city)
-        updateWeatherSettings(selectedCity = city, searchResults = emptyList())
-        scope.launch { refreshWeatherInternal() }
-    }
-
-    fun detectWeatherLocation() {
-        if (_uiState.value.weatherSettings.actionInProgress) return
-        setWeatherSettingsProgress(true)
-        locationJob?.cancel()
-        locationJob = scope.launch {
+    fun detectWeatherLocation(cardId: String) {
+        requireDraftWeatherCard(cardId)
+        if (weatherSettingsFor(cardId).actionInProgress) return
+        pendingLocationCardId = cardId
+        setWeatherSettingsProgress(cardId, true)
+        replaceWeatherActionJob(cardId) {
             when (val resolution = location.resolve(activity)) {
-                LocationResolution.NeedPermission -> {
-                    pendingLocationPermission = true
-                    activity.requestPermissions(
-                        arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
-                        HOME_SIDE_PANEL_LOCATION_REQUEST_CODE,
-                    )
-                }
+                LocationResolution.NeedPermission -> activity.requestPermissions(
+                    arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
+                    HOME_SIDE_PANEL_LOCATION_REQUEST_CODE,
+                )
 
-                else -> applyLocationResolution(resolution)
+                else -> applyLocationResolution(cardId, resolution)
             }
         }
     }
 
-    fun resumePendingLocationDetection() {
-        if (!pendingLocationPermission) return
-        if (location.hasCoarsePermission(activity)) {
-            pendingLocationPermission = false
-            setWeatherSettingsProgress(false)
-            detectWeatherLocation()
-        } else {
-            pendingLocationPermission = false
-            updateWeatherSettings(
-                actionInProgress = false,
-            )
-            publishMessage(beautifyText(R.string.home_side_panel_location_permission_denied))
+    fun readWeatherFromProfile(cardId: String) {
+        requireDraftWeatherCard(cardId)
+        if (weatherSettingsFor(cardId).actionInProgress) return
+        replaceWeatherActionJob(cardId) {
+            setWeatherSettingsProgress(cardId, true)
+            when (val result = profile.readWeatherCityFromProfile()) {
+                is WeatherCityMatchResult.Success -> {
+                    updateWeatherCity(cardId, result.city)
+                    setWeatherSettingsProgress(cardId, false)
+                }
+
+                is WeatherCityMatchResult.Error -> {
+                    setWeatherSettingsProgress(cardId, false)
+                    publishMessage(beautifyText(result.reason.messageRes))
+                }
+            }
         }
     }
 
-    fun openWeatherSettings() {
-        route = HomeSidePanelRoute.LegacyWeatherSettings
+    fun openWalletSettings(cardId: String) {
+        requireDraftWalletCard(cardId)
+        setRoute(HomeSidePanelRoute.WalletSettings(cardId))
     }
 
-    fun openWalletSettings() {
-        route = HomeSidePanelRoute.LegacyWalletSettings
+    fun updateWalletMask(cardId: String, hide: Boolean) {
+        mutateDraft { updateWallet(cardId) { it.copy(hideBalanceByDefault = hide) } }
     }
 
-    fun toggleWalletBalance() {
-        _uiState.update { state ->
-            state.copy(
-                wallet = state.wallet.copy(
-                    displayState = state.wallet.displayState.toggleFromCard(),
-                ),
-            )
+    fun openHitokotoSettings(cardId: String) {
+        requireDraftHitokotoCard(cardId)
+        setRoute(HomeSidePanelRoute.HitokotoSettings(cardId))
+    }
+
+    fun updateHitokotoSettings(cardId: String, settings: HitokotoSettings) {
+        val validationError = hitokoto.validate(settings)
+        if (validationError != null) {
+            publishMessage(validationError)
+            return
         }
-    }
-
-    fun setHideWalletBalance(hide: Boolean) {
-        HomeSidePanelPreferences.hideWalletBalance = hide
-        _uiState.update { state ->
-            state.copy(
-                wallet = state.wallet.copy(
-                    displayState = HomeSidePanelWalletDisplayState(hide),
-                ),
-            )
-        }
-    }
-
-    fun onPanelClosed() {
-        resetWalletDisplay()
-    }
-
-    fun openHitokotoSettings() {
-        route = HomeSidePanelRoute.LegacyHitokotoSettings
-    }
-
-    fun openPanelSettings() {
-        route = HomeSidePanelRoute.PanelSettings
+        mutateDraft { updateHitokoto(cardId) { it.copy(settings = settings) } }
+        setRoute(HomeSidePanelRoute.EditHome)
     }
 
     fun closeCardSettings() {
-        route = HomeSidePanelRoute.Home
+        when (_uiState.value.route) {
+            HomeSidePanelRoute.PanelSettings -> setRoute(HomeSidePanelRoute.Home)
+            is HomeSidePanelRoute.WeatherSettings,
+            is HomeSidePanelRoute.WalletSettings,
+            is HomeSidePanelRoute.HitokotoSettings,
+            HomeSidePanelRoute.AddCard,
+            is HomeSidePanelRoute.AddAction,
+            -> {
+                requireEditing()
+                setRoute(HomeSidePanelRoute.EditHome)
+            }
+
+            HomeSidePanelRoute.Home,
+            HomeSidePanelRoute.EditHome,
+            -> error("Route ${_uiState.value.route} is not a secondary settings route")
+        }
     }
 
-    fun consumeSettingsBack(): Boolean {
-        if (route == HomeSidePanelRoute.Home) return false
-        closeCardSettings()
-        return true
+    fun consumeSettingsBack(): Boolean = when (_uiState.value.route) {
+        HomeSidePanelRoute.Home -> false
+        HomeSidePanelRoute.PanelSettings -> {
+            setRoute(HomeSidePanelRoute.Home)
+            true
+        }
+
+        HomeSidePanelRoute.EditHome -> {
+            discardEditing()
+            true
+        }
+
+        is HomeSidePanelRoute.WeatherSettings,
+        is HomeSidePanelRoute.WalletSettings,
+        is HomeSidePanelRoute.HitokotoSettings,
+        HomeSidePanelRoute.AddCard,
+        is HomeSidePanelRoute.AddAction,
+        -> {
+            requireEditing()
+            setRoute(HomeSidePanelRoute.EditHome)
+            true
+        }
     }
 
-    fun fetchAnotherHitokoto() {
-        scope.launch { fetchHitokotoInternal() }
+    fun refreshWeather(cardId: String) {
+        val card = renderedCard(cardId)
+        require(card is WeatherCardConfig) { "Card '$cardId' is ${card.type}; expected Weather card" }
+        runtimeStore.refreshWeather(renderedNamespace(), card)
+    }
+
+    fun toggleWallet(cardId: String) {
+        val card = renderedCard(cardId)
+        require(card is WalletCardConfig) { "Card '$cardId' is ${card.type}; expected Wallet card" }
+        runtimeStore.toggleWallet(renderedNamespace(), card)
+    }
+
+    fun refreshHitokoto(cardId: String) {
+        val card = renderedCard(cardId)
+        require(card is HitokotoCardConfig) { "Card '$cardId' is ${card.type}; expected Hitokoto card" }
+        runtimeStore.refreshHitokoto(renderedNamespace(), card)
+    }
+
+    fun runtimeState(cardId: String): HomeSidePanelCardRuntimeState? =
+        _uiState.value.runtimeStates[HomeSidePanelRuntimeKey(renderedNamespace(), cardId)]
+
+    fun runAction(kind: HomeSidePanelActionKind) {
+        actionExecutor.execute(kind)
     }
 
     fun setShowToolbarProfile(show: Boolean) {
@@ -305,77 +443,140 @@ internal class HomeSidePanelState(
         openStatusDestination()
     }
 
-    fun saveHitokotoSettings(settings: HitokotoSettings) {
-        try {
-            hitokoto.saveSettings(settings)
-            _uiState.update {
-                it.copy(
-                    hitokotoSettings = settings,
-                )
-            }
-            route = HomeSidePanelRoute.Home
-            scope.launch { fetchHitokotoInternal() }
-        } catch (error: InvalidHitokotoSettingsException) {
-            _uiState.update { state ->
-                state.copy(
-                    hitokoto = HitokotoUiState.Error(
-                        message = error.text,
-                        cached = (state.hitokoto as? HitokotoUiState.Ready)?.snapshot,
-                    ),
-                )
-            }
-        }
-    }
-
-    fun runAction(kind: HomeSidePanelActionKind) {
-        actionExecutor.execute(kind)
-    }
-
-    // Temporary pre-Task-6 compatibility bridge. Task 7/8 cleanup must remove this old shortcut API.
-    fun runShortcut(shortcut: HomeSidePanelShortcut) {
-        runAction(shortcut.toActionKind())
-    }
-
     fun close() {
-        resetWalletDisplay()
+        editing?.let { runtimeStore.discardDraft(it.sessionId) }
+        editing = null
+        pendingLocationCardId = null
+        cancelWeatherActionJobs()
+        runtimeStore.close()
         scope.coroutineContext.cancel()
-        // Temporary pre-Task-6 ownership bridge: this fixed state exclusively owns both services.
-        // Task 6 moves their lifecycle under HomeSidePanelRuntimeStore.close().
-        weather.close()
-        hitokoto.close()
     }
 
-    private fun refreshWalletBalance() {
-        walletBalance.refresh()
-    }
-
-    private fun resetWalletDisplay() {
-        _uiState.update { state ->
-            state.copy(
-                wallet = state.wallet.copy(
-                    displayState = state.wallet.displayState.reset(),
-                ),
-            )
+    private fun resumePendingLocationDetection() {
+        val cardId = pendingLocationCardId ?: return
+        if (editing == null) {
+            pendingLocationCardId = null
+            return
+        }
+        if (location.hasCoarsePermission(activity)) {
+            pendingLocationCardId = null
+            setWeatherSettingsProgress(cardId, false)
+            detectWeatherLocation(cardId)
+        } else {
+            pendingLocationCardId = null
+            setWeatherSettingsProgress(cardId, false)
+            publishMessage(beautifyText(R.string.home_side_panel_location_permission_denied))
         }
     }
 
-    private suspend fun loadCachedWeather() {
-        weather.loadCached()?.let { snapshot ->
-            _uiState.update { state ->
-                state.copy(
-                    weather = WeatherUiState.Ready(snapshot),
-                    weatherSettings = state.weatherSettings.copy(selectedCity = snapshot.city),
-                )
+    private suspend fun applyLocationResolution(cardId: String, resolution: LocationResolution) {
+        pendingLocationCardId = null
+        when (resolution) {
+            is LocationResolution.Success -> {
+                updateWeatherCity(cardId, resolution.city)
+                setWeatherSettingsProgress(cardId, false)
+            }
+
+            LocationResolution.NeedPermission -> Unit
+            else -> {
+                setWeatherSettingsProgress(cardId, false)
+                publishMessage(locationResolutionMessage(resolution))
             }
         }
     }
 
-    private suspend fun loadCachedHitokoto() {
-        hitokoto.loadCached()?.let { snapshot ->
-            _uiState.update { state ->
-                state.copy(hitokoto = HitokotoUiState.Ready(snapshot))
-            }
+    private fun weatherSettingsFor(cardId: String): WeatherSettingsUiState {
+        val card = requireDraftWeatherCard(cardId)
+        return _weatherSettings.value[cardId] ?: WeatherSettingsUiState(selectedCity = card.city)
+    }
+
+    private fun setWeatherSettingsProgress(cardId: String, progress: Boolean) {
+        updateWeatherSettings(cardId, actionInProgress = progress)
+    }
+
+    private fun replaceWeatherActionJob(cardId: String, block: suspend () -> Unit) {
+        weatherActionJobs.remove(cardId)?.cancel()
+        val job = scope.launch(start = CoroutineStart.LAZY) { block() }
+        weatherActionJobs[cardId] = job
+        job.invokeOnCompletion { weatherActionJobs.remove(cardId, job) }
+        job.start()
+    }
+
+    private fun cancelWeatherActionJobs() {
+        weatherActionJobs.values.forEach(Job::cancel)
+        weatherActionJobs.clear()
+    }
+
+    private fun updateWeatherSettings(
+        cardId: String,
+        selectedCity: WeatherCity? = null,
+        searchResults: List<WeatherCity>? = null,
+        actionInProgress: Boolean? = null,
+    ) {
+        _weatherSettings.update { current ->
+            val state = weatherSettingsFor(cardId)
+            current + (cardId to state.copy(
+                selectedCity = selectedCity ?: state.selectedCity,
+                searchResults = searchResults ?: state.searchResults,
+                actionInProgress = actionInProgress ?: state.actionInProgress,
+            ))
         }
+    }
+
+    private inline fun <T> mutateDraft(block: HomeSidePanelEditSession.() -> T): T {
+        val active = requireEditing()
+        val old = active.editor.draft
+        val result = active.editor.block()
+        val new = active.editor.draft
+        runtimeStore.reconcile(HomeSidePanelRuntimeNamespace.Draft(active.sessionId), old, new)
+        _uiState.update { it.copy(renderedLayout = new) }
+        return result
+    }
+
+    private fun requireEditing(): ActiveEditing = checkNotNull(editing) {
+        "No HomeSidePanel edit session is active"
+    }
+
+    private fun requireDraftWeatherCard(cardId: String): WeatherCardConfig {
+        val card = requireDraftCard(cardId)
+        require(card is WeatherCardConfig) { "Card '$cardId' is ${card.type}; expected Weather card" }
+        return card
+    }
+
+    private fun requireDraftWalletCard(cardId: String): WalletCardConfig {
+        val card = requireDraftCard(cardId)
+        require(card is WalletCardConfig) { "Card '$cardId' is ${card.type}; expected Wallet card" }
+        return card
+    }
+
+    private fun requireDraftHitokotoCard(cardId: String): HitokotoCardConfig {
+        val card = requireDraftCard(cardId)
+        require(card is HitokotoCardConfig) { "Card '$cardId' is ${card.type}; expected Hitokoto card" }
+        return card
+    }
+
+    private fun requireDraftActionCard(cardId: String): HomeSidePanelCardConfig {
+        val card = requireDraftCard(cardId)
+        require(card is HorizontalActionsCardConfig || card is VerticalActionsCardConfig) {
+            "Card '$cardId' is ${card.type}; expected an action card"
+        }
+        return card
+    }
+
+    private fun requireDraftCard(cardId: String): HomeSidePanelCardConfig =
+        requireEditing().editor.draft.cards.firstOrNull { it.id == cardId }
+            ?: throw IllegalArgumentException("Card '$cardId' does not exist in the draft layout")
+
+    private fun renderedCard(cardId: String): HomeSidePanelCardConfig =
+        _uiState.value.renderedLayout.cards.firstOrNull { it.id == cardId }
+            ?: throw IllegalArgumentException("Card '$cardId' does not exist in the rendered layout")
+
+    private fun renderedNamespace(): HomeSidePanelRuntimeNamespace = editing?.let {
+        HomeSidePanelRuntimeNamespace.Draft(it.sessionId)
+    } ?: HomeSidePanelRuntimeNamespace.Live
+
+    private fun setRoute(route: HomeSidePanelRoute) {
+        _uiState.update { it.copy(route = route) }
     }
 
     private suspend fun loadIdentity() {
@@ -383,7 +584,7 @@ internal class HomeSidePanelState(
             profile.loadIdentity()
         } catch (error: CancellationException) {
             throw error
-        } catch (error: Throwable) {
+        } catch (_: Throwable) {
             HomeSidePanelProfile(
                 wxId = "",
                 nickname = "",
@@ -451,7 +652,8 @@ internal class HomeSidePanelState(
         HomeSidePanelStatusUiState.Loading -> false
         is HomeSidePanelStatusUiState.Ready -> status.status.description.isNotBlank()
         HomeSidePanelStatusUiState.NoStatus,
-        HomeSidePanelStatusUiState.Error -> true
+        HomeSidePanelStatusUiState.Error,
+        -> true
     }
 
     private fun statusFingerprint(status: HomeSidePanelStatusUiState): StatusFingerprint = when (status) {
@@ -464,132 +666,6 @@ internal class HomeSidePanelState(
             iconId = status.status.iconId,
             userText = status.status.userText,
         )
-    }
-
-    private suspend fun loadAccountId(): String = try {
-        profile.loadAccountId()
-    } catch (error: CancellationException) {
-        throw error
-    } catch (error: Throwable) {
-        ""
-    }
-
-    private suspend fun initializeWeatherCityFromProfile(accountId: String) {
-        if (accountId.isBlank()) return
-        if (HomeSidePanelPreferences.weatherProfileAccount == accountId) return
-        when (val result = profile.readWeatherCityFromProfile()) {
-            is WeatherCityMatchResult.Success -> {
-                weather.selectCity(result.city)
-                updateWeatherSettings(selectedCity = result.city)
-            }
-
-            is WeatherCityMatchResult.Error -> {
-                publishMessage(beautifyText(result.reason.messageRes))
-            }
-        }
-        HomeSidePanelPreferences.weatherProfileAccount = accountId
-    }
-
-    private suspend fun prepareWeatherAccount(accountId: String) {
-        if (accountId.isBlank()) return
-        if (HomeSidePanelPreferences.weatherProfileAccount == accountId) return
-        weather.resetForAccount()
-        _uiState.update { state ->
-            state.copy(weatherSettings = state.weatherSettings.copy(selectedCity = DEFAULT_WEATHER_CITY))
-        }
-    }
-
-    private suspend fun refreshWeatherInternal() {
-        val current = _uiState.value.weather
-        _uiState.update {
-            it.copy(
-                weather = when (current) {
-                    is WeatherUiState.Ready -> current.copy(refreshing = true)
-                    is WeatherUiState.Error -> current.cached?.let { WeatherUiState.Ready(it, refreshing = true) }
-                        ?: WeatherUiState.Loading
-                    else -> WeatherUiState.Loading
-                },
-            )
-        }
-        val result = weather.refresh(weather.selectedCity())
-        _uiState.update { state ->
-            state.copy(
-                weather = when (result) {
-                    is WeatherResult.Success -> WeatherUiState.Ready(result.snapshot)
-                    is WeatherResult.Error -> WeatherUiState.Error(result.message, result.cached)
-                },
-                weatherSettings = state.weatherSettings.copy(
-                    selectedCity = weather.selectedCity(),
-                    actionInProgress = false,
-                ),
-            )
-        }
-        if (result is WeatherResult.Error) publishMessage(result.message)
-    }
-
-    private suspend fun fetchHitokotoInternal() {
-        val current = _uiState.value.hitokoto
-        _uiState.update {
-            it.copy(
-                hitokoto = when (current) {
-                    is HitokotoUiState.Ready -> current.copy(refreshing = true)
-                    is HitokotoUiState.Error -> current.cached?.let { HitokotoUiState.Ready(it, refreshing = true) }
-                        ?: HitokotoUiState.Loading
-                    else -> HitokotoUiState.Loading
-                },
-            )
-        }
-        val result = hitokoto.fetchRandom()
-        _uiState.update { state ->
-            state.copy(
-                hitokoto = when (result) {
-                    is HitokotoResult.Success -> HitokotoUiState.Ready(result.snapshot)
-                    is HitokotoResult.Error -> HitokotoUiState.Error(result.message, result.cached)
-                },
-            )
-        }
-        if (result is HitokotoResult.Error) publishMessage(result.message)
-    }
-
-    private suspend fun applyLocationResolution(resolution: LocationResolution) {
-        when (resolution) {
-            is LocationResolution.Success -> {
-                weather.selectCity(resolution.city)
-                updateWeatherSettings(
-                    selectedCity = resolution.city,
-                    actionInProgress = false,
-                )
-                refreshWeatherInternal()
-            }
-
-            LocationResolution.NeedPermission -> Unit
-            else -> {
-                updateWeatherSettings(
-                    actionInProgress = false,
-                )
-                publishMessage(locationResolutionMessage(resolution))
-            }
-        }
-    }
-
-    private fun setWeatherSettingsProgress(progress: Boolean) {
-        _uiState.update { it.copy(weatherSettings = it.weatherSettings.copy(actionInProgress = progress)) }
-    }
-
-    private fun updateWeatherSettings(
-        selectedCity: WeatherCity? = null,
-        searchResults: List<WeatherCity>? = null,
-        actionInProgress: Boolean? = null,
-    ) {
-        _uiState.update { state ->
-            state.copy(
-                weatherSettings = state.weatherSettings.copy(
-                    selectedCity = selectedCity ?: state.weatherSettings.selectedCity,
-                    searchResults = searchResults ?: state.weatherSettings.searchResults,
-                    actionInProgress = actionInProgress ?: state.weatherSettings.actionInProgress,
-                ),
-            )
-        }
     }
 
     private fun publishMessage(message: String) {
@@ -646,6 +722,7 @@ internal class HomeSidePanelState(
     }
 
     private companion object {
+        const val TAG = "HomeSidePanelState"
         const val PERSONAL_PROFILE_NEW_CLASS =
             "com.tencent.mm.plugin.setting.ui.setting_new.CommonSettingsUI"
         const val PERSONAL_PROFILE_LEGACY_CLASS =
@@ -673,27 +750,6 @@ internal class HomeSidePanelState(
             val userText: String,
         ) : StatusFingerprint
     }
-
 }
 
 internal const val HOME_SIDE_PANEL_LOCATION_REQUEST_CODE = 0x574B
-
-internal enum class HomeSidePanelShortcut {
-    SCAN,
-    PAYMENTS,
-    FAVORITES,
-    MOMENTS,
-    VIDEO_CHANNELS,
-    MARK_ALL_READ,
-    WEKIT_SETTINGS,
-}
-
-private fun HomeSidePanelShortcut.toActionKind(): HomeSidePanelActionKind = when (this) {
-    HomeSidePanelShortcut.SCAN -> HomeSidePanelActionKind.SCAN
-    HomeSidePanelShortcut.PAYMENTS -> HomeSidePanelActionKind.WALLET
-    HomeSidePanelShortcut.FAVORITES -> HomeSidePanelActionKind.FAVORITES
-    HomeSidePanelShortcut.MOMENTS -> HomeSidePanelActionKind.MOMENTS
-    HomeSidePanelShortcut.VIDEO_CHANNELS -> HomeSidePanelActionKind.CHANNELS
-    HomeSidePanelShortcut.MARK_ALL_READ -> HomeSidePanelActionKind.MARK_ALL_READ
-    HomeSidePanelShortcut.WEKIT_SETTINGS -> HomeSidePanelActionKind.WEKIT_SETTINGS
-}

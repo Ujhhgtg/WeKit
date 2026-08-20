@@ -221,29 +221,6 @@ internal class HomeSidePanelHitokoto(
     )
 }
 
-// Temporary pre-Task-6 bridge for the fixed-card state. The service itself is explicit-input and
-// preference-free; Task 6 removes these extensions together with the fixed state model.
-internal fun HomeSidePanelHitokoto.loadSettings(): HitokotoSettings =
-    HomeSidePanelPreferences.hitokotoSettings
-
-internal fun HomeSidePanelHitokoto.saveSettings(settings: HitokotoSettings) {
-    val validationError = validate(settings)
-    if (validationError != null) throw InvalidHitokotoSettingsException(validationError)
-    HomeSidePanelPreferences.hitokotoSettings = settings
-}
-
-internal fun HomeSidePanelHitokoto.loadCached(): HitokotoSnapshot? =
-    HomeSidePanelPreferences.hitokotoLastSuccess
-
-internal suspend fun HomeSidePanelHitokoto.fetchRandom(): HitokotoResult {
-    val settings = HomeSidePanelPreferences.hitokotoSettings
-    val result = fetchRandom(settings, HomeSidePanelPreferences.hitokotoLastSuccess)
-    if (result is HitokotoResult.Success) {
-        HomeSidePanelPreferences.hitokotoLastSuccess = result.snapshot
-    }
-    return result
-}
-
 @Serializable
 private data class HitokotoPayload(
     val uuid: String = "",
@@ -256,8 +233,6 @@ private data class HitokotoPayload(
 )
 
 private class InvalidHitokotoPayloadException(message: String) : IllegalArgumentException(message)
-
-internal class InvalidHitokotoSettingsException(val text: BeautifyText) : IllegalArgumentException()
 
 private class HitokotoHttpException(val code: Int) : IOException()
 
