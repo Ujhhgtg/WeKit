@@ -1458,11 +1458,10 @@ private fun VoicePanelContent(
                                             )
                                     }
                                     progressMessage = null
-                                    val toastContext = currentLocalizedContext
                                     showToastSuspend(
-                                        toastContext,
+                                        context,
                                         result.exceptionOrNull()?.message
-                                            ?: toastContext.getString(R.string.voice_panel_send_success),
+                                            ?: currentLocalizedContext.getString(R.string.voice_panel_send_success),
                                     )
                                     if (result.isSuccess && PanelSettings.panelAutoClose) onDismiss()
                                 }
