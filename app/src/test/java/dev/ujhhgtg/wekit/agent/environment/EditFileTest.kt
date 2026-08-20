@@ -1,11 +1,18 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 
@@ -89,9 +96,14 @@ class EditFileTest {
 
     @Test
     fun `exec bounds output and spills the complete result`(@TempDir directory: Path) = runBlocking {
-        val backend = NativeBackend(snapshot(directory), maxOutputBytes = 4)
+        val process = FakeOwnedProcess(stdout = "123456789")
+        val backend = NativeBackend(
+            snapshot(directory),
+            maxOutputBytes = 4,
+            startProcess = { _, _, _ -> process },
+        )
 
-        val result = backend.exec("printf 123456789", 1_000)
+        val result = backend.exec("ignored", 1_000)
 
         assertEquals(0, result.exitCode)
         assertEquals(false, result.timedOut)
@@ -102,12 +114,41 @@ class EditFileTest {
 
     @Test
     fun `exec classifies a process exceeding its deadline as timed out`(@TempDir directory: Path) = runBlocking {
-        val backend = NativeBackend(snapshot(directory))
+        val process = FakeOwnedProcess(running = true)
+        val backend = NativeBackend(
+            snapshot(directory),
+            startProcess = { _, _, _ -> process },
+        )
 
-        val result = backend.exec("sleep 1", 50)
+        val result = backend.exec("ignored", 50)
 
         assertEquals(null, result.exitCode)
         assertEquals(true, result.timedOut)
+        assertTrue(process.terminated)
+    }
+
+    private class FakeOwnedProcess(
+        stdout: String = "",
+        stderr: String = "",
+        running: Boolean = false,
+    ) : OwnedProcessHandle {
+        override val outputStream = ByteArrayOutputStream()
+        override val inputStream: InputStream = ByteArrayInputStream(stdout.toByteArray())
+        override val errorStream: InputStream = ByteArrayInputStream(stderr.toByteArray())
+        private var exitCode: Int? = if (running) null else 0
+        var terminated = false
+            private set
+
+        override fun pollExit(): Int? = exitCode
+
+        override suspend fun terminateGroup(graceMillis: Long) {
+            yield()
+            coroutineContext.ensureActive()
+            terminated = true
+            exitCode = 143
+        }
+
+        override fun close() = Unit
     }
 
     private fun snapshot(directory: Path) = EnvironmentSnapshot(
