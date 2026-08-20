@@ -10,8 +10,8 @@ import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.FrameLayout
 import android.widget.GridView
+import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -185,6 +185,13 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         }
     }
 
+    private val methodAppGridGetView by dexMethod {
+        matcher {
+            usingStrings("MicroMsg.AppGrid", "pos:", "page:")
+            name = "getView"
+        }
+    }
+
     private data class MenuItem(
         val name: String,
         val onClickListener: AdapterView.OnItemClickListener,
@@ -217,11 +224,68 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
      * own key here.
      */
     private val panelTools = WeakHashMap<AppPanel, PanelTools>()
+    private val appGridToolTypes = WeakHashMap<View, Int>()
 
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
     private fun toolsOf(appPanel: AppPanel): PanelTools =
         synchronized(panelTools) { panelTools.getOrPut(appPanel) { PanelTools() } }
+
+    private fun toolbarNameForAppGridType(type: Int): String? = when (type) {
+        0 -> "相册"
+        1 -> "拍摄"
+        2 -> "视频通话"
+        3, 4 -> "语音通话"
+        6 -> "位置"
+        7 -> "红包"
+        8 -> "礼物"
+        9 -> "转账"
+        11 -> "语音输入"
+        12 -> "收藏"
+        14 -> "接龙"
+        16 -> "个人名片"
+        20 -> "文件"
+        22 -> "音乐"
+        else -> null
+    }
+
+    /**
+     * AppGrid resolves native tools to an internal type before rendering them. Capture that
+     * type from getView instead of using the localized TextView label as an identity.
+     */
+    private fun captureAppGridToolType(appGrid: Any, itemView: View) {
+        val drawable = buildList {
+            fun collect(view: View) {
+                if (view is ImageView && view.drawable != null) add(view.drawable)
+                if (view is ViewGroup) view.children.forEach(::collect)
+            }
+            collect(itemView)
+        }.firstOrNull() ?: return
+        val resourceId = drawable.reflekt()
+            .firstField { type = Int::class; superclass() }
+            .get() as Int
+        val resourceName = itemView.resources.getResourceEntryName(resourceId)
+        val type = mapOf(
+            "panel_icon_pic" to 0,
+            "panel_icon_camera" to 1,
+            "panel_icon_voip" to 2,
+            "panel_icon_multitalk" to 3,
+            "panel_icon_voipvoice" to 4,
+            "panel_icon_location" to 6,
+            "panel_icon_luckymoney" to 7,
+            "icons_filled_gift_chatting" to 8,
+            "panel_icon_transfer" to 9,
+            "panel_icon_voiceinput" to 11,
+            "panel_icon_fav" to 12,
+            "icons_outlined_continued_form" to 14,
+            "panel_icon_friendcard" to 16,
+            "panel_icon_file_explorer" to 20,
+            "icon_music_filled" to 22,
+        )[resourceName]
+        if (type == null) return
+
+        synchronized(appGridToolTypes) { appGridToolTypes[itemView] = type }
+    }
 
     private var itemsOrder by WePrefs.prefOption("chat_toolbar_order", NAME_TO_ICON_MAP.keys.joinToString(","))
     private var enabledItems by WePrefs.prefOption("chat_toolbar_enabled_items", NAME_TO_ICON_MAP.keys)
@@ -331,12 +395,12 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             val listAdapter = grid.adapter
 
             listAdapter.iterable(grid).forEachIndexed { index, itemView ->
-                val name = (itemView.tag.reflekt()
-                    .firstField { type = TextView::class }
-                    .get()!! as TextView).text.toString()
+                val canonicalName = synchronized(appGridToolTypes) {
+                    appGridToolTypes[itemView]?.let(::toolbarNameForAppGridType)
+                } ?: return@forEachIndexed
                 tools.add(
-                    name to MenuItem(
-                        name,
+                    canonicalName to MenuItem(
+                        canonicalName,
                         onClickListener,
                         onLongClickListener,
                         WeakReference(grid),
@@ -441,6 +505,11 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             }
         }
 
+        methodAppGridGetView.hookAfter {
+            val itemView = result as View
+            captureAppGridToolType(thisObject!!, itemView)
+        }
+
         ChatFooter::class.constructor.hookAfter {
             val chatFooter = thisObject as FrameLayout
             val activity = chatFooter.context as Activity
@@ -497,20 +566,18 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             })
 
                             tools.forEach { (name, menuItem) ->
-                                if (name in NAME_TO_ICON_MAP && name != "系统拍摄") {
-                                    // item views are inflated by the snapshot and only held weakly,
-                                    // so they can be collected before the chip is ever tapped
-                                    val gridView = menuItem.gridView.get() ?: return@forEach
-                                    val itemView = menuItem.itemView.get() ?: return@forEach
-                                    list.add(name to {
-                                        menuItem.onClickListener.onItemClick(
-                                            gridView,
-                                            itemView,
-                                            menuItem.indexInGrid,
-                                            0
-                                        )
-                                    })
-                                }
+                                // item views are inflated by the snapshot and only held weakly,
+                                // so they can be collected before the chip is ever tapped
+                                val gridView = menuItem.gridView.get() ?: return@forEach
+                                val itemView = menuItem.itemView.get() ?: return@forEach
+                                list.add(name to {
+                                    menuItem.onClickListener.onItemClick(
+                                        gridView,
+                                        itemView,
+                                        menuItem.indexInGrid,
+                                        0
+                                    )
+                                })
                             }
 
                             list.distinctBy { it.first }
@@ -541,6 +608,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             panelTools.values.forEach { it.flow.value = emptyList() }
             panelTools.clear()
         }
+        synchronized(appGridToolTypes) { appGridToolTypes.clear() }
     }
 
     @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
