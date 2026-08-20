@@ -23,11 +23,13 @@ import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -44,7 +46,7 @@ import java.io.File
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.Locale
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.time.Duration.Companion.seconds
@@ -228,70 +230,53 @@ internal class HomeSidePanelWeather(
     private val client: OkHttpClient,
 ) {
 
-    private val inFlight = AtomicReference<InFlightWeatherRequest?>(null)
-    private val lastRequestStartedAt = AtomicReference<WeatherRequestStart?>(null)
+    private val requestScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val inFlight = ConcurrentHashMap<String, Deferred<WeatherResult>>()
+    private val lastRequestStartedAt = ConcurrentHashMap<String, Long>()
 
-    fun loadCached(): WeatherSnapshot? = HomeSidePanelPreferences.weatherLastSuccess
-
-    suspend fun refresh(city: WeatherCity): WeatherResult {
+    suspend fun refresh(
+        city: WeatherCity,
+        cached: WeatherSnapshot?,
+    ): WeatherResult {
         if (city.cityNum.isBlank()) {
-            return WeatherResult.Error(beautifyText(R.string.home_side_panel_weather_no_city), HomeSidePanelPreferences.weatherLastSuccess)
+            return WeatherResult.Error(beautifyText(R.string.home_side_panel_weather_no_city), cached)
         }
+        val requestKey = city.cityNum
+        inFlight[requestKey]?.let { return it.await() }
         val now = System.currentTimeMillis()
-        inFlight.get()?.let { current ->
-            if (current.cityNum == city.cityNum) return current.deferred.await()
-            current.deferred.cancel()
-            inFlight.compareAndSet(current, null)
-        }
-
-        val previousStart = lastRequestStartedAt.get()
-        if (previousStart?.cityNum == city.cityNum && now - previousStart.startedAt < MIN_REFRESH_INTERVAL_MS) {
-            val cached = HomeSidePanelPreferences.weatherLastSuccess
-            return if (cached?.city?.cityNum == city.cityNum) {
+        val previousStart = lastRequestStartedAt[requestKey]
+        if (previousStart != null && now - previousStart < MIN_REFRESH_INTERVAL_MS) {
+            return if (cached?.city?.cityNum == requestKey) {
                 WeatherResult.Success(cached)
             } else {
                 WeatherResult.Error(beautifyText(R.string.home_side_panel_refresh_too_frequent), cached)
             }
         }
 
-        return coroutineScope {
-            val created = async(Dispatchers.IO, start = CoroutineStart.LAZY) { performRefresh(city) }
-            val entry = InFlightWeatherRequest(city.cityNum, created)
-            if (inFlight.compareAndSet(null, entry)) {
-                lastRequestStartedAt.set(WeatherRequestStart(city.cityNum, now))
-                created.start()
-                try {
-                    val result = created.await()
-                    if (inFlight.get() === entry && result is WeatherResult.Success) {
-                        HomeSidePanelPreferences.selectedWeatherCity = city
-                        HomeSidePanelPreferences.weatherLastSuccess = result.snapshot
-                    }
-                    result
-                } finally {
-                    inFlight.compareAndSet(entry, null)
-                }
-            } else {
-                created.cancel()
-                refresh(city)
-            }
+        val created = requestScope.async(start = CoroutineStart.LAZY) {
+            performRefresh(city, cached)
         }
+        val current = inFlight.putIfAbsent(requestKey, created)
+        if (current != null) {
+            created.cancel()
+            return current.await()
+        }
+        lastRequestStartedAt[requestKey] = now
+        created.invokeOnCompletion { inFlight.remove(requestKey, created) }
+        created.start()
+        return created.await()
     }
 
     suspend fun searchCities(query: String): List<WeatherCity> = cityIndex.search(query)
 
-    fun selectedCity(): WeatherCity = HomeSidePanelPreferences.selectedWeatherCity
-
-    fun selectCity(city: WeatherCity) {
-        HomeSidePanelPreferences.selectedWeatherCity = city
+    fun close() {
+        requestScope.cancel()
     }
 
-    fun resetForAccount() {
-        HomeSidePanelPreferences.selectedWeatherCity = DEFAULT_WEATHER_CITY
-        HomeSidePanelPreferences.weatherLastSuccess = null
-    }
-
-    private suspend fun performRefresh(city: WeatherCity): WeatherResult {
-        val cached = HomeSidePanelPreferences.weatherLastSuccess
+    private suspend fun performRefresh(
+        city: WeatherCity,
+        cached: WeatherSnapshot?,
+    ): WeatherResult {
         val request = Request.Builder().url(buildWeatherUrl(city)).get().build()
         return try {
             val payload = client.newCall(request).awaitWeatherPayload()
@@ -322,15 +307,32 @@ internal class HomeSidePanelWeather(
         const val MIN_REFRESH_INTERVAL_MS = 1_000L
     }
 
-    private data class InFlightWeatherRequest(
-        val cityNum: String,
-        val deferred: Deferred<WeatherResult>,
-    )
+}
 
-    private data class WeatherRequestStart(
-        val cityNum: String,
-        val startedAt: Long,
-    )
+// Temporary pre-Task-6 bridge for the fixed-card state. The service itself is explicit-input and
+// preference-free; Task 6 removes these extensions together with the fixed state model.
+internal fun HomeSidePanelWeather.loadCached(): WeatherSnapshot? =
+    HomeSidePanelPreferences.weatherLastSuccess
+
+internal suspend fun HomeSidePanelWeather.refresh(city: WeatherCity): WeatherResult {
+    val result = refresh(city, HomeSidePanelPreferences.weatherLastSuccess)
+    if (result is WeatherResult.Success) {
+        HomeSidePanelPreferences.selectedWeatherCity = city
+        HomeSidePanelPreferences.weatherLastSuccess = result.snapshot
+    }
+    return result
+}
+
+internal fun HomeSidePanelWeather.selectedCity(): WeatherCity =
+    HomeSidePanelPreferences.selectedWeatherCity
+
+internal fun HomeSidePanelWeather.selectCity(city: WeatherCity) {
+    HomeSidePanelPreferences.selectedWeatherCity = city
+}
+
+internal fun HomeSidePanelWeather.resetForAccount() {
+    HomeSidePanelPreferences.selectedWeatherCity = DEFAULT_WEATHER_CITY
+    HomeSidePanelPreferences.weatherLastSuccess = null
 }
 
 @Serializable

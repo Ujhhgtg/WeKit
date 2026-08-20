@@ -6,11 +6,13 @@ import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -24,7 +26,7 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
 import java.net.SocketTimeoutException
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -114,82 +116,63 @@ internal class HomeSidePanelHitokoto(
     private val client: OkHttpClient,
 ) {
 
-    private val inFlight = AtomicReference<InFlightHitokotoRequest?>(null)
-    private val lastRequestStartedAt = AtomicReference<HitokotoRequestStart?>(null)
-    private val lastError = AtomicReference<HitokotoResult.Error?>(null)
+    private val requestScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val inFlight = ConcurrentHashMap<HitokotoRequestKey, Deferred<HitokotoResult>>()
+    private val lastRequestStartedAt = ConcurrentHashMap<HitokotoRequestKey, Long>()
+    private val lastError = ConcurrentHashMap<HitokotoRequestKey, HitokotoResult.Error>()
 
-    fun loadSettings(): HitokotoSettings = HomeSidePanelPreferences.hitokotoSettings
+    fun validate(settings: HitokotoSettings): BeautifyText? = validateHitokotoSettings(
+        minLength = settings.minLength,
+        maxLength = settings.maxLength,
+        categories = settings.categories,
+    )
 
-    fun saveSettings(settings: HitokotoSettings) {
-        val validationError = validateHitokotoSettings(
-            minLength = settings.minLength,
-            maxLength = settings.maxLength,
-            categories = settings.categories,
-        )
-        if (validationError != null) throw InvalidHitokotoSettingsException(validationError)
-        HomeSidePanelPreferences.hitokotoSettings = settings
-    }
-
-    fun loadCached(): HitokotoSnapshot? = HomeSidePanelPreferences.hitokotoLastSuccess
-
-    suspend fun fetchRandom(): HitokotoResult {
-        val settings = loadSettings()
-        val validationError = validateHitokotoSettings(
-            minLength = settings.minLength,
-            maxLength = settings.maxLength,
-            categories = settings.categories,
-        )
+    suspend fun fetchRandom(
+        settings: HitokotoSettings,
+        cached: HitokotoSnapshot?,
+    ): HitokotoResult {
+        val validationError = validate(settings)
         if (validationError != null) {
-            return HitokotoResult.Error(validationError, HomeSidePanelPreferences.hitokotoLastSuccess)
+            return HitokotoResult.Error(validationError, cached)
         }
         val requestKey = settings.requestKey()
-        inFlight.get()?.let { current ->
-            if (current.requestKey == requestKey) return current.deferred.await()
-            current.deferred.cancel()
-            inFlight.compareAndSet(current, null)
-        }
+        inFlight[requestKey]?.let { return it.await() }
 
         val now = System.currentTimeMillis()
-        val previousStart = lastRequestStartedAt.get()
-        if (previousStart?.requestKey == requestKey && now - previousStart.startedAt < MIN_REFRESH_INTERVAL_MS) {
-            return HomeSidePanelPreferences.hitokotoLastSuccess?.let(HitokotoResult::Success)
-                ?: lastError.get()
+        val previousStart = lastRequestStartedAt[requestKey]
+        if (previousStart != null && now - previousStart < MIN_REFRESH_INTERVAL_MS) {
+            return cached?.let(HitokotoResult::Success)
+                ?: lastError[requestKey]
                 ?: HitokotoResult.Error(beautifyText(R.string.home_side_panel_refresh_too_frequent), null)
         }
 
-        return coroutineScope {
-            val created = async(Dispatchers.IO, start = CoroutineStart.LAZY) {
-                performFetch(settings)
-            }
-            val entry = InFlightHitokotoRequest(requestKey, created)
-            if (inFlight.compareAndSet(null, entry)) {
-                lastRequestStartedAt.set(HitokotoRequestStart(requestKey, now))
-                created.start()
-                try {
-                    val result = created.await()
-                    if (inFlight.get() === entry) {
-                        when (result) {
-                            is HitokotoResult.Success -> {
-                                HomeSidePanelPreferences.hitokotoLastSuccess = result.snapshot
-                                lastError.set(null)
-                            }
-
-                            is HitokotoResult.Error -> lastError.set(result)
-                        }
-                    }
-                    result
-                } finally {
-                    inFlight.compareAndSet(entry, null)
-                }
-            } else {
-                created.cancel()
-                fetchRandom()
-            }
+        val created = requestScope.async(start = CoroutineStart.LAZY) {
+            performFetch(settings, cached)
         }
+        val current = inFlight.putIfAbsent(requestKey, created)
+        if (current != null) {
+            created.cancel()
+            return current.await()
+        }
+        lastRequestStartedAt[requestKey] = now
+        created.invokeOnCompletion { inFlight.remove(requestKey, created) }
+        created.start()
+        val result = created.await()
+        when (result) {
+            is HitokotoResult.Success -> lastError.remove(requestKey)
+            is HitokotoResult.Error -> lastError[requestKey] = result
+        }
+        return result
     }
 
-    private suspend fun performFetch(settings: HitokotoSettings): HitokotoResult {
-        val cached = HomeSidePanelPreferences.hitokotoLastSuccess
+    fun close() {
+        requestScope.cancel()
+    }
+
+    private suspend fun performFetch(
+        settings: HitokotoSettings,
+        cached: HitokotoSnapshot?,
+    ): HitokotoResult {
         val request = Request.Builder().url(buildHitokotoUrl(settings)).get().build()
         return try {
             val payload = client.newCall(request).awaitHitokotoPayload()
@@ -231,21 +214,34 @@ internal class HomeSidePanelHitokoto(
         maxLength = maxLength,
     )
 
-    private data class InFlightHitokotoRequest(
-        val requestKey: HitokotoRequestKey,
-        val deferred: Deferred<HitokotoResult>,
-    )
-
-    private data class HitokotoRequestStart(
-        val requestKey: HitokotoRequestKey,
-        val startedAt: Long,
-    )
-
     private data class HitokotoRequestKey(
         val categories: List<String>,
         val minLength: Int?,
         val maxLength: Int?,
     )
+}
+
+// Temporary pre-Task-6 bridge for the fixed-card state. The service itself is explicit-input and
+// preference-free; Task 6 removes these extensions together with the fixed state model.
+internal fun HomeSidePanelHitokoto.loadSettings(): HitokotoSettings =
+    HomeSidePanelPreferences.hitokotoSettings
+
+internal fun HomeSidePanelHitokoto.saveSettings(settings: HitokotoSettings) {
+    val validationError = validate(settings)
+    if (validationError != null) throw InvalidHitokotoSettingsException(validationError)
+    HomeSidePanelPreferences.hitokotoSettings = settings
+}
+
+internal fun HomeSidePanelHitokoto.loadCached(): HitokotoSnapshot? =
+    HomeSidePanelPreferences.hitokotoLastSuccess
+
+internal suspend fun HomeSidePanelHitokoto.fetchRandom(): HitokotoResult {
+    val settings = HomeSidePanelPreferences.hitokotoSettings
+    val result = fetchRandom(settings, HomeSidePanelPreferences.hitokotoLastSuccess)
+    if (result is HitokotoResult.Success) {
+        HomeSidePanelPreferences.hitokotoLastSuccess = result.snapshot
+    }
+    return result
 }
 
 @Serializable

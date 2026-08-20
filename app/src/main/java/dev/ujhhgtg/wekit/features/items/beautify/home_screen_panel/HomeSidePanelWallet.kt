@@ -28,6 +28,8 @@ internal data class HomeSidePanelWalletUiState(
     val balanceFen: Long? = null,
     val displayState: HomeSidePanelWalletDisplayState = HomeSidePanelWalletDisplayState(true),
 ) {
+    fun withBalance(balanceFen: Long?): HomeSidePanelWalletUiState = copy(balanceFen = balanceFen)
+
     val displayBalance: String
         get() = if (displayState.isMasked) "******" else formatHomeSidePanelWalletBalance(balanceFen)
 }
