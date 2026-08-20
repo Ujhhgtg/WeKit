@@ -18,6 +18,7 @@ class HomeSidePanelDragStateTest {
     @Test
     fun variableHeightBoundsChooseInsertionByCenters() {
         val state = HomeSidePanelDragState()
+        state.registerViewport(RootDragBounds(0f, 0f, 300f, 500f))
         state.registerCardBounds("a", 0, RootDragBounds(0f, 0f, 300f, 100f))
         state.registerCardBounds("b", 1, RootDragBounds(0f, 110f, 300f, 310f))
         state.registerCardBounds("c", 2, RootDragBounds(0f, 320f, 300f, 400f))
@@ -121,8 +122,26 @@ class HomeSidePanelDragStateTest {
     }
 
     @Test
+    fun newCardDroppedOutsideThePageViewportDoesNotCommit() {
+        val state = HomeSidePanelDragState()
+        state.registerViewport(RootDragBounds(0f, 0f, 300f, 600f))
+        state.registerCardBounds("existing", 0, RootDragBounds(0f, 100f, 300f, 200f))
+        state.begin(
+            payload = HomeSidePanelDragPayload.NewCard(HomeSidePanelCardType.WEATHER),
+            pointerId = 8L,
+            rootPosition = RootDragPosition(150f, 150f),
+        )
+
+        state.updateRootPosition(340f, 150f)
+
+        assertNull(state.snapshot!!.target)
+        assertNull(state.finish())
+    }
+
+    @Test
     fun finishCommitsTheCurrentSlotExactlyOnce() {
         val state = HomeSidePanelDragState()
+        state.registerViewport(RootDragBounds(0f, 0f, 300f, 300f))
         state.registerCardBounds("first", 0, RootDragBounds(0f, 0f, 300f, 100f))
         state.registerCardBounds("second", 1, RootDragBounds(0f, 110f, 300f, 260f))
         state.begin(

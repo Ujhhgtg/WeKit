@@ -400,7 +400,7 @@ internal class HomeSidePanelDragState {
     ): HomeSidePanelDragTarget? = when (payload) {
         is HomeSidePanelDragPayload.ExistingCard,
         is HomeSidePanelDragPayload.NewCard,
-        -> cardInsertionTarget(position.y)
+        -> cardInsertionTarget(position)
 
         is HomeSidePanelDragPayload.ExistingAction ->
             actionInsertionTarget(payload.cardId, position)
@@ -437,14 +437,16 @@ internal class HomeSidePanelDragState {
         else -> null
     }
 
-    private fun cardInsertionTarget(position: Float): HomeSidePanelDragTarget.Card? {
+    private fun cardInsertionTarget(position: RootDragPosition): HomeSidePanelDragTarget.Card? {
+        val viewport = viewportBounds ?: return null
+        if (!viewport.contains(position)) return null
         val ordered = cardBounds.values.sortedBy(RegisteredBounds::index)
         if (ordered.isEmpty()) {
-            val viewport = viewportBounds ?: return null
-            if (position !in viewport.top..viewport.bottom) return null
             return HomeSidePanelDragTarget.Card(0)
         }
-        return HomeSidePanelDragTarget.Card(modelInsertionIndex(position, ordered, HomeSidePanelDragAxis.Vertical))
+        return HomeSidePanelDragTarget.Card(
+            modelInsertionIndex(position.y, ordered, HomeSidePanelDragAxis.Vertical),
+        )
     }
 
     private fun actionInsertionTarget(

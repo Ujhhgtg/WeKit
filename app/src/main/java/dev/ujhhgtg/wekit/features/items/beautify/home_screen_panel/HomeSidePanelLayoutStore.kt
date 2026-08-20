@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 
 internal object HomeSidePanelLayoutStore {
@@ -13,7 +14,11 @@ internal object HomeSidePanelLayoutStore {
         )
         val raw = HomeSidePanelPreferences.layoutRaw
         if (raw != null) {
-            return HomeSidePanelLayoutCodec.load(raw, legacy, UuidHomeSidePanelIdGenerator)
+            return HomeSidePanelLayoutCodec.load(raw, legacy, UuidHomeSidePanelIdGenerator).also { loaded ->
+                if (loaded is HomeSidePanelLayoutLoad.Fallback) {
+                    WeLogger.w(TAG, "invalid saved side panel layout; using an in-memory fallback: ${loaded.reason}")
+                }
+            }
         }
         val layout = defaultHomeSidePanelLayout(legacy)
         save(layout).getOrThrow()
@@ -79,4 +84,6 @@ internal object HomeSidePanelLayoutStore {
 
     private inline fun <reified T> encodeCache(key: String, value: T): Result<Unit> =
         runCatching { WePrefs.putString(key, DefaultJson.encodeToString(value)) }
+
+    private const val TAG = "HomeSidePanelLayoutStore"
 }
