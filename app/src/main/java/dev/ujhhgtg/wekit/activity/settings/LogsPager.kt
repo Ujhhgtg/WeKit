@@ -66,7 +66,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -86,6 +85,7 @@ import com.composables.icons.materialsymbols.outlined.Save
 import com.composables.icons.materialsymbols.outlined.Share
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
@@ -260,7 +260,7 @@ private fun shareLogFile(context: Context, localizedContext: Context, file: Path
  * Opens the system document creator so the user can save a copy of [file] wherever they choose,
  * mirroring the config-export flow in SettingsActivity.
  */
-private fun saveLogFile(context: Context, localizedContext: Context, file: Path) {
+private fun saveLogFile(context: Context, localizedContext: () -> Context, file: Path) {
     TransparentActivity.launch(context) {
         val launcher = registerForActivityResult(
             ActivityResultContracts.CreateDocument("text/plain"),
@@ -275,9 +275,9 @@ private fun saveLogFile(context: Context, localizedContext: Context, file: Path)
                     }
                 }.onFailure {
                     WeLogger.e(LOGS_TAG, "failed to save log", it)
-                    showToastSuspend(localizedContext.getString(R.string.logs_save_failed))
+                    showToastSuspend(localizedContext().getString(R.string.logs_save_failed))
                 }.onSuccess {
-                    showToastSuspend(localizedContext.getString(R.string.logs_save_success))
+                    showToastSuspend(localizedContext().getString(R.string.logs_save_success))
                 }
                 withContext(Dispatchers.Main) { finish() }
             }
@@ -299,7 +299,7 @@ private val LOG_TABS = listOf(LogKind.RUN, LogKind.CRASH)
 @Composable
 fun LogsPager() {
     val context = LocalComponentActivity.current
-    val localizedContext = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val scope = rememberCoroutineScope()
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -357,7 +357,7 @@ fun LogsPager() {
                             )
                         }
                         IconButton(onClick = {
-                            currentFile?.let { saveLogFile(context, localizedContext, it) }
+                            currentFile?.let { saveLogFile(context, { localizedContext }, it) }
                                 ?: scope.launch {
                                     showToastSuspend(localizedContext.getString(R.string.logs_nothing_to_save))
                                 }
@@ -476,7 +476,7 @@ private fun LogTabContent(
     onRefreshFinished: (LogRefreshRequest) -> Unit,
     onCurrentFileChange: (Path?) -> Unit,
 ) {
-    val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val pullToRefreshState = rememberPullToRefreshState()
     // Files available for this tab, newest first.
     var files by remember(kind) { mutableStateOf<List<Path>>(emptyList()) }
@@ -518,7 +518,7 @@ private fun LogTabContent(
                 runEntries = emptyList()
                 crashSections = emptyList()
             } else {
-                val text = withContext(Dispatchers.IO) { readLog(context, selectedFile) }
+                val text = withContext(Dispatchers.IO) { readLog(localizedContext, selectedFile) }
                 when (kind) {
                     LogKind.RUN -> runEntries = withContext(Dispatchers.Default) { parseRunLog(text) }
                     LogKind.CRASH -> crashSections = withContext(Dispatchers.Default) { parseCrashLog(text) }

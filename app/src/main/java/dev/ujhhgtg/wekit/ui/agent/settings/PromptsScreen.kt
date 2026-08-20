@@ -2,7 +2,6 @@
 
 package dev.ujhhgtg.wekit.ui.agent.settings
 
-import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -37,6 +36,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -44,7 +44,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -55,9 +54,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PerTurnPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PresetPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SystemPromptEntity
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -88,7 +85,7 @@ private val PROMPT_TAB_LABELS = listOf(
 @Composable
 fun PromptsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val systemPrompts by WeAgentRepository.observeSystemPrompts().collectAsState(initial = emptyList())
     val perTurn by WeAgentRepository.observePerTurnPrompts().collectAsState(initial = emptyList())
     val conditionals by WeAgentRepository.observeConditionalPrompts().collectAsState(initial = emptyList())
@@ -215,7 +212,7 @@ fun PromptsScreen(onBack: () -> Unit) {
                     )
                     editSystem = null
                 } catch (e: Exception) {
-                    showToast(currentAgentLocalizedContext(context).getString(R.string.agent_save_failed, e.message))
+                    showToast(localizedContext.getString(R.string.agent_save_failed, e.message))
                 }
             }
         },
@@ -225,7 +222,7 @@ fun PromptsScreen(onBack: () -> Unit) {
                     WeAgentRepository.deleteSystemPrompt(id)
                     editSystem = null
                 } catch (e: Exception) {
-                    showToast(currentAgentLocalizedContext(context).getString(R.string.agent_delete_failed, e.message))
+                    showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
                 }
             }
         } },
@@ -243,7 +240,7 @@ fun PromptsScreen(onBack: () -> Unit) {
                     )
                     editPerTurn = null
                 } catch (e: Exception) {
-                    showToast(currentAgentLocalizedContext(context).getString(R.string.agent_save_failed, e.message))
+                    showToast(localizedContext.getString(R.string.agent_save_failed, e.message))
                 }
             }
         },
@@ -253,7 +250,7 @@ fun PromptsScreen(onBack: () -> Unit) {
                     WeAgentRepository.deletePerTurnPrompt(id)
                     editPerTurn = null
                 } catch (e: Exception) {
-                    showToast(currentAgentLocalizedContext(context).getString(R.string.agent_delete_failed, e.message))
+                    showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
                 }
             }
         } },
@@ -271,7 +268,7 @@ fun PromptsScreen(onBack: () -> Unit) {
                     )
                     editConditional = null
                 } catch (e: Exception) {
-                    showToast(currentAgentLocalizedContext(context).getString(R.string.agent_save_failed, e.message))
+                    showToast(localizedContext.getString(R.string.agent_save_failed, e.message))
                 }
             }
         },
@@ -281,7 +278,7 @@ fun PromptsScreen(onBack: () -> Unit) {
                     WeAgentRepository.deleteConditionalPrompt(id)
                     editConditional = null
                 } catch (e: Exception) {
-                    showToast(currentAgentLocalizedContext(context).getString(R.string.agent_delete_failed, e.message))
+                    showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
                 }
             }
         } },
@@ -299,7 +296,7 @@ fun PromptsScreen(onBack: () -> Unit) {
                     )
                     editPreset = null
                 } catch (e: Exception) {
-                    showToast(currentAgentLocalizedContext(context).getString(R.string.agent_save_failed, e.message))
+                    showToast(localizedContext.getString(R.string.agent_save_failed, e.message))
                 }
             }
         },
@@ -309,18 +306,12 @@ fun PromptsScreen(onBack: () -> Unit) {
                     WeAgentRepository.deletePresetPrompt(id)
                     editPreset = null
                 } catch (e: Exception) {
-                    showToast(currentAgentLocalizedContext(context).getString(R.string.agent_delete_failed, e.message))
+                    showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
                 }
             }
         } },
     )
 }
-
-private fun currentAgentLocalizedContext(base: Context): Context = LocalizedContextFactory.create(
-    base,
-    WeKitLocaleController.resolvedLocale,
-    LocaleResourceMode.InjectedHost,
-)
 
 // -------- Pages --------
 

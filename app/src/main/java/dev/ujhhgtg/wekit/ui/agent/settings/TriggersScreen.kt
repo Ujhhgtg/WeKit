@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,10 +21,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -41,9 +40,7 @@ import dev.ujhhgtg.wekit.agent.trigger.TriggerConditions
 import dev.ujhhgtg.wekit.agent.trigger.TriggerConditionsJson
 import dev.ujhhgtg.wekit.agent.trigger.TriggerScope
 import dev.ujhhgtg.wekit.agent.trigger.TriggerType
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -63,7 +60,7 @@ import java.util.UUID
 @Composable
 fun TriggersScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val triggers by remember { WeAgentRepository.observeTriggers() }
         .collectAsState(initial = emptyList())
     // Session id -> title, for showing which session a SESSION-scoped trigger belongs to.
@@ -149,7 +146,7 @@ fun TriggersScreen(onBack: () -> Unit) {
                     WeAgentRepository.upsertTrigger(built)
                     showEditor = false
                 } catch (e: Exception) {
-                    showToast(agentSaveFailedString(context, e.message))
+                    showToast(localizedContext.getString(R.string.agent_save_failed, e.message))
                 }
             }
         },
@@ -160,26 +157,12 @@ fun TriggersScreen(onBack: () -> Unit) {
                     showEditor = false
                     editing = null
                 } catch (e: Exception) {
-                    showToast(agentDeleteFailedString(context, e.message))
+                    showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
                 }
             }
         },
     )
 }
-
-private fun agentSaveFailedString(context: Context, detail: String?): String =
-    LocalizedContextFactory.create(
-        context,
-        WeKitLocaleController.resolvedLocale,
-        LocaleResourceMode.InjectedHost,
-    ).getString(R.string.agent_save_failed, detail)
-
-private fun agentDeleteFailedString(context: Context, detail: String?): String =
-    LocalizedContextFactory.create(
-        context,
-        WeKitLocaleController.resolvedLocale,
-        LocaleResourceMode.InjectedHost,
-    ).getString(R.string.agent_delete_failed, detail)
 
 @Composable
 private fun TriggerSwitchRow(

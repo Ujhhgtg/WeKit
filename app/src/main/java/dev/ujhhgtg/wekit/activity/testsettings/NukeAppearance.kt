@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -26,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeAnimatedVisibility
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeButton
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCategoryIcon
@@ -65,6 +67,7 @@ private val nukePresetColors = listOf(
 internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
     var showColorDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val scope = rememberCoroutineScope()
     val engineLabels = mapOf(
         SettingsUiEngine.MATERIAL3 to "Material 3",
@@ -83,7 +86,7 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
     fun updatePredictiveBackEnabled(value: Boolean) {
         if (value == ThemeSettings.predictiveBackEnabled) return
         ThemeSettings.updatePredictiveBackEnabled(value)
-        scope.launch { showToastSuspend(context, context.getString(R.string.restart_wechat_to_apply)) }
+        scope.launch { showToastSuspend(context, localizedContext.getString(R.string.restart_wechat_to_apply)) }
     }
 
     NukePageScaffold(title = stringResource(R.string.nuke_appearance_title), onBack = onBack) {
@@ -193,13 +196,13 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
                                     checked = ThemeSettings.applyToWechat,
                                     onCheckedChange = { value ->
                                         ThemeSettings.updateApplyToWechat(value)
-                                        scope.launch { showToastSuspend(context, context.getString(R.string.restart_wechat_to_apply)) }
+                                        scope.launch { showToastSuspend(context, localizedContext.getString(R.string.restart_wechat_to_apply)) }
                                     },
                                 )
                             },
                             onClick = {
                                 ThemeSettings.updateApplyToWechat(!ThemeSettings.applyToWechat)
-                                scope.launch { showToastSuspend(context, context.getString(R.string.restart_wechat_to_apply)) }
+                                scope.launch { showToastSuspend(context, localizedContext.getString(R.string.restart_wechat_to_apply)) }
                             },
                         )
                 }

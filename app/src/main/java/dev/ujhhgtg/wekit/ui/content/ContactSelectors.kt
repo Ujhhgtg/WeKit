@@ -74,6 +74,7 @@ import com.composables.icons.materialsymbols.outlined.Sort_by_alpha
 import com.composables.icons.materialsymbols.outlined.Swap_vert
 import com.composables.icons.materialsymbols.outlined.Tag
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
@@ -160,7 +161,8 @@ fun BaseContactSelector(
     onDeselectAll: ((List<IWeContact>) -> Unit)? = null,
     onInvertSelection: ((List<IWeContact>) -> Unit)? = null
 ) {
-    val localizedContext = LocalContext.current
+    val context = LocalContext.current
+    val localizedContext = LocalWeKitLocalizedContext.current
     val currentLocalizedContext = rememberUpdatedState(localizedContext)
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -260,10 +262,10 @@ fun BaseContactSelector(
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        val context = currentLocalizedContext.value
+                        val currentResources = currentLocalizedContext.value
                         showToast(
                             context,
-                            context.getString(R.string.contact_filter_database_unavailable),
+                            currentResources.getString(R.string.contact_filter_database_unavailable),
                         )
                         isFiltersLoaded = true
                     }
@@ -320,9 +322,10 @@ fun BaseContactSelector(
             // getLastMessageTimes() 内部吞掉异常后返回空表, 所以空结果也当作失败:
             // 否则会静默按"所有会话时间相同"排出一个随意的顺序, 而且缓存住之后再也不会重试。
             if (times.isNullOrEmpty()) {
+                val currentResources = currentLocalizedContext.value
                 showToast(
-                    localizedContext,
-                    localizedContext.getString(R.string.contact_sort_database_unavailable),
+                    context,
+                    currentResources.getString(R.string.contact_sort_database_unavailable),
                 )
             } else {
                 lastMessageTimes = times
@@ -595,7 +598,7 @@ fun BaseContactSelector(
                                         onClick = {
                                             if (!hasMoreModes) {
                                                 showToast(
-                                                    localizedContext,
+                                                    context,
                                                     localizedContext.getString(R.string.contact_filter_mode_enable_more),
                                                 )
                                             } else {

@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
-import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,9 +22,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -44,9 +43,7 @@ import dev.ujhhgtg.wekit.agent.mcp.McpProviderStatus
 import dev.ujhhgtg.wekit.agent.mcp.McpToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
 import dev.ujhhgtg.wekit.agent.tool.ToolMode
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
@@ -159,7 +156,7 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
     val allProviders by WeAgentRepository.observeProviders().collectAsState(initial = emptyList())
     val server = allProviders.firstOrNull { it.id == serverId }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val perms by WeAgentRepository.observeToolPermissions().collectAsState(initial = emptyList())
     val permMap = perms.associate { it.providerId to it.toolName to it.mode }
@@ -301,7 +298,7 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
                     WeAgentRepository.deleteMcpProvider(serverId)
                     onBack()
                 } catch (e: Exception) {
-                    showToast(currentAgentLocalizedContext(context).getString(R.string.agent_delete_failed, e.message))
+                    showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
                 }
             }
         },
@@ -319,13 +316,6 @@ private fun McpSectionTitle(text: String) {
         modifier = Modifier.padding(start = 32.dp, top = 8.dp, bottom = 16.dp),
     )
 }
-
-private fun currentAgentLocalizedContext(base: Context): Context =
-    LocalizedContextFactory.create(
-        base,
-        WeKitLocaleController.resolvedLocale,
-        LocaleResourceMode.InjectedHost,
-    )
 
 @Composable
 private fun mcpStateLabel(state: McpConnectionState): String = stringResource(

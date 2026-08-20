@@ -43,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -67,6 +68,7 @@ import dev.ujhhgtg.wekit.extensions.CloudflaredPack
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -304,6 +306,7 @@ private fun ReadReceiptsHomeScreen(
     onOpen: (ReadReceiptsRoute) -> Unit,
 ) {
     val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val initial = remember { ReadReceipts.configuration() }
     var sendMode by rememberSaveable { mutableIntStateOf(ReadReceipts.sendMode) }
     var triggerPrefix by rememberSaveable { mutableStateOf(ReadReceipts.triggerPrefix) }
@@ -323,7 +326,7 @@ private fun ReadReceiptsHomeScreen(
 
     fun saveGeneral() {
         saveOnly(
-            context,
+            localizedContext,
             ReadReceipts.configuration().copy(
                 pollIntervalSecs = intervalSecs,
                 automaticLifecycle = automaticLifecycle,
@@ -339,7 +342,7 @@ private fun ReadReceiptsHomeScreen(
         val candidate = when (mode) {
             ReadReceiptsServerMode.THIRD_PARTY -> {
                 if (normalizeThirdPartyReadReceiptEndpoint(currentConfiguration.thirdPartyUrl) == null) {
-                    operationState.feedback = context.getString(R.string.read_receipts_invalid_third_party_url).errorFeedback()
+                    operationState.feedback = localizedContext.getString(R.string.read_receipts_invalid_third_party_url).errorFeedback()
                     return
                 }
                 currentConfiguration.copy(mode = ReadReceiptsServerMode.THIRD_PARTY)
@@ -353,7 +356,7 @@ private fun ReadReceiptsHomeScreen(
 
                 ReadReceiptsTunnelMode.TOKEN -> {
                     if (ReadReceiptsTunnelHostnames.canonicalPublicRoot(currentConfiguration.hostname) == null) {
-                        operationState.feedback = context.getString(R.string.read_receipts_managed_tunnel_requires_hostname).errorFeedback()
+                        operationState.feedback = localizedContext.getString(R.string.read_receipts_managed_tunnel_requires_hostname).errorFeedback()
                         return
                     }
                     currentConfiguration.copy(
@@ -365,14 +368,14 @@ private fun ReadReceiptsHomeScreen(
 
                 ReadReceiptsTunnelMode.BROWSER_LOGIN ->
                     ReadReceipts.authoritativeBrowserConfiguration(currentConfiguration) ?: run {
-                        operationState.feedback = context.getString(R.string.read_receipts_select_browser_tunnel_first).errorFeedback()
+                        operationState.feedback = localizedContext.getString(R.string.read_receipts_select_browser_tunnel_first).errorFeedback()
                         return
                     }
 
                 null -> return
             }
         }
-        saveOnly(context, candidate, operationState)
+        saveOnly(localizedContext, candidate, operationState)
     }
 
     M3ListScaffold(
@@ -406,10 +409,10 @@ private fun ReadReceiptsHomeScreen(
                             description = stringResource(R.string.read_receipts_copy_or_share_url),
                             onClick = {
                                 copyToClipboard(context, url)
-                                operationState.feedback = context.getString(R.string.read_receipts_public_url_copied).successFeedback()
+                                operationState.feedback = localizedContext.getString(R.string.read_receipts_public_url_copied).successFeedback()
                             },
                             trailingContent = {
-                                IconButton(onClick = { shareUrl(context, url) }) {
+                                IconButton(onClick = { shareUrl(context, localizedContext, url) }) {
                                     Icon(
                                         MaterialSymbols.Outlined.Share,
                                         stringResource(R.string.read_receipts_share_public_url),
@@ -575,7 +578,7 @@ private fun ReadReceiptsHomeScreen(
                             val owner = operationState.begin(ActiveOperation.DISCONNECTING)
                                 ?: return@OutlinedButton
                             ReadReceipts.disconnectBuiltInStack { terminal ->
-                                owner.complete(terminalFeedback(context, terminal, R.string.read_receipts_stack_stopped))
+                                owner.complete(terminalFeedback(localizedContext, terminal, R.string.read_receipts_stack_stopped))
                             }
                         },
                         enabled = activeOperation == null && (runtime.originActive || runtime.tunnel.state != ReadReceiptsTunnelState.STOPPED),
@@ -593,7 +596,7 @@ private fun ThirdPartyScreen(
     operationCoordinator: SettingsOperationCoordinator,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val initial = remember { ReadReceipts.configuration() }
     var url by rememberSaveable { mutableStateOf(initial.thirdPartyUrl) }
     val operationState = operationCoordinator.state(ReadReceiptsRoute.ThirdParty)
@@ -601,7 +604,7 @@ private fun ThirdPartyScreen(
 
     fun candidate(): ReadReceiptsConfiguration? {
         val normalized = normalizeThirdPartyReadReceiptEndpoint(url) ?: run {
-            operationState.feedback = context.getString(R.string.read_receipts_invalid_third_party_url).errorFeedback()
+            operationState.feedback = localizedContext.getString(R.string.read_receipts_invalid_third_party_url).errorFeedback()
             return null
         }
         return ReadReceipts.configuration().copy(
@@ -635,18 +638,18 @@ private fun ThirdPartyScreen(
                     OutlinedButton(
                         onClick = {
                             if (normalizeThirdPartyReadReceiptEndpoint(url) == null) {
-                                operationState.feedback = context.getString(R.string.read_receipts_invalid_third_party_url).errorFeedback()
+                                operationState.feedback = localizedContext.getString(R.string.read_receipts_invalid_third_party_url).errorFeedback()
                                 return@OutlinedButton
                             }
                             val owner = operationState.begin(ActiveOperation.TESTING)
                                 ?: return@OutlinedButton
                             ReadReceipts.testThirdPartyEndpoint(url, operationCoordinator.retainedScope) { result ->
-                                val message = context.getString(
+                                val message = localizedContext.getString(
                                     if (result.isSuccess) R.string.read_receipts_server_connection_succeeded
                                     else R.string.read_receipts_server_connection_failed,
                                 )
                                 owner.complete(if (result.isSuccess) message.successFeedback() else message.errorFeedback())
-                            } ?: owner.complete(context.getString(R.string.read_receipts_invalid_third_party_url).errorFeedback())
+                            } ?: owner.complete(localizedContext.getString(R.string.read_receipts_invalid_third_party_url).errorFeedback())
                         },
                         enabled = activeOperation == null,
                         modifier = Modifier.weight(1f),
@@ -656,7 +659,7 @@ private fun ThirdPartyScreen(
                         Text(stringResource(R.string.read_receipts_test_connection))
                     }
                     Button(
-                        onClick = { candidate()?.let { saveOnly(context, it, operationState) } },
+                        onClick = { candidate()?.let { saveOnly(localizedContext, it, operationState) } },
                         enabled = activeOperation == null,
                         modifier = Modifier.weight(1f),
                     ) { ActionLabel(R.string.action_save, activeOperation == ActiveOperation.SAVING) }
@@ -671,7 +674,7 @@ private fun QuickTunnelScreen(
     operationCoordinator: SettingsOperationCoordinator,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val initial = remember { ReadReceipts.configuration() }
     var automaticPort by rememberSaveable { mutableStateOf(initial.automaticPort) }
     var port by rememberSaveable { mutableStateOf(initial.builtInPort.toString()) }
@@ -680,7 +683,7 @@ private fun QuickTunnelScreen(
     val runtime = rememberRuntimeSnapshot(ReadReceiptsRoute.Quick, operationCoordinator)
 
     fun candidate(): ReadReceiptsConfiguration? = builtInCandidate(
-        context, automaticPort, port, ReadReceiptsTunnelMode.QUICK, "", feedback = { operationState.feedback = it },
+        localizedContext, automaticPort, port, ReadReceiptsTunnelMode.QUICK, "", feedback = { operationState.feedback = it },
     )
 
     DetailScaffold(R.string.read_receipts_quick_tunnel, onBack) {
@@ -693,17 +696,17 @@ private fun QuickTunnelScreen(
                 activeOperation = activeOperation,
                 originActive = runtime.originActive,
                 connected = runtime.tunnel.state == ReadReceiptsTunnelState.CONNECTED,
-                onSave = { candidate()?.let { saveOnly(context, it, operationState) } },
+                onSave = { candidate()?.let { saveOnly(localizedContext, it, operationState) } },
                 onConnect = {
                     candidate()?.let { value ->
                         val owner = operationState.begin(ActiveOperation.CONNECTING)
                             ?: return@let
                         ReadReceipts.applyAndStartBuiltInStack(value, null) {
-                            owner.complete(terminalFeedback(context, it, R.string.read_receipts_connection_succeeded_persistent))
+                            owner.complete(terminalFeedback(localizedContext, it, R.string.read_receipts_connection_succeeded_persistent))
                         }
                     }
                 },
-                onDisconnect = { disconnect(context, operationState) },
+                onDisconnect = { disconnect(localizedContext, operationState) },
             )
         }
     }
@@ -714,7 +717,7 @@ private fun TokenTunnelScreen(
     operationCoordinator: SettingsOperationCoordinator,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val initial = remember { ReadReceipts.configuration() }
     var automaticPort by rememberSaveable { mutableStateOf(initial.automaticPort) }
     var port by rememberSaveable { mutableStateOf(initial.builtInPort.toString()) }
@@ -745,9 +748,9 @@ private fun TokenTunnelScreen(
                             if (terminal is OriginRequestTerminal.Completed && terminal.result.isSuccess) {
                                 ReadReceiptsTunnelController.deleteCredential()
                                 ReadReceiptsTunnelController.refresh()
-                                owner.complete(context.getString(R.string.read_receipts_saved_token_deleted).infoFeedback())
+                                owner.complete(localizedContext.getString(R.string.read_receipts_saved_token_deleted).infoFeedback())
                             } else {
-                                owner.complete(terminalFeedback(context, terminal, R.string.read_receipts_saved_token_deleted))
+                                owner.complete(terminalFeedback(localizedContext, terminal, R.string.read_receipts_saved_token_deleted))
                             }
                         }
                     },
@@ -758,7 +761,7 @@ private fun TokenTunnelScreen(
     }
 
     fun candidate(): ReadReceiptsConfiguration? = builtInCandidate(
-        context, automaticPort, port, ReadReceiptsTunnelMode.TOKEN, hostname, feedback = { operationState.feedback = it },
+        localizedContext, automaticPort, port, ReadReceiptsTunnelMode.TOKEN, hostname, feedback = { operationState.feedback = it },
     )
 
     DetailScaffold(R.string.read_receipts_tunnel_token, onBack) {
@@ -816,21 +819,21 @@ private fun TokenTunnelScreen(
                         onClick = {
                             val value = candidate() ?: return@Button
                             if (token.isBlank() && !tokenSaved) {
-                                operationState.feedback = context.getString(R.string.read_receipts_error_token_required).errorFeedback()
+                                operationState.feedback = localizedContext.getString(R.string.read_receipts_error_token_required).errorFeedback()
                                 return@Button
                             }
                             val owner = operationState.begin(ActiveOperation.CONNECTING)
                                 ?: return@Button
                             ReadReceipts.applyAndStartBuiltInStack(value, token.takeIf(String::isNotBlank)) {
                                 if (it is OriginRequestTerminal.Completed && it.result.isSuccess) token = ""
-                                owner.complete(terminalFeedback(context, it, R.string.read_receipts_connection_succeeded_persistent))
+                                owner.complete(terminalFeedback(localizedContext, it, R.string.read_receipts_connection_succeeded_persistent))
                             }
                         },
                         enabled = activeOperation == null && (!runtime.metadataLoading || token.isNotBlank()),
                         modifier = Modifier.weight(1f),
                     ) { ActionLabel(if (runtime.tunnel.state == ReadReceiptsTunnelState.CONNECTED) R.string.read_receipts_reconnect else R.string.read_receipts_verify_and_connect, activeOperation == ActiveOperation.CONNECTING) }
                     OutlinedButton(
-                        onClick = { disconnect(context, operationState) },
+                        onClick = { disconnect(localizedContext, operationState) },
                         enabled = activeOperation == null && (runtime.originActive || runtime.tunnel.state != ReadReceiptsTunnelState.STOPPED),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                         modifier = Modifier.weight(1f),
@@ -838,7 +841,7 @@ private fun TokenTunnelScreen(
                 }
                 ActionRow {
                     OutlinedButton(
-                        onClick = { candidate()?.let { saveOnly(context, it, operationState) } },
+                        onClick = { candidate()?.let { saveOnly(localizedContext, it, operationState) } },
                         enabled = activeOperation == null,
                         modifier = Modifier.weight(1f),
                     ) { ActionLabel(R.string.action_save, activeOperation == ActiveOperation.SAVING) }
@@ -866,6 +869,7 @@ private fun BrowserTunnelScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val initial = remember { ReadReceipts.configuration() }
     var port by rememberSaveable { mutableStateOf(initial.builtInPort.toString()) }
     var selectedTunnelId by rememberSaveable { mutableStateOf(initial.selectedTunnelId) }
@@ -914,8 +918,8 @@ private fun BrowserTunnelScreen(
         operationCoordinator.launch(ReadReceiptsRoute.Browser, operation) {
             val result = block()
             result.fold(
-                onSuccess = { context.getString(R.string.read_receipts_operation_completed).successFeedback() },
-                onFailure = { ReadReceiptsUiText.from(it, R.string.read_receipts_unknown_error).resolve(context).errorFeedback() },
+                onSuccess = { localizedContext.getString(R.string.read_receipts_operation_completed).successFeedback() },
+                onFailure = { ReadReceiptsUiText.from(it, R.string.read_receipts_unknown_error).resolve(localizedContext).errorFeedback() },
             )
         }
     }
@@ -972,21 +976,21 @@ private fun BrowserTunnelScreen(
                                         login = state
                                         val url = state.authorizationUrl
                                         if (url == null) {
-                                            context.getString(R.string.read_receipts_authorization_required).infoFeedback()
+                                            localizedContext.getString(R.string.read_receipts_authorization_required).infoFeedback()
                                         } else {
                                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                                                 .fold(
                                                     onSuccess = { OperationFeedback() },
                                                     onFailure = {
-                                                        operationState.feedback = context.getString(R.string.read_receipts_authorization_open_failed).errorFeedback()
-                                                        context.getString(R.string.read_receipts_authorization_required).infoFeedback()
+                                                        operationState.feedback = localizedContext.getString(R.string.read_receipts_authorization_open_failed).errorFeedback()
+                                                        localizedContext.getString(R.string.read_receipts_authorization_required).infoFeedback()
                                                     },
                                                 )
                                         }
                                     },
                                     onFailure = {
                                         ReadReceiptsUiText.from(it, R.string.read_receipts_browser_login_start_failed)
-                                            .resolve(context).errorFeedback()
+                                            .resolve(localizedContext).errorFeedback()
                                     },
                                 )
                             }
@@ -1006,13 +1010,13 @@ private fun BrowserTunnelScreen(
                             enabled = !actionsBusy,
                             onClick = {
                                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(authorizationUrl))) }
-                                    .onFailure { operationState.feedback = context.getString(R.string.read_receipts_authorization_open_failed).errorFeedback() }
+                                    .onFailure { operationState.feedback = localizedContext.getString(R.string.read_receipts_authorization_open_failed).errorFeedback() }
                             },
                             trailingContent = {
                                 IconButton(
                                     onClick = {
                                         copyToClipboard(context, authorizationUrl)
-                                        operationState.feedback = context.getString(R.string.read_receipts_authorization_link_copied).successFeedback()
+                                        operationState.feedback = localizedContext.getString(R.string.read_receipts_authorization_link_copied).successFeedback()
                                     },
                                 ) {
                                     Icon(
@@ -1035,11 +1039,11 @@ private fun BrowserTunnelScreen(
                                 runCatching { ReadReceiptsTunnelController.listExistingTunnels() }.fold(
                                     onSuccess = {
                                         tunnels = it
-                                        context.getString(R.string.read_receipts_tunnel_list_refreshed).successFeedback()
+                                        localizedContext.getString(R.string.read_receipts_tunnel_list_refreshed).successFeedback()
                                     },
                                     onFailure = {
                                         ReadReceiptsUiText.from(it, R.string.read_receipts_tunnel_list_refresh_failed)
-                                            .resolve(context).errorFeedback()
+                                            .resolve(localizedContext).errorFeedback()
                                     },
                                 )
                             }
@@ -1157,7 +1161,7 @@ private fun BrowserTunnelScreen(
             }
         }
         item { RuntimeSection(runtime) }
-        if (commitPending) item { PersistentFeedback(context.getString(R.string.read_receipts_browser_commit_pending).infoFeedback(), loading = true) }
+        if (commitPending) item { PersistentFeedback(localizedContext.getString(R.string.read_receipts_browser_commit_pending).infoFeedback(), loading = true) }
         item { OperationProgress(activeOperation, hideWhen = setOf(ActiveOperation.CONNECTING, ActiveOperation.RECONNECTING)) }
         item { PersistentFeedback(operationState.feedback) }
         item {
@@ -1165,9 +1169,9 @@ private fun BrowserTunnelScreen(
                 ActionRow {
                     Button(
                         onClick = {
-                            val tunnel = selectedTunnel ?: run { operationState.feedback = context.getString(R.string.read_receipts_invalid_cloudflare_tunnel).errorFeedback(); return@Button }
-                            val fixedPort = port.toIntOrNull()?.takeIf { it in 1..65535 } ?: run { operationState.feedback = context.getString(R.string.read_receipts_invalid_loopback_port).errorFeedback(); return@Button }
-                            val root = ReadReceiptsTunnelHostnames.canonicalPublicRoot(selectedHostname) ?: run { operationState.feedback = context.getString(R.string.read_receipts_invalid_public_hostname).errorFeedback(); return@Button }
+                            val tunnel = selectedTunnel ?: run { operationState.feedback = localizedContext.getString(R.string.read_receipts_invalid_cloudflare_tunnel).errorFeedback(); return@Button }
+                            val fixedPort = port.toIntOrNull()?.takeIf { it in 1..65535 } ?: run { operationState.feedback = localizedContext.getString(R.string.read_receipts_invalid_loopback_port).errorFeedback(); return@Button }
+                            val root = ReadReceiptsTunnelHostnames.canonicalPublicRoot(selectedHostname) ?: run { operationState.feedback = localizedContext.getString(R.string.read_receipts_invalid_public_hostname).errorFeedback(); return@Button }
                             val value = ReadReceipts.configuration().copy(
                                 mode = ReadReceiptsServerMode.BUILT_IN,
                                 automaticPort = false,
@@ -1182,7 +1186,7 @@ private fun BrowserTunnelScreen(
                             ReadReceipts.applyAndSelectBrowserStack(value, {
                                 owner.transition(ActiveOperation.COMMITTING)
                             }) {
-                                owner.complete(terminalFeedback(context, it, R.string.read_receipts_browser_tunnel_connected))
+                                owner.complete(terminalFeedback(localizedContext, it, R.string.read_receipts_browser_tunnel_connected))
                             }
                         },
                         enabled = login.state == ReadReceiptsTunnelState.CONNECTED && selectedTunnel != null && !actionsBusy,
@@ -1193,7 +1197,7 @@ private fun BrowserTunnelScreen(
                             val owner = operationState.begin(ActiveOperation.RECONNECTING)
                                 ?: return@Button
                             ReadReceipts.reconnectAuthoritativeBrowserStack(ReadReceipts.configuration()) {
-                                owner.complete(terminalFeedback(context, it, R.string.read_receipts_browser_tunnel_connected))
+                                owner.complete(terminalFeedback(localizedContext, it, R.string.read_receipts_browser_tunnel_connected))
                             }
                         },
                         enabled = ReadReceipts.configuration().selectedTunnelId.isNotBlank() && !actionsBusy,
@@ -1202,7 +1206,7 @@ private fun BrowserTunnelScreen(
                 }
                 ActionRow {
                     OutlinedButton(
-                        onClick = { disconnect(context, operationState) },
+                        onClick = { disconnect(localizedContext, operationState) },
                         enabled = !actionsBusy && (runtime.originActive || runtime.tunnel.state != ReadReceiptsTunnelState.STOPPED),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                         modifier = Modifier.weight(1f),
@@ -1400,7 +1404,7 @@ private fun SectionTitle(title: String) {
 }
 
 private fun builtInCandidate(
-    context: android.content.Context,
+    localizedContext: android.content.Context,
     automaticPort: Boolean,
     port: String,
     mode: ReadReceiptsTunnelMode,
@@ -1409,20 +1413,20 @@ private fun builtInCandidate(
 ): ReadReceiptsConfiguration? {
     val current = ReadReceipts.configuration()
     if (mode != ReadReceiptsTunnelMode.QUICK && automaticPort) {
-        feedback(context.getString(R.string.read_receipts_tunnel_mode_requires_fixed_port).errorFeedback())
+        feedback(localizedContext.getString(R.string.read_receipts_tunnel_mode_requires_fixed_port).errorFeedback())
         return null
     }
     val portValue = if (automaticPort) {
         current.builtInPort
     } else {
         port.toIntOrNull()?.takeIf { it in 1..65535 } ?: run {
-            feedback(context.getString(R.string.read_receipts_invalid_loopback_port).errorFeedback())
+            feedback(localizedContext.getString(R.string.read_receipts_invalid_loopback_port).errorFeedback())
             return null
         }
     }
     val canonicalHostname = if (mode == ReadReceiptsTunnelMode.QUICK) current.hostname else {
         ReadReceiptsTunnelHostnames.canonicalPublicRoot(hostname) ?: run {
-            feedback(context.getString(R.string.read_receipts_invalid_public_hostname).errorFeedback())
+            feedback(localizedContext.getString(R.string.read_receipts_invalid_public_hostname).errorFeedback())
             return null
         }
     }
@@ -1436,7 +1440,7 @@ private fun builtInCandidate(
 }
 
 private fun saveOnly(
-    context: android.content.Context,
+    localizedContext: android.content.Context,
     candidate: ReadReceiptsConfiguration,
     operationState: SettingsOperationState,
 ) {
@@ -1451,13 +1455,13 @@ private fun saveOnly(
     ) {
         ReadReceiptsConfigurationSaveAction.COMMIT -> {
             ReadReceipts.saveConfiguration(candidate)
-            operationState.feedback = context.getString(R.string.read_receipts_settings_saved).successFeedback()
+            operationState.feedback = localizedContext.getString(R.string.read_receipts_settings_saved).successFeedback()
         }
 
         ReadReceiptsConfigurationSaveAction.STOP_THEN_COMMIT -> {
             val owner = operationState.begin(ActiveOperation.SAVING) ?: return
             ReadReceipts.applyConfigurationAfterStoppingStack(candidate) { terminal ->
-                owner.complete(terminalFeedback(context, terminal, R.string.read_receipts_settings_saved))
+                owner.complete(terminalFeedback(localizedContext, terminal, R.string.read_receipts_settings_saved))
             }
         }
 
@@ -1467,11 +1471,11 @@ private fun saveOnly(
             val owner = operationState.begin(ActiveOperation.SAVING) ?: return
             if (candidate.tunnelMode() == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
                 ReadReceipts.reconnectAuthoritativeBrowserStack(candidate) { terminal ->
-                    owner.complete(terminalFeedback(context, terminal, R.string.read_receipts_settings_saved))
+                    owner.complete(terminalFeedback(localizedContext, terminal, R.string.read_receipts_settings_saved))
                 }
             } else {
                 ReadReceipts.applyAndStartBuiltInStack(candidate, null) { terminal ->
-                    owner.complete(terminalFeedback(context, terminal, R.string.read_receipts_settings_saved))
+                    owner.complete(terminalFeedback(localizedContext, terminal, R.string.read_receipts_settings_saved))
                 }
             }
         }
@@ -1479,25 +1483,25 @@ private fun saveOnly(
 }
 
 private fun disconnect(
-    context: android.content.Context,
+    localizedContext: android.content.Context,
     operationState: SettingsOperationState,
 ) {
     val owner = operationState.begin(ActiveOperation.DISCONNECTING) ?: return
     ReadReceipts.disconnectBuiltInStack { terminal ->
-        owner.complete(terminalFeedback(context, terminal, R.string.read_receipts_stack_stopped))
+        owner.complete(terminalFeedback(localizedContext, terminal, R.string.read_receipts_stack_stopped))
     }
 }
 
 private fun terminalFeedback(
-    context: android.content.Context,
+    localizedContext: android.content.Context,
     terminal: OriginRequestTerminal<Unit>,
     @StringRes success: Int,
 ): OperationFeedback = when (terminal) {
     is OriginRequestTerminal.Completed -> terminal.result.fold(
-        onSuccess = { context.getString(success).successFeedback() },
-        onFailure = { ReadReceiptsUiText.from(it, R.string.read_receipts_unknown_error).resolve(context).errorFeedback() },
+        onSuccess = { localizedContext.getString(success).successFeedback() },
+        onFailure = { ReadReceiptsUiText.from(it, R.string.read_receipts_unknown_error).resolve(localizedContext).errorFeedback() },
     )
-    OriginRequestTerminal.Superseded -> context.getString(R.string.read_receipts_connection_superseded).errorFeedback()
+    OriginRequestTerminal.Superseded -> localizedContext.getString(R.string.read_receipts_connection_superseded).errorFeedback()
 }
 
 @Composable
@@ -1570,14 +1574,14 @@ private fun ReadReceiptsTunnelState.labelRes(): Int = when (this) {
     ReadReceiptsTunnelState.STOPPING -> R.string.read_receipts_state_stopping
 }
 
-private fun shareUrl(context: android.content.Context, url: String) {
+private fun shareUrl(context: android.content.Context, localizedContext: android.content.Context, url: String) {
     context.startActivity(
         Intent.createChooser(
             Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_TEXT, url)
             },
-            context.getString(R.string.read_receipts_share_url),
+            localizedContext.getString(R.string.read_receipts_share_url),
         ),
     )
 }

@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,10 +28,10 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.input.KeyboardType
@@ -48,9 +47,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
 import dev.ujhhgtg.wekit.agent.model.ModelProviderManager
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
@@ -66,7 +63,7 @@ import java.util.UUID
 @Composable
 fun ModelProviderDetailScreen(providerId: String, onOpenModel: (String) -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     var provider by remember { mutableStateOf<ModelProviderEntity?>(null) }
     var showDeleteProviderConfirm by remember { mutableStateOf(false) }
 
@@ -207,7 +204,7 @@ fun ModelProviderDetailScreen(providerId: String, onOpenModel: (String) -> Unit,
                                     onSuccess = { importCandidates = it.distinct() },
                                     onFailure = {
                                         showToast(
-                                            currentAgentLocalizedContext(context).getString(
+                                            localizedContext.getString(
                                                 R.string.agent_fetch_models_failed,
                                                 it.message,
                                             )
@@ -237,7 +234,7 @@ fun ModelProviderDetailScreen(providerId: String, onOpenModel: (String) -> Unit,
                         WeAgentRepository.deleteModelProvider(p.id)
                         onBack()
                     } catch (e: Exception) {
-                        showToast(currentAgentLocalizedContext(context).getString(R.string.agent_delete_failed, e.message))
+                        showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
                     }
                 }
             },
@@ -254,7 +251,7 @@ fun ModelProviderDetailScreen(providerId: String, onOpenModel: (String) -> Unit,
             scope.launch {
                 val (added, overwritten) = WeAgentRepository.importModels(providerId, picked)
                 showToast(
-                    currentAgentLocalizedContext(context).getString(
+                    localizedContext.getString(
                         R.string.agent_models_imported_result, added, overwritten
                     )
                 )
@@ -272,7 +269,7 @@ fun ModelProviderDetailScreen(providerId: String, onOpenModel: (String) -> Unit,
 @Composable
 fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     // Blank modelId = adding; otherwise null until the entity loads.
     var model by remember { mutableStateOf<ModelEntity?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -446,7 +443,7 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
                     model?.id?.takeIf { it.isNotBlank() }?.let { WeAgentRepository.deleteModel(it) }
                     onBack()
                 } catch (e: Exception) {
-                    showToast(currentAgentLocalizedContext(context).getString(R.string.agent_delete_failed, e.message))
+                    showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
                 }
             }
         },
@@ -482,12 +479,6 @@ private fun effortGearLabel(value: String): String = stringResource(
     }
 )
 
-private fun currentAgentLocalizedContext(base: Context): Context =
-    LocalizedContextFactory.create(
-        base,
-        WeKitLocaleController.resolvedLocale,
-        LocaleResourceMode.InjectedHost,
-    )
 
 /**
  * Model-import picker: lists ids fetched from the provider's `/models` endpoint. Ids already added

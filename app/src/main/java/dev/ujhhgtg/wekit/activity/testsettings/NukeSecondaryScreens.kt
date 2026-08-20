@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +69,7 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.debug.ResetDexCache
 import dev.ujhhgtg.wekit.i18n.LanguageSelection
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeButton
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCategoryIcon
@@ -127,7 +129,7 @@ internal fun NukeDestinationPage(
 
 @Composable
 private fun NukeModuleDebugPage(onBack: (Offset) -> Unit) {
-    val context = LocalContext.current
+    val context = LocalWeKitLocalizedContext.current
     val resolvedLocale = WeKitLocaleController.resolvedLocale
     val featureNameCollator = remember(resolvedLocale) {
         Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
@@ -204,7 +206,7 @@ private fun NukeModuleDebugPage(onBack: (Offset) -> Unit) {
 
 @Composable
 private fun NukeFeatureStatusRow(feature: BaseFeature, onClick: () -> Unit) {
-    val context = LocalContext.current
+    val context = LocalWeKitLocalizedContext.current
     NukePreferenceRow(
         title = feature.localizedName(context),
         description = feature.categoryIds
@@ -220,7 +222,7 @@ private fun NukeFeatureStatusRow(feature: BaseFeature, onClick: () -> Unit) {
 
 @Composable
 private fun NukeFeatureStatusDialog(feature: BaseFeature, onDismiss: () -> Unit) {
-    val context = LocalContext.current
+    val context = LocalWeKitLocalizedContext.current
     val kind = when (feature) {
         is ClickableFeature -> stringResource(R.string.nuke_feature_kind_configurable)
         is SwitchFeature -> stringResource(R.string.nuke_feature_kind_switch)
@@ -409,7 +411,7 @@ private fun NukeBooleanPreference(
 @Composable
 private fun NukeUpdatePage(onBack: (Offset) -> Unit) {
     val activity = LocalComponentActivity.current
-    val localizedContext = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val scope = rememberCoroutineScope()
     var updateInfo by remember { mutableStateOf<UpdateResult.UpdateAvailable?>(null) }
     var updateError by remember { mutableStateOf<String?>(null) }

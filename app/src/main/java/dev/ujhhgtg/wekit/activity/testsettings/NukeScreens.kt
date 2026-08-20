@@ -62,6 +62,7 @@ import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCategoryIcon
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeCountAndChevron
@@ -111,7 +112,7 @@ private data class NukeRootEntry(
 
 @Composable
 internal fun NukeSettingsRoot() {
-    val context = LocalContext.current
+    val context = LocalWeKitLocalizedContext.current
     val resolvedLocale = WeKitLocaleController.resolvedLocale
     val featureNameCollator = remember(resolvedLocale) {
         Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
@@ -173,6 +174,7 @@ private fun NukeHomePage(
     onOpenDestination: (NukeDestination, Offset) -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val localizedContext = LocalWeKitLocalizedContext.current
     val activity = LocalComponentActivity.current
     val revision = FeatureCategoryState.revision
     val enabledItems = remember(revision) { FeatureCategoryState.enabledItems() }
@@ -185,7 +187,7 @@ private fun NukeHomePage(
     val featureEntries = buildList {
         add(
             NukeRootEntry(
-                title = context.getString(featureCategoryTitleRes(NEW_FEATURES_CATEGORY)),
+                title = localizedContext.getString(featureCategoryTitleRes(NEW_FEATURES_CATEGORY)),
                 imageVector = MaterialSymbols.Outlined.Fiber_new,
                 count = NEW_FEATURE_ITEMS.count { it is SwitchFeature },
                 destination = NukeDestination.Category(NEW_FEATURES_CATEGORY),
@@ -193,7 +195,7 @@ private fun NukeHomePage(
         )
         add(
             NukeRootEntry(
-                title = context.getString(featureCategoryTitleRes(ENABLED_FEATURES_CATEGORY)),
+                title = localizedContext.getString(featureCategoryTitleRes(ENABLED_FEATURES_CATEGORY)),
                 imageVector = MaterialSymbols.Outlined.Check_circle,
                 count = enabledItems.size,
                 destination = NukeDestination.Category(ENABLED_FEATURES_CATEGORY),
@@ -202,7 +204,7 @@ private fun NukeHomePage(
         FEATURE_CATEGORIES.forEach { category ->
             add(
                 NukeRootEntry(
-                    title = context.getString(category.titleRes),
+                    title = localizedContext.getString(category.titleRes),
                     imageVector = category.icon,
                     count = featureItems.count { category.id in it.categoryIds },
                     destination = NukeDestination.Category(category.id),
@@ -300,7 +302,7 @@ private fun NukeHomePage(
                     query = query,
                     featureItems = featureItems,
                     activity = activity,
-                    localizedContext = context,
+                    localizedContext = localizedContext,
                     animate = searchEntranceEnabled,
                 )
             }
@@ -492,7 +494,7 @@ internal fun NukeFeatureCategoryPage(
     featureItems: List<SwitchFeature>,
     onBack: (Offset) -> Unit,
 ) {
-    val categoryTitle = LocalContext.current.getString(featureCategoryTitleRes(categoryId))
+    val categoryTitle = LocalWeKitLocalizedContext.current.getString(featureCategoryTitleRes(categoryId))
     val revision = FeatureCategoryState.revision
     val items = remember(categoryId, featureItems, revision) {
         when (categoryId) {
@@ -548,7 +550,7 @@ internal fun NukeFeatureRow(
     feature: SwitchFeature,
     activity: androidx.activity.ComponentActivity,
 ) {
-    val context = LocalContext.current
+    val context = LocalWeKitLocalizedContext.current
     val revision = FeatureCategoryState.revision
     val checked = remember(feature.technicalId, revision) {
         WePrefs.getBoolOrDef(feature.technicalId, feature.defaultEnabled)

@@ -17,19 +17,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.skill.SkillStore
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -46,7 +44,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SkillsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     // SkillStore is filesystem-backed (no Flow); reload via a tick after each mutation.
     var reloadTick by remember { mutableStateOf(0) }
     var skills by remember { mutableStateOf<List<SkillStore.Skill>>(emptyList()) }
@@ -111,12 +109,7 @@ fun SkillsScreen(onBack: () -> Unit) {
             scope.launch {
                 val ok = withContext(Dispatchers.IO) { SkillStore.save(name, description, body) }
                 if (ok == null) {
-                    val localized = LocalizedContextFactory.create(
-                        context,
-                        WeKitLocaleController.resolvedLocale,
-                        LocaleResourceMode.InjectedHost,
-                    )
-                    showToast(localized.getString(R.string.agent_invalid_skill_name))
+                    showToast(localizedContext.getString(R.string.agent_invalid_skill_name))
                 }
                 else {
                     // Renaming isn't in-place: if the dir name changed, drop the old one.
