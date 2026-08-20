@@ -5,6 +5,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus
 import dev.ujhhgtg.wekit.agent.data.entity.McpTransport
 import dev.ujhhgtg.wekit.agent.data.entity.MessageRole
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
 import dev.ujhhgtg.wekit.agent.tool.ToolMode
 import dev.ujhhgtg.wekit.agent.trigger.ScheduleKind
@@ -52,6 +53,11 @@ class WeAgentConverters {
     fun modelProviderTypeToString(v: ModelProviderType?): String? = v?.name
     @TypeConverter
     fun stringToModelProviderType(v: String?): ModelProviderType? = v?.let(ModelProviderType::valueOf)
+
+    @TypeConverter
+    fun linuxEnvironmentTypeToString(v: LinuxEnvironmentType?): String? = v?.name
+    @TypeConverter
+    fun stringToLinuxEnvironmentType(v: String?): LinuxEnvironmentType? = v?.let(LinuxEnvironmentType::valueOf)
 
     @TypeConverter
     fun triggerTypeToString(v: TriggerType?): String? = v?.name

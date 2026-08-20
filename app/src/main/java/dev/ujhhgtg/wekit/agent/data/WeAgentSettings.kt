@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Typed accessor over the `settings` key-value table for WeAgent global configuration (§2.1, §3.3,
- * §5.4, §7, §8). Values are cached in memory after [load]; writes update both the DB and cache.
+ * §5.4). Values are cached in memory after [load]; writes update both the DB and cache.
  * Kept deliberately small — per-feature UI reads/writes go through the named helpers here.
  */
 object WeAgentSettings {
@@ -18,10 +18,11 @@ object WeAgentSettings {
     // Keys
     const val KEY_TOOL_LOADING_MODE = "tool_loading_mode"            // §3.3 STATIC | DYNAMIC
     const val KEY_SMALL_MODEL_ID = "small_model_id"                  // §5.4 ("" = same as main)
-    const val KEY_MEMORY_ENABLED = "memory_enabled"                 // §8
     const val KEY_DEFAULT_MODEL_ID = "default_model_id"             // new-session default
     const val KEY_DEFAULT_SYSTEM_PROMPT_ID = "default_system_prompt_id" // new-session default binding
-    const val KEY_DEFAULT_WORKSPACE_ID = "default_workspace_id"     // §7 new-session default
+    const val KEY_DEFAULT_LINUX_ENVIRONMENT_ID = "default_linux_environment_id"
+    const val KEY_NATIVE_LINUX_WORKING_DIRECTORY = "native_linux_working_directory"
+    const val KEY_NATIVE_LINUX_ENVIRONMENT_VARIABLES = "native_linux_environment_variables"
     const val KEY_SEND_WHILE_RUNNING = "send_while_running"         // QUEUE_AFTER_TURN | QUEUE_AS_STEER
     const val KEY_OVERLAY_MODE = "overlay_mode"                     // DISABLED | FOREGROUND_ONLY | ALWAYS
 
@@ -68,11 +69,6 @@ object WeAgentSettings {
             val v = get(key); v != null && v in promptIds
         }
 
-    suspend fun workspaceDefaultKeysFor(workspaceIds: Set<String>): List<String> =
-        listOf(KEY_DEFAULT_WORKSPACE_ID).filter { key ->
-            val v = get(key); v != null && v in workspaceIds
-        }
-
     suspend fun toolLoadingMode(): ToolLoadingMode =
         when (get(KEY_TOOL_LOADING_MODE)) {
             "DYNAMIC" -> ToolLoadingMode.DYNAMIC
@@ -82,11 +78,12 @@ object WeAgentSettings {
     /** Small model id for smart-approval & title generation; blank means "same as main model" (§5.4). */
     suspend fun smallModelId(): String? = get(KEY_SMALL_MODEL_ID)?.takeIf { it.isNotBlank() }
 
-    suspend fun memoryEnabled(): Boolean = get(KEY_MEMORY_ENABLED)?.toBoolean() ?: false
-
     suspend fun defaultModelId(): String? = get(KEY_DEFAULT_MODEL_ID)?.takeIf { it.isNotBlank() }
     suspend fun defaultSystemPromptId(): String? = get(KEY_DEFAULT_SYSTEM_PROMPT_ID)?.takeIf { it.isNotBlank() }
-    suspend fun defaultWorkspaceId(): String? = get(KEY_DEFAULT_WORKSPACE_ID)?.takeIf { it.isNotBlank() }
+    suspend fun nativeLinuxWorkingDirectory(): String? = get(KEY_NATIVE_LINUX_WORKING_DIRECTORY)?.takeIf { it.isNotBlank() }
+    suspend fun nativeLinuxEnvironmentVariables(): String = get(KEY_NATIVE_LINUX_ENVIRONMENT_VARIABLES) ?: "{}"
+    suspend fun defaultLinuxEnvironmentId(): String? =
+        get(KEY_DEFAULT_LINUX_ENVIRONMENT_ID)?.takeIf { it.isNotBlank() }
 
     /**
      * When the floating ball should be attached. An explicit [KEY_OVERLAY_MODE] value is

@@ -1,0 +1,86 @@
+package dev.ujhhgtg.wekit.extensions
+
+import android.os.Build
+import android.os.Process
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Terminal
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstance
+import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceInstaller
+import dev.ujhhgtg.wekit.utils.HostInfo
+import java.io.File
+import java.util.zip.ZipFile
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
+class ArchLinuxPackNotInstalledException : IllegalStateException("Arch Linux ARM64 extension pack is not installed")
+
+object ArchLinuxPack : ExtensionPack {
+    override val id = "archlinux-arm64"
+    override val nameRes = R.string.extensions_pack_archlinux_name
+    override val descriptionRes = R.string.extensions_pack_archlinux_desc
+    override val icon: ImageVector = MaterialSymbols.Outlined.Terminal
+
+    private const val ROOTFS = "ArchLinuxARM-aarch64-rootfs.tar.gz"
+    private const val PROOT = "proot"
+    private const val PROOT_LOADER = "proot-loader"
+    private const val BRIDGE = "invoke_tool"
+    private const val SOURCE_MANIFEST = "source-manifest.json"
+
+    private val baseDir: File get() = File(HostInfo.application.filesDir, "wekit-extensions/$id")
+    override fun installDir(): File = baseDir
+    override fun stagingDir(): File = File(baseDir, ".staging")
+    override fun isInUse(): Boolean = false
+
+    override fun install(verifiedTmp: File, version: String, sha256: String) {
+        val staging = File(baseDir, ".$version-installing").apply { deleteRecursively(); mkdirs() }
+        try {
+            ZipFile(verifiedTmp).use { archive ->
+                val manifestEntry = archive.getEntry("manifest.json") ?: error("Arch pack has no inner manifest")
+                val manifestBytes = archive.getInputStream(manifestEntry).readBytes()
+                val hashes = Json.parseToJsonElement(manifestBytes.decodeToString()).jsonObject["files"]!!
+                    .jsonObject.mapValues { it.value.jsonPrimitive.content }
+                for (name in listOf(ROOTFS, PROOT, PROOT_LOADER, BRIDGE)) {
+                    val entry = archive.getEntry(name) ?: error("Arch pack is missing $name")
+                    require(!entry.isDirectory && entry.size >= 0) { "invalid Arch pack entry: $name" }
+                    val temporary = File(staging, "$name.tmp")
+                    archive.getInputStream(entry).use { input -> temporary.outputStream().use(input::copyTo) }
+                    require(PackFs.verify(temporary, hashes.getValue(name))) { "inner manifest SHA-256 mismatch for $name" }
+                    val output = File(staging, name)
+                    PackFs.atomicReplace(temporary, output)
+                    if (name != ROOTFS) require(output.setExecutable(true, true)) { "cannot make $name executable" }
+                }
+                File(staging, SOURCE_MANIFEST).writeBytes(manifestBytes)
+            }
+            PackFs.writeManifest(staging, PackManifest(id, version, sha256, System.currentTimeMillis()))
+            val destination = File(baseDir, version)
+            destination.deleteRecursively()
+            require(staging.renameTo(destination)) { "cannot publish Arch template" }
+            sweepOtherVersions(version)
+        } finally {
+            staging.deleteRecursively()
+        }
+    }
+
+    suspend fun createInstance(instanceId: String): ArchLinuxInstance {
+        require(Process.is64Bit() && Build.SUPPORTED_64_BIT_ABIS.contains("arm64-v8a")) {
+            "Arch Linux PRoot requires an ARM64 process and device"
+        }
+        val manifest = installedManifest() ?: throw ArchLinuxPackNotInstalledException()
+        val template = File(baseDir, manifest.version)
+        val source = Json.parseToJsonElement(File(template, SOURCE_MANIFEST).readText()).jsonObject["source"]!!.jsonObject
+        val maxExtractedBytes = source["rootfs_max_extracted_bytes"]!!.jsonPrimitive.content.toLong()
+        return ArchLinuxInstanceInstaller.install(
+            instanceId = instanceId,
+            contentVersion = manifest.version,
+            rootfsArchive = File(template, ROOTFS),
+            proot = File(template, PROOT),
+            prootLoader = File(template, PROOT_LOADER),
+            bridge = File(template, BRIDGE),
+            instancesDirectory = File(HostInfo.application.filesDir, "wekit-agent/environment/instances"),
+            maxExtractedBytes = maxExtractedBytes,
+        )
+    }
+}

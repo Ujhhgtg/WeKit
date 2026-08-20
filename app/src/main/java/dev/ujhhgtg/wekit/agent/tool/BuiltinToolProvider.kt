@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.agent.tool
 
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider.Companion.AVAILABILITY_CHECKS
-import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider.Companion.FS_TOOL_NAMES
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider.Companion.exaKeyPresent
 import dev.ujhhgtg.wekit.features.core.AgentTool
 import kotlinx.serialization.json.JsonObject
@@ -12,13 +11,10 @@ import kotlinx.serialization.json.JsonObject
  *
  *  - `builtin-wechat`      — WeChat operations (send/read/group/moments/…)
  *  - `builtin-wechat-sql`  — raw database SQL (query / execute)
- *  - `builtin-fs`          — workspace/memory file tools + `load_skill`
+ *  - `builtin-fs`          — Linux environment tools + `load_skill`
  *
- * All are always available and pinned/undeletable in settings. Within `builtin-fs`, the file tools
- * ([FS_TOOL_NAMES]) are hidden from the model unless the turn resolves a workspace or memory is
- * enabled; `load_skill` stays visible regardless (skills are their own dynamic-discovery mechanism).
- * That gating — and the vision gating of [VISION_TOOL_NAMES] — is applied per turn by [ToolRegistry]
- * from the turn's [ToolVisibility], not here, so concurrent sessions can't clobber each other.
+ * All are always available and pinned/undeletable in settings. Vision gating is applied per turn by
+ * [ToolRegistry] from the turn's [ToolVisibility], so concurrent sessions cannot clobber each other.
  */
 class BuiltinToolProvider(
     override val id: String,
@@ -31,12 +27,12 @@ class BuiltinToolProvider(
 
     private val byName: Map<String, AgentToolDescriptor> = descriptors.associateBy { it.name }
 
-    /** Tool name + factory-default mode, for permission seeding (includes hidden fs tools). */
+    /** Tool name + factory-default mode, for permission seeding. */
     fun seedInfos(): List<BuiltinToolInfo> =
         descriptors.map { BuiltinToolInfo(it.name, ToolMode.defaultFor(it.sideEffect)) }
 
     /**
-     * Every tool this provider owns. Conditional gating ([FS_TOOL_NAMES] / [VISION_TOOL_NAMES]) is
+     * Every tool this provider owns. Conditional vision gating is
      * NOT applied here — it is per-turn state and is applied by
      * [dev.ujhhgtg.wekit.agent.tool.ToolRegistry.resolveVisibleTools] from the turn's
      * [ToolVisibility]. Doing it here would mean reading process-global flags that concurrent
@@ -82,6 +78,8 @@ class BuiltinToolProvider(
         const val TRIGGER_ID = AgentTool.BUILTIN_TRIGGER
         const val INFO_ID = AgentTool.BUILTIN_INFO
         const val NET_ID = AgentTool.BUILTIN_NET
+        const val TERMINAL_ID = AgentTool.BUILTIN_TERMINAL
+        val TERMINAL_TOOL_NAMES = setOf("terminal_list", "terminal_start", "terminal_write", "terminal_control", "terminal_read", "terminal_resize", "terminal_kill")
 
         private val DISPLAY_NAMES = mapOf(
             WECHAT_ID to "微信操作",
@@ -94,26 +92,6 @@ class BuiltinToolProvider(
             INFO_ID to "环境信息",
             NET_ID to "网络",
         )
-
-        /**
-         * File-tool names within `builtin-fs`, hidden from the model unless the turn resolves a
-         * workspace or memory is enabled. Kept as a name set so gating never touches permission
-         * seeding (rows are still seeded; the tools are simply not advertised while disabled).
-         * `load_skill` is NOT here — it is always visible.
-         */
-        val FS_TOOL_NAMES = setOf(
-            "read_file", "list_dir", "search_files",
-            "write_file", "append_file", "delete_file", "move_file",
-        )
-
-        /**
-         * Preview visibility of the fs file tools OUTSIDE a resolved turn (settings previews,
-         * defaults). Reflects the global memory setting only. A running turn never reads this:
-         * WeAgentService resolves fs visibility per turn (the session's effective workspace + the
-         * memory setting) and snapshots it into the turn's own [ToolVisibility].
-         */
-        @Volatile
-        var fsToolsVisible: Boolean = false
 
         /**
          * Screenshot tool name — advertised only when the turn's model supports vision. Gated

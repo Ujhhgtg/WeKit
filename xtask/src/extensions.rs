@@ -26,6 +26,7 @@ use zip::ZipWriter;
 
 const PACK_SCRIPT_DEPS: &str = "script-deps";
 const PACK_CLOUDFLARED: &str = "cloudflared";
+const PACK_ARCHLINUX: &str = "archlinux-arm64";
 const DIST_DIR: &str = "dist/extensions";
 const INDEX_FILE: &str = "manifest.json";
 const CLOUDFLARED_LIB: &str = "libwekit_cloudflared.so";
@@ -35,7 +36,7 @@ pub struct ExtensionsArgs {
     #[command(subcommand)]
     pub command: ExtensionsCommand,
 
-    /// Only process the given pack id (script-deps | cloudflared). Skips writing the index.
+    /// Only process the given pack id (script-deps | cloudflared | archlinux-arm64). Skips writing the index.
     #[arg(long, global = true)]
     pub only: Option<String>,
 }
@@ -60,6 +61,20 @@ pub struct PackIndexEntry {
     pub asset: String,
     pub sha256: String,
 }
+
+#[derive(Debug, Deserialize)]
+struct ArchSources {
+    rootfs: ArchRootfsSource,
+    proot: ArchProotSource,
+    bridge: ArchBridgeSource,
+}
+
+#[derive(Debug, Deserialize)]
+struct ArchRootfsSource { release: String, url: String, md5: String, sha256: String, max_extracted_bytes: u64, signature_url: String, signing_fingerprint: String }
+#[derive(Debug, Deserialize)]
+struct ArchProotSource { source: String, commit: String }
+#[derive(Debug, Deserialize)]
+struct ArchBridgeSource { cargo_package: String, target: String }
 
 /// SHA-256 over the sorted `name:sha256\n` lines — the pack's content identity.
 pub fn content_hash(files: &BTreeMap<String, String>) -> String {
@@ -91,6 +106,18 @@ fn sha256_file(path: &Path) -> Result<String> {
     Ok(hex(&hasher.finalize()))
 }
 
+fn md5_file(path: &Path) -> Result<String> {
+    let mut file = File::open(path).with_context(|| format!("open {}", path.display()))?;
+    let mut context = md5::Context::new();
+    let mut buf = [0u8; 64 * 1024];
+    loop {
+        let n = file.read(&mut buf)?;
+        if n == 0 { break; }
+        context.consume(&buf[..n]);
+    }
+    Ok(format!("{:x}", context.finalize()))
+}
+
 /// Index entry for a pack: versioned asset name plus the asset's SHA-256.
 /// The files map holds exactly one canonical (version-less) name -> sha entry.
 fn index_entry(id: &str, version: &str, files: &BTreeMap<String, String>) -> PackIndexEntry {
@@ -118,6 +145,9 @@ pub fn run(root: &Path, args: &ExtensionsArgs) -> Result<()> {
     if selected(PACK_CLOUDFLARED) {
         entries.push(build_cloudflared_zip(root, &dist)?);
     }
+    if selected(PACK_ARCHLINUX) {
+        entries.push(build_archlinux_zip(root, &dist)?);
+    }
     entries.sort_by(|a, b| a.id.cmp(&b.id));
 
     match &args.command {
@@ -135,6 +165,93 @@ pub fn run(root: &Path, args: &ExtensionsArgs) -> Result<()> {
             }
         }
     }
+    Ok(())
+}
+
+fn read_arch_sources(root: &Path) -> Result<ArchSources> {
+    let path = root.join("extensions/archlinux-arm64-sources.json");
+    parse_arch_sources(&fs::read(&path)?)
+}
+
+fn parse_arch_sources(bytes: &[u8]) -> Result<ArchSources> {
+    let source: ArchSources = serde_json::from_slice(bytes)?;
+    anyhow::ensure!(source.rootfs.release.chars().all(|c| c.is_ascii_digit() || c == '.'), "invalid Arch release");
+    anyhow::ensure!(source.rootfs.url.starts_with("https://") && source.rootfs.signature_url.starts_with("https://"), "Arch inputs must use HTTPS");
+    anyhow::ensure!(source.rootfs.md5.len() == 32 && source.rootfs.md5.chars().all(|c| c.is_ascii_hexdigit()), "invalid rootfs MD5");
+    anyhow::ensure!(source.rootfs.sha256.len() == 64 && source.rootfs.sha256.chars().all(|c| c.is_ascii_hexdigit()), "invalid rootfs SHA-256");
+    anyhow::ensure!(source.rootfs.max_extracted_bytes >= 1024 * 1024 * 1024, "invalid rootfs extracted-size limit");
+    anyhow::ensure!(source.rootfs.signing_fingerprint.len() == 40 && source.rootfs.signing_fingerprint.chars().all(|c| c.is_ascii_hexdigit()), "invalid rootfs signing fingerprint");
+    anyhow::ensure!(source.proot.source.starts_with("https://") && source.proot.commit.len() == 40 && source.proot.commit.chars().all(|c| c.is_ascii_hexdigit()), "invalid pinned PRoot source");
+    anyhow::ensure!(source.bridge.cargo_package == "invoke_tool" && source.bridge.target == "aarch64-linux-android", "invalid bridge identity");
+    Ok(source)
+}
+
+fn verify_arch_rootfs(path: &Path, source: &ArchRootfsSource) -> Result<()> {
+    anyhow::ensure!(sha256_file(path)?.eq_ignore_ascii_case(&source.sha256), "pinned Arch rootfs SHA-256 mismatch");
+    anyhow::ensure!(md5_file(path)?.eq_ignore_ascii_case(&source.md5), "pinned Arch rootfs MD5 mismatch");
+    Ok(())
+}
+
+fn build_archlinux_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
+    let source = read_arch_sources(root)?;
+    let rootfs = std::env::var_os("WEKIT_ARCH_ROOTFS").map(PathBuf::from)
+        .context("WEKIT_ARCH_ROOTFS must point to the separately downloaded and signature/checksum-verified rootfs")?;
+    let proot = std::env::var_os("WEKIT_ARCH_PROOT").map(PathBuf::from)
+        .context("WEKIT_ARCH_PROOT must point to the static ARM64 PRoot built from the pinned source commit")?;
+    let proot_loader = std::env::var_os("WEKIT_ARCH_PROOT_LOADER").map(PathBuf::from)
+        .context("WEKIT_ARCH_PROOT_LOADER must point to the matching ARM64 PRoot loader")?;
+    let bridge = root.join("app/src/main/jniLibs/arm64-v8a/libinvoke_tool.so");
+    anyhow::ensure!(rootfs.is_file() && proot.is_file() && proot_loader.is_file() && bridge.is_file(), "Arch pack input is missing");
+    verify_arch_rootfs(&rootfs, &source.rootfs)?;
+    let built_from = std::env::var("WEKIT_ARCH_PROOT_COMMIT")
+        .context("WEKIT_ARCH_PROOT_COMMIT must identify the checked-out static PRoot source")?;
+    anyhow::ensure!(built_from == source.proot.commit, "static PRoot was not built from the pinned commit");
+
+    let inputs = [
+        ("ArchLinuxARM-aarch64-rootfs.tar.gz", rootfs),
+        ("proot", proot),
+        ("proot-loader", proot_loader),
+        ("invoke_tool", bridge),
+    ];
+    let inner = inputs.iter().map(|(name, path)| Ok((name.to_string(), sha256_file(path)?)))
+        .collect::<Result<BTreeMap<_, _>>>()?;
+    let inner_manifest = serde_json::to_string_pretty(&serde_json::json!({
+        "source": {
+            "rootfs_release": source.rootfs.release,
+            "rootfs_url": source.rootfs.url,
+            "rootfs_md5": source.rootfs.md5,
+            "rootfs_sha256": source.rootfs.sha256,
+            "rootfs_max_extracted_bytes": source.rootfs.max_extracted_bytes,
+            "rootfs_signature_url": source.rootfs.signature_url,
+            "rootfs_signing_fingerprint": source.rootfs.signing_fingerprint,
+            "proot_source": source.proot.source,
+            "proot_commit": source.proot.commit,
+        },
+        "files": inner,
+    }))?;
+    let zip_tmp = dist.join("archlinux-arm64-unversioned.zip");
+    write_arch_zip(&zip_tmp, &inputs, &inner_manifest)?;
+    let mut files = BTreeMap::new();
+    files.insert("archlinux-arm64.zip".to_string(), sha256_file(&zip_tmp)?);
+    let version = derive_version(&content_hash(&files));
+    let entry = index_entry(PACK_ARCHLINUX, &version, &files);
+    let asset = dist.join(&entry.asset);
+    fs::rename(&zip_tmp, &asset)?;
+    clean_stale(dist, "archlinux-arm64-", &asset)?;
+    Ok(entry)
+}
+
+fn write_arch_zip(path: &Path, inputs: &[(&str, PathBuf)], inner_manifest: &str) -> Result<()> {
+    let mut zip = ZipWriter::new(File::create(path)?);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    for (name, path) in inputs {
+        zip.start_file(name, options)?;
+        let mut input = File::open(path)?;
+        std::io::copy(&mut input, &mut zip)?;
+    }
+    zip.start_file("manifest.json", options)?;
+    zip.write_all(inner_manifest.as_bytes())?;
+    zip.finish()?;
     Ok(())
 }
 
@@ -271,5 +388,78 @@ mod tests {
         let back: PackIndex = serde_json::from_str(&json).unwrap();
         assert_eq!(back.packs[0].version, "0123456789ab");
         assert_eq!(back.packs[0].asset, "script-deps-0123456789ab.dex");
+    }
+
+    #[test]
+    fn arch_source_descriptor_pins_immutable_identities() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let source = read_arch_sources(root).unwrap();
+        assert_eq!(source.rootfs.release, "2026.08");
+        assert_eq!(source.rootfs.md5, "23eec86365b24f7913c403e8f4e8719b");
+        assert_eq!(source.rootfs.sha256, "42a4eeaa038994ffd31fa173256ef2f0ef511358eeb41b9ea1f8626391b9b319");
+        assert_eq!(source.rootfs.signing_fingerprint, "68B3537F39A313B3E574D06777193F152BDBE6A6");
+        assert_eq!(source.proot.commit.len(), 40);
+        assert_eq!(source.bridge.target, "aarch64-linux-android");
+    }
+
+    #[test]
+    fn arch_source_descriptor_requires_valid_sha256() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let path = root.join("extensions/archlinux-arm64-sources.json");
+        let mut json: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        json["rootfs"]["sha256"] = serde_json::Value::String("not-a-sha256".into());
+        let error = parse_arch_sources(&serde_json::to_vec(&json).unwrap()).unwrap_err();
+        assert!(error.to_string().contains("invalid rootfs SHA-256"));
+
+        json["rootfs"].as_object_mut().unwrap().remove("sha256");
+        assert!(parse_arch_sources(&serde_json::to_vec(&json).unwrap()).is_err());
+    }
+
+    #[test]
+    fn arch_rootfs_verification_rejects_sha256_mismatch() {
+        let path = std::env::temp_dir().join(format!("wekit-rootfs-checksum-test-{}", std::process::id()));
+        fs::write(&path, b"rootfs").unwrap();
+        let source = ArchRootfsSource {
+            release: "2026.08".into(),
+            url: "https://example.invalid/rootfs".into(),
+            md5: "307cfa551ed600e2db40b7885ce3ceda".into(),
+            sha256: "3c47ef972d531d524daa15fa33dd885dd23de6221bbd10a29eb42ecfcf2ef422".into(),
+            max_extracted_bytes: 1024 * 1024 * 1024,
+            signature_url: "https://example.invalid/rootfs.sig".into(),
+            signing_fingerprint: "68B3537F39A313B3E574D06777193F152BDBE6A6".into(),
+        };
+        verify_arch_rootfs(&path, &source).unwrap();
+
+        let mismatched = ArchRootfsSource { sha256: "0".repeat(64), ..source };
+        let error = verify_arch_rootfs(&path, &mismatched).unwrap_err();
+        assert!(error.to_string().contains("SHA-256 mismatch"));
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn arch_pack_index_name_is_content_addressed() {
+        let files = files(&[("archlinux-arm64.zip", "abcd")]);
+        let version = derive_version(&content_hash(&files));
+        let entry = index_entry(PACK_ARCHLINUX, &version, &files);
+        assert_eq!(entry.asset, format!("archlinux-arm64-{version}.zip"));
+    }
+
+    #[test]
+    fn arch_pack_contains_rootfs_launcher_loader_bridge_and_manifest() {
+        let base = std::env::temp_dir().join(format!("wekit-arch-pack-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        let names = ["ArchLinuxARM-aarch64-rootfs.tar.gz", "proot", "proot-loader", "invoke_tool"];
+        let inputs = names.iter().map(|name| {
+            let path = base.join(name);
+            fs::write(&path, name.as_bytes()).unwrap();
+            (*name, path)
+        }).collect::<Vec<_>>();
+        let output = base.join("pack.zip");
+        write_arch_zip(&output, &inputs, r#"{"files":{}}"#).unwrap();
+        let mut archive = zip::ZipArchive::new(File::open(output).unwrap()).unwrap();
+        for name in names { assert!(archive.by_name(name).is_ok(), "missing {name}"); }
+        assert!(archive.by_name("manifest.json").is_ok());
+        fs::remove_dir_all(base).unwrap();
     }
 }

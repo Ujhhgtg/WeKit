@@ -3,9 +3,14 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref, clippy::missing_safety_doc)]
 
 mod audio_utils;
+#[cfg(test)]
+#[allow(dead_code)]
+mod chroot_cleanup;
 mod crash_handler;
 mod crash_triggerer;
 mod logging;
+mod owned_process;
+mod pty;
 mod read_receipts_server;
 mod telegram_sticker;
 mod utils;
@@ -16,12 +21,115 @@ use crash_handler::{install_crash_handler, uninstall_crash_handler};
 use crash_triggerer::trigger_test_crash;
 
 use jni::sys::{
-    JNI_FALSE, JNI_TRUE, JNI_VERSION_1_6, JNIEnv as RawJNIEnv, JavaVM, jboolean, jint, jlong,
-    jobject, jstring,
+    JNI_FALSE, JNI_TRUE, JNI_VERSION_1_6, JNIEnv as RawJNIEnv, JavaVM, jboolean, jbyteArray, jint,
+    jlong, jlongArray, jobject, jobjectArray, jstring,
 };
 use libc::c_void;
 
 use crate::utils::with_jstring;
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_environment_OwnedProcess_00024Native_start(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    argv: jobjectArray,
+    environment: jobjectArray,
+    cwd: jstring,
+) -> jlongArray {
+    let result = string_array(env, argv).and_then(|argv| {
+        string_array(env, environment).and_then(|environment| {
+            with_jstring(env, cwd, |cwd| {
+                owned_process::start(argv, environment, cwd.to_owned())
+            })
+            .unwrap_or_else(|| Err("missing cwd".into()))
+        })
+    });
+    match result {
+        Ok(started) => unsafe {
+            let pid = started.process.pid();
+            let pgid = started.process.pgid();
+            let array = ((**env).v1_6.NewLongArray)(env, 6);
+            if array.is_null() {
+                libc::close(started.stdin);
+                libc::close(started.stdout);
+                libc::close(started.stderr);
+                return std::ptr::null_mut();
+            }
+            let process = Box::new(started.process);
+            let values = [
+                (&*process as *const owned_process::OwnedProcess) as jlong,
+                pid as jlong,
+                pgid as jlong,
+                started.stdin as jlong,
+                started.stdout as jlong,
+                started.stderr as jlong,
+            ];
+            ((**env).v1_6.SetLongArrayRegion)(env, array, 0, values.len() as jint, values.as_ptr());
+            if ((**env).v1_6.ExceptionCheck)(env) != JNI_FALSE {
+                libc::close(started.stdin);
+                libc::close(started.stdout);
+                libc::close(started.stderr);
+                return std::ptr::null_mut();
+            }
+            let _ = Box::into_raw(process);
+            array
+        },
+        Err(error) => {
+            loge!("owned process start failed: {error}");
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_environment_OwnedProcess_00024Native_pollExit(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+) -> jint {
+    if handle == 0 {
+        return i32::MIN;
+    }
+    match unsafe { &*(handle as *const owned_process::OwnedProcess) }.poll_exit() {
+        Ok(Some(code)) => code,
+        Ok(None) => i32::MIN + 1,
+        Err(error) => {
+            loge!("owned process wait failed: {error}");
+            i32::MIN
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_environment_OwnedProcess_00024Native_terminateGroup(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+    grace_millis: jlong,
+) -> jboolean {
+    if handle != 0
+        && unsafe { &*(handle as *const owned_process::OwnedProcess) }
+            .terminate_group(std::time::Duration::from_millis(grace_millis.max(0) as u64))
+            .is_ok()
+    {
+        JNI_TRUE
+    } else {
+        JNI_FALSE
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_environment_OwnedProcess_00024Native_close(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+) {
+    if handle != 0 {
+        unsafe {
+            drop(Box::from_raw(handle as *mut owned_process::OwnedProcess));
+        }
+    }
+}
 
 fn native_string(env: *mut RawJNIEnv, value: &str) -> jstring {
     if env.is_null() {
@@ -40,6 +148,174 @@ fn native_error_string(env: *mut RawJNIEnv, result: Result<(), String>) -> jstri
     match result {
         Ok(()) => std::ptr::null_mut(),
         Err(message) => native_string(env, &message),
+    }
+}
+
+fn string_array(env: *mut RawJNIEnv, array: jobjectArray) -> Result<Vec<String>, String> {
+    if env.is_null() || array.is_null() {
+        return Err("missing string array".into());
+    }
+    unsafe {
+        let fns = *env;
+        let len = ((*fns).v1_6.GetArrayLength)(env, array as jobject);
+        let mut result = Vec::with_capacity(len as usize);
+        for index in 0..len {
+            let item = ((*fns).v1_6.GetObjectArrayElement)(env, array, index) as jstring;
+            let value = with_jstring(env, item, str::to_owned)
+                .ok_or_else(|| "invalid string array item".to_owned())?;
+            ((*fns).v1_6.DeleteLocalRef)(env, item as jobject);
+            result.push(value);
+        }
+        Ok(result)
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_start(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    argv: jobjectArray,
+    environment: jobjectArray,
+    cwd: jstring,
+    cols: jint,
+    rows: jint,
+) -> jlong {
+    let result = string_array(env, argv).and_then(|argv| {
+        string_array(env, environment).and_then(|environment| {
+            with_jstring(env, cwd, |cwd| {
+                pty::start(argv, environment, cwd.to_owned(), cols, rows)
+            })
+            .unwrap_or_else(|| Err("missing cwd".into()))
+        })
+    });
+    match result {
+        Ok(handle) => Box::into_raw(Box::new(handle)) as jlong,
+        Err(error) => {
+            loge!("pty start failed: {error}");
+            0
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_write(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+    bytes: jbyteArray,
+) -> jboolean {
+    if handle == 0 || bytes.is_null() {
+        return JNI_FALSE;
+    }
+    unsafe {
+        let fns = *env;
+        let len = ((*fns).v1_6.GetArrayLength)(env, bytes as jobject);
+        let ptr = ((*fns).v1_6.GetByteArrayElements)(env, bytes, std::ptr::null_mut());
+        if ptr.is_null() {
+            return JNI_FALSE;
+        }
+        let result = pty::write(
+            &*(handle as *const pty::Pty),
+            std::slice::from_raw_parts(ptr as *const u8, len as usize),
+        );
+        ((*fns).v1_6.ReleaseByteArrayElements)(env, bytes, ptr, 0);
+        match result {
+            Ok(()) => JNI_TRUE,
+            Err(error) => {
+                loge!("pty write failed: {error}");
+                JNI_FALSE
+            }
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_read(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+    buffer: jbyteArray,
+) -> jint {
+    if handle == 0 || buffer.is_null() {
+        return -2;
+    }
+    unsafe {
+        let fns = *env;
+        let len = ((*fns).v1_6.GetArrayLength)(env, buffer);
+        if len <= 0 {
+            return -2;
+        }
+        let ptr = ((*fns).v1_6.GetByteArrayElements)(env, buffer, std::ptr::null_mut());
+        if ptr.is_null() {
+            return -2;
+        }
+        let result = pty::read(
+            &*(handle as *const pty::Pty),
+            std::slice::from_raw_parts_mut(ptr as *mut u8, len as usize),
+        );
+        ((*fns).v1_6.ReleaseByteArrayElements)(env, buffer, ptr, 0);
+        match result {
+            Ok(pty::ReadResult::Data(count)) => count as jint,
+            Ok(pty::ReadResult::Timeout) => 0,
+            Ok(pty::ReadResult::Eof) => -1,
+            Err(error) => {
+                loge!("pty read failed: {error}");
+                -2
+            }
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_resize(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+    cols: jint,
+    rows: jint,
+) -> jboolean {
+    if handle != 0 && pty::resize(unsafe { &*(handle as *const pty::Pty) }, cols, rows).is_ok() {
+        JNI_TRUE
+    } else {
+        JNI_FALSE
+    }
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_waitForExit(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+) -> jint {
+    if handle == 0 {
+        return -2;
+    }
+    pty::wait(unsafe { &*(handle as *const pty::Pty) }).unwrap_or_else(|error| {
+        loge!("pty wait failed: {error}");
+        -2
+    })
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_kill(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+) -> jboolean {
+    if handle != 0 && pty::kill(unsafe { &*(handle as *const pty::Pty) }).is_ok() {
+        JNI_TRUE
+    } else {
+        JNI_FALSE
+    }
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_close(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+) {
+    if handle != 0 {
+        unsafe {
+            drop(Box::from_raw(handle as *mut pty::Pty));
+        }
     }
 }
 

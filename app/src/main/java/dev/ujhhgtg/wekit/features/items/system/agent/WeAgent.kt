@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
  * overlay visibility is governed by the persisted [dev.ujhhgtg.wekit.agent.data.OverlayMode]
  * (default DISABLED). Tapping the row opens the full [WeAgentSettingsActivity].
  *
- * All detailed configuration (model providers, MCP servers, tool permissions, prompts, workspaces,
+ * All detailed configuration (model providers, MCP servers, tool permissions, prompts, Linux environments,
  * skills, global settings) lives in that Activity — not inline here.
  */
 @Feature(

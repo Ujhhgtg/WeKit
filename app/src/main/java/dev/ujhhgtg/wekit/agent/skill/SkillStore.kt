@@ -38,7 +38,7 @@ object SkillStore {
     const val SKILL_FILE = "SKILL.md"
     private const val DISABLED_MARKER = ".disabled"
 
-    /** Same name rules as workspaces: usable as a directory name. */
+    /** Name rules suitable for use as a directory name. */
     private val ILLEGAL_CHARS = Regex("""[/\\:*?"<>|]""")
 
     private val skillsRoot: File by lazy {

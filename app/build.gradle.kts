@@ -339,6 +339,7 @@ dependencies {
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.websockets)
     implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.jsch)
 
     implementation(libs.osmdroid.android)
 
@@ -348,6 +349,7 @@ dependencies {
     testImplementation(project(":libs:common:stubs"))
     testImplementation(libs.legacyxposed.api)
     testImplementation(libs.libxposed.api)
+    testImplementation(libs.sqlite.jdbc)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
