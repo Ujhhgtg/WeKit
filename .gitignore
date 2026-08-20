@@ -30,6 +30,8 @@ local.properties
 /.idea/deploymentTargetSelector.xml
 /app/src/main/jniLibs/*/libwekit_native.so
 /app/src/main/jniLibs/*/libwekit_cloudflared.so
+/app/src/main/jniLibs/*/libinvoke_tool.so
+/app/src/main/jniLibs/*/libchroot_cleanup.so
 /build-logic/convention/build/
 
 /decrypted_wechat.db
