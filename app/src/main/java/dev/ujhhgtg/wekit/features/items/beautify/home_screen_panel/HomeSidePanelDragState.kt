@@ -226,6 +226,7 @@ internal class HomeSidePanelDragState(
     private data class RegisteredBounds(
         val index: Int,
         val bounds: RootDragBounds,
+        val sourceBounds: RootDragBounds = bounds,
     )
 
     private data class ActionContainer(
@@ -276,8 +277,9 @@ internal class HomeSidePanelDragState(
         cardId: String,
         index: Int,
         bounds: RootDragBounds,
+        sourceBounds: RootDragBounds = bounds,
     ) {
-        val registered = RegisteredBounds(index, bounds)
+        val registered = RegisteredBounds(index, bounds, sourceBounds)
         if (cardBounds[cardId] == registered) return
         cardBounds[cardId] = registered
     }
@@ -305,8 +307,9 @@ internal class HomeSidePanelDragState(
         actionId: String,
         index: Int,
         bounds: RootDragBounds,
+        sourceBounds: RootDragBounds = bounds,
     ) {
-        val registered = RegisteredBounds(index, bounds)
+        val registered = RegisteredBounds(index, bounds, sourceBounds)
         val cardActions = actionBounds.getOrPut(cardId) { mutableMapOf() }
         if (cardActions[actionId] == registered) return
         cardActions[actionId] = registered
@@ -582,8 +585,9 @@ internal class HomeSidePanelDragState(
     }
 
     private fun sourceBoundsFor(payload: HomeSidePanelDragPayload): RootDragBounds? = when (payload) {
-        is HomeSidePanelDragPayload.ExistingCard -> cardBounds[payload.cardId]?.bounds
-        is HomeSidePanelDragPayload.ExistingAction -> actionBounds[payload.cardId]?.get(payload.actionId)?.bounds
+        is HomeSidePanelDragPayload.ExistingCard -> cardBounds[payload.cardId]?.sourceBounds
+        is HomeSidePanelDragPayload.ExistingAction ->
+            actionBounds[payload.cardId]?.get(payload.actionId)?.sourceBounds
         is HomeSidePanelDragPayload.NewCard,
         is HomeSidePanelDragPayload.NewAction,
         -> null

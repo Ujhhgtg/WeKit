@@ -160,6 +160,55 @@ class HomeSidePanelDragStateTest {
     }
 
     @Test
+    fun existingCardKeepsUnclippedSourceBoundsWithoutChangingHitTesting() {
+        val state = HomeSidePanelDragState()
+        val unclipped = RootDragBounds(0f, -400f, 300f, 200f)
+        state.registerViewport(RootDragBounds(0f, 0f, 300f, 500f))
+        state.registerCardBounds(
+            cardId = "card",
+            index = 0,
+            bounds = RootDragBounds(0f, 100f, 300f, 200f),
+            sourceBounds = unclipped,
+        )
+
+        state.begin(
+            payload = HomeSidePanelDragPayload.ExistingCard("card"),
+            pointerId = 41L,
+            rootPosition = RootDragPosition(150f, 120f),
+        )
+
+        assertEquals(unclipped, state.snapshot!!.sourceBounds)
+        assertEquals(HomeSidePanelDragTarget.Card(0), state.snapshot!!.target)
+    }
+
+    @Test
+    fun existingActionKeepsUnclippedSourceBoundsWithoutChangingHitTesting() {
+        val state = HomeSidePanelDragState()
+        val unclipped = RootDragBounds(-400f, 0f, 200f, 80f)
+        state.registerActionContainer(
+            cardId = "card",
+            axis = HomeSidePanelDragAxis.Horizontal,
+            bounds = RootDragBounds(0f, 0f, 300f, 100f),
+        )
+        state.registerActionBounds(
+            cardId = "card",
+            actionId = "action",
+            index = 0,
+            bounds = RootDragBounds(100f, 0f, 200f, 80f),
+            sourceBounds = unclipped,
+        )
+
+        state.begin(
+            payload = HomeSidePanelDragPayload.ExistingAction("card", "action"),
+            pointerId = 42L,
+            rootPosition = RootDragPosition(120f, 40f),
+        )
+
+        assertEquals(unclipped, state.snapshot!!.sourceBounds)
+        assertEquals(HomeSidePanelDragTarget.Action("card", 0), state.snapshot!!.target)
+    }
+
+    @Test
     fun cancelledExternalCandidateDoesNotCommit() {
         val state = HomeSidePanelDragState()
         state.begin(

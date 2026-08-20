@@ -86,7 +86,7 @@ internal fun HomeSidePanelHorizontalActionsCard(
         actionsEmpty = card.actions.isEmpty(),
     )
     val showAdd = editMode || content == HomeSidePanelActionCardContent.Preview
-    val addVisibility = remember(card.id) { MutableTransitionState(false) }
+    val addVisibility = remember(card.id) { MutableTransitionState(showAdd) }
     addVisibility.targetState = showAdd
     key(card.id) {
         FlowRow(
@@ -207,7 +207,7 @@ internal fun HomeSidePanelVerticalActionsCard(
         editMode = editMode,
         actionsEmpty = card.actions.isEmpty(),
     )
-    val addVisibility = remember(card.id) { MutableTransitionState(false) }
+    val addVisibility = remember(card.id) { MutableTransitionState(showAdd) }
     addVisibility.targetState = showAdd
     HomeSidePanelActionsCardFrame(card.id, modifier) {
         displayedActions.forEachIndexed { index, action ->
@@ -456,7 +456,11 @@ private fun HomeSidePanelActionItem(
                 Text(stringResource(spec.labelRes))
             }
         }
-        Box(modifier = Modifier.align(Alignment.TopEnd)) {
+        val badgeAlignment = when (placement) {
+            HomeSidePanelActionPlacement.TILE -> Alignment.TopEnd
+            HomeSidePanelActionPlacement.LIST_ITEM -> Alignment.CenterEnd
+        }
+        Box(modifier = Modifier.align(badgeAlignment)) {
             HomeSidePanelCardBadge(
                 editMode = editMode && interactive,
                 onEdit = null,

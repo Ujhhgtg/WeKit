@@ -107,6 +107,7 @@ internal fun HomeSidePanelHome(
     val editorTranslation = with(LocalDensity.current) { 8.dp.toPx() }
     LazyColumn(
         state = listState,
+        userScrollEnabled = dragSnapshot == null,
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
@@ -369,14 +370,24 @@ private fun HomeSidePanelProfileHeader(
             profile = profile,
             size = 58.dp,
             textStyle = MaterialTheme.typography.titleLarge,
-            contentDescription = stringResource(R.string.home_side_panel_open_profile),
-            onClick = panelState::openPersonalProfile,
+            contentDescription = if (editing) {
+                null
+            } else {
+                stringResource(R.string.home_side_panel_open_profile)
+            },
+            onClick = if (editing) null else panelState::openPersonalProfile,
         )
         Column(
             modifier = Modifier
                 .weight(1f)
                 .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = panelState::openStatusEditor)
+                .then(
+                    if (editing) {
+                        Modifier
+                    } else {
+                        Modifier.clickable(onClick = panelState::openStatusEditor)
+                    },
+                )
                 .padding(horizontal = 6.dp, vertical = 5.dp),
         ) {
             Text(
@@ -392,12 +403,14 @@ private fun HomeSidePanelProfileHeader(
                     panelState = panelState,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                Icon(
-                    MaterialSymbols.Outlined.Chevron_right,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                if (!editing) {
+                    Icon(
+                        MaterialSymbols.Outlined.Chevron_right,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
         if (editing) {
@@ -575,8 +588,8 @@ internal fun HomeSidePanelProfileAvatar(
     profile: HomeSidePanelProfile,
     size: Dp,
     textStyle: TextStyle,
-    contentDescription: String,
-    onClick: () -> Unit,
+    contentDescription: String?,
+    onClick: (() -> Unit)?,
 ) {
     var imageFailed by remember(profile.avatarUrl) { mutableStateOf(false) }
     if (profile.avatarUrl.isNotBlank() && !imageFailed) {
@@ -586,7 +599,7 @@ internal fun HomeSidePanelProfileAvatar(
             modifier = Modifier
                 .size(size)
                 .clip(CircleShape)
-                .clickable(onClick = onClick),
+                .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier),
             onState = { state ->
                 if (state is AsyncImagePainter.State.Error) imageFailed = true
             },
@@ -597,7 +610,7 @@ internal fun HomeSidePanelProfileAvatar(
                 .size(size)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primaryContainer)
-                .clickable(onClick = onClick),
+                .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier),
             contentAlignment = Alignment.Center,
         ) {
             Text(

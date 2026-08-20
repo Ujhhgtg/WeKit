@@ -38,6 +38,7 @@ import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -195,7 +196,12 @@ internal fun Modifier.homeSidePanelCardDragTarget(
     }
     onGloballyPositioned { coordinates ->
         val bounds = coordinates.boundsInRoot().toRootDragBounds()
-        dragState.registerCardBounds(cardId, index, bounds)
+        dragState.registerCardBounds(
+            cardId = cardId,
+            index = index,
+            bounds = bounds,
+            sourceBounds = coordinates.homeSidePanelUnclippedBoundsInRoot().toRootDragBounds(),
+        )
         if (actionAxis != null) {
             dragState.registerActionContainer(cardId, actionAxis, bounds)
         }
@@ -217,6 +223,7 @@ internal fun Modifier.homeSidePanelActionDragTarget(
             actionId = actionId,
             index = index,
             bounds = coordinates.boundsInRoot().toRootDragBounds(),
+            sourceBounds = coordinates.homeSidePanelUnclippedBoundsInRoot().toRootDragBounds(),
         )
     }
 }
@@ -261,7 +268,7 @@ internal fun Modifier.homeSidePanelDragSource(
                 val down = awaitFirstDown(requireUnconsumed = false)
                 dragState.claimSource(down.id.value, payload)
                 val longPress = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
-                val bounds = coordinates!!.boundsInRoot()
+                val bounds = coordinates!!.homeSidePanelUnclippedBoundsInRoot()
                 val root = bounds.topLeft + longPress.position
                 val started = dragState.begin(
                     payload = payload,
@@ -493,12 +500,15 @@ private fun Modifier.homeSidePanelRootPointerObserver(
                         consumedAtInitialPass = change.isConsumed,
                     )
                 ) {
-                    HomeSidePanelPointerLifecycleDecision.Continue ->
+                    HomeSidePanelPointerLifecycleDecision.Continue -> {
                         dragState.updateRootPosition(change.position.x, change.position.y)
+                        change.consume()
+                    }
 
                     HomeSidePanelPointerLifecycleDecision.Finish -> {
                         dragState.updateRootPosition(change.position.x, change.position.y)
                         dragState.finish()?.let(onCommit)
+                        change.consume()
                     }
 
                     HomeSidePanelPointerLifecycleDecision.Cancel -> dragState.cancel()
@@ -509,6 +519,9 @@ private fun Modifier.homeSidePanelRootPointerObserver(
         dragState.cancel()
     }
 }
+
+internal fun LayoutCoordinates.homeSidePanelUnclippedBoundsInRoot() =
+    findRootCoordinates().localBoundingBoxOf(this, clipBounds = false)
 
 private fun androidx.compose.ui.geometry.Rect.toRootDragBounds(): RootDragBounds =
     RootDragBounds(left, top, right, bottom)

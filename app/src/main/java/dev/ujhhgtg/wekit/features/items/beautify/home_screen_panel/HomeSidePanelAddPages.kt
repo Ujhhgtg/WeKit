@@ -40,7 +40,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -393,7 +392,7 @@ private fun Modifier.homeSidePanelCandidateLongPress(
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val longPress = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
-                val bounds = coordinates?.boundsInRoot() ?: return@awaitEachGesture
+                val bounds = coordinates?.homeSidePanelUnclippedBoundsInRoot() ?: return@awaitEachGesture
                 onLongPress(longPress.toCandidatePointer(bounds.topLeft, bounds.left, bounds.top, bounds.right, bounds.bottom))
                 longPress.consume()
                 do {
