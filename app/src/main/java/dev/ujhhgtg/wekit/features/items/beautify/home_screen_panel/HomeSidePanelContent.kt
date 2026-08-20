@@ -6,12 +6,8 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -166,24 +162,6 @@ private fun homeSidePanelRouteContentTransform(
     val enter: EnterTransition
     val exit: ExitTransition
     when (kind) {
-        HomeSidePanelTransitionKind.ENTER_EDITOR -> {
-            enter = fadeIn(tween(180)) +
-                scaleIn(tween(220), initialScale = 0.985f) +
-                slideInVertically(tween(220)) { it / 24 }
-            exit = fadeOut(tween(120)) +
-                scaleOut(tween(180), targetScale = 0.99f) +
-                slideOutVertically(tween(180)) { -it / 32 }
-        }
-
-        HomeSidePanelTransitionKind.EXIT_EDITOR -> {
-            enter = fadeIn(tween(180)) +
-                scaleIn(tween(220), initialScale = 0.99f) +
-                slideInVertically(tween(220)) { -it / 32 }
-            exit = fadeOut(tween(140)) +
-                scaleOut(tween(200), targetScale = 0.985f) +
-                slideOutVertically(tween(200)) { it / 24 }
-        }
-
         HomeSidePanelTransitionKind.PUSH -> {
             enter = fadeIn(tween(180)) + slideInHorizontally(tween(240)) { it / 4 }
             exit = fadeOut(tween(140)) + slideOutHorizontally(tween(220)) { -it / 8 }
@@ -194,7 +172,10 @@ private fun homeSidePanelRouteContentTransform(
             exit = fadeOut(tween(140)) + slideOutHorizontally(tween(220)) { it / 4 }
         }
 
-        HomeSidePanelTransitionKind.NONE -> {
+        HomeSidePanelTransitionKind.ENTER_EDITOR,
+        HomeSidePanelTransitionKind.EXIT_EDITOR,
+        HomeSidePanelTransitionKind.NONE,
+        -> {
             enter = EnterTransition.None
             exit = ExitTransition.None
         }
