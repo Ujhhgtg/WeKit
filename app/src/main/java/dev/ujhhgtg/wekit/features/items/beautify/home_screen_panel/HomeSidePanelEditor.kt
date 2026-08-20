@@ -4,11 +4,12 @@ internal sealed interface HomeSidePanelRoute {
     data object Home : HomeSidePanelRoute
     data object PanelSettings : HomeSidePanelRoute
     data object EditHome : HomeSidePanelRoute
-    data class WeatherSettings(val cardId: String) : HomeSidePanelRoute
-    data class WalletSettings(val cardId: String) : HomeSidePanelRoute
-    data class HitokotoSettings(val cardId: String) : HomeSidePanelRoute
-    data object AddCard : HomeSidePanelRoute
-    data class AddAction(val cardId: String) : HomeSidePanelRoute
+    sealed interface EditorDetail : HomeSidePanelRoute
+    data class WeatherSettings(val cardId: String) : EditorDetail
+    data class WalletSettings(val cardId: String) : EditorDetail
+    data class HitokotoSettings(val cardId: String) : EditorDetail
+    data object AddCard : EditorDetail
+    data class AddAction(val cardId: String) : EditorDetail
 }
 
 internal sealed interface HomeSidePanelEditCommit {

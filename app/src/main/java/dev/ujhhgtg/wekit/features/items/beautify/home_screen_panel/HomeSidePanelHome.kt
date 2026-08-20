@@ -2,6 +2,8 @@ package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import android.graphics.PorterDuff
 import android.widget.ImageView
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -38,9 +41,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -72,10 +79,28 @@ internal fun HomeSidePanelHome(
 ) {
     val dragSnapshot = dragState.snapshot
     val cardInsertionIndex = (dragSnapshot?.target as? HomeSidePanelDragTarget.Card)?.insertionIndex
+    val editorMotion = remember { Animatable(0f) }
+    var previousEditing by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(state.editing) {
+        val previous = previousEditing
+        previousEditing = state.editing
+        if (previous != null && previous != state.editing) {
+            editorMotion.snapTo(1f)
+            editorMotion.animateTo(0f, tween(220))
+        }
+    }
+    val editorTranslation = with(LocalDensity.current) { 8.dp.toPx() }
     LazyColumn(
         state = listState,
         modifier = Modifier
             .fillMaxSize()
+            .graphicsLayer {
+                val progress = editorMotion.value
+                alpha = 1f - 0.08f * progress
+                scaleX = 1f - 0.015f * progress
+                scaleY = 1f - 0.015f * progress
+                translationY = editorTranslation * progress * if (state.editing) 1f else -1f
+            }
             .homeSidePanelDragViewport(dragState),
         contentPadding = WindowInsets.safeDrawing
             .only(WindowInsetsSides.Top + WindowInsetsSides.Bottom)
@@ -94,9 +119,10 @@ internal fun HomeSidePanelHome(
             items = state.renderedLayout.cards,
             key = { _, card -> card.id },
         ) { index, card ->
-            if (cardInsertionIndex == index) {
-                HomeSidePanelCardInsertionGap(checkNotNull(dragSnapshot))
-            }
+            HomeSidePanelCardInsertionGap(
+                visible = cardInsertionIndex == index,
+                snapshot = dragSnapshot,
+            )
             val actionAxis = when (card) {
                 is HorizontalActionsCardConfig -> HomeSidePanelDragAxis.Horizontal
                 is VerticalActionsCardConfig -> HomeSidePanelDragAxis.Vertical
@@ -113,6 +139,7 @@ internal fun HomeSidePanelHome(
                 dragState = dragState,
                 dragSnapshot = dragSnapshot,
                 modifier = Modifier
+                    .animateItem()
                     .padding(horizontal = 18.dp)
                     .homeSidePanelCardDragTarget(
                         dragState = dragState,
@@ -133,10 +160,11 @@ internal fun HomeSidePanelHome(
                     ),
             )
         }
-        if (cardInsertionIndex == state.renderedLayout.cards.size) {
-            item(key = "card-insertion-end") {
-                HomeSidePanelCardInsertionGap(checkNotNull(dragSnapshot))
-            }
+        item(key = "card-insertion-end") {
+            HomeSidePanelCardInsertionGap(
+                visible = cardInsertionIndex == state.renderedLayout.cards.size,
+                snapshot = dragSnapshot,
+            )
         }
         item(key = "bottom-space") {
             Box(Modifier.size(4.dp))
@@ -340,22 +368,40 @@ private fun HomeSidePanelProfileHeader(
         }
         if (editing) {
             Row {
-                IconButton(onClick = panelState::discardEditing, modifier = Modifier.size(40.dp)) {
+                val discardDescription = stringResource(R.string.home_side_panel_discard_editing)
+                IconButton(
+                    onClick = panelState::discardEditing,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .semantics { contentDescription = discardDescription },
+                ) {
                     Icon(
                         MaterialSymbols.Outlined.Close,
-                        contentDescription = stringResource(R.string.home_side_panel_discard_editing),
+                        contentDescription = null,
                     )
                 }
-                IconButton(onClick = panelState::saveEditing, modifier = Modifier.size(40.dp)) {
+                val saveDescription = stringResource(R.string.home_side_panel_save_editing)
+                IconButton(
+                    onClick = panelState::saveEditing,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .semantics { contentDescription = saveDescription },
+                ) {
                     Icon(
                         MaterialSymbols.Outlined.Save,
-                        contentDescription = stringResource(R.string.home_side_panel_save_editing),
+                        contentDescription = null,
                     )
                 }
-                IconButton(onClick = panelState::openAddCard, modifier = Modifier.size(40.dp)) {
+                val addDescription = stringResource(R.string.home_side_panel_add_card)
+                IconButton(
+                    onClick = panelState::openAddCard,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .semantics { contentDescription = addDescription },
+                ) {
                     Icon(
                         MaterialSymbols.Outlined.Add,
-                        contentDescription = stringResource(R.string.home_side_panel_add_card),
+                        contentDescription = null,
                     )
                 }
             }

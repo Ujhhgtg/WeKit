@@ -7,9 +7,9 @@ internal object HomeSidePanelLayoutStore {
 
     fun load(): HomeSidePanelLayoutLoad {
         val legacy = LegacyHomeSidePanelSnapshot(
-            weatherCity = HomeSidePanelPreferences.selectedWeatherCity,
-            hideWalletBalance = HomeSidePanelPreferences.hideWalletBalance,
-            hitokotoSettings = HomeSidePanelPreferences.hitokotoSettings,
+            weatherCity = HomeSidePanelPreferences.legacySelectedWeatherCity,
+            hideWalletBalance = HomeSidePanelPreferences.legacyHideWalletBalance,
+            hitokotoSettings = HomeSidePanelPreferences.legacyHitokotoSettings,
         )
         val raw = HomeSidePanelPreferences.layoutRaw
         if (raw != null) {
@@ -42,7 +42,7 @@ internal object HomeSidePanelLayoutStore {
     }
 
     fun migrateLegacyCaches(layout: HomeSidePanelLayout) {
-        HomeSidePanelPreferences.weatherLastSuccess?.let { snapshot ->
+        HomeSidePanelPreferences.legacyWeatherLastSuccess?.let { snapshot ->
             val card = layout.cards.filterIsInstance<WeatherCardConfig>().firstOrNull {
                 weatherCacheFingerprint(it.city) == weatherCacheFingerprint(snapshot.city)
             }
@@ -56,8 +56,8 @@ internal object HomeSidePanelLayoutStore {
             }
         }
 
-        HomeSidePanelPreferences.hitokotoLastSuccess?.let { snapshot ->
-            val legacyFingerprint = hitokotoCacheFingerprint(HomeSidePanelPreferences.hitokotoSettings)
+        HomeSidePanelPreferences.legacyHitokotoLastSuccess?.let { snapshot ->
+            val legacyFingerprint = hitokotoCacheFingerprint(HomeSidePanelPreferences.legacyHitokotoSettings)
             val card = layout.cards.filterIsInstance<HitokotoCardConfig>().firstOrNull {
                 hitokotoCacheFingerprint(it.settings) == legacyFingerprint
             }

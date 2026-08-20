@@ -169,6 +169,7 @@ internal data class HomeSidePanelDragSnapshot(
     val anchor: RootDragPosition,
     val sourceBounds: RootDragBounds,
     val target: HomeSidePanelDragTarget?,
+    val targetBounds: RootDragBounds?,
     val startToken: Long,
     val targetChangeToken: Long,
 )
@@ -318,6 +319,7 @@ internal class HomeSidePanelDragState {
             anchor = adjustedAnchor,
             sourceBounds = registeredSource,
             target = target,
+            targetBounds = targetBoundsFor(payload, target, registeredSource),
             startToken = active?.startToken ?: ++nextStartToken,
             targetChangeToken = active?.targetChangeToken ?: 0L,
         )
@@ -383,6 +385,7 @@ internal class HomeSidePanelDragState {
     ) {
         snapshot = active.copy(
             target = target,
+            targetBounds = targetBoundsFor(active.payload, target, active.sourceBounds),
             targetChangeToken = if (target != null && target != active.target) {
                 active.targetChangeToken + 1
             } else {
@@ -404,6 +407,34 @@ internal class HomeSidePanelDragState {
 
         is HomeSidePanelDragPayload.NewAction ->
             actionInsertionTarget(payload.cardId, position)
+    }
+
+    private fun targetBoundsFor(
+        payload: HomeSidePanelDragPayload,
+        target: HomeSidePanelDragTarget?,
+        sourceBounds: RootDragBounds,
+    ): RootDragBounds? = when {
+        payload is HomeSidePanelDragPayload.ExistingCard ||
+            payload is HomeSidePanelDragPayload.ExistingAction -> null
+
+        target is HomeSidePanelDragTarget.Card -> {
+            val ordered = cardBounds.values.sortedBy(RegisteredBounds::index)
+            ordered.getOrNull(target.insertionIndex)?.bounds ?: ordered.lastOrNull()?.bounds
+        }
+
+        target is HomeSidePanelDragTarget.Action -> {
+            val ordered = actionBounds[target.cardId].orEmpty().values.sortedBy(RegisteredBounds::index)
+            ordered.getOrNull(target.insertionIndex)?.bounds ?: ordered.lastOrNull()?.bounds ?: run {
+                val container = actionContainers[target.cardId] ?: return null
+                val width = when (container.axis) {
+                    HomeSidePanelDragAxis.Horizontal -> container.bounds.width / 3f
+                    HomeSidePanelDragAxis.Vertical -> container.bounds.width
+                }
+                RootDragBounds(0f, 0f, width, sourceBounds.height)
+            }
+        }
+
+        else -> null
     }
 
     private fun cardInsertionTarget(position: Float): HomeSidePanelDragTarget.Card? {

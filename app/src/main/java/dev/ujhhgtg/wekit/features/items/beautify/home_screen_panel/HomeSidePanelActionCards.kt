@@ -1,5 +1,17 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,7 +19,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -17,16 +28,27 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
+import kotlinx.coroutines.delay
 
 internal enum class HomeSidePanelActionPlacement {
     TILE,
@@ -48,14 +70,23 @@ internal fun HomeSidePanelHorizontalActionsCard(
     onAddAction: (cardId: String) -> Unit = {},
     onDeleteCard: ((String) -> Unit)? = null,
 ) {
+    val (animatedActions, visibleActionIds) = rememberHomeSidePanelAnimatedActions(card.id, card.actions)
+    val showEmptyCardDelete = rememberHomeSidePanelEmptyDeleteVisibility(
+        cardId = card.id,
+        editMode = editMode,
+        actionsEmpty = card.actions.isEmpty(),
+    )
+    val showAdd = editMode || content == HomeSidePanelActionCardContent.Preview
+    val addVisibility = remember(card.id) { MutableTransitionState(false) }
+    addVisibility.targetState = showAdd
     key(card.id) {
         FlowRow(
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth().animateContentSize(),
             maxItemsInEachRow = 3,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            card.actions.forEachIndexed { index, action ->
+            animatedActions.forEachIndexed { index, action ->
                 if (actionInsertionIndex == index && insertionSnapshot != null) {
                     key("action-gap-$index") {
                         Box(modifier = Modifier.weight(1f)) {
@@ -67,14 +98,23 @@ internal fun HomeSidePanelHorizontalActionsCard(
                     }
                 }
                 key(action.id) {
-                    Box(modifier = Modifier.weight(1f)) {
+                    AnimatedVisibility(
+                        visible = visibleActionIds[action.id] == true,
+                        modifier = Modifier.weight(1f),
+                        enter = homeSidePanelActionEnter(horizontal = true),
+                        exit = homeSidePanelActionExit(horizontal = true),
+                    ) {
                         HomeSidePanelActionItem(
                             cardId = card.id,
                             action = action,
                             placement = HomeSidePanelActionPlacement.TILE,
                             content = content,
-                            editMode = editMode,
-                            modifier = if (editMode) actionDragModifier(card.id, action.id) else Modifier,
+                            editMode = editMode && visibleActionIds[action.id] == true,
+                            modifier = if (editMode && visibleActionIds[action.id] == true) {
+                                actionDragModifier(card.id, action.id)
+                            } else {
+                                Modifier
+                            },
                             onRunAction = onRunAction,
                             onDeleteAction = onDeleteAction,
                         )
@@ -91,9 +131,14 @@ internal fun HomeSidePanelHorizontalActionsCard(
                     }
                 }
             }
-            if (editMode || content == HomeSidePanelActionCardContent.Preview) {
+            if (showAdd || addVisibility.currentState || !addVisibility.isIdle) {
                 key(HomeSidePanelVirtualAddKey) {
-                    Box(modifier = Modifier.weight(1f)) {
+                    AnimatedVisibility(
+                        visibleState = addVisibility,
+                        modifier = Modifier.weight(1f),
+                        enter = homeSidePanelAddEnter(horizontal = true),
+                        exit = homeSidePanelAddExit(horizontal = true),
+                    ) {
                         HomeSidePanelAddActionItem(
                             placement = HomeSidePanelActionPlacement.TILE,
                             onClick = if (editMode) {
@@ -101,7 +146,7 @@ internal fun HomeSidePanelHorizontalActionsCard(
                             } else {
                                 null
                             },
-                            onDeleteCard = if (editMode && card.actions.isEmpty()) {
+                            onDeleteCard = if (showEmptyCardDelete) {
                                 onDeleteCard?.let { delete -> { delete(card.id) } }
                             } else {
                                 null
@@ -131,8 +176,16 @@ internal fun HomeSidePanelVerticalActionsCard(
     onDeleteCard: ((String) -> Unit)? = null,
 ) {
     val showAdd = editMode || content == HomeSidePanelActionCardContent.Preview
+    val (animatedActions, visibleActionIds) = rememberHomeSidePanelAnimatedActions(card.id, card.actions)
+    val showEmptyCardDelete = rememberHomeSidePanelEmptyDeleteVisibility(
+        cardId = card.id,
+        editMode = editMode,
+        actionsEmpty = card.actions.isEmpty(),
+    )
+    val addVisibility = remember(card.id) { MutableTransitionState(false) }
+    addVisibility.targetState = showAdd
     HomeSidePanelActionsCardFrame(card.id, modifier) {
-        card.actions.forEachIndexed { index, action ->
+        animatedActions.forEachIndexed { index, action ->
             if (actionInsertionIndex == index && insertionSnapshot != null) {
                 key("action-gap-$index") {
                     HomeSidePanelActionInsertionGap(
@@ -142,18 +195,30 @@ internal fun HomeSidePanelVerticalActionsCard(
                 }
             }
             key(action.id) {
-                HomeSidePanelActionItem(
-                    cardId = card.id,
-                    action = action,
-                    placement = HomeSidePanelActionPlacement.LIST_ITEM,
-                    content = content,
-                    editMode = editMode,
-                    modifier = if (editMode) actionDragModifier(card.id, action.id) else Modifier,
-                    onRunAction = onRunAction,
-                    onDeleteAction = onDeleteAction,
-                )
-                if (index != card.actions.lastIndex || showAdd) {
-                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                AnimatedVisibility(
+                    visible = visibleActionIds[action.id] == true,
+                    enter = homeSidePanelActionEnter(horizontal = false),
+                    exit = homeSidePanelActionExit(horizontal = false),
+                ) {
+                    Column {
+                        HomeSidePanelActionItem(
+                            cardId = card.id,
+                            action = action,
+                            placement = HomeSidePanelActionPlacement.LIST_ITEM,
+                            content = content,
+                            editMode = editMode && visibleActionIds[action.id] == true,
+                            modifier = if (editMode && visibleActionIds[action.id] == true) {
+                                actionDragModifier(card.id, action.id)
+                            } else {
+                                Modifier
+                            },
+                            onRunAction = onRunAction,
+                            onDeleteAction = onDeleteAction,
+                        )
+                        if (index != animatedActions.lastIndex || showAdd) {
+                            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                        }
+                    }
                 }
             }
         }
@@ -165,22 +230,28 @@ internal fun HomeSidePanelVerticalActionsCard(
                 )
             }
         }
-        if (showAdd) {
+        if (showAdd || addVisibility.currentState || !addVisibility.isIdle) {
             key(HomeSidePanelVirtualAddKey) {
-                HomeSidePanelAddActionItem(
-                    placement = HomeSidePanelActionPlacement.LIST_ITEM,
-                    onClick = if (editMode) {
-                        { onAddAction(card.id) }
-                    } else {
-                        null
-                    },
-                    onDeleteCard = if (editMode && card.actions.isEmpty()) {
-                        onDeleteCard?.let { delete -> { delete(card.id) } }
-                    } else {
-                        null
-                    },
-                    wholeCardDragModifier = if (editMode) cardDragModifier else Modifier,
-                )
+                AnimatedVisibility(
+                    visibleState = addVisibility,
+                    enter = homeSidePanelAddEnter(horizontal = false),
+                    exit = homeSidePanelAddExit(horizontal = false),
+                ) {
+                    HomeSidePanelAddActionItem(
+                        placement = HomeSidePanelActionPlacement.LIST_ITEM,
+                        onClick = if (editMode) {
+                            { onAddAction(card.id) }
+                        } else {
+                            null
+                        },
+                        onDeleteCard = if (showEmptyCardDelete) {
+                            onDeleteCard?.let { delete -> { delete(card.id) } }
+                        } else {
+                            null
+                        },
+                        wholeCardDragModifier = if (editMode) cardDragModifier else Modifier,
+                    )
+                }
             }
         }
     }
@@ -193,10 +264,17 @@ internal fun HomeSidePanelAddActionItem(
     onDeleteCard: (() -> Unit)?,
     wholeCardDragModifier: Modifier,
 ) {
+    val addDescription = stringResource(R.string.home_side_panel_add_action)
+    val addSemantics = if (onClick != null) {
+        Modifier.semantics { contentDescription = addDescription }
+    } else {
+        Modifier
+    }
     when (placement) {
         HomeSidePanelActionPlacement.TILE -> Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .then(addSemantics)
                 .then(wholeCardDragModifier),
         ) {
             Card(
@@ -234,6 +312,7 @@ internal fun HomeSidePanelAddActionItem(
         HomeSidePanelActionPlacement.LIST_ITEM -> Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .then(addSemantics)
                 .then(wholeCardDragModifier),
         ) {
             ListItem(
@@ -355,3 +434,89 @@ private fun HomeSidePanelActionItem(
 }
 
 private data object HomeSidePanelVirtualAddKey
+
+@Composable
+private fun rememberHomeSidePanelAnimatedActions(
+    cardId: String,
+    actions: List<HomeSidePanelActionConfig>,
+): Pair<List<HomeSidePanelActionConfig>, Map<String, Boolean>> {
+    val displayed = remember(cardId) { mutableStateListOf(*actions.toTypedArray()) }
+    val visible = remember(cardId) {
+        mutableStateMapOf<String, Boolean>().apply {
+            actions.forEach { put(it.id, true) }
+        }
+    }
+    LaunchedEffect(actions) {
+        val targetIds = actions.mapTo(mutableSetOf(), HomeSidePanelActionConfig::id)
+        val newIds = targetIds - displayed.mapTo(mutableSetOf(), HomeSidePanelActionConfig::id)
+        val exiting = displayed.filter { it.id !in targetIds }
+        val reordered = actions.toMutableList()
+        exiting.forEach { action ->
+            reordered.add(displayed.indexOf(action).coerceAtMost(reordered.size), action)
+        }
+        displayed.clear()
+        displayed.addAll(reordered)
+        visible.keys.toList().forEach { id -> visible[id] = id in targetIds }
+        newIds.forEach { id -> visible[id] = false }
+        if (newIds.isNotEmpty()) {
+            withFrameNanos { }
+            newIds.forEach { id -> visible[id] = true }
+        }
+        if (exiting.isNotEmpty()) {
+            delay(HOME_SIDE_PANEL_ACTION_EXIT_MILLIS.toLong())
+            val currentIds = actions.mapTo(mutableSetOf(), HomeSidePanelActionConfig::id)
+            displayed.removeAll { it.id !in currentIds }
+            visible.keys.filter { it !in currentIds }.forEach(visible::remove)
+        }
+    }
+    return displayed to visible
+}
+
+@Composable
+private fun rememberHomeSidePanelEmptyDeleteVisibility(
+    cardId: String,
+    editMode: Boolean,
+    actionsEmpty: Boolean,
+): Boolean {
+    var visible by remember(cardId) { mutableStateOf(editMode && actionsEmpty) }
+    LaunchedEffect(editMode, actionsEmpty) {
+        if (!editMode || !actionsEmpty) {
+            visible = false
+        } else if (!visible) {
+            delay(HOME_SIDE_PANEL_EMPTY_DELETE_HANDOFF_MILLIS.toLong())
+            visible = true
+        }
+    }
+    return visible
+}
+
+private fun homeSidePanelActionEnter(horizontal: Boolean) =
+    fadeIn(tween(150)) + scaleIn(tween(180), initialScale = 0.9f) + if (horizontal) {
+        expandHorizontally(tween(180), expandFrom = Alignment.CenterHorizontally)
+    } else {
+        expandVertically(tween(180), expandFrom = Alignment.Top)
+    }
+
+private fun homeSidePanelActionExit(horizontal: Boolean) =
+    fadeOut(tween(120)) + scaleOut(tween(160), targetScale = 0.88f) + if (horizontal) {
+        shrinkHorizontally(tween(HOME_SIDE_PANEL_ACTION_EXIT_MILLIS), shrinkTowards = Alignment.CenterHorizontally)
+    } else {
+        shrinkVertically(tween(HOME_SIDE_PANEL_ACTION_EXIT_MILLIS), shrinkTowards = Alignment.Top)
+    }
+
+private fun homeSidePanelAddEnter(horizontal: Boolean) =
+    fadeIn(tween(160)) + if (horizontal) {
+        expandHorizontally(tween(200), expandFrom = Alignment.Start)
+    } else {
+        expandVertically(tween(200), expandFrom = Alignment.Top)
+    }
+
+private fun homeSidePanelAddExit(horizontal: Boolean) =
+    fadeOut(tween(120)) + if (horizontal) {
+        shrinkHorizontally(tween(180), shrinkTowards = Alignment.Start)
+    } else {
+        shrinkVertically(tween(180), shrinkTowards = Alignment.Top)
+    }
+
+private const val HOME_SIDE_PANEL_ACTION_EXIT_MILLIS = 170
+private const val HOME_SIDE_PANEL_EMPTY_DELETE_HANDOFF_MILLIS = 200

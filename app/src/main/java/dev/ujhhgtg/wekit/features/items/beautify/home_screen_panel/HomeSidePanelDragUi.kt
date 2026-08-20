@@ -1,6 +1,10 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
@@ -32,6 +36,8 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputChange
@@ -42,6 +48,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
@@ -251,10 +258,18 @@ internal fun Modifier.homeSidePanelDragSource(
 }
 
 @Composable
-internal fun HomeSidePanelCardInsertionGap(snapshot: HomeSidePanelDragSnapshot) {
+internal fun HomeSidePanelCardInsertionGap(
+    visible: Boolean,
+    snapshot: HomeSidePanelDragSnapshot?,
+) {
+    if (!visible || snapshot == null) return
     val density = LocalDensity.current
     val height = with(density) { snapshot.sourceBounds.height.toDp() }.coerceAtLeast(32.dp)
-    Spacer(Modifier.fillMaxWidth().height(height))
+    val expansion = remember(snapshot.startToken, snapshot.targetChangeToken) { Animatable(0f) }
+    LaunchedEffect(expansion) {
+        expansion.animateTo(1f, tween(HOME_SIDE_PANEL_GAP_ANIMATION_MILLIS))
+    }
+    Spacer(Modifier.fillMaxWidth().height(height * expansion.value))
 }
 
 @Composable
@@ -263,15 +278,19 @@ internal fun HomeSidePanelActionInsertionGap(
     axis: HomeSidePanelDragAxis,
 ) {
     val density = LocalDensity.current
+    val expansion = remember(snapshot.startToken, snapshot.targetChangeToken) { Animatable(0f) }
+    LaunchedEffect(expansion) {
+        expansion.animateTo(1f, tween(HOME_SIDE_PANEL_GAP_ANIMATION_MILLIS))
+    }
     when (axis) {
         HomeSidePanelDragAxis.Horizontal -> {
             val width = with(density) { snapshot.sourceBounds.width.toDp() }.coerceAtLeast(48.dp)
-            Spacer(Modifier.width(width).height(72.dp))
+            Spacer(Modifier.width(width * expansion.value).height(72.dp))
         }
 
         HomeSidePanelDragAxis.Vertical -> {
             val height = with(density) { snapshot.sourceBounds.height.toDp() }.coerceAtLeast(48.dp)
-            Spacer(Modifier.fillMaxWidth().height(height))
+            Spacer(Modifier.fillMaxWidth().height(height * expansion.value))
         }
     }
 }
@@ -282,8 +301,46 @@ private fun HomeSidePanelDragOverlay(
     layout: HomeSidePanelLayout,
 ) {
     val density = LocalDensity.current
-    val width = with(density) { snapshot.sourceBounds.width.toDp() }.coerceAtLeast(72.dp)
-    val height = with(density) { snapshot.sourceBounds.height.toDp() }.coerceAtLeast(52.dp)
+    val sourceWidth = with(density) { snapshot.sourceBounds.width.toDp() }.coerceAtLeast(72.dp)
+    val sourceHeight = with(density) { snapshot.sourceBounds.height.toDp() }.coerceAtLeast(52.dp)
+    val targetWidth = snapshot.targetBounds?.let { bounds ->
+        with(density) { bounds.width.toDp() }.coerceAtLeast(72.dp)
+    } ?: sourceWidth
+    val targetHeight = snapshot.targetBounds?.let { bounds ->
+        with(density) { bounds.height.toDp() }.coerceAtLeast(52.dp)
+    } ?: sourceHeight
+    var lifted by remember(snapshot.startToken) { mutableStateOf(false) }
+    var morphToTarget by remember(snapshot.startToken) { mutableStateOf(false) }
+    LaunchedEffect(snapshot.startToken) {
+        withFrameNanos { }
+        lifted = true
+    }
+    LaunchedEffect(snapshot.startToken, snapshot.targetBounds) {
+        if (snapshot.targetBounds != null) {
+            withFrameNanos { }
+            morphToTarget = true
+        }
+    }
+    val width by animateDpAsState(
+        targetValue = if (morphToTarget) targetWidth else sourceWidth,
+        animationSpec = tween(220),
+        label = "HomeSidePanelDragWidth",
+    )
+    val height by animateDpAsState(
+        targetValue = if (morphToTarget) targetHeight else sourceHeight,
+        animationSpec = tween(220),
+        label = "HomeSidePanelDragHeight",
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (lifted) 1.035f else 1f,
+        animationSpec = tween(150),
+        label = "HomeSidePanelDragScale",
+    )
+    val elevation by animateDpAsState(
+        targetValue = if (lifted) 12.dp else 2.dp,
+        animationSpec = tween(170),
+        label = "HomeSidePanelDragElevation",
+    )
     val labelRes = when (val payload = snapshot.payload) {
         is HomeSidePanelDragPayload.NewCard -> homeSidePanelCardNameRes(payload.type)
         is HomeSidePanelDragPayload.ExistingCard -> {
@@ -302,17 +359,25 @@ private fun HomeSidePanelDragOverlay(
             homeSidePanelActionSpec(actions.single { it.id == payload.actionId }.kind).labelRes
         }
     }
-    val left = snapshot.rootPosition.x - snapshot.anchor.x
-    val top = snapshot.rootPosition.y - snapshot.anchor.y
+    val anchorFractionX = snapshot.anchor.x / snapshot.sourceBounds.width.coerceAtLeast(1f)
+    val anchorFractionY = snapshot.anchor.y / snapshot.sourceBounds.height.coerceAtLeast(1f)
+    val left = snapshot.rootPosition.x - with(density) { width.toPx() } * anchorFractionX
+    val top = snapshot.rootPosition.y - with(density) { height.toPx() } * anchorFractionY
     Surface(
         modifier = Modifier
             .zIndex(1f)
             .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
-            .size(width, height),
+            .size(width, height)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                transformOrigin = TransformOrigin(anchorFractionX, anchorFractionY)
+            }
+            .clearAndSetSemantics { },
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 8.dp,
-        shadowElevation = 8.dp,
+        shadowElevation = elevation,
     ) {
         Box(
             modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -378,3 +443,4 @@ private fun androidx.compose.ui.geometry.Rect.toRootDragBounds(): RootDragBounds
 
 private val HOME_SIDE_PANEL_EDGE_SCROLL_ZONE = 56.dp
 private val HOME_SIDE_PANEL_EDGE_SCROLL_STEP = 14.dp
+private const val HOME_SIDE_PANEL_GAP_ANIMATION_MILLIS = 150
