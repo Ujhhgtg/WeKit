@@ -46,7 +46,6 @@ import dev.ujhhgtg.wekit.extensions.ExtensionPackState.Verifying
 import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
-import dev.ujhhgtg.wekit.ui.agent.settings.AgentActionRow
 import dev.ujhhgtg.wekit.ui.agent.settings.AgentConfirmDialog
 import dev.ujhhgtg.wekit.ui.agent.settings.AgentListActionButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -163,7 +162,12 @@ private fun PackGroup(pack: ExtensionPack) {
             }
             else -> item(key = "actions") {
                 BaseItemContainer {
-                    AgentActionRow {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
                         AgentListActionButton(
                             label = stringResource(
                                 when (s) {
