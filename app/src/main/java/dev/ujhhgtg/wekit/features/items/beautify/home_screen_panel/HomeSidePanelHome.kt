@@ -80,13 +80,25 @@ internal fun HomeSidePanelHome(
     val dragSnapshot = dragState.snapshot
     val cardInsertionIndex = (dragSnapshot?.target as? HomeSidePanelDragTarget.Card)?.insertionIndex
     val editorMotion = remember { Animatable(0f) }
-    var previousEditing by remember { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(state.editing) {
-        val previous = previousEditing
-        previousEditing = state.editing
-        if (previous != null && previous != state.editing) {
-            editorMotion.snapTo(1f)
-            editorMotion.animateTo(0f, tween(220))
+    var editorMotionDirection by remember { mutableStateOf(1f) }
+    var previousRoute by remember { mutableStateOf<HomeSidePanelRoute?>(null) }
+    LaunchedEffect(state.route) {
+        val previous = previousRoute
+        previousRoute = state.route
+        when (previous?.let { homeSidePanelTransitionKind(it, state.route) }) {
+            HomeSidePanelTransitionKind.ENTER_EDITOR -> {
+                editorMotionDirection = 1f
+                editorMotion.snapTo(1f)
+                editorMotion.animateTo(0f, tween(220))
+            }
+
+            HomeSidePanelTransitionKind.EXIT_EDITOR -> {
+                editorMotionDirection = -1f
+                editorMotion.snapTo(1f)
+                editorMotion.animateTo(0f, tween(220))
+            }
+
+            else -> Unit
         }
     }
     val editorTranslation = with(LocalDensity.current) { 8.dp.toPx() }
@@ -99,7 +111,7 @@ internal fun HomeSidePanelHome(
                 alpha = 1f - 0.08f * progress
                 scaleX = 1f - 0.015f * progress
                 scaleY = 1f - 0.015f * progress
-                translationY = editorTranslation * progress * if (state.editing) 1f else -1f
+                translationY = editorTranslation * progress * editorMotionDirection
             }
             .homeSidePanelDragViewport(dragState),
         contentPadding = WindowInsets.safeDrawing
@@ -274,6 +286,7 @@ private fun HomeSidePanelLayoutCard(
                     HomeSidePanelExistingDragSource.VirtualAdd,
                 ),
                 descriptionRes = R.string.home_side_panel_drag_card,
+                additionalDescriptionRes = R.string.home_side_panel_add_action,
             ),
             onRunAction = { _, _, kind -> panelState.runAction(kind) },
             onDeleteAction = panelState::removeAction,
@@ -310,6 +323,7 @@ private fun HomeSidePanelLayoutCard(
                     HomeSidePanelExistingDragSource.VirtualAdd,
                 ),
                 descriptionRes = R.string.home_side_panel_drag_card,
+                additionalDescriptionRes = R.string.home_side_panel_add_action,
             ),
             onRunAction = { _, _, kind -> panelState.runAction(kind) },
             onDeleteAction = panelState::removeAction,

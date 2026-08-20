@@ -1,6 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.BoundsTransform
+import androidx.compose.animation.animateBounds
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
@@ -11,7 +14,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,19 +31,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -71,6 +72,7 @@ internal fun HomeSidePanelHorizontalActionsCard(
     onDeleteCard: ((String) -> Unit)? = null,
 ) {
     val (animatedActions, visibleActionIds) = rememberHomeSidePanelAnimatedActions(card.id, card.actions)
+    val interactiveActionIds = card.actions.mapTo(mutableSetOf(), HomeSidePanelActionConfig::id)
     val showEmptyCardDelete = rememberHomeSidePanelEmptyDeleteVisibility(
         cardId = card.id,
         editMode = editMode,
@@ -79,80 +81,116 @@ internal fun HomeSidePanelHorizontalActionsCard(
     val showAdd = editMode || content == HomeSidePanelActionCardContent.Preview
     val addVisibility = remember(card.id) { MutableTransitionState(false) }
     addVisibility.targetState = showAdd
-    key(card.id) {
-        FlowRow(
-            modifier = modifier.fillMaxWidth().animateContentSize(),
-            maxItemsInEachRow = 3,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            animatedActions.forEachIndexed { index, action ->
-                if (actionInsertionIndex == index && insertionSnapshot != null) {
-                    key("action-gap-$index") {
-                        Box(modifier = Modifier.weight(1f)) {
+    val (animatedGaps, visibleGapKeys) = rememberHomeSidePanelAnimatedGaps(
+        cardId = card.id,
+        insertionIndex = actionInsertionIndex,
+        snapshot = insertionSnapshot,
+    )
+    val boundsTransform = rememberHomeSidePanelBoundsTransform()
+    LookaheadScope {
+        key(card.id) {
+            FlowRow(
+                modifier = modifier.fillMaxWidth().animateContentSize(tween(180)),
+                maxItemsInEachRow = 3,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                animatedActions.forEachIndexed { index, action ->
+                    animatedGaps.filter { it.insertionIndex == index }.forEach { gap ->
+                        key(gap.key) {
+                            AnimatedVisibility(
+                                visible = visibleGapKeys[gap.key] == true,
+                                modifier = Modifier.animateBounds(
+                                    lookaheadScope = this@LookaheadScope,
+                                    boundsTransform = boundsTransform,
+                                ),
+                                enter = homeSidePanelGapEnter(horizontal = true),
+                                exit = homeSidePanelGapExit(horizontal = true),
+                            ) {
+                                HomeSidePanelActionInsertionGap(
+                                    gap.snapshot,
+                                    HomeSidePanelDragAxis.Horizontal,
+                                )
+                            }
+                        }
+                    }
+                    key(action.id) {
+                        AnimatedVisibility(
+                            visible = visibleActionIds[action.id] == true,
+                            modifier = Modifier
+                                .animateBounds(
+                                    lookaheadScope = this@LookaheadScope,
+                                    boundsTransform = boundsTransform,
+                                )
+                                .weight(1f),
+                            enter = homeSidePanelActionEnter(horizontal = true),
+                            exit = homeSidePanelActionExit(horizontal = true),
+                        ) {
+                            val interactive = action.id in interactiveActionIds
+                            HomeSidePanelActionItem(
+                                cardId = card.id,
+                                action = action,
+                                placement = HomeSidePanelActionPlacement.TILE,
+                                content = content,
+                                editMode = editMode,
+                                interactive = interactive,
+                                modifier = if (editMode && interactive) {
+                                    actionDragModifier(card.id, action.id)
+                                } else {
+                                    Modifier
+                                },
+                                onRunAction = onRunAction,
+                                onDeleteAction = onDeleteAction,
+                            )
+                        }
+                    }
+                }
+                animatedGaps.filter { it.insertionIndex == animatedActions.size }.forEach { gap ->
+                    key(gap.key) {
+                        AnimatedVisibility(
+                            visible = visibleGapKeys[gap.key] == true,
+                            modifier = Modifier.animateBounds(
+                                lookaheadScope = this@LookaheadScope,
+                                boundsTransform = boundsTransform,
+                            ),
+                            enter = homeSidePanelGapEnter(horizontal = true),
+                            exit = homeSidePanelGapExit(horizontal = true),
+                        ) {
                             HomeSidePanelActionInsertionGap(
-                                insertionSnapshot,
+                                gap.snapshot,
                                 HomeSidePanelDragAxis.Horizontal,
                             )
                         }
                     }
                 }
-                key(action.id) {
-                    AnimatedVisibility(
-                        visible = visibleActionIds[action.id] == true,
-                        modifier = Modifier.weight(1f),
-                        enter = homeSidePanelActionEnter(horizontal = true),
-                        exit = homeSidePanelActionExit(horizontal = true),
-                    ) {
-                        HomeSidePanelActionItem(
-                            cardId = card.id,
-                            action = action,
-                            placement = HomeSidePanelActionPlacement.TILE,
-                            content = content,
-                            editMode = editMode && visibleActionIds[action.id] == true,
-                            modifier = if (editMode && visibleActionIds[action.id] == true) {
-                                actionDragModifier(card.id, action.id)
-                            } else {
-                                Modifier
-                            },
-                            onRunAction = onRunAction,
-                            onDeleteAction = onDeleteAction,
-                        )
-                    }
-                }
-            }
-            if (actionInsertionIndex == card.actions.size && insertionSnapshot != null) {
-                key("action-gap-end") {
-                    Box(modifier = Modifier.weight(1f)) {
-                        HomeSidePanelActionInsertionGap(
-                            insertionSnapshot,
-                            HomeSidePanelDragAxis.Horizontal,
-                        )
-                    }
-                }
-            }
-            if (showAdd || addVisibility.currentState || !addVisibility.isIdle) {
-                key(HomeSidePanelVirtualAddKey) {
-                    AnimatedVisibility(
-                        visibleState = addVisibility,
-                        modifier = Modifier.weight(1f),
-                        enter = homeSidePanelAddEnter(horizontal = true),
-                        exit = homeSidePanelAddExit(horizontal = true),
-                    ) {
-                        HomeSidePanelAddActionItem(
-                            placement = HomeSidePanelActionPlacement.TILE,
-                            onClick = if (editMode) {
-                                { onAddAction(card.id) }
-                            } else {
-                                null
-                            },
-                            onDeleteCard = if (showEmptyCardDelete) {
-                                onDeleteCard?.let { delete -> { delete(card.id) } }
-                            } else {
-                                null
-                            },
-                            wholeCardDragModifier = if (editMode) cardDragModifier else Modifier,
-                        )
+                if (showAdd || addVisibility.currentState || !addVisibility.isIdle) {
+                    key(HomeSidePanelVirtualAddKey) {
+                        AnimatedVisibility(
+                            visibleState = addVisibility,
+                            modifier = Modifier
+                                .animateBounds(
+                                    lookaheadScope = this@LookaheadScope,
+                                    boundsTransform = boundsTransform,
+                                )
+                                .weight(1f),
+                            enter = homeSidePanelAddEnter(horizontal = true),
+                            exit = homeSidePanelAddExit(horizontal = true),
+                        ) {
+                            HomeSidePanelAddActionItem(
+                                placement = HomeSidePanelActionPlacement.TILE,
+                                onClick = if (editMode) {
+                                    { onAddAction(card.id) }
+                                } else {
+                                    null
+                                },
+                                onDeleteCard = if (showEmptyCardDelete) {
+                                    onDeleteCard?.let { delete -> { delete(card.id) } }
+                                } else {
+                                    null
+                                },
+                                wholeCardDragModifier = if (editMode) cardDragModifier else Modifier,
+                            )
+                        }
                     }
                 }
             }
@@ -177,6 +215,7 @@ internal fun HomeSidePanelVerticalActionsCard(
 ) {
     val showAdd = editMode || content == HomeSidePanelActionCardContent.Preview
     val (animatedActions, visibleActionIds) = rememberHomeSidePanelAnimatedActions(card.id, card.actions)
+    val interactiveActionIds = card.actions.mapTo(mutableSetOf(), HomeSidePanelActionConfig::id)
     val showEmptyCardDelete = rememberHomeSidePanelEmptyDeleteVisibility(
         cardId = card.id,
         editMode = editMode,
@@ -184,73 +223,111 @@ internal fun HomeSidePanelVerticalActionsCard(
     )
     val addVisibility = remember(card.id) { MutableTransitionState(false) }
     addVisibility.targetState = showAdd
-    HomeSidePanelActionsCardFrame(card.id, modifier) {
-        animatedActions.forEachIndexed { index, action ->
-            if (actionInsertionIndex == index && insertionSnapshot != null) {
-                key("action-gap-$index") {
-                    HomeSidePanelActionInsertionGap(
-                        insertionSnapshot,
-                        HomeSidePanelDragAxis.Vertical,
-                    )
+    val (animatedGaps, visibleGapKeys) = rememberHomeSidePanelAnimatedGaps(
+        cardId = card.id,
+        insertionIndex = actionInsertionIndex,
+        snapshot = insertionSnapshot,
+    )
+    val boundsTransform = rememberHomeSidePanelBoundsTransform()
+    LookaheadScope {
+        HomeSidePanelActionsCardFrame(card.id, modifier) {
+            animatedActions.forEachIndexed { index, action ->
+                animatedGaps.filter { it.insertionIndex == index }.forEach { gap ->
+                    key(gap.key) {
+                        AnimatedVisibility(
+                            visible = visibleGapKeys[gap.key] == true,
+                            modifier = Modifier.animateBounds(
+                                lookaheadScope = this@LookaheadScope,
+                                boundsTransform = boundsTransform,
+                            ),
+                            enter = homeSidePanelGapEnter(horizontal = false),
+                            exit = homeSidePanelGapExit(horizontal = false),
+                        ) {
+                            HomeSidePanelActionInsertionGap(
+                                gap.snapshot,
+                                HomeSidePanelDragAxis.Vertical,
+                            )
+                        }
+                    }
                 }
-            }
-            key(action.id) {
-                AnimatedVisibility(
-                    visible = visibleActionIds[action.id] == true,
-                    enter = homeSidePanelActionEnter(horizontal = false),
-                    exit = homeSidePanelActionExit(horizontal = false),
-                ) {
-                    Column {
-                        HomeSidePanelActionItem(
-                            cardId = card.id,
-                            action = action,
-                            placement = HomeSidePanelActionPlacement.LIST_ITEM,
-                            content = content,
-                            editMode = editMode && visibleActionIds[action.id] == true,
-                            modifier = if (editMode && visibleActionIds[action.id] == true) {
-                                actionDragModifier(card.id, action.id)
-                            } else {
-                                Modifier
-                            },
-                            onRunAction = onRunAction,
-                            onDeleteAction = onDeleteAction,
-                        )
-                        if (index != animatedActions.lastIndex || showAdd) {
-                            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                key(action.id) {
+                    AnimatedVisibility(
+                        visible = visibleActionIds[action.id] == true,
+                        modifier = Modifier.animateBounds(
+                            lookaheadScope = this@LookaheadScope,
+                            boundsTransform = boundsTransform,
+                        ),
+                        enter = homeSidePanelActionEnter(horizontal = false),
+                        exit = homeSidePanelActionExit(horizontal = false),
+                    ) {
+                        Column {
+                            val interactive = action.id in interactiveActionIds
+                            HomeSidePanelActionItem(
+                                cardId = card.id,
+                                action = action,
+                                placement = HomeSidePanelActionPlacement.LIST_ITEM,
+                                content = content,
+                                editMode = editMode,
+                                interactive = interactive,
+                                modifier = if (editMode && interactive) {
+                                    actionDragModifier(card.id, action.id)
+                                } else {
+                                    Modifier
+                                },
+                                onRunAction = onRunAction,
+                                onDeleteAction = onDeleteAction,
+                            )
+                            if (index != animatedActions.lastIndex || showAdd) {
+                                HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                            }
                         }
                     }
                 }
             }
-        }
-        if (actionInsertionIndex == card.actions.size && insertionSnapshot != null) {
-            key("action-gap-end") {
-                HomeSidePanelActionInsertionGap(
-                    insertionSnapshot,
-                    HomeSidePanelDragAxis.Vertical,
-                )
+            animatedGaps.filter { it.insertionIndex == animatedActions.size }.forEach { gap ->
+                key(gap.key) {
+                    AnimatedVisibility(
+                        visible = visibleGapKeys[gap.key] == true,
+                        modifier = Modifier.animateBounds(
+                            lookaheadScope = this@LookaheadScope,
+                            boundsTransform = boundsTransform,
+                        ),
+                        enter = homeSidePanelGapEnter(horizontal = false),
+                        exit = homeSidePanelGapExit(horizontal = false),
+                    ) {
+                        HomeSidePanelActionInsertionGap(
+                            gap.snapshot,
+                            HomeSidePanelDragAxis.Vertical,
+                        )
+                    }
+                }
             }
-        }
-        if (showAdd || addVisibility.currentState || !addVisibility.isIdle) {
-            key(HomeSidePanelVirtualAddKey) {
-                AnimatedVisibility(
-                    visibleState = addVisibility,
-                    enter = homeSidePanelAddEnter(horizontal = false),
-                    exit = homeSidePanelAddExit(horizontal = false),
-                ) {
-                    HomeSidePanelAddActionItem(
-                        placement = HomeSidePanelActionPlacement.LIST_ITEM,
-                        onClick = if (editMode) {
-                            { onAddAction(card.id) }
-                        } else {
-                            null
-                        },
-                        onDeleteCard = if (showEmptyCardDelete) {
-                            onDeleteCard?.let { delete -> { delete(card.id) } }
-                        } else {
-                            null
-                        },
-                        wholeCardDragModifier = if (editMode) cardDragModifier else Modifier,
-                    )
+            if (showAdd || addVisibility.currentState || !addVisibility.isIdle) {
+                key(HomeSidePanelVirtualAddKey) {
+                    AnimatedVisibility(
+                        visibleState = addVisibility,
+                        modifier = Modifier.animateBounds(
+                            lookaheadScope = this@LookaheadScope,
+                            boundsTransform = boundsTransform,
+                        ),
+                        enter = homeSidePanelAddEnter(horizontal = false),
+                        exit = homeSidePanelAddExit(horizontal = false),
+                    ) {
+                        HomeSidePanelAddActionItem(
+                            placement = HomeSidePanelActionPlacement.LIST_ITEM,
+                            onClick = if (editMode) {
+                                { onAddAction(card.id) }
+                            } else {
+                                null
+                            },
+                            onDeleteCard = if (showEmptyCardDelete) {
+                                onDeleteCard?.let { delete -> { delete(card.id) } }
+                            } else {
+                                null
+                            },
+                            wholeCardDragModifier = if (editMode) cardDragModifier else Modifier,
+                        )
+                    }
                 }
             }
         }
@@ -264,23 +341,15 @@ internal fun HomeSidePanelAddActionItem(
     onDeleteCard: (() -> Unit)?,
     wholeCardDragModifier: Modifier,
 ) {
-    val addDescription = stringResource(R.string.home_side_panel_add_action)
-    val addSemantics = if (onClick != null) {
-        Modifier.semantics { contentDescription = addDescription }
-    } else {
-        Modifier
-    }
     when (placement) {
         HomeSidePanelActionPlacement.TILE -> Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(addSemantics)
-                .then(wholeCardDragModifier),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier),
+                    .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
+                    .then(wholeCardDragModifier),
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
             ) {
@@ -310,10 +379,7 @@ internal fun HomeSidePanelAddActionItem(
         }
 
         HomeSidePanelActionPlacement.LIST_ITEM -> Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(addSemantics)
-                .then(wholeCardDragModifier),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             ListItem(
                 leadingContent = {
@@ -325,7 +391,8 @@ internal fun HomeSidePanelAddActionItem(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier),
+                    .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
+                    .then(wholeCardDragModifier),
             ) {
                 Text(stringResource(R.string.action_add))
             }
@@ -349,7 +416,9 @@ private fun HomeSidePanelActionsCardFrame(
 ) {
     HomeSidePanelCardFrame(
         cardId = cardId,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize(tween(HOME_SIDE_PANEL_REFLOW_ANIMATION_MILLIS)),
         cardModifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -367,12 +436,15 @@ private fun HomeSidePanelActionItem(
     placement: HomeSidePanelActionPlacement,
     content: HomeSidePanelActionCardContent,
     editMode: Boolean,
+    interactive: Boolean,
     modifier: Modifier,
     onRunAction: (cardId: String, actionId: String, kind: HomeSidePanelActionKind) -> Unit,
     onDeleteAction: ((cardId: String, actionId: String) -> Unit)?,
 ) {
     val spec = homeSidePanelActionSpec(action.kind)
-    val clickModifier = if (!editMode && content == HomeSidePanelActionCardContent.Runtime) {
+    val clickModifier = if (
+        interactive && !editMode && content == HomeSidePanelActionCardContent.Runtime
+    ) {
         Modifier.clickable {
             onRunAction(cardId, action.id, action.kind)
         }
@@ -424,7 +496,7 @@ private fun HomeSidePanelActionItem(
         }
         Box(modifier = Modifier.align(Alignment.TopEnd)) {
             HomeSidePanelCardBadge(
-                editMode = editMode,
+                editMode = editMode && interactive,
                 onEdit = null,
                 onDelete = onDeleteAction?.let { delete -> { delete(cardId, action.id) } },
                 deleteDescriptionRes = R.string.home_side_panel_delete_action,
@@ -434,6 +506,75 @@ private fun HomeSidePanelActionItem(
 }
 
 private data object HomeSidePanelVirtualAddKey
+
+private data class HomeSidePanelAnimatedGapKey(
+    val startToken: Long,
+    val targetChangeToken: Long,
+)
+
+private data class HomeSidePanelAnimatedGap(
+    val key: HomeSidePanelAnimatedGapKey,
+    val insertionIndex: Int,
+    val snapshot: HomeSidePanelDragSnapshot,
+)
+
+@Composable
+private fun rememberHomeSidePanelAnimatedGaps(
+    cardId: String,
+    insertionIndex: Int?,
+    snapshot: HomeSidePanelDragSnapshot?,
+): Pair<List<HomeSidePanelAnimatedGap>, Map<HomeSidePanelAnimatedGapKey, Boolean>> {
+    val displayed = remember(cardId) { mutableStateListOf<HomeSidePanelAnimatedGap>() }
+    val visible = remember(cardId) { mutableStateMapOf<HomeSidePanelAnimatedGapKey, Boolean>() }
+    val currentKey = if (insertionIndex != null && snapshot != null) {
+        HomeSidePanelAnimatedGapKey(snapshot.startToken, snapshot.targetChangeToken)
+    } else {
+        null
+    }
+    LaunchedEffect(currentKey, insertionIndex) {
+        val alreadyExiting = visible.filterValues { !it }.keys
+        displayed.removeAll { it.key in alreadyExiting }
+        alreadyExiting.forEach(visible::remove)
+        visible.keys.toList().forEach { key ->
+            if (key != currentKey) visible[key] = false
+        }
+
+        var added = false
+        if (currentKey != null) {
+            val entry = HomeSidePanelAnimatedGap(
+                key = currentKey,
+                insertionIndex = checkNotNull(insertionIndex),
+                snapshot = checkNotNull(snapshot),
+            )
+            val existingIndex = displayed.indexOfFirst { it.key == currentKey }
+            if (existingIndex >= 0) {
+                displayed[existingIndex] = entry
+            } else {
+                displayed += entry
+                visible[currentKey] = false
+                added = true
+            }
+        }
+
+        if (added) {
+            withFrameNanos { }
+            visible[currentKey!!] = true
+        }
+
+        if (visible.values.any { !it }) {
+            delay(HOME_SIDE_PANEL_GAP_EXIT_MILLIS.toLong())
+            val hidden = visible.filterValues { !it }.keys
+            displayed.removeAll { it.key in hidden }
+            hidden.forEach(visible::remove)
+        }
+    }
+    return displayed to visible
+}
+
+@Composable
+private fun rememberHomeSidePanelBoundsTransform(): BoundsTransform = remember {
+    BoundsTransform { _, _ -> tween(HOME_SIDE_PANEL_REFLOW_ANIMATION_MILLIS) }
+}
 
 @Composable
 private fun rememberHomeSidePanelAnimatedActions(
@@ -504,6 +645,20 @@ private fun homeSidePanelActionExit(horizontal: Boolean) =
         shrinkVertically(tween(HOME_SIDE_PANEL_ACTION_EXIT_MILLIS), shrinkTowards = Alignment.Top)
     }
 
+private fun homeSidePanelGapEnter(horizontal: Boolean) =
+    fadeIn(tween(120)) + if (horizontal) {
+        expandHorizontally(tween(HOME_SIDE_PANEL_GAP_EXIT_MILLIS), expandFrom = Alignment.Start)
+    } else {
+        expandVertically(tween(HOME_SIDE_PANEL_GAP_EXIT_MILLIS), expandFrom = Alignment.Top)
+    }
+
+private fun homeSidePanelGapExit(horizontal: Boolean) =
+    fadeOut(tween(100)) + if (horizontal) {
+        shrinkHorizontally(tween(HOME_SIDE_PANEL_GAP_EXIT_MILLIS), shrinkTowards = Alignment.Start)
+    } else {
+        shrinkVertically(tween(HOME_SIDE_PANEL_GAP_EXIT_MILLIS), shrinkTowards = Alignment.Top)
+    }
+
 private fun homeSidePanelAddEnter(horizontal: Boolean) =
     fadeIn(tween(160)) + if (horizontal) {
         expandHorizontally(tween(200), expandFrom = Alignment.Start)
@@ -519,4 +674,6 @@ private fun homeSidePanelAddExit(horizontal: Boolean) =
     }
 
 private const val HOME_SIDE_PANEL_ACTION_EXIT_MILLIS = 170
+private const val HOME_SIDE_PANEL_GAP_EXIT_MILLIS = 180
 private const val HOME_SIDE_PANEL_EMPTY_DELETE_HANDOFF_MILLIS = 200
+private const val HOME_SIDE_PANEL_REFLOW_ANIMATION_MILLIS = 180

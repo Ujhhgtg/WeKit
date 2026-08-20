@@ -48,8 +48,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -225,11 +225,20 @@ internal fun Modifier.homeSidePanelDragSource(
     dragState: HomeSidePanelDragState,
     payload: HomeSidePanelDragPayload,
     @StringRes descriptionRes: Int,
+    @StringRes additionalDescriptionRes: Int? = null,
 ): Modifier = composed {
     var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     val description = stringResource(descriptionRes)
+    val additionalDescription = if (additionalDescriptionRes != null) {
+        stringResource(additionalDescriptionRes)
+    } else {
+        null
+    }
     onGloballyPositioned { coordinates = it }
-        .semantics { contentDescription = description }
+        .semantics {
+            this[SemanticsProperties.ContentDescription] =
+                listOfNotNull(additionalDescription, description)
+        }
         .pointerInput(dragState, payload) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
@@ -264,7 +273,8 @@ internal fun HomeSidePanelCardInsertionGap(
 ) {
     if (!visible || snapshot == null) return
     val density = LocalDensity.current
-    val height = with(density) { snapshot.sourceBounds.height.toDp() }.coerceAtLeast(32.dp)
+    val bounds = snapshot.targetBounds ?: snapshot.sourceBounds
+    val height = with(density) { bounds.height.toDp() }.coerceAtLeast(32.dp)
     val expansion = remember(snapshot.startToken, snapshot.targetChangeToken) { Animatable(0f) }
     LaunchedEffect(expansion) {
         expansion.animateTo(1f, tween(HOME_SIDE_PANEL_GAP_ANIMATION_MILLIS))
@@ -278,19 +288,17 @@ internal fun HomeSidePanelActionInsertionGap(
     axis: HomeSidePanelDragAxis,
 ) {
     val density = LocalDensity.current
-    val expansion = remember(snapshot.startToken, snapshot.targetChangeToken) { Animatable(0f) }
-    LaunchedEffect(expansion) {
-        expansion.animateTo(1f, tween(HOME_SIDE_PANEL_GAP_ANIMATION_MILLIS))
-    }
+    val bounds = snapshot.targetBounds ?: snapshot.sourceBounds
     when (axis) {
         HomeSidePanelDragAxis.Horizontal -> {
-            val width = with(density) { snapshot.sourceBounds.width.toDp() }.coerceAtLeast(48.dp)
-            Spacer(Modifier.width(width * expansion.value).height(72.dp))
+            val width = with(density) { bounds.width.toDp() }.coerceAtLeast(48.dp)
+            val height = with(density) { bounds.height.toDp() }.coerceAtLeast(52.dp)
+            Spacer(Modifier.width(width).height(height))
         }
 
         HomeSidePanelDragAxis.Vertical -> {
-            val height = with(density) { snapshot.sourceBounds.height.toDp() }.coerceAtLeast(48.dp)
-            Spacer(Modifier.fillMaxWidth().height(height * expansion.value))
+            val height = with(density) { bounds.height.toDp() }.coerceAtLeast(48.dp)
+            Spacer(Modifier.fillMaxWidth().height(height))
         }
     }
 }
