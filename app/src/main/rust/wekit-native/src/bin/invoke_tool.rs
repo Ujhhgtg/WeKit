@@ -1,5 +1,8 @@
-use serde_json::{json, Value};
+use serde::Deserializer;
+use serde::de::{self, MapAccess, Visitor};
+use serde_json::{Value, json};
 use std::env;
+use std::fmt;
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 use std::time::Duration;
@@ -86,25 +89,82 @@ fn run() -> Result<(), ClientError> {
     }
     let response = String::from_utf8(response)
         .map_err(|_| ClientError::BridgeUnavailable("response is not UTF-8".into()))?;
-    let response_json: Value = serde_json::from_str(&response)
-        .map_err(|_| ClientError::BridgeUnavailable("response is not JSON".into()))?;
+    let exit_code = response_exit_code(&response)?;
     println!("{response}");
-    if response_json.get("ok").and_then(Value::as_bool) == Some(false) {
-        std::process::exit(response_exit_code(
-            response_json.get("error").and_then(Value::as_str),
-        ));
+    if exit_code != 0 {
+        std::process::exit(exit_code);
     }
     Ok(())
 }
 
-fn response_exit_code(error: Option<&str>) -> i32 {
-    match error.unwrap_or("") {
+fn response_exit_code(response: &str) -> Result<i32, ClientError> {
+    struct ResponseContract {
+        ok: bool,
+        error: Option<String>,
+    }
+
+    struct ResponseVisitor;
+
+    impl<'de> Visitor<'de> for ResponseVisitor {
+        type Value = ResponseContract;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str("a bridge response object")
+        }
+
+        fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+        where
+            A: MapAccess<'de>,
+        {
+            let mut ok = None;
+            let mut error = None;
+            while let Some(key) = map.next_key::<String>()? {
+                match key.as_str() {
+                    "ok" => {
+                        if ok.is_some() {
+                            return Err(de::Error::duplicate_field("ok"));
+                        }
+                        ok = Some(map.next_value::<bool>()?);
+                    }
+                    "error" => {
+                        if error.is_some() {
+                            return Err(de::Error::duplicate_field("error"));
+                        }
+                        error = Some(map.next_value::<String>()?);
+                    }
+                    _ => {
+                        map.next_value::<Value>()?;
+                    }
+                }
+            }
+            Ok(ResponseContract {
+                ok: ok.ok_or_else(|| de::Error::missing_field("ok"))?,
+                error,
+            })
+        }
+    }
+
+    let mut deserializer = serde_json::Deserializer::from_str(response);
+    let contract = deserializer
+        .deserialize_map(ResponseVisitor)
+        .and_then(|contract| {
+            deserializer.end()?;
+            Ok(contract)
+        })
+        .map_err(|_| ClientError::BridgeUnavailable("invalid bridge response JSON".into()))?;
+    if contract.ok {
+        return Ok(0);
+    }
+    let error = contract
+        .error
+        .ok_or_else(|| ClientError::BridgeUnavailable("invalid bridge response JSON".into()))?;
+    Ok(match error.as_str() {
         "unauthorized" | "token_revoked" | "authentication_failed" => 3,
         "unknown_tool" | "tool_disabled" | "disabled_tool" => 4,
         "approval_denied" => 5,
         "execution_failed" => 6,
         _ => 2,
-    }
+    })
 }
 
 fn parse_request(mut args: impl Iterator<Item = String>) -> Result<Value, ClientError> {
@@ -209,12 +269,53 @@ mod tests {
     }
 
     #[test]
+    fn response_parser_rejects_invalid_contracts() {
+        for response in [
+            "",
+            "{malformed",
+            "[]",
+            "true",
+            "{}",
+            r#"{"message":"missing ok"}"#,
+            r#"{"ok":null}"#,
+            r#"{"ok":[]}"#,
+            r#"{"ok":"true"}"#,
+            r#"{"ok":false}"#,
+            r#"{"ok":false,"error":null}"#,
+            r#"{"ok":false,"error":7}"#,
+            r#"{"ok":true,"ok":false,"error":"unauthorized"}"#,
+            r#"{"ok":false,"error":"execution_failed","error":"unauthorized"}"#,
+        ] {
+            let error = response_exit_code(response).unwrap_err();
+            assert_eq!(error.exit_code(), 7, "response={response}");
+        }
+    }
+
+    #[test]
     fn response_errors_use_shared_exit_contract() {
-        assert_eq!(response_exit_code(Some("unauthorized")), 3);
-        assert_eq!(response_exit_code(Some("unknown_tool")), 4);
-        assert_eq!(response_exit_code(Some("approval_denied")), 5);
-        assert_eq!(response_exit_code(Some("execution_failed")), 6);
-        assert_eq!(response_exit_code(Some("invalid_json")), 2);
+        for (error, exit_code) in [
+            ("unauthorized", 3),
+            ("token_revoked", 3),
+            ("authentication_failed", 3),
+            ("unknown_tool", 4),
+            ("tool_disabled", 4),
+            ("disabled_tool", 4),
+            ("approval_denied", 5),
+            ("execution_failed", 6),
+            ("invalid_json", 2),
+        ] {
+            assert_eq!(
+                response_exit_code(&format!(r#"{{"ok":false,"error":"{error}"}}"#)).unwrap(),
+                exit_code
+            );
+        }
+        assert_eq!(
+            response_exit_code(
+                r#" { "ok" : true, "result" : {"ok":false,"error":"unauthorized"} } "#
+            )
+            .unwrap(),
+            0
+        );
         assert_eq!(
             parse_request(["list"].into_iter().map(String::from)).unwrap(),
             json!({"op": "list"})
