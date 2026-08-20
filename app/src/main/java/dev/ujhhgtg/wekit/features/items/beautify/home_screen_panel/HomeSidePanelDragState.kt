@@ -5,7 +5,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 internal data class DragItemBounds(
-    val id: String,
     val start: Float,
     val end: Float,
 )
@@ -16,6 +15,22 @@ internal fun insertionIndex(
 ): Int {
     val before = bounds.indexOfFirst { position < (it.start + it.end) / 2f }
     return if (before >= 0) before else bounds.size
+}
+
+internal enum class HomeSidePanelPointerLifecycleDecision {
+    Continue,
+    Finish,
+    Cancel,
+}
+
+internal fun homeSidePanelPointerLifecycleDecision(
+    previousPressed: Boolean,
+    pressed: Boolean,
+    consumedAtInitialPass: Boolean,
+): HomeSidePanelPointerLifecycleDecision = when {
+    !previousPressed || pressed -> HomeSidePanelPointerLifecycleDecision.Continue
+    consumedAtInitialPass -> HomeSidePanelPointerLifecycleDecision.Cancel
+    else -> HomeSidePanelPointerLifecycleDecision.Finish
 }
 
 internal fun normalizedMoveDestination(
@@ -168,6 +183,23 @@ internal class HomeSidePanelDragState {
         val axis: HomeSidePanelDragAxis,
         val bounds: RootDragBounds,
     )
+
+    private data class HorizontalRow(
+        val items: MutableList<RegisteredBounds>,
+        var top: Float,
+        var bottom: Float,
+    ) {
+        val centerY: Float get() = (top + bottom) / 2f
+
+        fun overlaps(bounds: RootDragBounds): Boolean =
+            bounds.top < bottom && bounds.bottom > top
+
+        fun add(item: RegisteredBounds) {
+            items += item
+            top = minOf(top, item.bounds.top)
+            bottom = maxOf(bottom, item.bounds.bottom)
+        }
+    }
 
     private val cardBounds = mutableMapOf<String, RegisteredBounds>()
     private val actionContainers = mutableMapOf<String, ActionContainer>()
@@ -391,14 +423,16 @@ internal class HomeSidePanelDragState {
         val container = actionContainers[cardId] ?: return null
         if (!container.bounds.contains(position)) return null
         val ordered = actionBounds[cardId].orEmpty().values.sortedBy(RegisteredBounds::index)
-        val coordinate = when (container.axis) {
-            HomeSidePanelDragAxis.Horizontal -> position.x
-            HomeSidePanelDragAxis.Vertical -> position.y
-        }
         val insertion = if (ordered.isEmpty()) {
             0
         } else {
-            modelInsertionIndex(coordinate, ordered, container.axis)
+            when (container.axis) {
+                HomeSidePanelDragAxis.Horizontal ->
+                    horizontalModelInsertionIndex(position, ordered)
+
+                HomeSidePanelDragAxis.Vertical ->
+                    modelInsertionIndex(position.y, ordered, HomeSidePanelDragAxis.Vertical)
+            }
         }
         return HomeSidePanelDragTarget.Action(cardId, insertion)
     }
@@ -408,13 +442,40 @@ internal class HomeSidePanelDragState {
         ordered: List<RegisteredBounds>,
         axis: HomeSidePanelDragAxis,
     ): Int {
-        val before = ordered.firstOrNull { registered ->
-            val bounds = registered.bounds
-            val start = if (axis == HomeSidePanelDragAxis.Horizontal) bounds.left else bounds.top
-            val end = if (axis == HomeSidePanelDragAxis.Horizontal) bounds.right else bounds.bottom
-            position < (start + end) / 2f
+        val localIndex = insertionIndex(
+            position = position,
+            bounds = ordered.map { registered ->
+                val bounds = registered.bounds
+                val start = if (axis == HomeSidePanelDragAxis.Horizontal) bounds.left else bounds.top
+                val end = if (axis == HomeSidePanelDragAxis.Horizontal) bounds.right else bounds.bottom
+                DragItemBounds(start, end)
+            },
+        )
+        return ordered.getOrNull(localIndex)?.index ?: (ordered.last().index + 1)
+    }
+
+    private fun horizontalModelInsertionIndex(
+        position: RootDragPosition,
+        ordered: List<RegisteredBounds>,
+    ): Int {
+        val rows = mutableListOf<HorizontalRow>()
+        ordered.forEach { item ->
+            val row = rows.lastOrNull()
+            if (row != null && row.overlaps(item.bounds)) {
+                row.add(item)
+            } else {
+                rows += HorizontalRow(
+                    items = mutableListOf(item),
+                    top = item.bounds.top,
+                    bottom = item.bounds.bottom,
+                )
+            }
         }
-        return before?.index ?: (ordered.last().index + 1)
+        val row = rows
+            .filter { position.y in it.top..it.bottom }
+            .minByOrNull { kotlin.math.abs(position.y - it.centerY) }
+            ?: rows.minBy { kotlin.math.abs(position.y - it.centerY) }
+        return modelInsertionIndex(position.x, row.items, HomeSidePanelDragAxis.Horizontal)
     }
 
     private fun sourceBoundsFor(payload: HomeSidePanelDragPayload): RootDragBounds? = when (payload) {

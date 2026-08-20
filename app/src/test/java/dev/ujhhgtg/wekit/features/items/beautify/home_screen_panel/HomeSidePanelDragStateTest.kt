@@ -17,15 +17,88 @@ class HomeSidePanelDragStateTest {
 
     @Test
     fun variableHeightBoundsChooseInsertionByCenters() {
-        val bounds = listOf(
-            DragItemBounds("a", 0f, 100f),
-            DragItemBounds("b", 110f, 310f),
-            DragItemBounds("c", 320f, 400f),
+        val state = HomeSidePanelDragState()
+        state.registerCardBounds("a", 0, RootDragBounds(0f, 0f, 300f, 100f))
+        state.registerCardBounds("b", 1, RootDragBounds(0f, 110f, 300f, 310f))
+        state.registerCardBounds("c", 2, RootDragBounds(0f, 320f, 300f, 400f))
+        state.begin(
+            payload = HomeSidePanelDragPayload.NewCard(HomeSidePanelCardType.WEATHER),
+            pointerId = 1L,
+            rootPosition = RootDragPosition(150f, 20f),
         )
 
-        assertEquals(0, insertionIndex(20f, bounds))
-        assertEquals(1, insertionIndex(180f, bounds))
-        assertEquals(3, insertionIndex(430f, bounds))
+        assertEquals(HomeSidePanelDragTarget.Card(0), state.snapshot!!.target)
+        state.updateRootPosition(150f, 180f)
+        assertEquals(HomeSidePanelDragTarget.Card(1), state.snapshot!!.target)
+        state.updateRootPosition(150f, 430f)
+        assertEquals(HomeSidePanelDragTarget.Card(3), state.snapshot!!.target)
+    }
+
+    @Test
+    fun initiallyConsumedReleaseCancelsWhileUnconsumedReleaseFinishes() {
+        assertEquals(
+            HomeSidePanelPointerLifecycleDecision.Cancel,
+            homeSidePanelPointerLifecycleDecision(
+                previousPressed = true,
+                pressed = false,
+                consumedAtInitialPass = true,
+            ),
+        )
+        assertEquals(
+            HomeSidePanelPointerLifecycleDecision.Finish,
+            homeSidePanelPointerLifecycleDecision(
+                previousPressed = true,
+                pressed = false,
+                consumedAtInitialPass = false,
+            ),
+        )
+        assertEquals(
+            HomeSidePanelPointerLifecycleDecision.Continue,
+            homeSidePanelPointerLifecycleDecision(
+                previousPressed = true,
+                pressed = true,
+                consumedAtInitialPass = true,
+            ),
+        )
+    }
+
+    @Test
+    fun horizontalActionTargetUsesThePointersRowBeforeItsXCenter() {
+        val state = horizontalTwoRowState()
+        state.begin(
+            payload = HomeSidePanelDragPayload.NewAction(
+                "target",
+                HomeSidePanelActionKind.SCAN,
+            ),
+            pointerId = 2L,
+            rootPosition = RootDragPosition(120f, 150f),
+        )
+
+        assertEquals(
+            HomeSidePanelDragTarget.Action("target", 4),
+            state.snapshot!!.target,
+        )
+    }
+
+    @Test
+    fun horizontalActionTargetChoosesNearestRowBetweenRowsAndAtEdges() {
+        val state = horizontalTwoRowState()
+        state.begin(
+            payload = HomeSidePanelDragPayload.NewAction(
+                "target",
+                HomeSidePanelActionKind.SCAN,
+            ),
+            pointerId = 3L,
+            rootPosition = RootDragPosition(120f, 85f),
+        )
+
+        assertEquals(HomeSidePanelDragTarget.Action("target", 1), state.snapshot!!.target)
+        state.updateRootPosition(120f, 95f)
+        assertEquals(HomeSidePanelDragTarget.Action("target", 4), state.snapshot!!.target)
+        state.updateRootPosition(0f, -20f)
+        assertEquals(HomeSidePanelDragTarget.Action("target", 0), state.snapshot!!.target)
+        state.updateRootPosition(300f, 220f)
+        assertEquals(HomeSidePanelDragTarget.Action("target", 6), state.snapshot!!.target)
     }
 
     @Test
@@ -189,4 +262,23 @@ class HomeSidePanelDragStateTest {
         assertTrue(state.begin(action, 13L))
         assertEquals(action, state.snapshot!!.payload)
     }
+
+    private fun horizontalTwoRowState(): HomeSidePanelDragState =
+        HomeSidePanelDragState().apply {
+            registerActionContainer(
+                cardId = "target",
+                axis = HomeSidePanelDragAxis.Horizontal,
+                bounds = RootDragBounds(0f, -40f, 300f, 240f),
+            )
+            listOf(
+                RootDragBounds(0f, 0f, 80f, 80f),
+                RootDragBounds(90f, 0f, 170f, 80f),
+                RootDragBounds(180f, 0f, 260f, 80f),
+                RootDragBounds(0f, 100f, 80f, 180f),
+                RootDragBounds(90f, 100f, 170f, 180f),
+                RootDragBounds(180f, 100f, 260f, 180f),
+            ).forEachIndexed { index, bounds ->
+                registerActionBounds("target", "action-$index", index, bounds)
+            }
+        }
 }

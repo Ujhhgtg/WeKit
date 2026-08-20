@@ -339,7 +339,9 @@ private fun Modifier.homeSidePanelRootPointerObserver(
     try {
         awaitPointerEventScope {
             while (true) {
-                val event = awaitPointerEvent(PointerEventPass.Final)
+                // Compose 1.12 marks its synthetic ACTION_CANCEL release consumed before Initial;
+                // observing here keeps a real UP distinct from later descendant consumption.
+                val event = awaitPointerEvent(PointerEventPass.Initial)
                 event.changes.forEach { change ->
                     if (change.previousPressed && !change.pressed) {
                         dragState.releaseSourceClaim(change.id.value)
@@ -347,9 +349,22 @@ private fun Modifier.homeSidePanelRootPointerObserver(
                 }
                 val active = dragState.snapshot ?: continue
                 val change = event.changes.firstOrNull { it.id.value == active.pointerId } ?: continue
-                dragState.updateRootPosition(change.position.x, change.position.y)
-                if (change.previousPressed && !change.pressed) {
-                    dragState.finish()?.let(onCommit)
+                when (
+                    homeSidePanelPointerLifecycleDecision(
+                        previousPressed = change.previousPressed,
+                        pressed = change.pressed,
+                        consumedAtInitialPass = change.isConsumed,
+                    )
+                ) {
+                    HomeSidePanelPointerLifecycleDecision.Continue ->
+                        dragState.updateRootPosition(change.position.x, change.position.y)
+
+                    HomeSidePanelPointerLifecycleDecision.Finish -> {
+                        dragState.updateRootPosition(change.position.x, change.position.y)
+                        dragState.finish()?.let(onCommit)
+                    }
+
+                    HomeSidePanelPointerLifecycleDecision.Cancel -> dragState.cancel()
                 }
             }
         }
