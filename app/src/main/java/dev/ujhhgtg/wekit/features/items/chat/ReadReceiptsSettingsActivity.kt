@@ -2,6 +2,7 @@
 
 package dev.ujhhgtg.wekit.features.items.chat
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -62,6 +63,9 @@ import com.composables.icons.materialsymbols.outlined.Visibility
 import com.composables.icons.materialsymbols.outlined.Visibility_off
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.settings.M3ListScaffold
+import dev.ujhhgtg.wekit.extensions.CloudflaredPack
+import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
+import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -101,7 +105,13 @@ class ReadReceiptsSettingsActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
-                ModuleTheme { ReadReceiptsSettingsRoot(::finish, operationCoordinator) }
+                ModuleTheme {
+                    ReadReceiptsSettingsRoot(
+                        activity = this@ReadReceiptsSettingsActivity,
+                        onFinish = ::finish,
+                        operationCoordinator = operationCoordinator,
+                    )
+                }
             }
         }
     }
@@ -118,6 +128,7 @@ internal sealed interface ReadReceiptsRoute : NavKey {
 
 @Composable
 private fun ReadReceiptsSettingsRoot(
+    activity: Activity,
     onFinish: () -> Unit,
     operationCoordinator: SettingsOperationCoordinator,
 ) {
@@ -131,7 +142,7 @@ private fun ReadReceiptsSettingsRoot(
             effects = rememberM3NavEffects(),
         ) {
             entry<ReadReceiptsRoute.Home> {
-                ReadReceiptsHomeScreen(onFinish, operationCoordinator) { navigator.push(it) }
+                ReadReceiptsHomeScreen(activity, onFinish, operationCoordinator) { navigator.push(it) }
             }
             entry<ReadReceiptsRoute.ThirdParty>(swipeDismiss = NavSwipeDirection.LeftToRight) {
                 ThirdPartyScreen(operationCoordinator) { navigator.pop() }
@@ -287,6 +298,7 @@ private fun rememberRuntimeSnapshot(
 
 @Composable
 private fun ReadReceiptsHomeScreen(
+    activity: Activity,
     onFinish: () -> Unit,
     operationCoordinator: SettingsOperationCoordinator,
     onOpen: (ReadReceiptsRoute) -> Unit,
@@ -302,6 +314,13 @@ private fun ReadReceiptsHomeScreen(
     val runtime = rememberRuntimeSnapshot(ReadReceiptsRoute.Home, operationCoordinator)
     val current = ReadReceipts.configuration()
 
+    fun requireCloudflared(): Boolean {
+        if (CloudflaredPack.libraryFile() != null) return true
+        ExtensionPacks.refresh(CloudflaredPack)
+        ExtensionPackDialogs.requireInstall(activity, CloudflaredPack)
+        return false
+    }
+
     fun saveGeneral() {
         saveOnly(
             context,
@@ -315,6 +334,7 @@ private fun ReadReceiptsHomeScreen(
 
     /** Radio-side mode switch: applies the committed mode change through the save-action classifier. */
     fun selectServerMode(mode: ReadReceiptsServerMode, tunnelMode: ReadReceiptsTunnelMode?) {
+        if (mode == ReadReceiptsServerMode.BUILT_IN && !requireCloudflared()) return
         val currentConfiguration = ReadReceipts.configuration()
         val candidate = when (mode) {
             ReadReceiptsServerMode.THIRD_PARTY -> {
@@ -424,7 +444,9 @@ private fun ReadReceiptsHomeScreen(
                             current.tunnelMode() == ReadReceiptsTunnelMode.QUICK,
                         enabled = activeOperation == null,
                         trailingDivider = true,
-                        onClick = { onOpen(ReadReceiptsRoute.Quick) },
+                        onClick = {
+                            if (requireCloudflared()) onOpen(ReadReceiptsRoute.Quick)
+                        },
                         onSelect = { selectServerMode(ReadReceiptsServerMode.BUILT_IN, ReadReceiptsTunnelMode.QUICK) },
                     )
                 }
@@ -437,7 +459,9 @@ private fun ReadReceiptsHomeScreen(
                             current.tunnelMode() == ReadReceiptsTunnelMode.TOKEN,
                         enabled = activeOperation == null,
                         trailingDivider = true,
-                        onClick = { onOpen(ReadReceiptsRoute.Token) },
+                        onClick = {
+                            if (requireCloudflared()) onOpen(ReadReceiptsRoute.Token)
+                        },
                         onSelect = { selectServerMode(ReadReceiptsServerMode.BUILT_IN, ReadReceiptsTunnelMode.TOKEN) },
                     )
                 }
@@ -450,7 +474,9 @@ private fun ReadReceiptsHomeScreen(
                             current.tunnelMode() == ReadReceiptsTunnelMode.BROWSER_LOGIN,
                         enabled = activeOperation == null,
                         trailingDivider = true,
-                        onClick = { onOpen(ReadReceiptsRoute.Browser) },
+                        onClick = {
+                            if (requireCloudflared()) onOpen(ReadReceiptsRoute.Browser)
+                        },
                         onSelect = { selectServerMode(ReadReceiptsServerMode.BUILT_IN, ReadReceiptsTunnelMode.BROWSER_LOGIN) },
                     )
                 }
