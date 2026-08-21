@@ -607,7 +607,12 @@ unsafe fn write_crash_log(sig: c_int, info: *mut siginfo_t, ctx: *mut c_void) {
         if !ctx.is_null() {
             let uc = &*(ctx as *const BionicUcontext);
             let mc = &uc.uc_mcontext;
-            count = capture_fault_backtrace(&mut frames, mc.pc as usize, mc.regs[30] as usize, mc.regs[29] as usize);
+            count = capture_fault_backtrace(
+                &mut frames,
+                mc.pc as usize,
+                mc.regs[30] as usize,
+                mc.regs[29] as usize,
+            );
         }
 
         if count > 0 {
