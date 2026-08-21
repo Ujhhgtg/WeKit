@@ -20,7 +20,7 @@ serialization = "1.11.0"
 lombok = "1.18.46"
 google-protobuf = "4.35.1"
 ksp = "2.3.10"
-okhttp = "5.4.0"
+okhttp = "5.5.0"
 hidden-api-bypass = "6.1"
 runtime = "1.11.4"
 # noinspection GradleDependency
