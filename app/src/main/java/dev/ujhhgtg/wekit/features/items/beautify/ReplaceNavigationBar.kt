@@ -824,10 +824,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     },
                                 )
                             }
-                            item(
-                                animatedVisibility = useFloatingInput && useBackdropInput,
-                                topPadding = 1.dp,
-                            ) {
+                            item(animatedVisibility = useFloatingInput && useBackdropInput) {
                                 BaseItemContainer {
                                     val radius = blurRadiusInput.roundToInt()
                                     IntNumberPickerWidget(
