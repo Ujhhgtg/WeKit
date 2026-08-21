@@ -4,9 +4,12 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
+import android.os.Build
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.Gravity
@@ -15,8 +18,11 @@ import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.ViewStub
 import android.view.ViewTreeObserver
+import android.view.Window
+import android.view.WindowInsets
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ListView
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
@@ -32,6 +38,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.drawable.toDrawable
+import androidx.core.graphics.get
+import androidx.core.view.WindowCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
@@ -182,6 +192,47 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private var topGapDp by prefOption("floating_chat_header_top_gap", DEFAULT_TOP_GAP)
     private var extraGapDp by prefOption("floating_chat_header_extra_gap", DEFAULT_EXTRA_GAP)
     private var elevationDp by prefOption("floating_chat_header_elevation", DEFAULT_ELEVATION)
+
+    /** 每个窗口是否已由本特性启用状态栏 edge-to-edge。 */
+    private val edgeToEdgeApplied = WeakHashMap<Window, Boolean>()
+
+    /** 每个会话页布局当前生效的状态栏偏移。 */
+    private val statusBarOffsets = WeakHashMap<View, Int>()
+
+    /** 每个会话页布局的状态栏偏移刷新监听。 */
+    private val statusBarPreDraws = WeakHashMap<View, ViewTreeObserver.OnPreDrawListener>()
+
+    /** 已把微信 EdgeToEdgeWrapperLayout 的状态栏 padding/色块压掉的窗口包装。 */
+    private val statusBarWrappersNeutralized = WeakHashMap<View, Boolean>()
+
+    /** ConvBox 页面激活的窗口，期间拦截微信控制器对状态栏颜色的每帧重设。 */
+    private val convBoxWindows = WeakHashMap<Window, Boolean>()
+
+    /** 我们自己写状态栏颜色时置位，避免被上面的拦截误伤。 */
+    private var settingConvBoxColor = false
+
+    /** ConvBoxServiceConversationUI 页面各自的修复状态。 */
+    private val convBoxFixStates = WeakHashMap<View, ConvBoxFixState>()
+
+    private val convBoxGlobalLayouts =
+        WeakHashMap<View, ViewTreeObserver.OnGlobalLayoutListener>()
+    private val convBoxPreDraws = WeakHashMap<View, ViewTreeObserver.OnPreDrawListener>()
+    private val convBoxRetries = WeakHashMap<View, Runnable>()
+
+    private class ConvBoxFixState {
+        var titleBar: View? = null
+        var toolbar: View? = null
+        var list: View? = null
+        var wrapper: View? = null
+        var titleBarMissingWarned = false
+        var applied = false
+        var finished = false
+        var color = 0
+        var inset = 0
+        var lastTitleBottom = Int.MIN_VALUE
+        var lastListTop = Int.MIN_VALUE
+        var stableFrames = 0
+    }
 
     /** 每个会话页布局 (ChattingUILayout) 对应的标题栏容器。 */
     private val headerViews = WeakHashMap<View, View>()
@@ -400,6 +451,38 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             scheduleReconcile(layout, RECONCILE_LAYOUT)
         } ?: WeLogger.w(TAG, "onLayout hook target not found")
 
+        // 状态栏沉浸后，微信仍会把状态栏 inset 吃进 ChattingUILayout.paddingTop。
+        // 只清顶部；导航栏相关的底部 padding 由 FloatingChatFooter 独立处理。
+        ChattingUILayout::class.reflekt().firstMethodOrNull { name = "fitSystemWindows" }
+            ?.hookAfter {
+                zeroChatLayoutTopPadding(thisObject as View)
+            } ?: WeLogger.w(TAG, "ChattingUILayout.fitSystemWindows hook target not found")
+
+        // 服务消息盒子的标题栏也需要沿用状态栏沉浸适配。
+        $$"com.tencent.mm.ui.conversation.ConvBoxServiceConversationUI$ConvBoxServiceConversationFmUI"
+            .toClass().reflekt().firstMethodOrNull {
+                name = "onActivityCreated"
+            }?.hookAfter {
+                val fragment = thisObject ?: return@hookAfter
+                val activity = runCatching {
+                    fragment.javaClass.getMethod("getActivity").invoke(fragment) as? Activity
+                }.getOrNull() ?: return@hookAfter
+                val root = runCatching {
+                    fragment.javaClass.getMethod("getView").invoke(fragment) as? View
+                }.getOrNull() ?: return@hookAfter
+                fixConvBoxListLayout(activity, root)
+            } ?: WeLogger.w(TAG, "ConvBoxServiceConversationFmUI hook target not found")
+
+        // ConvBox 页面激活期间，微信控制器会持续重设状态栏颜色。
+        "com.android.internal.policy.PhoneWindow".toClass().reflekt().firstMethodOrNull {
+            name = "setStatusBarColor"
+        }?.hookBefore {
+            val window = thisObject as? Window ?: return@hookBefore
+            if (convBoxWindows[window] == true && !settingConvBoxColor) {
+                result = null
+            }
+        } ?: WeLogger.w(TAG, "PhoneWindow.setStatusBarColor hook target not found")
+
         // 置顶消息卡展开/收起时, 微信通过 ChatTipsBarGroup.setListViewPaddingTop 自己给消息
         // 列表补 recycler 高度。它与我们算的悬浮 padding 叠加会重复, 直接关掉这个补偿,
         // 顶部 padding 完全由本特性统一计算。
@@ -491,6 +574,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     private fun trackLayout(layout: View) {
+        applyStatusBarEdgeToEdge(layout)
+        trackStatusBarOffset(layout)
         if (animationGroupFields.isEmpty()) cacheAnimationGroupFields()
         val existing = layoutTrackers[layout]
         if (existing?.active == true) return
@@ -667,8 +752,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         if (parent !== layout) {
             // 窗口级 ActionBarContainer 不能重挂 (AppCompat 的 ActionBarOverlayLayout
             // 会继续用它的 LayoutParams, 重挂会类型崩溃), 改为原位 overlay 悬浮。
-            // overlay 悬浮依赖沉浸模式提供的状态栏偏移; 未开沉浸时只做卡片样式, 不改变层级。
-            if (windowBarHeaders[layout] == true && ImmersiveChatUi.statusBarOffset(layout) > 0) {
+            // overlay 悬浮依赖本特性维护的状态栏偏移；偏移尚未就绪时只做卡片样式。
+            if (windowBarHeaders[layout] == true && statusBarOffset(layout) > 0) {
                 headerTopOffsets[layout] = layout.top + layout.paddingTop
                 ensureWindowBarOverlay(header)
             }
@@ -801,10 +886,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         // 标题卡需要落在 状态栏 inset + 顶部间距 的位置。
         val topPx = if (windowBarHeaders[layout] == true) {
             // 窗口级 ActionBarContainer 的坐标原点已经包含系统栏偏移, 直接加状态栏 inset 即可
-            ImmersiveChatUi.statusBarOffset(layout) + (topGapDp * density).toInt()
+            statusBarOffset(layout) + (topGapDp * density).toInt()
         } else {
             layout.top + layout.paddingTop +
-                ImmersiveChatUi.statusBarOffset(layout) + (topGapDp * density).toInt()
+                statusBarOffset(layout) + (topGapDp * density).toInt()
         }
         if (lp.leftMargin != sidePx || lp.rightMargin != sidePx || lp.topMargin != topPx) {
             lp.leftMargin = sidePx
@@ -831,7 +916,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val density = layout.resources.displayMetrics.density
         val sidePx = (sideMarginDp * density).toInt()
         val gapPx = (extraGapDp * density).toInt()
-        val baseOffsetPx = ImmersiveChatUi.statusBarOffset(layout) +
+        val baseOffsetPx = statusBarOffset(layout) +
             header.height + (topGapDp * density).toInt() + gapPx
         var firstVisible = true
         for (i in 0 until group.childCount) {
@@ -893,7 +978,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         // 下一张卡的期望顶部 (ChattingUILayout 坐标系)
         val hostTopPx = hostGroup.offsetTopIn(layout)
         // 流内挂件已把内容宿主推下去时, 期望位置不会高于宿主顶部
-        var nextTopPx = (ImmersiveChatUi.statusBarOffset(layout) + layout.paddingTop +
+        var nextTopPx = (statusBarOffset(layout) + layout.paddingTop +
             titleBottomPx + gapPx).coerceAtLeast(hostTopPx)
         var bottomPx: Int? = null
         var pinnedTipsApplied = false
@@ -1586,6 +1671,87 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         else -> null
     }
 
+    // ---- 状态栏 edge-to-edge ----
+
+    /** 当前会话页需要补偿给悬浮标题栏与消息列表的状态栏高度。 */
+    private fun statusBarOffset(layout: View): Int = statusBarOffsets[layout] ?: 0
+
+    /**
+     * 本特性启用时让聊天内容延伸到状态栏背后。窗口级开关只应用一次，顶部布局修正保持幂等。
+     */
+    private fun applyStatusBarEdgeToEdge(layout: View) {
+        val activity = layout.context.activityOrNull() ?: return
+        val window = activity.window
+        if (edgeToEdgeApplied[window] != true) {
+            edgeToEdgeApplied[window] = true
+            // decorFits 是窗口级总开关；本特性只消费顶部 inset，未启用 Footer 时底部仍由微信保留。
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            WeLogger.d(TAG, "chat status bar edge-to-edge applied")
+        }
+        runCatching { window.statusBarColor = Color.TRANSPARENT }
+        zeroChatLayoutTopPadding(layout)
+        neutralizeStatusBarWrapper(layout)
+    }
+
+    private fun currentStatusBarOffset(layout: View): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return 0
+        return layout.rootWindowInsets?.getInsets(WindowInsets.Type.statusBars())?.top ?: 0
+    }
+
+    private fun zeroChatLayoutTopPadding(layout: View) {
+        if (layout.paddingTop != 0) {
+            layout.setPadding(layout.paddingLeft, 0, layout.paddingRight, layout.paddingBottom)
+        }
+    }
+
+    /** 每帧刷新状态栏偏移，并兜底微信对状态栏颜色和顶部包装 padding 的重设。 */
+    private fun trackStatusBarOffset(layout: View) {
+        if (statusBarPreDraws[layout] != null) return
+        val listener = ViewTreeObserver.OnPreDrawListener {
+            statusBarOffsets[layout] = currentStatusBarOffset(layout)
+            reassertEdgeToEdgeStatusBar(layout)
+            neutralizeStatusBarWrapper(layout)
+            true
+        }
+        statusBarPreDraws[layout] = listener
+        layout.viewTreeObserver.addOnPreDrawListener(listener)
+    }
+
+    private fun reassertEdgeToEdgeStatusBar(layout: View) {
+        val activity = layout.context.activityOrNull() ?: return
+        val window = activity.window
+        if (edgeToEdgeApplied[window] != true) return
+        runCatching {
+            if (window.statusBarColor != Color.TRANSPARENT) {
+                window.statusBarColor = Color.TRANSPARENT
+            }
+        }
+    }
+
+    /** 只处理 EdgeToEdgeWrapperLayout 的顶部，底部由 FloatingChatFooter 负责。 */
+    private fun neutralizeStatusBarWrapper(layout: View) {
+        val wrapper = layout.findEdgeToEdgeWrapper() ?: return
+        if (wrapper.paddingTop != 0) {
+            wrapper.setPadding(wrapper.paddingLeft, 0, wrapper.paddingRight, wrapper.paddingBottom)
+        }
+        if (statusBarWrappersNeutralized.put(wrapper, true) != null) return
+        runCatching {
+            wrapper.javaClass.getMethod("setStatusBarColor", Int::class.javaPrimitiveType)
+                .invoke(wrapper, Color.TRANSPARENT)
+        }
+    }
+
+    private fun View.findEdgeToEdgeWrapper(): View? {
+        var current: View? = this
+        while (current != null) {
+            if (current.javaClass.name == "com.tencent.mm.ui.widget.EdgeToEdgeWrapperLayout") {
+                return current
+            }
+            current = current.parent as? View
+        }
+        return null
+    }
+
     /**
      * 标题栏盖在整页之上后, 给消息列表补 [header.height + 顶部间距] 的 top padding,
      * 让第一条消息停在卡片下沿而不是藏在卡片后面。RecyclerView 本身 clipToPadding=false,
@@ -1607,7 +1773,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             overlayBottom != null -> (overlayBottom - recycler.offsetTopIn(layout)).coerceAtLeast(0)
             // 流内挂件已把列表整体推到卡片下方
             hasVisibleHeaderExtras(layout, header) -> 0
-            else -> ImmersiveChatUi.statusBarOffset(layout) + header.height + (topGapDp * density).toInt()
+            else -> statusBarOffset(layout) + header.height + (topGapDp * density).toInt()
         }
         val target = base + extra
         if (recycler.paddingTop == target) return
@@ -1650,7 +1816,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val density = layout.resources.displayMetrics.density
         val gapPx = (extraGapDp * density).toInt()
         // 标题卡下沿 (ChattingUILayout 坐标系): statusBarOffset + 卡高 + 顶部间距
-        val titleBottomPx = ImmersiveChatUi.statusBarOffset(layout) +
+        val titleBottomPx = statusBarOffset(layout) +
             header.height + (topGapDp * density).toInt()
         // ChattingScrollLayout 滚动时用 translationY 移动内容区, 要一起算进按钮的屏幕位置
         val contentTopPx = content.offsetTopIn(layout) + content.translationY.roundToInt()
@@ -1777,6 +1943,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     private fun disposeTracker(layout: View) {
+        statusBarPreDraws.remove(layout)?.let { listener ->
+            runCatching { layout.viewTreeObserver.removeOnPreDrawListener(listener) }
+        }
+        statusBarOffsets.remove(layout)
         val tracker = layoutTrackers.remove(layout) ?: return
         tracker.active = false
         tracker.oneShotPreDraw?.let { listener ->
@@ -1864,7 +2034,249 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         }
     }
 
+    // ---- ConvBoxServiceConversationUI 状态栏 edge-to-edge 适配 ----
+
+    private fun fixConvBoxListLayout(activity: Activity, root: View) {
+        stopConvBoxTracking(root)
+        ensureConvBoxWindowEdgeToEdge(activity)
+        val layoutListener = object : ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                if (!isActive || applyConvBoxLayoutFix(activity, root)) {
+                    stopConvBoxTracking(root)
+                }
+            }
+        }
+        val preDrawListener = object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                if (!isActive || applyConvBoxLayoutFix(activity, root)) {
+                    stopConvBoxTracking(root)
+                }
+                return true
+            }
+        }
+        convBoxGlobalLayouts[root] = layoutListener
+        convBoxPreDraws[root] = preDrawListener
+        root.viewTreeObserver.addOnGlobalLayoutListener(layoutListener)
+        root.viewTreeObserver.addOnPreDrawListener(preDrawListener)
+        scheduleConvBoxRetry(activity, root)
+    }
+
+    private fun scheduleConvBoxRetry(activity: Activity, root: View) {
+        convBoxRetries.remove(root)?.let(root::removeCallbacks)
+        val retry = Runnable {
+            convBoxRetries.remove(root)
+            if (!isActive || applyConvBoxLayoutFix(activity, root)) {
+                stopConvBoxTracking(root)
+            }
+        }
+        convBoxRetries[root] = retry
+        root.post(retry)
+    }
+
+    private fun stopConvBoxTracking(root: View) {
+        convBoxGlobalLayouts.remove(root)?.let { listener ->
+            runCatching { root.viewTreeObserver.removeOnGlobalLayoutListener(listener) }
+        }
+        convBoxPreDraws.remove(root)?.let { listener ->
+            runCatching { root.viewTreeObserver.removeOnPreDrawListener(listener) }
+        }
+        convBoxRetries.remove(root)?.let(root::removeCallbacks)
+    }
+
+    /**
+     * 返回 true 表示视图已就绪、几何连续两次稳定，且列表 padding 已完成校准。
+     */
+    private fun applyConvBoxLayoutFix(activity: Activity, root: View): Boolean {
+        ensureConvBoxWindowEdgeToEdge(activity)
+        if (edgeToEdgeApplied[activity.window] != true) return false
+        val state = convBoxFixStates.getOrPut(root) { ConvBoxFixState() }
+        if (state.finished) return true
+        var titleBar = state.titleBar?.takeIf { it.isAttachedToWindow }
+        if (titleBar == null && !state.titleBarMissingWarned) {
+            titleBar = activity.window.decorView.findViewWhich {
+                it.javaClass.name == ACTION_BAR_CONTAINER_CLASS
+            }
+            if (titleBar == null) {
+                state.titleBarMissingWarned = true
+                WeLogger.w(TAG, "conv box title bar not found, layout fix keeps retrying")
+                return false
+            }
+            state.titleBar = titleBar
+        }
+        if (titleBar == null) return false
+        var list = state.list?.takeIf { it.isAttachedToWindow }
+        if (list == null) {
+            list = root.findViewWhich { it is ListView }
+            if (list == null) return false
+            state.list = list
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return true
+        if (titleBar.height <= 0) return false
+
+        val barGroup = titleBar as? ViewGroup ?: return false
+        val toolbar = barGroup.findViewWhich {
+            it.javaClass.name == "androidx.appcompat.widget.Toolbar"
+        } ?: barGroup.getChildAt(0) ?: return false
+        val inset = root.rootWindowInsets?.getInsets(WindowInsets.Type.statusBars())?.top ?: 0
+        state.toolbar = toolbar
+        state.inset = inset
+
+        var ancestor: View? = titleBar
+        while (ancestor != null && ancestor !== activity.window.decorView) {
+            if (ancestor.paddingTop != 0) {
+                ancestor.setPadding(
+                    ancestor.paddingLeft,
+                    0,
+                    ancestor.paddingRight,
+                    ancestor.paddingBottom,
+                )
+            }
+            if (ancestor.fitsSystemWindows) ancestor.fitsSystemWindows = false
+            ancestor = ancestor.parent as? View
+        }
+        if (titleBar.translationY != 0f) titleBar.translationY = 0f
+        if (toolbar.translationY != inset.toFloat()) toolbar.translationY = inset.toFloat()
+        barGroup.clipChildren = false
+        (titleBar.parent as? ViewGroup)?.let {
+            it.clipChildren = false
+            it.clipToPadding = false
+        }
+        if (titleBar.elevation != 2f) titleBar.elevation = 2f
+        if (toolbar.elevation != 2f) toolbar.elevation = 2f
+
+        val wrapper = state.wrapper?.takeIf { it.isAttachedToWindow }
+            ?: findStatusBarStripWrapper(activity).also { state.wrapper = it }
+        if (wrapper != null && !wrapper.willNotDraw()) wrapper.setWillNotDraw(true)
+
+        if (!state.applied) {
+            val color = sampleOpaqueBackground(titleBar)
+                ?: sampleOpaqueBackground(list)
+                ?: Color.WHITE
+            state.color = color
+            titleBar.background = color.toDrawable()
+            toolbar.background = color.toDrawable()
+            runCatching { activity.window.setBackgroundDrawable(color.toDrawable()) }
+            if (wrapper != null) wrapper.background = color.toDrawable()
+            activity.window.decorView.findViewById<View>(android.R.id.statusBarBackground)?.visibility =
+                View.GONE
+
+            convBoxWindows[activity.window] = true
+            settingConvBoxColor = true
+            try {
+                activity.window.statusBarColor = Color.TRANSPARENT
+            } finally {
+                settingConvBoxColor = false
+            }
+            state.applied = true
+        }
+
+        runCatching {
+            val barBg = titleBar.background
+            if (barBg !is ColorDrawable || barBg.color != state.color) {
+                titleBar.background = state.color.toDrawable()
+            }
+            val toolBg = toolbar.background
+            if (toolBg !is ColorDrawable || toolBg.color != state.color) {
+                toolbar.background = state.color.toDrawable()
+            }
+            val decorBg = activity.window.decorView.background
+            if (decorBg !is ColorDrawable || decorBg.color != state.color) {
+                activity.window.setBackgroundDrawable(state.color.toDrawable())
+            }
+            if (wrapper != null) {
+                if (!wrapper.willNotDraw()) wrapper.setWillNotDraw(true)
+                val wrapperBg = wrapper.background
+                if (wrapperBg !is ColorDrawable || wrapperBg.color != state.color) {
+                    wrapper.background = state.color.toDrawable()
+                }
+            }
+            activity.window.decorView.findViewById<View>(android.R.id.statusBarBackground)?.let {
+                if (it.visibility != View.GONE) it.visibility = View.GONE
+            }
+            if (activity.window.statusBarColor != Color.TRANSPARENT) {
+                settingConvBoxColor = true
+                try {
+                    activity.window.statusBarColor = Color.TRANSPARENT
+                } finally {
+                    settingConvBoxColor = false
+                }
+            }
+        }
+
+        val toolbarLoc = IntArray(2)
+        val listLoc = IntArray(2)
+        toolbar.getLocationOnScreen(toolbarLoc)
+        list.getLocationOnScreen(listLoc)
+        val titleBottom = toolbarLoc[1] + toolbar.height
+        val listTop = listLoc[1]
+        if (state.lastTitleBottom != titleBottom || state.lastListTop != listTop) {
+            state.lastTitleBottom = titleBottom
+            state.lastListTop = listTop
+            state.stableFrames = 0
+            return false
+        }
+        state.stableFrames++
+        if (state.stableFrames < 2) {
+            scheduleConvBoxRetry(activity, root)
+            return false
+        }
+
+        val needed = (titleBottom - listTop).coerceAtLeast(0)
+        if (list.paddingTop != needed) {
+            list.setPadding(list.paddingLeft, needed, list.paddingRight, list.paddingBottom)
+            (list as? ViewGroup)?.clipToPadding = false
+            WeLogger.d(
+                TAG,
+                "conv box list top padding: ${list.paddingTop} -> $needed " +
+                    "(titleBottom=$titleBottom listTop=$listTop)",
+            )
+        }
+        state.finished = true
+        WeLogger.d(TAG, "conv box layout fix finished: inset=$inset color=${state.color}")
+        return true
+    }
+
+    private fun ensureConvBoxWindowEdgeToEdge(activity: Activity) {
+        val window = activity.window
+        if (edgeToEdgeApplied[window] == true) return
+        edgeToEdgeApplied[window] = true
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        runCatching { window.statusBarColor = Color.TRANSPARENT }
+        WeLogger.d(TAG, "conv box status bar edge-to-edge applied")
+    }
+
+    private fun findStatusBarStripWrapper(activity: Activity): View? {
+        val cls = runCatching {
+            "com.tencent.mm.ui.statusbar.DrawStatusBarFrameLayout".toClass(activity.classLoader)
+        }.getOrNull() ?: return null
+        return activity.window.decorView.findViewWhich { cls.isInstance(it) }
+    }
+
+    private fun sampleOpaqueBackground(view: View): Int? {
+        (view.background as? ColorDrawable)?.let {
+            if (Color.alpha(it.color) >= 0xCC) return it.color
+        }
+        val candidates = listOf(view) + view.allViews
+            .filter { it !== view && it.background != null }
+            .sortedByDescending { it.width * it.height }
+        for (candidate in candidates) {
+            val drawable = candidate.background ?: continue
+            val color = runCatching {
+                val bitmap = createBitmap(1, 1)
+                val canvas = Canvas(bitmap)
+                drawable.setBounds(0, 0, 1, 1)
+                drawable.draw(canvas)
+                bitmap[0, 0]
+            }.getOrNull() ?: continue
+            if (Color.alpha(color) >= 0xCC) return color
+        }
+        return null
+    }
+
     override fun onDisable() {
+        (convBoxGlobalLayouts.keys + convBoxPreDraws.keys + convBoxRetries.keys)
+            .toSet()
+            .forEach(::stopConvBoxTracking)
         layoutTrackers.keys.toList().forEach(::disposeTracker)
         layoutAttachListeners.entries.toList().forEach { (layout, listener) ->
             layout.removeOnAttachStateChangeListener(listener)
@@ -1919,6 +2331,16 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         reparentBlocked.clear()
         lookupWarned.clear()
         headerStyles.clear()
+        statusBarPreDraws.clear()
+        statusBarOffsets.clear()
+        statusBarWrappersNeutralized.clear()
+        edgeToEdgeApplied.clear()
+        convBoxWindows.clear()
+        convBoxFixStates.clear()
+        convBoxGlobalLayouts.clear()
+        convBoxPreDraws.clear()
+        convBoxRetries.clear()
+        settingConvBoxColor = false
     }
 
     override fun onClick(context: ComponentActivity) {

@@ -3,13 +3,17 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.graphics.Color
 import android.graphics.Outline
+import android.graphics.Paint
+import android.graphics.Rect
 import android.os.Build
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.ViewTreeObserver
+import android.view.Window
 import android.view.WindowInsets
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -25,10 +29,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import com.tencent.mm.pluginsdk.ui.chat.AppPanel
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooterBottom
 import com.tencent.mm.pluginsdk.ui.chat.ChattingScrollLayout
+import com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -52,6 +58,7 @@ import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.constructor
+import java.lang.reflect.Modifier
 import java.util.WeakHashMap
 
 @Feature(
@@ -130,6 +137,18 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
 
     /** 已注册的 pre-draw 监听, 重进会话时先摘掉旧的再挂新的, 避免监听失效。 */
     private val navInsetPreDraws = WeakHashMap<View, ViewTreeObserver.OnPreDrawListener>()
+
+    /** 每个窗口是否已由本特性启用导航栏 edge-to-edge。 */
+    private val edgeToEdgeApplied = WeakHashMap<Window, Boolean>()
+
+    /** ChattingUILayout.fitSystemWindows 入口时的原始导航栏 inset。 */
+    private val navBarInsetsBeforeFit = WeakHashMap<View, Int>()
+
+    /** 已当场清理过底部 padding 的会话布局。 */
+    private val navBarLayoutsApplied = WeakHashMap<View, Boolean>()
+
+    /** 已把微信 EdgeToEdgeWrapperLayout 的导航栏色块压成透明的窗口包装。 */
+    private val navBarWrappersNeutralized = WeakHashMap<View, Boolean>()
 
     /** 重入保护: 我们自己调 setPortHeighPx 时不要把压缩后的值当成自然高度记下来。 */
     private var resizingAppPanel = false
@@ -242,6 +261,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         // ChatFooter 早已构造完毕, 构造函数 hook 会整个错过。
         reflekt.firstMethod { name = "onAttachedToWindow" }.hookAfter {
             val footer = thisObject as ChatFooter
+            applyNavigationBarEdgeToEdge(footer)
             applyDrawingStyle(footer)
             applySideMargins(footer)
             if (movePanelAbove) {
@@ -252,6 +272,25 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
             }
             trackNavBarInset(footer)
         }
+
+        // 导航栏沉浸后，微信仍会把导航栏 inset 吃进 ChattingUILayout.paddingBottom，
+        // 8.0.72+ 还会在底部画一条不透明色块。只处理底部，顶部由 FloatingChatHeader 负责。
+        ChattingUILayout::class.reflekt().firstMethodOrNull { name = "fitSystemWindows" }?.let { fit ->
+            fit.hookBefore {
+                val layout = thisObject as View
+                navBarInsetsBeforeFit[layout] = (args[0] as Rect).bottom
+            }
+            fit.hookAfter {
+                val layout = thisObject as View
+                val originalBottom = navBarInsetsBeforeFit.remove(layout) ?: 0
+                val keep = (layout.paddingBottom - originalBottom).coerceAtLeast(0)
+                if (layout.paddingBottom != keep) {
+                    layout.setPadding(layout.paddingLeft, layout.paddingTop, layout.paddingRight, keep)
+                }
+                suppressNavBarStrip(layout)
+                neutralizeNavigationBarWrapper(layout)
+            }
+        } ?: WeLogger.w(TAG, "ChattingUILayout.fitSystemWindows hook target not found")
 
         // AppPanel 的自然高度只有微信自己知道 (它把 f207332x2 喂给 setPortHeighPx),
         // 记下来给 applyPanelHeight 当基准。setPortHeighPx 是 View 子类的 set* 方法,
@@ -598,6 +637,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
      */
     private fun trackNavBarInset(footer: ChatFooter) {
         val listener = ViewTreeObserver.OnPreDrawListener {
+            applyNavigationBarEdgeToEdge(footer)
             if (movePanelAbove) {
                 applyBottomMargin(footer)
                 liftNewMessageBubble(footer)
@@ -695,6 +735,80 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         return footerHeightExcludingPanel(panel)
     }
 
+    // ---- 导航栏 edge-to-edge ----
+
+    private fun applyNavigationBarEdgeToEdge(footer: ChatFooter) {
+        val layout = footer.findAncestorChattingUILayout() ?: return
+        val activity = footer.context.activityOrNull() ?: return
+        val window = activity.window
+        if (edgeToEdgeApplied[window] != true) {
+            edgeToEdgeApplied[window] = true
+            // decorFits 是窗口级总开关；本特性只消费底部 inset，未启用 Header 时顶部仍由微信保留。
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            WeLogger.d(TAG, "chat navigation bar edge-to-edge applied")
+        }
+        if (navBarLayoutsApplied.put(layout, true) == null) {
+            val navInset = currentNavBarInset(layout)
+            val keep = (layout.paddingBottom - navInset).coerceAtLeast(0)
+            if (layout.paddingBottom != keep) {
+                layout.setPadding(layout.paddingLeft, layout.paddingTop, layout.paddingRight, keep)
+            }
+            suppressNavBarStrip(layout)
+        }
+        neutralizeNavigationBarWrapper(layout)
+    }
+
+    private fun currentNavBarInset(layout: View): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return 0
+        return layout.rootWindowInsets?.getInsets(WindowInsets.Type.navigationBars())?.bottom ?: 0
+    }
+
+    /** 只处理 EdgeToEdgeWrapperLayout 的底部，顶部由 FloatingChatHeader 负责。 */
+    private fun neutralizeNavigationBarWrapper(layout: View) {
+        val wrapper = layout.findEdgeToEdgeWrapper() ?: return
+        if (wrapper.paddingBottom != 0) {
+            wrapper.setPadding(wrapper.paddingLeft, wrapper.paddingTop, wrapper.paddingRight, 0)
+        }
+        if (navBarWrappersNeutralized.put(wrapper, true) != null) return
+        runCatching {
+            wrapper.javaClass.getMethod(
+                "setNavigationBarBackgroundColor",
+                Int::class.javaPrimitiveType,
+            ).invoke(wrapper, Color.TRANSPARENT)
+        }
+    }
+
+    private fun View.findEdgeToEdgeWrapper(): View? {
+        var current: View? = this
+        while (current != null) {
+            if (current.javaClass.name == "com.tencent.mm.ui.widget.EdgeToEdgeWrapperLayout") {
+                return current
+            }
+            current = current.parent as? View
+        }
+        return null
+    }
+
+    private fun View.findAncestorChattingUILayout(): ChattingUILayout? {
+        var parent = parent
+        while (parent != null) {
+            if (parent is ChattingUILayout) return parent
+            parent = parent.parent
+        }
+        return null
+    }
+
+    /** 8.0.72+ ChattingUILayout 底部自绘色块。 */
+    private fun suppressNavBarStrip(layout: View) {
+        val paintField = layout.javaClass.declaredFields.firstOrNull {
+            !Modifier.isStatic(it.modifiers) && it.type == Paint::class.java
+        } ?: return
+        runCatching {
+            paintField.isAccessible = true
+            (paintField.get(layout) as Paint).alpha = 0
+        }
+    }
+
     /**
      * 需要补到 footer 底边的导航栏 inset。
      *
@@ -708,11 +822,9 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         return footer.rootWindowInsets?.getInsets(WindowInsets.Type.navigationBars())?.bottom ?: 0
     }
 
-    @Suppress("DEPRECATION")
     private fun View.isWindowBehindNavBar(): Boolean {
         val activity = context.activityOrNull() ?: return false
-        return activity.window.decorView.systemUiVisibility and
-            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION != 0
+        return edgeToEdgeApplied[activity.window] == true
     }
 
     private tailrec fun Context.activityOrNull(): Activity? = when (this) {
@@ -909,6 +1021,17 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
             }
         }
         WeLogger.d(TAG, "reparented ChatFooterBottom above input row (panelHeight=$height)")
+    }
+
+    override fun onDisable() {
+        navInsetPreDraws.entries.toList().forEach { (footer, listener) ->
+            runCatching { footer.viewTreeObserver.removeOnPreDrawListener(listener) }
+        }
+        navInsetPreDraws.clear()
+        navBarInsetsBeforeFit.clear()
+        navBarLayoutsApplied.clear()
+        navBarWrappersNeutralized.clear()
+        edgeToEdgeApplied.clear()
     }
 
     override fun onClick(context: ComponentActivity) {

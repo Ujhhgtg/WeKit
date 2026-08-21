@@ -645,8 +645,6 @@
     <string name="feature_half_screen_album_picker_description">Display the album selector, image preview and search page of the chat "+" panel as half-screen cards, with the chat content visible above (the image editor remains full-screen)</string>
     <string name="feature_hide_messages_avatars_name">Hide message avatar</string>
     <string name="feature_hide_messages_avatars_description">Hide user avatar for messages (Telegram style)</string>
-    <string name="feature_immersive_chat_ui_name">Immersive chat interface</string>
-    <string name="feature_immersive_chat_ui_description">The chat interface enables edge-to-edge: the content extends behind the status bar, and messages can be scrolled below the status bar;</string>
     <string name="feature_markdown_rendering_name">Markdown rendering</string>
     <string name="feature_markdown_rendering_description">Rendering Markdown messages</string>
     <string name="feature_merge_chat_message_context_menu_items_name">Merge message context-menu items</string>

@@ -572,8 +572,6 @@
     <string name="feature_half_screen_album_picker_description">將聊天「+」面板的相冊選擇器、圖片預覽和搜索頁顯示爲半屏卡片, 上方可看到聊天內容 (圖片編輯器保持全屏)</string>
     <string name="feature_hide_messages_avatars_name">隱藏消息頭像</string>
     <string name="feature_hide_messages_avatars_description">隱藏消息的用戶頭像 (Telegram 風格)</string>
-    <string name="feature_immersive_chat_ui_name">聊天界面沉浸</string>
-    <string name="feature_immersive_chat_ui_description">聊天界面啓用 edge-to-edge: 內容延伸到狀態欄背後, 消息可以滾到狀態欄下方; </string>
     <string name="feature_markdown_rendering_name">Markdown 渲染</string>
     <string name="feature_markdown_rendering_description">渲染 Markdown 消息</string>
     <string name="feature_merge_chat_message_context_menu_items_name">消息長按菜單項合併展示</string>
