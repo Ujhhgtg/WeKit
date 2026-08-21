@@ -225,7 +225,7 @@ object ProotCommand {
     data class Bind(val host: Path, val guest: String)
 
     fun execArgv(launcher: Path, rootfs: Path, cwd: String, command: String, environment: Map<String, String>, storageBinds: List<Bind> = emptyList()): List<String> =
-        launchArgv(launcher, rootfs, cwd, listOf("/bin/bash", "-lc", command), environment, storageBinds)
+        launchArgv(launcher, rootfs, cwd, listOf("/bin/bash", "-c", command), environment, storageBinds)
 
     fun launchArgv(launcher: Path, rootfs: Path, cwd: String, guestArgv: List<String>, environment: Map<String, String>, storageBinds: List<Bind> = emptyList()): List<String> {
         require(guestArgv.isNotEmpty() && guestArgv.none(String::isEmpty))
@@ -237,6 +237,7 @@ object ProotCommand {
             binds.forEach { bind -> add("-b"); add("${bind.host}:${bind.guest}") }
             add("/usr/bin/env"); add("-i")
             add("HOME=/root"); add("USER=root"); add("LOGNAME=root"); add("SHELL=/bin/bash")
+            add("PWD=$cwd")
             add("PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin")
             environment.filterKeys { it != "PATH" && it.matches(Regex("[A-Za-z_][A-Za-z0-9_]*")) }
                 .forEach { (key, value) -> add("$key=$value") }

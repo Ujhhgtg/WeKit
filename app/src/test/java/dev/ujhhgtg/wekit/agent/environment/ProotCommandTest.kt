@@ -15,9 +15,11 @@ class ProotCommandTest {
             "printf '%s' 'a; b'", mapOf("WEAGENT_BRIDGE_TOKEN" to "token", "PATH" to "/host/bin"),
         )
         assertEquals("printf '%s' 'a; b'", argv.last())
+        assertEquals(listOf("/bin/bash", "-c"), argv.takeLast(3).take(2))
         assertTrue(argv.containsAll(listOf("/dev:/dev", "/proc:/proc", "/sys:/sys")))
         assertFalse(argv.any { it.contains("/data/") || it == "PATH=/host/bin" })
         assertTrue(argv.contains("PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin"))
+        assertTrue(argv.contains("PWD=/root"))
         assertTrue(argv.contains("WEAGENT_BRIDGE_TOKEN=token"))
     }
 

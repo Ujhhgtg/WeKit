@@ -16,6 +16,7 @@
 
 use anyhow::{Context, Result, bail};
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use fs2::FileExt;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
@@ -440,6 +441,14 @@ fn proot_source_dir(root: &Path) -> PathBuf {
     root.join("third_party/proot-static")
 }
 
+fn proot_patch_path(root: &Path) -> PathBuf {
+    root.join("patches/proot/android-ptrace-events.patch")
+}
+
+fn proot_build_source_dir(root: &Path) -> PathBuf {
+    root.join("target/proot-static/source")
+}
+
 pub(crate) fn proot_artifact_paths(root: &Path) -> (PathBuf, PathBuf) {
     let artifacts = root.join("target/proot-static/artifacts");
     (artifacts.join("proot"), artifacts.join("loader"))
@@ -778,11 +787,78 @@ fn verify_proot_source_checkout(source: &Path, expected_commit: &str) -> Result<
     Ok(())
 }
 
+fn run_checked(command: &mut Command, action: &str) -> Result<()> {
+    let status = command.status().with_context(|| format!("failed to start {action}"))?;
+    if !status.success() {
+        bail!("{action} failed with {status}");
+    }
+    Ok(())
+}
+
+fn prepare_proot_build_source(root: &Path) -> Result<PathBuf> {
+    let source = proot_source_dir(root);
+    let build_source = proot_build_source_dir(root);
+    let patch = proot_patch_path(root);
+    if !patch.is_file() {
+        bail!("pinned PRoot patch is missing: {}", patch.display());
+    }
+
+    let _ = Command::new("git")
+        .args(["worktree", "remove", "--force"])
+        .arg(&build_source)
+        .current_dir(&source)
+        .status();
+    if build_source.exists() {
+        fs::remove_dir_all(&build_source)
+            .with_context(|| format!("failed to remove {}", build_source.display()))?;
+    }
+    run_checked(
+        Command::new("git")
+            .args(["worktree", "prune"])
+            .current_dir(&source),
+        "PRoot worktree prune",
+    )?;
+    run_checked(
+        Command::new("git")
+            .args(["worktree", "add", "--detach"])
+            .arg(&build_source)
+            .arg(PROOT_COMMIT)
+            .current_dir(&source),
+        "PRoot build worktree creation",
+    )?;
+    run_checked(
+        Command::new("git")
+            .args(["apply", "--check"])
+            .arg(&patch)
+            .current_dir(&build_source),
+        "PRoot patch validation",
+    )?;
+    run_checked(
+        Command::new("git")
+            .arg("apply")
+            .arg(&patch)
+            .current_dir(&build_source),
+        "PRoot patch application",
+    )?;
+    Ok(build_source)
+}
+
 fn task_build_proot(root: &Path) -> Result<()> {
     verify_proot_checkout(root)?;
+    let build_root = root.join("target/proot-static");
+    fs::create_dir_all(&build_root)?;
+    let build_lock = fs::OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(build_root.join("build.lock"))?;
+    build_lock
+        .lock_exclusive()
+        .context("failed to lock the PRoot build workspace")?;
+    let build_source = prepare_proot_build_source(root)?;
     let ndk = pinned_ndk_dir(root, None)?;
     let status = Command::new("bash")
-        .arg(proot_source_dir(root).join("tools/build-static-aarch64.sh"))
+        .arg(build_source.join("tools/build-static-aarch64.sh"))
         .env("NDK", ndk)
         .env("API", MIN_SDK.to_string())
         .env("OUT", root.join("target/proot-static/build"))
@@ -2067,6 +2143,19 @@ mod tests {
         assert!(should_build_proot(&[&ABI_TABLE[0]]));
         assert!(!should_build_proot(&[&ABI_TABLE[1]]));
         assert!(should_build_proot(&[&ABI_TABLE[0], &ABI_TABLE[1]]));
+    }
+
+    #[test]
+    fn proot_build_uses_versioned_patch_and_generated_worktree() {
+        let root = Path::new("/workspace");
+        assert_eq!(
+            proot_patch_path(root),
+            root.join("patches/proot/android-ptrace-events.patch"),
+        );
+        assert_eq!(
+            proot_build_source_dir(root),
+            root.join("target/proot-static/source"),
+        );
     }
 
     #[test]

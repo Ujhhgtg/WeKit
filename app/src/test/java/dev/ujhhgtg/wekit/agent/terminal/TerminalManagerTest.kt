@@ -64,7 +64,7 @@ class TerminalManagerTest {
         manager.start("linux", linuxEnvironment)
         manager.start("explicit", environment, listOf("/system/bin/sh", "-c", "echo hello"))
         assertEquals(listOf("/system/bin/sh"), backend.argv[0])
-        assertEquals(listOf("/bin/bash", "-l"), backend.argv[1])
+        assertEquals(listOf("/bin/bash"), backend.argv[1])
         assertEquals(listOf("/system/bin/sh", "-c", "echo hello"), backend.argv[2])
     }
 
