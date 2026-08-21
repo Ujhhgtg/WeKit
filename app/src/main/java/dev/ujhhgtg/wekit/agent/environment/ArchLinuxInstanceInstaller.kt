@@ -1,18 +1,17 @@
 package dev.ujhhgtg.wekit.agent.environment
 
 import dev.ujhhgtg.wekit.utils.WeLogger
-import java.io.File
-import java.io.ByteArrayOutputStream
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.coroutines.coroutineContext
-import kotlin.concurrent.thread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.thread
 
 data class ArchLinuxInstance(
     val rootfs: File,
@@ -60,10 +59,17 @@ object ArchLinuxInstanceInstaller {
             requireNotNull(guestBridge.parentFile).mkdirs()
             Files.copy(bridge.toPath(), guestBridge.toPath(), StandardCopyOption.COPY_ATTRIBUTES)
             require(guestBridge.setExecutable(true, true)) { "cannot make invoke_tool executable" }
-            File(rootfs, "etc/resolv.conf").apply {
-                requireNotNull(parentFile).mkdirs()
-                writeText("nameserver 1.1.1.1\nnameserver 8.8.8.8\n")
+
+            val resolvConf = File(rootfs, "etc/resolv.conf")
+            requireNotNull(resolvConf.parentFile).mkdirs()
+            if (Files.isSymbolicLink(resolvConf.toPath())) {
+                Files.delete(resolvConf.toPath())
             }
+            resolvConf.writeText(
+                "nameserver 1.1.1.1\n" +
+                        "nameserver 8.8.8.8\n"
+            )
+
             File(rootfs, "root").mkdirs()
             val healthPidFile = File(staging, "health.pid")
             val healthArgv = ProotCommand.execArgv(

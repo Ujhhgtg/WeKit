@@ -159,6 +159,7 @@
     <string name="agent_linux_environment_details_section">Configuration</string>
     <string name="agent_linux_environment_actions_section">Actions</string>
     <string name="agent_linux_environment_name">Name</string>
+    <string name="agent_linux_environment_type">Type</string>
     <string name="agent_linux_environment_type_immutable">Type cannot be changed after creation</string>
     <string name="agent_linux_environment_selected">Selected for new sessions</string>
     <string name="agent_linux_environment_working_directory">Working directory</string>

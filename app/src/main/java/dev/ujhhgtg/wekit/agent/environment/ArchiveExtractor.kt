@@ -106,7 +106,8 @@ object ArchiveExtractor {
             val source = safePath(root, link)
             require(source in regularFiles) { "hardlink target does not name an archive regular file: $link" }
             require(Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) { "hardlink target is not a regular file: $link" }
-            Files.createLink(target, source)
+            Files.copy(source, target)
+            Files.setPosixFilePermissions(target, Files.getPosixFilePermissions(source, LinkOption.NOFOLLOW_LINKS))
         }
         directoryModes.entries.sortedByDescending { it.key.nameCount }.forEach { (path, mode) ->
             setMode(path, mode, directory = true)
@@ -190,10 +191,10 @@ object ArchiveExtractor {
             val body = value.copyOfRange(space + 1, end - 1)
             val equals = body.indexOf('='.code.toByte())
             require(equals > 0) { "invalid pax record" }
-            put(
-                decodeUtf8(body.copyOfRange(0, equals)),
-                decodeUtf8(body.copyOfRange(equals + 1, body.size)),
-            )
+            val key = decodeUtf8(body.copyOfRange(0, equals))
+            if (key == "path" || key == "linkpath") {
+                put(key, decodeUtf8(body.copyOfRange(equals + 1, body.size)))
+            }
             position = end
         }
     }

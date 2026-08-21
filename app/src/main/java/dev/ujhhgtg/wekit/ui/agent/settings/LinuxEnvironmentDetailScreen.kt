@@ -34,6 +34,8 @@ import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyException
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import kotlinx.coroutines.launch
@@ -114,15 +116,17 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                     )
                 }
                 if (environmentId == null) {
-                    LinuxEnvironmentType.entries.filter { it != LinuxEnvironmentType.NATIVE }.forEach { candidate ->
-                        item {
-                            BaseWidget(
-                                title = candidate.name,
-                                description = if (candidate == type) stringResource(R.string.agent_linux_environment_selected) else null,
-                                enabled = !busy,
-                                onClick = { type = candidate },
-                            )
-                        }
+                    item {
+                        DropDownMenuWidget(
+                            title = stringResource(R.string.agent_linux_environment_type),
+                            description = null,
+                            value = type,
+                            options = LinuxEnvironmentType.entries
+                                .filter { it != LinuxEnvironmentType.NATIVE }
+                                .map { DropdownOption(it, it.name) },
+                            enabled = !busy,
+                            onValueChange = { type = it },
+                        )
                     }
                 } else {
                     item { BaseWidget(title = type.name, description = stringResource(R.string.agent_linux_environment_type_immutable), enabled = false) }

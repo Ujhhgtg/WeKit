@@ -4,12 +4,14 @@ import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.nio.charset.MalformedInputException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -97,6 +99,31 @@ class ArchiveExtractorTest {
     }
 
     @Test
+    fun `ignores binary values of unhandled pax attributes`(@TempDir root: Path) {
+        val metadata = paxRecord("SCHILY.xattr.security.capability", byteArrayOf(0x80.toByte()))
+        val archive = tar(
+            entry("pax", metadata, type = 'x'),
+            entry("bin/tool", "ok".toByteArray()),
+        )
+
+        ArchiveExtractor.extractTar(ByteArrayInputStream(archive), root)
+
+        assertEquals("ok", Files.readString(root.resolve("bin/tool")))
+    }
+
+    @Test
+    fun `rejects binary values of path pax attributes`(@TempDir root: Path) {
+        val metadata = paxRecord("path", byteArrayOf(0x80.toByte()))
+
+        assertThrows(MalformedInputException::class.java) {
+            ArchiveExtractor.extractTar(
+                ByteArrayInputStream(tar(entry("pax", metadata, type = 'x'))),
+                root,
+            )
+        }
+    }
+
+    @Test
     fun `rejects malformed pax records safely`(@TempDir root: Path) {
         val malformed = listOf(
             "20 path=short\n".toByteArray(),
@@ -117,13 +144,17 @@ class ArchiveExtractorTest {
     fun `hardlinks are archive root relative and may target a later regular file`(@TempDir root: Path) {
         val archive = tar(
             entry("usr/bin/tool-link", type = '1', link = "opt/tool"),
-            entry("opt/tool", "ok".toByteArray()),
+            entry("opt/tool", "ok".toByteArray(), mode = 493),
         )
 
         ArchiveExtractor.extractTar(ByteArrayInputStream(archive), root)
 
         assertEquals("ok", Files.readString(root.resolve("usr/bin/tool-link")))
-        assertEquals(Files.getAttribute(root.resolve("opt/tool"), "unix:ino"), Files.getAttribute(root.resolve("usr/bin/tool-link"), "unix:ino"))
+        assertNotEquals(Files.getAttribute(root.resolve("opt/tool"), "unix:ino"), Files.getAttribute(root.resolve("usr/bin/tool-link"), "unix:ino"))
+        assertEquals(
+            PosixFilePermissions.fromString("rwxr-xr-x"),
+            Files.getPosixFilePermissions(root.resolve("usr/bin/tool-link")),
+        )
         assertThrows(IllegalArgumentException::class.java) {
             ArchiveExtractor.extractTar(
                 ByteArrayInputStream(tar(entry("bad", type = '1', link = "../outside"))),
@@ -173,8 +204,10 @@ class ArchiveExtractorTest {
         entries.forEach(::write); write(ByteArray(1024))
     }.toByteArray()
 
-    private fun paxRecord(key: String, value: String): ByteArray {
-        val body = "$key=$value\n".toByteArray()
+    private fun paxRecord(key: String, value: String): ByteArray = paxRecord(key, value.toByteArray())
+
+    private fun paxRecord(key: String, value: ByteArray): ByteArray {
+        val body = "$key=".toByteArray() + value + byteArrayOf('\n'.code.toByte())
         var length = body.size + 2
         while (true) {
             val adjusted = body.size + length.toString().length + 1
