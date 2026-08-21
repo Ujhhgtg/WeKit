@@ -63,8 +63,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -83,8 +83,8 @@ import com.composables.icons.materialsymbols.outlinedfilled.Close
 import com.composables.icons.materialsymbols.outlinedfilled.Drag_pan
 import com.composables.icons.materialsymbols.outlinedfilled.Extension
 import com.composables.icons.materialsymbols.outlinedfilled.Favorite
-import com.composables.icons.materialsymbols.outlinedfilled.Movie
 import com.composables.icons.materialsymbols.outlinedfilled.Mark_chat_read
+import com.composables.icons.materialsymbols.outlinedfilled.Movie
 import com.composables.icons.materialsymbols.outlinedfilled.Qr_code_scanner
 import com.composables.icons.materialsymbols.outlinedfilled.Restart_alt
 import com.composables.icons.materialsymbols.outlinedfilled.Settings
@@ -93,14 +93,15 @@ import com.composables.icons.materialsymbols.outlinedfilled.Wallet
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.conversation.BaseConversationUI
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.reflekt.utils.fastJavaMethod
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -108,12 +109,12 @@ import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
-import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import dev.ujhhgtg.wekit.ui.utils.rootView
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -309,29 +310,29 @@ object AddMainScreenFab : ClickableFeature() {
 
     private fun migrateLegacyBuiltInLabel(item: FabItemConfig): FabItemConfig {
         if (item.builtInLabel != null) return item
-        val label = when {
-            item.type == FabType.START_ACTIVITY &&
-                item.name == "扫一扫" &&
-                item.targetActivity == "com.tencent.mm.plugin.scanner.ui.BaseScanUI" -> BuiltInFabLabel.SCAN
-            item.type == FabType.START_ACTIVITY &&
-                item.name == "朋友圈" &&
-                item.targetActivity == "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI" -> BuiltInFabLabel.MOMENTS
-            item.type == FabType.START_ACTIVITY &&
-                item.name == "钱包" &&
-                item.targetActivity == "com.tencent.mm.plugin.mall.ui.MallIndexUIv2" -> BuiltInFabLabel.WALLET
-            item.type == FabType.START_ACTIVITY &&
-                item.name == "视频号" &&
-                item.targetActivity == "com.tencent.mm.plugin.finder.ui.FinderHomeAffinityUI" -> BuiltInFabLabel.CHANNELS
-            item.type == FabType.START_ACTIVITY &&
-                item.name == "设置" &&
-                item.targetActivity == "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI" -> BuiltInFabLabel.SETTINGS
-            item.type == FabType.START_ACTIVITY &&
-                item.name == "收藏夹" &&
-                item.targetActivity == "com.tencent.mm.plugin.fav.ui.FavoriteIndexUI" -> BuiltInFabLabel.FAVORITES
-            item.type == FabType.MODULE_SETTINGS && item.name == "模块设置" -> BuiltInFabLabel.MODULE_SETTINGS
-            item.type == FabType.RESTART_HOST && item.name == "重启微信" -> BuiltInFabLabel.RESTART_WECHAT
-            item.type == FabType.FORCE_STOP && item.name == "强行停止" -> BuiltInFabLabel.FORCE_STOP
-            item.type == FabType.MARK_ALL_READ && item.name == "清空未读" -> BuiltInFabLabel.MARK_ALL_READ
+        val label = when (item.type) {
+            FabType.START_ACTIVITY if item.name == "扫一扫" &&
+                    item.targetActivity == "com.tencent.mm.plugin.scanner.ui.BaseScanUI" -> BuiltInFabLabel.SCAN
+
+            FabType.START_ACTIVITY if item.name == "朋友圈" &&
+                    item.targetActivity == "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI" -> BuiltInFabLabel.MOMENTS
+
+            FabType.START_ACTIVITY if item.name == "钱包" &&
+                    item.targetActivity == "com.tencent.mm.plugin.mall.ui.MallIndexUIv2" -> BuiltInFabLabel.WALLET
+
+            FabType.START_ACTIVITY if item.name == "视频号" &&
+                    item.targetActivity == "com.tencent.mm.plugin.finder.ui.FinderHomeAffinityUI" -> BuiltInFabLabel.CHANNELS
+
+            FabType.START_ACTIVITY if item.name == "设置" &&
+                    item.targetActivity == "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI" -> BuiltInFabLabel.SETTINGS
+
+            FabType.START_ACTIVITY if item.name == "收藏夹" &&
+                    item.targetActivity == "com.tencent.mm.plugin.fav.ui.FavoriteIndexUI" -> BuiltInFabLabel.FAVORITES
+
+            FabType.MODULE_SETTINGS if item.name == "模块设置" -> BuiltInFabLabel.MODULE_SETTINGS
+            FabType.RESTART_HOST if item.name == "重启微信" -> BuiltInFabLabel.RESTART_WECHAT
+            FabType.FORCE_STOP if item.name == "强行停止" -> BuiltInFabLabel.FORCE_STOP
+            FabType.MARK_ALL_READ if item.name == "清空未读" -> BuiltInFabLabel.MARK_ALL_READ
             else -> null
         }
         return if (label == null) item else item.copy(name = "", builtInLabel = label)
@@ -557,11 +558,11 @@ object AddMainScreenFab : ClickableFeature() {
             hostViews[activity] = WeakReference(hostView)
         }
 
-        LauncherUI::class.reflekt().firstMethod("startChatting").hookBefore {
+        LauncherUI::startChatting.fastJavaMethod!!.hookBefore {
             if (!editMode) expanded = false
         }
 
-        BaseConversationUI::class.reflekt().firstMethod("startChatting").hookBefore {
+        BaseConversationUI::startChatting.fastJavaMethod!!.hookBefore {
             if (!editMode) expanded = false
         }
     }

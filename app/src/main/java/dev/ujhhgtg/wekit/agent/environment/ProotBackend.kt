@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.agent.environment
 
 import kotlin.io.path.writeText
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
@@ -32,6 +33,7 @@ class ProotBackend internal constructor(
 
     init {
         require(snapshot.type == LinuxEnvironmentType.PROOT)
+        ArchLinuxInstanceInstaller.ensurePacmanSandboxDisabled(rootfs)
         storageBinds.forEach {
             val host = it.host.toAbsolutePath().normalize()
             require(it.guest.startsWith("/storage/") && APPROVED_STORAGE_ROOTS.any(host::startsWith)) {
@@ -47,11 +49,32 @@ class ProotBackend internal constructor(
             val stdout = Files.createTempFile(outputs, "exec-", ".stdout")
             val stderr = Files.createTempFile(outputs, "exec-", ".stderr")
             val startedAt = System.nanoTime()
-            val argv = ProotCommand.execArgv(launcher, rootfs, snapshot.workingDirectory, command, environmentVariables, storageBinds)
+            val prootTmp = instance.resolve("tmp").also(Files::createDirectories)
+            val fipsEnabled = prootTmp.resolve("fips_enabled").also { it.writeText("0\n") }
+            val argv = ProotCommand.execArgv(
+                launcher,
+                rootfs,
+                snapshot.workingDirectory,
+                ArchLinuxInstanceInstaller.withPacmanKeyringInitialization(command),
+                environmentVariables,
+                storageBinds = storageBinds + ProotCommand.Bind(fipsEnabled, "/proc/sys/crypto/fips_enabled"),
+            )
             val processEnvironment = System.getenv().toMutableMap().apply {
                 this["PROOT_LOADER"] = loader.toString()
-                this["PROOT_TMP_DIR"] = instance.resolve("tmp").also(Files::createDirectories).toString()
+                this["PROOT_NO_SECCOMP"] = "1"
+                this["PROOT_TMP_DIR"] = prootTmp.toString()
             }
+            WeLogger.d(
+                TAG,
+                "starting PRoot hostCwd=$instance guestCwd=${snapshot.workingDirectory} " +
+                        "rootfs=$rootfs launcher=$launcher loader=$loader " +
+                        "rootfsExists=${Files.isDirectory(rootfs)} " +
+                        "tmpExists=${Files.isDirectory(instance.resolve("tmp"))} " +
+                        "prootTmp=${processEnvironment["PROOT_TMP_DIR"]} " +
+                        "tmpdir=${processEnvironment["TMPDIR"]} " +
+                        "pwd=${processEnvironment["PWD"]} " +
+                        "envKeys=${processEnvironment.keys.sorted().joinToString(",")}",
+            )
             val process = startProcess(argv, processEnvironment, instance.toString())
             val streamFailure = AtomicReference<Throwable?>()
             var stdoutReader: Thread? = null
@@ -215,6 +238,7 @@ class ProotBackend internal constructor(
         }.apply { name = "wekit-owned-process-output"; start() }
 
     companion object {
+        private const val TAG = "ProotBackend"
         private val APPROVED_STORAGE_ROOTS = listOf(
             "/storage/emulated".asPath, "/storage/self/primary".asPath, "/sdcard".asPath,
         )

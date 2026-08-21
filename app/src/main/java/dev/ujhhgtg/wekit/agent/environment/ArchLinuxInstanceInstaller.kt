@@ -12,6 +12,8 @@ import java.nio.file.StandardCopyOption
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
 data class ArchLinuxInstance(
     val rootfs: File,
@@ -70,16 +72,28 @@ object ArchLinuxInstanceInstaller {
             )
 
             File(rootfs, "root").mkdirs()
+            ensurePacmanSandboxDisabled(rootfs.toPath())
             val healthPidFile = File(staging, "health.pid")
+            val prootTmp = File(staging, "tmp").apply { mkdirs() }
+            val fipsEnabled = File(prootTmp, "fips_enabled").apply { writeText("0\n") }
             val healthArgv = ProotCommand.execArgv(
                 prootExecutable.toPath(), rootfs.toPath(), "/root",
-                "test -x /bin/bash && test -x /usr/bin/invoke_tool", emptyMap(),
+                withPacmanKeyringInitialization("test -x /bin/bash && test -x /usr/bin/invoke_tool"),
+                emptyMap(),
+                storageBinds = listOf(ProotCommand.Bind(fipsEnabled.toPath(), "/proc/sys/crypto/fips_enabled")),
             )
             val health = ProcessBuilder(processWithPidFile(healthPidFile.toPath(), healthArgv))
                 .directory(staging).redirectErrorStream(true).apply {
                 environment()["PROOT_LOADER"] = prootLoaderExecutable.absolutePath
-                environment()["PROOT_TMP_DIR"] = File(staging, "tmp").apply { mkdirs() }.absolutePath
+                environment()["PROOT_NO_SECCOMP"] = "1"
+                environment()["PROOT_TMP_DIR"] = prootTmp.absolutePath
             }.start()
+            WeLogger.d(
+                TAG,
+                "starting PRoot health hostCwd=$staging rootfs=$rootfs " +
+                        "launcher=$prootExecutable loader=$prootLoaderExecutable " +
+                        "rootfsExists=${rootfs.isDirectory} tmpExists=${File(staging, "tmp").isDirectory}",
+            )
             val deadline = System.nanoTime() + HEALTH_TIMEOUT_MILLIS * 1_000_000
             val healthOutput = ByteArrayOutputStream(MAX_HEALTH_OUTPUT_BYTES)
             val outputExceeded = AtomicBoolean()
@@ -137,4 +151,34 @@ object ArchLinuxInstanceInstaller {
     private const val HEALTH_TIMEOUT_MILLIS = 30_000L
     private const val MAX_HEALTH_OUTPUT_BYTES = 64 * 1024
     internal const val PUBLISHED_MARKER = ".wekit-arch-published"
+
+    internal fun disablePacmanSandbox(config: String): String {
+        if (Regex("(?m)^[ \\t]*DisableSandbox[ \\t]*$").containsMatchIn(config)) return config
+        val options = Regex("(?m)^\\[options\\][ \\t]*$").find(config)
+            ?: throw IllegalArgumentException("pacman.conf has no [options] section")
+        val lineEnding = if ("\r\n" in config) "\r\n" else "\n"
+        val insertion = options.range.last + 1
+        return config.substring(0, insertion) + lineEnding + "DisableSandbox" + config.substring(insertion)
+    }
+
+    internal fun ensurePacmanSandboxDisabled(rootfs: java.nio.file.Path) {
+        val config = rootfs.resolve("etc/pacman.conf")
+        if (!Files.isRegularFile(config)) return
+        val original = config.readText()
+        val updated = disablePacmanSandbox(original)
+        if (updated != original) config.writeText(updated)
+    }
+
+    internal fun withPacmanKeyringInitialization(command: String): String =
+        "if [ ! -f /etc/pacman.d/gnupg/.wekit-initialized ]; then " +
+                "mkdir -p /etc/pacman.d/gnupg && " +
+                "chmod 700 /etc/pacman.d/gnupg && " +
+                "gpg --homedir /etc/pacman.d/gnupg --no-autostart --import " +
+                "/usr/share/pacman/keyrings/archlinuxarm.gpg; " +
+                "gpg --homedir /etc/pacman.d/gnupg --no-autostart --list-keys " +
+                "68B3537F39A313B3E574D06777193F152BDBE6A6 >/dev/null && " +
+                "gpg --homedir /etc/pacman.d/gnupg --no-autostart --import-ownertrust " +
+                "/usr/share/pacman/keyrings/archlinuxarm-trusted && " +
+                "printf 'archlinuxarm\\n' > /etc/pacman.d/gnupg/.wekit-initialized; " +
+                 "fi && $command"
 }

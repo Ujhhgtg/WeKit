@@ -1,4 +1,6 @@
-use libc::{EINTR, EIO, POLLIN, SIGKILL, SIGTERM, TIOCSCTTY, TIOCSWINSZ, c_char, ioctl, pid_t, winsize};
+use libc::{
+    EINTR, EIO, POLLIN, SIGKILL, SIGTERM, TIOCSCTTY, TIOCSWINSZ, c_char, ioctl, pid_t, winsize,
+};
 use std::ffi::CString;
 use std::io;
 use std::os::fd::RawFd;
@@ -79,7 +81,8 @@ pub fn start(
                     );
                     if result > 0 {
                         written += result as usize;
-                    } else if result < 0 && io::Error::last_os_error().raw_os_error() == Some(EINTR) {
+                    } else if result < 0 && io::Error::last_os_error().raw_os_error() == Some(EINTR)
+                    {
                         continue;
                     } else {
                         break;
@@ -139,7 +142,11 @@ pub fn start(
             if result > 0 {
                 read += result as usize;
             } else if result == 0 {
-                break if read == 0 { Ok(()) } else { Err("short PTY spawn error record".to_owned()) };
+                break if read == 0 {
+                    Ok(())
+                } else {
+                    Err("short PTY spawn error record".to_owned())
+                };
             } else if io::Error::last_os_error().raw_os_error() == Some(EINTR) {
                 continue;
             } else {
@@ -361,7 +368,9 @@ fn close_master(pty: &Pty) -> Result<(), String> {
         .master
         .lock()
         .map_err(|_| "PTY lock poisoned".to_owned())?;
-    if let Some(fd) = guard.take() && unsafe { libc::close(fd) } < 0 {
+    if let Some(fd) = guard.take()
+        && unsafe { libc::close(fd) } < 0
+    {
         return Err(last_error());
     }
     Ok(())

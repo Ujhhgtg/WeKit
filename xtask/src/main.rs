@@ -454,6 +454,35 @@ pub(crate) fn proot_artifact_paths(root: &Path) -> (PathBuf, PathBuf) {
     (artifacts.join("proot"), artifacts.join("loader"))
 }
 
+fn proot_cache_key_path(root: &Path) -> PathBuf {
+    root.join("target/proot-static/cache-key")
+}
+
+fn proot_cache_key(root: &Path, ndk: &Path) -> Result<String> {
+    let patch = fs::read(proot_patch_path(root))?;
+    let build_script = fs::read(proot_source_dir(root).join("tools/build-static-aarch64.sh"))?;
+    let mut hasher = Sha256::new();
+    hasher.update(b"wekit-proot-cache-v1\0");
+    hasher.update(PROOT_COMMIT.as_bytes());
+    hasher.update(ndk.to_string_lossy().as_bytes());
+    hasher.update(MIN_SDK.to_le_bytes());
+    hasher.update(patch);
+    hasher.update(build_script);
+    Ok(hex_encode(&hasher.finalize()))
+}
+
+fn proot_cache_is_valid(root: &Path, ndk: &Path) -> Result<bool> {
+    let (launcher, loader) = proot_artifact_paths(root);
+    if !launcher.is_file() || !loader.is_file() {
+        return Ok(false);
+    }
+    let cached = match fs::read_to_string(proot_cache_key_path(root)) {
+        Ok(value) => value,
+        Err(_) => return Ok(false),
+    };
+    Ok(cached.trim() == proot_cache_key(root, ndk)?)
+}
+
 fn proot_jni_artifact_paths(root: &Path) -> (PathBuf, PathBuf) {
     let arm64 = jni_libs_dir(root).join("arm64-v8a");
     (arm64.join("libproot.so"), arm64.join("libproot_loader.so"))
@@ -461,15 +490,23 @@ fn proot_jni_artifact_paths(root: &Path) -> (PathBuf, PathBuf) {
 
 fn invoke_tool_artifact_paths(root: &Path, spec: &AbiSpec) -> (PathBuf, PathBuf) {
     (
-        root.join("target").join(spec.cargo_triple).join("release/invoke_tool"),
-        jni_libs_dir(root).join(spec.android_name).join("libinvoke_tool.so"),
+        root.join("target")
+            .join(spec.cargo_triple)
+            .join("release/invoke_tool"),
+        jni_libs_dir(root)
+            .join(spec.android_name)
+            .join("libinvoke_tool.so"),
     )
 }
 
 fn chroot_cleanup_artifact_paths(root: &Path, spec: &AbiSpec) -> (PathBuf, PathBuf) {
     (
-        root.join("target").join(spec.cargo_triple).join("release/chroot_cleanup"),
-        jni_libs_dir(root).join(spec.android_name).join("libchroot_cleanup.so"),
+        root.join("target")
+            .join(spec.cargo_triple)
+            .join("release/chroot_cleanup"),
+        jni_libs_dir(root)
+            .join(spec.android_name)
+            .join("libchroot_cleanup.so"),
     )
 }
 
@@ -788,7 +825,9 @@ fn verify_proot_source_checkout(source: &Path, expected_commit: &str) -> Result<
 }
 
 fn run_checked(command: &mut Command, action: &str) -> Result<()> {
-    let status = command.status().with_context(|| format!("failed to start {action}"))?;
+    let status = command
+        .status()
+        .with_context(|| format!("failed to start {action}"))?;
     if !status.success() {
         bail!("{action} failed with {status}");
     }
@@ -855,14 +894,23 @@ fn task_build_proot(root: &Path) -> Result<()> {
     build_lock
         .lock_exclusive()
         .context("failed to lock the PRoot build workspace")?;
-    let build_source = prepare_proot_build_source(root)?;
     let ndk = pinned_ndk_dir(root, None)?;
+    if proot_cache_is_valid(root, &ndk)? {
+        println!("build(proot): reusing cached artifacts");
+        copy_proot_artifacts(root)?;
+        return Ok(());
+    }
+
+    let build_source = prepare_proot_build_source(root)?;
     let status = Command::new("bash")
         .arg(build_source.join("tools/build-static-aarch64.sh"))
-        .env("NDK", ndk)
+        .env("NDK", &ndk)
         .env("API", MIN_SDK.to_string())
         .env("OUT", root.join("target/proot-static/build"))
-        .env("REPO_ARTIFACT_DIR", root.join("target/proot-static/artifacts"))
+        .env(
+            "REPO_ARTIFACT_DIR",
+            root.join("target/proot-static/artifacts"),
+        )
         .status()
         .context("failed to start pinned PRoot build")?;
     if !status.success() {
@@ -872,6 +920,14 @@ fn task_build_proot(root: &Path) -> Result<()> {
     if !launcher.is_file() || !loader.is_file() {
         bail!("pinned PRoot build did not produce launcher and loader");
     }
+    copy_proot_artifacts(root)?;
+    fs::write(proot_cache_key_path(root), proot_cache_key(root, &ndk)?)
+        .context("failed to record the PRoot build cache key")?;
+    Ok(())
+}
+
+fn copy_proot_artifacts(root: &Path) -> Result<()> {
+    let (launcher, loader) = proot_artifact_paths(root);
     let (launcher_dst, loader_dst) = proot_jni_artifact_paths(root);
     fs::create_dir_all(launcher_dst.parent().unwrap())?;
     fs::copy(&launcher, &launcher_dst)?;
@@ -926,7 +982,8 @@ fn task_build_native(abi_args: &[String]) -> Result<()> {
         fs::copy(&cleanup_src, &cleanup_dst).with_context(|| {
             format!(
                 "could not copy chroot_cleanup PIE {} → {}",
-                cleanup_src.display(), cleanup_dst.display()
+                cleanup_src.display(),
+                cleanup_dst.display()
             )
         })?;
 
@@ -2118,24 +2175,42 @@ mod tests {
     fn invoke_tool_is_packaged_as_an_abi_native_artifact() {
         let root = Path::new("/workspace");
         let (source, destination) = invoke_tool_artifact_paths(root, &ABI_TABLE[0]);
-        assert_eq!(source, root.join("target/aarch64-linux-android/release/invoke_tool"));
-        assert_eq!(destination, root.join("app/src/main/jniLibs/arm64-v8a/libinvoke_tool.so"));
+        assert_eq!(
+            source,
+            root.join("target/aarch64-linux-android/release/invoke_tool")
+        );
+        assert_eq!(
+            destination,
+            root.join("app/src/main/jniLibs/arm64-v8a/libinvoke_tool.so")
+        );
     }
 
     #[test]
     fn chroot_cleanup_is_packaged_as_an_abi_native_artifact() {
         let root = Path::new("/workspace");
         let (source, destination) = chroot_cleanup_artifact_paths(root, &ABI_TABLE[1]);
-        assert_eq!(source, root.join("target/armv7-linux-androideabi/release/chroot_cleanup"));
-        assert_eq!(destination, root.join("app/src/main/jniLibs/armeabi-v7a/libchroot_cleanup.so"));
+        assert_eq!(
+            source,
+            root.join("target/armv7-linux-androideabi/release/chroot_cleanup")
+        );
+        assert_eq!(
+            destination,
+            root.join("app/src/main/jniLibs/armeabi-v7a/libchroot_cleanup.so")
+        );
     }
 
     #[test]
     fn proot_is_packaged_as_arm64_native_artifacts() {
         let root = Path::new("/workspace");
         let (launcher, loader) = proot_jni_artifact_paths(root);
-        assert_eq!(launcher, root.join("app/src/main/jniLibs/arm64-v8a/libproot.so"));
-        assert_eq!(loader, root.join("app/src/main/jniLibs/arm64-v8a/libproot_loader.so"));
+        assert_eq!(
+            launcher,
+            root.join("app/src/main/jniLibs/arm64-v8a/libproot.so")
+        );
+        assert_eq!(
+            loader,
+            root.join("app/src/main/jniLibs/arm64-v8a/libproot_loader.so")
+        );
     }
 
     #[test]
@@ -2156,6 +2231,39 @@ mod tests {
             proot_build_source_dir(root),
             root.join("target/proot-static/source"),
         );
+    }
+
+    #[test]
+    fn proot_cache_requires_matching_inputs_and_artifacts() {
+        static NEXT_CACHE_ID: AtomicU64 = AtomicU64::new(0);
+        let root = env::temp_dir().join(format!(
+            "wekit-proot-cache-test-{}-{}",
+            std::process::id(),
+            NEXT_CACHE_ID.fetch_add(1, Ordering::Relaxed),
+        ));
+        let patch = proot_patch_path(&root);
+        let source = proot_source_dir(&root);
+        let artifacts = root.join("target/proot-static/artifacts");
+        fs::create_dir_all(patch.parent().unwrap()).unwrap();
+        fs::create_dir_all(source.join("tools")).unwrap();
+        fs::create_dir_all(&artifacts).unwrap();
+        fs::write(&patch, "patch\n").unwrap();
+        fs::write(source.join("tools/build-static-aarch64.sh"), "build\n").unwrap();
+        fs::write(artifacts.join("proot"), "proot\n").unwrap();
+        fs::write(artifacts.join("loader"), "loader\n").unwrap();
+
+        assert!(!proot_cache_is_valid(&root, Path::new("/ndk")).unwrap());
+
+        fs::write(
+            proot_cache_key_path(&root),
+            proot_cache_key(&root, Path::new("/ndk")).unwrap(),
+        )
+        .unwrap();
+        assert!(proot_cache_is_valid(&root, Path::new("/ndk")).unwrap());
+
+        fs::write(&patch, "changed patch\n").unwrap();
+        assert!(!proot_cache_is_valid(&root, Path::new("/ndk")).unwrap());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

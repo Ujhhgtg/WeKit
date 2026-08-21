@@ -42,6 +42,7 @@ class ChrootTerminalApprovalTest {
             "/package/lib/libproot_loader.so",
             native.environments.single().getValue("PROOT_LOADER"),
         )
+        assertEquals("1", native.environments.single().getValue("PROOT_NO_SECCOMP"))
     }
 
     @Test
