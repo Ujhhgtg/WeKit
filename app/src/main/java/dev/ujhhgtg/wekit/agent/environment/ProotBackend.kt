@@ -49,7 +49,14 @@ class ProotBackend internal constructor(
             val stdout = Files.createTempFile(outputs, "exec-", ".stdout")
             val stderr = Files.createTempFile(outputs, "exec-", ".stderr")
             val startedAt = System.nanoTime()
-            val argv = ProotCommand.execArgv(launcher, rootfs, snapshot.workingDirectory, command, environmentVariables, storageBinds)
+            val argv = ProotCommand.execArgv(
+                launcher,
+                rootfs,
+                snapshot.workingDirectory,
+                ArchLinuxInstanceInstaller.withPacmanKeyringInitialization(command),
+                environmentVariables,
+                storageBinds,
+            )
             val processEnvironment = System.getenv().toMutableMap().apply {
                 this["PROOT_LOADER"] = loader.toString()
                 this["PROOT_NO_SECCOMP"] = "1"
