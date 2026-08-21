@@ -30,6 +30,8 @@ object NativeLoader {
     private var nativeArtifactDir: File? = null
     private var materializedInvokeTool: File? = null
     private var materializedChrootCleanup: File? = null
+    private var packagedProot: File? = null
+    private var packagedProotLoader: File? = null
 
     /**
      * Configures native loading for the copied APK that the FunBox-style
@@ -130,6 +132,26 @@ object NativeLoader {
                 materializedChrootCleanup = it
             }
     }.also { require(it.isFile && it.canExecute()) { "chroot_cleanup is not executable: $it" } }
+
+    fun prootExecutable(): File = synchronized(nativeLoadLock) {
+        packagedProot ?: installedExecutable("proot").also { packagedProot = it }
+    }
+
+    fun prootLoaderExecutable(): File = synchronized(nativeLoadLock) {
+        packagedProotLoader ?: installedExecutable("proot_loader").also { packagedProotLoader = it }
+    }
+
+    private fun installedExecutable(name: String): File {
+        val path = (NativeLoader::class.java.classLoader as? BaseDexClassLoader)
+            ?.findLibrary(name)
+            ?: error("packaged $name executable requires an installed WeKit APK")
+        check(!path.contains("!/")) {
+            "packaged $name executable was not extracted by PackageManager"
+        }
+        return File(path).also {
+            require(it.isFile && it.canExecute()) { "$name is not executable: $it" }
+        }
+    }
 
     private fun materializePackagedExecutable(path: String, name: String = "invoke_tool"): File {
         if (!path.contains("!/")) return File(path)
