@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.agent.terminal
 
+import kotlin.io.path.writeText
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import dev.ujhhgtg.wekit.agent.environment.ChrootConfiguration
 import dev.ujhhgtg.wekit.agent.environment.ChrootMountRegistry
@@ -9,7 +11,6 @@ import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceLayout
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentLease
 import dev.ujhhgtg.wekit.agent.environment.ProotCommand
-import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.NonCancellable
@@ -62,7 +63,7 @@ class EnvironmentTerminalBackend internal constructor(
     ): TerminalBackendStart = when (environment.type) {
         LinuxEnvironmentType.NATIVE -> native.start(environment, argv, workingDirectory, environmentVariables, cols, rows)
         LinuxEnvironmentType.PROOT -> {
-            val rootfs = Path.of(requireNotNull(environment.rootfsPath))
+            val rootfs = requireNotNull(environment.rootfsPath).asPath
             val hostArgv = ProotCommand.launchArgv(
                 rootfs.parent.resolve("bin/proot"), rootfs, workingDirectory ?: environment.workingDirectory,
                 argv, environmentVariables,
@@ -82,7 +83,7 @@ class EnvironmentTerminalBackend internal constructor(
         LinuxEnvironmentType.CHROOT -> {
             check(approveChrootStart(environment)) { "rooted chroot terminal start requires explicit high-risk approval" }
             val rootfs = ArchLinuxInstanceLayout.validatePublishedRootfs(
-                Path.of(requireNotNull(environment.rootfsPath)), chrootInstancesRoot,
+                requireNotNull(environment.rootfsPath).asPath, chrootInstancesRoot,
             )
             val configuration = ChrootConfiguration(rootfs, workingDirectory ?: environment.workingDirectory)
             val helper = ChrootRootHelper(configuration)
@@ -105,7 +106,7 @@ class EnvironmentTerminalBackend internal constructor(
             }
             val hostArgv = configuration.hostLaunchArgv(run, launcher, argv, environmentVariables)
             try {
-                Files.writeString(run.stageFile, "LAUNCHING", java.nio.file.StandardOpenOption.TRUNCATE_EXISTING)
+                run.stageFile.writeText("LAUNCHING", Charsets.UTF_8, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING)
                 val started = native.start(hostEnvironment, hostArgv, hostEnvironment.workingDirectory, emptyMap(), cols, rows)
                 TerminalBackendStart(ChrootTerminalSession(started.session, rootfs, helper, run, cleanupChrootRun), environment)
             } catch (error: Throwable) {

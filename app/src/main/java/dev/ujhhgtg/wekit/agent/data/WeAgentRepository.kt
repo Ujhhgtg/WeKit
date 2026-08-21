@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.data
 
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import androidx.room.withTransaction
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository.getExternalServiceKey
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository.permissionCache
@@ -982,7 +983,7 @@ object WeAgentRepository : ToolPermissionSource {
                 require(environment.sshHost == null) { "local environments cannot contain SSH configuration" }
                 if (environment.type == LinuxEnvironmentType.CHROOT) {
                     dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceLayout.validatePublishedRootfs(
-                        java.nio.file.Path.of(environment.rootfsPath)
+                        environment.rootfsPath.asPath
                     )
                 }
             }

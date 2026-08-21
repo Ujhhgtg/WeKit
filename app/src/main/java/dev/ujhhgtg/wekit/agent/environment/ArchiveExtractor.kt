@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.io.EOFException
 import java.io.InputStream
 import java.nio.ByteBuffer
@@ -85,7 +86,7 @@ object ArchiveExtractor {
                     require(size == 0L) { "symlink entry has data: $name" }
                     validateLink(root, target.parent, linkName)
                     Files.createDirectories(target.parent)
-                    Files.createSymbolicLink(target, Path.of(linkName))
+                    Files.createSymbolicLink(target, linkName.asPath)
                 }
                 '1' -> {
                     require(size == 0L) { "hardlink entry has data: $name" }
@@ -114,7 +115,7 @@ object ArchiveExtractor {
 
     private fun safePath(root: Path, name: String): Path {
         require(name.isNotEmpty() && !name.startsWith('/')) { "absolute or empty archive path: $name" }
-        val relative = Path.of(name).normalize()
+        val relative = name.asPath.normalize()
         require(!relative.startsWith("..")) { "archive path escapes destination: $name" }
         return root.resolve(relative).normalize().also { require(it.startsWith(root)) }
     }
@@ -134,7 +135,7 @@ object ArchiveExtractor {
     }
 
     private fun resolveGuestLink(root: Path, parent: Path, link: String): Path {
-        val value = Path.of(link)
+        val value = link.asPath
         val resolved = if (value.isAbsolute) root.resolve(link.removePrefix("/")) else parent.resolve(value)
         return resolved.normalize().also { require(it.startsWith(root)) { "archive link escapes destination: $link" } }
     }

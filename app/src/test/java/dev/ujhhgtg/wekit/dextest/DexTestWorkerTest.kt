@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.dextest
 
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.dexkit.resolution.DexHostMetadata
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestEntry
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestRegistry
@@ -32,9 +33,9 @@ internal data class DexTestWorkerConfig(
                     ?: error("wekit.dexTest.isGooglePlay must be true or false, was $raw")
             }
             return DexTestWorkerConfig(
-                apk = Path.of(required("wekit.dexTest.apk")).toAbsolutePath().normalize(),
-                nativeLibrary = Path.of(required("wekit.dexTest.nativeLibrary")).toAbsolutePath().normalize(),
-                report = Path.of(required("wekit.dexTest.report")).toAbsolutePath().normalize(),
+                apk = required("wekit.dexTest.apk").asPath.toAbsolutePath().normalize(),
+                nativeLibrary = required("wekit.dexTest.nativeLibrary").asPath.toAbsolutePath().normalize(),
+                report = required("wekit.dexTest.report").asPath.toAbsolutePath().normalize(),
                 dexKitVersion = required("wekit.dexTest.dexKitVersion"),
                 dexKitRevision = required("wekit.dexTest.dexKitRevision"),
                 versionCode = required("wekit.dexTest.versionCode").toLongOrNull()

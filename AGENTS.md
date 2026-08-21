@@ -189,6 +189,11 @@
 - JVM reflection over host classes should go through `reflekt` (`libs/common/reflekt/`) by
   default, e.g. `thisObject.reflekt().firstField { ... }` or `.getField(name, true)` — not
   hand-rolled `getDeclaredField`/`getMethod` traversal.
+- **NEVER use `Path.of` or `Files.writeString`.** These are frequent mistakes and
+  are unavailable on older Android API levels supported by WeKit. Convert strings through
+  `dev.ujhhgtg.wekit.utils.fs.asPath` from `utils/fs/PathUtils.kt` (for example,
+  `pathString.asPath` or `base.asPath.resolve(child)`) and write text through
+  `kotlin.io.path.writeText`.
 - No excessive defensiveness. When e.g. the hooked method and its argument types are
   known to hold, use direct casts: `thisObject as Activity`, `args[0] as View`, `!!`. Do NOT use `as?`
   safe casts, `args.getOrNull(0)`, `?:`, `?.someFun()` or similar guards for values that should always be present/non-null/etc.

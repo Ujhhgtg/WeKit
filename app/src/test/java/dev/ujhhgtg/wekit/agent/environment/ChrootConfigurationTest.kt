@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import kotlin.io.path.writeText
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.nio.file.Path
 import java.nio.file.Files
 import java.util.UUID
@@ -15,18 +17,18 @@ class ChrootConfigurationTest {
     @Test
     fun `configuration rejects path traversal and host paths outside shared storage`() {
         assertThrows(IllegalArgumentException::class.java) {
-            ChrootConfiguration(Path.of("/instances/arch/rootfs"), "/root/../data")
+            ChrootConfiguration("/instances/arch/rootfs".asPath, "/root/../data")
         }
         assertThrows(IllegalArgumentException::class.java) {
             ChrootConfiguration(
-                Path.of("/instances/arch/rootfs"), "/root",
-                listOf(ChrootBind(Path.of("/data/local/tmp"), "/storage/tmp")),
+                "/instances/arch/rootfs".asPath, "/root",
+                listOf(ChrootBind("/data/local/tmp".asPath, "/storage/tmp")),
             )
         }
         assertThrows(IllegalArgumentException::class.java) {
             ChrootConfiguration(
-                Path.of("/instances/arch/rootfs"), "/root",
-                listOf(ChrootBind(Path.of("/storage/emulated/0"), "/host")),
+                "/instances/arch/rootfs".asPath, "/root",
+                listOf(ChrootBind("/storage/emulated/0".asPath, "/host")),
             )
         }
     }
@@ -34,8 +36,8 @@ class ChrootConfigurationTest {
     @Test
     fun `mount arguments contain only pseudo mounts and allowlisted binds`() {
         val configuration = ChrootConfiguration(
-            Path.of("/instances/arch/rootfs"), "/root",
-            listOf(ChrootBind(Path.of("/storage/emulated/0/Documents"), "/storage/Documents")),
+            "/instances/arch/rootfs".asPath, "/root",
+            listOf(ChrootBind("/storage/emulated/0/Documents".asPath, "/storage/Documents")),
         )
 
         assertEquals(
@@ -51,8 +53,8 @@ class ChrootConfigurationTest {
 
     @Test
     fun `launcher keeps argv opaque and installs bridge environment in clean guest env`() {
-        val configuration = ChrootConfiguration(Path.of("/instances/arch/rootfs"), "/root")
-        val run = ChrootRun(UUID.randomUUID().toString(), Path.of("/instances/arch/chroot-runs/test"))
+        val configuration = ChrootConfiguration("/instances/arch/rootfs".asPath, "/root")
+        val run = ChrootRun(UUID.randomUUID().toString(), "/instances/arch/chroot-runs/test".asPath)
         val script = configuration.launchScript(
             run,
             listOf("/bin/bash", "-lc", "printf '%s' 'a; b'"),
@@ -68,7 +70,7 @@ class ChrootConfigurationTest {
         assertTrue(script.contains(run.mountNamespaceFile.toString()))
         assertTrue(script.contains("trap cleanup EXIT HUP INT TERM"))
         assertTrue(script.contains("test -r '/instances/arch/rootfs/etc/resolv.conf'"))
-        val hostArgv = configuration.hostLaunchArgv(run, Path.of("/system/bin/su"), listOf("/bin/bash"), emptyMap())
+        val hostArgv = configuration.hostLaunchArgv(run, "/system/bin/su".asPath, listOf("/bin/bash"), emptyMap())
         assertEquals("/system/bin/su", hostArgv.first())
         assertFalse(hostArgv.last().contains("setsid"))
         assertTrue(hostArgv.last().contains(run.cmdlineMarker))
@@ -127,7 +129,7 @@ class ChrootConfigurationTest {
         val rootfs = publishedRootfs(instances, "arch")
         assertEquals(rootfs.toRealPath(), ArchLinuxInstanceLayout.validatePublishedRootfs(rootfs, instances))
         assertThrows(IllegalArgumentException::class.java) {
-            ArchLinuxInstanceLayout.validatePublishedRootfs(Path.of("/"), instances)
+            ArchLinuxInstanceLayout.validatePublishedRootfs("/".asPath, instances)
         }
 
         val outside = publishedRootfs(directory, "outside")
@@ -144,11 +146,11 @@ class ChrootConfigurationTest {
 
     @Test
     fun `cleanup command delegates exact identity to process bound native helper`() {
-        val rootfs = Path.of("/instances/arch/rootfs")
+        val rootfs = "/instances/arch/rootfs".asPath
         val helper = ChrootRootHelper(ChrootConfiguration(rootfs, "/root"))
-        val run = ChrootRun("11111111-1111-1111-1111-111111111111", Path.of("/instances/arch/chroot-runs/11111111-1111-1111-1111-111111111111"))
+        val run = ChrootRun("11111111-1111-1111-1111-111111111111", "/instances/arch/chroot-runs/11111111-1111-1111-1111-111111111111".asPath)
         val command = helper.cleanupCommand(
-            Path.of("/data/user/0/dev.ujhhgtg.wekit/files/chroot_cleanup"), run, 4321, "98765",
+            "/data/user/0/dev.ujhhgtg.wekit/files/chroot_cleanup".asPath, run, 4321, "98765",
             "22222222-2222-2222-2222-222222222222", "4026533001",
         )
         assertTrue(command.startsWith("'/data/user/0/dev.ujhhgtg.wekit/files/chroot_cleanup' 'cleanup' '4321' '98765'"))
@@ -176,7 +178,7 @@ class ChrootConfigurationTest {
         assertFalse(Files.exists(safe.directory))
 
         val uncertain = configuration.createRun()
-        Files.writeString(uncertain.stageFile, "NAMESPACE")
+        uncertain.stageFile.writeText("NAMESPACE")
         assertThrows(ChrootFailure.Cleanup::class.java) { runBlocking { helper.cleanupNamespace(uncertain) } }
         assertTrue(Files.exists(uncertain.directory))
         assertTrue(ChrootMountRegistry.isBusy(configuration.rootfs))
@@ -204,8 +206,8 @@ class ChrootConfigurationTest {
     fun `launch metadata is nonce isolated from stale legacy files`(@TempDir directory: Path) {
         val instance = Files.createDirectory(directory.resolve("arch"))
         val configuration = ChrootConfiguration(Files.createDirectory(instance.resolve("rootfs")), "/root")
-        Files.writeString(instance.resolve("chroot.pid"), "1")
-        Files.writeString(instance.resolve("chroot.stage"), "EXEC")
+        instance.resolve("chroot.pid").writeText("1")
+        instance.resolve("chroot.stage").writeText("EXEC")
 
         val first = configuration.createRun()
         val second = configuration.createRun()
@@ -224,9 +226,9 @@ class ChrootConfigurationTest {
         val configuration = ChrootConfiguration(Files.createDirectory(instance.resolve("rootfs")), "/root")
         val helper = ChrootRootHelper(configuration)
         val run = configuration.createRun()
-        Files.writeString(run.pidFile, "4321")
-        Files.writeString(run.startTimeFile, "98765")
-        Files.writeString(run.stageFile, "MOUNT")
+        run.pidFile.writeText("4321")
+        run.startTimeFile.writeText("98765")
+        run.stageFile.writeText("MOUNT")
 
         assertEquals(listOf(run.nonce), configuration.pendingRuns().map(ChrootRun::nonce))
         assertTrue(Files.exists(run.stageFile))
@@ -240,10 +242,10 @@ class ChrootConfigurationTest {
         val instance = Files.createDirectory(directory.resolve("arch"))
         val configuration = ChrootConfiguration(Files.createDirectory(instance.resolve("rootfs")), "/root")
         val run = configuration.createRun()
-        Files.writeString(run.pidFile, "4321")
-        Files.writeString(run.startTimeFile, "98765")
-        Files.writeString(run.bootIdFile, "22222222-2222-2222-2222-222222222222")
-        Files.writeString(run.stageFile, "EXEC")
+        run.pidFile.writeText("4321")
+        run.startTimeFile.writeText("98765")
+        run.bootIdFile.writeText("22222222-2222-2222-2222-222222222222")
+        run.stageFile.writeText("EXEC")
 
         assertThrows(ChrootFailure.Cleanup::class.java) {
             runBlocking { ChrootRootHelper(configuration).cleanupNamespace(run) }
@@ -254,8 +256,8 @@ class ChrootConfigurationTest {
 
     @Test
     fun `rooted atomic edit uses chroot helper argv and preserves mode before rename`() {
-        val helper = ChrootRootHelper(ChrootConfiguration(Path.of("/instances/arch/rootfs"), "/root"))
-        val command = helper.editCommand("/root/a b.txt", Path.of("/instances/arch/outputs/input"))
+        val helper = ChrootRootHelper(ChrootConfiguration("/instances/arch/rootfs".asPath, "/root"))
+        val command = helper.editCommand("/root/a b.txt", "/instances/arch/outputs/input".asPath)
         assertTrue(command.contains("cp -- '/instances/arch/outputs/input' '/instances/arch/rootfs/tmp/.weagent-input'"))
         assertTrue(command.contains("chroot '/instances/arch/rootfs' /bin/sh -c "))
         assertTrue(command.contains("stat -c %a"))
@@ -276,18 +278,18 @@ class ChrootConfigurationTest {
 
     private fun publishedRootfs(instances: Path, name: String): Path {
         val instance = Files.createDirectories(instances.resolve(name))
-        Files.writeString(instance.resolve(ArchLinuxInstanceInstaller.PUBLISHED_MARKER), "1")
+        instance.resolve(ArchLinuxInstanceInstaller.PUBLISHED_MARKER).writeText("1")
         val rootfs = Files.createDirectories(instance.resolve("rootfs"))
         listOf("rootfs/bin/bash", "rootfs/usr/bin/invoke_tool", "bin/proot", "bin/loader").forEach { relative ->
             val file = instance.resolve(relative)
             Files.createDirectories(file.parent)
-            Files.writeString(file, "x")
+            file.writeText("x")
             file.toFile().setExecutable(true)
         }
         listOf("etc/resolv.conf").forEach { relative ->
             val file = rootfs.resolve(relative)
             Files.createDirectories(file.parent)
-            Files.writeString(file, "x")
+            file.writeText("x")
         }
         return rootfs
     }

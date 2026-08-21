@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import kotlin.io.path.writeText
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -22,7 +24,7 @@ class EditFileTest {
         val backend = NativeBackend(snapshot(directory))
         backend.edit(FileEditRequest("new.txt", null, "created"))
         assertEquals("created", Files.readString(directory.resolve("new.txt")))
-        Files.writeString(directory.resolve("occupied.txt"), "existing")
+        directory.resolve("occupied.txt").writeText("existing")
         assertThrows(IllegalArgumentException::class.java) {
             runBlocking { backend.edit(FileEditRequest("occupied.txt", null, "replace")) }
         }
@@ -32,7 +34,7 @@ class EditFileTest {
     fun `replace all changes every exact match`(@TempDir directory: Path) = runBlocking {
         val backend = NativeBackend(snapshot(directory))
         val file = directory.resolve("note.txt")
-        Files.writeString(file, "x y x")
+        file.writeText("x y x")
         backend.edit(FileEditRequest("note.txt", "x", "z", replaceAll = true))
         assertEquals("z y z", Files.readString(file))
     }
@@ -41,7 +43,7 @@ class EditFileTest {
     fun `single replacement changes exactly one match`(@TempDir directory: Path) = runBlocking {
         val backend = NativeBackend(snapshot(directory))
         val file = directory.resolve("note.txt")
-        Files.writeString(file, "before needle after")
+        file.writeText("before needle after")
 
         backend.edit(FileEditRequest("note.txt", "needle", "replacement"))
 
@@ -52,7 +54,7 @@ class EditFileTest {
     fun `single replacement rejects ambiguous match and leaves file unchanged`(@TempDir directory: Path) = runBlocking {
         val backend = NativeBackend(snapshot(directory))
         val file = directory.resolve("note.txt")
-        Files.writeString(file, "x y x")
+        file.writeText("x y x")
 
         assertThrows(IllegalArgumentException::class.java) {
             runBlocking { backend.edit(FileEditRequest("note.txt", "x", "z")) }
@@ -64,7 +66,7 @@ class EditFileTest {
     fun `failed atomic edit leaves the original file unchanged`(@TempDir directory: Path) = runBlocking {
         val backend = NativeBackend(snapshot(directory))
         val file = directory.resolve("note.txt")
-        Files.writeString(file, "before")
+        file.writeText("before")
         val writableMode = PosixFilePermissions.fromString("rwx------")
         Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("r-x------"))
 
@@ -84,7 +86,7 @@ class EditFileTest {
         val backend = NativeBackend(snapshot(directory), defaultFilePermissions = configuredMode)
         val existing = directory.resolve("existing.txt")
         val existingMode = PosixFilePermissions.fromString("rw-rw----")
-        Files.writeString(existing, "old")
+        existing.writeText("old")
         Files.setPosixFilePermissions(existing, existingMode)
 
         backend.edit(FileEditRequest("new.txt", null, "new"))
@@ -109,7 +111,7 @@ class EditFileTest {
         assertEquals(false, result.timedOut)
         assertEquals("1234", result.stdout)
         assertEquals(true, result.spillPath != null)
-        assertEquals("--- stdout ---\n123456789\n--- stderr ---\n", Files.readString(Path.of(result.spillPath!!)))
+        assertEquals("--- stdout ---\n123456789\n--- stderr ---\n", Files.readString(result.spillPath!!.asPath))
     }
 
     @Test

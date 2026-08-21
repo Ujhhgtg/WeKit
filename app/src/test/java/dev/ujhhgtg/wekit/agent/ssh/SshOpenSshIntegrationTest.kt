@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.ssh
 
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.agent.environment.SshConfiguration
 import dev.ujhhgtg.wekit.agent.environment.SshConnectionManager
 import dev.ujhhgtg.wekit.agent.environment.SshIndeterminateExecutionException
@@ -11,7 +12,6 @@ import java.net.ServerSocket
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import java.nio.file.Path
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -120,7 +120,7 @@ class SshOpenSshIntegrationTest {
                 val keyManager = SshConnectionManager(
                     SshConfiguration("127.0.0.1", sshPort, "wekit", SshHostKey(algorithm, fingerprint)),
                     SshCredentials.PrivateKey(
-                        Files.readString(Path.of(privateKeyPath)),
+                        Files.readString(privateKeyPath.asPath),
                         System.getenv("WEKIT_SSH_TEST_PRIVATE_KEY_PASSPHRASE"),
                     ),
                 )

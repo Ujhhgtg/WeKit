@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.terminal
 
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentLease
 import dev.ujhhgtg.wekit.agent.environment.LeaseReleaseResult
@@ -8,7 +9,6 @@ import dev.ujhhgtg.wekit.agent.tool.ToolCallOrigin
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
-import java.nio.file.Path
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -256,7 +256,7 @@ class TerminalManagerTest {
         val startupReleases = AtomicLong()
         val startupBackend = EnvironmentTerminalBackend(
             native = FakeBackend(startGate = startGate, startEntered = startEntered),
-            chrootInstancesRoot = Path.of("/tmp"),
+            chrootInstancesRoot = "/tmp".asPath,
             acquireEnvironmentLease = { EnvironmentLease {
                 startupReleases.incrementAndGet()
                 LeaseReleaseResult.Committed
@@ -271,7 +271,7 @@ class TerminalManagerTest {
         val closeReleases = AtomicLong()
         val closeBackend = EnvironmentTerminalBackend(
             native = FakeBackend(closeGate = closeGate),
-            chrootInstancesRoot = Path.of("/tmp"),
+            chrootInstancesRoot = "/tmp".asPath,
             acquireEnvironmentLease = { EnvironmentLease {
                 closeReleases.incrementAndGet()
                 LeaseReleaseResult.Committed

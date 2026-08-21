@@ -215,7 +215,7 @@ internal fun writeCloudCacheFiles(
                 }
                 append("\n}")
             }
-            Files.writeString(temp, json)
+            temp.writeText(json)
         }
 
         for (file in staged) {

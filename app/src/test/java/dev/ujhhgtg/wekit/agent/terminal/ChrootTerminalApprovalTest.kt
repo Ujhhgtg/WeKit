@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.agent.terminal
 
+import kotlin.io.path.writeText
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceInstaller
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
@@ -23,7 +25,7 @@ class ChrootTerminalApprovalTest {
             native = RecordingBackend(),
             approveChrootStart = { false },
             chrootInstancesRoot = directory,
-            resolveRootLauncher = { launcherResolved = true; Path.of("/system/bin/su") },
+            resolveRootLauncher = { launcherResolved = true; "/system/bin/su".asPath },
         )
 
         assertThrows(IllegalStateException::class.java) {
@@ -41,7 +43,7 @@ class ChrootTerminalApprovalTest {
             native = native,
             approveChrootStart = { approvals++; true },
             chrootInstancesRoot = directory,
-            resolveRootLauncher = { Path.of("/system/bin/su") },
+            resolveRootLauncher = { "/system/bin/su".asPath },
             cleanupChrootRun = { helper, run -> helper.removeRunMetadata(run) },
         )
 
@@ -56,13 +58,13 @@ class ChrootTerminalApprovalTest {
     fun `early startup failure after launch handoff retains uncertain run`(@TempDir directory: Path) {
         val rootfs = publishedRootfs(directory)
         val stale = rootfs.parent.resolve("chroot.pid")
-        Files.writeString(stale, "1")
+        stale.writeText("1")
         var cleanedNonce: String? = null
         val backend = EnvironmentTerminalBackend(
             native = FailingBackend(),
             approveChrootStart = { true },
             chrootInstancesRoot = directory,
-            resolveRootLauncher = { Path.of("/system/bin/su") },
+            resolveRootLauncher = { "/system/bin/su".asPath },
             cleanupChrootRun = { helper, run ->
                 cleanedNonce = run.nonce
                 assertFalse(Files.exists(run.pidFile))
@@ -84,13 +86,13 @@ class ChrootTerminalApprovalTest {
         val rootfs = publishedRootfs(directory)
         val configuration = dev.ujhhgtg.wekit.agent.environment.ChrootConfiguration(rootfs, "/root")
         val pending = configuration.createRun()
-        Files.writeString(pending.stageFile, "NAMESPACE")
+        pending.stageFile.writeText("NAMESPACE")
         var launcherResolved = false
         val backend = EnvironmentTerminalBackend(
             native = RecordingBackend(),
             approveChrootStart = { true },
             chrootInstancesRoot = directory,
-            resolveRootLauncher = { launcherResolved = true; Path.of("/system/bin/su") },
+            resolveRootLauncher = { launcherResolved = true; "/system/bin/su".asPath },
         )
 
         assertThrows(IllegalStateException::class.java) {
@@ -109,7 +111,7 @@ class ChrootTerminalApprovalTest {
             native = RecordingBackend(),
             approveChrootStart = { true },
             chrootInstancesRoot = directory,
-            resolveRootLauncher = { Path.of("/system/bin/su") },
+            resolveRootLauncher = { "/system/bin/su".asPath },
             cleanupChrootRun = { helper, run ->
                 cleanups++
                 runDirectory = run.directory
@@ -130,16 +132,16 @@ class ChrootTerminalApprovalTest {
 
     private fun publishedRootfs(instances: Path): Path {
         val instance = Files.createDirectories(instances.resolve("arch"))
-        Files.writeString(instance.resolve(ArchLinuxInstanceInstaller.PUBLISHED_MARKER), "1")
+        instance.resolve(ArchLinuxInstanceInstaller.PUBLISHED_MARKER).writeText("1")
         listOf("bin/proot", "bin/loader", "rootfs/bin/bash", "rootfs/usr/bin/invoke_tool").forEach { relative ->
             val file = instance.resolve(relative)
             Files.createDirectories(file.parent)
-            Files.writeString(file, "x")
+            file.writeText("x")
             assertTrue(file.toFile().setExecutable(true))
         }
         val resolv = instance.resolve("rootfs/etc/resolv.conf")
         Files.createDirectories(resolv.parent)
-        Files.writeString(resolv, "nameserver 1.1.1.1\n")
+        resolv.writeText("nameserver 1.1.1.1\n")
         return instance.resolve("rootfs")
     }
 

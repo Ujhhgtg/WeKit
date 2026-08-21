@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -24,7 +25,7 @@ class ArchiveExtractorTest {
         ArchiveExtractor.extractTar(ByteArrayInputStream(archive), root)
         assertEquals("hello", Files.readString(root.resolve("bin/tool")))
         assertEquals(PosixFilePermissions.fromString("rwxr-xr-x"), Files.getPosixFilePermissions(root.resolve("bin/tool")))
-        assertEquals(Path.of("/bin/tool"), Files.readSymbolicLink(root.resolve("tool-link")))
+        assertEquals("/bin/tool".asPath, Files.readSymbolicLink(root.resolve("tool-link")))
     }
 
     @Test
@@ -92,7 +93,7 @@ class ArchiveExtractorTest {
 
         ArchiveExtractor.extractTar(ByteArrayInputStream(archive), root)
 
-        assertEquals(Path.of("/bin/目标"), Files.readSymbolicLink(root.resolve("links/tool")))
+        assertEquals("/bin/目标".asPath, Files.readSymbolicLink(root.resolve("links/tool")))
     }
 
     @Test

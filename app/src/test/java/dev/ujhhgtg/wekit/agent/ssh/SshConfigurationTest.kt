@@ -1,12 +1,12 @@
 package dev.ujhhgtg.wekit.agent.ssh
 
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.agent.environment.SshConfiguration
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
-import java.nio.file.Path
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -110,7 +110,7 @@ class SshConfigurationTest {
         operatingSystem = "test",
         architecture = "test",
         shell = "/bin/sh",
-        workingDirectory = Path.of("/tmp").toString(),
+        workingDirectory = "/tmp".asPath.toString(),
         bridgeLocation = null,
         privilegesAndCapabilities = "test",
     )

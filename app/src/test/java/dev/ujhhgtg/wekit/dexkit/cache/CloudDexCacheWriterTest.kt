@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.dexkit.cache
 
-import java.nio.file.Files
+import kotlin.io.path.writeText
 import java.nio.file.Path
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readText
@@ -48,7 +48,7 @@ class CloudDexCacheWriterTest {
     @Test
     fun replacesAnExistingCacheWithOneCompleteJsonObject() {
         val destination = tempDir.resolve("FirstFeature.json")
-        Files.writeString(destination, "old-cache")
+        destination.writeText("old-cache")
 
         writeCloudCacheFiles(
             cacheDir = tempDir,

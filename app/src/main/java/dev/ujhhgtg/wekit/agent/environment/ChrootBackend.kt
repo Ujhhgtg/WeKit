@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import kotlin.io.path.writeText
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
@@ -38,8 +40,8 @@ class ChrootConfiguration(
         val directory = runsDirectory.resolve(nonce)
         Files.createDirectory(directory)
         try {
-            Files.writeString(directory.resolve("nonce"), nonce, StandardOpenOption.CREATE_NEW)
-            Files.writeString(directory.resolve("stage"), "CREATED", StandardOpenOption.CREATE_NEW)
+            directory.resolve("nonce").writeText(nonce, Charsets.UTF_8, StandardOpenOption.CREATE_NEW)
+            directory.resolve("stage").writeText("CREATED", Charsets.UTF_8, StandardOpenOption.CREATE_NEW)
             return ChrootRun(nonce, directory)
         } catch (error: Throwable) {
             Files.newDirectoryStream(directory).use { entries -> entries.forEach(Files::deleteIfExists) }
@@ -125,7 +127,7 @@ class ChrootConfiguration(
     }
 
     private fun validateGuestPath(path: String) {
-        val normalized = Path.of(path).normalize()
+        val normalized = path.asPath.normalize()
         require(path.startsWith('/') && normalized.toString() == path && !normalized.startsWith("/..")) {
             "chroot guest path must be absolute and normalized"
         }
@@ -144,7 +146,7 @@ class ChrootConfiguration(
         const val CAPABILITIES = "HIGH RISK: device root and approved host-filesystem binds; shares the Android kernel and is not a sandbox"
         private val ENVIRONMENT_NAME = Regex("[A-Za-z_][A-Za-z0-9_]*")
         private val APPROVED_STORAGE_ROOTS = listOf(
-            Path.of("/storage/emulated"), Path.of("/storage/self/primary"), Path.of("/sdcard"),
+            "/storage/emulated".asPath, "/storage/self/primary".asPath, "/sdcard".asPath,
         )
 
         internal fun shell(value: String): String = "'${value.replace("'", "'\\''")}'"
@@ -163,7 +165,7 @@ class ChrootRun internal constructor(val nonce: String, val directory: Path) {
 
 internal object ArchLinuxInstanceLayout {
     fun canonicalInstancesRoot(): Path =
-        Path.of(HostInfo.application.filesDir.path, "wekit-agent/environment/instances")
+        HostInfo.application.filesDir.path.asPath.resolve("wekit-agent/environment/instances")
 
     fun validatePublishedRootfs(rootfs: Path, instancesRoot: Path = canonicalInstancesRoot()): Path {
         require(rootfs.isAbsolute && rootfs.normalize() == rootfs && rootfs.fileName?.toString() == "rootfs") {
@@ -229,7 +231,7 @@ internal object ChrootMountRegistry {
 class ChrootBackend internal constructor(
     override val snapshot: EnvironmentSnapshot,
     private val configuration: ChrootConfiguration = ChrootConfiguration(
-        ArchLinuxInstanceLayout.validatePublishedRootfs(Path.of(requireNotNull(snapshot.rootfsPath))),
+        ArchLinuxInstanceLayout.validatePublishedRootfs(requireNotNull(snapshot.rootfsPath).asPath),
         snapshot.workingDirectory,
     ),
     private val rootHelper: ChrootRootHelper = ChrootRootHelper(configuration),
@@ -243,8 +245,8 @@ class ChrootBackend internal constructor(
     override suspend fun readUtf8(path: String, maxBytes: Long): String = rootHelper.readUtf8(resolvePath(path), maxBytes)
     override suspend fun edit(request: FileEditRequest) = rootHelper.edit(request.copy(path = resolvePath(request.path)))
     override fun resolvePath(path: String): String {
-        val requested = Path.of(path)
-        val guest = (if (requested.isAbsolute) requested else Path.of(snapshot.workingDirectory).resolve(requested)).normalize()
+        val requested = path.asPath
+        val guest = (if (requested.isAbsolute) requested else snapshot.workingDirectory.asPath.resolve(requested)).normalize()
         require(guest.isAbsolute && !guest.startsWith("/..")) { "path escapes guest root" }
         require(listOf("/proc", "/sys", "/dev").none { guest.startsWith(it) }) { "virtual and device files are not supported" }
         return guest.toString()
