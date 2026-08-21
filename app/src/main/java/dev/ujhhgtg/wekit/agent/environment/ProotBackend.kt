@@ -33,6 +33,7 @@ class ProotBackend internal constructor(
 
     init {
         require(snapshot.type == LinuxEnvironmentType.PROOT)
+        ArchLinuxInstanceInstaller.ensurePacmanSandboxDisabled(rootfs)
         storageBinds.forEach {
             val host = it.host.toAbsolutePath().normalize()
             require(it.guest.startsWith("/storage/") && APPROVED_STORAGE_ROOTS.any(host::startsWith)) {
@@ -52,7 +53,6 @@ class ProotBackend internal constructor(
             val processEnvironment = System.getenv().toMutableMap().apply {
                 this["PROOT_LOADER"] = loader.toString()
                 this["PROOT_NO_SECCOMP"] = "1"
-                this["PROOT_VERBOSE"] = "5"
                 this["PROOT_TMP_DIR"] = instance.resolve("tmp").also(Files::createDirectories).toString()
             }
             WeLogger.d(
