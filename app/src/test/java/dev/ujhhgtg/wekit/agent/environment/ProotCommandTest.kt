@@ -33,6 +33,20 @@ class ProotCommandTest {
     }
 
     @Test
+    fun `fips compatibility bind targets guest proc path`() {
+        val argv = ProotCommand.launchArgv(
+            "/proot".asPath,
+            "/rootfs".asPath,
+            "/root",
+            listOf("/bin/bash"),
+            emptyMap(),
+            listOf(ProotCommand.Bind("/instance/tmp/fips_enabled".asPath, "/proc/sys/crypto/fips_enabled")),
+        )
+
+        assertTrue(argv.contains("/instance/tmp/fips_enabled:/proc/sys/crypto/fips_enabled"))
+    }
+
+    @Test
     fun `rejects relative guest cwd`() {
         assertThrows(IllegalArgumentException::class.java) {
             ProotCommand.launchArgv("/proot".asPath, "/rootfs".asPath, "../host", listOf("bash"), emptyMap())

@@ -49,18 +49,20 @@ class ProotBackend internal constructor(
             val stdout = Files.createTempFile(outputs, "exec-", ".stdout")
             val stderr = Files.createTempFile(outputs, "exec-", ".stderr")
             val startedAt = System.nanoTime()
+            val prootTmp = instance.resolve("tmp").also(Files::createDirectories)
+            val fipsEnabled = prootTmp.resolve("fips_enabled").also { it.writeText("0\n") }
             val argv = ProotCommand.execArgv(
                 launcher,
                 rootfs,
                 snapshot.workingDirectory,
                 ArchLinuxInstanceInstaller.withPacmanKeyringInitialization(command),
                 environmentVariables,
-                storageBinds,
+                storageBinds = storageBinds + ProotCommand.Bind(fipsEnabled, "/proc/sys/crypto/fips_enabled"),
             )
             val processEnvironment = System.getenv().toMutableMap().apply {
                 this["PROOT_LOADER"] = loader.toString()
                 this["PROOT_NO_SECCOMP"] = "1"
-                this["PROOT_TMP_DIR"] = instance.resolve("tmp").also(Files::createDirectories).toString()
+                this["PROOT_TMP_DIR"] = prootTmp.toString()
             }
             WeLogger.d(
                 TAG,

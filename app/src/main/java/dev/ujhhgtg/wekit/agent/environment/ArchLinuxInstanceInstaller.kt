@@ -74,16 +74,19 @@ object ArchLinuxInstanceInstaller {
             File(rootfs, "root").mkdirs()
             ensurePacmanSandboxDisabled(rootfs.toPath())
             val healthPidFile = File(staging, "health.pid")
+            val prootTmp = File(staging, "tmp").apply { mkdirs() }
+            val fipsEnabled = File(prootTmp, "fips_enabled").apply { writeText("0\n") }
             val healthArgv = ProotCommand.execArgv(
                 prootExecutable.toPath(), rootfs.toPath(), "/root",
                 withPacmanKeyringInitialization("test -x /bin/bash && test -x /usr/bin/invoke_tool"),
                 emptyMap(),
+                storageBinds = listOf(ProotCommand.Bind(fipsEnabled.toPath(), "/proc/sys/crypto/fips_enabled")),
             )
             val health = ProcessBuilder(processWithPidFile(healthPidFile.toPath(), healthArgv))
                 .directory(staging).redirectErrorStream(true).apply {
                 environment()["PROOT_LOADER"] = prootLoaderExecutable.absolutePath
                 environment()["PROOT_NO_SECCOMP"] = "1"
-                environment()["PROOT_TMP_DIR"] = File(staging, "tmp").apply { mkdirs() }.absolutePath
+                environment()["PROOT_TMP_DIR"] = prootTmp.absolutePath
             }.start()
             WeLogger.d(
                 TAG,

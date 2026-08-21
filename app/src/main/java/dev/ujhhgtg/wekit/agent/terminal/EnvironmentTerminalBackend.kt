@@ -69,9 +69,12 @@ class EnvironmentTerminalBackend internal constructor(
             val rootfs = requireNotNull(environment.rootfsPath).asPath
             val launcher = resolveProotLauncher()
             val loader = resolveProotLoader()
+            val prootTmp = rootfs.parent.resolve("tmp").toFile().apply { mkdirs() }.toPath()
+            val fipsEnabled = prootTmp.resolve("fips_enabled").also { it.writeText("0\n") }
             val hostArgv = ProotCommand.launchArgv(
                 launcher, rootfs, workingDirectory ?: environment.workingDirectory,
                 argv, environmentVariables,
+                storageBinds = listOf(ProotCommand.Bind(fipsEnabled, "/proc/sys/crypto/fips_enabled")),
             )
             val hostEnvironment = environment.copy(
                 type = LinuxEnvironmentType.NATIVE,
@@ -81,7 +84,7 @@ class EnvironmentTerminalBackend internal constructor(
             val hostProcessEnvironment = mapOf(
                 "PROOT_LOADER" to loader.toString(),
                 "PROOT_NO_SECCOMP" to "1",
-                "PROOT_TMP_DIR" to rootfs.parent.resolve("tmp").toFile().apply { mkdirs() }.absolutePath,
+                "PROOT_TMP_DIR" to prootTmp.toString(),
             )
             val started = native.start(hostEnvironment, hostArgv, hostEnvironment.workingDirectory, hostProcessEnvironment, cols, rows)
             TerminalBackendStart(started.session, environment)
