@@ -9,6 +9,7 @@ import android.graphics.Outline
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
 import android.os.Build
+import android.os.Bundle
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.Gravity
@@ -103,6 +104,12 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     /** 独立聊天 Activity 的公共基类; 这类页面使用窗口级标题栏。 */
     private const val CHATTING_UI_ACTIVITY_CLASS = "com.tencent.mm.ui.chatting.ChattingUI"
+
+    private const val CONV_BOX_ACTIVITY_CLASS =
+        "com.tencent.mm.ui.conversation.ConvBoxServiceConversationUI"
+
+    private const val BASE_CONVERSATION_ACTIVITY_CLASS =
+        "com.tencent.mm.ui.conversation.BaseConversationUI"
 
     /** 消息列表所在的内容区宿主, 标题区挂件之外的直接子 View 才需要做成悬浮卡。 */
     private const val CHATTING_SCROLL_LAYOUT_CLASS = "com.tencent.mm.pluginsdk.ui.chat.ChattingScrollLayout"
@@ -424,17 +431,33 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                 zeroChatLayoutTopPadding(thisObject as View)
             } ?: WeLogger.w(TAG, "ChattingUILayout.fitSystemWindows hook target not found")
 
-        // ConvBox 与普通会话页走同一套状态栏 edge-to-edge，不做专属布局修复。
-        $$"com.tencent.mm.ui.conversation.ConvBoxServiceConversationUI$ConvBoxServiceConversationFmUI"
-            .toClass().reflekt().firstMethodOrNull {
-                name = "onActivityCreated"
-            }?.hookAfter {
-                val fragment = thisObject ?: return@hookAfter
-                val root = runCatching {
-                    fragment.javaClass.getMethod("getView").invoke(fragment) as? View
-                }.getOrNull() ?: return@hookAfter
-                applyStatusBarEdgeToEdge(root)
-            } ?: WeLogger.w(TAG, "ConvBoxServiceConversationFmUI hook target not found")
+        // ConvBox.onCreate 尾部的 FullScreenHelper 会 post 把 actionBarSize 写入
+        // layout nn 根布局的 paddingTop。edge-to-edge 下清掉这份根补偿，
+        // 再把会话容器 jmc 对齐到标题栏最终下沿，不影响并列的 bjy。
+        CONV_BOX_ACTIVITY_CLASS.toClass().reflekt().firstMethodOrNull {
+            name = "onCreate"
+            parameters(Bundle::class)
+        }?.hookAfter {
+            val activity = thisObject as Activity
+            val decor = activity.window.decorView
+            decor.post {
+                if (!isActive) return@post
+                applyConvBoxEdgeToEdge(activity)
+            }
+        } ?: WeLogger.w(TAG, "ConvBoxServiceConversationUI.onCreate hook target not found")
+
+        // IdleHandler 首次预加载聊天容器会重包原窗口树；退出聊天后也要
+        // 重新收敛列表布局。两条路径最后都调用 resumeMainFragment。
+        BASE_CONVERSATION_ACTIVITY_CLASS.toClass().reflekt().firstMethodOrNull {
+            name = "resumeMainFragment"
+            parameters()
+        }?.hookAfter {
+            val activity = thisObject as Activity
+            if (activity.javaClass.name != CONV_BOX_ACTIVITY_CLASS) return@hookAfter
+            activity.window.decorView.post {
+                if (isActive) applyConvBoxEdgeToEdge(activity)
+            }
+        } ?: WeLogger.w(TAG, "BaseConversationUI.resumeMainFragment hook target not found")
 
         // 置顶消息卡展开/收起时, 微信通过 ChatTipsBarGroup.setListViewPaddingTop 自己给消息
         // 列表补 recycler 高度。它与我们算的悬浮 padding 叠加会重复, 直接关掉这个补偿,
@@ -1622,6 +1645,59 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         is Activity -> this
         is ContextWrapper -> baseContext.activityOrNull()
         else -> null
+    }
+
+    private fun applyConvBoxEdgeToEdge(activity: Activity) {
+        val window = activity.window
+        val decor = window.decorView
+        val contentParent = activity.findViewById<ViewGroup>(android.R.id.content)
+        val contentRoot = contentParent.getChildAt(0)
+
+        // FullScreenHelper 或聊天容器重包后都可能重新派发 legacy insets。
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        edgeToEdgeApplied[window] = true
+        runCatching { window.statusBarColor = Color.TRANSPARENT }
+        zeroChatLayoutTopPadding(contentRoot)
+        settleConvBoxLayout(activity, contentRoot)
+        decor.requestApplyInsets()
+    }
+
+    /** ConvBox 的标题栏和列表位于 ActionBarOverlayLayout 的两个容器分支。 */
+    private fun settleConvBoxLayout(activity: Activity, contentRoot: View) {
+        val decor = activity.window.decorView
+        val conversationHost = (contentRoot as ViewGroup).getChildAt(0)
+        val listener = object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                if (!isActive || !contentRoot.isAttachedToWindow) {
+                    if (decor.viewTreeObserver.isAlive) {
+                        decor.viewTreeObserver.removeOnPreDrawListener(this)
+                    }
+                    return true
+                }
+                val titleBar = decor.findViewWhich {
+                    it.javaClass.name == ACTION_BAR_CONTAINER_CLASS
+                } ?: return true
+                if (titleBar.height <= 0 || contentRoot.height <= 0) return true
+
+                // 保留 AppCompat 对标题栏的正常 inset 处理，只把 jmc 移到最终下沿。
+                val titleLocation = IntArray(2)
+                val rootLocation = IntArray(2)
+                titleBar.getLocationOnScreen(titleLocation)
+                contentRoot.getLocationOnScreen(rootLocation)
+                val targetTop =
+                    (titleLocation[1] + titleBar.height - rootLocation[1]).coerceAtLeast(0)
+                val conversationParams = conversationHost.layoutParams as FrameLayout.LayoutParams
+                if (conversationParams.topMargin != targetTop) {
+                    conversationParams.topMargin = targetTop
+                    conversationHost.layoutParams = conversationParams
+                    return false
+                }
+
+                decor.viewTreeObserver.removeOnPreDrawListener(this)
+                return true
+            }
+        }
+        decor.viewTreeObserver.addOnPreDrawListener(listener)
     }
 
     // ---- 状态栏 edge-to-edge ----
