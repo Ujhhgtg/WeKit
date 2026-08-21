@@ -745,17 +745,35 @@ fn verify_proot_checkout(root: &Path) -> Result<()> {
             source.display(),
         );
     }
+    verify_proot_source_checkout(&source, PROOT_COMMIT)
+}
+
+fn proot_git_output(source: &Path, args: &[&str]) -> Result<String> {
     let output = Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(&source)
+        .args(args)
+        .current_dir(source)
         .output()
         .with_context(|| format!("failed to inspect PRoot source at {}", source.display()))?;
     if !output.status.success() {
-        bail!("failed to read PRoot revision at {}", source.display());
+        bail!("`git {}` failed in {}", args.join(" "), source.display());
     }
-    let head = String::from_utf8(output.stdout)?.trim().to_owned();
-    if head != PROOT_COMMIT {
-        bail!("PRoot source is at {head}, expected pinned {PROOT_COMMIT}");
+    Ok(String::from_utf8(output.stdout)?.trim().to_owned())
+}
+
+fn verify_proot_source_checkout(source: &Path, expected_commit: &str) -> Result<()> {
+    let actual = proot_git_output(source, &["rev-parse", "HEAD"])?;
+    if actual != expected_commit {
+        bail!("PRoot source is at {actual}, expected pinned {expected_commit}");
+    }
+
+    let changes = proot_git_output(
+        source,
+        &["status", "--porcelain=v1", "--untracked-files=all"],
+    )?;
+    if !changes.is_empty() {
+        bail!(
+            "PRoot source checkout is not clean; remove tracked or non-ignored untracked changes before building:\n{changes}"
+        );
     }
     Ok(())
 }
@@ -2049,6 +2067,36 @@ mod tests {
         assert!(should_build_proot(&[&ABI_TABLE[0]]));
         assert!(!should_build_proot(&[&ABI_TABLE[1]]));
         assert!(should_build_proot(&[&ABI_TABLE[0], &ABI_TABLE[1]]));
+    }
+
+    #[test]
+    fn proot_checkout_accepts_clean_pinned_revision() {
+        let repo = test_git_repo();
+        verify_proot_source_checkout(&repo.path, &repo.head).unwrap();
+    }
+
+    #[test]
+    fn proot_checkout_rejects_tracked_changes() {
+        let repo = test_git_repo();
+        fs::write(repo.path.join("go.mod"), "modified input\n").unwrap();
+        let error = verify_proot_source_checkout(&repo.path, &repo.head).unwrap_err();
+        assert!(error.to_string().contains("not clean"));
+    }
+
+    #[test]
+    fn proot_checkout_rejects_untracked_input() {
+        let repo = test_git_repo();
+        fs::write(repo.path.join("injected.c"), "int injected;\n").unwrap();
+        let error = verify_proot_source_checkout(&repo.path, &repo.head).unwrap_err();
+        assert!(error.to_string().contains("injected.c"));
+    }
+
+    #[test]
+    fn proot_checkout_allows_ignored_build_artifacts() {
+        let repo = test_git_repo();
+        fs::create_dir(repo.path.join("ignored-build")).unwrap();
+        fs::write(repo.path.join("ignored-build/generated.o"), "object\n").unwrap();
+        verify_proot_source_checkout(&repo.path, &repo.head).unwrap();
     }
 
     #[test]
