@@ -80,6 +80,7 @@ class EnvironmentTerminalBackend internal constructor(
             )
             val hostProcessEnvironment = mapOf(
                 "PROOT_LOADER" to loader.toString(),
+                "PROOT_NO_SECCOMP" to "1",
                 "PROOT_TMP_DIR" to rootfs.parent.resolve("tmp").toFile().apply { mkdirs() }.absolutePath,
             )
             val started = native.start(hostEnvironment, hostArgv, hostEnvironment.workingDirectory, hostProcessEnvironment, cols, rows)

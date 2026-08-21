@@ -45,7 +45,7 @@ index 7d95922..c6b2045 100644
  	return;
  }
 diff --git a/src/tracee/event.c b/src/tracee/event.c
-index 756aa7e..7295587 100644
+index 756aa7e..0b1fb57 100644
 --- a/src/tracee/event.c
 +++ b/src/tracee/event.c
 @@ -38,6 +38,7 @@
@@ -113,14 +113,25 @@ index 756aa7e..7295587 100644
  		if (pid < 0) {
  			if (errno != ECHILD) {
  				note(NULL, ERROR, SYSTEM, "waitpid()");
-@@ -426,12 +468,14 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
+@@ -394,7 +436,8 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
+ 	 * elsewhere, i.e in the ptrace emulation when single
+ 	 * stepping.  */
+ 	if (tracee->restart_how == 0) {
+-		if (tracee->seccomp == ENABLED && !sysexit_necessary)
++		if (tracee->seccomp == ENABLED && !sysexit_necessary
++		    && !seccomp_after_ptrace_enter)
+ 			tracee->restart_how = PTRACE_CONT;
+ 		else
+ 			tracee->restart_how = PTRACE_SYSCALL;
+@@ -426,14 +469,18 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
  			static bool deliver_sigtrap = false;
 
  		case SIGTRAP: {
+-			const unsigned long default_ptrace_options = (
 +			/* Some Android kernels omit the exec syscall-exit stop when
 +			 * TRACEEXEC is active.  Use the legacy post-exec SIGTRAP;
 +			 * nested guest ptracers therefore receive no TRACEEXEC event. */
- 			const unsigned long default_ptrace_options = (
++			unsigned long default_ptrace_options = (
  				PTRACE_O_TRACESYSGOOD	|
  				PTRACE_O_TRACEFORK	|
  				PTRACE_O_TRACEVFORK	|
@@ -128,8 +139,12 @@ index 756aa7e..7295587 100644
 -				PTRACE_O_TRACEEXEC	|
  				PTRACE_O_TRACECLONE	|
  				PTRACE_O_TRACEEXIT);
++			if (getenv("PROOT_NO_SECCOMP") != NULL)
++				default_ptrace_options |= PTRACE_O_TRACEEXEC;
 
-@@ -443,8 +487,27 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
+ 			/* Distinguish some events from others and
+ 			 * automatically trace each new process with
+@@ -443,8 +490,27 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
  			 * related to the tracing loop, others SIGTRAP
  			 * carry tracing information because of
  			 * TRACE*FORK/CLONE/EXEC.  */
@@ -157,6 +172,21 @@ index 756aa7e..7295587 100644
 +			}
 
  			deliver_sigtrap = true;
+
+@@ -560,12 +626,9 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
+ 			 * syscall enter, skip this event and continue as it didn't happen */
+ 			if (seccomp_after_ptrace_enter && !IS_IN_SYSENTER(tracee))
+ 			{
+-				tracee->restart_how = tracee->last_restart_how;
++				tracee->restart_how = PTRACE_SYSCALL;
++				tracee->sysexit_pending = true;
+ 				VERBOSE(tracee, 6, "skipping PTRACE_EVENT_SECCOMP for already handled sysenter");
+-
+-				/* "!IS_IN_SYSENTER(tracee)" in condition above means we have pending sysexit,
+-				 * so requesting to not be notified about it makes no sense */
+-				assert(tracee->restart_how != PTRACE_CONT);
+ 				break;
+ 			}
 
 diff --git a/src/tracee/event.h b/src/tracee/event.h
 index 3f78988..00fdafd 100644

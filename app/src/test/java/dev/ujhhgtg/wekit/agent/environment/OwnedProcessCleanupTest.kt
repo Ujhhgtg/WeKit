@@ -66,6 +66,7 @@ class OwnedProcessCleanupTest {
         assertTrue(backend.exec("true", 1).timedOut)
         assertEquals("/package/lib/libproot.so", capturedArgv.first())
         assertEquals("/package/lib/libproot_loader.so", capturedEnvironment["PROOT_LOADER"])
+        assertEquals("1", capturedEnvironment["PROOT_NO_SECCOMP"])
         assertTrue(capturedEnvironment.getValue("PROOT_TMP_DIR").endsWith("/instance/tmp"))
         process.assertCleaned()
     }

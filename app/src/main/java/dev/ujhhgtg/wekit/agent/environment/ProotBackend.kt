@@ -50,6 +50,7 @@ class ProotBackend internal constructor(
             val argv = ProotCommand.execArgv(launcher, rootfs, snapshot.workingDirectory, command, environmentVariables, storageBinds)
             val processEnvironment = System.getenv().toMutableMap().apply {
                 this["PROOT_LOADER"] = loader.toString()
+                this["PROOT_NO_SECCOMP"] = "1"
                 this["PROOT_TMP_DIR"] = instance.resolve("tmp").also(Files::createDirectories).toString()
             }
             val process = startProcess(argv, processEnvironment, instance.toString())

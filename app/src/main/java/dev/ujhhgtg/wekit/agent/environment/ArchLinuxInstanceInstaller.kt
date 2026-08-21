@@ -78,6 +78,7 @@ object ArchLinuxInstanceInstaller {
             val health = ProcessBuilder(processWithPidFile(healthPidFile.toPath(), healthArgv))
                 .directory(staging).redirectErrorStream(true).apply {
                 environment()["PROOT_LOADER"] = prootLoaderExecutable.absolutePath
+                environment()["PROOT_NO_SECCOMP"] = "1"
                 environment()["PROOT_TMP_DIR"] = File(staging, "tmp").apply { mkdirs() }.absolutePath
             }.start()
             val deadline = System.nanoTime() + HEALTH_TIMEOUT_MILLIS * 1_000_000
