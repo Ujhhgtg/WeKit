@@ -52,6 +52,7 @@ class ProotBackend internal constructor(
             val processEnvironment = System.getenv().toMutableMap().apply {
                 this["PROOT_LOADER"] = loader.toString()
                 this["PROOT_NO_SECCOMP"] = "1"
+                this["PROOT_VERBOSE"] = "5"
                 this["PROOT_TMP_DIR"] = instance.resolve("tmp").also(Files::createDirectories).toString()
             }
             WeLogger.d(
@@ -60,6 +61,9 @@ class ProotBackend internal constructor(
                         "rootfs=$rootfs launcher=$launcher loader=$loader " +
                         "rootfsExists=${Files.isDirectory(rootfs)} " +
                         "tmpExists=${Files.isDirectory(instance.resolve("tmp"))} " +
+                        "prootTmp=${processEnvironment["PROOT_TMP_DIR"]} " +
+                        "tmpdir=${processEnvironment["TMPDIR"]} " +
+                        "pwd=${processEnvironment["PWD"]} " +
                         "envKeys=${processEnvironment.keys.sorted().joinToString(",")}",
             )
             val process = startProcess(argv, processEnvironment, instance.toString())
