@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import dev.ujhhgtg.wekit.utils.WeLogger
 import java.io.File
 import java.io.ByteArrayOutputStream
 import java.nio.file.Files
@@ -118,11 +119,15 @@ object ArchLinuxInstanceInstaller {
             File(staging, PUBLISHED_MARKER).writeText(contentVersion)
             require(staging.renameTo(destination)) { "cannot publish Arch Linux instance" }
             ArchLinuxInstance(File(destination, "rootfs"), contentVersion)
+        } catch (error: Throwable) {
+            WeLogger.e(TAG, "installation failed for instance=$instanceId contentVersion=$contentVersion", error)
+            throw error
         } finally {
             withContext(NonCancellable + Dispatchers.IO) { staging.deleteRecursively() }
         }
     }
 
+    private const val TAG = "ArchLinuxInstanceInstaller"
     private const val INSTALL_HEADROOM_BYTES = 512L * 1024 * 1024
     private const val HEALTH_TIMEOUT_MILLIS = 30_000L
     private const val MAX_HEALTH_OUTPUT_BYTES = 64 * 1024

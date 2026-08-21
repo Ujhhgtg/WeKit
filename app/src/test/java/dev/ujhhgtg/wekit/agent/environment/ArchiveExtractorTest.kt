@@ -28,6 +28,22 @@ class ArchiveExtractorTest {
     }
 
     @Test
+    fun `extracts children before applying a read only directory mode`(@TempDir root: Path) {
+        val archive = tar(
+            entry("certificates/", type = '5', mode = 365),
+            entry("certificates/root.pem", "certificate".toByteArray()),
+        )
+
+        ArchiveExtractor.extractTar(ByteArrayInputStream(archive), root)
+
+        assertEquals("certificate", Files.readString(root.resolve("certificates/root.pem")))
+        assertEquals(
+            PosixFilePermissions.fromString("r-xr-xr-x"),
+            Files.getPosixFilePermissions(root.resolve("certificates")),
+        )
+    }
+
+    @Test
     fun `rejects traversal absolute links special files and size limits`(@TempDir root: Path) {
         listOf(
             entry("../escape", byteArrayOf()),

@@ -33,6 +33,7 @@ object ArchiveExtractor {
         var longName: String? = null
         var longLink: String? = null
         val pendingHardLinks = mutableListOf<Pair<Path, String>>()
+        val directoryModes = mutableMapOf<Path, Long>()
         val regularFiles = mutableSetOf<Path>()
         val header = ByteArray(TAR_BLOCK)
         while (true) {
@@ -78,7 +79,7 @@ object ArchiveExtractor {
                 '5' -> {
                     require(size == 0L) { "directory entry has data: $name" }
                     Files.createDirectories(target)
-                    setMode(target, number(header, 100, 8), directory = true)
+                    directoryModes[target] = number(header, 100, 8)
                 }
                 '2' -> {
                     require(size == 0L) { "symlink entry has data: $name" }
@@ -105,6 +106,9 @@ object ArchiveExtractor {
             require(source in regularFiles) { "hardlink target does not name an archive regular file: $link" }
             require(Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) { "hardlink target is not a regular file: $link" }
             Files.createLink(target, source)
+        }
+        directoryModes.entries.sortedByDescending { it.key.nameCount }.forEach { (path, mode) ->
+            setMode(path, mode, directory = true)
         }
     }
 
