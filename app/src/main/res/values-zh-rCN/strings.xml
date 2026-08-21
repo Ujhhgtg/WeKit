@@ -7,7 +7,6 @@
     <string name="settings_language_title">语言</string>
     <string name="settings_language_summary">%1$s · %2$s</string>
     <string name="language_follow_system">跟随系统</string>
-
     <!-- Shared module UI -->
     <string name="dialog_cancel">取消</string>
     <string name="dialog_confirm">确定</string>
@@ -461,7 +460,6 @@
     <string name="licenses_unknown_author">未知作者</string>
     <string name="licenses_version">版本 %1$s</string>
     <string name="licenses_license_names">许可：%1$s</string>
-
     <!-- Feature categories -->
     <string name="feature_category_chat_title">聊天</string>
     <string name="feature_category_contacts_groups_title">联系人与群组</string>
@@ -485,7 +483,6 @@
     <string name="feature_category_new_features_title">新功能</string>
     <string name="feature_category_enabled_title">已启用功能</string>
     <string name="feature_category_enabled_summary">当前已启用 %1$d 个功能</string>
-
     <!-- Feature metadata -->
     <string name="feature_batch_add_label_name">批量打标签</string>
     <string name="feature_batch_add_label_description">为选中的多个好友追加同一个标签, 可选择已有标签或新建, 请求会自动间隔以规避服务器风控</string>
@@ -938,7 +935,6 @@
     <string name="feature_remove_limits_during_calls_description">绕过正在通话时聊天限制</string>
     <string name="feature_virtual_voip_video_name">虚拟视频通话</string>
     <string name="feature_virtual_voip_video_description">在微信视频通话相机预览中播放本地视频或网络直播流</string>
-
     <!-- Feature API metadata -->
     <string name="feature_we_app_msg_api_name">AppMsg 发送服务</string>
     <string name="feature_we_app_msg_api_description">提供 XML 卡片消息发送能力</string>
@@ -1286,7 +1282,7 @@
     <string name="fab_delete_description">删除 %1$s</string>
     <string name="agent_name_required">名称不能为空</string>
     <string name="agent_name_dot_invalid">名称不能为“.”或“..”</string>
-    <string name="agent_name_illegal_characters">名称不能包含 / \ : * ? &quot; &lt; &gt; | 等字符</string>
+    <string name="agent_name_illegal_characters">名称不能包含 / \ : * ? " &lt; &gt; | 等字符</string>
     <string name="panel_action_back">返回</string>
     <string name="panel_action_create">创建</string>
     <string name="panel_action_delete">删除</string>
@@ -1501,10 +1497,14 @@
     <string name="sticker_telegram_batch_description">从 Telegram 数据库选择多个已安装的表情包</string>
     <string name="sticker_telegram_batch_pack_progress">第 %1$d/%2$d 个 · %3$s</string>
     <string name="sticker_telegram_batch_progress_title">正在批量导入 Telegram 表情包</string>
-    <plurals name="sticker_telegram_batch_result"><item quantity="other">已导入 %1$d 个 Telegram 表情包，%2$d 个失败；%3$s：%4$s</item></plurals>
+    <plurals name="sticker_telegram_batch_result">
+        <item quantity="other">已导入 %1$d 个 Telegram 表情包，%2$d 个失败；%3$s：%4$s</item>
+    </plurals>
     <string name="sticker_telegram_batch_title">从 Telegram 实例批量导入包</string>
     <string name="sticker_telegram_empty_database">所选数据库中没有可导入的 Telegram 表情包</string>
-    <plurals name="sticker_telegram_import_result"><item quantity="other">已导入 %1$d 个表情到“%2$s”，%3$d 个无需更新，%4$d 个失败</item></plurals>
+    <plurals name="sticker_telegram_import_result">
+        <item quantity="other">已导入 %1$d 个表情到“%2$s”，%3$d 个无需更新，%4$d 个失败</item>
+    </plurals>
     <string name="sticker_telegram_input_invalid">请输入有效的 Telegram 表情包名称或链接</string>
     <string name="sticker_telegram_input_label">表情包名称或链接</string>
     <string name="sticker_telegram_instance_title">选择 Telegram 实例</string>
@@ -1989,39 +1989,98 @@
     <string name="read_receipts_logout_confirm_title">退出 Cloudflare 登录？</string>
     <string name="read_receipts_logout_confirm_message">将清除 Browser Login 会话，但不会修改所选 Tunnel 或 DNS 配置。</string>
     <string name="read_receipts_operation_completed">操作已完成</string>
-    <string name="chat_emoji_game_scissors">剪刀</string><string name="chat_emoji_game_rock">石头</string><string name="chat_emoji_game_paper">布</string>
+    <string name="chat_emoji_game_scissors">剪刀</string>
+    <string name="chat_emoji_game_rock">石头</string>
+    <string name="chat_emoji_game_paper">布</string>
     <string name="chat_emoji_game_no_sensor">暂无传感器数据，正使用随机数！</string>
     <string name="chat_emoji_game_motion_fallback">加速度过高，正使用随机数！</string>
-    <string name="chat_emoji_game_dice_result">骰子：%1$s</string><string name="chat_emoji_game_morra_result">猜拳：%1$s</string>
-    <string name="chat_emoji_game_stealth">隐蔽模式</string><string name="chat_emoji_game_stealth_description">根据设备陀螺仪状态选择发送内容</string>
-    <string name="chat_emoji_game_invalid_input">输入格式错误！</string><string name="chat_send_failed">发送失败</string>
-    <string name="chat_emoji_game_select_dice">选择骰子点数</string><string name="chat_emoji_game_select_morra">选择猜拳结果</string>
-    <string name="chat_emoji_game_send_mode">发送模式：</string><string name="chat_emoji_game_single">单次</string><string name="chat_emoji_game_multiple">多次</string>
-    <string name="chat_emoji_game_dice_input">输入 1~6</string><string name="chat_emoji_game_morra_input">输入 1：剪刀 2：石头 3：布</string>
-    <string name="chat_emoji_game_random">随机</string><string name="chat_emoji_game_send">发送</string><string name="chat_emoji_game_send_index_failed">第 %1$d 次发送失败</string>
-    <plurals name="chat_emoji_game_sent_count"><item quantity="other">已发送 %1$d 次</item></plurals>
-    <string name="chat_markdown_render_engine">解析与渲染引擎</string><string name="chat_markdown_native">微信原生</string><string name="chat_markdown_native_description">使用微信 OpenClaw 路径执行原生 Markdown 渲染</string>
-    <string name="chat_markdown_html">markdown-rs + Html</string><string name="chat_markdown_html_description">使用 Rust crate 解析并转换为 HTML，再使用 android.text.Html 渲染</string>
-    <string name="chat_markdown_markwon">Markwon</string><string name="chat_markdown_markwon_description">使用 Markwon Java 库直接渲染 Markdown</string>
-    <string name="chat_markdown_general_settings">通用引擎设定</string><string name="chat_markdown_disable_text_sizing">禁止改变字体大小</string><string name="chat_markdown_disable_text_sizing_description">不对 Headers、Subheaders 等组件改变字体大小</string>
-    <string name="chat_markdown_html_settings">markdown-rs + Html 引擎设定</string><string name="chat_markdown_compact_html">使用紧凑 HTML 渲染</string><string name="chat_markdown_compact_html_description">使用一个而非两个换行来分段</string>
-    <string name="chat_save_to_panel_menu">保存到面板</string><string name="chat_save_to_panel_select_sticker_pack">选择表情包</string><string name="chat_save_to_panel_new_sticker_pack">新建表情包</string>
-    <plurals name="chat_save_to_panel_sticker_count"><item quantity="other">%1$d 张表情</item></plurals>
-    <string name="chat_save_to_panel_select_voice_pack">选择语音包</string><string name="chat_save_to_panel_new_voice_pack">新建语音包</string><plurals name="chat_save_to_panel_voice_count"><item quantity="other">%1$d 条语音</item></plurals>
-    <string name="chat_save_to_panel_sticker_success">已保存贴纸到「%1$s」</string><string name="chat_save_to_panel_voice_success">已保存语音到「%1$s」</string>
-    <plurals name="chat_save_to_panel_messages_result"><item quantity="other">已保存 %1$d/%2$d 条消息到面板</item></plurals>
-    <plurals name="chat_save_to_panel_stickers_result"><item quantity="other">已保存 %1$d/%2$d 张贴纸到「%3$s」</item></plurals>
-    <plurals name="chat_save_to_panel_voices_result"><item quantity="other">已保存 %1$d/%2$d 条语音到「%3$s」</item></plurals>
-    <string name="chat_swipe_action_edit">编辑</string><string name="chat_swipe_secondary">启用次要操作</string><string name="chat_swipe_secondary_description">启用后，在支持的消息上可调用次要操作以%1$s</string>
-    <string name="chat_swipe_use_edit">使用「编辑」而非「复读」作为次要操作</string><string name="chat_swipe_edit_description">启用后，次要划动操作变为「编辑」（仅文字消息）；关闭时为「复读」</string>
-    <string name="chat_swipe_swap">对调左右划</string><string name="chat_swipe_swap_description">启用后，左划%1$s，右划引用</string>
-    <string name="chat_swipe_conversation_config">左划菜单配置</string><string name="chat_swipe_conversation_pin_description">在「隐藏」左侧显示置顶快捷按钮</string><string name="chat_swipe_conversation_pin_toggle">置顶 / 取消置顶</string>
-    <string name="chat_swipe_conversation_mute_description">在「隐藏」左侧显示免打扰快捷按钮</string><string name="chat_swipe_conversation_mute_toggle">免打扰 / 取消免打扰</string>
-    <string name="chat_conversation_pin">置顶</string><string name="chat_conversation_unpin">取消置顶</string><string name="chat_conversation_mute">免打扰</string><string name="chat_conversation_unmute">取消免打扰</string><string name="chat_conversation_hide">隐藏</string>
-    <string name="chat_conversation_delete_title">删除对话</string><string name="chat_conversation_delete_message">确定删除该对话？此操作将同时删除所有消息记录</string><string name="chat_conversation_deleted">已删除</string><string name="chat_conversation_hidden">已隐藏</string>
-    <string name="chat_conversation_pinned">已置顶</string><string name="chat_conversation_unpinned">已取消置顶</string><string name="chat_conversation_muted">已开启免打扰</string><string name="chat_conversation_unmuted">已关闭免打扰</string>
-    <string name="chat_sticker_manager_select_all">全选</string><string name="chat_sticker_manager_select_none">全不选</string><string name="chat_sticker_manager_invert">反选</string><string name="chat_sticker_manager_export">导出</string><string name="chat_sticker_manager_exporting">正在导出…</string>
-    <plurals name="chat_sticker_manager_exported"><item quantity="other">已保存 %1$d 张贴纸到 %2$s</item></plurals>
+    <string name="chat_emoji_game_dice_result">骰子：%1$s</string>
+    <string name="chat_emoji_game_morra_result">猜拳：%1$s</string>
+    <string name="chat_emoji_game_stealth">隐蔽模式</string>
+    <string name="chat_emoji_game_stealth_description">根据设备陀螺仪状态选择发送内容</string>
+    <string name="chat_emoji_game_invalid_input">输入格式错误！</string>
+    <string name="chat_send_failed">发送失败</string>
+    <string name="chat_emoji_game_select_dice">选择骰子点数</string>
+    <string name="chat_emoji_game_select_morra">选择猜拳结果</string>
+    <string name="chat_emoji_game_send_mode">发送模式：</string>
+    <string name="chat_emoji_game_single">单次</string>
+    <string name="chat_emoji_game_multiple">多次</string>
+    <string name="chat_emoji_game_dice_input">输入 1~6</string>
+    <string name="chat_emoji_game_morra_input">输入 1：剪刀 2：石头 3：布</string>
+    <string name="chat_emoji_game_random">随机</string>
+    <string name="chat_emoji_game_send">发送</string>
+    <string name="chat_emoji_game_send_index_failed">第 %1$d 次发送失败</string>
+    <plurals name="chat_emoji_game_sent_count">
+        <item quantity="other">已发送 %1$d 次</item>
+    </plurals>
+    <string name="chat_markdown_render_engine">解析与渲染引擎</string>
+    <string name="chat_markdown_native">微信原生</string>
+    <string name="chat_markdown_native_description">使用微信 OpenClaw 路径执行原生 Markdown 渲染</string>
+    <string name="chat_markdown_html">markdown-rs + Html</string>
+    <string name="chat_markdown_html_description">使用 Rust crate 解析并转换为 HTML，再使用 android.text.Html 渲染</string>
+    <string name="chat_markdown_markwon">Markwon</string>
+    <string name="chat_markdown_markwon_description">使用 Markwon Java 库直接渲染 Markdown</string>
+    <string name="chat_markdown_general_settings">通用引擎设定</string>
+    <string name="chat_markdown_disable_text_sizing">禁止改变字体大小</string>
+    <string name="chat_markdown_disable_text_sizing_description">不对 Headers、Subheaders 等组件改变字体大小</string>
+    <string name="chat_markdown_html_settings">markdown-rs + Html 引擎设定</string>
+    <string name="chat_markdown_compact_html">使用紧凑 HTML 渲染</string>
+    <string name="chat_markdown_compact_html_description">使用一个而非两个换行来分段</string>
+    <string name="chat_save_to_panel_menu">保存到面板</string>
+    <string name="chat_save_to_panel_select_sticker_pack">选择表情包</string>
+    <string name="chat_save_to_panel_new_sticker_pack">新建表情包</string>
+    <plurals name="chat_save_to_panel_sticker_count">
+        <item quantity="other">%1$d 张表情</item>
+    </plurals>
+    <string name="chat_save_to_panel_select_voice_pack">选择语音包</string>
+    <string name="chat_save_to_panel_new_voice_pack">新建语音包</string>
+    <plurals name="chat_save_to_panel_voice_count">
+        <item quantity="other">%1$d 条语音</item>
+    </plurals>
+    <string name="chat_save_to_panel_sticker_success">已保存贴纸到「%1$s」</string>
+    <string name="chat_save_to_panel_voice_success">已保存语音到「%1$s」</string>
+    <plurals name="chat_save_to_panel_messages_result">
+        <item quantity="other">已保存 %1$d/%2$d 条消息到面板</item>
+    </plurals>
+    <plurals name="chat_save_to_panel_stickers_result">
+        <item quantity="other">已保存 %1$d/%2$d 张贴纸到「%3$s」</item>
+    </plurals>
+    <plurals name="chat_save_to_panel_voices_result">
+        <item quantity="other">已保存 %1$d/%2$d 条语音到「%3$s」</item>
+    </plurals>
+    <string name="chat_swipe_action_edit">编辑</string>
+    <string name="chat_swipe_secondary">启用次要操作</string>
+    <string name="chat_swipe_secondary_description">启用后，在支持的消息上可调用次要操作以%1$s</string>
+    <string name="chat_swipe_use_edit">使用「编辑」而非「复读」作为次要操作</string>
+    <string name="chat_swipe_edit_description">启用后，次要划动操作变为「编辑」（仅文字消息）；关闭时为「复读」</string>
+    <string name="chat_swipe_swap">对调左右划</string>
+    <string name="chat_swipe_swap_description">启用后，左划%1$s，右划引用</string>
+    <string name="chat_swipe_conversation_config">左划菜单配置</string>
+    <string name="chat_swipe_conversation_pin_description">在「隐藏」左侧显示置顶快捷按钮</string>
+    <string name="chat_swipe_conversation_pin_toggle">置顶 / 取消置顶</string>
+    <string name="chat_swipe_conversation_mute_description">在「隐藏」左侧显示免打扰快捷按钮</string>
+    <string name="chat_swipe_conversation_mute_toggle">免打扰 / 取消免打扰</string>
+    <string name="chat_conversation_pin">置顶</string>
+    <string name="chat_conversation_unpin">取消置顶</string>
+    <string name="chat_conversation_mute">免打扰</string>
+    <string name="chat_conversation_unmute">取消免打扰</string>
+    <string name="chat_conversation_hide">隐藏</string>
+    <string name="chat_conversation_delete_title">删除对话</string>
+    <string name="chat_conversation_delete_message">确定删除该对话？此操作将同时删除所有消息记录</string>
+    <string name="chat_conversation_deleted">已删除</string>
+    <string name="chat_conversation_hidden">已隐藏</string>
+    <string name="chat_conversation_pinned">已置顶</string>
+    <string name="chat_conversation_unpinned">已取消置顶</string>
+    <string name="chat_conversation_muted">已开启免打扰</string>
+    <string name="chat_conversation_unmuted">已关闭免打扰</string>
+    <string name="chat_sticker_manager_select_all">全选</string>
+    <string name="chat_sticker_manager_select_none">全不选</string>
+    <string name="chat_sticker_manager_invert">反选</string>
+    <string name="chat_sticker_manager_export">导出</string>
+    <string name="chat_sticker_manager_exporting">正在导出…</string>
+    <plurals name="chat_sticker_manager_exported">
+        <item quantity="other">已保存 %1$d 张贴纸到 %2$s</item>
+    </plurals>
     <!-- 聊天输入栏菜单与 API 核心简体中文资源。 -->
     <string name="mention_members_settings_title">@所有人设置</string>
     <string name="mention_members_stealth_label">隐蔽@所有人</string>
@@ -2154,15 +2213,23 @@
     <string name="chat_message_details_content">内容</string>
     <string name="chat_message_details_title">消息详情</string>
     <string name="chat_message_details_copied">已复制</string>
-    <plurals name="chat_message_time_days_ago"><item quantity="other">%1$d 天前</item></plurals>
+    <plurals name="chat_message_time_days_ago">
+        <item quantity="other">%1$d 天前</item>
+    </plurals>
     <string name="chat_message_time_yesterday">昨天</string>
     <string name="chat_message_time_just_now">刚刚</string>
-    <plurals name="chat_message_time_minutes_ago"><item quantity="other">%1$d 分钟前</item></plurals>
-    <plurals name="chat_message_time_hours_ago"><item quantity="other">%1$d 小时前</item></plurals>
+    <plurals name="chat_message_time_minutes_ago">
+        <item quantity="other">%1$d 分钟前</item>
+    </plurals>
+    <plurals name="chat_message_time_hours_ago">
+        <item quantity="other">%1$d 小时前</item>
+    </plurals>
     <string name="chat_message_time_group_announcement">群公告</string>
     <string name="chat_message_time_everyone">@所有人</string>
     <string name="chat_message_time_me">@我</string>
-    <plurals name="chat_message_time_mentioned_people"><item quantity="other">@%1$d 人</item></plurals>
+    <plurals name="chat_message_time_mentioned_people">
+        <item quantity="other">@%1$d 人</item>
+    </plurals>
     <string name="chat_message_time_title">消息时间增强</string>
     <string name="chat_message_time_display_template">显示格式模板</string>
     <string name="chat_message_time_insert_placeholder">点击插入占位符：</string>
@@ -2211,8 +2278,12 @@
     <string name="chat_real_name_bruteforce_found">命中！实名首字为“%1$s”\n\n校验掩码：?%2$s</string>
     <string name="chat_real_name_bruteforce_no_check">该成员无需姓名校验即可转账，无法通过此方式获取首字</string>
     <string name="chat_real_name_bruteforce_failed">失败：%1$s</string>
-    <plurals name="chat_real_name_bruteforce_aborted"><item quantity="other">已终止（尝试了 %1$d 个）</item></plurals>
-    <plurals name="chat_real_name_bruteforce_paused"><item quantity="other">已暂停（触发风控，尝试了 %1$d 个）。进度已保存，下次打开将从“%2$s”继续。</item></plurals>
+    <plurals name="chat_real_name_bruteforce_aborted">
+        <item quantity="other">已终止（尝试了 %1$d 个）</item>
+    </plurals>
+    <plurals name="chat_real_name_bruteforce_paused">
+        <item quantity="other">已暂停（触发风控，尝试了 %1$d 个）。进度已保存，下次打开将从“%2$s”继续。</item>
+    </plurals>
     <string name="chat_real_name_bruteforce_continue_progress">继续（%1$d/%2$d）</string>
     <string name="chat_real_name_bruteforce_start">开始</string>
     <string name="chat_real_name_bruteforce_restart">重新开始</string>
@@ -2230,7 +2301,9 @@
     <string name="chat_fabricate_record_missing_datalist">未找到 datalist</string>
     <string name="chat_fabricate_record_missing_items">未找到消息条目</string>
     <string name="chat_fabricate_record_no_valid_messages">未能解析出有效消息</string>
-    <plurals name="chat_fabricate_record_loaded_count"><item quantity="other">已从剪贴板加载 %1$d 条消息</item></plurals>
+    <plurals name="chat_fabricate_record_loaded_count">
+        <item quantity="other">已从剪贴板加载 %1$d 条消息</item>
+    </plurals>
     <string name="chat_fabricate_record_parse_failed">解析失败：%1$s</string>
     <string name="chat_fabricate_record_load_clipboard">从剪贴板加载</string>
     <string name="chat_fabricate_record_message_list">消息列表</string>
@@ -2264,23 +2337,39 @@
     <string name="chat_aggregation_mode_all_groups">自动所有群聊</string>
     <string name="chat_aggregation_mode_all_officials">自动所有公众号</string>
     <string name="chat_aggregation_mode_sql">自定义 SQL 规则</string>
-    <plurals name="chat_aggregation_manual_conversation_count"><item quantity="other">手动选择：%1$d 个对话</item></plurals>
-    <plurals name="chat_aggregation_groups_conversation_count"><item quantity="other">所有群聊：%1$d 个对话</item></plurals>
-    <plurals name="chat_aggregation_officials_conversation_count"><item quantity="other">所有公众号：%1$d 个对话</item></plurals>
-    <plurals name="chat_aggregation_sql_conversation_count"><item quantity="other">SQL 规则：%1$d 个对话</item></plurals>
+    <plurals name="chat_aggregation_manual_conversation_count">
+        <item quantity="other">手动选择：%1$d 个对话</item>
+    </plurals>
+    <plurals name="chat_aggregation_groups_conversation_count">
+        <item quantity="other">所有群聊：%1$d 个对话</item>
+    </plurals>
+    <plurals name="chat_aggregation_officials_conversation_count">
+        <item quantity="other">所有公众号：%1$d 个对话</item>
+    </plurals>
+    <plurals name="chat_aggregation_sql_conversation_count">
+        <item quantity="other">SQL 规则：%1$d 个对话</item>
+    </plurals>
     <string name="chat_aggregation_folder_name">文件夹名称</string>
     <string name="chat_aggregation_mode">归拢模式</string>
-    <plurals name="chat_aggregation_selected_count"><item quantity="other">已选择 %1$d 个对话</item></plurals>
+    <plurals name="chat_aggregation_selected_count">
+        <item quantity="other">已选择 %1$d 个对话</item>
+    </plurals>
     <string name="chat_aggregation_choose_conversations">选择对话</string>
     <string name="chat_aggregation_clear_avatar">清除头像</string>
     <string name="chat_aggregation_enable_custom_avatar">请启用“自定义好友本地头像”以使用头像相关功能</string>
     <string name="chat_aggregation_change_avatar">更换头像</string>
     <string name="chat_aggregation_set_avatar">设置头像</string>
-    <plurals name="chat_aggregation_auto_groups_count"><item quantity="other">自动归拢所有群聊（当前匹配到 %1$d 个对话）</item></plurals>
-    <plurals name="chat_aggregation_auto_officials_count"><item quantity="other">自动归拢所有公众号（当前匹配到 %1$d 个对话）</item></plurals>
+    <plurals name="chat_aggregation_auto_groups_count">
+        <item quantity="other">自动归拢所有群聊（当前匹配到 %1$d 个对话）</item>
+    </plurals>
+    <plurals name="chat_aggregation_auto_officials_count">
+        <item quantity="other">自动归拢所有公众号（当前匹配到 %1$d 个对话）</item>
+    </plurals>
     <string name="chat_aggregation_select_fields">SELECT 字段</string>
     <string name="chat_aggregation_where_clause">WHERE 条件</string>
-    <plurals name="chat_aggregation_current_match_count"><item quantity="other">当前匹配到 %1$d 个对话</item></plurals>
+    <plurals name="chat_aggregation_current_match_count">
+        <item quantity="other">当前匹配到 %1$d 个对话</item>
+    </plurals>
     <string name="chat_aggregation_sql_help" formatted="false">数据源自 rcontact r, img_flag i, rconversation c\n示例：c.unReadCount &gt; 0 AND r.username LIKE \'%@chatroom\'</string>
     <string name="chat_aggregation_saved">已保存</string>
     <string name="voice_edge_xiaoxiao">晓晓（女，温柔）</string>
@@ -2333,7 +2422,9 @@
     <string name="chat_voice_system_tts_start_failed">系统 TTS 无法开始合成</string>
     <string name="chat_voice_no_supported_selected">所选内容中没有支持的语音文件</string>
     <string name="chat_voice_selected_tone_read_failed">无法读取所选音色文件</string>
-    <plurals name="chat_voice_import_partial_failed"><item quantity="other">已导入 %1$d 个语音文件，%2$d 个失败；%3$s：%4$s</item></plurals>
+    <plurals name="chat_voice_import_partial_failed">
+        <item quantity="other">已导入 %1$d 个语音文件，%2$d 个失败；%3$s：%4$s</item>
+    </plurals>
     <string name="chat_voice_pack_not_found">语音包不存在</string>
     <string name="chat_voice_not_in_pack">语音不属于当前语音包</string>
     <string name="chat_voice_tone_not_found">音色不存在</string>
@@ -2428,7 +2519,9 @@
     <string name="chat_sticker_server_empty">服务器未返回表情数据</string>
     <string name="chat_sticker_no_supported_selected">所选内容中没有支持的图片文件</string>
     <string name="chat_sticker_file_read_failed">无法读取所选图片文件</string>
-    <plurals name="chat_sticker_import_partial_failed"><item quantity="other">已导入 %1$d 张图片，%2$d 个失败；%3$s：%4$s</item></plurals>
+    <plurals name="chat_sticker_import_partial_failed">
+        <item quantity="other">已导入 %1$d 张图片，%2$d 个失败；%3$s：%4$s</item>
+    </plurals>
     <string name="chat_telegram_database_read_failed">无法读取所选 Telegram 数据库</string>
     <string name="chat_telegram_sticker_empty">Telegram 未返回表情数据</string>
     <string name="chat_telegram_sticker_unsupported_format">Telegram 表情转换结果格式不受支持</string>
@@ -2437,7 +2530,9 @@
     <string name="chat_wechat_sticker_export_failed">无法导出微信表情</string>
     <string name="chat_wechat_sticker_import_failed">微信原生表情导入失败：%1$s</string>
     <string name="chat_wechat_sticker_no_custom">微信没有「添加的单个表情」</string>
-    <plurals name="chat_wechat_sticker_import_result"><item quantity="other">已更新「%1$s」：新增 %2$d 个，%3$d 个无需更新，%4$d 个失败</item></plurals>
+    <plurals name="chat_wechat_sticker_import_result">
+        <item quantity="other">已更新「%1$s」：新增 %2$d 个，%3$d 个无需更新，%4$d 个失败</item>
+    </plurals>
     <string name="chat_wechat_sticker_empty">微信未返回表情数据</string>
     <string name="chat_wechat_sticker_unsupported_format">微信表情导出结果格式不受支持</string>
     <string name="chat_sticker_object_unavailable">没有可用表情对象</string>
@@ -2473,27 +2568,51 @@
     <string name="batch_add_label_create_failed">创建标签“%1$s”失败</string>
     <string name="batch_add_label_done_title">打标签完成</string>
     <string name="batch_add_label_progress_title">正在打标签</string>
-    <plurals name="batch_add_label_done"><item quantity="other">已为 %1$d/%2$d 位好友添加标签“%3$s”</item></plurals>
-    <plurals name="batch_add_label_progress"><item quantity="other">正在添加标签“%1$s”，请稍等…\n已完成：%2$d/%3$d</item></plurals>
+    <plurals name="batch_add_label_done">
+        <item quantity="other">已为 %1$d/%2$d 位好友添加标签“%3$s”</item>
+    </plurals>
+    <plurals name="batch_add_label_progress">
+        <item quantity="other">正在添加标签“%1$s”，请稍等…\n已完成：%2$d/%3$d</item>
+    </plurals>
     <string name="batch_delete_friends_select">选择要删除的好友</string>
     <string name="batch_delete_friends_confirm_title">确认删除</string>
-    <plurals name="batch_delete_friends_confirm_message"><item quantity="other">确定要删除选中的 %1$d 位好友吗？此操作不可逆！可选择同时将其拉黑。</item></plurals>
+    <plurals name="batch_delete_friends_confirm_message">
+        <item quantity="other">确定要删除选中的 %1$d 位好友吗？此操作不可逆！可选择同时将其拉黑。</item>
+    </plurals>
     <string name="batch_delete_friends_block_and_delete">拉黑并删除</string>
-    <plurals name="batch_delete_friends_progress"><item quantity="other">正在删除 %1$d 位好友…</item></plurals>
-    <plurals name="batch_delete_friends_done"><item quantity="other">已删除 %1$d 位好友</item></plurals>
-    <plurals name="batch_delete_friends_partial"><item quantity="other">已删除 %1$d/%2$d 位好友</item></plurals>
+    <plurals name="batch_delete_friends_progress">
+        <item quantity="other">正在删除 %1$d 位好友…</item>
+    </plurals>
+    <plurals name="batch_delete_friends_done">
+        <item quantity="other">已删除 %1$d 位好友</item>
+    </plurals>
+    <plurals name="batch_delete_friends_partial">
+        <item quantity="other">已删除 %1$d/%2$d 位好友</item>
+    </plurals>
     <string name="batch_delete_history_select">选择要删除聊天记录的对话</string>
     <string name="batch_delete_history_title">删除聊天记录</string>
-    <plurals name="batch_delete_history_confirm"><item quantity="other">确定要删除选中的 %1$d 个对话的全部聊天记录吗？此操作不可逆！</item></plurals>
-    <plurals name="batch_delete_history_progress"><item quantity="other">正在删除 %1$d 个对话的聊天记录…</item></plurals>
-    <plurals name="batch_delete_history_done"><item quantity="other">已删除 %1$d 个对话的聊天记录（共 %2$d 条消息）</item></plurals>
+    <plurals name="batch_delete_history_confirm">
+        <item quantity="other">确定要删除选中的 %1$d 个对话的全部聊天记录吗？此操作不可逆！</item>
+    </plurals>
+    <plurals name="batch_delete_history_progress">
+        <item quantity="other">正在删除 %1$d 个对话的聊天记录…</item>
+    </plurals>
+    <plurals name="batch_delete_history_done">
+        <item quantity="other">已删除 %1$d 个对话的聊天记录（共 %2$d 条消息）</item>
+    </plurals>
     <string name="batch_hide_conversations_select">选择要隐藏的对话</string>
     <string name="batch_hide_conversations_title">隐藏对话</string>
-    <plurals name="batch_hide_conversations_confirm"><item quantity="other">确定要从对话列表移除选中的 %1$d 个对话吗？聊天记录将保留，重新收到消息时对话会再次出现。</item></plurals>
+    <plurals name="batch_hide_conversations_confirm">
+        <item quantity="other">确定要从对话列表移除选中的 %1$d 个对话吗？聊天记录将保留，重新收到消息时对话会再次出现。</item>
+    </plurals>
     <string name="batch_hide_conversations_action">隐藏</string>
-    <plurals name="batch_hide_conversations_done"><item quantity="other">已隐藏 %1$d/%2$d 个对话</item></plurals>
+    <plurals name="batch_hide_conversations_done">
+        <item quantity="other">已隐藏 %1$d/%2$d 个对话</item>
+    </plurals>
     <string name="batch_mark_read_select">选择要标为已读的对话</string>
-    <plurals name="batch_mark_read_done"><item quantity="other">已将 %1$d 个对话标为已读</item></plurals>
+    <plurals name="batch_mark_read_done">
+        <item quantity="other">已将 %1$d 个对话标为已读</item>
+    </plurals>
     <string name="batch_mute_title">批量免打扰</string>
     <string name="batch_mute_enable">开启免打扰</string>
     <string name="batch_mute_enable_description">选择要静音的对话</string>
@@ -2501,9 +2620,15 @@
     <string name="batch_mute_disable_description">选择要取消静音的对话</string>
     <string name="batch_mute_select_enable">选择要静音的对话</string>
     <string name="batch_mute_select_disable">选择要取消静音的对话</string>
-    <plurals name="batch_mute_progress"><item quantity="other">正在对 %1$d 个对话设置免打扰…</item></plurals>
-    <plurals name="batch_mute_enabled"><item quantity="other">已对 %1$d 个对话开启免打扰</item></plurals>
-    <plurals name="batch_mute_disabled"><item quantity="other">已对 %1$d 个对话关闭免打扰</item></plurals>
+    <plurals name="batch_mute_progress">
+        <item quantity="other">正在对 %1$d 个对话设置免打扰…</item>
+    </plurals>
+    <plurals name="batch_mute_enabled">
+        <item quantity="other">已对 %1$d 个对话开启免打扰</item>
+    </plurals>
+    <plurals name="batch_mute_disabled">
+        <item quantity="other">已对 %1$d 个对话关闭免打扰</item>
+    </plurals>
     <string name="batch_mass_send_text_mode">文本消息</string>
     <string name="batch_mass_send_text_hint">编写要群发的文本消息，点击“选择对象”挑选发送目标</string>
     <string name="batch_mass_send_text_label">消息内容</string>
@@ -2514,10 +2639,15 @@
     <string name="batch_mass_send_select_recipients">选择对象</string>
     <string name="batch_mass_send_select_title">选择群发对象</string>
     <string name="batch_mass_send_select_at_least_one">请选择至少一个对象</string>
-    <plurals name="batch_mass_send_progress"><item quantity="other">正在群发到 %1$d 个对象…</item></plurals>
-    <plurals name="batch_mass_send_done"><item quantity="other">已群发到 %1$d 个对象</item></plurals>
-    <plurals name="batch_mass_send_partial"><item quantity="other">已群发到 %1$d/%2$d 个对象</item></plurals>
-
+    <plurals name="batch_mass_send_progress">
+        <item quantity="other">正在群发到 %1$d 个对象…</item>
+    </plurals>
+    <plurals name="batch_mass_send_done">
+        <item quantity="other">已群发到 %1$d 个对象</item>
+    </plurals>
+    <plurals name="batch_mass_send_partial">
+        <item quantity="other">已群发到 %1$d/%2$d 个对象</item>
+    </plurals>
     <!-- Task 5 group 1: contacts -->
     <string name="contacts_auto_add_nearby_menu">自动加好友</string>
     <string name="contacts_auto_remark_format">备注格式</string>
@@ -2540,11 +2670,17 @@
     <string name="contacts_copy">复制</string>
     <string name="contacts_group_message_history">查看群消息历史</string>
     <string name="contacts_delete_fake_none">未发现假群组！</string>
-    <plurals name="contacts_delete_fake_select_title"><item quantity="other">删除假群组（共 %1$d 个）</item></plurals>
+    <plurals name="contacts_delete_fake_select_title">
+        <item quantity="other">删除假群组（共 %1$d 个）</item>
+    </plurals>
     <string name="contacts_delete_fake_select_one">请选择至少一个假群</string>
     <string name="contacts_delete_fake_confirm_title">确认删除</string>
-    <plurals name="contacts_delete_fake_confirm_message"><item quantity="other">确定要删除选中的 %1$d 个假群组吗？此操作不可逆，原群不受影响。</item></plurals>
-    <plurals name="contacts_delete_fake_done"><item quantity="other">已清除 %1$d 个假群组</item></plurals>
+    <plurals name="contacts_delete_fake_confirm_message">
+        <item quantity="other">确定要删除选中的 %1$d 个假群组吗？此操作不可逆，原群不受影响。</item>
+    </plurals>
+    <plurals name="contacts_delete_fake_done">
+        <item quantity="other">已清除 %1$d 个假群组</item>
+    </plurals>
     <string name="contacts_custom_avatar_add">添加自定义头像</string>
     <string name="contacts_custom_avatar_change">更换自定义头像</string>
     <string name="contacts_custom_avatar_title">自定义头像</string>
@@ -2557,20 +2693,34 @@
     <string name="contacts_custom_avatar_select">选择</string>
     <string name="contacts_detect_create_label_failed">创建标签“%1$s”失败</string>
     <string name="contacts_detect_marking_done">标记完成</string>
-    <plurals name="contacts_detect_delete_done"><item quantity="other">删除完成：成功 %1$d，失败 %2$d</item></plurals>
+    <plurals name="contacts_detect_delete_done">
+        <item quantity="other">删除完成：成功 %1$d，失败 %2$d</item>
+    </plurals>
     <string name="contacts_detect_warning_title">警告</string>
     <string name="contacts_detect_warning_message">此功能可能导致账号异常，确定要执行吗？</string>
-    <plurals name="contacts_detect_scanning"><item quantity="other">正在扫描，请稍等…\n已完成：%1$d/%2$d</item></plurals>
-    <plurals name="contacts_detect_scan_done"><item quantity="other">扫描完成，有 %1$d 个状态异常的好友</item></plurals>
+    <plurals name="contacts_detect_scanning">
+        <item quantity="other">正在扫描，请稍等…\n已完成：%1$d/%2$d</item>
+    </plurals>
+    <plurals name="contacts_detect_scan_done">
+        <item quantity="other">扫描完成，有 %1$d 个状态异常的好友</item>
+    </plurals>
     <string name="contacts_detect_status_abnormal">状态：异常</string>
     <string name="contacts_detect_nickname">昵称：%1$s</string>
     <string name="contacts_detect_remark">备注：%1$s</string>
     <string name="contacts_detect_wechat_number">微信号：%1$s</string>
-    <plurals name="contacts_detect_confirm_delete"><item quantity="other">确定要删除选中的 %1$d 个好友吗？\n此操作不可逆，删除后聊天记录将被清除，需对方重新添加。</item></plurals>
-    <plurals name="contacts_detect_deleting"><item quantity="other">正在删除好友，请稍等…\n已完成：%1$d/%2$d</item></plurals>
-    <plurals name="contacts_detect_select_label"><item quantity="other">选择一个标签，将应用到全部 %1$d 个异常好友</item></plurals>
+    <plurals name="contacts_detect_confirm_delete">
+        <item quantity="other">确定要删除选中的 %1$d 个好友吗？\n此操作不可逆，删除后聊天记录将被清除，需对方重新添加。</item>
+    </plurals>
+    <plurals name="contacts_detect_deleting">
+        <item quantity="other">正在删除好友，请稍等…\n已完成：%1$d/%2$d</item>
+    </plurals>
+    <plurals name="contacts_detect_select_label">
+        <item quantity="other">选择一个标签，将应用到全部 %1$d 个异常好友</item>
+    </plurals>
     <string name="contacts_detect_new_label">新建标签</string>
-    <plurals name="contacts_detect_marking"><item quantity="other">正在标记为“%1$s”，请稍等…\n已完成：%2$d/%3$d</item></plurals>
+    <plurals name="contacts_detect_marking">
+        <item quantity="other">正在标记为“%1$s”，请稍等…\n已完成：%2$d/%3$d</item>
+    </plurals>
     <string name="contacts_detect_stop">终止</string>
     <string name="contacts_detect_back">返回</string>
     <string name="contacts_detect_suggested_label">WeKit_单删好友_%1$s</string>
@@ -2582,7 +2732,9 @@
     <string name="contacts_hide_shown_command_hint">已临时显示所有隐藏的联系人，输入 #hide 恢复隐藏</string>
     <string name="contacts_hide_nothing_to_restore">没有需要恢复的隐藏联系人</string>
     <string name="contacts_hide_select">选择要隐藏的联系人</string>
-    <plurals name="contacts_hide_saved"><item quantity="other">已保存 %1$d 个联系人</item></plurals>
+    <plurals name="contacts_hide_saved">
+        <item quantity="other">已保存 %1$d 个联系人</item>
+    </plurals>
     <string name="contacts_hide_configure">配置隐藏列表</string>
     <string name="contacts_hide_configure_description">点击配置联系人隐藏列表</string>
     <string name="contacts_hide_auto_reject">自动拒绝音视频通话</string>
@@ -2612,7 +2764,9 @@
     <string name="contacts_schedule_empty">暂无定时任务，点击右上角“添加”创建</string>
     <string name="contacts_schedule_edit_title">编辑定时</string>
     <string name="contacts_schedule_delete">删除定时</string>
-    <plurals name="contacts_schedule_dropped"><item quantity="other">%1$d 个单次定时在编辑期间已触发并自动删除，对它们的修改未保存</item></plurals>
+    <plurals name="contacts_schedule_dropped">
+        <item quantity="other">%1$d 个单次定时在编辑期间已触发并自动删除，对它们的修改未保存</item>
+    </plurals>
     <string name="contacts_schedule_time">时间</string>
     <string name="contacts_schedule_select_day">请至少选择一天</string>
     <string name="contacts_schedule_date_time">日期与时间</string>
@@ -2624,9 +2778,12 @@
     <string name="contacts_split_call_repeat_count">重复次数</string>
     <string name="contacts_split_call_invalid_repeat">请输入大于 0 的重复次数</string>
     <string name="contacts_split_call_already_running">已有分裂群组通话任务正在执行</string>
-    <plurals name="contacts_split_call_done_cleaned"><item quantity="other">任务结束：成功 %1$d 次，失败 %2$d 次，已自动清理 %3$d 个假群</item></plurals>
-    <plurals name="contacts_split_call_done_cleanup_failed"><item quantity="other">任务结束：成功 %1$d 次，失败 %2$d 次，自动清理 %3$d 个假群失败</item></plurals>
-
+    <plurals name="contacts_split_call_done_cleaned">
+        <item quantity="other">任务结束：成功 %1$d 次，失败 %2$d 次，已自动清理 %3$d 个假群</item>
+    </plurals>
+    <plurals name="contacts_split_call_done_cleanup_failed">
+        <item quantity="other">任务结束：成功 %1$d 次，失败 %2$d 次，自动清理 %3$d 个假群失败</item>
+    </plurals>
     <!-- Task 5 group 1: home-screen menu -->
     <string name="home_menu_force_stop">强行停止</string>
     <string name="home_menu_mark_all_read">清空未读</string>
@@ -2634,7 +2791,6 @@
     <string name="home_menu_open_conversation">跳转对话</string>
     <string name="home_menu_show_conversations">显示对话</string>
     <string name="home_menu_hide_conversations">隐藏对话</string>
-
     <!-- Task 5 group 2: 界面美化 -->
     <string name="action_close">关闭</string>
     <string name="action_download">下载</string>
@@ -2714,7 +2870,6 @@
     <string name="beautify_me_page_hide_cards">隐藏卡包标签</string>
     <string name="beautify_me_page_hide_cards_summary">取决于微信版本，可能为“卡包”“小店与卡包”</string>
     <string name="beautify_me_page_hide_stickers">隐藏表情标签</string>
-
     <!-- Task 5 group 2: 朋友圈 -->
     <string name="moments_auto_refresh_title">自动刷新</string>
     <string name="moments_auto_refresh_interval">刷新间隔（分钟）</string>
@@ -2743,11 +2898,15 @@
     <string name="moments_fake_likes_method_title">伪点赞方式</string>
     <string name="moments_fake_likes_select_users">选择伪点赞用户</string>
     <string name="moments_fake_likes_cleared">已清除伪点赞配置</string>
-    <plurals name="moments_fake_likes_set_count"><item quantity="other">已设置 %1$d 个伪点赞</item></plurals>
+    <plurals name="moments_fake_likes_set_count">
+        <item quantity="other">已设置 %1$d 个伪点赞</item>
+    </plurals>
     <string name="moments_fake_likes_select_contacts">选择指定联系人</string>
     <string name="moments_fake_likes_random_count">随机数量</string>
     <string name="moments_fake_likes_invalid_count">请输入有效数量</string>
-    <plurals name="moments_fake_likes_random_set_count"><item quantity="other">已随机设置 %1$d 个伪点赞</item></plurals>
+    <plurals name="moments_fake_likes_random_set_count">
+        <item quantity="other">已随机设置 %1$d 个伪点赞</item>
+    </plurals>
     <string name="moments_forward_messages_menu">转圈</string>
     <string name="moments_repost_menu">转发</string>
     <string name="moments_quick_repost_menu">一键转发</string>
@@ -2788,7 +2947,9 @@
     <string name="moments_automation_contact_summary">为单个好友覆盖全局设置</string>
     <string name="moments_automation_global_saved">全局设置已保存</string>
     <string name="moments_automation_follow_global">跟随全局设置</string>
-    <plurals name="moments_automation_overridden_count"><item quantity="other">已覆盖 %1$d 项</item></plurals>
+    <plurals name="moments_automation_overridden_count">
+        <item quantity="other">已覆盖 %1$d 项</item>
+    </plurals>
     <string name="moments_automation_default_auto_like">默认自动点赞</string>
     <string name="moments_automation_default_auto_repost">默认自动转发</string>
     <string name="moments_automation_process_all">默认处理所有好友，分联系人设置可单独关闭</string>
@@ -2813,7 +2974,9 @@
     <string name="moments_automation_content_keywords">内容关键词</string>
     <string name="moments_automation_keyword_unrestricted">不限制朋友圈文案</string>
     <string name="moments_automation_content_type">朋友圈类型</string>
-    <plurals name="moments_automation_selected_type_count"><item quantity="other">已选择 %1$d 种类型</item></plurals>
+    <plurals name="moments_automation_selected_type_count">
+        <item quantity="other">已选择 %1$d 种类型</item>
+    </plurals>
     <string name="moments_automation_type_unrestricted">不限制朋友圈类型</string>
     <string name="moments_automation_maximum_age">最大发布时间</string>
     <string name="moments_automation_maximum_age_value">仅处理 %1$s 小时内发布的朋友圈</string>
@@ -2845,7 +3008,6 @@
     <string name="moments_content_type_rich_music">富媒体音乐</string>
     <string name="moments_content_type_listen_audio">听歌</string>
     <string name="moments_content_type_live_photo">动态照片</string>
-
     <!-- Task 5 group 2: 视频号 -->
     <string name="shortvideos_copy_link">复制链接</string>
     <string name="shortvideos_duration">时长</string>
@@ -2862,7 +3024,6 @@
     <string name="shortvideos_video_download_failed">视频下载失败</string>
     <string name="shortvideos_video_downloaded_to">已将视频下载到 /sdcard/Download/WeKit/%1$s</string>
     <string name="shortvideos_video_download_started">开始下载视频</string>
-
     <!-- Task 5 group 2: themes and home side panel -->
     <string name="action_back">返回</string>
     <string name="action_restore_defaults">恢复默认</string>
@@ -2895,7 +3056,6 @@
     <string name="home_side_panel_show_lunar_calendar">显示农历</string>
     <string name="home_side_panel_lunar_prefix">农历</string>
     <string name="home_side_panel_lunar_leap_prefix">闰</string>
-    <string name="home_side_panel_lunar_separator"></string>
     <string-array name="home_side_panel_lunar_month_names">
         <item>正月</item>
         <item>二月</item>
@@ -3140,7 +3300,6 @@
     <plurals name="automation_configured_members">
         <item quantity="other">已配置 %1$d 个成员</item>
     </plurals>
-
     <string name="payment_risk_warning">此功能可能导致账号异常, 确定要启用吗?</string>
     <string name="payment_source_group">群组</string>
     <string name="payment_source_private_chat">私聊</string>
@@ -3166,7 +3325,6 @@
     <string name="payment_red_packet_amount_details">金额: %1$.2f/%2$.2f元</string>
     <string name="payment_red_packet_count_details">数量: %1$d/%2$d</string>
     <string name="payment_red_packet_remaining">剩余: %1$.2f元</string>
-
     <string name="payment_history_title">历史红包捡漏</string>
     <string name="payment_history_already_running">已有正在进行的捡漏任务!</string>
     <string name="payment_history_not_running">当前没有正在进行的捡漏任务!</string>
@@ -3185,7 +3343,6 @@
     <string name="payment_history_unknown_status">红包 [%1$s] 状态未知 (status=%2$d)</string>
     <string name="payment_history_background">后台</string>
     <string name="payment_history_stop">终止</string>
-
     <string name="payment_red_packet_global_summary">配置默认抢红包条件与抢到后的操作</string>
     <string name="payment_red_packet_default_grab">默认抢红包</string>
     <string name="payment_red_packet_default_all">默认抢所有联系人, 分联系人设置可单独关闭</string>
@@ -3213,7 +3370,6 @@
     <string name="payment_red_packet_notification_enabled">显示抢到的金额与来源</string>
     <string name="payment_red_packet_auto_reply">抢到后自动回复</string>
     <string name="payment_red_packet_amount_placeholder">使用 $amount 表示抢到的金额</string>
-
     <string name="payment_transfer_global_summary">配置默认接收条件与接收后的操作</string>
     <string name="payment_transfer_default_accept">默认接收转账</string>
     <string name="payment_transfer_default_all">默认接收所有联系人的转账, 分联系人设置可单独关闭</string>
@@ -3239,7 +3395,6 @@
     <string name="payment_transfer_minimum_above_maximum">最低金额不能高于最高金额</string>
     <string name="payment_transfer_amount_unrestricted">不限制转账金额</string>
     <string name="payment_transfer_amount_summary">%1$s - %2$s 元</string>
-
     <string name="payment_fingerprint_password">支付密码</string>
     <string name="payment_fingerprint_password_not_configured">支付密码未设置, 指纹支付不会生效!</string>
     <string name="payment_fingerprint_password_missing">支付密码未设置!</string>
@@ -3258,13 +3413,11 @@
     <string name="payment_fingerprint_decrypt_failed">解密失败! 请向模块作者报告问题</string>
     <string name="payment_fingerprint_android_too_old">Android 版本过低 (&lt; Android 11), 无法使用指纹验证!</string>
     <string name="payment_fingerprint_android_too_old_details">Android 版本过低 (&lt; Android 11), 无法使用指纹验证!\n为追求代码简洁度与稳定性, 本项目使用 AndroidX Biometric API, 不支持 &lt; Android 11 的设备\n如确实需要此功能, 可使用第三方项目 eritpchy/FingerprintPay</string>
-
     <string name="profile_new_nickname">新的昵称</string>
     <string name="profile_nickname_success">发送成功</string>
     <string name="profile_nickname_server_code">服务器返回码: %1$s</string>
     <string name="profile_nickname_failure">发送失败, 响应结果:</string>
     <string name="profile_nickname_failure_details">type: %1$d, code: %2$d, msg: %3$s</string>
-
     <string name="voip_block_outgoing">屏蔽呼出铃声</string>
     <string name="voip_block_outgoing_summary">屏蔽拨出音视频通话时的铃声</string>
     <string name="voip_block_incoming">屏蔽呼入铃声</string>
@@ -3313,30 +3466,143 @@
     <string name="debug_launch_internal_url_arguments">参数</string>
     <string name="debug_launch_internal_url_title">启动微信内部 URL</string>
     <string name="debug_launch_internal_url_url">URL</string>
-    <string name="debug_log_level_debug">调试</string><string name="debug_log_level_error">错误</string><string name="debug_log_level_info">信息</string><string name="debug_log_level_verbose">详细</string><string name="debug_log_level_warning">警告</string>
-    <string name="debug_native_crash_details">Native 崩溃详情</string><string name="debug_native_crash_detected">检测到 Native 崩溃</string><string name="debug_native_crash_preparing_report">正在生成崩溃报告…</string>
+    <string name="debug_log_level_debug">调试</string>
+    <string name="debug_log_level_error">错误</string>
+    <string name="debug_log_level_info">信息</string>
+    <string name="debug_log_level_verbose">详细</string>
+    <string name="debug_log_level_warning">警告</string>
+    <string name="debug_native_crash_details">Native 崩溃详情</string>
+    <string name="debug_native_crash_detected">检测到 Native 崩溃</string>
+    <string name="debug_native_crash_preparing_report">正在生成崩溃报告…</string>
     <string name="debug_redirect_host_logs_title">重定向微信日志</string>
-    <string name="debug_reset_dex_cache_clearing">正在清除解析缓存…</string><string name="debug_reset_dex_cache_confirmation">确定清除全部 DEX 解析缓存吗？</string><string name="debug_reset_dex_cache_success">解析缓存已清除</string><string name="debug_reset_dex_cache_title">重置解析缓存</string>
-    <string name="debug_trigger_crash_category_java">Java 层崩溃</string><string name="debug_trigger_crash_category_native">Native 层崩溃</string><string name="debug_trigger_crash_select_category">选择崩溃类别</string>
-    <string name="debug_trigger_crash_java_null_pointer">空指针异常 (NullPointerException)</string><string name="debug_trigger_crash_java_array_bounds">数组越界 (ArrayIndexOutOfBoundsException)</string><string name="debug_trigger_crash_java_class_cast">类型转换异常 (ClassCastException)</string><string name="debug_trigger_crash_java_arithmetic">算术异常 (ArithmeticException)</string><string name="debug_trigger_crash_java_stack_overflow">栈溢出 (StackOverflowError)</string><string name="debug_trigger_crash_select_java_type">选择 Java 崩溃类型</string>
-    <string name="debug_trigger_crash_native_sigsegv">段错误 (SIGSEGV - 空指针访问)</string><string name="debug_trigger_crash_native_sigabrt">异常终止 (SIGABRT - abort)</string><string name="debug_trigger_crash_native_sigfpe">浮点异常 (SIGFPE - 除零错误)</string><string name="debug_trigger_crash_native_sigill">非法指令 (SIGILL)</string><string name="debug_trigger_crash_native_sigbus">总线错误 (SIGBUS - 未对齐访问)</string><string name="debug_trigger_crash_select_native_type">选择 Native 崩溃类型</string>
-    <string name="debug_trigger_crash_confirmation_title">确认触发崩溃</string><string name="debug_trigger_crash_confirmation_message">确定要触发“%1$s”吗？\n这可能导致微信数据丢失。</string>
-    <string name="debug_send_packet_title">发包调试</string><string name="debug_send_packet_cgi_path">CGI 路径 (str)</string><string name="debug_send_packet_cmd_id">cmdId (int)</string><string name="debug_send_packet_func_id">funcId (int)</string><string name="debug_send_packet_route_id">routeId (int)</string><string name="debug_send_packet_json_payload">JSON 载荷 (str)</string>
-    <string name="debug_send_packet_uri_required">URI 不能为空</string><string name="debug_send_packet_integer_ids_required">cmdId、funcId 和 routeId 必须为整数</string><string name="debug_send_packet_success_title">发送成功，响应结果：</string><string name="debug_send_packet_success_result">JSON：%1$s\n\nbyteArray：%2$s</string><plurals name="debug_send_packet_byte_count"><item quantity="other">%1$d 字节</item></plurals><string name="debug_send_packet_failure_title">发送失败，响应结果：</string><string name="debug_send_packet_failure_result">type: %1$d, code: %2$d, msg: %3$s</string>
-    <string name="clear_profile_details_confirmation">确定要清空资料信息吗？清空后仍可重新选择。</string><string name="clear_profile_details_send_success">发送成功</string><string name="clear_profile_details_server_response_code">服务器返回码：%1$s</string><string name="clear_profile_details_send_failure">发送失败</string><string name="clear_profile_details_send_failure_details">类型：%1$s，代码：%2$s，消息：%3$s</string>
-    <string name="image_rotation_only_avatars">只对头像生效</string><string name="image_rotation_period_milliseconds">旋转周期（毫秒）</string><string name="image_rotation_period_requirement">请输入大于 0 的毫秒数</string>
-    <string name="java_scripts_dialog_title">Java 脚本</string><string name="java_scripts_empty">暂无脚本</string><string name="java_script_status_enabled">已启用</string><string name="java_script_status_disabled">已禁用</string><string name="java_script_version">版本 %1$s</string><string name="java_script_author">作者 %1$s</string><string name="java_script_unnamed">未命名</string><string name="java_script_notification_channel">脚本：%1$s</string>
-    <string name="notifications_action_mark_read">标为已读</string><string name="notifications_action_reply">回复</string><string name="notifications_reply_hint">输入回复内容…</string><string name="notifications_self">我</string><string name="notifications_unknown_content">未知内容（请向模块开发者报告错误）</string><string name="notifications_unknown_conversation">未知对话（请向模块开发者报告错误）</string>
-    <string name="system_auto_approve_auto_login">自动批准登录</string><string name="system_auto_approve_auto_login_summary">自动批准其他设备的登录请求</string><string name="system_auto_approve_sync">自动批准同步</string><string name="system_auto_approve_sync_summary">自动批准聊天记录同步请求</string>
-    <string name="system_auto_clean_complete">清理完成：%1$s%2$s</string><string name="system_auto_clean_next">\n下次清理：%1$s</string><string name="system_custom_dpi_width">显示宽度（dp）</string><string name="system_failure">失败</string>
-    <string name="system_fake_location_launch_failed">打开位置选择器失败：%1$s</string><string name="system_fake_location_listener_failed">注册位置监听器失败</string><string name="system_fake_location_no_activity">当前没有前台 Activity</string><string name="system_fake_location_osm">OpenStreetMap 选择器</string><string name="system_fake_location_osm_summary">在 OpenStreetMap 上选择位置</string><string name="system_fake_location_parse_failed">解析所选位置失败</string><string name="system_fake_location_select">选择位置</string><string name="system_fake_location_selected">已选择：%1$s，%2$s</string><string name="system_fake_location_wechat">微信位置选择器</string><string name="system_fake_location_wechat_summary">使用微信选择位置</string>
-    <string name="system_feature_flags_copy_class">复制类名</string><string name="system_feature_flags_copy_config_key">复制配置键</string><string name="system_feature_flags_copy_description">复制描述</string><string name="system_feature_flags_copy_internal_name">复制内部名称</string><string name="system_feature_flags_empty">暂无灰度配置</string><string name="system_feature_flags_invalid_type">不支持的值类型</string><string name="system_feature_flags_invalid_value">值无效</string><string name="system_feature_flags_key_unavailable">该灰度配置没有运行时键</string><string name="system_feature_flags_no_match">没有匹配的灰度配置</string><string name="system_feature_flags_override">覆盖值</string><string name="system_feature_flags_override_not_found">不存在覆盖值</string><string name="system_feature_flags_override_summary">设置本地运行时覆盖值</string><string name="system_feature_flags_scanning">正在扫描灰度配置…</string><string name="system_feature_flags_search_hint">搜索灰度配置</string><string name="system_feature_flags_set_override">设置覆盖值</string><string name="system_feature_flags_type">类型</string><string name="system_feature_flags_value">值</string>
-    <string name="system_invalid_format">格式无效</string><string name="system_invalid_number">数字无效</string><string name="system_link_copied">链接已复制</string><string name="system_link_copy">复制链接</string><string name="system_link_custom_tabs">Custom Tabs</string><string name="system_link_custom_tabs_summary">使用 Android Custom Tabs 打开链接</string><string name="system_link_open_with">打开链接方式</string><string name="system_link_wechat">微信</string><string name="system_link_wechat_summary">在微信内打开链接</string><string name="system_loading">加载中…</string><string name="system_none">无</string>
-    <string name="system_predictive_back_unsupported">当前 Android 版本不支持预见性返回</string><string name="system_prevent_xposed_google_play_warning">微信 Google Play 版本无法使用此功能。</string><string name="system_risky_feature_warning">此功能可能带来账号风险，请在了解后果的情况下继续。</string>
-    <string name="system_sports_active_value">要上传的步数</string><string name="system_sports_fixed">固定值</string><string name="system_sports_multiplier">倍数</string><string name="system_sports_passive_mode">被动修改</string><string name="system_sports_passive_value">数值</string><string name="system_sports_upload">上传</string><string name="system_sports_upload_result">上传%1$s</string><string name="system_success">成功</string>
-    <string name="system_qr_code_record_empty">暂无记录</string><string name="system_qr_code_record_copy">复制 URL</string><string name="system_qr_code_record_open">打开</string><string name="system_qr_code_record_open_in_system">在系统中打开</string>
-    <string name="system_safe_mode_enable_title">开启安全模式？</string><string name="system_safe_mode_enable_message">开启后，下次启动微信时普通功能不会被加载，只保留核心功能；普通功能仍会显示在设置页中，以便关闭安全模式后恢复使用。\n\n确认开启安全模式？</string><string name="system_safe_mode_enable">开启</string>
-    <string name="system_api_server_mcp_started">MCP 服务器启动于 http://0.0.0.0:%1$d/mcp</string><string name="system_api_server_rest_started">REST API 服务器启动于 http://0.0.0.0:%1$d/api</string><string name="system_api_server_stopped">服务器已停止</string><string name="system_api_server_auth_token">认证令牌</string><string name="system_api_server_port">端口</string><string name="system_api_server_invalid_port">端口格式不正确！</string>
+    <string name="debug_reset_dex_cache_clearing">正在清除解析缓存…</string>
+    <string name="debug_reset_dex_cache_confirmation">确定清除全部 DEX 解析缓存吗？</string>
+    <string name="debug_reset_dex_cache_success">解析缓存已清除</string>
+    <string name="debug_reset_dex_cache_title">重置解析缓存</string>
+    <string name="debug_trigger_crash_category_java">Java 层崩溃</string>
+    <string name="debug_trigger_crash_category_native">Native 层崩溃</string>
+    <string name="debug_trigger_crash_select_category">选择崩溃类别</string>
+    <string name="debug_trigger_crash_java_null_pointer">空指针异常 (NullPointerException)</string>
+    <string name="debug_trigger_crash_java_array_bounds">数组越界 (ArrayIndexOutOfBoundsException)</string>
+    <string name="debug_trigger_crash_java_class_cast">类型转换异常 (ClassCastException)</string>
+    <string name="debug_trigger_crash_java_arithmetic">算术异常 (ArithmeticException)</string>
+    <string name="debug_trigger_crash_java_stack_overflow">栈溢出 (StackOverflowError)</string>
+    <string name="debug_trigger_crash_select_java_type">选择 Java 崩溃类型</string>
+    <string name="debug_trigger_crash_native_sigsegv">段错误 (SIGSEGV - 空指针访问)</string>
+    <string name="debug_trigger_crash_native_sigabrt">异常终止 (SIGABRT - abort)</string>
+    <string name="debug_trigger_crash_native_sigfpe">浮点异常 (SIGFPE - 除零错误)</string>
+    <string name="debug_trigger_crash_native_sigill">非法指令 (SIGILL)</string>
+    <string name="debug_trigger_crash_native_sigbus">总线错误 (SIGBUS - 未对齐访问)</string>
+    <string name="debug_trigger_crash_select_native_type">选择 Native 崩溃类型</string>
+    <string name="debug_trigger_crash_confirmation_title">确认触发崩溃</string>
+    <string name="debug_trigger_crash_confirmation_message">确定要触发“%1$s”吗？\n这可能导致微信数据丢失。</string>
+    <string name="debug_send_packet_title">发包调试</string>
+    <string name="debug_send_packet_cgi_path">CGI 路径 (str)</string>
+    <string name="debug_send_packet_cmd_id">cmdId (int)</string>
+    <string name="debug_send_packet_func_id">funcId (int)</string>
+    <string name="debug_send_packet_route_id">routeId (int)</string>
+    <string name="debug_send_packet_json_payload">JSON 载荷 (str)</string>
+    <string name="debug_send_packet_uri_required">URI 不能为空</string>
+    <string name="debug_send_packet_integer_ids_required">cmdId、funcId 和 routeId 必须为整数</string>
+    <string name="debug_send_packet_success_title">发送成功，响应结果：</string>
+    <string name="debug_send_packet_success_result">JSON：%1$s\n\nbyteArray：%2$s</string>
+    <plurals name="debug_send_packet_byte_count">
+        <item quantity="other">%1$d 字节</item>
+    </plurals>
+    <string name="debug_send_packet_failure_title">发送失败，响应结果：</string>
+    <string name="debug_send_packet_failure_result">type: %1$d, code: %2$d, msg: %3$s</string>
+    <string name="clear_profile_details_confirmation">确定要清空资料信息吗？清空后仍可重新选择。</string>
+    <string name="clear_profile_details_send_success">发送成功</string>
+    <string name="clear_profile_details_server_response_code">服务器返回码：%1$s</string>
+    <string name="clear_profile_details_send_failure">发送失败</string>
+    <string name="clear_profile_details_send_failure_details">类型：%1$s，代码：%2$s，消息：%3$s</string>
+    <string name="image_rotation_only_avatars">只对头像生效</string>
+    <string name="image_rotation_period_milliseconds">旋转周期（毫秒）</string>
+    <string name="image_rotation_period_requirement">请输入大于 0 的毫秒数</string>
+    <string name="java_scripts_dialog_title">Java 脚本</string>
+    <string name="java_scripts_empty">暂无脚本</string>
+    <string name="java_script_status_enabled">已启用</string>
+    <string name="java_script_status_disabled">已禁用</string>
+    <string name="java_script_version">版本 %1$s</string>
+    <string name="java_script_author">作者 %1$s</string>
+    <string name="java_script_unnamed">未命名</string>
+    <string name="java_script_notification_channel">脚本：%1$s</string>
+    <string name="notifications_action_mark_read">标为已读</string>
+    <string name="notifications_action_reply">回复</string>
+    <string name="notifications_reply_hint">输入回复内容…</string>
+    <string name="notifications_self">我</string>
+    <string name="notifications_unknown_content">未知内容（请向模块开发者报告错误）</string>
+    <string name="notifications_unknown_conversation">未知对话（请向模块开发者报告错误）</string>
+    <string name="system_auto_approve_auto_login">自动批准登录</string>
+    <string name="system_auto_approve_auto_login_summary">自动批准其他设备的登录请求</string>
+    <string name="system_auto_approve_sync">自动批准同步</string>
+    <string name="system_auto_approve_sync_summary">自动批准聊天记录同步请求</string>
+    <string name="system_auto_clean_complete">清理完成：%1$s%2$s</string>
+    <string name="system_auto_clean_next">\n下次清理：%1$s</string>
+    <string name="system_custom_dpi_width">显示宽度（dp）</string>
+    <string name="system_failure">失败</string>
+    <string name="system_fake_location_launch_failed">打开位置选择器失败：%1$s</string>
+    <string name="system_fake_location_listener_failed">注册位置监听器失败</string>
+    <string name="system_fake_location_no_activity">当前没有前台 Activity</string>
+    <string name="system_fake_location_osm">OpenStreetMap 选择器</string>
+    <string name="system_fake_location_osm_summary">在 OpenStreetMap 上选择位置</string>
+    <string name="system_fake_location_parse_failed">解析所选位置失败</string>
+    <string name="system_fake_location_select">选择位置</string>
+    <string name="system_fake_location_selected">已选择：%1$s，%2$s</string>
+    <string name="system_fake_location_wechat">微信位置选择器</string>
+    <string name="system_fake_location_wechat_summary">使用微信选择位置</string>
+    <string name="system_feature_flags_copy_class">复制类名</string>
+    <string name="system_feature_flags_copy_config_key">复制配置键</string>
+    <string name="system_feature_flags_copy_description">复制描述</string>
+    <string name="system_feature_flags_copy_internal_name">复制内部名称</string>
+    <string name="system_feature_flags_empty">暂无灰度配置</string>
+    <string name="system_feature_flags_invalid_type">不支持的值类型</string>
+    <string name="system_feature_flags_invalid_value">值无效</string>
+    <string name="system_feature_flags_key_unavailable">该灰度配置没有运行时键</string>
+    <string name="system_feature_flags_no_match">没有匹配的灰度配置</string>
+    <string name="system_feature_flags_override">覆盖值</string>
+    <string name="system_feature_flags_override_not_found">不存在覆盖值</string>
+    <string name="system_feature_flags_override_summary">设置本地运行时覆盖值</string>
+    <string name="system_feature_flags_scanning">正在扫描灰度配置…</string>
+    <string name="system_feature_flags_search_hint">搜索灰度配置</string>
+    <string name="system_feature_flags_set_override">设置覆盖值</string>
+    <string name="system_feature_flags_type">类型</string>
+    <string name="system_feature_flags_value">值</string>
+    <string name="system_invalid_format">格式无效</string>
+    <string name="system_invalid_number">数字无效</string>
+    <string name="system_link_copied">链接已复制</string>
+    <string name="system_link_copy">复制链接</string>
+    <string name="system_link_custom_tabs">Custom Tabs</string>
+    <string name="system_link_custom_tabs_summary">使用 Android Custom Tabs 打开链接</string>
+    <string name="system_link_open_with">打开链接方式</string>
+    <string name="system_link_wechat">微信</string>
+    <string name="system_link_wechat_summary">在微信内打开链接</string>
+    <string name="system_loading">加载中…</string>
+    <string name="system_none">无</string>
+    <string name="system_predictive_back_unsupported">当前 Android 版本不支持预见性返回</string>
+    <string name="system_prevent_xposed_google_play_warning">微信 Google Play 版本无法使用此功能。</string>
+    <string name="system_risky_feature_warning">此功能可能带来账号风险，请在了解后果的情况下继续。</string>
+    <string name="system_sports_active_value">要上传的步数</string>
+    <string name="system_sports_fixed">固定值</string>
+    <string name="system_sports_multiplier">倍数</string>
+    <string name="system_sports_passive_mode">被动修改</string>
+    <string name="system_sports_passive_value">数值</string>
+    <string name="system_sports_upload">上传</string>
+    <string name="system_sports_upload_result">上传%1$s</string>
+    <string name="system_success">成功</string>
+    <string name="system_qr_code_record_empty">暂无记录</string>
+    <string name="system_qr_code_record_copy">复制 URL</string>
+    <string name="system_qr_code_record_open">打开</string>
+    <string name="system_qr_code_record_open_in_system">在系统中打开</string>
+    <string name="system_safe_mode_enable_title">开启安全模式？</string>
+    <string name="system_safe_mode_enable_message">开启后，下次启动微信时普通功能不会被加载，只保留核心功能；普通功能仍会显示在设置页中，以便关闭安全模式后恢复使用。\n\n确认开启安全模式？</string>
+    <string name="system_safe_mode_enable">开启</string>
+    <string name="system_api_server_mcp_started">MCP 服务器启动于 http://0.0.0.0:%1$d/mcp</string>
+    <string name="system_api_server_rest_started">REST API 服务器启动于 http://0.0.0.0:%1$d/api</string>
+    <string name="system_api_server_stopped">服务器已停止</string>
+    <string name="system_api_server_auth_token">认证令牌</string>
+    <string name="system_api_server_port">端口</string>
+    <string name="system_api_server_invalid_port">端口格式不正确！</string>
     <!-- Non-Compose and injected-host messages -->
     <string name="noncompose_features_loaded">WeKit 加载成功！</string>
     <string name="noncompose_restarting_host">正在重启…</string>
@@ -3357,7 +3623,6 @@
     <string name="noncompose_message_menu_automatic_section">自动兼容多选消息</string>
     <string name="noncompose_wekit_settings_entry">WeKit 设置</string>
     <string name="noncompose_wekit_settings_group">插件</string>
-
     <!-- WeAgent live panel -->
     <string name="agent_panel_collapse_sessions">收起会话侧栏</string>
     <string name="agent_panel_sessions">会话</string>
@@ -3413,7 +3678,6 @@
     <string name="telegram_parsing_database">正在解析数据库…</string>
     <string name="telegram_retry">重试</string>
     <string name="telegram_current_account">当前账户</string>
-
     <string name="agent_delete_provider_confirm">删除该提供方及其所有模型？此操作无法撤销。</string>
     <string name="agent_delete_model_confirm">删除该模型？此操作无法撤销。</string>
     <string name="agent_delete_server_confirm">删除该服务器及其工具配置？此操作无法撤销。</string>
