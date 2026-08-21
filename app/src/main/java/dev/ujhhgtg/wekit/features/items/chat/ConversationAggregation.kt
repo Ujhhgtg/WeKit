@@ -42,9 +42,10 @@ import com.tencent.mm.ui.conversation.BaseConversationUI
 import com.tencent.mm.ui.conversation.ConvBoxServiceConversationUI
 import com.tencent.mm.ui.conversation.MainUI
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.utils.Modifiers
+import dev.ujhhgtg.reflekt.utils.fastJavaMethod
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -530,19 +531,19 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     private fun hookMainUiRefresh() {
-        MainUI::class.reflekt().firstMethod("onResume").hookAfter {
+        MainUI::onResume.fastJavaMethod!!.hookAfter {
             syncFoldersToDatabase()
         }
     }
 
     private fun hookOpenFolder() {
-        LauncherUI::class.reflekt().firstMethod("startChatting").hookBefore {
+        LauncherUI::startChatting.fastJavaMethod!!.hookBefore {
             interceptFolderChatOpen(args.firstOrNull() as? String, thisObject) {
                 result = null
             }
         }
 
-        BaseConversationUI::class.reflekt().firstMethod("startChatting").hookBefore {
+        BaseConversationUI::startChatting.fastJavaMethod!!.hookBefore {
             interceptFolderChatOpen(args.firstOrNull() as? String, thisObject) {
                 result = null
             }

@@ -36,6 +36,7 @@ import com.tencent.mm.pluginsdk.ui.chat.ChatFooterBottom
 import com.tencent.mm.pluginsdk.ui.chat.ChattingScrollLayout
 import com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.reflekt.utils.fastJavaMethod
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -425,7 +426,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         // 原布局中面板在输入行下方且挤在屏幕外，footer 的总高度正好能代表这个偏移；面板
         // 重排到上方后，它也被算进总高度，导致 popup 被额外抬过整个面板。只在面板实际
         // 可见时扣除其当前高度，键盘压缩后的面板也会使用同一个真实高度。
-        ChatFooter::class.reflekt().firstMethod("getYFromBottom").hookAfter {
+        ChatFooter::getYFromBottom.fastJavaMethod!!.hookAfter {
             if (!movePanelAbove) return@hookAfter
             val footer = thisObject as ChatFooter
             val panel = footer.bottomPanel ?: return@hookAfter
