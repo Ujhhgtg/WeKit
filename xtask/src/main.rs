@@ -41,6 +41,7 @@ const MIN_SDK: u32 = 28;
 const MIN_NDK_MAJOR: u32 = 29;
 
 const CLOUDFLARED_COMMIT: &str = "8679787525edc8575b2948a7c4a50b6292c6d426";
+pub(crate) const PROOT_COMMIT: &str = "6f8ebfd8e24887dfba64c3f2d7d5fe9dc059b60e";
 
 // ── ABI table ─────────────────────────────────────────────────────────────────
 
@@ -435,6 +436,20 @@ fn jni_libs_dir(root: &Path) -> PathBuf {
     root.join("app/src/main/jniLibs")
 }
 
+fn proot_source_dir(root: &Path) -> PathBuf {
+    root.join("third_party/proot-static")
+}
+
+pub(crate) fn proot_artifact_paths(root: &Path) -> (PathBuf, PathBuf) {
+    let artifacts = root.join("target/proot-static/artifacts");
+    (artifacts.join("proot"), artifacts.join("loader"))
+}
+
+fn proot_jni_artifact_paths(root: &Path) -> (PathBuf, PathBuf) {
+    let arm64 = jni_libs_dir(root).join("arm64-v8a");
+    (arm64.join("libproot.so"), arm64.join("libproot_loader.so"))
+}
+
 fn invoke_tool_artifact_paths(root: &Path, spec: &AbiSpec) -> (PathBuf, PathBuf) {
     (
         root.join("target").join(spec.cargo_triple).join("release/invoke_tool"),
@@ -480,6 +495,10 @@ fn resolve_abis<'a>(names: &[String]) -> Result<Vec<&'a AbiSpec>> {
                 })
         })
         .collect()
+}
+
+fn should_build_proot(abis: &[&AbiSpec]) -> bool {
+    abis.iter().any(|abi| abi.android_name == "arm64-v8a")
 }
 
 fn go_android_target(spec: &AbiSpec) -> GoAndroidTarget {
@@ -717,11 +736,64 @@ fn task_prepare_apk_native_inputs(abi_args: &[String]) -> Result<()> {
     Ok(())
 }
 
+fn verify_proot_checkout(root: &Path) -> Result<()> {
+    let source = proot_source_dir(root);
+    let script = source.join("tools/build-static-aarch64.sh");
+    if !script.is_file() {
+        bail!(
+            "PRoot source is not initialized at {}; run `git submodule update --init --recursive`",
+            source.display(),
+        );
+    }
+    let output = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(&source)
+        .output()
+        .with_context(|| format!("failed to inspect PRoot source at {}", source.display()))?;
+    if !output.status.success() {
+        bail!("failed to read PRoot revision at {}", source.display());
+    }
+    let head = String::from_utf8(output.stdout)?.trim().to_owned();
+    if head != PROOT_COMMIT {
+        bail!("PRoot source is at {head}, expected pinned {PROOT_COMMIT}");
+    }
+    Ok(())
+}
+
+fn task_build_proot(root: &Path) -> Result<()> {
+    verify_proot_checkout(root)?;
+    let ndk = pinned_ndk_dir(root, None)?;
+    let status = Command::new("bash")
+        .arg(proot_source_dir(root).join("tools/build-static-aarch64.sh"))
+        .env("NDK", ndk)
+        .env("API", MIN_SDK.to_string())
+        .env("OUT", root.join("target/proot-static/build"))
+        .env("REPO_ARTIFACT_DIR", root.join("target/proot-static/artifacts"))
+        .status()
+        .context("failed to start pinned PRoot build")?;
+    if !status.success() {
+        bail!("pinned PRoot build failed with {status}");
+    }
+    let (launcher, loader) = proot_artifact_paths(root);
+    if !launcher.is_file() || !loader.is_file() {
+        bail!("pinned PRoot build did not produce launcher and loader");
+    }
+    let (launcher_dst, loader_dst) = proot_jni_artifact_paths(root);
+    fs::create_dir_all(launcher_dst.parent().unwrap())?;
+    fs::copy(&launcher, &launcher_dst)?;
+    fs::copy(&loader, &loader_dst)?;
+    Ok(())
+}
+
 /// Native-only build: cargo build + copy .so to jniLibs/.
 fn task_build_native(abi_args: &[String]) -> Result<()> {
     let root = workspace_root();
     let native_dir = native_crate_dir(&root);
     let abis = resolve_abis(abi_args)?;
+
+    if should_build_proot(&abis) {
+        task_build_proot(&root)?;
+    }
 
     for spec in &abis {
         println!(
@@ -1962,6 +2034,21 @@ mod tests {
         let (source, destination) = chroot_cleanup_artifact_paths(root, &ABI_TABLE[1]);
         assert_eq!(source, root.join("target/armv7-linux-androideabi/release/chroot_cleanup"));
         assert_eq!(destination, root.join("app/src/main/jniLibs/armeabi-v7a/libchroot_cleanup.so"));
+    }
+
+    #[test]
+    fn proot_is_packaged_as_arm64_native_artifacts() {
+        let root = Path::new("/workspace");
+        let (launcher, loader) = proot_jni_artifact_paths(root);
+        assert_eq!(launcher, root.join("app/src/main/jniLibs/arm64-v8a/libproot.so"));
+        assert_eq!(loader, root.join("app/src/main/jniLibs/arm64-v8a/libproot_loader.so"));
+    }
+
+    #[test]
+    fn proot_build_selection_is_arm64_only() {
+        assert!(should_build_proot(&[&ABI_TABLE[0]]));
+        assert!(!should_build_proot(&[&ABI_TABLE[1]]));
+        assert!(should_build_proot(&[&ABI_TABLE[0], &ABI_TABLE[1]]));
     }
 
     #[test]
