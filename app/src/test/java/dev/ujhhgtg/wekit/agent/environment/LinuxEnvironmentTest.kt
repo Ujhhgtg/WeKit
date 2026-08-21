@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import kotlin.io.path.writeText
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import java.nio.file.Files
@@ -79,7 +81,7 @@ class LinuxEnvironmentTest {
     @Test
     fun `deletion plan transitions pinned and default-following sessions with full context`() {
         val old = environment(LinuxEnvironmentType.PROOT).toSnapshot()
-        val native = nativeSnapshot(Path.of("/native"))
+        val native = nativeSnapshot("/native".asPath)
 
         val plan = WeAgentRepository.planLinuxEnvironmentDeletion(
             deletedEnvironment = old,
@@ -119,7 +121,7 @@ class LinuxEnvironmentTest {
 
         val plan = WeAgentRepository.planLinuxEnvironmentDeletion(
             deletedEnvironment = old,
-            nativeEnvironment = nativeSnapshot(Path.of("/native")),
+            nativeEnvironment = nativeSnapshot("/native".asPath),
             defaultEnvironmentId = replacement.id,
             sessions = listOf(LinuxEnvironmentSessionState("session", old.id, old.id)),
             storedEnvironmentIds = setOf(old.id, replacement.id),
@@ -144,7 +146,7 @@ class LinuxEnvironmentTest {
     @Test
     fun `native edit replaces exactly and rejects relative traversal`(@TempDir directory: Path) = runBlocking {
         val file = directory.resolve("note.txt")
-        Files.writeString(file, "before")
+        file.writeText("before")
         val backend = NativeBackend(nativeSnapshot(directory))
 
         backend.edit(FileEditRequest("note.txt", "before", "after"))
@@ -455,7 +457,7 @@ class LinuxEnvironmentTest {
     fun `failed local database deletion restores quarantined instance`(@TempDir directory: Path) = runBlocking {
         val instance = directory.resolve("environment")
         val rootfs = Files.createDirectories(instance.resolve("rootfs"))
-        Files.writeString(rootfs.resolve("kept"), "data")
+        rootfs.resolve("kept").writeText("data")
         val stored = environment(LinuxEnvironmentType.PROOT).copy(rootfsPath = rootfs.toString())
         val manager = LinuxEnvironmentManager(
             nativeSnapshot = nativeSnapshot(directory.resolve("native")),

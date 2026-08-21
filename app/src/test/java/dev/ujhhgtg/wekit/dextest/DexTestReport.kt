@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.dextest
 
+import kotlin.io.path.writeText
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
@@ -106,7 +107,7 @@ internal data class DexTestApkReport(
 internal fun DexTestApkReport.writeAtomically(path: Path) {
     Files.createDirectories(path.parent)
     val temp = path.resolveSibling(".${path.fileName}.tmp")
-    Files.writeString(temp, DexTestJson.encodeToString(this))
+    temp.writeText(DexTestJson.encodeToString(this))
     try {
         Files.move(temp, path, ATOMIC_MOVE, REPLACE_EXISTING)
     } catch (_: AtomicMoveNotSupportedException) {

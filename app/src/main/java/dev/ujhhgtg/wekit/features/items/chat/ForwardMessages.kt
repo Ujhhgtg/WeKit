@@ -15,10 +15,10 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.ForwardIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
+import dev.ujhhgtg.wekit.utils.serialization.XmlUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -152,7 +152,7 @@ object ForwardMessages : SwitchFeature(),
     private fun forwardVoice(toUser: String, msgInfo: MessageInfo): Boolean {
         val encPath = msgInfo.imagePath ?: return false
         val voicePath = WeMessageApi.getVoiceFullPath(encPath)
-        val durationMs = AudioUtils.getDurationMs(voicePath).toInt()
+        val durationMs = XmlUtils.extractXmlAttr(msgInfo.content, "voicelength").toInt()
         return WeMessageApi.sendVoice(toUser, voicePath, durationMs)
     }
 

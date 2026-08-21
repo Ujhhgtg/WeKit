@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.io.EOFException
 import java.io.InputStream
 import java.nio.ByteBuffer
@@ -33,6 +34,7 @@ object ArchiveExtractor {
         var longName: String? = null
         var longLink: String? = null
         val pendingHardLinks = mutableListOf<Pair<Path, String>>()
+        val directoryModes = mutableMapOf<Path, Long>()
         val regularFiles = mutableSetOf<Path>()
         val header = ByteArray(TAR_BLOCK)
         while (true) {
@@ -78,13 +80,13 @@ object ArchiveExtractor {
                 '5' -> {
                     require(size == 0L) { "directory entry has data: $name" }
                     Files.createDirectories(target)
-                    setMode(target, number(header, 100, 8), directory = true)
+                    directoryModes[target] = number(header, 100, 8)
                 }
                 '2' -> {
                     require(size == 0L) { "symlink entry has data: $name" }
                     validateLink(root, target.parent, linkName)
                     Files.createDirectories(target.parent)
-                    Files.createSymbolicLink(target, Path.of(linkName))
+                    Files.createSymbolicLink(target, linkName.asPath)
                 }
                 '1' -> {
                     require(size == 0L) { "hardlink entry has data: $name" }
@@ -104,13 +106,17 @@ object ArchiveExtractor {
             val source = safePath(root, link)
             require(source in regularFiles) { "hardlink target does not name an archive regular file: $link" }
             require(Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) { "hardlink target is not a regular file: $link" }
-            Files.createLink(target, source)
+            Files.copy(source, target)
+            Files.setPosixFilePermissions(target, Files.getPosixFilePermissions(source, LinkOption.NOFOLLOW_LINKS))
+        }
+        directoryModes.entries.sortedByDescending { it.key.nameCount }.forEach { (path, mode) ->
+            setMode(path, mode, directory = true)
         }
     }
 
     private fun safePath(root: Path, name: String): Path {
         require(name.isNotEmpty() && !name.startsWith('/')) { "absolute or empty archive path: $name" }
-        val relative = Path.of(name).normalize()
+        val relative = name.asPath.normalize()
         require(!relative.startsWith("..")) { "archive path escapes destination: $name" }
         return root.resolve(relative).normalize().also { require(it.startsWith(root)) }
     }
@@ -130,7 +136,7 @@ object ArchiveExtractor {
     }
 
     private fun resolveGuestLink(root: Path, parent: Path, link: String): Path {
-        val value = Path.of(link)
+        val value = link.asPath
         val resolved = if (value.isAbsolute) root.resolve(link.removePrefix("/")) else parent.resolve(value)
         return resolved.normalize().also { require(it.startsWith(root)) { "archive link escapes destination: $link" } }
     }
@@ -185,10 +191,10 @@ object ArchiveExtractor {
             val body = value.copyOfRange(space + 1, end - 1)
             val equals = body.indexOf('='.code.toByte())
             require(equals > 0) { "invalid pax record" }
-            put(
-                decodeUtf8(body.copyOfRange(0, equals)),
-                decodeUtf8(body.copyOfRange(equals + 1, body.size)),
-            )
+            val key = decodeUtf8(body.copyOfRange(0, equals))
+            if (key == "path" || key == "linkpath") {
+                put(key, decodeUtf8(body.copyOfRange(equals + 1, body.size)))
+            }
             position = end
         }
     }

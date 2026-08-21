@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import kotlin.io.path.writeText
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
@@ -156,7 +157,7 @@ class SshBackendTest {
 
     private fun runHelper(port: Int, vararg args: String): ProcessResult {
         val script = Files.createTempFile("weagent-invoke-tool", ".sh")
-        Files.writeString(script, SshBackend.REMOTE_HELPER, StandardCharsets.UTF_8)
+        script.writeText(SshBackend.REMOTE_HELPER, StandardCharsets.UTF_8)
         try {
             val started = ProcessBuilder("/bin/bash", script.toString(), *args)
                 .apply {

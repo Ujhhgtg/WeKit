@@ -1,5 +1,8 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import kotlin.io.path.writeText
+import dev.ujhhgtg.wekit.loader.utils.NativeLoader
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
@@ -19,12 +22,13 @@ import kotlinx.coroutines.withContext
 
 class ProotBackend internal constructor(
     override val snapshot: EnvironmentSnapshot,
-    private val rootfs: Path = Path.of(requireNotNull(snapshot.rootfsPath)),
+    private val rootfs: Path = requireNotNull(snapshot.rootfsPath).asPath,
     private val storageBinds: List<ProotCommand.Bind> = emptyList(),
+    private val launcher: Path = NativeLoader.prootExecutable().toPath(),
+    private val loader: Path = NativeLoader.prootLoaderExecutable().toPath(),
     private val startProcess: OwnedProcessStarter = OwnedProcess::start,
 ) : LinuxEnvironmentBackend {
     private val instance = rootfs.parent
-    private val launcher = instance.resolve("bin/proot")
 
     init {
         require(snapshot.type == LinuxEnvironmentType.PROOT)
@@ -45,7 +49,7 @@ class ProotBackend internal constructor(
             val startedAt = System.nanoTime()
             val argv = ProotCommand.execArgv(launcher, rootfs, snapshot.workingDirectory, command, environmentVariables, storageBinds)
             val processEnvironment = System.getenv().toMutableMap().apply {
-                this["PROOT_LOADER"] = instance.resolve("bin/loader").toString()
+                this["PROOT_LOADER"] = loader.toString()
                 this["PROOT_TMP_DIR"] = instance.resolve("tmp").also(Files::createDirectories).toString()
             }
             val process = startProcess(argv, processEnvironment, instance.toString())
@@ -131,7 +135,7 @@ class ProotBackend internal constructor(
         val mode = if (exists) Files.getPosixFilePermissions(target) else PosixFilePermissions.fromString("rw-------")
         val temporary = Files.createTempFile(parent, ".weagent-edit-", ".tmp")
         try {
-            Files.writeString(temporary, updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)
+            temporary.writeText(updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)
             Files.setPosixFilePermissions(temporary, mode)
             Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
         } finally { Files.deleteIfExists(temporary) }
@@ -148,7 +152,7 @@ class ProotBackend internal constructor(
 
     override suspend fun checkHealth(): EnvironmentHealth {
         if (!Files.isExecutable(launcher)) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "PRoot launcher is missing")
-        if (!Files.isExecutable(instance.resolve("bin/loader"))) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "PRoot loader is missing")
+        if (!Files.isExecutable(loader)) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "PRoot loader is missing")
         if (!Files.isRegularFile(rootfs.resolve("bin/bash"))) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "Arch template is corrupt")
         val result = exec("test -x /usr/bin/invoke_tool && test -w /root", 15_000)
         return if (result.exitCode == 0) EnvironmentHealth(EnvironmentHealthState.HEALTHY)
@@ -156,15 +160,15 @@ class ProotBackend internal constructor(
     }
 
     private fun guestPath(path: String): String {
-        val requested = Path.of(path)
-        val guest = (if (requested.isAbsolute) requested else Path.of(snapshot.workingDirectory).resolve(requested)).normalize()
+        val requested = path.asPath
+        val guest = (if (requested.isAbsolute) requested else snapshot.workingDirectory.asPath.resolve(requested)).normalize()
         require(guest.isAbsolute && !guest.startsWith("/..")) { "path escapes guest root" }
         require(listOf("/proc", "/sys", "/dev").none { guest.startsWith(it) }) { "virtual and device files are not supported" }
         return guest.toString()
     }
 
     private fun resolve(path: String): Path {
-        var guest = Path.of(guestPath(path))
+        var guest = guestPath(path).asPath
         var host = rootfs
         var index = 0
         var links = 0
@@ -173,8 +177,8 @@ class ProotBackend internal constructor(
             if (Files.isSymbolicLink(host)) {
                 require(++links <= 40) { "too many symbolic links" }
                 val link = Files.readSymbolicLink(host)
-                val remaining = if (index + 1 < guest.nameCount) guest.subpath(index + 1, guest.nameCount) else Path.of("")
-                guest = (if (link.isAbsolute) link else Path.of("/").resolve(rootfs.relativize(host.parent)).resolve(link)).resolve(remaining).normalize()
+                val remaining = if (index + 1 < guest.nameCount) guest.subpath(index + 1, guest.nameCount) else "".asPath
+                guest = (if (link.isAbsolute) link else "/".asPath.resolve(rootfs.relativize(host.parent)).resolve(link)).resolve(remaining).normalize()
                 require(guest.isAbsolute && !guest.startsWith("/..")) { "symbolic link escapes guest root" }
                 host = rootfs
                 index = 0
@@ -212,7 +216,7 @@ class ProotBackend internal constructor(
 
     companion object {
         private val APPROVED_STORAGE_ROOTS = listOf(
-            Path.of("/storage/emulated"), Path.of("/storage/self/primary"), Path.of("/sdcard"),
+            "/storage/emulated".asPath, "/storage/self/primary".asPath, "/sdcard".asPath,
         )
     }
 }
@@ -221,18 +225,19 @@ object ProotCommand {
     data class Bind(val host: Path, val guest: String)
 
     fun execArgv(launcher: Path, rootfs: Path, cwd: String, command: String, environment: Map<String, String>, storageBinds: List<Bind> = emptyList()): List<String> =
-        launchArgv(launcher, rootfs, cwd, listOf("/bin/bash", "-lc", command), environment, storageBinds)
+        launchArgv(launcher, rootfs, cwd, listOf("/bin/bash", "-c", command), environment, storageBinds)
 
     fun launchArgv(launcher: Path, rootfs: Path, cwd: String, guestArgv: List<String>, environment: Map<String, String>, storageBinds: List<Bind> = emptyList()): List<String> {
         require(guestArgv.isNotEmpty() && guestArgv.none(String::isEmpty))
-        require(cwd.startsWith('/') && !Path.of(cwd).normalize().startsWith("/.."))
-        val binds = listOf(Bind(Path.of("/dev"), "/dev"), Bind(Path.of("/proc"), "/proc"), Bind(Path.of("/sys"), "/sys")) + storageBinds
+        require(cwd.startsWith('/') && !cwd.asPath.normalize().startsWith("/.."))
+        val binds = listOf(Bind("/dev".asPath, "/dev"), Bind("/proc".asPath, "/proc"), Bind("/sys".asPath, "/sys")) + storageBinds
         return buildList {
             add(launcher.toString()); add("--kill-on-exit"); add("--link2symlink"); add("-0")
             add("-r"); add(rootfs.toString()); add("-w"); add(cwd)
             binds.forEach { bind -> add("-b"); add("${bind.host}:${bind.guest}") }
             add("/usr/bin/env"); add("-i")
             add("HOME=/root"); add("USER=root"); add("LOGNAME=root"); add("SHELL=/bin/bash")
+            add("PWD=$cwd")
             add("PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin")
             environment.filterKeys { it != "PATH" && it.matches(Regex("[A-Za-z_][A-Za-z0-9_]*")) }
                 .forEach { (key, value) -> add("$key=$value") }

@@ -131,6 +131,9 @@ android {
     }
 
     packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
         resources.excludes += listOf(
             "kotlin/**",
             "**.bin",

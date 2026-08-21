@@ -159,6 +159,7 @@
     <string name="agent_linux_environment_details_section">Configuration</string>
     <string name="agent_linux_environment_actions_section">Actions</string>
     <string name="agent_linux_environment_name">Name</string>
+    <string name="agent_linux_environment_type">Type</string>
     <string name="agent_linux_environment_type_immutable">Type cannot be changed after creation</string>
     <string name="agent_linux_environment_selected">Selected for new sessions</string>
     <string name="agent_linux_environment_working_directory">Working directory</string>
@@ -645,8 +646,6 @@
     <string name="feature_half_screen_album_picker_description">Display the album selector, image preview and search page of the chat "+" panel as half-screen cards, with the chat content visible above (the image editor remains full-screen)</string>
     <string name="feature_hide_messages_avatars_name">Hide message avatar</string>
     <string name="feature_hide_messages_avatars_description">Hide user avatar for messages (Telegram style)</string>
-    <string name="feature_immersive_chat_ui_name">Immersive chat interface</string>
-    <string name="feature_immersive_chat_ui_description">The chat interface enables edge-to-edge: the content extends behind the status bar, and messages can be scrolled below the status bar;</string>
     <string name="feature_markdown_rendering_name">Markdown rendering</string>
     <string name="feature_markdown_rendering_description">Rendering Markdown messages</string>
     <string name="feature_merge_chat_message_context_menu_items_name">Merge message context-menu items</string>
@@ -1190,7 +1189,8 @@
     <string name="nav_page_animation_summary">Animate between pages when tapping a tab instead of jumping directly</string>
     <string name="nav_use_floating_bar">Use floating bottom bar</string>
     <string name="nav_use_liquid_glass">Enable liquid glass effect</string>
-    <string name="nav_requires_floating_bar">Requires “Use floating bottom bar”</string>
+    <string name="nav_dynamic_gravity_highlight">Dynamic gravity highlight</string>
+    <string name="nav_dynamic_gravity_highlight_summary">Rotate glass highlights with device movement; uses the rotation sensor</string>
     <string name="nav_blur_radius_off">Blur radius: Off (fully transparent)</string>
     <string name="nav_blur_radius">Blur radius</string>
     <string name="nav_hide_labels">Hide tab labels</string>

@@ -81,8 +81,14 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
                 MessageType.QUOTE -> {
                     val quote = msgInfo.toQuoteMessage()!!
                     val content = quote.title
-                    WeMessageApi.sendQuoteText(msgInfo.talker, quote.svrid, content) ||
-                        WeMessageApi.sendQuoteTextByMsgId(msgInfo.talker, msgInfo.id, content)
+                    WeLogger.i(
+                        TAG,
+                        "repeat quote: destination=${msgInfo.talker}, messageId=${msgInfo.id}, " +
+                            "quotedMsgSvrId=${quote.svrid}, contentLength=${content.length}",
+                    )
+                    val sent = WeMessageApi.sendQuoteText(msgInfo.talker, quote.svrid, content)
+                    WeLogger.i(TAG, "repeat quote result: accepted=$sent")
+                    sent
                 }
                 else -> false
             }

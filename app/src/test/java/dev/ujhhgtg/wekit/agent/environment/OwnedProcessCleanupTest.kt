@@ -6,6 +6,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Path
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
@@ -13,6 +14,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -32,9 +34,41 @@ class OwnedProcessCleanupTest {
         runBlocking {
             val rootfs = Files.createDirectories(directory.resolve("instance/rootfs"))
             verifyFailureCleanup { starter ->
-                ProotBackend(prootSnapshot(rootfs), rootfs = rootfs, startProcess = starter)
+                ProotBackend(
+                    prootSnapshot(rootfs),
+                    rootfs = rootfs,
+                    launcher = "/package/lib/libproot.so".asPath,
+                    loader = "/package/lib/libproot_loader.so".asPath,
+                    startProcess = starter,
+                )
             }
         }
+
+    @Test
+    fun `proot launch uses package managed executables`(@TempDir directory: Path) = runBlocking {
+        val rootfs = Files.createDirectories(directory.resolve("instance/rootfs"))
+        val process = FakeOwnedProcess()
+        lateinit var capturedArgv: List<String>
+        lateinit var capturedEnvironment: Map<String, String>
+        val starter: OwnedProcessStarter = { argv, environment, _ ->
+            capturedArgv = argv
+            capturedEnvironment = environment
+            process
+        }
+        val backend = ProotBackend(
+            prootSnapshot(rootfs),
+            rootfs = rootfs,
+            launcher = "/package/lib/libproot.so".asPath,
+            loader = "/package/lib/libproot_loader.so".asPath,
+            startProcess = starter,
+        )
+
+        assertTrue(backend.exec("true", 1).timedOut)
+        assertEquals("/package/lib/libproot.so", capturedArgv.first())
+        assertEquals("/package/lib/libproot_loader.so", capturedEnvironment["PROOT_LOADER"])
+        assertTrue(capturedEnvironment.getValue("PROOT_TMP_DIR").endsWith("/instance/tmp"))
+        process.assertCleaned()
+    }
 
     private suspend fun verifyFailureCleanup(
         backend: (OwnedProcessStarter) -> LinuxEnvironmentBackend,

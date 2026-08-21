@@ -452,6 +452,10 @@ jobs:
         with:
           go-version-file: app/src/main/go/wekit-cloudflared/go.mod
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y gcc-multilib
+
       - name: Grant execute permission
         run: chmod +x gradlew
 
@@ -469,8 +473,6 @@ jobs:
       - name: Build packs
         env:
           WEKIT_ARCH_ROOTFS: ${{ runner.temp }}/arch-pack/ArchLinuxARM-aarch64-rootfs.tar.gz
-          WEKIT_ARCH_PROOT: ${{ runner.temp }}/arch-pack/proot
-          WEKIT_ARCH_PROOT_LOADER: ${{ runner.temp }}/arch-pack/proot-loader
         run: |
           SOURCE=extensions/archlinux-arm64-sources.json
           ROOTFS_URL=$(jq -r '.rootfs.url' "$SOURCE")
@@ -478,9 +480,6 @@ jobs:
           ROOTFS_SHA256=$(jq -er '.rootfs.sha256 | select(test("^[0-9A-Fa-f]{64}$"))' "$SOURCE")
           ROOTFS_SIGNATURE_URL=$(jq -r '.rootfs.signature_url' "$SOURCE")
           SIGNING_FINGERPRINT=$(jq -r '.rootfs.signing_fingerprint' "$SOURCE")
-          PROOT_SOURCE=$(jq -r '.proot.source' "$SOURCE")
-          WEKIT_ARCH_PROOT_COMMIT=$(jq -r '.proot.commit' "$SOURCE")
-          export WEKIT_ARCH_PROOT_COMMIT
           mkdir -p "$RUNNER_TEMP/arch-pack"
           curl --fail --location --retry 3 \
             "$ROOTFS_URL" \
@@ -496,13 +495,6 @@ jobs:
           test "$(gpg --show-keys --with-colons "$RUNNER_TEMP/arch-pack/signing-key.asc" | awk -F: '$1 == "fpr" { print $10; exit }')" = "$SIGNING_FINGERPRINT"
           gpg --batch --import "$RUNNER_TEMP/arch-pack/signing-key.asc"
           gpg --batch --verify "$WEKIT_ARCH_ROOTFS.sig" "$WEKIT_ARCH_ROOTFS"
-          git clone "$PROOT_SOURCE" "$RUNNER_TEMP/proot-static"
-          git -C "$RUNNER_TEMP/proot-static" checkout --detach "$WEKIT_ARCH_PROOT_COMMIT"
-          NDK="$ANDROID_HOME/ndk/$(sed -n 's/^ndk = "\(.*\)"/\1/p' gradle/libs.versions.toml)" \
-            REPO_ARTIFACT_DIR="$RUNNER_TEMP/arch-pack/proot-output" \
-            "$RUNNER_TEMP/proot-static/tools/build-static-aarch64.sh"
-          cp "$RUNNER_TEMP/arch-pack/proot-output/proot" "$WEKIT_ARCH_PROOT"
-          cp "$RUNNER_TEMP/arch-pack/proot-output/loader" "$WEKIT_ARCH_PROOT_LOADER"
           cargo xtask configure
           cargo xtask build --native-only --abi arm64-v8a
           cargo xtask extensions pack

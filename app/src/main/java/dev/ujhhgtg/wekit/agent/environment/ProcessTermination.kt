@@ -1,8 +1,8 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import android.os.Process as AndroidProcess
 import java.nio.file.Files
-import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 internal object ProcessTermination {
@@ -25,7 +25,7 @@ internal object ProcessTermination {
 
     private fun readParents(): Map<Int, Int> = buildMap {
         runCatching {
-            Files.list(Path.of("/proc")).use { entries ->
+            Files.list("/proc".asPath).use { entries ->
                 entries.filter { it.fileName.toString().all(Char::isDigit) }.forEach { pidPath ->
                     val pid = pidPath.fileName.toString().toInt()
                     val fields = Files.readString(pidPath.resolve("stat")).substringAfterLast(") ").split(' ')

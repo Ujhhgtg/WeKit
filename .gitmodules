@@ -8,3 +8,6 @@
 	path = third_party/cloudflared
 	url = https://github.com/cloudflare/cloudflared.git
 	shallow = true
+[submodule "third_party/proot-static"]
+	path = third_party/proot-static
+	url = https://github.com/berilevi/proot-static.git

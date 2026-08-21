@@ -1,0 +1,347 @@
+diff --git a/src/execve/enter.c b/src/execve/enter.c
+index c562d14..c26e9c1 100644
+--- a/src/execve/enter.c
++++ b/src/execve/enter.c
+@@ -716,6 +716,8 @@ int translate_execve_enter(Tracee *tracee)
+
+ 	/* Mask to its ptracer syscalls performed by the loader.  */
+ 	tracee->as_ptracee.ignore_loader_syscalls = true;
++	tracee->execve_pending = true;
++	tracee->execve_original_regs = tracee->_regs[ORIGINAL];
+
+ 	return 0;
+ }
+diff --git a/src/execve/exit.c b/src/execve/exit.c
+index 7d95922..c6b2045 100644
+--- a/src/execve/exit.c
++++ b/src/execve/exit.c
+@@ -406,6 +406,7 @@ void translate_execve_exit(Tracee *tracee)
+ 	int status;
+
+ 	if (tracee->skip_proot_loader) {
++		tracee->execve_pending = false;
+ 		tracee->restore_original_regs = false;
+ 		return;
+ 	}
+@@ -468,8 +469,10 @@ void translate_execve_exit(Tracee *tracee)
+ #endif
+
+ 	syscall_result = peek_reg(tracee, CURRENT, SYSARG_RESULT);
+-	if ((int) syscall_result < 0)
++	if ((int) syscall_result < 0) {
++		tracee->execve_pending = false;
+ 		return;
++	}
+
+ 	/* Execve happened; commit the new "/proc/self/exe".  */
+ 	if (tracee->new_exe != NULL) {
+@@ -493,6 +496,8 @@ void translate_execve_exit(Tracee *tracee)
+ 	status = transfer_load_script(tracee);
+ 	if (status < 0)
+ 		note(tracee, ERROR, INTERNAL, "can't transfer load script: %s", strerror(-status));
++	tracee->execve_pending = false;
++	tracee->post_exec_trap_expected = true;
+
+ 	return;
+ }
+diff --git a/src/tracee/event.c b/src/tracee/event.c
+index 756aa7e..7295587 100644
+--- a/src/tracee/event.c
++++ b/src/tracee/event.c
+@@ -38,6 +38,7 @@
+ #include "tracee/event.h"
+ #include "tracee/seccomp.h"
+ #include "tracee/mem.h"
++#include "tracee/reg.h"
+ #include "cli/note.h"
+ #include "path/path.h"
+ #include "path/binding.h"
+@@ -52,6 +53,46 @@
+
+ static bool seccomp_after_ptrace_enter = false;
+
++typedef struct PendingTraceeEvent {
++	pid_t pid;
++	int status;
++	struct PendingTraceeEvent *next;
++} PendingTraceeEvent;
++
++static PendingTraceeEvent *pending_events_head;
++static PendingTraceeEvent *pending_events_tail;
++
++void queue_tracee_event(pid_t pid, int tracee_status)
++{
++	PendingTraceeEvent *event = malloc(sizeof(*event));
++	if (event == NULL) {
++		note(NULL, ERROR, INTERNAL, "can't queue tracee event");
++		exit(EXIT_FAILURE);
++	}
++	event->pid = pid;
++	event->status = tracee_status;
++	event->next = NULL;
++	if (pending_events_tail == NULL)
++		pending_events_head = event;
++	else
++		pending_events_tail->next = event;
++	pending_events_tail = event;
++}
++
++static bool dequeue_tracee_event(pid_t *pid, int *tracee_status)
++{
++	PendingTraceeEvent *event = pending_events_head;
++	if (event == NULL)
++		return false;
++	pending_events_head = event->next;
++	if (pending_events_head == NULL)
++		pending_events_tail = NULL;
++	*pid = event->pid;
++	*tracee_status = event->status;
++	free(event);
++	return true;
++}
++
+ /**
+  * Start @tracee->exe with the given @argv[].  This function
+  * returns -errno if an error occurred, otherwise 0.
+@@ -330,7 +371,8 @@ int event_loop()
+ 		free_terminated_tracees();
+
+ 		/* Wait for the next tracee's stop. */
+-		pid = waitpid(-1, &tracee_status, __WALL);
++		if (!dequeue_tracee_event(&pid, &tracee_status))
++			pid = waitpid(-1, &tracee_status, __WALL);
+ 		if (pid < 0) {
+ 			if (errno != ECHILD) {
+ 				note(NULL, ERROR, SYSTEM, "waitpid()");
+@@ -426,12 +468,14 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
+ 			static bool deliver_sigtrap = false;
+
+ 		case SIGTRAP: {
++			/* Some Android kernels omit the exec syscall-exit stop when
++			 * TRACEEXEC is active.  Use the legacy post-exec SIGTRAP;
++			 * nested guest ptracers therefore receive no TRACEEXEC event. */
+ 			const unsigned long default_ptrace_options = (
+ 				PTRACE_O_TRACESYSGOOD	|
+ 				PTRACE_O_TRACEFORK	|
+ 				PTRACE_O_TRACEVFORK	|
+ 				PTRACE_O_TRACEVFORKDONE	|
+-				PTRACE_O_TRACEEXEC	|
+ 				PTRACE_O_TRACECLONE	|
+ 				PTRACE_O_TRACEEXIT);
+
+@@ -443,8 +487,27 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
+ 			 * related to the tracing loop, others SIGTRAP
+ 			 * carry tracing information because of
+ 			 * TRACE*FORK/CLONE/EXEC.  */
+-			if (deliver_sigtrap)
++			if (deliver_sigtrap) {
++				if (tracee->execve_pending) {
++					signal = 0;
++					fetch_regs(tracee);
++					tracee->_regs[ORIGINAL] = tracee->execve_original_regs;
++					tracee->status = 1;
++					translate_syscall(tracee);
++					tracee->post_exec_trap_expected = false;
++					tracee->sysexit_pending = false;
++					tracee->restart_how = PTRACE_CONT;
++					break;
++				}
++
++				if (tracee->post_exec_trap_expected) {
++					signal = 0;
++					tracee->post_exec_trap_expected = false;
++					tracee->restart_how = PTRACE_CONT;
++					break;
++				}
+ 				break;  /* Deliver this signal as-is.  */
++			}
+
+ 			deliver_sigtrap = true;
+
+diff --git a/src/tracee/event.h b/src/tracee/event.h
+index 3f78988..00fdafd 100644
+--- a/src/tracee/event.h
++++ b/src/tracee/event.h
+@@ -31,6 +31,7 @@ extern int launch_process(Tracee *tracee, char *const argv[]);
+ extern int event_loop();
+ extern int handle_tracee_event(Tracee *tracee, int tracee_status);
+ extern bool restart_tracee(Tracee *tracee, int signal);
++extern void queue_tracee_event(pid_t pid, int tracee_status);
+ extern bool seccomp_event_happens_after_enter_sigtrap();
+
+ #endif /* TRACEE_EVENT_H */
+diff --git a/src/tracee/tracee.c b/src/tracee/tracee.c
+index a97757d..453f04b 100644
+--- a/src/tracee/tracee.c
++++ b/src/tracee/tracee.c
+@@ -32,6 +32,7 @@
+ #include <sys/ptrace.h> /* ptrace(2), PTRACE_*, */
+ #include <errno.h>      /* E*, */
+ #include <inttypes.h>   /* PRI*, */
++#include <stdio.h>      /* fopen(3), fscanf(3), */
+
+ #include "tracee/tracee.h"
+ #include "tracee/reg.h"
+@@ -48,6 +49,99 @@
+
+ static Tracees tracees;
+
++static pid_t find_untracked_child(const Tracee *parent)
++{
++	char path[64];
++	long candidate;
++	FILE *children;
++
++	snprintf(path, sizeof(path), "/proc/%d/task/%d/children", parent->pid, parent->pid);
++	children = fopen(path, "r");
++	if (children == NULL)
++		return 0;
++
++	while (fscanf(children, "%ld", &candidate) == 1) {
++		if (candidate > 0 && get_tracee(NULL, (pid_t) candidate, false) == NULL) {
++			fclose(children);
++			return (pid_t) candidate;
++		}
++	}
++	fclose(children);
++	return 0;
++}
++
++static bool read_process_ids(pid_t pid, pid_t *ppid, pid_t *tgid)
++{
++	char line[128];
++	char path[64];
++	FILE *status;
++
++	*ppid = 0;
++	*tgid = 0;
++	snprintf(path, sizeof(path), "/proc/%d/status", pid);
++	status = fopen(path, "r");
++	if (status == NULL)
++		return false;
++	while (fgets(line, sizeof(line), status) != NULL) {
++		if (sscanf(line, "PPid:%d", ppid) == 1)
++			continue;
++		(void) sscanf(line, "Tgid:%d", tgid);
++	}
++	fclose(status);
++	return *ppid > 0 && *tgid > 0;
++}
++
++static bool belongs_to_parent(const Tracee *parent, pid_t pid, word_t clone_flags)
++{
++	pid_t child_ppid, child_tgid, parent_ppid, parent_tgid;
++	pid_t expected_ppid;
++
++	if (!read_process_ids(pid, &child_ppid, &child_tgid)
++	    || !read_process_ids(parent->pid, &parent_ppid, &parent_tgid))
++		return false;
++	expected_ppid = (clone_flags & CLONE_PARENT) != 0 ? parent_ppid : parent->pid;
++	return child_ppid == expected_ppid
++		|| ((clone_flags & CLONE_THREAD) != 0 && child_tgid == parent_tgid);
++}
++
++static Tracee *find_pending_child(const Tracee *parent, word_t clone_flags)
++{
++	Tracee *candidate;
++
++	LIST_FOREACH(candidate, &tracees, link) {
++		if (candidate->exe == NULL
++		    && candidate->sigstop == SIGSTOP_PENDING
++		    && belongs_to_parent(parent, candidate->pid, clone_flags))
++			return candidate;
++	}
++	return NULL;
++}
++
++static pid_t wait_for_untracked_child(const Tracee *parent, word_t clone_flags,
++					int *status_out, bool *stop_consumed)
++{
++	for (int attempts = 0; attempts < 64; attempts++) {
++		int tracee_status;
++		pid_t pid;
++
++		pid = find_untracked_child(parent);
++		if (pid > 0) {
++			*stop_consumed = false;
++			return pid;
++		}
++		pid = waitpid(-1, &tracee_status, __WALL);
++		if (pid < 0)
++			return 0;
++		if (get_tracee(NULL, pid, false) == NULL
++		    && belongs_to_parent(parent, pid, clone_flags)) {
++			*status_out = tracee_status;
++			*stop_consumed = true;
++			return pid;
++		}
++		queue_tracee_event(pid, tracee_status);
++	}
++	return 0;
++}
+
+ /**
+  * Remove @zombie from its parent's list of zombies.  Note: this is a
+@@ -385,6 +479,7 @@ int new_child(Tracee *parent, word_t clone_flags)
+ 	unsigned long pid;
+ 	Tracee *child;
+ 	int status;
++	bool child_stop_consumed = false;
+
+ 	/* If the tracee calls clone(2) with the CLONE_VFORK flag,
+ 	 * PTRACE_EVENT_VFORK will be delivered instead [...];
+@@ -402,13 +497,23 @@ int new_child(Tracee *parent, word_t clone_flags)
+         else if (status >= 0 && get_sysnum(parent, CURRENT) == PR_clone3)
+                 // Look at the first word of the clone_args structure, which
+                 // contains the usual clone flags.
+-                clone_flags = peek_word(parent, peek_reg(parent, CURRENT, SYSARG_1));
++		clone_flags = peek_word(parent, peek_reg(parent, CURRENT, SYSARG_1));
+
+ 	/* Get the pid of the parent's new child.  */
+ 	status = ptrace(PTRACE_GETEVENTMSG, parent->pid, NULL, &pid);
+ 	if (status < 0 || pid == 0) {
+-		note(parent, WARNING, SYSTEM, "ptrace(GETEVENTMSG)");
+-		return status;
++		int child_status;
++		Tracee *pending = find_pending_child(parent, clone_flags);
++		pid = pending == NULL ? find_untracked_child(parent) : pending->pid;
++		if (pid == 0) {
++			pid = wait_for_untracked_child(
++				parent, clone_flags, &child_status, &child_stop_consumed);
++			child_stop_consumed = child_stop_consumed && WIFSTOPPED(child_status);
++		}
++		if (pid == 0) {
++			note(parent, WARNING, SYSTEM, "ptrace(GETEVENTMSG)");
++			return status;
++		}
+ 	}
+
+ 	child = get_tracee(parent, (pid_t) pid, true);
+@@ -416,7 +521,10 @@ int new_child(Tracee *parent, word_t clone_flags)
+ 		note(parent, WARNING, SYSTEM, "running out of memory");
+ 		return -ENOMEM;
+ 	}
+-
++	if (child_stop_consumed) {
++		child->sigstop = SIGSTOP_PENDING;
++		child->restart_how = PTRACE_SYSCALL;
++	}
+ 	/* Sanity checks.  */
+ 	assert(child != NULL
+ 	    && child->exe == NULL
+diff --git a/src/tracee/tracee.h b/src/tracee/tracee.h
+index 3dcbc7b..8903dfb 100644
+--- a/src/tracee/tracee.h
++++ b/src/tracee/tracee.h
+@@ -243,6 +243,11 @@ typedef struct tracee {
+ 	 * has to be ignored as it's same syscall entry */
+ 	bool seccomp_already_handled_enter;
+
++	/* Track execve across kernels that omit its syscall-exit stop. */
++	bool execve_pending;
++	bool post_exec_trap_expected;
++	struct user_regs_struct execve_original_regs;
++
+ 	/**********************************************************************
+ 	 * Shared or private resources, depending on the CLONE_FS/VM flags.   *
+ 	 **********************************************************************/

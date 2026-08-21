@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import kotlin.io.path.writeText
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import com.topjohnwu.superuser.Shell
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import java.nio.file.Files
@@ -75,7 +77,7 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         try {
             val launchShell = rootShell()
             shell = launchShell
-            Files.writeString(run.stageFile, "LAUNCHING", StandardOpenOption.TRUNCATE_EXISTING)
+            run.stageFile.writeText("LAUNCHING", Charsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)
             val launch = "exec setsid unshare -m -- /system/bin/sh -c ${ChrootConfiguration.shell(configuration.execScript(run, command, environment))} " +
                 ChrootConfiguration.shell(run.cmdlineMarker) +
                 " > ${ChrootConfiguration.shell(stdout.toString())} 2> ${ChrootConfiguration.shell(stderr.toString())}"
@@ -144,7 +146,7 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         try {
             val result = shell.newJob().add("command -v su").exec()
             val value = result.out.singleOrNull()?.trim().orEmpty()
-            val path = runCatching { Path.of(value) }.getOrNull()
+            val path = runCatching { value.asPath }.getOrNull()
             if (!result.isSuccess || path == null || !path.isAbsolute || !Files.isExecutable(path) ||
                 TRUSTED_SU_PATHS.none { path == it }
             ) {
@@ -190,7 +192,7 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         Files.createDirectories(configuration.instance.resolve("outputs"))
         val input = Files.createTempFile(configuration.instance.resolve("outputs"), "edit-", ".tmp")
         try {
-            Files.writeString(input, updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)
+            input.writeText(updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)
             executeFixed(editCommand(request.path, input), HEALTH_TIMEOUT_MILLIS, "rooted atomic edit failed")
         } finally {
             Files.deleteIfExists(input)
@@ -377,8 +379,8 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         private val RUN_NONCE = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
         private val PROCESS_START_TIME = Regex("[0-9]+")
         private val TRUSTED_SU_PATHS = listOf(
-            Path.of("/system/bin/su"), Path.of("/system/xbin/su"), Path.of("/sbin/su"),
-            Path.of("/vendor/bin/su"), Path.of("/debug_ramdisk/su"),
+            "/system/bin/su".asPath, "/system/xbin/su".asPath, "/sbin/su".asPath,
+            "/vendor/bin/su".asPath, "/debug_ramdisk/su".asPath,
         )
     }
 }

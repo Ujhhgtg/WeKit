@@ -66,6 +66,7 @@ class TerminalManager(
         require(cols in 1..500 && rows in 1..200)
         val command = argv ?: when (environment.type) {
             LinuxEnvironmentType.NATIVE -> listOf("/system/bin/sh")
+            LinuxEnvironmentType.PROOT -> listOf("/bin/bash")
             else -> listOf("/bin/bash", "-l")
         }
         require(command.isNotEmpty() && command.none(String::isEmpty)) { "terminal argv cannot be empty" }

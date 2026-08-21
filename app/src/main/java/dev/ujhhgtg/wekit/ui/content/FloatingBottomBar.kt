@@ -208,6 +208,7 @@ fun <T> FloatingBottomBar(
     onSelectedTabTap: ((index: Int) -> Unit)? = null,
     onTabLongPress: ((index: Int) -> Boolean)? = null,
     liquidGlassBlurRadius: Dp = 4.dp,
+    dynamicGravityHighlight: Boolean = true,
 ) {
     val isInDark = isSystemInDarkTheme()
     val pillShape = remember { CircleShape }
@@ -400,7 +401,11 @@ fun <T> FloatingBottomBar(
             null
         }
 
-    val tilt by rememberDeviceTilt()
+    val tilt = if (isLiquidGlassMode && dynamicGravityHighlight) {
+        rememberDeviceTilt().value
+    } else {
+        DeviceTilt.Zero
+    }
     val baseHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, tilt, extraDegrees = -45f)
     val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, tilt, extraDegrees = 90f)
 

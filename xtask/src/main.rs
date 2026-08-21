@@ -16,6 +16,7 @@
 
 use anyhow::{Context, Result, bail};
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use fs2::FileExt;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
@@ -41,6 +42,7 @@ const MIN_SDK: u32 = 28;
 const MIN_NDK_MAJOR: u32 = 29;
 
 const CLOUDFLARED_COMMIT: &str = "8679787525edc8575b2948a7c4a50b6292c6d426";
+pub(crate) const PROOT_COMMIT: &str = "6f8ebfd8e24887dfba64c3f2d7d5fe9dc059b60e";
 
 // ── ABI table ─────────────────────────────────────────────────────────────────
 
@@ -435,6 +437,28 @@ fn jni_libs_dir(root: &Path) -> PathBuf {
     root.join("app/src/main/jniLibs")
 }
 
+fn proot_source_dir(root: &Path) -> PathBuf {
+    root.join("third_party/proot-static")
+}
+
+fn proot_patch_path(root: &Path) -> PathBuf {
+    root.join("patches/proot/android-ptrace-events.patch")
+}
+
+fn proot_build_source_dir(root: &Path) -> PathBuf {
+    root.join("target/proot-static/source")
+}
+
+pub(crate) fn proot_artifact_paths(root: &Path) -> (PathBuf, PathBuf) {
+    let artifacts = root.join("target/proot-static/artifacts");
+    (artifacts.join("proot"), artifacts.join("loader"))
+}
+
+fn proot_jni_artifact_paths(root: &Path) -> (PathBuf, PathBuf) {
+    let arm64 = jni_libs_dir(root).join("arm64-v8a");
+    (arm64.join("libproot.so"), arm64.join("libproot_loader.so"))
+}
+
 fn invoke_tool_artifact_paths(root: &Path, spec: &AbiSpec) -> (PathBuf, PathBuf) {
     (
         root.join("target").join(spec.cargo_triple).join("release/invoke_tool"),
@@ -480,6 +504,10 @@ fn resolve_abis<'a>(names: &[String]) -> Result<Vec<&'a AbiSpec>> {
                 })
         })
         .collect()
+}
+
+fn should_build_proot(abis: &[&AbiSpec]) -> bool {
+    abis.iter().any(|abi| abi.android_name == "arm64-v8a")
 }
 
 fn go_android_target(spec: &AbiSpec) -> GoAndroidTarget {
@@ -717,11 +745,149 @@ fn task_prepare_apk_native_inputs(abi_args: &[String]) -> Result<()> {
     Ok(())
 }
 
+fn verify_proot_checkout(root: &Path) -> Result<()> {
+    let source = proot_source_dir(root);
+    let script = source.join("tools/build-static-aarch64.sh");
+    if !script.is_file() {
+        bail!(
+            "PRoot source is not initialized at {}; run `git submodule update --init --recursive`",
+            source.display(),
+        );
+    }
+    verify_proot_source_checkout(&source, PROOT_COMMIT)
+}
+
+fn proot_git_output(source: &Path, args: &[&str]) -> Result<String> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(source)
+        .output()
+        .with_context(|| format!("failed to inspect PRoot source at {}", source.display()))?;
+    if !output.status.success() {
+        bail!("`git {}` failed in {}", args.join(" "), source.display());
+    }
+    Ok(String::from_utf8(output.stdout)?.trim().to_owned())
+}
+
+fn verify_proot_source_checkout(source: &Path, expected_commit: &str) -> Result<()> {
+    let actual = proot_git_output(source, &["rev-parse", "HEAD"])?;
+    if actual != expected_commit {
+        bail!("PRoot source is at {actual}, expected pinned {expected_commit}");
+    }
+
+    let changes = proot_git_output(
+        source,
+        &["status", "--porcelain=v1", "--untracked-files=all"],
+    )?;
+    if !changes.is_empty() {
+        bail!(
+            "PRoot source checkout is not clean; remove tracked or non-ignored untracked changes before building:\n{changes}"
+        );
+    }
+    Ok(())
+}
+
+fn run_checked(command: &mut Command, action: &str) -> Result<()> {
+    let status = command.status().with_context(|| format!("failed to start {action}"))?;
+    if !status.success() {
+        bail!("{action} failed with {status}");
+    }
+    Ok(())
+}
+
+fn prepare_proot_build_source(root: &Path) -> Result<PathBuf> {
+    let source = proot_source_dir(root);
+    let build_source = proot_build_source_dir(root);
+    let patch = proot_patch_path(root);
+    if !patch.is_file() {
+        bail!("pinned PRoot patch is missing: {}", patch.display());
+    }
+
+    let _ = Command::new("git")
+        .args(["worktree", "remove", "--force"])
+        .arg(&build_source)
+        .current_dir(&source)
+        .status();
+    if build_source.exists() {
+        fs::remove_dir_all(&build_source)
+            .with_context(|| format!("failed to remove {}", build_source.display()))?;
+    }
+    run_checked(
+        Command::new("git")
+            .args(["worktree", "prune"])
+            .current_dir(&source),
+        "PRoot worktree prune",
+    )?;
+    run_checked(
+        Command::new("git")
+            .args(["worktree", "add", "--detach"])
+            .arg(&build_source)
+            .arg(PROOT_COMMIT)
+            .current_dir(&source),
+        "PRoot build worktree creation",
+    )?;
+    run_checked(
+        Command::new("git")
+            .args(["apply", "--check"])
+            .arg(&patch)
+            .current_dir(&build_source),
+        "PRoot patch validation",
+    )?;
+    run_checked(
+        Command::new("git")
+            .arg("apply")
+            .arg(&patch)
+            .current_dir(&build_source),
+        "PRoot patch application",
+    )?;
+    Ok(build_source)
+}
+
+fn task_build_proot(root: &Path) -> Result<()> {
+    verify_proot_checkout(root)?;
+    let build_root = root.join("target/proot-static");
+    fs::create_dir_all(&build_root)?;
+    let build_lock = fs::OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(build_root.join("build.lock"))?;
+    build_lock
+        .lock_exclusive()
+        .context("failed to lock the PRoot build workspace")?;
+    let build_source = prepare_proot_build_source(root)?;
+    let ndk = pinned_ndk_dir(root, None)?;
+    let status = Command::new("bash")
+        .arg(build_source.join("tools/build-static-aarch64.sh"))
+        .env("NDK", ndk)
+        .env("API", MIN_SDK.to_string())
+        .env("OUT", root.join("target/proot-static/build"))
+        .env("REPO_ARTIFACT_DIR", root.join("target/proot-static/artifacts"))
+        .status()
+        .context("failed to start pinned PRoot build")?;
+    if !status.success() {
+        bail!("pinned PRoot build failed with {status}");
+    }
+    let (launcher, loader) = proot_artifact_paths(root);
+    if !launcher.is_file() || !loader.is_file() {
+        bail!("pinned PRoot build did not produce launcher and loader");
+    }
+    let (launcher_dst, loader_dst) = proot_jni_artifact_paths(root);
+    fs::create_dir_all(launcher_dst.parent().unwrap())?;
+    fs::copy(&launcher, &launcher_dst)?;
+    fs::copy(&loader, &loader_dst)?;
+    Ok(())
+}
+
 /// Native-only build: cargo build + copy .so to jniLibs/.
 fn task_build_native(abi_args: &[String]) -> Result<()> {
     let root = workspace_root();
     let native_dir = native_crate_dir(&root);
     let abis = resolve_abis(abi_args)?;
+
+    if should_build_proot(&abis) {
+        task_build_proot(&root)?;
+    }
 
     for spec in &abis {
         println!(
@@ -1962,6 +2128,64 @@ mod tests {
         let (source, destination) = chroot_cleanup_artifact_paths(root, &ABI_TABLE[1]);
         assert_eq!(source, root.join("target/armv7-linux-androideabi/release/chroot_cleanup"));
         assert_eq!(destination, root.join("app/src/main/jniLibs/armeabi-v7a/libchroot_cleanup.so"));
+    }
+
+    #[test]
+    fn proot_is_packaged_as_arm64_native_artifacts() {
+        let root = Path::new("/workspace");
+        let (launcher, loader) = proot_jni_artifact_paths(root);
+        assert_eq!(launcher, root.join("app/src/main/jniLibs/arm64-v8a/libproot.so"));
+        assert_eq!(loader, root.join("app/src/main/jniLibs/arm64-v8a/libproot_loader.so"));
+    }
+
+    #[test]
+    fn proot_build_selection_is_arm64_only() {
+        assert!(should_build_proot(&[&ABI_TABLE[0]]));
+        assert!(!should_build_proot(&[&ABI_TABLE[1]]));
+        assert!(should_build_proot(&[&ABI_TABLE[0], &ABI_TABLE[1]]));
+    }
+
+    #[test]
+    fn proot_build_uses_versioned_patch_and_generated_worktree() {
+        let root = Path::new("/workspace");
+        assert_eq!(
+            proot_patch_path(root),
+            root.join("patches/proot/android-ptrace-events.patch"),
+        );
+        assert_eq!(
+            proot_build_source_dir(root),
+            root.join("target/proot-static/source"),
+        );
+    }
+
+    #[test]
+    fn proot_checkout_accepts_clean_pinned_revision() {
+        let repo = test_git_repo();
+        verify_proot_source_checkout(&repo.path, &repo.head).unwrap();
+    }
+
+    #[test]
+    fn proot_checkout_rejects_tracked_changes() {
+        let repo = test_git_repo();
+        fs::write(repo.path.join("go.mod"), "modified input\n").unwrap();
+        let error = verify_proot_source_checkout(&repo.path, &repo.head).unwrap_err();
+        assert!(error.to_string().contains("not clean"));
+    }
+
+    #[test]
+    fn proot_checkout_rejects_untracked_input() {
+        let repo = test_git_repo();
+        fs::write(repo.path.join("injected.c"), "int injected;\n").unwrap();
+        let error = verify_proot_source_checkout(&repo.path, &repo.head).unwrap_err();
+        assert!(error.to_string().contains("injected.c"));
+    }
+
+    #[test]
+    fn proot_checkout_allows_ignored_build_artifacts() {
+        let repo = test_git_repo();
+        fs::create_dir(repo.path.join("ignored-build")).unwrap();
+        fs::write(repo.path.join("ignored-build/generated.o"), "object\n").unwrap();
+        verify_proot_source_checkout(&repo.path, &repo.head).unwrap();
     }
 
     #[test]

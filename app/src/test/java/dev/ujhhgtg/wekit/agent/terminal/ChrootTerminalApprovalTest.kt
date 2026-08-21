@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.agent.terminal
 
+import kotlin.io.path.writeText
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceInstaller
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
@@ -16,6 +18,33 @@ import org.junit.jupiter.api.io.TempDir
 
 class ChrootTerminalApprovalTest {
     @Test
+    fun `proot terminal uses package managed executables`(@TempDir directory: Path) = runBlocking {
+        val rootfs = Files.createDirectories(directory.resolve("instance/rootfs"))
+        val native = RecordingBackend()
+        val backend = EnvironmentTerminalBackend(
+            native = native,
+            chrootInstancesRoot = directory,
+            resolveProotLauncher = { "/package/lib/libproot.so".asPath },
+            resolveProotLoader = { "/package/lib/libproot_loader.so".asPath },
+        )
+
+        backend.start(
+            snapshot(rootfs).copy(type = LinuxEnvironmentType.PROOT),
+            listOf("/bin/bash"),
+            null,
+            emptyMap(),
+            80,
+            24,
+        )
+
+        assertEquals("/package/lib/libproot.so", native.argv.single().first())
+        assertEquals(
+            "/package/lib/libproot_loader.so",
+            native.environments.single().getValue("PROOT_LOADER"),
+        )
+    }
+
+    @Test
     fun `rooted terminal denial occurs before launcher resolution`(@TempDir directory: Path) {
         val rootfs = publishedRootfs(directory)
         var launcherResolved = false
@@ -23,7 +52,7 @@ class ChrootTerminalApprovalTest {
             native = RecordingBackend(),
             approveChrootStart = { false },
             chrootInstancesRoot = directory,
-            resolveRootLauncher = { launcherResolved = true; Path.of("/system/bin/su") },
+            resolveRootLauncher = { launcherResolved = true; "/system/bin/su".asPath },
         )
 
         assertThrows(IllegalStateException::class.java) {
@@ -41,7 +70,7 @@ class ChrootTerminalApprovalTest {
             native = native,
             approveChrootStart = { approvals++; true },
             chrootInstancesRoot = directory,
-            resolveRootLauncher = { Path.of("/system/bin/su") },
+            resolveRootLauncher = { "/system/bin/su".asPath },
             cleanupChrootRun = { helper, run -> helper.removeRunMetadata(run) },
         )
 
@@ -56,13 +85,13 @@ class ChrootTerminalApprovalTest {
     fun `early startup failure after launch handoff retains uncertain run`(@TempDir directory: Path) {
         val rootfs = publishedRootfs(directory)
         val stale = rootfs.parent.resolve("chroot.pid")
-        Files.writeString(stale, "1")
+        stale.writeText("1")
         var cleanedNonce: String? = null
         val backend = EnvironmentTerminalBackend(
             native = FailingBackend(),
             approveChrootStart = { true },
             chrootInstancesRoot = directory,
-            resolveRootLauncher = { Path.of("/system/bin/su") },
+            resolveRootLauncher = { "/system/bin/su".asPath },
             cleanupChrootRun = { helper, run ->
                 cleanedNonce = run.nonce
                 assertFalse(Files.exists(run.pidFile))
@@ -84,13 +113,13 @@ class ChrootTerminalApprovalTest {
         val rootfs = publishedRootfs(directory)
         val configuration = dev.ujhhgtg.wekit.agent.environment.ChrootConfiguration(rootfs, "/root")
         val pending = configuration.createRun()
-        Files.writeString(pending.stageFile, "NAMESPACE")
+        pending.stageFile.writeText("NAMESPACE")
         var launcherResolved = false
         val backend = EnvironmentTerminalBackend(
             native = RecordingBackend(),
             approveChrootStart = { true },
             chrootInstancesRoot = directory,
-            resolveRootLauncher = { launcherResolved = true; Path.of("/system/bin/su") },
+            resolveRootLauncher = { launcherResolved = true; "/system/bin/su".asPath },
         )
 
         assertThrows(IllegalStateException::class.java) {
@@ -109,7 +138,7 @@ class ChrootTerminalApprovalTest {
             native = RecordingBackend(),
             approveChrootStart = { true },
             chrootInstancesRoot = directory,
-            resolveRootLauncher = { Path.of("/system/bin/su") },
+            resolveRootLauncher = { "/system/bin/su".asPath },
             cleanupChrootRun = { helper, run ->
                 cleanups++
                 runDirectory = run.directory
@@ -130,16 +159,16 @@ class ChrootTerminalApprovalTest {
 
     private fun publishedRootfs(instances: Path): Path {
         val instance = Files.createDirectories(instances.resolve("arch"))
-        Files.writeString(instance.resolve(ArchLinuxInstanceInstaller.PUBLISHED_MARKER), "1")
-        listOf("bin/proot", "bin/loader", "rootfs/bin/bash", "rootfs/usr/bin/invoke_tool").forEach { relative ->
+        instance.resolve(ArchLinuxInstanceInstaller.PUBLISHED_MARKER).writeText("1")
+        listOf("rootfs/bin/bash", "rootfs/usr/bin/invoke_tool").forEach { relative ->
             val file = instance.resolve(relative)
             Files.createDirectories(file.parent)
-            Files.writeString(file, "x")
+            file.writeText("x")
             assertTrue(file.toFile().setExecutable(true))
         }
         val resolv = instance.resolve("rootfs/etc/resolv.conf")
         Files.createDirectories(resolv.parent)
-        Files.writeString(resolv, "nameserver 1.1.1.1\n")
+        resolv.writeText("nameserver 1.1.1.1\n")
         return instance.resolve("rootfs")
     }
 
@@ -152,6 +181,7 @@ class ChrootTerminalApprovalTest {
 
     private class RecordingBackend : TerminalBackend {
         val argv = mutableListOf<List<String>>()
+        val environments = mutableListOf<Map<String, String>>()
         override suspend fun start(
             environment: EnvironmentSnapshot,
             argv: List<String>,
@@ -161,6 +191,7 @@ class ChrootTerminalApprovalTest {
             rows: Int,
         ): TerminalBackendStart {
             this.argv += argv
+            environments += environmentVariables
             return TerminalBackendStart(Session(), environment)
         }
     }

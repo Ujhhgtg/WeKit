@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
@@ -79,7 +80,7 @@ class LinuxEnvironmentManager(
         }
         storedEnvironments().filter { it.type == LinuxEnvironmentType.CHROOT }.forEach { environment ->
             val result = runCatching {
-                recoverChroot(Path.of(requireNotNull(environment.rootfsPath)), environment.workingDirectory)
+                recoverChroot(requireNotNull(environment.rootfsPath).asPath, environment.workingDirectory)
             }.getOrElse { error -> ChrootRecoveryResult(0, mapOf("recovery" to (error.message ?: error::class.java.simpleName))) }
             result.healthError?.let {
                 publishHealth(environment.id, EnvironmentHealth(EnvironmentHealthState.DEGRADED, it))
@@ -242,7 +243,7 @@ class LinuxEnvironmentManager(
                 registryLocked = true
             }
             if (environment != null && environment.type != LinuxEnvironmentType.SSH) {
-                val rootfs = Path.of(requireNotNull(environment.rootfsPath))
+                val rootfs = requireNotNull(environment.rootfsPath).asPath
                 val instance = rootfs.parent
                 check(instance.fileName.toString() == id) { "invalid local environment layout" }
                 if (Files.exists(instance)) {
@@ -384,7 +385,7 @@ class LinuxEnvironmentManager(
     private suspend fun ensureChrootReady(environmentId: String) {
         if (environmentId == NATIVE_ENVIRONMENT_ID) return
         val environment = getEnvironment(environmentId)?.takeIf { it.type == LinuxEnvironmentType.CHROOT } ?: return
-        val rootfs = Path.of(requireNotNull(environment.rootfsPath))
+        val rootfs = requireNotNull(environment.rootfsPath).asPath
         check(!ChrootMountRegistry.hasActiveRuns(rootfs)) { "chroot environment has an active run" }
         val recovery = recoverChroot(rootfs, environment.workingDirectory)
         if (!recovery.isHealthy) {

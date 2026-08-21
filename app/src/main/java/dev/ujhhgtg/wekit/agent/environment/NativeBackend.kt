@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import kotlin.io.path.writeText
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
@@ -170,7 +171,7 @@ class NativeBackend internal constructor(
         } else null
         val temporary = Files.createTempFile(parent, ".weagent-edit-", ".tmp")
         try {
-            Files.writeString(temporary, updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)
+            temporary.writeText(updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)
             try {
                 Files.setPosixFilePermissions(temporary, originalPermissions ?: defaultFilePermissions)
             } catch (error: Exception) {

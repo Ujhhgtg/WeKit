@@ -182,6 +182,10 @@ fn parse_arch_sources(bytes: &[u8]) -> Result<ArchSources> {
     anyhow::ensure!(source.rootfs.max_extracted_bytes >= 1024 * 1024 * 1024, "invalid rootfs extracted-size limit");
     anyhow::ensure!(source.rootfs.signing_fingerprint.len() == 40 && source.rootfs.signing_fingerprint.chars().all(|c| c.is_ascii_hexdigit()), "invalid rootfs signing fingerprint");
     anyhow::ensure!(source.proot.source.starts_with("https://") && source.proot.commit.len() == 40 && source.proot.commit.chars().all(|c| c.is_ascii_hexdigit()), "invalid pinned PRoot source");
+    anyhow::ensure!(
+        source.proot.commit == crate::PROOT_COMMIT,
+        "Arch descriptor PRoot commit does not match the packaged PRoot pin",
+    );
     anyhow::ensure!(source.bridge.cargo_package == "invoke_tool" && source.bridge.target == "aarch64-linux-android", "invalid bridge identity");
     Ok(source)
 }
@@ -192,20 +196,18 @@ fn verify_arch_rootfs(path: &Path, source: &ArchRootfsSource) -> Result<()> {
     Ok(())
 }
 
+fn arch_proot_input_paths(root: &Path) -> (PathBuf, PathBuf) {
+    crate::proot_artifact_paths(root)
+}
+
 fn build_archlinux_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
     let source = read_arch_sources(root)?;
     let rootfs = std::env::var_os("WEKIT_ARCH_ROOTFS").map(PathBuf::from)
         .context("WEKIT_ARCH_ROOTFS must point to the separately downloaded and signature/checksum-verified rootfs")?;
-    let proot = std::env::var_os("WEKIT_ARCH_PROOT").map(PathBuf::from)
-        .context("WEKIT_ARCH_PROOT must point to the static ARM64 PRoot built from the pinned source commit")?;
-    let proot_loader = std::env::var_os("WEKIT_ARCH_PROOT_LOADER").map(PathBuf::from)
-        .context("WEKIT_ARCH_PROOT_LOADER must point to the matching ARM64 PRoot loader")?;
+    let (proot, proot_loader) = arch_proot_input_paths(root);
     let bridge = root.join("app/src/main/jniLibs/arm64-v8a/libinvoke_tool.so");
     anyhow::ensure!(rootfs.is_file() && proot.is_file() && proot_loader.is_file() && bridge.is_file(), "Arch pack input is missing");
     verify_arch_rootfs(&rootfs, &source.rootfs)?;
-    let built_from = std::env::var("WEKIT_ARCH_PROOT_COMMIT")
-        .context("WEKIT_ARCH_PROOT_COMMIT must identify the checked-out static PRoot source")?;
-    anyhow::ensure!(built_from == source.proot.commit, "static PRoot was not built from the pinned commit");
 
     let inputs = [
         ("ArchLinuxARM-aarch64-rootfs.tar.gz", rootfs),
@@ -398,8 +400,16 @@ mod tests {
         assert_eq!(source.rootfs.md5, "23eec86365b24f7913c403e8f4e8719b");
         assert_eq!(source.rootfs.sha256, "42a4eeaa038994ffd31fa173256ef2f0ef511358eeb41b9ea1f8626391b9b319");
         assert_eq!(source.rootfs.signing_fingerprint, "68B3537F39A313B3E574D06777193F152BDBE6A6");
-        assert_eq!(source.proot.commit.len(), 40);
+        assert_eq!(source.proot.commit, crate::PROOT_COMMIT);
         assert_eq!(source.bridge.target, "aarch64-linux-android");
+    }
+
+    #[test]
+    fn arch_pack_uses_shared_proot_build_outputs() {
+        let root = Path::new("/workspace");
+        let (proot, loader) = arch_proot_input_paths(root);
+        assert_eq!(proot, root.join("target/proot-static/artifacts/proot"));
+        assert_eq!(loader, root.join("target/proot-static/artifacts/loader"));
     }
 
     #[test]

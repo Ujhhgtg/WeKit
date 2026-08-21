@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Parcel
 import com.tencent.mm.api.IEmojiInfo
 import com.tencent.mm.opensdk.modelmsg.WXFileObject
 import com.tencent.mm.opensdk.modelmsg.WXMediaMessage
@@ -32,6 +33,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi.cacheFile
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi.downloadFile
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
+import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -262,31 +264,27 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     // -------------------------------------------------------------------------------------
     // 原生引用文本发送
     // -------------------------------------------------------------------------------------
-    private val methodQuoteRetransmit by dexMethod {
+    private val methodQuoteCompose by dexMethod {
         matcher {
-            declaredClass = "com.tencent.mm.ui.transmit.MsgRetransmitUI"
-            paramTypes(BString)
+            declaredClass = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
             returnType = "boolean"
             usingEqStrings(
-                "MicroMsg.MsgRetransmitUI",
-                "processAppMessageTransfer error: app content null",
+                "MicroMsg.msgquote.PluginMsgQuote",
+                "sendQuoteMsg result:%s msgId:%s result:%s",
+                "msg is revoked!",
             )
-            usingNumbers(53, 57)
+            usingNumbers(57)
         }
     }
-    private val classQuoteBuilder by dexClass()
-    private val classQuoteForwardInfo by dexClass()
-    private val methodQuoteBuilderFactory by dexMethod()
-    private val methodQuoteBuilderSetDestination by dexMethod()
-    private val methodQuoteBuilderSetContent by dexMethod()
-    private val methodQuoteBuilderSetScene by dexMethod()
-    private val methodQuoteBuilderSetSource by dexMethod()
-    private val methodQuoteBuilderBuild by dexMethod()
-    private val methodQuoteTaskExecute by dexMethod()
-    private val methodQuoteNativeTextScene by dexMethod()
-    private val fieldQuoteBuilderConstructorId by dexField()
-    private val fieldQuoteForwardInfoMsgId by dexField()
-    private val fieldQuoteForwardInfoTalker by dexField()
+    private val classQuoteMsgItem by dexClass()
+    private val classQuoteRelation by dexClass()
+    private val methodQuoteNormalizeType by dexMethod()
+    private val methodQuoteMsgSource by dexMethod()
+    private val methodQuoteStorageGetter by dexMethod()
+    private val methodQuoteRelationInsert by dexMethod()
+    private val fieldQuoteAppTitle by dexField()
+    private val fieldQuoteAppType by dexField()
+    private val fieldQuoteAppItem by dexField()
 
     // -------------------------------------------------------------------------------------
     // 图片发送组件
@@ -504,140 +502,77 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
     @SuppressLint("NonUniqueDexKitData")
     override fun resolveDex(dexKit: DexKitBridge) {
-        val quoteRetransmit = methodQuoteRetransmit.data
-        val quoteInvokes = quoteRetransmit.invokes.distinctBy { it.descriptor }
-        val quoteBuilderFactory = quoteInvokes.single { invoke ->
-            if (!Modifier.isStatic(invoke.modifiers) ||
-                invoke.paramTypeNames != listOf("java.lang.String")
-            ) {
-                return@single false
-            }
+        val quoteCompose = methodQuoteCompose.data
+        val quoteMsgItem = dexKit.findClass {
+            matcher { className = "com.tencent.mm.plugin.msgquote.model.MsgQuoteItem" }
+        }.single()
+        classQuoteMsgItem.setDescriptor(quoteMsgItem)
 
-            val returnType = invoke.returnType ?: return@single false
-            val methods = returnType.methods
-            methods.count {
-                !Modifier.isStatic(it.modifiers) &&
-                    it.paramTypeNames == listOf("java.lang.String") &&
-                    it.returnTypeName == returnType.name
-            } >= 2 && methods.any {
-                !Modifier.isStatic(it.modifiers) &&
+        val appMessageName = classAppMessage.data.name
+        val quoteWrites = quoteCompose.usingFields
+            .filter { it.usingType == FieldUsingType.Write }
+            .map { it.field }
+            .distinctBy { it.descriptor }
+        fieldQuoteAppTitle.setDescriptor(
+            quoteWrites.single {
+                it.className == appMessageName && it.typeName == "java.lang.String"
+            }
+        )
+        fieldQuoteAppType.setDescriptor(
+            quoteWrites.single {
+                it.className == appMessageName && it.typeName == "int"
+            }
+        )
+        fieldQuoteAppItem.setDescriptor(
+            quoteWrites.single {
+                it.className == appMessageName && it.typeName == quoteMsgItem.name
+            }
+        )
+
+        methodQuoteNormalizeType.setDescriptor(
+            quoteCompose.invokes.distinctBy { it.descriptor }.single {
+                Modifier.isStatic(it.modifiers) &&
                     it.paramTypeNames == listOf("int") &&
-                    it.returnTypeName == returnType.name
-            } && methods.any {
+                    it.returnTypeName == "int"
+            }
+        )
+
+        val msgInfoName = classMsgInfo.data.name
+        methodQuoteMsgSource.setDescriptor(
+            quoteCompose.invokes.distinctBy { it.descriptor }.single {
                 !Modifier.isStatic(it.modifiers) &&
-                    it.paramCount == 1 &&
-                    it.paramTypeNames.single() !in setOf("java.lang.String", "int") &&
-                    it.returnTypeName == returnType.name
-            } && methods.any {
+                    it.paramTypeNames == listOf(msgInfoName) &&
+                    it.returnTypeName == "java.lang.String"
+            }
+        )
+
+        val quoteRelation = dexKit.findClass {
+            matcher { usingStrings("MsgQute{field_msgId=", "field_quotedMsgTalker=") }
+        }.single()
+        classQuoteRelation.setDescriptor(quoteRelation)
+        val quoteStorage = dexKit.findClass {
+            matcher {
+                usingStrings(
+                    "MicroMsg.msgquote.MsgQuoteStorage",
+                    "getMsgQuteByMsgId:%s",
+                )
+            }
+        }.single()
+        methodQuoteRelationInsert.setDescriptor(
+            quoteStorage.methods.single { candidate ->
+                candidate.paramTypeNames == listOf(quoteRelation.name) &&
+                    candidate.returnTypeName == "boolean" &&
+                    candidate.usingFields.any {
+                        it.usingType == FieldUsingType.Write &&
+                            it.field.name == "field_status"
+                    }
+            }
+        )
+        methodQuoteStorageGetter.setDescriptor(
+            quoteCompose.invokes.distinctBy { it.descriptor }.single {
                 !Modifier.isStatic(it.modifiers) &&
                     it.paramCount == 0 &&
-                    it.returnTypeName !in setOf(returnType.name, "void")
-            }
-        }
-        methodQuoteBuilderFactory.setDescriptor(quoteBuilderFactory)
-
-        val quoteBuilderName = quoteBuilderFactory.returnTypeName
-        val quoteBuilder = quoteBuilderFactory.returnType!!
-        classQuoteBuilder.setDescriptor(quoteBuilder)
-
-        val quoteBuilderIntWrites = quoteRetransmit.usingFields
-            .filter { it.usingType == FieldUsingType.Write }
-            .map { it.field }
-            .filter { it.className == quoteBuilderName && it.typeName == "int" }
-            .distinctBy { it.descriptor }
-        // The constructor selector is dispatched independently by another builder interceptor;
-        // the payload int is only read together with the selector and other builder arguments.
-        fieldQuoteBuilderConstructorId.setDescriptor(
-            quoteBuilderIntWrites.single { candidate ->
-                candidate.readers.any { reader ->
-                    reader.paramTypeNames == listOf(quoteBuilderName) &&
-                        reader.usingFields
-                            .filter { it.usingType == FieldUsingType.Read }
-                            .map { it.field }
-                            .filter {
-                                it.className == quoteBuilderName && it.typeName == "int"
-                            }
-                            .distinctBy { it.descriptor }
-                            .singleOrNull()
-                            ?.descriptor == candidate.descriptor
-                }
-            }
-        )
-
-        val anchoredStringSetters = quoteInvokes.filter {
-            it.className == quoteBuilderName &&
-                it.paramTypeNames == listOf("java.lang.String") &&
-                it.returnTypeName == quoteBuilderName
-        }
-        val factoryGraphInvokes = quoteBuilderFactory.invokes.flatMap { factoryInvoke ->
-            factoryInvoke.invokes
-        }.distinctBy { it.descriptor }
-        val destinationSetter = anchoredStringSetters.single { setter ->
-            factoryGraphInvokes.any { it.descriptor == setter.descriptor }
-        }
-        val contentSetter = anchoredStringSetters.single { it.descriptor != destinationSetter.descriptor }
-        methodQuoteBuilderSetDestination.setDescriptor(destinationSetter)
-        methodQuoteBuilderSetContent.setDescriptor(contentSetter)
-
-        val sceneSetter = quoteInvokes.single {
-            it.className == quoteBuilderName &&
-                it.paramTypeNames == listOf("int") &&
-                it.returnTypeName == quoteBuilderName
-        }
-        methodQuoteBuilderSetScene.setDescriptor(sceneSetter)
-
-        val sourceSetter = quoteInvokes.single {
-            it.className == quoteBuilderName &&
-                it.paramCount == 1 &&
-                it.paramTypeNames.single() !in setOf("java.lang.String", "int") &&
-                it.returnTypeName == quoteBuilderName
-        }
-        methodQuoteBuilderSetSource.setDescriptor(sourceSetter)
-
-        val quoteForwardInfoName = sourceSetter.paramTypeNames.single()
-        val quoteForwardInfo = sourceSetter.paramTypes.single()
-        classQuoteForwardInfo.setDescriptor(quoteForwardInfo)
-
-        val buildMethod = quoteInvokes.single { invoke ->
-            invoke.className == quoteBuilderName &&
-                invoke.paramCount == 0 &&
-                invoke.returnTypeName !in setOf(quoteBuilderName, "void") &&
-                invoke.returnType?.methods?.any {
-                    !Modifier.isStatic(it.modifiers) &&
-                        it.paramCount == 0 &&
-                        it.returnTypeName == "boolean"
-                } == true
-        }
-        methodQuoteBuilderBuild.setDescriptor(buildMethod)
-
-        val quoteTaskName = buildMethod.returnTypeName
-        val executeMethod = quoteInvokes.single {
-            it.className == quoteTaskName &&
-                !Modifier.isStatic(it.modifiers) &&
-                it.paramCount == 0 &&
-                it.returnTypeName == "boolean"
-        }
-        methodQuoteTaskExecute.setDescriptor(executeMethod)
-
-        val nativeTextScene = quoteInvokes.single {
-            Modifier.isStatic(it.modifiers) &&
-                it.paramTypeNames == listOf("java.lang.String") &&
-                it.returnTypeName == "int"
-        }
-        methodQuoteNativeTextScene.setDescriptor(nativeTextScene)
-
-        val forwardInfoWrites = quoteRetransmit.usingFields
-            .filter { it.usingType == FieldUsingType.Write }
-            .map { it.field }
-            .filter { it.className == quoteForwardInfoName }
-            .distinct()
-        fieldQuoteForwardInfoMsgId.setDescriptor(
-            forwardInfoWrites.single { it.typeName == "long" }
-        )
-        fieldQuoteForwardInfoTalker.setDescriptor(
-            quoteForwardInfo.fields.first { field ->
-                field.typeName == "java.lang.String" &&
-                    forwardInfoWrites.any { it.descriptor == field.descriptor }
+                    it.returnTypeName == quoteStorage.name
             }
         )
 
@@ -843,6 +778,12 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
+    private fun getMsgInfoByMsgId(msgId: Long): MessageInfo? {
+        return WeDatabaseApi.rawQuery("SELECT * FROM message WHERE msgId=?", arrayOf(msgId)).use {
+            if (it.moveToFirst()) MessageInfo(convertMsgInfoInstanceFromCursor(it)) else null
+        }
+    }
+
     /**
      * @param talker 会话 username; 传 null 时自动从 message 表反查 (仅覆盖 C2C/群聊)。
      */
@@ -864,34 +805,161 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         return msgInfo
     }
 
-    private fun nativeTextScene(talker: String): Int {
-        return methodQuoteNativeTextScene.method.invoke(null, talker) as Int
+    private fun quoteDisplayName(source: MessageInfo): String {
+        val sender = source.sender
+        if (source.isInGroupChat) {
+            WeDatabaseApi.getGroupMemberDisplayName(source.talker, sender)
+                .takeIf(String::isNotEmpty)
+                ?.let { return it }
+        }
+        return WeDatabaseApi.getDisplayName(sender)
     }
 
-    private fun sendNativeQuote(
-        talker: String,
-        content: String,
-        sourceMsgId: Long,
-        sourceTalker: String,
-    ): Boolean {
-        val builder = methodQuoteBuilderFactory.method.invoke(null, talker)
-        methodQuoteBuilderSetDestination.method.invoke(builder, talker)
-        methodQuoteBuilderSetContent.method.invoke(builder, content)
-        methodQuoteBuilderSetScene.method.invoke(builder, nativeTextScene(talker))
-        fieldQuoteBuilderConstructorId.field.setInt(builder, 4)
-        val source = classQuoteForwardInfo.clazz.createInstance()
-        fieldQuoteForwardInfoMsgId.field.set(source, sourceMsgId)
-        fieldQuoteForwardInfoTalker.field.set(source, sourceTalker)
-        methodQuoteBuilderSetSource.method.invoke(builder, source)
-        val task = methodQuoteBuilderBuild.method.invoke(builder)
-        return methodQuoteTaskExecute.method.invoke(task) as Boolean
+    private fun quoteSourceContent(source: MessageInfo): String {
+        var value = source.actualContent
+        val textLikeTypes = setOf(1, 11, 21, 31, 36, 301989937, 1107296305)
+        if (source.typeCode !in textLikeTypes) {
+            val xmlStart = value.indexOf('<')
+            if (xmlStart > 0) value = value.substring(xmlStart)
+        }
+        if (source.type == MessageType.QUOTE) {
+            return try {
+                value.substring(0, value.indexOf("<refermsg>")) +
+                    "<refermsg>" + value.substring(value.lastIndexOf("</refermsg>"))
+            } catch (_: Exception) {
+                value
+            }
+        }
+        return try {
+            val recordStart = value.indexOf("<recorditem>")
+            val recordEnd = value.lastIndexOf("</recorditem>")
+            buildString {
+                append(value.substring(0, recordStart.coerceAtLeast(0)))
+                if (recordStart > 0) append("<recorditem>")
+                append(value.substring(recordEnd.coerceAtLeast(0)))
+            }
+        } catch (_: Exception) {
+            value
+        }
+    }
+
+    private fun createNativeQuoteItem(source: MessageInfo): Any {
+        val sourceGenerator = methodQuoteMsgSource.method
+        val generatedMsgSource = sourceGenerator.invoke(
+            WeServiceApi.getServiceByClass(sourceGenerator.declaringClass),
+            source.instance,
+        ) as String?
+        val parcel = Parcel.obtain()
+        return try {
+            parcel.writeInt(methodQuoteNormalizeType.method.invoke(null, source.typeCode) as Int)
+            parcel.writeLong(source.serverId)
+            parcel.writeString(source.talker)
+            parcel.writeString(source.sender)
+            parcel.writeString(quoteDisplayName(source))
+            parcel.writeString(source.msgSource)
+            parcel.writeString(quoteSourceContent(source))
+            parcel.writeString(generatedMsgSource.orEmpty())
+            parcel.writeInt(0)
+            parcel.writeString(extractXmlTag(source.msgSource, "strid"))
+            parcel.writeLong(source.createTime / 1000)
+            parcel.writeString(null)
+            parcel.setDataPosition(0)
+            classQuoteMsgItem.clazz.createInstance(parcel)
+        } finally {
+            parcel.recycle()
+        }
+    }
+
+    private fun insertQuoteRelation(localMsgId: Long, source: MessageInfo): Boolean {
+        val relation = classQuoteRelation.clazz.createInstance()
+        relation.reflekt().apply {
+            setField("field_msgId", localMsgId, superclass = true)
+            setField("field_quotedMsgId", source.id, superclass = true)
+            setField("field_quotedMsgSvrId", source.serverId, superclass = true)
+            setField("field_quotedMsgTalker", source.talker, superclass = true)
+        }
+        val storageGetter = methodQuoteStorageGetter.method
+        val pluginInterface = storageGetter.declaringClass.interfaces.single()
+        val plugin = WeServiceApi.getServiceByClass(pluginInterface)
+        val storage = storageGetter.invoke(plugin)
+        return methodQuoteRelationInsert.method.invoke(storage, relation) as Boolean
+    }
+
+    private fun sendNativeQuote(talker: String, content: String, source: MessageInfo): Boolean {
+        require(talker.isNotEmpty()) { "quote destination is empty" }
+        require(content.isNotEmpty()) { "quote content is empty" }
+        require(source.id > 0L && source.talker.isNotEmpty()) { "quote source is invalid" }
+
+        // Never parse and resend the stored type-57 XML here. Its outer <fromusername>
+        // belongs to the original sender. A fresh AppMessage mirrors ChatFooter's native
+        // quote path, so WeChat creates the new envelope while MsgQuoteItem supplies refermsg.
+        val appMessage = classAppMessage.clazz.createInstance()
+        fieldQuoteAppTitle.field.set(appMessage, content)
+        fieldQuoteAppType.field.setInt(appMessage, 57)
+        fieldQuoteAppItem.field.set(appMessage, createNativeQuoteItem(source))
+
+        val result = WeAppMsgApi.sendAppMsgObject(talker, appMessage)
+        val accepted = result.statusCode == 0 &&
+            (result.localMsgId == null || result.localMsgId > 0L)
+        if (!accepted) {
+            WeLogger.e(
+                TAG,
+                "sendNativeQuote rejected: destination=$talker, sourceMsgId=${source.id}, " +
+                    "sourceMsgSvrId=${source.serverId}, sourceTalker=${source.talker}, " +
+                    "statusCode=${result.statusCode}, localMsgId=${result.localMsgId}",
+            )
+            return false
+        }
+        val relationInserted = result.localMsgId?.takeIf { it > 0L }?.let { localMsgId ->
+            runCatching { insertQuoteRelation(localMsgId, source) }.getOrElse {
+                WeLogger.e(
+                    TAG,
+                    "sendNativeQuote: sent but failed to insert relation for localMsgId=$localMsgId",
+                    it,
+                )
+                false
+            }
+        }
+        WeLogger.i(
+            TAG,
+                "sendNativeQuote: destination=$talker, sourceMsgId=${source.id}, " +
+                "sourceMsgSvrId=${source.serverId}, sourceTalker=${source.talker}, " +
+                "contentLength=${content.length}, statusCode=${result.statusCode}, " +
+                "localMsgId=${result.localMsgId}, relationInserted=$relationInserted",
+        )
+        if (relationInserted == false) {
+            WeLogger.w(TAG, "sendNativeQuote: message accepted without MsgQuote relation")
+        }
+        return accepted
     }
 
     fun sendQuoteText(talker: String, quotedMsgSvrId: Long, content: String): Boolean {
         return try {
-            val quoted = getMsgInfoInstanceByMsgSvrId(quotedMsgSvrId, talker)
+            WeLogger.i(
+                TAG,
+                "sendQuoteText request: destination=$talker, " +
+                    "quotedMsgSvrId=$quotedMsgSvrId, contentLength=${content.length}",
+            )
+            if (quotedMsgSvrId <= 0L) {
+                WeLogger.w(TAG, "sendQuoteText: invalid quotedMsgSvrId=$quotedMsgSvrId")
+                return false
+            }
+            val quoted = getMsgInfoInstanceByMsgSvrId(quotedMsgSvrId)
             val quotedInfo = MessageInfo(quoted)
-            sendNativeQuote(talker, content, quotedInfo.id, quotedInfo.talker)
+            if (quotedInfo.id <= 0L || quotedInfo.serverId != quotedMsgSvrId || quotedInfo.talker.isEmpty()) {
+                WeLogger.w(
+                    TAG,
+                    "sendQuoteText: source not found for quotedMsgSvrId=$quotedMsgSvrId",
+                )
+                return false
+            }
+            val accepted = sendNativeQuote(talker, content, quotedInfo)
+            WeLogger.i(
+                TAG,
+                "sendQuoteText: destination=$talker, quotedMsgSvrId=$quotedMsgSvrId, " +
+                    "sourceMsgId=${quotedInfo.id}, accepted=$accepted",
+            )
+            accepted
         } catch (e: Exception) {
             WeLogger.e(TAG, "sendQuoteText failed", e)
             false
@@ -900,7 +968,27 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
     fun sendQuoteTextByMsgId(talker: String, quotedMsgId: Long, content: String): Boolean {
         return try {
-            sendNativeQuote(talker, content, quotedMsgId, talker)
+            WeLogger.i(
+                TAG,
+                "sendQuoteTextByMsgId request: destination=$talker, " +
+                    "quotedMsgId=$quotedMsgId, contentLength=${content.length}",
+            )
+            if (quotedMsgId <= 0L) {
+                WeLogger.w(TAG, "sendQuoteTextByMsgId: invalid quotedMsgId=$quotedMsgId")
+                return false
+            }
+            val quotedInfo = getMsgInfoByMsgId(quotedMsgId)
+            if (quotedInfo == null || quotedInfo.id <= 0L || quotedInfo.talker.isEmpty()) {
+                WeLogger.w(TAG, "sendQuoteTextByMsgId: source not found for quotedMsgId=$quotedMsgId")
+                return false
+            }
+            val accepted = sendNativeQuote(talker, content, quotedInfo)
+            WeLogger.i(
+                TAG,
+                "sendQuoteTextByMsgId: destination=$talker, sourceMsgId=$quotedMsgId, " +
+                    "accepted=$accepted",
+            )
+            accepted
         } catch (e: Exception) {
             WeLogger.e(TAG, "sendQuoteTextByMsgId failed", e)
             false
