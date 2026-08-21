@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.agent.environment
 
 import kotlin.io.path.writeText
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
@@ -53,6 +54,14 @@ class ProotBackend internal constructor(
                 this["PROOT_NO_SECCOMP"] = "1"
                 this["PROOT_TMP_DIR"] = instance.resolve("tmp").also(Files::createDirectories).toString()
             }
+            WeLogger.d(
+                TAG,
+                "starting PRoot hostCwd=$instance guestCwd=${snapshot.workingDirectory} " +
+                        "rootfs=$rootfs launcher=$launcher loader=$loader " +
+                        "rootfsExists=${Files.isDirectory(rootfs)} " +
+                        "tmpExists=${Files.isDirectory(instance.resolve("tmp"))} " +
+                        "envKeys=${processEnvironment.keys.sorted().joinToString(",")}",
+            )
             val process = startProcess(argv, processEnvironment, instance.toString())
             val streamFailure = AtomicReference<Throwable?>()
             var stdoutReader: Thread? = null
@@ -216,6 +225,7 @@ class ProotBackend internal constructor(
         }.apply { name = "wekit-owned-process-output"; start() }
 
     companion object {
+        private const val TAG = "ProotBackend"
         private val APPROVED_STORAGE_ROOTS = listOf(
             "/storage/emulated".asPath, "/storage/self/primary".asPath, "/sdcard".asPath,
         )

@@ -81,6 +81,12 @@ object ArchLinuxInstanceInstaller {
                 environment()["PROOT_NO_SECCOMP"] = "1"
                 environment()["PROOT_TMP_DIR"] = File(staging, "tmp").apply { mkdirs() }.absolutePath
             }.start()
+            WeLogger.d(
+                TAG,
+                "starting PRoot health hostCwd=$staging rootfs=$rootfs " +
+                        "launcher=$prootExecutable loader=$prootLoaderExecutable " +
+                        "rootfsExists=${rootfs.isDirectory} tmpExists=${File(staging, "tmp").isDirectory}",
+            )
             val deadline = System.nanoTime() + HEALTH_TIMEOUT_MILLIS * 1_000_000
             val healthOutput = ByteArrayOutputStream(MAX_HEALTH_OUTPUT_BYTES)
             val outputExceeded = AtomicBoolean()
