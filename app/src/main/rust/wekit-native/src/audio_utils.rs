@@ -534,8 +534,10 @@ fn get_silk_duration_ms(path: &str) -> Result<i64> {
         }
 
         if toc.corrupt != 0 {
-            // Skip corrupt packets rather than hard-erroring; a single bad
-            // packet shouldn't invalidate the entire duration estimate.
+            // Some playable WeChat SILK packets are rejected by this SDK's TOC
+            // parser. WeChat's length-prefixed container stores one 20 ms frame
+            // per such packet, so it must still contribute to the duration.
+            total_ms += SILK_FRAME_MS as i64;
             continue;
         }
 
@@ -544,4 +546,35 @@ fn get_silk_duration_ms(path: &str) -> Result<i64> {
     }
 
     Ok(total_ms)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn silk_duration_counts_wechat_packets_rejected_by_sdk_toc() {
+        let mut silk = Vec::from([0x02]);
+        silk.extend_from_slice(SILK_MAGIC);
+        for _ in 0..2 {
+            silk.extend_from_slice(&11_i16.to_le_bytes());
+            silk.extend_from_slice(&[0; 11]);
+        }
+
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "wekit-silk-duration-{}-{unique}.amr",
+            std::process::id(),
+        ));
+        std::fs::write(&path, silk).unwrap();
+
+        let duration_ms = get_audio_duration_ms(path.to_str().unwrap()).unwrap();
+        std::fs::remove_file(path).unwrap();
+
+        assert_eq!(duration_ms, 40);
+    }
 }
