@@ -1148,7 +1148,8 @@
     <string name="nav_page_animation_summary">點擊標籤時滑動切換頁面，而非直接跳轉</string>
     <string name="nav_use_floating_bar">使用懸浮底欄</string>
     <string name="nav_use_liquid_glass">啓用液態玻璃效果</string>
-    <string name="nav_requires_floating_bar">需啓用“使用懸浮底欄”</string>
+    <string name="nav_dynamic_gravity_highlight">動態重力高光</string>
+    <string name="nav_dynamic_gravity_highlight_summary">根據設備姿態旋轉玻璃高光，會持續使用旋轉傳感器</string>
     <string name="nav_blur_radius_off">模糊半徑：關閉（完全透明）</string>
     <string name="nav_blur_radius">模糊半徑</string>
     <string name="nav_hide_labels">隱藏標籤文本</string>

@@ -1155,7 +1155,8 @@
     <string name="nav_page_animation_summary">点击标签时滑动切换页面，而非直接跳转</string>
     <string name="nav_use_floating_bar">使用悬浮底栏</string>
     <string name="nav_use_liquid_glass">启用液态玻璃效果</string>
-    <string name="nav_requires_floating_bar">需启用“使用悬浮底栏”</string>
+    <string name="nav_dynamic_gravity_highlight">动态重力高光</string>
+    <string name="nav_dynamic_gravity_highlight_summary">根据设备姿态旋转玻璃高光，会持续使用旋转传感器</string>
     <string name="nav_blur_radius_off">模糊半径：关闭（完全透明）</string>
     <string name="nav_blur_radius">模糊半径</string>
     <string name="nav_hide_labels">隐藏标签文本</string>

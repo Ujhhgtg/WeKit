@@ -1189,7 +1189,8 @@
     <string name="nav_page_animation_summary">Animate between pages when tapping a tab instead of jumping directly</string>
     <string name="nav_use_floating_bar">Use floating bottom bar</string>
     <string name="nav_use_liquid_glass">Enable liquid glass effect</string>
-    <string name="nav_requires_floating_bar">Requires “Use floating bottom bar”</string>
+    <string name="nav_dynamic_gravity_highlight">Dynamic gravity highlight</string>
+    <string name="nav_dynamic_gravity_highlight_summary">Rotate glass highlights with device movement; uses the rotation sensor</string>
     <string name="nav_blur_radius_off">Blur radius: Off (fully transparent)</string>
     <string name="nav_blur_radius">Blur radius</string>
     <string name="nav_hide_labels">Hide tab labels</string>
