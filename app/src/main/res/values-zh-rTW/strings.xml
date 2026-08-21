@@ -521,7 +521,7 @@
     <string name="feature_monet_engine_name">莫奈引擎</string>
     <string name="feature_monet_engine_description">根據模塊設置的自定義配色爲微信原生組件上色</string>
     <string name="feature_replace_navigation_bar_name">美化首頁底部導航欄</string>
-    <string name="feature_replace_navigation_bar_description">將首頁底部導航欄替換爲 Material Design 或 Backdrop 風格</string>
+    <string name="feature_replace_navigation_bar_description">將首頁底欄替換爲 Material Design 或 Backdrop 風格</string>
     <string name="feature_themes_name">主題</string>
     <string name="feature_themes_description">應用 THEMES_PATH 中的主題，切換後重啓微信生效</string>
     <string name="feature_home_side_panel_name">主頁側滑面板</string>
