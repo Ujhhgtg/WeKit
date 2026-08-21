@@ -18,6 +18,33 @@ import org.junit.jupiter.api.io.TempDir
 
 class ChrootTerminalApprovalTest {
     @Test
+    fun `proot terminal uses package managed executables`(@TempDir directory: Path) = runBlocking {
+        val rootfs = Files.createDirectories(directory.resolve("instance/rootfs"))
+        val native = RecordingBackend()
+        val backend = EnvironmentTerminalBackend(
+            native = native,
+            chrootInstancesRoot = directory,
+            resolveProotLauncher = { "/package/lib/libproot.so".asPath },
+            resolveProotLoader = { "/package/lib/libproot_loader.so".asPath },
+        )
+
+        backend.start(
+            snapshot(rootfs).copy(type = LinuxEnvironmentType.PROOT),
+            listOf("/bin/bash"),
+            null,
+            emptyMap(),
+            80,
+            24,
+        )
+
+        assertEquals("/package/lib/libproot.so", native.argv.single().first())
+        assertEquals(
+            "/package/lib/libproot_loader.so",
+            native.environments.single().getValue("PROOT_LOADER"),
+        )
+    }
+
+    @Test
     fun `rooted terminal denial occurs before launcher resolution`(@TempDir directory: Path) {
         val rootfs = publishedRootfs(directory)
         var launcherResolved = false
@@ -133,7 +160,7 @@ class ChrootTerminalApprovalTest {
     private fun publishedRootfs(instances: Path): Path {
         val instance = Files.createDirectories(instances.resolve("arch"))
         instance.resolve(ArchLinuxInstanceInstaller.PUBLISHED_MARKER).writeText("1")
-        listOf("bin/proot", "bin/loader", "rootfs/bin/bash", "rootfs/usr/bin/invoke_tool").forEach { relative ->
+        listOf("rootfs/bin/bash", "rootfs/usr/bin/invoke_tool").forEach { relative ->
             val file = instance.resolve(relative)
             Files.createDirectories(file.parent)
             file.writeText("x")
@@ -154,6 +181,7 @@ class ChrootTerminalApprovalTest {
 
     private class RecordingBackend : TerminalBackend {
         val argv = mutableListOf<List<String>>()
+        val environments = mutableListOf<Map<String, String>>()
         override suspend fun start(
             environment: EnvironmentSnapshot,
             argv: List<String>,
@@ -163,6 +191,7 @@ class ChrootTerminalApprovalTest {
             rows: Int,
         ): TerminalBackendStart {
             this.argv += argv
+            environments += environmentVariables
             return TerminalBackendStart(Session(), environment)
         }
     }

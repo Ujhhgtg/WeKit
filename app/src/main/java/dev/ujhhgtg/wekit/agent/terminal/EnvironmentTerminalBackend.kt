@@ -11,6 +11,7 @@ import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceLayout
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentLease
 import dev.ujhhgtg.wekit.agent.environment.ProotCommand
+import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.NonCancellable
@@ -23,6 +24,8 @@ class EnvironmentTerminalBackend internal constructor(
     private val ssh: TerminalBackend? = null,
     private val approveChrootStart: suspend (EnvironmentSnapshot) -> Boolean = { false },
     private val chrootInstancesRoot: Path = ArchLinuxInstanceLayout.canonicalInstancesRoot(),
+    private val resolveProotLauncher: () -> Path = { NativeLoader.prootExecutable().toPath() },
+    private val resolveProotLoader: () -> Path = { NativeLoader.prootLoaderExecutable().toPath() },
     private val resolveRootLauncher: suspend (ChrootRootHelper) -> Path = { helper ->
         check(helper.hasRoot()) { "root access denied" }
         helper.resolveSuExecutable()
@@ -64,8 +67,10 @@ class EnvironmentTerminalBackend internal constructor(
         LinuxEnvironmentType.NATIVE -> native.start(environment, argv, workingDirectory, environmentVariables, cols, rows)
         LinuxEnvironmentType.PROOT -> {
             val rootfs = requireNotNull(environment.rootfsPath).asPath
+            val launcher = resolveProotLauncher()
+            val loader = resolveProotLoader()
             val hostArgv = ProotCommand.launchArgv(
-                rootfs.parent.resolve("bin/proot"), rootfs, workingDirectory ?: environment.workingDirectory,
+                launcher, rootfs, workingDirectory ?: environment.workingDirectory,
                 argv, environmentVariables,
             )
             val hostEnvironment = environment.copy(
@@ -74,7 +79,7 @@ class EnvironmentTerminalBackend internal constructor(
                 shell = hostArgv.first(),
             )
             val hostProcessEnvironment = mapOf(
-                "PROOT_LOADER" to rootfs.parent.resolve("bin/loader").toString(),
+                "PROOT_LOADER" to loader.toString(),
                 "PROOT_TMP_DIR" to rootfs.parent.resolve("tmp").toFile().apply { mkdirs() }.absolutePath,
             )
             val started = native.start(hostEnvironment, hostArgv, hostEnvironment.workingDirectory, hostProcessEnvironment, cols, rows)

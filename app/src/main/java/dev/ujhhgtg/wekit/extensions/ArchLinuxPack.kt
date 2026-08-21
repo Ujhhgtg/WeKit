@@ -8,6 +8,7 @@ import com.composables.icons.materialsymbols.outlined.Terminal
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstance
 import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceInstaller
+import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import dev.ujhhgtg.wekit.utils.HostInfo
 import java.io.File
 import java.util.zip.ZipFile
@@ -76,8 +77,8 @@ object ArchLinuxPack : ExtensionPack {
             instanceId = instanceId,
             contentVersion = manifest.version,
             rootfsArchive = File(template, ROOTFS),
-            proot = File(template, PROOT),
-            prootLoader = File(template, PROOT_LOADER),
+            prootExecutable = NativeLoader.prootExecutable(),
+            prootLoaderExecutable = NativeLoader.prootLoaderExecutable(),
             bridge = File(template, BRIDGE),
             instancesDirectory = File(HostInfo.application.filesDir, "wekit-agent/environment/instances"),
             maxExtractedBytes = maxExtractedBytes,

@@ -174,7 +174,14 @@ class ArchiveExtractorTest {
         assertThrows(Exception::class.java) {
             runBlocking {
                 ArchLinuxInstanceInstaller.install(
-                    "failed", "version", archive, proot, loader, bridge, instances, 1024 * 1024,
+                    instanceId = "failed",
+                    contentVersion = "version",
+                    rootfsArchive = archive,
+                    prootExecutable = proot,
+                    prootLoaderExecutable = loader,
+                    bridge = bridge,
+                    instancesDirectory = instances,
+                    maxExtractedBytes = 1024 * 1024,
                 )
             }
         }

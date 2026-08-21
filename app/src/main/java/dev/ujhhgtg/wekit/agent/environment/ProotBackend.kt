@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.agent.environment
 
 import kotlin.io.path.writeText
+import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
@@ -23,10 +24,11 @@ class ProotBackend internal constructor(
     override val snapshot: EnvironmentSnapshot,
     private val rootfs: Path = requireNotNull(snapshot.rootfsPath).asPath,
     private val storageBinds: List<ProotCommand.Bind> = emptyList(),
+    private val launcher: Path = NativeLoader.prootExecutable().toPath(),
+    private val loader: Path = NativeLoader.prootLoaderExecutable().toPath(),
     private val startProcess: OwnedProcessStarter = OwnedProcess::start,
 ) : LinuxEnvironmentBackend {
     private val instance = rootfs.parent
-    private val launcher = instance.resolve("bin/proot")
 
     init {
         require(snapshot.type == LinuxEnvironmentType.PROOT)
@@ -47,7 +49,7 @@ class ProotBackend internal constructor(
             val startedAt = System.nanoTime()
             val argv = ProotCommand.execArgv(launcher, rootfs, snapshot.workingDirectory, command, environmentVariables, storageBinds)
             val processEnvironment = System.getenv().toMutableMap().apply {
-                this["PROOT_LOADER"] = instance.resolve("bin/loader").toString()
+                this["PROOT_LOADER"] = loader.toString()
                 this["PROOT_TMP_DIR"] = instance.resolve("tmp").also(Files::createDirectories).toString()
             }
             val process = startProcess(argv, processEnvironment, instance.toString())
@@ -150,7 +152,7 @@ class ProotBackend internal constructor(
 
     override suspend fun checkHealth(): EnvironmentHealth {
         if (!Files.isExecutable(launcher)) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "PRoot launcher is missing")
-        if (!Files.isExecutable(instance.resolve("bin/loader"))) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "PRoot loader is missing")
+        if (!Files.isExecutable(loader)) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "PRoot loader is missing")
         if (!Files.isRegularFile(rootfs.resolve("bin/bash"))) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "Arch template is corrupt")
         val result = exec("test -x /usr/bin/invoke_tool && test -w /root", 15_000)
         return if (result.exitCode == 0) EnvironmentHealth(EnvironmentHealthState.HEALTHY)

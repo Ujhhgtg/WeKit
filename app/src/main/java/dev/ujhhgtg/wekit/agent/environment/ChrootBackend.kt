@@ -188,9 +188,7 @@ internal object ArchLinuxInstanceLayout {
             "Arch instance is not published"
         }
         require(
-            Files.isExecutable(realInstance.resolve("bin/proot")) &&
-                Files.isExecutable(realInstance.resolve("bin/loader")) &&
-                Files.isExecutable(realRootfs.resolve("bin/bash")) &&
+            Files.isExecutable(realRootfs.resolve("bin/bash")) &&
                 Files.isExecutable(realRootfs.resolve("usr/bin/invoke_tool")) &&
                 Files.isRegularFile(realRootfs.resolve("etc/resolv.conf"), LinkOption.NOFOLLOW_LINKS)
         ) { "published Arch instance is incomplete" }

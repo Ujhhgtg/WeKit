@@ -25,14 +25,18 @@ object ArchLinuxInstanceInstaller {
         instanceId: String,
         contentVersion: String,
         rootfsArchive: File,
-        proot: File,
-        prootLoader: File,
+        prootExecutable: File,
+        prootLoaderExecutable: File,
         bridge: File,
         instancesDirectory: File,
         maxExtractedBytes: Long,
     ): ArchLinuxInstance = withContext(Dispatchers.IO) {
         require(instanceId.matches(Regex("[A-Za-z0-9._-]{1,80}"))) { "invalid instance id" }
-        require(rootfsArchive.isFile && proot.isFile && prootLoader.isFile && bridge.isFile) { "Arch template is corrupt" }
+        require(
+            rootfsArchive.isFile && bridge.isFile &&
+                prootExecutable.isFile && prootExecutable.canExecute() &&
+                prootLoaderExecutable.isFile && prootLoaderExecutable.canExecute()
+        ) { "Arch template is corrupt" }
         require(instancesDirectory.mkdirs() || instancesDirectory.isDirectory) { "cannot create environment storage" }
         require(maxExtractedBytes > 0) { "invalid Arch extracted-size limit" }
         val required = Math.addExact(maxExtractedBytes, INSTALL_HEADROOM_BYTES)
@@ -50,11 +54,6 @@ object ArchLinuxInstanceInstaller {
                     checkActive = { coroutineContext.ensureActive() },
                 )
             }
-            val hostBin = File(staging, "bin").apply { mkdirs() }
-            Files.copy(proot.toPath(), File(hostBin, "proot").toPath(), StandardCopyOption.COPY_ATTRIBUTES)
-            require(File(hostBin, "proot").setExecutable(true, true)) { "cannot make PRoot executable" }
-            Files.copy(prootLoader.toPath(), File(hostBin, "loader").toPath(), StandardCopyOption.COPY_ATTRIBUTES)
-            require(File(hostBin, "loader").setExecutable(true, true)) { "cannot make PRoot loader executable" }
             val guestBridge = File(rootfs, "usr/bin/invoke_tool")
             requireNotNull(guestBridge.parentFile).mkdirs()
             Files.copy(bridge.toPath(), guestBridge.toPath(), StandardCopyOption.COPY_ATTRIBUTES)
@@ -73,12 +72,12 @@ object ArchLinuxInstanceInstaller {
             File(rootfs, "root").mkdirs()
             val healthPidFile = File(staging, "health.pid")
             val healthArgv = ProotCommand.execArgv(
-                File(hostBin, "proot").toPath(), rootfs.toPath(), "/root",
+                prootExecutable.toPath(), rootfs.toPath(), "/root",
                 "test -x /bin/bash && test -x /usr/bin/invoke_tool", emptyMap(),
             )
             val health = ProcessBuilder(processWithPidFile(healthPidFile.toPath(), healthArgv))
                 .directory(staging).redirectErrorStream(true).apply {
-                environment()["PROOT_LOADER"] = File(hostBin, "loader").absolutePath
+                environment()["PROOT_LOADER"] = prootLoaderExecutable.absolutePath
                 environment()["PROOT_TMP_DIR"] = File(staging, "tmp").apply { mkdirs() }.absolutePath
             }.start()
             val deadline = System.nanoTime() + HEALTH_TIMEOUT_MILLIS * 1_000_000

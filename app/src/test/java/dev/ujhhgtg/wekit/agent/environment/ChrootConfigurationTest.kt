@@ -280,7 +280,7 @@ class ChrootConfigurationTest {
         val instance = Files.createDirectories(instances.resolve(name))
         instance.resolve(ArchLinuxInstanceInstaller.PUBLISHED_MARKER).writeText("1")
         val rootfs = Files.createDirectories(instance.resolve("rootfs"))
-        listOf("rootfs/bin/bash", "rootfs/usr/bin/invoke_tool", "bin/proot", "bin/loader").forEach { relative ->
+        listOf("rootfs/bin/bash", "rootfs/usr/bin/invoke_tool").forEach { relative ->
             val file = instance.resolve(relative)
             Files.createDirectories(file.parent)
             file.writeText("x")
