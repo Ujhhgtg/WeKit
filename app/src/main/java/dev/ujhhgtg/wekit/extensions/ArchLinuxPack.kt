@@ -25,8 +25,6 @@ object ArchLinuxPack : ExtensionPack {
     override val icon: ImageVector = MaterialSymbols.Outlined.Terminal
 
     private const val ROOTFS = "ArchLinuxARM-aarch64-rootfs.tar.gz"
-    private const val PROOT = "proot"
-    private const val PROOT_LOADER = "proot-loader"
     private const val BRIDGE = "invoke_tool"
     private const val SOURCE_MANIFEST = "source-manifest.json"
 
@@ -43,7 +41,7 @@ object ArchLinuxPack : ExtensionPack {
                 val manifestBytes = archive.getInputStream(manifestEntry).readBytes()
                 val hashes = Json.parseToJsonElement(manifestBytes.decodeToString()).jsonObject["files"]!!
                     .jsonObject.mapValues { it.value.jsonPrimitive.content }
-                for (name in listOf(ROOTFS, PROOT, PROOT_LOADER, BRIDGE)) {
+                for (name in listOf(ROOTFS, BRIDGE)) {
                     val entry = archive.getEntry(name) ?: error("Arch pack is missing $name")
                     require(!entry.isDirectory && entry.size >= 0) { "invalid Arch pack entry: $name" }
                     val temporary = File(staging, "$name.tmp")
