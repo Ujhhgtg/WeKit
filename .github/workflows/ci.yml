@@ -75,6 +75,21 @@ jobs:
           test -x "$NDK_BIN/armv7a-linux-androideabi$MIN_SDK-clang"
           test -x "$NDK_BIN/llvm-strip"
 
+      - name: Prepare PRoot cache key
+        id: proot_cache_inputs
+        run: |
+          echo "commit=$(git -C third_party/proot-static rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "ndk=$(sed -n 's/^ndk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
+          echo "min_sdk=$(sed -n 's/^minSdk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache PRoot build
+        uses: actions/cache@v6
+        with:
+          path: target/proot-static
+          key: proot-${{ runner.os }}-${{ runner.arch }}-${{ steps.proot_cache_inputs.outputs.commit }}-${{ steps.proot_cache_inputs.outputs.ndk }}-${{ steps.proot_cache_inputs.outputs.min_sdk }}-${{ hashFiles('patches/proot/android-ptrace-events.patch', 'third_party/proot-static/tools/build-static-aarch64.sh') }}
+          restore-keys: |
+            proot-${{ runner.os }}-${{ runner.arch }}-
+
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -469,6 +484,21 @@ jobs:
           test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
           test -x "$NDK_BIN/armv7a-linux-androideabi$MIN_SDK-clang"
           test -x "$NDK_BIN/llvm-strip"
+
+      - name: Prepare PRoot cache key
+        id: proot_cache_inputs
+        run: |
+          echo "commit=$(git -C third_party/proot-static rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "ndk=$(sed -n 's/^ndk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
+          echo "min_sdk=$(sed -n 's/^minSdk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache PRoot build
+        uses: actions/cache@v6
+        with:
+          path: target/proot-static
+          key: proot-${{ runner.os }}-${{ runner.arch }}-${{ steps.proot_cache_inputs.outputs.commit }}-${{ steps.proot_cache_inputs.outputs.ndk }}-${{ steps.proot_cache_inputs.outputs.min_sdk }}-${{ hashFiles('patches/proot/android-ptrace-events.patch', 'third_party/proot-static/tools/build-static-aarch64.sh') }}
+          restore-keys: |
+            proot-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Build packs
         env:
