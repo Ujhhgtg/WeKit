@@ -142,6 +142,17 @@ fun ModelProviderDetailScreen(providerId: String, onOpenModel: (String) -> Unit,
                         password = true,
                     )
                 }
+                item {
+                    DropDownMenuWidget(
+                        icon = null,
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_provider_api_type),
+                        description = null,
+                        value = p.type,
+                        options = ModelProviderType.entries.map { DropdownOption(it, it.label()) },
+                        onValueChange = { value -> commitProvider { it.copy(type = value) } },
+                    )
+                }
             }
         }
         item {
