@@ -71,7 +71,13 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
 
         val chatLiveBottomBarLayers = dexKit.findClass {
             matcher {
-                usingEqStrings("MediaGallery.ChatLiveBottomBarLayer")
+                methods {
+                    add {
+                        name = "<init>"
+                        paramCount = 1
+                        usingEqStrings("MediaGallery.ChatLiveBottomBarLayer")
+                    }
+                }
             }
         }
 

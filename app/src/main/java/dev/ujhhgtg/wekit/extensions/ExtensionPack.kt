@@ -40,6 +40,9 @@ interface ExtensionPack {
     /** True while the pack's payload is loaded/active — deletion is refused then. */
     fun isInUse(): Boolean
 
+    /** Whether this pack is offered at all on the current device (e.g. ABI gate). */
+    fun isSupported(): Boolean = true
+
     /** Remove version directories other than [keep] (staging excluded). */
     fun sweepOtherVersions(keep: String) {
         installDir().listFiles()
@@ -47,6 +50,22 @@ interface ExtensionPack {
             ?.forEach { it.deleteRecursively() }
     }
 
-    /** Installs the already-SHA-256-verified temp file under [version]. */
-    fun install(verifiedTmp: File, version: String, sha256: String)
+    /**
+     * Installs the already-SHA-256-verified temp file under [version]. [meta] is
+     * the index entry's pack-specific metadata, when the remote index carries any.
+     */
+    fun install(verifiedTmp: File, version: String, sha256: String, meta: String? = null)
+
+    /**
+     * Recovers a complete interrupted publication before the downloader makes
+     * another HTTP request. Implementations may finish publishing it or move
+     * its already-verified payload back to [verifiedTmp].
+     */
+    fun recoverInterruptedInstall(verifiedTmp: File, version: String, sha256: String) {}
+
+    /** Hook fired by [ExtensionPacks] after a successful install. */
+    fun onInstalled() {}
+
+    /** Hook fired by [ExtensionPacks] after a successful delete. */
+    fun onRemoved() {}
 }

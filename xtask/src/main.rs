@@ -168,7 +168,8 @@ enum Cmd {
     /// Prepare inputs and outputs used by the cloud Dex resolution CI jobs.
     DexTestCi(dex_test_ci::DexTestCiArgs),
 
-    /// Build extension packs (script-deps DEX, cloudflared zip) and their manifest.json index.
+    /// Build extension packs (script-deps DEX, cloudflared zip, llama-native zip) and their
+    /// manifest.json index (which always includes the static qwen3.8-4b-distill model entry).
     Extensions(extensions::ExtensionsArgs),
 
     /// Validate the Android English and Chinese resource catalogs.
@@ -724,6 +725,13 @@ fn task_configure() -> Result<()> {
     fs::write(&zygisk_config_path, &out)
         .with_context(|| format!("failed to write {}", zygisk_config_path.display()))?;
     println!("configure: wrote {}", zygisk_config_path.display());
+
+    // Write for wekit-llama (same linker config; llama-cpp-sys-2's build.rs drives its own cmake)
+    let llama_config_path = root.join("app/src/main/rust/wekit-llama/.cargo/config.toml");
+    fs::create_dir_all(llama_config_path.parent().unwrap())?;
+    fs::write(&llama_config_path, &out)
+        .with_context(|| format!("failed to write {}", llama_config_path.display()))?;
+    println!("configure: wrote {}", llama_config_path.display());
 
     Ok(())
 }

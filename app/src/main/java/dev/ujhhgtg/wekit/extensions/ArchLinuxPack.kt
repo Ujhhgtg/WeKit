@@ -33,7 +33,7 @@ object ArchLinuxPack : ExtensionPack {
     override fun stagingDir(): File = File(baseDir, ".staging")
     override fun isInUse(): Boolean = false
 
-    override fun install(verifiedTmp: File, version: String, sha256: String) {
+    override fun install(verifiedTmp: File, version: String, sha256: String, meta: String?) {
         val staging = File(baseDir, ".$version-installing").apply { deleteRecursively(); mkdirs() }
         try {
             ZipFile(verifiedTmp).use { archive ->

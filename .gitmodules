@@ -11,3 +11,12 @@
 [submodule "third_party/proot-static"]
 	path = third_party/proot-static
 	url = https://github.com/berilevi/proot-static.git
+[submodule "third_party/Vulkan-Hpp"]
+	path = third_party/Vulkan-Hpp
+	url = https://github.com/KhronosGroup/Vulkan-Hpp
+[submodule "third_party/SPIRV-Headers"]
+	path = third_party/SPIRV-Headers
+	url = https://github.com/KhronosGroup/SPIRV-Headers
+[submodule "third_party/OpenCL-Headers"]
+	path = third_party/OpenCL-Headers
+	url = https://github.com/KhronosGroup/OpenCL-Headers

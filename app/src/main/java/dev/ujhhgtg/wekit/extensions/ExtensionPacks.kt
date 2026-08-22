@@ -20,6 +20,8 @@ import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /** Generic extension-pack plumbing: remote index, download, verify, install, state, delete. */
@@ -31,7 +33,8 @@ object ExtensionPacks {
     const val BASE_URL = "https://github.com/Ujhhgtg/WeKit/releases/download/Extensions"
     private const val INDEX_ASSET = "manifest.json"
 
-    val packs: List<ExtensionPack> = listOf(ScriptDepsPack, CloudflaredPack, ArchLinuxPack)
+    val packs: List<ExtensionPack> =
+        listOf(ScriptDepsPack, CloudflaredPack, ArchLinuxPack, LlamaNativePack, QwenModelPack)
 
     fun byId(id: String): ExtensionPack? = packs.firstOrNull { it.id == id }
 
@@ -83,6 +86,10 @@ object ExtensionPacks {
 
     fun download(pack: ExtensionPack) {
         val flow = flows.getValue(pack.id)
+        if (!pack.isSupported()) {
+            flow.value = Failed("extension pack ${pack.id} is not supported by this process")
+            return
+        }
         synchronized(lock) {
             if (flow.value is Downloading || flow.value is Verifying) return
             downloadJobs.remove(pack.id)?.cancel()
@@ -108,6 +115,8 @@ object ExtensionPacks {
         if (pack.isInUse() || flow.value is Downloading || flow.value is Verifying) return false
         pack.installDir().deleteRecursively()
         pack.stagingDir().deleteRecursively()
+        if (pack.installDir().exists() || pack.stagingDir().exists()) return false
+        pack.onRemoved()
         refresh(pack)
         return true
     }
@@ -135,55 +144,96 @@ object ExtensionPacks {
     private suspend fun downloadInternal(pack: ExtensionPack, flow: MutableStateFlow<ExtensionPackState>) {
         val staging = pack.stagingDir().also { it.mkdirs() }
         val tmp = File(staging, "download.tmp")
-        tmp.delete()
         flow.value = Downloading(0f, 0, 0)
+        var verifiedDownload = false
         try {
             val entry = remoteEntry(pack)
-            val request = Request.Builder()
-                .url("${BASE_URL}/${entry.asset}")
-                .build()
-            val call = httpClient.newCall(request)
-            synchronized(lock) { activeCalls[pack.id] = call }
-            try {
-                call.execute().use { response ->
-                    if (!response.isSuccessful) error("HTTP ${response.code}")
-                    val body = response.body
-                    val total = body.contentLength()
-                    var downloaded = 0L
-                    body.byteStream().use { input ->
-                        tmp.outputStream().use { output ->
-                            val buf = ByteArray(64 * 1024)
-                            while (true) {
-                                currentCoroutineContext().ensureActive()
-                                val n = input.read(buf)
-                                if (n < 0) break
-                                output.write(buf, 0, n)
-                                downloaded += n
-                                flow.value = Downloading(
-                                    progress = if (total > 0) downloaded.toFloat() / total else 0f,
-                                    bytesDownloaded = downloaded,
-                                    bytesTotal = total,
-                                )
+            pack.recoverInterruptedInstall(tmp, entry.version, entry.sha256)
+            val recoveredInstall = pack.installedManifest()
+            if (recoveredInstall?.version == entry.version &&
+                recoveredInstall.sha256.equals(entry.sha256, ignoreCase = true)
+            ) {
+                tmp.delete()
+                pack.onInstalled()
+                flow.value = classifyPackState(recoveredInstall, entry)
+                return
+            }
+
+            // A prior install/publication failure leaves the already-verified
+            // blob here. Re-hash it locally and retry install without an HTTP
+            // request. A complete but corrupt file is discarded before a fresh
+            // download; partial crash remnants retain Range-resume semantics.
+            if (tmp.isFile && (entry.bytes == null || tmp.length() == entry.bytes)) {
+                flow.value = Verifying
+                if (PackFs.verify(tmp, entry.sha256)) {
+                    verifiedDownload = true
+                } else {
+                    tmp.delete()
+                }
+            } else if (tmp.isFile && entry.bytes != null && tmp.length() > entry.bytes) {
+                tmp.delete()
+            }
+
+            val url = entry.externalUrl ?: "$BASE_URL/${entry.asset}"
+            if (!verifiedDownload) {
+                // Resume a partial download left behind by a hard process kill: HF and the
+                // GitHub CDN both answer `Range` with 206. Explicit cancellation and corrupt
+                // verification paths still delete the partial.
+                val existing = if (tmp.isFile) tmp.length() else 0L
+                val resume = existing > 0 && entry.bytes != null && existing < entry.bytes
+                val request = Request.Builder()
+                    .url(url)
+                    .apply { if (resume) header("Range", "bytes=$existing-") }
+                    .build()
+                val call = httpClient.newCall(request)
+                synchronized(lock) { activeCalls[pack.id] = call }
+                try {
+                    call.execute().use { response ->
+                        if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+                        // A 200 here means the server ignored the Range header: restart from
+                        // scratch (FileOutputStream truncates), exactly like a fresh download.
+                        val appending = resume && response.code == 206
+                        val total = entry.bytes ?: response.body.contentLength()
+                        var downloaded = if (appending) existing else 0L
+                        response.body.byteStream().use { input ->
+                            FileOutputStream(tmp, appending).use { output ->
+                                val buf = ByteArray(64 * 1024)
+                                while (true) {
+                                    currentCoroutineContext().ensureActive()
+                                    val n = input.read(buf)
+                                    if (n < 0) break
+                                    output.write(buf, 0, n)
+                                    downloaded += n
+                                    flow.value = Downloading(
+                                        progress = if (total > 0) downloaded.toFloat() / total else 0f,
+                                        bytesDownloaded = downloaded,
+                                        bytesTotal = total,
+                                    )
+                                }
                             }
                         }
                     }
+                } finally {
+                    synchronized(lock) { activeCalls.remove(pack.id) }
                 }
-            } finally {
-                synchronized(lock) { activeCalls.remove(pack.id) }
-            }
 
-            flow.value = Verifying
-            if (!PackFs.verify(tmp, entry.sha256)) {
-                tmp.delete()
-                error("SHA-256 mismatch (expected ${entry.sha256}); refusing to install")
+                flow.value = Verifying
+                if (!PackFs.verify(tmp, entry.sha256)) {
+                    tmp.delete()
+                    error("SHA-256 mismatch (expected ${entry.sha256}); refusing to install")
+                }
+                verifiedDownload = true
             }
-            pack.install(tmp, entry.version, entry.sha256)
+            currentCoroutineContext().ensureActive()
+            pack.install(tmp, entry.version, entry.sha256, entry.meta)
+            tmp.delete()
+            pack.onInstalled()
             WeLogger.i(TAG, "installed ${pack.id} ${entry.version}")
         } catch (e: CancellationException) {
             tmp.delete()
             throw e
         } catch (e: Exception) {
-            tmp.delete()
+            if (!verifiedDownload) tmp.delete()
             WeLogger.e(TAG, "download/install failed for ${pack.id}", e)
             flow.value = Failed(e.message ?: e.javaClass.simpleName)
             return

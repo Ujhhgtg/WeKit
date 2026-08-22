@@ -2,6 +2,7 @@
 
 package dev.ujhhgtg.wekit.ui.agent.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,17 +32,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
 import dev.ujhhgtg.wekit.ui.content.m3AppBarColor
 import dev.ujhhgtg.wekit.ui.content.m3BackdropLayer
@@ -181,6 +189,32 @@ fun AgentConfirmDialog(
     )
 }
 
+/**
+ * Back guard shared by the detail screens' creation mode: while [guardActive] (a savable but
+ * unsaved draft), every back attempt — scaffold back button or system gesture — opens a
+ * confirm-discard dialog instead of leaving; otherwise back passes straight through. Returns the
+ * guarded callback to hand to [AgentSettingsScaffold]'s onBack.
+ */
+@Composable
+fun rememberCreationBackGuard(guardActive: Boolean, onBack: () -> Unit): () -> Unit {
+    var showDiscard by remember { mutableStateOf(false) }
+    BackHandler(enabled = guardActive) { showDiscard = true }
+    AgentConfirmDialog(
+        show = showDiscard,
+        title = stringResource(R.string.agent_discard_creation_title),
+        message = stringResource(R.string.agent_discard_creation_message),
+        confirmLabel = stringResource(R.string.agent_discard_creation_confirm),
+        dismissLabel = stringResource(R.string.dialog_cancel),
+        destructive = true,
+        onConfirm = {
+            showDiscard = false
+            onBack()
+        },
+        onDismiss = { showDiscard = false },
+    )
+    return { if (guardActive) showDiscard = true else onBack() }
+}
+
 /** Compact list action button with a leading icon that swaps to a progress spinner while loading. */
 @Composable
 fun AgentListActionButton(
@@ -241,7 +275,10 @@ fun AgentEditorSheet(
     if (!show) return
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+        ),
     ) {
         Column(Modifier.fillMaxWidth()) {
             Text(

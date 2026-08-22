@@ -247,6 +247,7 @@
     <string name="agent_provider_type_anthropic_messages" translatable="false">Anthropic Messages</string>
     <string name="agent_provider_type_gemini_generate_content" translatable="false">Gemini generateContent (legacy)</string>
     <string name="agent_provider_type_gemini_interactions" translatable="false">Gemini Interactions</string>
+    <string name="agent_provider_type_local_llama" translatable="false">Local LLM Inference</string>
     <string name="agent_builtin_provider_wechat">WeChat operations</string>
     <string name="agent_builtin_provider_wechat_sql">Database SQL</string>
     <string name="agent_builtin_provider_files">Files and skills</string>
@@ -339,6 +340,10 @@
     <string name="extensions_pack_cloudflared_desc">Cloudflare Tunnel bridge for the built-in read-receipts backend</string>
     <string name="extensions_pack_archlinux_name">Arch Linux ARM64</string>
     <string name="extensions_pack_archlinux_desc">Root filesystem and PRoot launcher for local WeAgent Linux environments</string>
+    <string name="extensions_pack_llama_native_name">Local inference engine</string>
+    <string name="extensions_pack_llama_native_desc">llama.cpp inference runtime (CPU/Vulkan/OpenCL) for the built-in local LLM provider</string>
+    <string name="extensions_pack_qwen_model_name">Qwen3.8-4B Distill (Q4_K_M)</string>
+    <string name="extensions_pack_qwen_model_desc">Local LLM model weights (~2.8 GB), downloaded from Hugging Face. Requires the local inference engine.</string>
     <string name="extensions_pack_downloading">Downloading…</string>
     <string name="extensions_pack_installed_version">Installed: %1$s</string>
     <string name="extensions_pack_state_not_installed">Not installed</string>
@@ -1076,6 +1081,9 @@
     <string name="agent_model_already_added">%1$s (already added)</string>
     <string name="agent_import_selected_models">Import (%1$d)</string>
     <string name="agent_edit_model">Edit model</string>
+    <string name="agent_discard_creation_title">Discard creation?</string>
+    <string name="agent_discard_creation_message">The form has not been saved yet. If you discard it, what you entered will be lost.</string>
+    <string name="agent_discard_creation_confirm">Discard</string>
     <string name="agent_model_id_label">Model ID (sent to the API)</string>
     <string name="agent_model_display_name_label">Display name (optional)</string>
     <string name="agent_reasoning_effort">Reasoning effort</string>
@@ -1198,7 +1206,7 @@
     <string name="nav_show_discover_badge">Show badge on the Discover tab</string>
     <string name="nav_discover_badge_summary">Includes new Moments notifications</string>
     <string name="nav_display_and_order">Visibility and order</string>
-    <string name="nav_reorder_hint">Long press a drag handle to reorder. Keep at least one page.</string>
+    <string name="nav_reorder_hint">Long press a drag handle to reorder. Disable all pages to hide the bottom bar.</string>
     <string name="nav_drag_tab_description">Drag %1$s</string>
     <string name="chat_toolbar_mode_icon_and_text">Icon and text</string>
     <string name="chat_toolbar_mode_icon_only">Icons only</string>
@@ -2770,6 +2778,7 @@
     <string name="beautify_global_background_set">Background image is set</string>
     <string name="beautify_global_background_not_set">No background image is set</string>
     <string name="beautify_global_background_selected">Background image set. Restart WeChat to apply.</string>
+    <string name="beautify_global_background_import_failed">Failed to import the background image</string>
     <string name="beautify_global_background_cleared">Background image cleared. Restart WeChat to apply.</string>
     <string name="beautify_global_background_status_bar">Transparent status bar background</string>
     <string name="beautify_global_background_status_bar_summary">Make the status bar background transparent</string>
@@ -3673,6 +3682,37 @@
     <string name="agent_empty_skills_message">Skills are task playbooks the LLM loads on demand.</string>
     <string name="agent_empty_triggers_title">No triggers yet</string>
     <string name="agent_empty_triggers_message">Triggers automatically invoke the AI on a schedule, when a new message arrives, or when a database operation is detected.</string>
+    <string name="local_llm_provider_name">Local LLM Inference</string>
+    <string name="local_llm_builtin_badge">Built-in</string>
+    <string name="local_llm_no_packs">No model extension pack installed</string>
+    <string name="local_llm_models_count">%1$d model(s) available</string>
+    <string name="local_llm_section_server">Server</string>
+    <string name="local_llm_section_packs">Extension packs</string>
+    <string name="local_llm_section_models">Models</string>
+    <string name="local_llm_server_state_stopped">Stopped</string>
+    <string name="local_llm_server_state_starting">Starting…</string>
+    <string name="local_llm_server_state_running">Running · 127.0.0.1:%1$d</string>
+    <string name="local_llm_server_state_failed">Failed: %1$s</string>
+    <string name="local_llm_server_start">Start</string>
+    <string name="local_llm_server_stop">Stop</string>
+    <string name="local_llm_server_idle_stopped">Stopped (idle timeout)</string>
+    <string name="local_llm_health_line">%1$s → %2$s · %3$s · GPU %4$d/%5$d layers · Uptime %6$s · RSS %7$.1f MB · %8$.1f tok/s</string>
+    <string name="local_llm_backend_fallback">Fallback: %1$s</string>
+    <string name="local_llm_server_operation_failed">Server operation failed: %1$s</string>
+    <string name="local_llm_backend_label">Compute backend</string>
+    <string name="local_llm_backend_auto">Auto</string>
+    <string name="local_llm_backend_cpu" translatable="false">CPU</string>
+    <string name="local_llm_backend_vulkan" translatable="false">Vulkan</string>
+    <string name="local_llm_backend_opencl" translatable="false">OpenCL</string>
+    <string name="local_llm_backend_restart_note">Applies on next server start</string>
+    <string name="local_llm_backend_unavailable">Unavailable</string>
+    <string name="local_llm_backend_load_failed">Failed to load compute backend: %1$s</string>
+    <string name="local_llm_manage_packs">Manage extension packs</string>
+    <string name="local_llm_device_unsupported">Current process is unsupported (64-bit arm64-v8a required)</string>
+    <string name="local_llm_no_models_hint">Install a model extension pack to add local models</string>
+    <string name="local_llm_ctx_warning">Larger context windows use much more RAM; too high may cause OOM or startup failure. Applies on next server start.</string>
+    <string name="local_llm_ctx_bounds">Allowed %1$d–%2$d tokens; model default %3$d.</string>
+    <string name="local_llm_model_desc">%1$s · ctx %2$d · thinking</string>
     <string name="settings_predictive_back_animation_title">Predictive back animation</string>
     <string name="settings_predictive_back_animation_summary">Enable system predictive back for module pages</string>
     <string name="settings_predictive_back_animation_nuke_summary">Enable system predictive back for module pages; Nuke keeps its own page transition</string>

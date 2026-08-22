@@ -49,6 +49,8 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.reflection.int
 import kotlin.io.path.div
+import kotlin.io.path.exists
+import kotlin.io.path.moveTo
 
 @Feature(
     id = "虚拟视频通话",
@@ -60,8 +62,17 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
     private const val TAG = "VirtualVoipVideo"
 
+    private const val VIDEO_FILE = "virtual_voip_video.mp4"
+
     private val VIDEO_PATH by lazy {
-        KnownPaths.moduleData / "virtual_voip_video.mp4"
+        val target = KnownPaths.moduleAssets / VIDEO_FILE
+        // 旧版本把导入的视频存放在 moduleData 根目录，自动迁移到 moduleAssets
+        val legacy = KnownPaths.moduleData / VIDEO_FILE
+        if (legacy.exists() && !target.exists()) {
+            runCatching { legacy.moveTo(target) }
+                .onFailure { WeLogger.w(TAG, "failed to migrate virtual voip video into moduleAssets", it) }
+        }
+        target
     }
 
     private var sourceType by prefOption("virtual_voip_source_type", "file")

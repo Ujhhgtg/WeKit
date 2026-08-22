@@ -47,7 +47,7 @@ object ScriptDepsPack : ExtensionPack {
         return loader
     }
 
-    override fun install(verifiedTmp: File, version: String, sha256: String) {
+    override fun install(verifiedTmp: File, version: String, sha256: String, meta: String?) {
         val versionDir = installDir().resolve(version)
         versionDir.deleteRecursively()
         versionDir.mkdirs()
