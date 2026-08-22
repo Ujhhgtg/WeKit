@@ -536,7 +536,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           skip=true
-          for f in dist/extensions/script-deps-*.dex dist/extensions/cloudflared-*.zip dist/extensions/archlinux-arm64-*.zip dist/extensions/manifest.json; do
+          for f in dist/extensions/script-deps-*.dex dist/extensions/cloudflared-*.zip dist/extensions/archlinux-arm64-*.zip dist/extensions/llama-native-*.zip dist/extensions/manifest.json; do
             name=$(basename "$f")
             if ! gh release view Extensions --json assets -q '.assets[].name' | grep -qx "$name"; then
               skip=false
@@ -566,6 +566,7 @@ jobs:
             dist/extensions/script-deps-*.dex \
             dist/extensions/cloudflared-*.zip \
             dist/extensions/archlinux-arm64-*.zip \
+            dist/extensions/llama-native-*.zip \
             dist/extensions/manifest.json \
             --clobber
 
@@ -577,6 +578,7 @@ jobs:
             dist/extensions/script-deps-*.dex
             dist/extensions/cloudflared-*.zip
             dist/extensions/archlinux-arm64-*.zip
+            dist/extensions/llama-native-*.zip
             dist/extensions/manifest.json
 
   release-ci:
