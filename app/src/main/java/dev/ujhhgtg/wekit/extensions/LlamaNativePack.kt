@@ -55,38 +55,56 @@ object LlamaNativePack : ExtensionPack {
         NativeLoader.isLlamaLoaded() || LocalLlamaController.isRunning()
 
     override fun install(verifiedTmp: File, version: String, sha256: String, meta: String?) {
-        val versionDir = baseDir.resolve(version)
-        versionDir.deleteRecursively()
-        versionDir.mkdirs()
-
-        ZipFile(verifiedTmp).use { zip ->
-            // Inner manifest (written by xtask): per-file sha256 for post-extraction re-verification.
-            val manifestEntry = zip.getEntry("manifest.json") ?: error("llama-native pack has no inner manifest")
-            val hashes = Json.parseToJsonElement(zip.getInputStream(manifestEntry).readBytes().decodeToString())
-                .jsonObject["files"]!!.jsonObject
-                .mapValues { it.value.jsonPrimitive.content }
-
-            for (entryName in listOf("$ABI/$LIB", "$ABI/$LIB_OPENCL")) {
-                val entry = zip.getEntry(entryName) ?: error("llama-native pack has no $entryName")
-                val fileName = entryName.substringAfter('/')
-                val tmpSo = File(versionDir, "$fileName.tmp")
-                zip.getInputStream(entry).use { input ->
-                    tmpSo.outputStream().use { output -> input.copyTo(output) }
-                }
-                if (!PackFs.verify(tmpSo, hashes.getValue(entryName))) {
-                    tmpSo.delete()
-                    error("inner manifest SHA-256 mismatch for $entryName")
-                }
-                tmpSo.setReadable(true, true)
-                tmpSo.setExecutable(true, true)
-                PackFs.atomicReplace(tmpSo, File(versionDir, fileName))
-            }
+        val staging = File(baseDir, ".$version-installing")
+        val destination = baseDir.resolve(version)
+        val previous = File(baseDir, ".$version-previous")
+        if (!destination.exists() && previous.isDirectory) {
+            require(previous.renameTo(destination)) { "cannot restore prior llama-native $version" }
         }
-        PackFs.writeManifest(
-            versionDir,
-            PackManifest(id, version, sha256, System.currentTimeMillis()),
-        )
-        sweepOtherVersions(version)
-        WeLogger.i("LlamaNativePack", "installed llama-native $version")
+        staging.deleteRecursively()
+        previous.deleteRecursively()
+        staging.mkdirs()
+        try {
+            ZipFile(verifiedTmp).use { zip ->
+                // Inner manifest (written by xtask): per-file sha256 for post-extraction re-verification.
+                val manifestEntry = zip.getEntry("manifest.json") ?: error("llama-native pack has no inner manifest")
+                val hashes = Json.parseToJsonElement(zip.getInputStream(manifestEntry).readBytes().decodeToString())
+                    .jsonObject["files"]!!.jsonObject
+                    .mapValues { it.value.jsonPrimitive.content }
+
+                for (entryName in listOf("$ABI/$LIB", "$ABI/$LIB_OPENCL")) {
+                    val entry = zip.getEntry(entryName) ?: error("llama-native pack has no $entryName")
+                    val fileName = entryName.substringAfter('/')
+                    val tmpSo = File(staging, "$fileName.tmp")
+                    zip.getInputStream(entry).use { input ->
+                        tmpSo.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    if (!PackFs.verify(tmpSo, hashes.getValue(entryName))) {
+                        tmpSo.delete()
+                        error("inner manifest SHA-256 mismatch for $entryName")
+                    }
+                    tmpSo.setReadable(true, true)
+                    tmpSo.setExecutable(true, true)
+                    PackFs.atomicReplace(tmpSo, File(staging, fileName))
+                }
+            }
+            PackFs.writeManifest(
+                staging,
+                PackManifest(id, version, sha256, System.currentTimeMillis()),
+            )
+            if (destination.exists()) {
+                require(destination.renameTo(previous)) { "cannot preserve prior llama-native $version" }
+            }
+            if (!staging.renameTo(destination)) {
+                if (previous.exists()) require(previous.renameTo(destination)) { "cannot restore prior llama-native $version" }
+                error("cannot publish llama-native $version")
+            }
+            previous.deleteRecursively()
+            sweepOtherVersions(version)
+            WeLogger.i("LlamaNativePack", "installed llama-native $version")
+        } finally {
+            staging.deleteRecursively()
+            if (!destination.exists() && previous.isDirectory) previous.renameTo(destination)
+        }
     }
 }

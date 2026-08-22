@@ -191,6 +191,7 @@ object ExtensionPacks {
                 error("SHA-256 mismatch (expected ${entry.sha256}); refusing to install")
             }
             pack.install(tmp, entry.version, entry.sha256, entry.meta)
+            tmp.delete()
             pack.onInstalled()
             WeLogger.i(TAG, "installed ${pack.id} ${entry.version}")
         } catch (e: CancellationException) {

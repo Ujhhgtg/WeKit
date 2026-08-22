@@ -130,7 +130,7 @@ object LocalLlamaController {
 
     /** Fire-and-forget stop for the UI. */
     fun stop() {
-        scope.launch { stopInternal() }
+        scope.launch { mutex.withLock { stopInternal() } }
     }
 
     /**
