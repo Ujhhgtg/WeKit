@@ -1164,7 +1164,7 @@
     <string name="nav_show_discover_badge">顯示“發現”標籤角標</string>
     <string name="nav_discover_badge_summary">包含朋友圈新通知數量等</string>
     <string name="nav_display_and_order">顯示與順序</string>
-    <string name="nav_reorder_hint">長按拖動手柄調整順序，至少保留一個頁面</string>
+    <string name="nav_reorder_hint">長按拖動手柄調整順序，關閉所有頁面將隱藏底欄</string>
     <string name="nav_drag_tab_description">拖動%1$s</string>
     <string name="chat_toolbar_mode_icon_and_text">圖標+文字</string>
     <string name="chat_toolbar_mode_icon_only">僅圖標</string>

@@ -1206,7 +1206,7 @@
     <string name="nav_show_discover_badge">Show badge on the Discover tab</string>
     <string name="nav_discover_badge_summary">Includes new Moments notifications</string>
     <string name="nav_display_and_order">Visibility and order</string>
-    <string name="nav_reorder_hint">Long press a drag handle to reorder. Keep at least one page.</string>
+    <string name="nav_reorder_hint">Long press a drag handle to reorder. Disable all pages to hide the bottom bar.</string>
     <string name="nav_drag_tab_description">Drag %1$s</string>
     <string name="chat_toolbar_mode_icon_and_text">Icon and text</string>
     <string name="chat_toolbar_mode_icon_only">Icons only</string>
