@@ -14,6 +14,7 @@
 //! `{"state":"stopped|starting|running|failed","port":N,"pid":N,"error":"…"}`.
 
 pub mod controller;
+pub mod exec_process;
 pub mod fork;
 pub mod llama;
 pub mod parse;
