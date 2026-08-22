@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.model.local
 
+import androidx.room.withTransaction
 import dev.ujhhgtg.wekit.agent.data.WeAgentDatabase
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
@@ -85,28 +86,30 @@ object LocalLlamaSync {
         val desired = LocalLlamaModels.listInstalled()
         val existing = db.modelDao().getForProviderOnce(LocalLlama.PROVIDER_ID).associateBy { it.id }
         for (model in desired) {
-            val previous = existing[model.id]
-            db.modelDao().upsert(
-                ModelEntity(
-                    id = model.id,
-                    providerId = LocalLlama.PROVIDER_ID,
-                    modelIdRemote = model.id,
-                    reasoningEffort = if (previous == null) {
-                        model.defaultReasoningEffort
-                    } else {
-                        previous.reasoningEffort
-                    },
-                    customJsonOverride = null,
-                    displayName = model.displayName,
-                    contextWindow = if (previous == null) {
-                        model.defaultContextWindow
-                    } else {
-                        previous.contextWindow
-                    },
-                    maxTokens = model.maxTokens,
-                    supportsVision = false,
+            db.withTransaction {
+                val current = db.modelDao().getById(model.id)
+                db.modelDao().upsert(
+                    ModelEntity(
+                        id = model.id,
+                        providerId = LocalLlama.PROVIDER_ID,
+                        modelIdRemote = model.id,
+                        reasoningEffort = if (current == null) {
+                            model.defaultReasoningEffort
+                        } else {
+                            current.reasoningEffort
+                        },
+                        customJsonOverride = null,
+                        displayName = model.displayName,
+                        contextWindow = if (current == null) {
+                            model.defaultContextWindow
+                        } else {
+                            current.contextWindow
+                        },
+                        maxTokens = model.maxTokens,
+                        supportsVision = false,
+                    )
                 )
-            )
+            }
         }
 
         val desiredIds = desired.mapTo(HashSet()) { it.id }
