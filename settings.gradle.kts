@@ -69,5 +69,6 @@ include(
     ":libs:common:annotation-scanner",
     ":libs:common:stubs",
     ":libs:common:bsh",
-    ":libs:common:reflekt"
+    ":libs:common:reflekt",
+    ":libs:monet-generator-api"
 )
