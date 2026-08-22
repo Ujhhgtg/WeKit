@@ -62,7 +62,6 @@ ndk = "30.0.14904198"
 [libraries]
 androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "annotation" }
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
-#androidx-compose-material3 = { module = "androidx.compose.material3:material3" } # use local-maven version
 androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "compose-material3" }
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle-runtime" }
