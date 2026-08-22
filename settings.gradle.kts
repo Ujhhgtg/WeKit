@@ -70,5 +70,6 @@ include(
     ":libs:common:stubs",
     ":libs:common:bsh",
     ":libs:common:reflekt",
-    ":libs:monet-generator-api"
+    ":libs:monet-generator-api",
+    ":extensions:monet-generator"
 )
