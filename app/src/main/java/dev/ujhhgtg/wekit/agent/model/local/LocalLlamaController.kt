@@ -188,6 +188,10 @@ object LocalLlamaController {
         val launch = try {
             NativeLoader.prepareLlamaLaunch(backend)
         } catch (failure: Throwable) {
+            if (current is LlamaState.Starting || current is LlamaState.Running) {
+                stopInternal()
+                check(!isLifecycleActive()) { "local llama child remained active after stop" }
+            }
             failStart(failure)
         }
         val bootstrapApkPath = launch.bootstrapApk.absolutePath
