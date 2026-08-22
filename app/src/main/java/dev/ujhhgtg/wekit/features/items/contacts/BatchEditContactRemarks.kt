@@ -1,8 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.contacts
 
 import android.content.Context
-import android.icu.text.Transliterator
-import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -20,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.features.api.core.WeContactApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.WeContact
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -42,12 +41,20 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * 批量修改联系人备注。
  *
- * 流程：多选好友 → 配置正则（源字段 + 匹配正则 + 替换串）→ 后台逐个按正则生成新备注并落库。
- * 备注在微信中存储于 `rcontact.conRemark`，WeKit 读取备注也是直接查该字段，故落库采用
- * 直接 SQL 更新，与项目既有的数据库访问风格一致（如同 [BatchAddLabel] 走 [WeDatabaseApi]）。
+ * 流程：多选好友 → 配置（源字段 + 匹配正则 + 替换串 + 写入方式）→ 后台逐个按正则生成新备注并落库。
+ * 备注在微信中存储于 `rcontact.conRemark`，微信通讯录右侧字母分组（J/C/Z…）按
+ * `rcontact.conRemarkPYFull`（备注拼音全拼）排序——这正是此前「备注改了、人还停在旧字母区」的根因。
  *
- * 本功能不解析任何微信类，因此不实现 `IResolveDex`——好友列表与数据库写入均由
- * [WeDatabaseApi]（ApiFeature）自身解析，避免无谓的 DexKit 匹配。
+ * 本功能提供两种写入方式，用户在配置对话框里二选一（持久化到 [WePrefs]，下次默认沿用）：
+ * - **方案 A · 直接写库**：用微信自带 `SpellMap` 在本地算出 `conRemarkPYFull` 等拼音列后直接
+ *   `UPDATE rcontact`。零微信版本兼容成本；但微信进程内通讯录缓存可能不立即重算，需杀进程才刷新。
+ * - **方案 B · 微信 modContact 接口**：复用微信 `ContactStorageLogic.toModContactOplog` 构造 oplog
+ *   (cmd 2 / funcId 681) 发出，微信自己重算拼音、写回 `conRemarkPYFull` 并刷新列表，分组立即归位。
+ *   代价是需 DexKit 锚定微信内部方法（`[WeContactApi.setRemarkViaModContact]`）；若锚定失败会
+ *   自动回退方案 A。该 oplog 走微信进程内同步通道，拼音计算与列表刷新纯本地完成，无云控拼音风险。
+ *
+ * 好友列表与方案 A 的数据库写入由 [WeDatabaseApi]（ApiFeature）自身解析；方案 B 的 DexKit 锚定在
+ * [WeContactApi] 内完成。本功能本身不实现 `IResolveDex`。
  */
 @Feature(
     name = "批量改备注",
@@ -66,10 +73,15 @@ object BatchEditContactRemarks : ClickableFeature() {
     private const val SRC_NICKNAME = "nickname"
     private const val SRC_REMARK = "remark"
 
+    /** 写入策略：A=直接写库（SpellMap 算拼音），B=走微信 modContact oplog（微信自己重算拼音并刷新列表）。 */
+    private const val STRATEGY_DIRECT = "A"
+    private const val STRATEGY_MODELCONTACT = "B"
+
     // ---- preferences (so the rule survives across runs) ----
     private var regexPattern by WePrefs.prefOption("batch_remark_regex_pattern", "")
     private var regexReplacement by WePrefs.prefOption("batch_remark_regex_replacement", "")
     private var sourceField by WePrefs.prefOption("batch_remark_source_field", SRC_NICKNAME)
+    private var strategy by WePrefs.prefOption("batch_remark_strategy", STRATEGY_MODELCONTACT)
 
     override fun onClick(context: ComponentActivity) {
         val friends = runCatching { WeDatabaseApi.getFriends() }.getOrDefault(emptyList())
@@ -112,6 +124,7 @@ object BatchEditContactRemarks : ClickableFeature() {
         var pattern by remember { mutableStateOf(regexPattern) }
         var replacement by remember { mutableStateOf(regexReplacement) }
         var src by remember { mutableStateOf(sourceField) }
+        var strat by remember { mutableStateOf(strategy) }
 
         AlertDialogContent(
                 title = { Text("批量改备注（${selected.size} 人）") },
@@ -128,6 +141,24 @@ object BatchEditContactRemarks : ClickableFeature() {
                                 onClick = { src = SRC_REMARK },
                             ) { Text(if (src == SRC_REMARK) "[源: 原备注]" else "源: 原备注") }
                         }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            TextButton(
+                                onClick = { strat = STRATEGY_DIRECT },
+                            ) { Text(if (strat == STRATEGY_DIRECT) "[A·纯本地]" else "A·纯本地") }
+                            TextButton(
+                                onClick = { strat = STRATEGY_MODELCONTACT },
+                            ) { Text(if (strat == STRATEGY_MODELCONTACT) "[B·同步云端]" else "B·同步云端") }
+                        }
+
+                        Text(
+                            "写入方式：A·纯本地＝直接改本机 rcontact（备注+拼音），零兼容成本，但分组可能需杀进程才刷新，且不会上传服务器；" +
+                            "B·同步云端＝走微信自身 modContact 接口，分组立即归位，微信会把它同步到你的云端备注（换设备/重装仍在），" +
+                            "代价是需 DexKit 锚定微信内部方法（锚不到会自动回退到 A）。"
+                        )
 
                         OutlinedTextField(
                             value = pattern,
@@ -166,8 +197,9 @@ object BatchEditContactRemarks : ClickableFeature() {
                         regexPattern = pattern
                         regexReplacement = replacement
                         sourceField = src
+                        strategy = strat
                         onDismiss()
-                        applyChanges(context, selected, pattern, replacement, src)
+                        applyChanges(context, selected, pattern, replacement, src, strat)
                     }) { Text("开始修改") }
                 }
             )
@@ -178,31 +210,51 @@ object BatchEditContactRemarks : ClickableFeature() {
         selected: List<WeContact>,
         pattern: String,
         replacement: String,
-        src: String
+        src: String,
+        strat: String
     ) {
         showComposeDialog(context, directlyDismissable = false) {
             val completed = remember { mutableIntStateOf(0) }
             var done by remember { mutableStateOf(false) }
             val total = selected.size
             var lastError by remember { mutableStateOf<String?>(null) }
+            val fallbackCount = remember { mutableIntStateOf(0) }
             val samples = remember { mutableStateListOf<String>() }
 
             LaunchedEffect(Unit) {
                 CoroutineScope(Dispatchers.IO).launch {
                     val regex = Regex(pattern)
+                    val useModContact = strat == STRATEGY_MODELCONTACT
                     selected.forEachIndexed { index, contact ->
                         val sourceText = if (src == SRC_REMARK) contact.remarkName else contact.nickname
                         val newRemark = runCatching { regex.replace(sourceText, replacement) }
                             .getOrDefault(sourceText)
                         if (newRemark.isNotBlank()) {
-                            runCatching { setRemark(contact.wxId, newRemark) }.onFailure {
-                                WeLogger.e(TAG, "setRemark failed for ${contact.wxId}", it)
-                                lastError = it.message
+                            var appliedStrategy = strat
+                            if (useModContact) {
+                                // 方案 B：走微信 modContact oplog。失败（DexKit 锚定不到等）自动回退方案 A。
+                                val ok = runCatching { WeContactApi.setRemarkViaModContact(contact.wxId, newRemark) }
+                                    .getOrDefault(false)
+                                if (!ok) {
+                                    fallbackCount.intValue += 1
+                                    appliedStrategy = STRATEGY_DIRECT
+                                    runCatching { setRemark(contact.wxId, newRemark) }.onFailure {
+                                        WeLogger.e(TAG, "setRemark (fallback) failed for ${contact.wxId}", it)
+                                        lastError = it.message
+                                    }
+                                }
+                            } else {
+                                // 方案 A：直接写库（SpellMap 算拼音）。
+                                runCatching { setRemark(contact.wxId, newRemark) }.onFailure {
+                                    WeLogger.e(TAG, "setRemark failed for ${contact.wxId}", it)
+                                    lastError = it.message
+                                }
                             }
-                            // 诊断：直接把库里真实写回的 pyInitial 读出来，用于定位「分组不动」根因。
+                            // 诊断：把库里真实的 conRemarkPYFull 读出来（微信排序分组真正看的列）。
                             val py = readPyInitial(contact.wxId)
                             if (samples.size < 6) {
-                                samples.add("${contact.nickname.take(6)} | ${newRemark.take(6)} → pyInitial=$py")
+                                val tag = if (appliedStrategy == STRATEGY_MODELCONTACT) "B" else "A"
+                                samples.add("[$tag] ${contact.nickname.take(6)} | ${newRemark.take(6)} → conRemarkPYFull=$py")
                             }
                         } else {
                             WeLogger.w(TAG, "empty result for ${contact.wxId}, skipped")
@@ -215,6 +267,7 @@ object BatchEditContactRemarks : ClickableFeature() {
             }
 
             val completedValue by completed
+            val fallbackValue = fallbackCount.intValue
             AlertDialogContent(
                 title = { Text(if (done) "修改完成（含诊断）" else "正在修改备注") },
                 text = {
@@ -223,10 +276,18 @@ object BatchEditContactRemarks : ClickableFeature() {
                             if (done) {
                                 buildString {
                                     append("已处理 $completedValue/$total 位好友的备注。\n")
-                                    append("诊断 — 库里实际写回的 pyInitial：\n")
+                                    append("写入方式：${if (strat == STRATEGY_MODELCONTACT) "B · 同步云端(modContact)" else "A · 纯本地写库"}\n")
+                                    if (strat == STRATEGY_MODELCONTACT && fallbackValue > 0) {
+                                        append("⚠️ $fallbackValue 人因微信接口不可用已自动回退到方案 A（纯本地写库，不会上传云端）。\n")
+                                    }
+                                    append("\n诊断 — 库里实际写回的 conRemarkPYFull（微信分组排序真看的列）：\n")
                                     if (samples.isEmpty()) append("(无样本)")
                                     else samples.forEach { append("• $it\n") }
-                                    append("\n若 pyInitial 以 Z 开头、而通讯录仍停在旧字母区，说明微信不读取直接写入的列（需改用微信自身联系人更新接口）。")
+                                    if (strat == STRATEGY_DIRECT) {
+                                        append("\n方案 A·纯本地：改完后请彻底杀掉微信进程(强制停止)再打开, 联系人应归入对应字母区。备注只存在本机, 不上传服务器。若 conRemarkPYFull 以 Z 开头却仍在旧区, 才需进一步排查微信缓存。")
+                                    } else {
+                                        append("\n方案 B·同步云端：微信会本地重算拼音并刷新列表, 分组应立即归位; 同时该备注会同步到你的微信云端(换设备/重装仍保留)。如未刷新请强制停止微信后重开。")
+                                    }
                                 }
                             } else {
                                 "正在修改备注, 请稍候...\n已完成: $completedValue/$total"
@@ -250,35 +311,40 @@ object BatchEditContactRemarks : ClickableFeature() {
     /**
      * Persist a new remark for [username].
      *
-     * 备注存储于 `rcontact.conRemark`。但微信通讯录的右侧字母分组（J/C/Z…）是按 `pyInitial`
-     * 列的拼音首字母排序的，而 `quanPin` 是全拼——这俩列微信只在「走自家 ContactStorage 更新」
-     * 时才重算。我们走直接 SQL，所以必须自己把 `pyInitial`/`quanPin` 也写对，否则会出现
-     * 「备注文字改了、人却还停在旧字母分组下」的现象。
+     * 备注文本存于 `rcontact.conRemark`。但微信通讯录右侧字母分组（J/C/Z…）的真正排序键是
+     * `conRemarkPYFull`（备注拼音全拼，大写），其优先级高于 `quanPin`（昵称拼音，见微信
+     * ContactStorage 查询 SQL：`order by ... conRemarkPYFull ... quanPin ...`）。`conRemarkPYFull`
+     * 为空时微信会 fallback 到 `quanPin`（旧昵称拼音），所以只改 `conRemark` 不会让分组挪动——
+     * 这正是此前「备注改了、人还停在旧字母区」的根因（之前误写了不参与排序的 `pyInitial`）。
      *
-     * 拼音用与联系人多选列表相同的 ICU `Transliterator`（Han-Latin; Any-Latin; Latin-ASCII），
-     * API 29+ 才可用；低于该版本时退化为「只改 conRemark」，分组字母保持原样（备注文本仍正确）。
+     * 我们走直接 SQL，因此必须自己把 `conRemarkPYFull` / `conRemarkPYShort` 也算对。拼音用微信
+     * 自带的 `com.tencent.mm.platformtools.SpellMap`（native 实现，微信进程内一定可用，不依赖 ICU），
+     * 逐字符取拼音首字母拼成全拼/缩写。纯本地写库，不上传任何服务器。
      */
     private fun setRemark(username: String, remark: String) {
-        val pinyin = computePinyin(remark)
-        val (sql, args) = if (pinyin != null) {
-            val (pyInitial, quanPin) = pinyin
-            "UPDATE rcontact SET conRemark = ?, pyInitial = ?, quanPin = ? WHERE username = ?" to
-                arrayOf<Any>(remark, pyInitial, quanPin, username)
-        } else {
-            "UPDATE rcontact SET conRemark = ? WHERE username = ?" to
-                arrayOf<Any>(remark, username)
+        val (pyFull, pyShort, pyInitial, quanPin) = computeRemarkPinyin(remark)
+        val sql = buildString {
+            append("UPDATE rcontact SET conRemark = ?")
+            if (pyFull != null) append(", conRemarkPYFull = ?, conRemarkPYShort = ?, pyInitial = ?, quanPin = ?")
         }
-        WeDatabaseApi.execStatement(sql, args)
+        val args = buildList<Any> {
+            add(remark as Any)
+            if (pyFull != null) {
+                add(pyFull as Any); add(pyShort as Any); add(pyInitial as Any); add(quanPin as Any)
+            }
+            add(username as Any)
+        }
+        WeDatabaseApi.execStatement(sql, args.toTypedArray())
     }
 
     /**
-     * 诊断用：把 [username] 在 `rcontact` 里真实的 `pyInitial` 读回来，确认我们写的拼音分组列是否落库。
-     * 返回 `null` 表示读不到（通常不会发生，除非 username 不在表里）。
+     * 诊断用：把 [username] 在 `rcontact` 里真实的 `conRemarkPYFull` 读回来（这才是微信排序分组真正看的列），
+     * 确认我们写的拼音分组列是否落库。返回 `null` 表示读不到（通常不会发生，除非 username 不在表里）。
      */
     private fun readPyInitial(username: String): String? {
         return runCatching {
             val cursor = WeDatabaseApi.rawQuery(
-                "SELECT pyInitial FROM rcontact WHERE username = ?",
+                "SELECT conRemarkPYFull FROM rcontact WHERE username = ?",
                 arrayOf<Any>(username)
             )
             cursor.use { if (it.moveToFirst()) it.getString(0) else null }
@@ -286,50 +352,65 @@ object BatchEditContactRemarks : ClickableFeature() {
     }
 
     /**
-     * 由备注文本算 `(pyInitial, quanPin)`，格式与微信 `rcontact` 一致：
-     * - `pyInitial`：决定所在字母分组区（如「初中同学」→ "CZTX"，「Z初中同学」→ "Z…"）。
-     * - `quanPin`：去非字母后的全拼大写。
+     * 由备注文本算 `(conRemarkPYFull, conRemarkPYShort, pyInitial, quanPin)`，格式与微信 `rcontact` 一致：
+     * - `conRemarkPYFull`：备注拼音全拼大写（如「Z初中同学」→ "ZZHONGCHUTONGXUE"），决定分组排序。
+     * - `conRemarkPYShort`：每字拼音首字母连写（如「Z初中同学」→ "ZZCTX"）。
+     * - `pyInitial` / `quanPin`：兼容字段，也一并写对。
      *
-     * 关键坑：微信进程里 `Transliterator.getInstance("Han-Latin; Any-Latin; Latin-ASCII")` 往往抛异常
-     * （ICU 拼音数据未加载），旧实现因此整体返回 `null`、只改 `conRemark`，导致分组字母卡在旧值。
-     * 这里改为：**首字符是拉丁字母时直接取它当分组字母，完全不依赖 ICU**（如「Z初中同学」→ 必进 Z 区）；
-     * 中文首字才走 ICU，ICU 不可用则退化为 `null`（保留原分组，绝不误分组）。逻辑对齐
-     * `ContactSelectors.initialOf`，它在微信进程里对拉丁首字正是直接返回该字母。
+     * 关键：用微信自带 `SpellMap.a(char)` 算拼音（native，进程内可用），不再依赖微信进程里往往缺失的 ICU 数据。
+     * 首字符是拉丁字母时直接采用（如「Z初中同学」→ Z 开头，必进 Z 区），中文才逐字查 SpellMap。
+     * 任一字符 SpellMap 查不到（如表情/符号）则保留该字符本身，避免整条失败。
      */
-    private fun computePinyin(remark: String): Pair<String, String>? {
+    private fun computeRemarkPinyin(remark: String): SpellResult {
         val name = remark.trim()
-        if (name.isEmpty()) return null
-        val firstUpper = name.first().uppercaseChar()
-        // 首字符是拉丁字母（如 "Z初中同学"）：分组字母直接取它，无需 ICU，最稳。
-        if (firstUpper in 'A'..'Z') {
-            val (pyInitial, quanPin) = icuPinyin(name) ?: run {
-                val latin = name.filter { it in 'a'..'z' || it in 'A'..'Z' }.uppercase()
-                val fallback = latin.ifEmpty { firstUpper.toString() }
-                return firstUpper.toString() to fallback
+        if (name.isEmpty()) return SpellResult(null, null, null, null)
+        val sbFull = StringBuilder()   // 全拼
+        val sbShort = StringBuilder()  // 每字首字母
+        for (ch in name) {
+            val upper = ch.uppercaseChar()
+            if (upper in 'A'..'Z') {
+                // 拉丁字母：全拼与缩写都直接用它
+                sbFull.append(upper)
+                sbShort.append(upper)
+                continue
             }
-            return pyInitial to quanPin
+            if (ch in '0'..'9') {
+                sbFull.append(ch)
+                sbShort.append(ch)
+                continue
+            }
+            // 中文/其他：查微信 SpellMap 取拼音首字母
+            val py = spellMapInitial(ch)
+            if (py != null) {
+                sbFull.append(py)
+                sbShort.append(py.first())
+            } else {
+                // 查不到（符号/表情等）：保留原字符，不破坏整条
+                sbFull.append(ch)
+                sbShort.append(ch)
+            }
         }
-        // 首字符是中文：必须靠 ICU 转出拼音首字母。
-        return icuPinyin(name)
+        val pyFull = sbFull.toString().uppercase()
+        val pyShort = sbShort.toString().uppercase()
+        val pyInitial = pyShort.firstOrNull()?.toString()
+        // quanPin 用全拼（与微信 quanPin 字段语义对齐）
+        return SpellResult(pyFull, pyShort, pyInitial, pyFull)
     }
 
-    /** 仅当 ICU `Transliterator` 可用时返回 `(pyInitial, quanPin)`，否则 `null`。 */
-    private fun icuPinyin(name: String): Pair<String, String>? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
-        val transliterator = runCatching {
-            Transliterator.getInstance("Han-Latin; Any-Latin; Latin-ASCII")
-        }.getOrNull() ?: return null
-        val raw = synchronized(transliterator) { transliterator.transliterate(name) }
-        val letters = raw.filter { it in 'a'..'z' || it in 'A'..'Z' }.uppercase()
-        if (letters.isEmpty()) return null
-        val pyInitial = if (raw.contains(' ')) {
-            raw.split(' ').filter { it.isNotBlank() }
-                .mapNotNull { syl -> syl.firstOrNull { c -> c in 'a'..'z' || c in 'A'..'Z' }?.uppercase() }
-                .joinToString("")
-        } else {
-            letters.first().toString()
-        }
-        if (pyInitial.isEmpty()) return null
-        return pyInitial to letters
+    /** 微信 `SpellMap.a(char)` 的反射包装：返回该字符的拼音首字母（大写），查不到返回 `null`。 */
+    private fun spellMapInitial(ch: Char): String? {
+        return runCatching {
+            val clazz = Class.forName("com.tencent.mm.platformtools.SpellMap")
+            val method = clazz.getMethod("a", Char::class.javaPrimitiveType)
+            val result = method.invoke(null, ch) as? String
+            result?.uppercase()?.takeIf { it.isNotBlank() }
+        }.getOrNull()
     }
+
+    private data class SpellResult(
+        val conRemarkPYFull: String?,
+        val conRemarkPYShort: String?,
+        val pyInitial: String?,
+        val quanPin: String?
+    )
 }
