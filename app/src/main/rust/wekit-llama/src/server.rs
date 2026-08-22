@@ -244,6 +244,10 @@ impl ServerState {
         }
     }
 
+    /// Refresh the idle timer. Called at request acceptance AND at every
+    /// completion, so the idle exit measures gaps *between* requests — a
+    /// single request may legitimately generate longer than the timeout
+    /// (e.g. max_tokens 8192 at ~8 tok/s) without being cut mid-stream.
     fn touch(&self) {
         self.last_request_at.store(unix_now(), Ordering::Relaxed);
     }
@@ -251,6 +255,7 @@ impl ServerState {
     /// Post-completion bookkeeping: context footprint + tokens/s EMA
     /// (alpha 0.5, seeded by the first request's value).
     fn record(&self, stats: &GenStats) {
+        self.touch();
         self.ctx_used.store(
             stats.prompt_tokens + stats.completion_tokens,
             Ordering::Relaxed,

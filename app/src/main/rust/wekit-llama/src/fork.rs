@@ -275,7 +275,13 @@ fn child_run(pipe_fd: i32, cfg: HttpServerConfig) -> ! {
 
 /// Watchdog body: forward pipe messages to `on_event` until the pipe ends,
 /// then reap the child so it does not zombify.
+///
+/// EOF *without* a terminal `exiting`/`error` line means the child died
+/// out-of-band — lmkd SIGKILL (which `oom_score_adj = 900` invites), SIGTERM,
+/// or a `panic = "abort"` — and is reported as [`ChildEvent::Died`] so the
+/// controller drops its `Running` state instead of pinning a dead port.
 fn watch_child(mut reader: LineReader, pid: i32, on_event: Arc<dyn Fn(ChildEvent) + Send + Sync>) {
+    let mut terminal_seen = false;
     while let Some(line) = reader.line() {
         let message: Value = serde_json::from_str(&line).unwrap_or(Value::Null);
         match message["type"].as_str() {
@@ -288,6 +294,7 @@ fn watch_child(mut reader: LineReader, pid: i32, on_event: Arc<dyn Fn(ChildEvent
                 on_event(ChildEvent::Exiting {
                     reason: message["reason"].as_str().unwrap_or("?").to_owned(),
                 });
+                terminal_seen = true;
                 break;
             }
             Some("error") => {
@@ -297,12 +304,18 @@ fn watch_child(mut reader: LineReader, pid: i32, on_event: Arc<dyn Fn(ChildEvent
                         .unwrap_or("unknown child error")
                         .to_owned(),
                 });
+                terminal_seen = true;
                 break;
             }
             _ => {}
         }
     }
-    // EOF or terminal line: the child is gone or about to be.
+    if !terminal_seen {
+        // The child closed the pipe (i.e. died) without reporting why.
+        on_event(ChildEvent::Died {
+            reason: "pipe closed unexpectedly".to_owned(),
+        });
+    }
     reap(pid);
 }
 
@@ -414,4 +427,79 @@ fn reap(pid: i32) {
 fn exited(pid: i32) -> bool {
     let r = unsafe { libc::waitpid(pid, std::ptr::null_mut(), libc::WNOHANG) };
     r == pid || (r == -1 && io::Error::last_os_error().raw_os_error() == Some(libc::ECHILD))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn event_name(event: &ChildEvent) -> String {
+        match event {
+            ChildEvent::Ready { port } => format!("ready port={port}"),
+            ChildEvent::Exiting { reason } => format!("exiting: {reason}"),
+            ChildEvent::Died { reason } => format!("died: {reason}"),
+        }
+    }
+
+    /// EOF without a terminal line (the child was SIGKILLed by lmkd or
+    /// SIGTERM, or aborted) must surface as `Died` — otherwise the
+    /// controller keeps a `Running` state pointing at a dead port.
+    #[test]
+    fn watchdog_reports_died_on_unexpected_eof() {
+        let mut fds = [0_i32; 2];
+        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        // A real, already-exiting child so `reap` has something to collect.
+        let child = std::process::Command::new("true").spawn().unwrap();
+        let pid = child.id() as i32;
+
+        // Close the write end without writing any terminal line.
+        unsafe { libc::close(fds[1]) };
+        let events = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let recorded = events.clone();
+        watch_child(
+            LineReader::new(fds[0]),
+            pid,
+            Arc::new(move |event| recorded.lock().unwrap().push(event_name(&event))),
+        );
+
+        let events = events.lock().unwrap();
+        assert_eq!(events.len(), 1, "exactly the Died event: {events:?}");
+        assert_eq!(events[0], "died: pipe closed unexpectedly");
+        // The child was reaped (no zombie left behind).
+        assert_eq!(
+            unsafe { libc::waitpid(pid, std::ptr::null_mut(), libc::WNOHANG) },
+            -1
+        );
+        drop(child);
+    }
+
+    /// A terminal `error` line must NOT be followed by a synthetic Died.
+    #[test]
+    fn watchdog_error_line_is_terminal() {
+        let mut fds = [0_i32; 2];
+        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        let child = std::process::Command::new("true").spawn().unwrap();
+        let pid = child.id() as i32;
+        let msg = format!("{}\n", error_line("boom"));
+        unsafe {
+            libc::write(fds[1], msg.as_ptr().cast(), msg.len());
+            libc::close(fds[1]);
+        }
+        let events = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let recorded = events.clone();
+        watch_child(
+            LineReader::new(fds[0]),
+            pid,
+            Arc::new(move |event| recorded.lock().unwrap().push(event_name(&event))),
+        );
+
+        let events = events.lock().unwrap();
+        assert_eq!(
+            events.len(),
+            1,
+            "exactly the Died-from-error event: {events:?}"
+        );
+        assert_eq!(events[0], "died: boom");
+        drop(child);
+    }
 }

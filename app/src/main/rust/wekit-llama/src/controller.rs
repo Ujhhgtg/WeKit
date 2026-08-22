@@ -287,9 +287,18 @@ fn handle_start(
                 state.child = Some(child);
                 state.watcher = watcher;
                 Ok(())
+            } else if state.generation != generation {
+                // Superseded by a stop/restart: the freshly-forked child is
+                // still ours and still alive — kill it here, or it would keep
+                // serving (and holding its model mmap) until the 600s idle
+                // exit. Release the lock first (stop_child blocks up to ~6s).
+                drop(state);
+                fork::stop_child(child.pid);
+                Err("start superseded before the child stabilized".to_owned())
             } else {
                 // A watchdog Died event won the race (the child died right
-                // after reporting ready); its status already reflects that.
+                // after reporting ready); its status already reflects that
+                // and the child is dead — no kill needed.
                 Err(match &state.status {
                     Status::Failed { error } => error.clone(),
                     _ => "start superseded before the child stabilized".to_owned(),
