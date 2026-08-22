@@ -187,10 +187,10 @@ object LocalLlamaController {
 
         stateFlow.value = LlamaState.Starting
         try {
-            // The OpenCL library variant is only needed for the explicit OpenCL backend;
-            // auto/cpu/vulkan run on the base (CPU/Vulkan) build.
-            NativeLoader.ensureLlamaLoaded(preferOpencl = backend == "opencl")
+            val launch = NativeLoader.prepareLlamaLaunch(backend)
             val result = LlamaServerNative.startServer(
+                launch.bootstrapApk.absolutePath,
+                launch.childLibrary.absolutePath,
                 desired.modelPath,
                 nCtx,
                 backend,
