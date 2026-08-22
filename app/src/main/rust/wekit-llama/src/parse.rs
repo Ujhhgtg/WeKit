@@ -7,9 +7,12 @@
 //! and maps the returned [`OutEvent`]s to OpenAI streaming deltas.
 //!
 //! All matching is buffer-based and byte-offset safe: markers are pure ASCII,
-//! and slices are only taken at marker boundaries or at the start of an ASCII
-//! partial-marker tail, so a multi-byte UTF-8 char held in the buffer can
-//! never be split mid-char.
+//! and slices are only taken at marker boundaries, at the start of an ASCII
+//! partial-marker tail, or snapped to a UTF-8 char boundary, so a multi-byte
+//! char held in the buffer can never be split mid-char. A live partial-marker
+//! tail is never emitted as text: each state holds back the bytes in which a
+//! marker could still start and releases them only once they can no longer be
+//! part of a marker.
 
 use serde_json::Value;
 
@@ -117,18 +120,19 @@ impl ThinkToolParser {
                     }
                     let tail = partial_marker_tail(&self.buf, TOOL_CALL_OPEN);
                     if tail > 0 {
-                        // A partial `<tool_call…` tail: hold the whole buffer
-                        // until the tail either completes into a marker or is
-                        // disproved — except when the buffer is exactly one
-                        // full marker long and still ends in the marker minus
-                        // its last byte: then it is marker-like text (e.g.
-                        // `a<tool_call`), not a marker, and passes through.
-                        if tail == TOOL_CALL_OPEN.len() - 1
-                            && self.buf.len() == TOOL_CALL_OPEN.len()
-                        {
-                            push_str_event(&mut events, OutEvent::Content, &self.buf);
-                            self.buf.clear();
+                        // A partial `<tool_call…` tail is live: never release
+                        // it. A marker can only start within the last
+                        // marker.len()-1 bytes, so keep that window buffered
+                        // and emit what has fallen out of it, snapped down to
+                        // a UTF-8 char boundary (the window edge may cut a
+                        // multi-byte char in half).
+                        let hold = self.buf.len().min(TOOL_CALL_OPEN.len() - 1);
+                        let mut emit_to = self.buf.len() - hold;
+                        while !self.buf.is_char_boundary(emit_to) {
+                            emit_to -= 1;
                         }
+                        push_str_event(&mut events, OutEvent::Content, &self.buf[..emit_to]);
+                        self.buf.drain(..emit_to);
                     } else {
                         push_str_event(&mut events, OutEvent::Content, &self.buf);
                         self.buf.clear();

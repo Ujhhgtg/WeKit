@@ -90,9 +90,32 @@ fn two_tool_calls_and_split_markers() {
 fn marker_like_text_passes_through_after_holdback() {
     let mut p = ThinkToolParser::new_no_think();
     let ev = p.feed("a<tool_ca");
-    assert!(ev.is_empty()); // holdback
+    assert!(ev.is_empty()); // partial marker tail held
     let ev = p.feed("ll");
-    assert_eq!(ev, vec![OutEvent::Content("a<tool_call".into())]);
+    assert_eq!(ev, vec![OutEvent::Content("a".into())]); // "a" emitted; "<tool_call" still held
+}
+
+#[test]
+fn real_marker_split_across_feeds_opens_tool_call() {
+    let mut p = ThinkToolParser::new_no_think();
+    assert!(p.feed("x<tool_ca").is_empty());
+    let ev = p.feed("ll>\n<function=f>\n<parameter=k>v</parameter>\n</function>\n</tool_call>");
+    assert!(ev.contains(&OutEvent::Content("x".into())));
+    assert!(ev.contains(&OutEvent::ToolCallName {
+        index: 0,
+        name: "f".into()
+    }));
+    let arg = ev
+        .iter()
+        .find_map(|e| match e {
+            OutEvent::ToolCallArg {
+                index: 0,
+                arguments_json,
+            } => Some(arguments_json.clone()),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(arg, r#"{"k":"v"}"#);
 }
 
 #[test]
@@ -234,16 +257,38 @@ fn utf8_text_around_split_markers_does_not_panic() {
         vec![OutEvent::Content("答案".into())]
     );
 
-    // Content state: multi-byte text, then a partial marker that dies on a
-    // multi-byte char; everything must come back out unharmed.
+    // Content state: multi-byte text, then a partial marker; the live tail is
+    // never released (pre-tail text flushes one feed later, snapped to a char
+    // boundary), and a dead tail passes everything through unharmed.
     let mut p = ThinkToolParser::new_no_think();
-    assert!(p.feed("你好<tool_ca").is_empty());
-    assert!(p.feed("ll").is_empty());
-    assert_eq!(
-        p.feed("！"),
-        vec![OutEvent::Content("你好<tool_call！".into())]
-    );
+    assert_eq!(p.feed("你好<tool_ca"), vec![OutEvent::Content("你".into())]);
+    assert_eq!(p.feed("ll"), vec![OutEvent::Content("好".into())]);
+    assert_eq!(p.feed("！"), vec![OutEvent::Content("<tool_call！".into())]);
     assert!(p.finish().is_empty());
+}
+
+#[test]
+fn marker_final_byte_in_own_feed_still_detected() {
+    // The marker's `>` arrives in a later piece than `x<tool_call`: the live
+    // tail must stay held and complete into a real tool call.
+    let mut p = ThinkToolParser::new_no_think();
+    assert_eq!(p.feed("x<tool_call"), vec![OutEvent::Content("x".into())]);
+    let ev = p.feed(">\n<function=f>\n</function>\n</tool_call>");
+    assert_eq!(
+        ev,
+        vec![
+            OutEvent::ToolCallStart { index: 0 },
+            OutEvent::ToolCallName {
+                index: 0,
+                name: "f".into()
+            },
+            OutEvent::ToolCallArg {
+                index: 0,
+                arguments_json: "{}".into()
+            },
+            OutEvent::ToolCallEnd { index: 0 },
+        ]
+    );
 }
 
 #[test]
