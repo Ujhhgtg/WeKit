@@ -13,7 +13,7 @@
 ```bash
 ./x build           # debug (uses same signing as release)
 ./x build --release # release (with optimization on)
-./x zygisk build    # standard universal APK + arm64/arm32 Zygisk module ZIP
+./x zygisk build    # standard arm64-v8a APK + arm64 Zygisk module ZIP
 # (./x is alias to `cargo xtask` which orchestrates the build process)
 ```
 

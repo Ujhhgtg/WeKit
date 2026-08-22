@@ -402,7 +402,7 @@ fn build_script_deps(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
 }
 
 fn build_cloudflared_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
-    let abis = ["arm64-v8a", "armeabi-v7a"];
+    let abis = ["arm64-v8a"];
     crate::task_build_cloudflared(&abis.iter().map(|s| s.to_string()).collect::<Vec<_>>())?;
 
     let mut inner: BTreeMap<String, String> = BTreeMap::new();

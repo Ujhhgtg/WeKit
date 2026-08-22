@@ -53,13 +53,12 @@ sealed interface UpdateResult {
 private const val BASE_URL =
     "https://github.com/Ujhhgtg/WeKit/releases/download/CI"
 
-// APKs are published per entry-point flavor: app-<flavor>-<abi>-release.apk.
+// APKs are published per entry-point flavor: app-<flavor>-release.apk.
 // Stay on the same flavor the installed build was compiled for.
 private val FLAVOR = BuildConfig.FLAVOR_SLUG
 
 private val ABI_APK_MAP = mapOf(
-    "arm64-v8a" to "$BASE_URL/app-$FLAVOR-arm64-v8a-release.apk",
-    "armeabi-v7a" to "$BASE_URL/app-$FLAVOR-armeabi-v7a-release.apk",
+    "arm64-v8a" to "$BASE_URL/app-$FLAVOR-release.apk",
 )
 private const val UPDATE_JSON_URL = "$BASE_URL/update.json"
 private const val APK_MIME_TYPE = "application/vnd.android.package-archive"

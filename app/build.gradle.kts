@@ -47,7 +47,7 @@ android {
 
         ndk {
             // noinspection ChromeOsAbiSupport
-            abiFilters += setOf("arm64-v8a", "armeabi-v7a")
+            abiFilters += "arm64-v8a"
         }
 
         buildConfigField("String", "COMMIT_HASH", "\"${gitHash}\"")

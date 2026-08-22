@@ -30,7 +30,7 @@ cd WeKit
 yay -Syu jdk21-openjdk rustup
 rustup toolchain install stable
 rustup default stable
-rustup target add aarch64-linux-android armv7-linux-androideabi
+rustup target add aarch64-linux-android
 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$(sed -n 's/^ndk = "\(.*\)"/\1/p' gradle/libs.versions.toml)"
 ```
 
@@ -44,7 +44,7 @@ sudo apt update
 sudo apt install rustup
 rustup toolchain install stable
 rustup default stable
-rustup target add aarch64-linux-android armv7-linux-androideabi
+rustup target add aarch64-linux-android
 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$(sed -n 's/^ndk = "\(.*\)"/\1/p' gradle/libs.versions.toml)"
 ```
 
@@ -90,7 +90,7 @@ exec cargo xtask "$@"
 ./x configure
 ```
 
-该命令从已安装的 NDK 中选择版本号最高且主版本不低于 29 的版本，为两种 ARM ABI
+该命令从已安装的 NDK 中选择版本号最高且主版本不低于 29 的版本，为 ARM64
 生成：
 
 ```text
@@ -140,11 +140,11 @@ app/src/main/rust/wekit-native/.cargo/config.toml
 3. 将 native 库复制到 `app/src/main/jniLibs/<abi>/`
 4. 执行对应的 Gradle `assemble` 任务
 
-`--abi` 可以重复指定。Rust native 支持 `arm64-v8a` 和 `armeabi-v7a`。
+Rust native 仅支持 `arm64-v8a`。
 `--native-only` 会忽略 `--flavor` 和 `--release`，native 库始终使用 Cargo release
 profile。
 
-Gradle 为每个 flavor 输出一个同时包含 ARM64 和 ARM32 native 库的 universal APK：
+Gradle 为每个 flavor 输出一个仅包含 ARM64 native 库的 APK：
 
 ```text
 app/build/outputs/apk/standard/debug/app-standard-debug.apk
@@ -167,7 +167,7 @@ release 产物位于对应的 `standard/release/` 和 `legacy/release/` 目录�
 ```
 
 当前 `run` 命令执行 `installStandardDebug`、`installStandardRelease` 或对应的 legacy
-Gradle 任务。它会先为默认的 ARM64/ARM32 ABI 重新构建 native 库。
+Gradle 任务。它会先重新构建 ARM64 native 库。
 
 存在多个 adb 设备时，可通过 `ANDROID_SERIAL` 选择设备：
 
@@ -188,21 +188,21 @@ adb shell cmd package compile -m speed-profile dev.ujhhgtg.wekit
 ./x check
 ./x clippy
 
-# 只检查指定 ABI；--abi 可以重复
+# 显式检查 ARM64 ABI
 ./x check --abi arm64-v8a
-./x clippy --abi arm64-v8a --abi armeabi-v7a
+./x clippy --abi arm64-v8a
 ```
 
-`check` 和 `clippy` 默认检查 `arm64-v8a` 与 `armeabi-v7a`，这也是全部可用 ABI。
+`check` 和 `clippy` 默认检查 `arm64-v8a`，这也是唯一可用 ABI。
 
 ## Zygisk 模块
 
-Zygisk 模块使用 standard APK payload，支持 `arm64-v8a` 和 `armeabi-v7a`。
+Zygisk 模块使用 standard APK payload，仅支持 `arm64-v8a`。
 
 ### 构建 ZIP
 
 ```bash
-# 默认：debug APK、两种 ABI 的 release loader 和 release ZIP
+# 默认：debug APK、ARM64 release loader 和 release ZIP
 ./x zygisk build
 
 # release APK + release Zygisk
@@ -214,10 +214,9 @@ Zygisk 模块使用 standard APK payload，支持 `arm64-v8a` 和 `armeabi-v7a`�
 # 复用已有 standard APK 输出
 ./x zygisk build --skip-apk-build
 
-# 为每种 ABI 显式指定 APK
+# 显式指定 payload APK
 ./x zygisk build --skip-apk-build \
-  --apk app/build/outputs/apk/standard/debug/app-standard-arm64-v8a-debug.apk \
-  --apk app/build/outputs/apk/standard/debug/app-standard-armeabi-v7a-debug.apk
+  --apk app/build/outputs/apk/standard/debug/app-standard-debug.apk
 
 # 同时保存未剥离 native 符号
 ./x zygisk build --save-symbols
@@ -234,7 +233,7 @@ Zygisk 模块使用 standard APK payload，支持 `arm64-v8a` 和 `armeabi-v7a`�
 | `--force` | 构建前删除对应 native 输出和未剥离符号 |
 | `--ndk <VERSION>` | 覆盖 `gradle/libs.versions.toml` 中的 Zygisk NDK 版本 |
 | `--skip-apk-build` | 不执行 Gradle，按 APK profile 复用现有 APK |
-| `--apk <PATH>` | 指定 payload APK，每种 ABI 重复一次 |
+| `--apk <PATH>` | 指定 payload APK |
 | `--save-symbols` | 额外生成未剥离 native 符号 ZIP |
 
 模块 ZIP 输出到：
@@ -263,9 +262,9 @@ wekit-zygisk/symbols/WeKit-<versionCode>-git+<commit>-<debug|release>-symbols.zi
 ./x zygisk clean --profile release --abi arm64-v8a
 ```
 
-`zygisk native` 默认处理两种受支持 ABI，并使用 release profile。`--abi` 可以重复，
-也接受 `arm64`、`aarch64`、`arm32` 等别名。loader 由 Cargo 交叉编译，并使用 NDK
-提供的 linker 和 `llvm-strip`。
+`zygisk native` 默认处理 `arm64-v8a`，并使用 release profile。`--abi` 也接受
+`arm64`、`aarch64` 等别名。loader 由 Cargo 交叉编译，并使用 NDK 提供的 linker
+和 `llvm-strip`。
 
 ### 安装到设备
 

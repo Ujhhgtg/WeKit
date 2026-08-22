@@ -2,15 +2,7 @@
 ar = "/home/ujhhgtg/android-sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
 linker = "/home/ujhhgtg/android-sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang"
 
-[target.armv7-linux-androideabi]
-ar = "/home/ujhhgtg/android-sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
-linker = "/home/ujhhgtg/android-sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi28-clang"
-
 [env]
 CC_aarch64_linux_android = "/home/ujhhgtg/android-sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang"
 CXX_aarch64_linux_android = "/home/ujhhgtg/android-sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++"
 AR_aarch64_linux_android = "/home/ujhhgtg/android-sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
-
-CC_armv7-linux-androideabi = "/home/ujhhgtg/android-sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi28-clang"
-CXX_armv7-linux-androideabi = "/home/ujhhgtg/android-sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi28-clang++"
-AR_armv7-linux-androideabi = "/home/ujhhgtg/android-sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
