@@ -41,20 +41,20 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * 批量修改联系人备注。
  *
- * 流程：多选好友 → 配置（源字段 + 匹配正则 + 替换串 + 写入方式）→ 后台逐个按正则生成新备注并落库。
+ * 流程：多选好友 → 配置（源字段 + 匹配正则 + 替换串）→ 后台逐个按正则生成新备注并落库。
  * 备注在微信中存储于 `rcontact.conRemark`，微信通讯录右侧字母分组（J/C/Z…）按
  * `rcontact.conRemarkPYFull`（备注拼音全拼）排序——这正是此前「备注改了、人还停在旧字母区」的根因。
  *
- * 本功能提供两种写入方式，用户在配置对话框里二选一（持久化到 [WePrefs]，下次默认沿用）：
- * - **方案 A · 直接写库**：用微信自带 `SpellMap` 在本地算出 `conRemarkPYFull` 等拼音列后直接
- *   `UPDATE rcontact`。零微信版本兼容成本；但微信进程内通讯录缓存可能不立即重算，需杀进程才刷新。
- * - **方案 B · 微信 modContact 接口**：复用微信 `ContactStorageLogic.toModContactOplog` 构造 oplog
- *   (cmd 2 / funcId 681) 发出，微信自己重算拼音、写回 `conRemarkPYFull` 并刷新列表，分组立即归位。
- *   代价是需 DexKit 锚定微信内部方法（`[WeContactApi.setRemarkViaModContact]`）；若锚定失败会
- *   自动回退方案 A。该 oplog 走微信进程内同步通道，拼音计算与列表刷新纯本地完成，无云控拼音风险。
+ * 写入方式固定为 **方案 B · 微信原生接口**：复用微信 `ContactStorage.q0(username, z3)` 写回，
+ * 该函数内部自带：① 重算拼音首字母/全拼（通讯录字母区归位）；② 写回 rcontact；③ 云端同步层。
+ * 这与你手动在微信里改备注走的是**同一个函数**，因此分组立即归位且备注会同步到微信云端
+ * （换设备/重装仍保留）。
  *
- * 好友列表与方案 A 的数据库写入由 [WeDatabaseApi]（ApiFeature）自身解析；方案 B 的 DexKit 锚定在
- * [WeContactApi] 内完成。本功能本身不实现 `IResolveDex`。
+ * 健壮性：若方案 B 在当前微信版本上因内部类名变化而不可用，会自动回退到方案 A（直接写库 +
+ * 本地用微信自带 SpellMap 算拼音，仅本机生效、不上传云端），保证功能始终可用。回退对 UI 透明。
+ *
+ * 好友列表由 [WeDatabaseApi]（ApiFeature）解析；方案 B 的反射锚定在 [WeContactApi] 内完成。
+ * 本功能本身不实现 `IResolveDex`。
  */
 @Feature(
     name = "批量改备注",
@@ -73,7 +73,7 @@ object BatchEditContactRemarks : ClickableFeature() {
     private const val SRC_NICKNAME = "nickname"
     private const val SRC_REMARK = "remark"
 
-    /** 写入策略：A=直接写库（SpellMap 算拼音），B=走微信 modContact oplog（微信自己重算拼音并刷新列表）。 */
+    /** 写入策略：B=走微信原生 q0（重算拼音+云端同步），A=纯本地写库（仅作为 B 不可用时的内部回退）。 */
     private const val STRATEGY_DIRECT = "A"
     private const val STRATEGY_MODELCONTACT = "B"
 
@@ -81,7 +81,6 @@ object BatchEditContactRemarks : ClickableFeature() {
     private var regexPattern by WePrefs.prefOption("batch_remark_regex_pattern", "")
     private var regexReplacement by WePrefs.prefOption("batch_remark_regex_replacement", "")
     private var sourceField by WePrefs.prefOption("batch_remark_source_field", SRC_NICKNAME)
-    private var strategy by WePrefs.prefOption("batch_remark_strategy", STRATEGY_MODELCONTACT)
 
     override fun onClick(context: ComponentActivity) {
         val friends = runCatching { WeDatabaseApi.getFriends() }.getOrDefault(emptyList())
@@ -124,7 +123,6 @@ object BatchEditContactRemarks : ClickableFeature() {
         var pattern by remember { mutableStateOf(regexPattern) }
         var replacement by remember { mutableStateOf(regexReplacement) }
         var src by remember { mutableStateOf(sourceField) }
-        var strat by remember { mutableStateOf(strategy) }
 
         AlertDialogContent(
                 title = { Text("批量改备注（${selected.size} 人）") },
@@ -136,28 +134,15 @@ object BatchEditContactRemarks : ClickableFeature() {
                         ) {
                             TextButton(
                                 onClick = { src = SRC_NICKNAME },
-                            ) { Text(if (src == SRC_NICKNAME) "[源: 昵称]" else "源: 昵称") }
+                            ) { Text(if (src == SRC_NICKNAME) "[源: 原昵称]" else "源: 原昵称") }
                             TextButton(
                                 onClick = { src = SRC_REMARK },
                             ) { Text(if (src == SRC_REMARK) "[源: 原备注]" else "源: 原备注") }
                         }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            TextButton(
-                                onClick = { strat = STRATEGY_DIRECT },
-                            ) { Text(if (strat == STRATEGY_DIRECT) "[A·纯本地]" else "A·纯本地") }
-                            TextButton(
-                                onClick = { strat = STRATEGY_MODELCONTACT },
-                            ) { Text(if (strat == STRATEGY_MODELCONTACT) "[B·同步云端]" else "B·同步云端") }
-                        }
-
                         Text(
-                            "写入方式：A·纯本地＝直接改本机 rcontact（备注+拼音），零兼容成本，但分组可能需杀进程才刷新，且不会上传服务器；" +
-                            "B·同步云端＝走微信自身 modContact 接口，分组立即归位，微信会把它同步到你的云端备注（换设备/重装仍在），" +
-                            "代价是需 DexKit 锚定微信内部方法（锚不到会自动回退到 A）。"
+                            "「原昵称」＝好友的微信昵称（未备注时的显示名）；「原备注」＝你此前已为TA设置的备注名。" +
+                            "例：昵称含「(客户)」想提取到备注，源选原昵称；若想在已有备注基础上再加工，源选原备注。"
                         )
 
                         OutlinedTextField(
@@ -179,7 +164,7 @@ object BatchEditContactRemarks : ClickableFeature() {
                         )
 
                         Text(
-                            "新备注 = 源文本.replace(正则, 替换串)。",
+                            "新备注 = 源文本.replace(正则, 替换串)。写入采用微信原生改备注接口, 备注会按拼音首字母归入通讯录对应字母区, 并同步到微信云端。",
                         )
                     }
                 },
@@ -197,13 +182,22 @@ object BatchEditContactRemarks : ClickableFeature() {
                         regexPattern = pattern
                         regexReplacement = replacement
                         sourceField = src
-                        strategy = strat
                         onDismiss()
-                        applyChanges(context, selected, pattern, replacement, src, strat)
+                        // 写入方式固定为方案 B（微信原生 q0）；B 不可用时内部自动回退方案 A。
+                        applyChanges(context, selected, pattern, replacement, src, STRATEGY_MODELCONTACT)
                     }) { Text("开始修改") }
                 }
             )
         }
+
+    /** 一次批量处理的结果汇总，供 UI 渲染与诊断使用。 */
+    private data class ProcessResult(
+        val total: Int,
+        val completed: Int,
+        val fallbackCount: Int,
+        val lastError: String?,
+        val samples: List<String>
+    )
 
     private fun applyChanges(
         context: Context,
@@ -214,97 +208,134 @@ object BatchEditContactRemarks : ClickableFeature() {
         strat: String
     ) {
         showComposeDialog(context, directlyDismissable = false) {
-            val completed = remember { mutableIntStateOf(0) }
-            var done by remember { mutableStateOf(false) }
             val total = selected.size
-            var lastError by remember { mutableStateOf<String?>(null) }
-            val fallbackCount = remember { mutableIntStateOf(0) }
-            val samples = remember { mutableStateListOf<String>() }
+            var result by remember { mutableStateOf<ProcessResult?>(null) }
+            val completed = remember { mutableIntStateOf(0) }
 
             LaunchedEffect(Unit) {
                 CoroutineScope(Dispatchers.IO).launch {
-                    val regex = Regex(pattern)
-                    val useModContact = strat == STRATEGY_MODELCONTACT
-                    selected.forEachIndexed { index, contact ->
-                        val sourceText = if (src == SRC_REMARK) contact.remarkName else contact.nickname
-                        val newRemark = runCatching { regex.replace(sourceText, replacement) }
-                            .getOrDefault(sourceText)
-                        if (newRemark.isNotBlank()) {
-                            var appliedStrategy = strat
-                            if (useModContact) {
-                                // 方案 B：走微信 modContact oplog。失败（DexKit 锚定不到等）自动回退方案 A。
-                                val ok = runCatching { WeContactApi.setRemarkViaModContact(contact.wxId, newRemark) }
-                                    .getOrDefault(false)
-                                if (!ok) {
-                                    fallbackCount.intValue += 1
-                                    appliedStrategy = STRATEGY_DIRECT
-                                    runCatching { setRemark(contact.wxId, newRemark) }.onFailure {
-                                        WeLogger.e(TAG, "setRemark (fallback) failed for ${contact.wxId}", it)
-                                        lastError = it.message
-                                    }
-                                }
-                            } else {
-                                // 方案 A：直接写库（SpellMap 算拼音）。
-                                runCatching { setRemark(contact.wxId, newRemark) }.onFailure {
-                                    WeLogger.e(TAG, "setRemark failed for ${contact.wxId}", it)
-                                    lastError = it.message
-                                }
-                            }
-                            // 诊断：把库里真实的 conRemarkPYFull 读出来（微信排序分组真正看的列）。
-                            val py = readPyInitial(contact.wxId)
-                            if (samples.size < 6) {
-                                val tag = if (appliedStrategy == STRATEGY_MODELCONTACT) "B" else "A"
-                                samples.add("[$tag] ${contact.nickname.take(6)} | ${newRemark.take(6)} → conRemarkPYFull=$py")
-                            }
-                        } else {
-                            WeLogger.w(TAG, "empty result for ${contact.wxId}, skipped")
-                        }
-                        completed.intValue = index + 1
-                        if (index < total - 1) delay(APPLY_INTERVAL_MS.milliseconds)
-                    }
-                    done = true
+                    val r = processContacts(selected, pattern, replacement, src, strat)
+                    result = r
                 }
             }
 
             val completedValue by completed
-            val fallbackValue = fallbackCount.intValue
             AlertDialogContent(
-                title = { Text(if (done) "修改完成（含诊断）" else "正在修改备注") },
+                title = { Text(if (result != null) "修改完成（含诊断）" else "正在修改备注") },
                 text = {
                     DefaultColumn {
                         Text(
-                            if (done) {
-                                buildString {
-                                    append("已处理 $completedValue/$total 位好友的备注。\n")
-                                    append("写入方式：${if (strat == STRATEGY_MODELCONTACT) "B · 同步云端(modContact)" else "A · 纯本地写库"}\n")
-                                    if (strat == STRATEGY_MODELCONTACT && fallbackValue > 0) {
-                                        append("⚠️ $fallbackValue 人因微信接口不可用已自动回退到方案 A（纯本地写库，不会上传云端）。\n")
-                                    }
-                                    append("\n诊断 — 库里实际写回的 conRemarkPYFull（微信分组排序真看的列）：\n")
-                                    if (samples.isEmpty()) append("(无样本)")
-                                    else samples.forEach { append("• $it\n") }
-                                    if (strat == STRATEGY_DIRECT) {
-                                        append("\n方案 A·纯本地：改完后请彻底杀掉微信进程(强制停止)再打开, 联系人应归入对应字母区。备注只存在本机, 不上传服务器。若 conRemarkPYFull 以 Z 开头却仍在旧区, 才需进一步排查微信缓存。")
-                                    } else {
-                                        append("\n方案 B·同步云端：微信会本地重算拼音并刷新列表, 分组应立即归位; 同时该备注会同步到你的微信云端(换设备/重装仍保留)。如未刷新请强制停止微信后重开。")
-                                    }
-                                }
-                            } else {
-                                "正在修改备注, 请稍候...\n已完成: $completedValue/$total"
-                            }
+                            if (result != null) summaryText(result!!, total)
+                            else "正在修改备注, 请稍候...\n已完成: $completedValue/$total"
                         )
-                        if (lastError != null) {
-                            Text("注意: 部分写入可能失败 ($lastError)")
+                        if (result?.lastError != null) {
+                            Text("注意: 部分写入可能失败 (${result?.lastError})")
                         }
                         LinearWavyProgressIndicator(
                             progress = { if (total == 0) 1f else completedValue.toFloat() / total }
                         )
                     }
                 },
-                confirmButton = if (done) {
+                confirmButton = if (result != null) {
                     { Button(onDismiss) { Text("关闭") } }
                 } else null
             )
+        }
+    }
+
+    /**
+     * 遍历 [selected]，按正则生成新备注并落库。写入方式固定为方案 B（微信原生 q0），
+     * 仅在方案 B 不可用时内部回退方案 A（纯本地写库）。返回处理结果汇总。
+     */
+    private fun processContacts(
+        selected: List<WeContact>,
+        pattern: String,
+        replacement: String,
+        src: String,
+        strat: String
+    ): ProcessResult {
+        val regex = Regex(pattern)
+        val useModContact = strat == STRATEGY_MODELCONTACT
+        val samples = mutableListOf<String>()
+        var fallbackCount = 0
+        var lastError: String? = null
+
+        selected.forEachIndexed { index, contact ->
+            val newRemark = buildNewRemark(contact, regex, replacement, src)
+            if (newRemark.isNotBlank()) {
+                val applied = applyOneRemark(contact.wxId, newRemark, useModContact)
+                if (applied == STRATEGY_DIRECT) fallbackCount += 1
+                lastError = applied.lastError
+                appendSample(samples, contact, newRemark, applied.strategy)
+            } else {
+                WeLogger.w(TAG, "empty result for ${contact.wxId}, skipped")
+            }
+        }
+        return ProcessResult(
+            total = selected.size,
+            completed = selected.size,
+            fallbackCount = fallbackCount,
+            lastError = lastError,
+            samples = samples
+        )
+    }
+
+    /** 用 [regex] 对 [contact] 的源文本（昵称或原备注）做替换，得到新备注。 */
+    private fun buildNewRemark(
+        contact: WeContact,
+        regex: Regex,
+        replacement: String,
+        src: String
+    ): String {
+        val sourceText = if (src == SRC_REMARK) contact.remarkName else contact.nickname
+        return runCatching { regex.replace(sourceText, replacement) }.getOrDefault(sourceText)
+    }
+
+    /** 处理单个联系人的备注写入：优先方案 B，失败回退方案 A。返回实际采用的策略与错误信息。 */
+    private fun applyOneRemark(username: String, newRemark: String, useModContact: Boolean): AppliedStrategy {
+        if (!useModContact) {
+            val err = runCatching { setRemark(username, newRemark) }
+                .exceptionOrNull()?.also { WeLogger.e(TAG, "setRemark failed for $username", it) }
+            return AppliedStrategy(STRATEGY_DIRECT, err?.message)
+        }
+        // 方案 B：走微信原生 q0（重算拼音+本地写入+云端同步）。失败自动回退方案 A，对 UI 透明。
+        val ok = runCatching { WeContactApi.setRemarkViaModContact(username, newRemark) }.getOrDefault(false)
+        if (ok) return AppliedStrategy(STRATEGY_MODELCONTACT, null)
+
+        val err = runCatching { setRemark(username, newRemark) }
+            .exceptionOrNull()?.also { WeLogger.e(TAG, "setRemark (fallback) failed for $username", it) }
+        return AppliedStrategy(STRATEGY_DIRECT, err?.message)
+    }
+
+    private data class AppliedStrategy(val strategy: String, val lastError: String?)
+
+    /** 诊断采样：把库里真实的 conRemarkPYFull 读出来（微信排序分组真正看的列）。 */
+    private fun appendSample(
+        samples: MutableList<String>,
+        contact: WeContact,
+        newRemark: String,
+        applied: AppliedStrategy
+    ) {
+        if (samples.size >= 6) return
+        val py = readPyInitial(contact.wxId)
+        val tag = if (applied.strategy == STRATEGY_MODELCONTACT) "B" else "A"
+        samples.add("[$tag] ${contact.nickname.take(6)} | ${newRemark.take(6)} → conRemarkPYFull=$py")
+    }
+
+    /** 处理完成后的结果说明文案（含诊断样本与按策略给出的提示）。 */
+    private fun summaryText(result: ProcessResult, total: Int): String = buildString {
+        append("已处理 ${result.completed}/$total 位好友的备注。\n")
+        append("写入方式：微信原生改备注接口（自动重算拼音并归位字母区，同步云端）。\n")
+        if (result.fallbackCount > 0) {
+            append("⚠️ ${result.fallbackCount} 人因微信原生接口在当前版本不可用已自动回退到本地写库（仅本机生效，不上传云端）。\n")
+        }
+        append("\n诊断 — 库里实际写回的 conRemarkPYFull（微信分组排序真看的列）：\n")
+        if (result.samples.isEmpty()) append("(无样本)")
+        else result.samples.forEach { append("• $it\n") }
+        if (result.fallbackCount == 0) {
+            append("\n微信会本地重算拼音并刷新列表, 分组应立即归位; 同时该备注会同步到你的微信云端(换设备/重装仍保留)。如未刷新请强制停止微信后重开。")
+        } else {
+            append("\n本地写库：改完后请彻底杀掉微信进程(强制停止)再打开, 联系人应归入对应字母区。备注只存在本机, 不上传服务器。")
         }
     }
 
@@ -323,9 +354,12 @@ object BatchEditContactRemarks : ClickableFeature() {
      */
     private fun setRemark(username: String, remark: String) {
         val (pyFull, pyShort, pyInitial, quanPin) = computeRemarkPinyin(remark)
+        // 必须带 WHERE username = ?，否则会变成 UPDATE 全表 rcontact（灾难）。
+        // 占位符个数必须与 args 严格一致：conRemark + (4 个拼音列，仅当拼音可用时) + WHERE 的 username。
         val sql = buildString {
             append("UPDATE rcontact SET conRemark = ?")
             if (pyFull != null) append(", conRemarkPYFull = ?, conRemarkPYShort = ?, pyInitial = ?, quanPin = ?")
+            append(" WHERE username = ?")
         }
         val args = buildList<Any> {
             add(remark as Any)
