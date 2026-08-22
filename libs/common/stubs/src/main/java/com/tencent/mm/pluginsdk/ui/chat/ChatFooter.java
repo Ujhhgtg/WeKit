@@ -2,6 +2,7 @@ package com.tencent.mm.pluginsdk.ui.chat;
 
 import android.content.Context;
 import android.util.AttributeSet;
+import android.view.View;
 import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
@@ -43,6 +44,10 @@ public class ChatFooter extends FrameLayout {
     }
 
     public int getYFromBottom() {
+        throw new RuntimeException("Stub!");
+    }
+
+    public View getV2TBtnLayout() {
         throw new RuntimeException("Stub!");
     }
 }
