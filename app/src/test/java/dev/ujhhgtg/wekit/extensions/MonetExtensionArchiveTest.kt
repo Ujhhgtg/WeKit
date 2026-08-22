@@ -126,6 +126,34 @@ class MonetExtensionArchiveTest {
         assertThrows(IllegalArgumentException::class.java) { extract(archive, temp.resolve("hash-staging")) }
     }
 
+    @Test
+    fun `short declared hash is rejected before extraction`() {
+        val archive = writeArchive(
+            declaredHashes = hashes(FILE_CONTENTS).toMutableMap().apply {
+                this["classes.dex"] = "0".repeat(63)
+            },
+        )
+        val staging = temp.resolve("short-hash-staging")
+
+        assertThrows(IllegalArgumentException::class.java) { extract(archive, staging) }
+
+        assertFalse(staging.resolve("classes.dex").exists())
+    }
+
+    @Test
+    fun `non-hex declared hash is rejected before extraction`() {
+        val archive = writeArchive(
+            declaredHashes = hashes(FILE_CONTENTS).toMutableMap().apply {
+                this["classes.dex"] = "g".repeat(64)
+            },
+        )
+        val staging = temp.resolve("non-hex-hash-staging")
+
+        assertThrows(IllegalArgumentException::class.java) { extract(archive, staging) }
+
+        assertFalse(staging.resolve("classes.dex").exists())
+    }
+
     private fun extract(archive: File, staging: File): MonetExtensionMetadata =
         MonetExtensionArchive.extractAndVerify(
             archive,

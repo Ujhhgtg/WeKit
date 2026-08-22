@@ -18,6 +18,7 @@ internal object MonetExtensionArchive {
     private const val METADATA_NAME = "extension.json"
 
     private val json = Json { ignoreUnknownKeys = true }
+    private val sha256 = Regex("[0-9a-fA-F]{64}")
 
     private val requiredFiles = setOf(
         "classes.dex",
@@ -67,6 +68,11 @@ internal object MonetExtensionArchive {
                 "incompatible Monet extension entrypoint ${metadata.entrypoint}"
             }
             metadata.files.keys.forEach(::requireSafePath)
+            metadata.files.forEach { (name, hash) ->
+                require(sha256.matches(hash)) {
+                    "invalid Monet extension SHA-256 for $name"
+                }
+            }
             require(metadata.files.keys == requiredFiles) {
                 "Monet extension file declaration mismatch"
             }

@@ -23,7 +23,9 @@ object MonetGeneratorPack : ExtensionPack {
     override val icon: ImageVector = MaterialSymbols.Outlined.Extension
 
     private var cachedLoader: InMemoryDexClassLoader? = null
+    @Volatile
     private var cachedGenerator: MonetGeneratorApiV1? = null
+    private var loadedVersion: String? = null
 
     override fun installDir(): File =
         KnownPaths.moduleData.resolve("extensions/monet-generator").toFile()
@@ -48,17 +50,21 @@ object MonetGeneratorPack : ExtensionPack {
             .newInstance()
         require(instance is MonetGeneratorApiV1) { "incompatible Monet generator entrypoint" }
         cachedLoader = loader
+        loadedVersion = manifest.version
         cachedGenerator = instance
         return instance
     }
 
+    @Synchronized
     fun payloadDir(): File? {
-        val manifest = installedManifest() ?: return null
-        val payload = installDir().resolve(manifest.version).resolve("payload")
+        val version = loadedVersion ?: installedManifest()?.version ?: return null
+        val payload = installDir().resolve(version).resolve("payload")
         return if (payload.isDirectory) payload else null
     }
 
+    @Synchronized
     override fun install(verifiedTmp: File, version: String, sha256: String, meta: String?) {
+        require(!isInUse()) { "cannot update Monet generator while it is in use" }
         val baseDir = installDir().also { it.mkdirs() }
         val staging = File(baseDir, ".$version-installing")
         val destination = baseDir.resolve(version)
