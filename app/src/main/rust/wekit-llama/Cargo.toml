@@ -5,7 +5,9 @@ edition = "2024"
 
 [lib]
 name = "wekit_llama"
-crate-type = ["cdylib"]
+# rlib is required so integration tests (tests/parse.rs) can link the lib;
+# the shipped artifact remains the cdylib.
+crate-type = ["cdylib", "rlib"]
 
 [[bin]]
 name = "llama_server"
