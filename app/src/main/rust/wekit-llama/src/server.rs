@@ -244,10 +244,12 @@ impl ServerState {
         }
     }
 
-    /// Refresh the idle timer. Called at request acceptance AND at every
-    /// completion, so the idle exit measures gaps *between* requests — a
-    /// single request may legitimately generate longer than the timeout
-    /// (e.g. max_tokens 8192 at ~8 tok/s) without being cut mid-stream.
+    /// Refresh the idle timer. Called at request acceptance, on every
+    /// generated piece (both request paths — so a single generation that
+    /// legitimately runs longer than the timeout, e.g. max_tokens 8192 at
+    /// ~8 tok/s ≈ 17 min, is never classified idle while tokens flow), and
+    /// at every completion. The idle exit therefore measures genuine
+    /// silence: no token flow and no new request.
     fn touch(&self) {
         self.last_request_at.store(unix_now(), Ordering::Relaxed);
     }
@@ -503,9 +505,15 @@ fn stream_response(
 ) -> Response {
     let (tx, rx) = mpsc::unbounded_channel::<GenMsg>();
     let budget = effort.budget_tokens;
+    let gen_st = st.clone();
     tokio::task::spawn_blocking(move || {
         let stats = engine.generate(&prompt, max_tokens, budget, |ev| {
             let GenEvent::Piece(piece) = ev;
+            // Every piece refreshes the idle timer: a single generation may
+            // legitimately run longer than the timeout (max_tokens 8192 at
+            // ~8 tok/s ≈ 17 min) and must never be classified idle while
+            // tokens are flowing.
+            gen_st.touch();
             tx.send(GenMsg::Piece(piece)).is_ok()
         });
         // Err only when the body stream is already gone (client disconnect).
@@ -652,6 +660,7 @@ async fn blocking_response(
     effort: crate::wire::EffortConfig,
 ) -> Response {
     let budget = effort.budget_tokens;
+    let gen_st = st.clone();
     let result = tokio::task::spawn_blocking(move || {
         let mut agg = Aggregate {
             splitter: PieceSplitter::new(effort.enable_thinking, effort.budget_tokens),
@@ -661,6 +670,9 @@ async fn blocking_response(
         };
         let stats = engine.generate(&prompt, max_tokens, budget, |ev| {
             let GenEvent::Piece(piece) = ev;
+            // Per-piece idle refresh, same as the streaming path: in-flight
+            // generation is never idle.
+            gen_st.touch();
             for out in agg.splitter.piece(&piece) {
                 agg.apply(out);
             }
