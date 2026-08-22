@@ -76,7 +76,13 @@ object LocalLlamaController {
     private const val TAG = "LocalLlamaController"
     private const val HEALTH_POLL_INTERVAL_MS = 2_000L
 
-    private data class ActiveTuple(val modelPath: String, val nCtx: Int, val backend: String)
+    private data class ActiveTuple(
+        val modelPath: String,
+        val nCtx: Int,
+        val backend: String,
+        val bootstrapApkPath: String,
+        val childLibraryPath: String,
+    )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
@@ -105,7 +111,7 @@ object LocalLlamaController {
     private val pollGeneration = AtomicLong()
     private var pollPort: Int? = null
 
-    /** The `(model, nCtx, backend)` tuple the native controller's child belongs to. */
+    /** The model, runtime, and launch-file tuple the native controller's child belongs to. */
     @Volatile
     private var active: ActiveTuple? = null
 
@@ -145,10 +151,11 @@ object LocalLlamaController {
 
     /**
      * Single-flight: returns the OpenAI-compatible base URL with the server
-     * running exactly `(gguf, nCtx, backend)` — an identical running tuple
-     * short-circuits, anything else is stopped and restarted. Throws
-     * [LlamaPackNotInstalledException] when the llama-native pack is missing and
-     * [IllegalStateException] carrying the native controller's failure reason.
+     * running exactly `(gguf, nCtx, backend, bootstrap APK, child library)` —
+     * an identical running tuple short-circuits, anything else is stopped and
+     * restarted. Throws [LlamaPackNotInstalledException] when the llama-native
+     * pack is missing and [IllegalStateException] carrying the native
+     * controller's failure reason.
      */
     suspend fun ensureReady(gguf: File, nCtx: Int, backend: String): String = mutex.withLock {
         ensureReadyLocked(gguf, nCtx, backend)
@@ -176,9 +183,26 @@ object LocalLlamaController {
     }
 
     private fun ensureReadyLocked(gguf: File, nCtx: Int, backend: String): String {
-        val desired = ActiveTuple(gguf.absolutePath, nCtx, backend)
         syncState()
         val current = stateFlow.value
+        val launch = try {
+            NativeLoader.prepareLlamaLaunch(backend)
+        } catch (failure: Throwable) {
+            if (current is LlamaState.Starting || current is LlamaState.Running) {
+                stopInternal()
+                check(!isLifecycleActive()) { "local llama child remained active after stop" }
+            }
+            failStart(failure)
+        }
+        val bootstrapApkPath = launch.bootstrapApk.absolutePath
+        val childLibraryPath = launch.childLibrary.absolutePath
+        val desired = ActiveTuple(
+            modelPath = gguf.absolutePath,
+            nCtx = nCtx,
+            backend = backend,
+            bootstrapApkPath = bootstrapApkPath,
+            childLibraryPath = childLibraryPath,
+        )
         if (current is LlamaState.Running && active == desired) {
             return "http://127.0.0.1:${current.port}/v1"
         }
@@ -187,10 +211,9 @@ object LocalLlamaController {
 
         stateFlow.value = LlamaState.Starting
         try {
-            // The OpenCL library variant is only needed for the explicit OpenCL backend;
-            // auto/cpu/vulkan run on the base (CPU/Vulkan) build.
-            NativeLoader.ensureLlamaLoaded(preferOpencl = backend == "opencl")
             val result = LlamaServerNative.startServer(
+                bootstrapApkPath,
+                childLibraryPath,
                 desired.modelPath,
                 nCtx,
                 backend,
@@ -207,13 +230,17 @@ object LocalLlamaController {
             startPolling(stateFlow.value as LlamaState.Running)
             return "http://127.0.0.1:${status.port}/v1"
         } catch (failure: Throwable) {
-            stopPolling()
-            active = null
-            val reason = failure.message?.takeIf(String::isNotBlank)
-                ?: failure.javaClass.simpleName
-            stateFlow.value = LlamaState.Failed(reason)
-            throw failure
+            failStart(failure)
         }
+    }
+
+    private fun failStart(failure: Throwable): Nothing {
+        stopPolling()
+        active = null
+        val reason = failure.message?.takeIf(String::isNotBlank)
+            ?: failure.javaClass.simpleName
+        stateFlow.value = LlamaState.Failed(reason)
+        throw failure
     }
 
     private fun stopInternal() {

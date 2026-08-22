@@ -12,12 +12,17 @@ import dev.ujhhgtg.wekit.extensions.LlamaPackNotInstalledException
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader.init
 import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import java.io.File
 import java.util.zip.ZipFile
 import kotlin.io.path.div
 import kotlin.io.path.exists
+
+data class LlamaLaunchFiles(
+    val bootstrapApk: File,
+    val controllerLibrary: File,
+    val childLibrary: File,
+)
 
 object NativeLoader {
 
@@ -120,91 +125,42 @@ object NativeLoader {
         }
     }
 
-    enum class LlamaVariant { BASE, OPENCL }
-
     @Volatile
-    private var llamaVariant: LlamaVariant? = null
+    private var llamaControllerLoaded = false
 
-    /** Whether a llama inference-library variant has been System.load-ed in this process. */
+    /** Whether the base llama controller library has been mapped in this process. */
     @JvmStatic
-    fun isLlamaLoaded(): Boolean = llamaVariant != null
-
-    /** The native variant permanently mapped in this process, if any. */
-    @JvmStatic
-    fun loadedLlamaVariant(): LlamaVariant? = llamaVariant
+    fun isLlamaLoaded(): Boolean = llamaControllerLoaded
 
     /**
-     * Lazily loads the llama inference library from the llama-native extension
-     * pack. At most ONE variant is ever loaded per process. An OpenCL load failure
-     * may map the base library so other backends remain usable, but the explicit
-     * OpenCL request still fails loudly. A base-mapped process cannot switch to
-     * OpenCL until WeChat restarts.
-     *
-     * A mapped library never authorizes starts by itself: the corresponding pack
-     * file must still be installed, so deletion after stop blocks later starts.
-     * Throws [dev.ujhhgtg.wekit.extensions.LlamaPackNotInstalledException] when
-     * the pack is not installed — callers surface the install dialog.
+     * Resolves every file needed to launch one inference child. The parent
+     * always maps the base library for controller JNI; the fresh app_process
+     * child maps the requested base or OpenCL variant independently.
      */
     @JvmStatic
-    fun ensureLlamaLoaded(preferOpencl: Boolean): LlamaVariant {
-        synchronized(nativeLoadLock) {
-            llamaVariant?.let { return validateMappedLlamaVariant(it, preferOpencl) }
-            if (preferOpencl) {
-                val openclLibrary = LlamaNativePack.libraryFile(opencl = true)
-                if (openclLibrary != null) {
-                    try {
-                        @SuppressLint("UnsafeDynamicallyLoadedCode")
-                        System.load(openclLibrary.absolutePath)
-                        return LlamaVariant.OPENCL.also { llamaVariant = it }
-                    } catch (t: UnsatisfiedLinkError) {
-                        WeLogger.w(
-                            "NativeLoader",
-                            "OpenCL llama variant failed to load; mapping the base variant for non-OpenCL backends",
-                            t,
-                        )
-                        loadBaseLlamaVariant()
-                        throw IllegalStateException(
-                            "OpenCL could not be loaded (${t.message ?: t.javaClass.simpleName}). " +
-                                "The base variant remains available; choose Auto, CPU, or Vulkan. " +
-                                "Restart WeChat before trying OpenCL again.",
-                            t,
-                        )
-                    }
-                } else {
-                    loadBaseLlamaVariant()
-                    throw IllegalStateException(
-                        "The installed llama-native pack has no OpenCL variant. " +
-                            "The base variant remains available; reinstall the pack and restart WeChat before trying OpenCL.",
-                    )
-                }
-            }
-            return loadBaseLlamaVariant()
+    @SuppressLint("UnsafeDynamicallyLoadedCode")
+    fun prepareLlamaLaunch(backend: String): LlamaLaunchFiles = synchronized(nativeLoadLock) {
+        val bootstrap = zygiskPayload?.apk ?: File(StartupInfo.modulePath)
+        require(bootstrap.isFile && bootstrap.canRead()) {
+            "llama bootstrap APK is unreadable: $bootstrap"
         }
-    }
-
-    private fun validateMappedLlamaVariant(
-        mapped: LlamaVariant,
-        preferOpencl: Boolean,
-    ): LlamaVariant {
-        if (LlamaNativePack.libraryFile(opencl = mapped == LlamaVariant.OPENCL) == null) {
-            throw LlamaPackNotInstalledException(
-                "llama-native extension pack is not installed; reinstall it before starting the mapped ${mapped.name.lowercase()} variant",
-            )
-        }
-        if (preferOpencl && mapped == LlamaVariant.BASE) {
-            throw IllegalStateException(
-                "The base llama variant is already loaded. Restart WeChat before starting the OpenCL backend.",
-            )
-        }
-        return mapped
-    }
-
-    private fun loadBaseLlamaVariant(): LlamaVariant {
-        val library = LlamaNativePack.libraryFile(opencl = false)
+        val base = LlamaNativePack.libraryFile(opencl = false)
             ?: throw LlamaPackNotInstalledException("llama-native extension pack is not installed")
-        @SuppressLint("UnsafeDynamicallyLoadedCode")
-        System.load(library.absolutePath)
-        return LlamaVariant.BASE.also { llamaVariant = it }
+        require(base.isFile && base.canRead()) { "llama controller library is unreadable: $base" }
+        val child = if (backend == "opencl") {
+            LlamaNativePack.libraryFile(opencl = true)
+                ?: throw LlamaPackNotInstalledException(
+                    "llama-native OpenCL variant is not installed"
+                )
+        } else {
+            base
+        }
+        require(child.isFile && child.canRead()) { "llama child library is unreadable: $child" }
+        if (!llamaControllerLoaded) {
+            System.load(base.absolutePath)
+            llamaControllerLoaded = true
+        }
+        LlamaLaunchFiles(bootstrap, base, child)
     }
 
     fun invokeToolExecutable(): File = synchronized(nativeLoadLock) {

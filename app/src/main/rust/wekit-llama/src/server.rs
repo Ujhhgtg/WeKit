@@ -1,7 +1,7 @@
 //! axum OpenAI-compatible HTTP server around the llama.cpp engine.
 //!
-//! Runs inside the forked inference child ([`crate::fork`]) or directly on
-//! the desktop CLI's tokio runtime. Single model, single session: a global
+//! Runs inside the exec-isolated inference child ([`crate::exec_process`]) or
+//! directly on the desktop CLI's tokio runtime. Single model, single session: a global
 //! `tokio::sync::Mutex<Engine>` serializes inference; every request renders
 //! its prompt on a fresh context and streams pieces through
 //! [`crate::parse::ThinkToolParser`].
@@ -58,9 +58,9 @@ pub struct HttpServerConfig {
 /// Run the server (blocking) on the caller's tokio runtime.
 ///
 /// Loads the model, binds `127.0.0.1:bind_port`, calls `on_ready(port)` once
-/// the socket is live (the fork parent learns the port this way), then serves
+/// the socket is live (the exec parent learns the port this way), then serves
 /// until the process exits — on the idle timeout via
-/// [`crate::fork::notify_idle_exit`] + `std::process::exit(0)`, otherwise by
+/// [`crate::exec_process::notify_idle_exit`] + `std::process::exit(0)`, otherwise by
 /// dying. Returns `Err` for load/bind failures only.
 pub async fn serve(
     cfg: HttpServerConfig,
@@ -763,9 +763,9 @@ async fn idle_watch(st: Arc<ServerState>) {
         tick.tick().await;
         let last = st.last_request_at.load(Ordering::Relaxed);
         if unix_now().saturating_sub(last) > st.idle_timeout_secs {
-            // Fork mode reports the exit over the control pipe first; the
-            // direct CLI just exits.
-            crate::fork::notify_idle_exit();
+            // app_process mode reports the exit over the control pipe first;
+            // the direct CLI just exits.
+            crate::exec_process::notify_idle_exit();
             std::process::exit(0);
         }
     }

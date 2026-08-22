@@ -5,16 +5,17 @@
 //! also builds the desktop `llama_server` CLI. Library-level rule: **zero
 //! global initialization at dlopen time** — every static in the crate is
 //! const-initialized; the backend, model, and tokio runtime only ever exist
-//! inside [`server::serve`] in the forked child (see [`fork`]'s invariants).
+//! inside [`server::serve`] in the fresh app_process child (see
+//! [`exec_process`]'s invariants).
 //!
 //! JNI surface (Android only, hand-written exports mirroring
-//! `wekit-native/src/lib.rs`): `startServer`/`stopServer`/`serverStatus` on
-//! `dev.ujhhgtg.wekit.agent.model.local.LlamaServerNative`. The exports
-//! never panic: every failure maps to the JSON status string
+//! `wekit-native/src/lib.rs`): `startServer`/`runServerProcess`/`stopServer`/
+//! `serverStatus` on `dev.ujhhgtg.wekit.agent.model.local.LlamaServerNative`.
+//! The parent exports never panic: every failure maps to the JSON status string
 //! `{"state":"stopped|starting|running|failed","port":N,"pid":N,"error":"…"}`.
 
 pub mod controller;
-pub mod fork;
+pub mod exec_process;
 pub mod llama;
 pub mod parse;
 pub mod server;
@@ -32,6 +33,9 @@ mod jni_surface {
     use jni::sys::{JNIEnv as RawJNIEnv, jint, jobject, jstring};
 
     use crate::controller;
+    use crate::exec_process;
+    use crate::llama::{Backend, EngineConfig, detect_threads};
+    use crate::server::HttpServerConfig;
 
     // ─────────────────────────────────────────────────────────────────────────
     // JNI helpers (the wekit-native/src/utils.rs pattern)
@@ -106,32 +110,89 @@ mod jni_surface {
         (temp, top_p, top_k)
     }
 
+    fn parse_idle_timeout(config_json: &str) -> u64 {
+        serde_json::from_str::<serde_json::Value>(config_json)
+            .ok()
+            .and_then(|value| {
+                value
+                    .get("idleTimeoutSec")
+                    .and_then(serde_json::Value::as_u64)
+            })
+            .unwrap_or(600)
+    }
+
+    fn write_child_error(status_fd: jint, message: &str) {
+        if status_fd < 0 {
+            return;
+        }
+        let line = format!(
+            "{}\n",
+            serde_json::json!({ "type": "error", "msg": message })
+        );
+        let bytes = line.as_bytes();
+        let mut written = 0;
+        while written < bytes.len() {
+            let count = unsafe {
+                libc::write(
+                    status_fd,
+                    bytes[written..].as_ptr().cast(),
+                    bytes.len() - written,
+                )
+            };
+            if count < 0 {
+                if std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR) {
+                    continue;
+                }
+                return;
+            }
+            if count == 0 {
+                return;
+            }
+            written += count as usize;
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // JNI exports
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// Start (or reuse) the forked inference child; blocks until ready or
+    /// Start (or reuse) the exec-isolated inference child; blocks until ready or
     /// failed. Every failure is reflected in the returned status JSON — the
     /// export itself cannot panic or return null.
     ///
-    /// Java signature: `(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;`
+    /// Java signature: `(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;`
     #[unsafe(no_mangle)]
     pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_model_local_LlamaServerNative_startServer(
         env: *mut RawJNIEnv,
         _thiz: jobject,
+        bootstrap_apk: jstring,
+        native_library: jstring,
         model_path: jstring,
         n_ctx: jint,
         backend: jstring,
         config_json: jstring,
     ) -> jstring {
         let result = (|| {
+            let bootstrap_apk = with_jstring(env, bootstrap_apk, str::to_owned)
+                .ok_or("missing bootstrap APK path")?;
+            let native_library = with_jstring(env, native_library, str::to_owned)
+                .ok_or("missing native library path")?;
             let model_path =
                 with_jstring(env, model_path, str::to_owned).ok_or("missing model path")?;
             let backend = with_jstring(env, backend, str::to_owned).ok_or("missing backend")?;
             let config_json = with_jstring(env, config_json, str::to_owned).unwrap_or_default();
             let n_ctx = u32::try_from(n_ctx).map_err(|_| format!("n_ctx out of range: {n_ctx}"))?;
             let (temp, top_p, top_k) = parse_sampling(&config_json);
-            controller::start(&model_path, n_ctx, &backend, temp, top_p, top_k)
+            controller::start(
+                &bootstrap_apk,
+                &native_library,
+                &model_path,
+                n_ctx,
+                &backend,
+                temp,
+                top_p,
+                top_k,
+            )
         })();
         // JNI-local failures (null strings, jint overflow) must land in the
         // status too; controller::start's own failures are already recorded
@@ -140,6 +201,56 @@ mod jni_surface {
             controller::mark_failed(error);
         }
         native_string(env, &controller::status_json())
+    }
+
+    /// Run the HTTP server inside the fresh app_process image. This export
+    /// never reads or mutates the parent controller state.
+    ///
+    /// Java signature: `(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;I)I`
+    #[unsafe(no_mangle)]
+    pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_model_local_LlamaServerNative_runServerProcess(
+        env: *mut RawJNIEnv,
+        _thiz: jobject,
+        model_path: jstring,
+        n_ctx: jint,
+        backend: jstring,
+        config_json: jstring,
+        status_fd: jint,
+    ) -> jint {
+        let result = (|| {
+            if status_fd < 0 {
+                return Err(format!("status fd out of range: {status_fd}"));
+            }
+            let model_path =
+                with_jstring(env, model_path, str::to_owned).ok_or("missing model path")?;
+            let backend = with_jstring(env, backend, str::to_owned).ok_or("missing backend")?;
+            let backend =
+                Backend::parse(&backend).ok_or_else(|| format!("unknown backend: {backend}"))?;
+            let config_json = with_jstring(env, config_json, str::to_owned).unwrap_or_default();
+            let n_ctx = u32::try_from(n_ctx).map_err(|_| format!("n_ctx out of range: {n_ctx}"))?;
+            let (temp, top_p, top_k) = parse_sampling(&config_json);
+            let cfg = HttpServerConfig {
+                engine: EngineConfig {
+                    model_path,
+                    n_ctx,
+                    threads: detect_threads(),
+                    backend,
+                    temp,
+                    top_p,
+                    top_k,
+                    idle_timeout_secs: parse_idle_timeout(&config_json),
+                },
+                bind_port: 0,
+            };
+            exec_process::run_server_process(cfg, status_fd)
+        })();
+        match result {
+            Ok(()) => 0,
+            Err(error) => {
+                write_child_error(status_fd, &error);
+                1
+            }
+        }
     }
 
     /// Stop the child (SIGTERM → 3s → SIGKILL) and return the new status.

@@ -1,16 +1,16 @@
-//! JNI lifecycle controller for the forked inference child.
+//! JNI lifecycle controller for the exec-isolated inference child.
 //!
 //! Generation-guarded state machine in the shape of
-//! `wekit-native/src/read_receipts_server.rs`, adapted to the fork design:
+//! `wekit-native/src/read_receipts_server.rs`, adapted to the exec design:
 //! the "server thread" is a separate process, so every state transition is
 //! either a command executed on the one-shot `wekit-llama-ctl` control
 //! thread or a watchdog [`ChildEvent`] applied under the generation guard.
 //!
-//! Fork invariant: JNI entries only ever talk to this module (`CONTROL` +
-//! the control thread + its mpsc), never to [`crate::fork`] directly. The
-//! control thread calls [`crate::fork::fork_server`] with **no locks held**
-//! — every code path between reading `CONTROL` and the fork drops the guard
-//! first (see [`handle_start`]).
+//! Launch invariant: JNI entries only ever talk to this module (`CONTROL` +
+//! the control thread + its mpsc), never to [`crate::exec_process`] directly.
+//! The control thread calls [`crate::exec_process::spawn_server`] with **no
+//! locks held** — every code path between reading `CONTROL` and spawning the
+//! child drops the guard first (see [`handle_start`]).
 //!
 //! The core is deliberately not `#[cfg(target_os = "android")]` so the
 //! validation and state-machine paths stay desktop-testable; only the JNI
@@ -23,7 +23,7 @@ use std::thread::{self, JoinHandle};
 
 use serde_json::json;
 
-use crate::fork::{self, ChildEvent, ForkedServer};
+use crate::exec_process::{self, ChildEvent, ExecServerConfig, SpawnedServer};
 use crate::llama::{Backend, EngineConfig, detect_threads};
 use crate::server::HttpServerConfig;
 
@@ -60,10 +60,10 @@ impl Status {
 pub struct ControlState {
     pub generation: u64,
     pub status: Status,
-    /// The `(model, n_ctx, backend)` tuple the starting/running child
-    /// belongs to; `None` whenever no child is starting/running.
-    pub active: Option<(String, u32, Backend)>,
-    pub child: Option<ForkedServer>,
+    /// The `(bootstrap APK, native library, model, n_ctx, backend)` tuple the
+    /// starting/running child belongs to; `None` whenever no child is active.
+    pub active: Option<(String, String, String, u32, Backend)>,
+    pub child: Option<SpawnedServer>,
     /// Quiescence waiter: joins once a terminal `ChildEvent` (or a stop) has
     /// been processed for the child's generation, so restart/stop sequences
     /// know the old child's events can no longer arrive.
@@ -87,6 +87,8 @@ static CONTROL_TX: OnceLock<mpsc::Sender<Command>> = OnceLock::new();
 
 enum Command {
     Start {
+        bootstrap_apk: String,
+        native_library: String,
         model_path: String,
         n_ctx: u32,
         backend: String,
@@ -100,15 +102,18 @@ enum Command {
     },
 }
 
-/// Start (or reuse) the inference child for `(model_path, n_ctx, backend)`
-/// with the given sampling preset. Blocks until the child is ready or the
-/// start has failed (bounded by `fork_server`'s 60s ready timeout plus the
-/// teardown escalation).
+/// Start (or reuse) the inference child for `(bootstrap_apk, native_library,
+/// model_path, n_ctx, backend)` with the given sampling preset. Blocks until
+/// the child is ready or the start has failed (bounded by `spawn_server`'s
+/// 60s ready timeout plus the teardown escalation).
 ///
 /// Same tuple and already `Running` → immediate `Ok`. Different tuple →
 /// stop the old child, start a new one. Validation failures (and an unknown
 /// `backend` spelling) mark the status `Failed`.
+#[allow(clippy::too_many_arguments)] // Mirrors the fixed parent JNI contract.
 pub fn start(
+    bootstrap_apk: &str,
+    native_library: &str,
     model_path: &str,
     n_ctx: u32,
     backend: &str,
@@ -121,13 +126,15 @@ pub fn start(
         mark_failed(&error);
         return Err(error);
     };
-    if let Err(error) = validate(model_path, n_ctx) {
+    if let Err(error) = validate(bootstrap_apk, native_library, model_path, n_ctx) {
         mark_failed(&error);
         return Err(error);
     }
     let (tx, rx) = mpsc::channel();
     control_tx()
         .send(Command::Start {
+            bootstrap_apk: bootstrap_apk.to_owned(),
+            native_library: native_library.to_owned(),
             model_path: model_path.to_owned(),
             n_ctx,
             backend: backend.as_str().to_owned(),
@@ -169,7 +176,18 @@ pub fn mark_failed(error: &str) {
     state.active = None;
 }
 
-fn validate(model_path: &str, n_ctx: u32) -> Result<(), String> {
+fn validate(
+    bootstrap_apk: &str,
+    native_library: &str,
+    model_path: &str,
+    n_ctx: u32,
+) -> Result<(), String> {
+    if !Path::new(bootstrap_apk).is_absolute() {
+        return Err("bootstrap APK path must be absolute".to_owned());
+    }
+    if !Path::new(native_library).is_absolute() {
+        return Err("native library path must be absolute".to_owned());
+    }
     if !Path::new(model_path).is_absolute() {
         return Err("model path must be absolute".to_owned());
     }
@@ -204,6 +222,8 @@ fn control_loop(rx: mpsc::Receiver<Command>) {
     while let Ok(command) = rx.recv() {
         match command {
             Command::Start {
+                bootstrap_apk,
+                native_library,
                 model_path,
                 n_ctx,
                 backend,
@@ -212,7 +232,16 @@ fn control_loop(rx: mpsc::Receiver<Command>) {
                 top_k,
                 reply,
             } => {
-                let _ = reply.send(handle_start(model_path, n_ctx, backend, temp, top_p, top_k));
+                let _ = reply.send(handle_start(
+                    bootstrap_apk,
+                    native_library,
+                    model_path,
+                    n_ctx,
+                    backend,
+                    temp,
+                    top_p,
+                    top_k,
+                ));
             }
             Command::Stop { reply } => {
                 handle_stop();
@@ -222,7 +251,10 @@ fn control_loop(rx: mpsc::Receiver<Command>) {
     }
 }
 
+#[allow(clippy::too_many_arguments)] // Preserves the command fields without a test-only wrapper.
 fn handle_start(
+    bootstrap_apk: String,
+    native_library: String,
     model_path: String,
     n_ctx: u32,
     backend: String,
@@ -231,7 +263,13 @@ fn handle_start(
     top_k: i32,
 ) -> Result<(), String> {
     let backend = Backend::parse(&backend).expect("backend was validated before dispatch");
-    let tuple = (model_path.clone(), n_ctx, backend);
+    let tuple = (
+        bootstrap_apk.clone(),
+        native_library.clone(),
+        model_path.clone(),
+        n_ctx,
+        backend,
+    );
 
     // Phase 1 (locked): reuse-or-restart decision; bump the generation and
     // take the old child out of the state machine.
@@ -246,30 +284,34 @@ fn handle_start(
         (state.generation, state.child.take(), state.watcher.take())
     };
 
-    // Phase 2 (NO locks held — the fork invariant): tear the old child down
-    // and fork the new one. All of stop_child/join/fork_server run lock-free.
+    // Phase 2 (NO locks held — the launch invariant): tear the old child down
+    // and spawn the new one. All of stop_child/join/spawn_server run lock-free.
     if let Some(child) = old_child {
-        fork::stop_child(child.pid);
+        exec_process::stop_child(child.pid);
     }
     if let Some(watcher) = old_watcher {
         let _ = watcher.join();
     }
-    let cfg = HttpServerConfig {
-        engine: EngineConfig {
-            model_path,
-            n_ctx,
-            threads: detect_threads(),
-            backend,
-            temp,
-            top_p,
-            top_k,
-            idle_timeout_secs: IDLE_TIMEOUT_SECS,
+    let cfg = ExecServerConfig {
+        bootstrap_apk,
+        native_library,
+        server: HttpServerConfig {
+            engine: EngineConfig {
+                model_path,
+                n_ctx,
+                threads: detect_threads(),
+                backend,
+                temp,
+                top_p,
+                top_k,
+                idle_timeout_secs: IDLE_TIMEOUT_SECS,
+            },
+            bind_port: 0,
         },
-        bind_port: 0,
     };
     let (done_tx, done_rx) = mpsc::channel::<()>();
     let on_event = Arc::new(move |event: ChildEvent| apply_event(generation, &done_tx, event));
-    match fork::fork_server(cfg, on_event) {
+    match exec_process::spawn_server(cfg, on_event) {
         Ok(child) => {
             let watcher = thread::Builder::new()
                 .name("wekit-llama-quiesce".to_owned())
@@ -279,7 +321,7 @@ fn handle_start(
                 .ok();
             let mut state = control();
             if state.generation == generation && state.status == Status::Starting {
-                // The normal path: no terminal event landed while we forked.
+                // The normal path: no terminal event landed while we spawned.
                 state.status = Status::Running {
                     port: child.port,
                     pid: child.pid,
@@ -288,12 +330,12 @@ fn handle_start(
                 state.watcher = watcher;
                 Ok(())
             } else if state.generation != generation {
-                // Superseded by a stop/restart: the freshly-forked child is
+                // Superseded by a stop/restart: the freshly-spawned child is
                 // still ours and still alive — kill it here, or it would keep
                 // serving (and holding its model mmap) until the 600s idle
                 // exit. Release the lock first (stop_child blocks up to ~6s).
                 drop(state);
-                fork::stop_child(child.pid);
+                exec_process::stop_child(child.pid);
                 Err("start superseded before the child stabilized".to_owned())
             } else {
                 // A watchdog Died event won the race (the child died right
@@ -327,7 +369,7 @@ fn handle_stop() {
         (state.child.take(), state.watcher.take())
     };
     if let Some(child) = old_child {
-        fork::stop_child(child.pid);
+        exec_process::stop_child(child.pid);
     }
     if let Some(watcher) = old_watcher {
         let _ = watcher.join();
@@ -342,7 +384,7 @@ fn handle_stop() {
 /// watcher, even when stale (so a stop's join returns).
 fn apply_event(generation: u64, done: &mpsc::Sender<()>, event: ChildEvent) {
     match event {
-        ChildEvent::Ready { .. } => {} // readiness is consumed by fork_server's return
+        ChildEvent::Ready { .. } => {} // readiness is consumed by spawn_server's return
         ChildEvent::Exiting { .. } | ChildEvent::Died { .. } => {
             let _ = done.send(());
         }
