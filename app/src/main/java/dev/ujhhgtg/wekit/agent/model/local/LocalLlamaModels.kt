@@ -3,11 +3,6 @@ package dev.ujhhgtg.wekit.agent.model.local
 import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.extensions.InstalledLocalModel
 import dev.ujhhgtg.wekit.extensions.ModelExtensionPack
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -18,17 +13,6 @@ import java.io.File
  * immediately.
  */
 object LocalLlamaModels {
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    /** Emits after any model-pack install/delete; the sync worker collects it. */
-    val packChanges = MutableSharedFlow<Unit>()
-
-    /** Notifies [packChanges] from the pack install/remove hooks. */
-    fun notifyPackChanged() {
-        scope.launch { packChanges.emit(Unit) }
-    }
-
     fun listInstalled(): List<InstalledLocalModel> =
         ExtensionPacks.packs.filterIsInstance<ModelExtensionPack>().mapNotNull { it.installedModel() }
 

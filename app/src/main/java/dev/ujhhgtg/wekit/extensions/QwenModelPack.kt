@@ -5,7 +5,7 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Neurology
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaController
-import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaModels
+import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaSync
 import dev.ujhhgtg.wekit.agent.model.local.parseLocalModelMeta
 import dev.ujhhgtg.wekit.utils.HostInfo
 import java.io.File
@@ -63,9 +63,9 @@ object QwenModelPack : ModelExtensionPack {
         sweepOtherVersions(version)
     }
 
-    override fun onInstalled() = LocalLlamaModels.notifyPackChanged()
+    override fun onInstalled() = LocalLlamaSync.schedule()
 
-    override fun onRemoved() = LocalLlamaModels.notifyPackChanged()
+    override fun onRemoved() = LocalLlamaSync.schedule()
 
     /** The installed GGUF weights, or null when not installed. */
     fun modelFile(): File? {

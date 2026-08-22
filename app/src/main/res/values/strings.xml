@@ -247,6 +247,7 @@
     <string name="agent_provider_type_anthropic_messages" translatable="false">Anthropic Messages</string>
     <string name="agent_provider_type_gemini_generate_content" translatable="false">Gemini generateContent (legacy)</string>
     <string name="agent_provider_type_gemini_interactions" translatable="false">Gemini Interactions</string>
+    <string name="agent_provider_type_local_llama" translatable="false">Local LLM Inference</string>
     <string name="agent_builtin_provider_wechat">WeChat operations</string>
     <string name="agent_builtin_provider_wechat_sql">Database SQL</string>
     <string name="agent_builtin_provider_files">Files and skills</string>

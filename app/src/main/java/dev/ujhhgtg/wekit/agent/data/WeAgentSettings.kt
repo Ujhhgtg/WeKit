@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.agent.data
 
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings.load
 import dev.ujhhgtg.wekit.agent.data.entity.SettingEntity
+import dev.ujhhgtg.wekit.agent.model.local.LocalLlama
 import dev.ujhhgtg.wekit.agent.tool.ToolLoadingMode
 import java.util.concurrent.ConcurrentHashMap
 
@@ -25,6 +26,7 @@ object WeAgentSettings {
     const val KEY_NATIVE_LINUX_ENVIRONMENT_VARIABLES = "native_linux_environment_variables"
     const val KEY_SEND_WHILE_RUNNING = "send_while_running"         // QUEUE_AFTER_TURN | QUEUE_AS_STEER
     const val KEY_OVERLAY_MODE = "overlay_mode"                     // DISABLED | FOREGROUND_ONLY | ALWAYS
+    const val KEY_LOCAL_COMPUTE_BACKEND = "local_compute_backend"
 
     /** Superseded by [KEY_OVERLAY_MODE]; still read once for migration of existing installs. */
     const val KEY_OVERLAY_FOREGROUND_ONLY = "overlay_foreground_only"
@@ -82,6 +84,12 @@ object WeAgentSettings {
     suspend fun defaultSystemPromptId(): String? = get(KEY_DEFAULT_SYSTEM_PROMPT_ID)?.takeIf { it.isNotBlank() }
     suspend fun nativeLinuxWorkingDirectory(): String? = get(KEY_NATIVE_LINUX_WORKING_DIRECTORY)?.takeIf { it.isNotBlank() }
     suspend fun nativeLinuxEnvironmentVariables(): String = get(KEY_NATIVE_LINUX_ENVIRONMENT_VARIABLES) ?: "{}"
+    suspend fun localComputeBackend(): String =
+        get(KEY_LOCAL_COMPUTE_BACKEND)?.takeIf { it in LocalLlama.BACKENDS } ?: "auto"
+    suspend fun setLocalComputeBackend(value: String) {
+        require(value in LocalLlama.BACKENDS) { "unsupported local compute backend: $value" }
+        set(KEY_LOCAL_COMPUTE_BACKEND, value)
+    }
     suspend fun defaultLinuxEnvironmentId(): String? =
         get(KEY_DEFAULT_LINUX_ENVIRONMENT_ID)?.takeIf { it.isNotBlank() }
 

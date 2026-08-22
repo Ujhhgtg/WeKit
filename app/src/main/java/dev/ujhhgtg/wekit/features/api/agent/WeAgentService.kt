@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus
 import dev.ujhhgtg.wekit.agent.data.entity.MessageRole
+import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
 import dev.ujhhgtg.wekit.agent.engine.AgentEvent
 import dev.ujhhgtg.wekit.agent.engine.AgentSessionContext
 import dev.ujhhgtg.wekit.agent.engine.AgentSessionEngine
@@ -30,6 +31,9 @@ import dev.ujhhgtg.wekit.agent.terminal.TerminalManager
 import dev.ujhhgtg.wekit.agent.mcp.McpClientManager
 import dev.ujhhgtg.wekit.agent.model.LlmToolCall
 import dev.ujhhgtg.wekit.agent.model.ModelProviderManager
+import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaController
+import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaModels
+import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaSync
 import dev.ujhhgtg.wekit.agent.net.ExternalServiceId
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
@@ -253,6 +257,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         // Warm the DB, seed permissions, load settings.
         WeAgentDatabase.instance
         WeAgentRepository.seedAndLoad()
+        LocalLlamaSync.schedule()
         linuxEnvironmentManager.initialize()
         WeAgentSettings.load()
         toolBridgeServer.start()
@@ -966,6 +971,19 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             withContext(Dispatchers.Main) { currentContextWindow.value = model.contextWindow }
         }
         val provider = WeAgentRepository.getModelProvider(model.providerId) ?: return null
+        if (provider.type == ModelProviderType.LOCAL_LLAMA) {
+            val gguf = LocalLlamaModels.resolveModelFile(model.modelIdRemote)
+                ?: return null // model pack uninstalled mid-selection; sync will clean the row
+            runCatching {
+                LocalLlamaController.ensureReady(
+                    gguf,
+                    nCtx = model.contextWindow
+                        ?: LocalLlamaModels.defaultContextWindow(model.modelIdRemote)
+                        ?: 32768,
+                    backend = WeAgentSettings.localComputeBackend(),
+                )
+            }.getOrElse { return null }
+        }
         val client = runCatching { ModelProviderManager.clientFor(provider) }.getOrNull() ?: return null
         // systemPromptId semantics: null = "默认" (follow settings default), "" = "无" (explicitly none),
         // any other value = that specific prompt.
@@ -1013,6 +1031,19 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             ?: return null
         val model = WeAgentRepository.getModel(modelId) ?: return null
         val provider = WeAgentRepository.getModelProvider(model.providerId) ?: return null
+        if (provider.type == ModelProviderType.LOCAL_LLAMA) {
+            val gguf = LocalLlamaModels.resolveModelFile(model.modelIdRemote)
+                ?: return null // model pack uninstalled mid-selection; sync will clean the row
+            runCatching {
+                LocalLlamaController.ensureReady(
+                    gguf,
+                    nCtx = model.contextWindow
+                        ?: LocalLlamaModels.defaultContextWindow(model.modelIdRemote)
+                        ?: 32768,
+                    backend = WeAgentSettings.localComputeBackend(),
+                )
+            }.getOrElse { return null }
+        }
         val client = runCatching { ModelProviderManager.clientFor(provider) }.getOrNull() ?: return null
         return SmallModelRef(client, model.modelIdRemote, model.reasoningEffort, model.maxTokens)
     }

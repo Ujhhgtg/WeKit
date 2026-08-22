@@ -4,6 +4,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.stringResource
@@ -13,6 +14,7 @@ import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
+import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaSync
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 
@@ -25,6 +27,7 @@ fun ModelProvidersScreen(
     onBack: () -> Unit,
     onOpenProvider: (String) -> Unit,
 ) {
+    LaunchedEffect(Unit) { LocalLlamaSync.schedule() }
     val providers by WeAgentRepository.observeModelProviders().collectAsState(initial = emptyList())
 
     AgentSettingsScaffold(title = stringResource(R.string.agent_model_providers_title), onBack = onBack) {
@@ -70,4 +73,5 @@ fun ModelProviderType.label(): String = stringResource(when (this) {
     ModelProviderType.ANTHROPIC_MESSAGES -> R.string.agent_provider_type_anthropic_messages
     ModelProviderType.GEMINI_GENERATE_CONTENT -> R.string.agent_provider_type_gemini_generate_content
     ModelProviderType.GEMINI_INTERACTIONS -> R.string.agent_provider_type_gemini_interactions
+    ModelProviderType.LOCAL_LLAMA -> R.string.agent_provider_type_local_llama
 })

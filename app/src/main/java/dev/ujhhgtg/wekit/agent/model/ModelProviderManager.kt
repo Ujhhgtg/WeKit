@@ -4,6 +4,8 @@ import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
+import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaController
+import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaModels
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
@@ -47,7 +49,12 @@ object ModelProviderManager {
      */
     @Synchronized
     fun clientFor(provider: ModelProviderEntity): LlmClient {
-        val hash = provider.type.hashCode() * 31 + provider.baseUrl.hashCode() * 31 + provider.apiKey.hashCode()
+        val effectiveBase = if (provider.type == ModelProviderType.LOCAL_LLAMA) {
+            LocalLlamaController.baseUrlOrNull().orEmpty()
+        } else {
+            provider.baseUrl
+        }
+        val hash = provider.type.hashCode() * 31 + effectiveBase.hashCode() * 31 + provider.apiKey.hashCode()
         clientCache[provider.id]?.let { if (it.configHash == hash) return it.client }
         val client = build(provider)
         clientCache[provider.id] = CachedClient(hash, client)
@@ -69,6 +76,12 @@ object ModelProviderManager {
 
         ModelProviderType.GEMINI_INTERACTIONS ->
             GeminiInteractionsClient(httpClient, provider.baseUrl.trimEnd('/'), provider.apiKey)
+
+        ModelProviderType.LOCAL_LLAMA -> {
+            val base = LocalLlamaController.baseUrlOrNull()
+                ?: error("local llama server is not running")
+            OpenAiChatCompletionsClient(httpClient, base, "")
+        }
     }
 
     /**
@@ -115,6 +128,9 @@ object ModelProviderManager {
      * [provider] must carry a decrypted API key.
      */
     suspend fun listRemoteModels(provider: ModelProviderEntity): Result<List<String>> {
+        if (provider.type == ModelProviderType.LOCAL_LLAMA) {
+            return Result.success(LocalLlamaModels.listInstalled().map { it.id })
+        }
         if (provider.type == ModelProviderType.ANTHROPIC_MESSAGES) {
             return Result.failure(LlmException("Anthropic 不支持自动获取模型列表，请手动添加。"))
         }
