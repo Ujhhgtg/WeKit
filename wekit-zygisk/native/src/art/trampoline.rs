@@ -4,7 +4,7 @@
 // Uses a dual-mapped `memfd`: one `PROT_READ|PROT_WRITE` alias for writing the
 // stub bytes and one `PROT_READ|PROT_EXEC` alias for executing them.  This
 // avoids any `mprotect(PROT_EXEC)` call, which is blocked by SELinux on
-// modern Android.  Supports arm64 (20-byte stub) and arm32 (12-byte stub).
+// modern Android. Supports an arm64 20-byte stub.
 
 use crate::loge;
 use libc::c_int;
@@ -120,24 +120,7 @@ fn arm64_ldur_x16_from_x0(ep_offset: usize) -> u32 {
     0xF840_0010u32 | (ep << 12)
 }
 
-// ── arm32 trampoline (12 bytes) ───────────────────────────────────────────────
-// ldr r0, [pc, #0]              ; load bridge_art_method
-// ldr pc, [r0, #ep_offset]      ; jump to bridge entry point
-// .word bridge_art_method
-
-#[cfg(target_arch = "arm")]
-unsafe fn write_trampoline(dst: *mut u8, bridge_art_method: usize, ep_offset: usize) {
-    let ep = (ep_offset & 0xFFF) as u32;
-    let ldr_pc = 0xE590_F000u32 | ep; // ldr pc, [r0, #ep_offset]
-    let code: [u32; 3] = [
-        0xE59F_0000, // ldr r0, [pc, #0]
-        ldr_pc,
-        bridge_art_method as u32,
-    ];
-    (dst as *mut [u32; 3]).write_unaligned(code);
-}
-
-#[cfg(not(any(target_arch = "aarch64", target_arch = "arm")))]
+#[cfg(not(target_arch = "aarch64"))]
 unsafe fn write_trampoline(_dst: *mut u8, _bridge: usize, _ep: usize) {}
 
 #[cfg(target_arch = "aarch64")]
@@ -186,20 +169,7 @@ unsafe fn flush_icache(start: *const u8, end: *const u8) {
     }
 }
 
-#[cfg(target_arch = "arm")]
-unsafe fn flush_icache(start: *const u8, end: *const u8) {
-    const ARM_NR_CACHEFLUSH: libc::c_long = 0x0f0002;
-    unsafe {
-        libc::syscall(
-            ARM_NR_CACHEFLUSH,
-            start as libc::c_ulong,
-            end as libc::c_ulong,
-            0 as libc::c_ulong,
-        );
-    }
-}
-
-#[cfg(not(any(target_arch = "aarch64", target_arch = "arm")))]
+#[cfg(not(target_arch = "aarch64"))]
 unsafe fn flush_icache(_start: *const u8, _end: *const u8) {}
 
 #[cfg(test)]

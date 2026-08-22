@@ -178,14 +178,13 @@ API 28 Clang drivers and writes build intermediates below `target/cloudflared/`.
 objects are copied into the APK input directories:
 
 ```bash
-./x cloudflared-build --abi arm64-v8a --abi armeabi-v7a
+./x cloudflared-build --abi arm64-v8a
 ```
 
 Outputs:
 
 ```text
 app/src/main/jniLibs/arm64-v8a/libwekit_cloudflared.so
-app/src/main/jniLibs/armeabi-v7a/libwekit_cloudflared.so
 ```
 
 A normal `./x build` and `./x run` refresh these bridge artifacts before the Rust native library

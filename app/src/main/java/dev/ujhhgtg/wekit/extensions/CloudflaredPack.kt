@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.extensions
 
-import android.os.Process
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Cloud
@@ -20,7 +19,7 @@ import java.util.zip.ZipFile
 class CloudflaredPackNotInstalledException(message: String) : RuntimeException(message)
 
 /**
- * Cloudflared 扩展包:双 ABI zip,安装时仅解压当前 ABI 的 libwekit_cloudflared.so
+ * Cloudflared 扩展包：解压 arm64-v8a 的 libwekit_cloudflared.so
  * 到应用内部存储(dlopen 要求),由 NativeLoader.ensureCloudflaredLoaded() System.load。
  */
 object CloudflaredPack : ExtensionPack {
@@ -31,6 +30,7 @@ object CloudflaredPack : ExtensionPack {
     override val icon: ImageVector = MaterialSymbols.Outlined.Cloud
 
     private const val LIB_NAME = "libwekit_cloudflared.so"
+    private const val ABI = "arm64-v8a"
 
     /** The error callers rethrow after showing the install dialog. */
     val notInstalledError: CloudflaredPackNotInstalledException
@@ -59,7 +59,6 @@ object CloudflaredPack : ExtensionPack {
         versionDir.deleteRecursively()
         versionDir.mkdirs()
 
-        val abi = if (Process.is64Bit()) "arm64-v8a" else "armeabi-v7a"
         ZipFile(verifiedTmp).use { zip ->
             // Inner manifest (written by xtask): per-file sha256 for post-extraction re-verification.
             val manifestEntry = zip.getEntry("manifest.json") ?: error("cloudflared pack has no inner manifest")
@@ -67,14 +66,14 @@ object CloudflaredPack : ExtensionPack {
                 .jsonObject["files"]!!.jsonObject
                 .mapValues { it.value.jsonPrimitive.content }
 
-            val entry = zip.getEntry("$abi/$LIB_NAME") ?: error("cloudflared pack has no library for $abi")
+            val entry = zip.getEntry("$ABI/$LIB_NAME") ?: error("cloudflared pack has no library for $ABI")
             val tmpSo = File(versionDir, "$LIB_NAME.tmp")
             zip.getInputStream(entry).use { input ->
                 tmpSo.outputStream().use { output -> input.copyTo(output) }
             }
-            if (!PackFs.verify(tmpSo, hashes.getValue("$abi/$LIB_NAME"))) {
+            if (!PackFs.verify(tmpSo, hashes.getValue("$ABI/$LIB_NAME"))) {
                 tmpSo.delete()
-                error("inner manifest SHA-256 mismatch for $abi/$LIB_NAME")
+                error("inner manifest SHA-256 mismatch for $ABI/$LIB_NAME")
             }
             val dst = File(versionDir, LIB_NAME)
             tmpSo.setReadable(true, true)

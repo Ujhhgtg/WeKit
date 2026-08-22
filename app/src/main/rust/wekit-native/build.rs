@@ -126,7 +126,6 @@ fn configure_android_libvpx(source: &Path, build: &Path) {
     let rust_target = env::var("TARGET").expect("TARGET is missing");
     let vpx_target = match rust_target.as_str() {
         "aarch64-linux-android" => "arm64-android-gcc",
-        "armv7-linux-androideabi" => "armv7-android-gcc",
         other => panic!("unsupported Android target for libvpx: {other}"),
     };
     let cc = target_tool("CC", &rust_target);

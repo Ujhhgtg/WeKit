@@ -62,7 +62,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi
+          targets: aarch64-linux-android
 
       - name: Install Android NDK
         run: |
@@ -72,7 +72,6 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
           NDK_BIN="$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin"
           test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
-          test -x "$NDK_BIN/armv7a-linux-androideabi$MIN_SDK-clang"
           test -x "$NDK_BIN/llvm-strip"
 
       - name: Prepare PRoot cache key
@@ -146,14 +145,14 @@ jobs:
           set -euo pipefail
           mkdir -p dist/apk
 
-          expected_abis=$(printf '%s\n' arm64-v8a armeabi-v7a)
+          expected_abis=arm64-v8a
           for flavor in standard legacy; do
             apk="app/build/outputs/apk/$flavor/release/app-$flavor-release.apk"
             test -f "$apk"
 
             actual_abis=$(unzip -Z1 "$apk" 'lib/*/*.so' | cut -d/ -f2 | sort -u)
             if [ "$actual_abis" != "$expected_abis" ]; then
-              echo "::error file=$apk::Expected universal arm64-v8a + armeabi-v7a APK, got: $actual_abis"
+              echo "::error file=$apk::Expected arm64-v8a-only APK, got: $actual_abis"
               exit 1
             fi
 
@@ -205,7 +204,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi
+          targets: aarch64-linux-android
 
       - name: Install Android NDK
         run: |
@@ -215,7 +214,6 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
           NDK_BIN="$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin"
           test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
-          test -x "$NDK_BIN/armv7a-linux-androideabi$MIN_SDK-clang"
           test -x "$NDK_BIN/llvm-strip"
 
       - name: Download Release APK artifact
@@ -460,7 +458,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi
+          targets: aarch64-linux-android
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -483,7 +481,6 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
           NDK_BIN="$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin"
           test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
-          test -x "$NDK_BIN/armv7a-linux-androideabi$MIN_SDK-clang"
           test -x "$NDK_BIN/llvm-strip"
 
       - name: Prepare PRoot cache key

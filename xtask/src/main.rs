@@ -52,7 +52,7 @@ struct AbiSpec {
     /// Cargo target triple passed to `--target`.
     cargo_triple: &'static str,
     /// Clang binary prefix inside the NDK `bin/` dir (the part before
-    /// `{MIN_SDK}-clang`).  Note: armv7 uses `armv7a-` not `armv7-`.
+    /// `{MIN_SDK}-clang`).
     clang_prefix: &'static str,
     /// Prefix used for `CC_`, `CXX_`, `AR_` keys in `.cargo/config.toml`.
     /// Matches the hardcoded strings in `ConfigureCargoTask.kt`.
@@ -62,7 +62,6 @@ struct AbiSpec {
 #[derive(Debug, Eq, PartialEq)]
 struct GoAndroidTarget {
     arch: &'static str,
-    arm: Option<&'static str>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -78,24 +77,15 @@ const APK_NATIVE_BUILD_STEPS: &[ApkNativeBuildStep] = &[
 
 // Order matches the template in ConfigureCargoTask.kt so that
 // `cargo xtask configure` and the Gradle task produce identical output.
-static ABI_TABLE: &[AbiSpec] = &[
-    AbiSpec {
-        android_name: "arm64-v8a",
-        cargo_triple: "aarch64-linux-android",
-        clang_prefix: "aarch64-linux-android",
-        env_key: "aarch64_linux_android",
-    },
-    AbiSpec {
-        android_name: "armeabi-v7a",
-        cargo_triple: "armv7-linux-androideabi",
-        clang_prefix: "armv7a-linux-androideabi",
-        // Kept with hyphens to match ConfigureCargoTask.kt's template verbatim.
-        env_key: "armv7-linux-androideabi",
-    },
-];
+static ABI_TABLE: &[AbiSpec] = &[AbiSpec {
+    android_name: "arm64-v8a",
+    cargo_triple: "aarch64-linux-android",
+    clang_prefix: "aarch64-linux-android",
+    env_key: "aarch64_linux_android",
+}];
 
-/// ABIs included in the universal APK (the default build targets).
-static RELEASE_ABIS: &[&str] = &["arm64-v8a", "armeabi-v7a"];
+/// ABIs included in release APKs (the default build targets).
+static RELEASE_ABIS: &[&str] = &["arm64-v8a"];
 
 const ZYGISK_CARGO_PACKAGE: &str = "wekit-zygisk";
 const ZYGISK_MODULE_ID: &str = "wekit_zygisk";
@@ -107,18 +97,11 @@ struct ZygiskAbiSpec {
     aliases: &'static [&'static str],
 }
 
-static ZYGISK_ABIS: &[ZygiskAbiSpec] = &[
-    ZygiskAbiSpec {
-        android_name: "arm64-v8a",
-        magisk_name: "arm64",
-        aliases: &["arm64", "a64", "aarch64", "arm64_v8a"],
-    },
-    ZygiskAbiSpec {
-        android_name: "armeabi-v7a",
-        magisk_name: "arm",
-        aliases: &["armeabi", "arm", "arm32", "a32", "armeabi_v7a"],
-    },
-];
+static ZYGISK_ABIS: &[ZygiskAbiSpec] = &[ZygiskAbiSpec {
+    android_name: "arm64-v8a",
+    magisk_name: "arm64",
+    aliases: &["arm64", "a64", "aarch64", "arm64_v8a"],
+}];
 
 // ── CLI ────────────────────────────────────────────────────────────────────────
 
@@ -270,7 +253,7 @@ struct ZygiskApkProfileArgs {
 
 #[derive(Args)]
 struct ZygiskNativeArgs {
-    /// Target ABI(s). May be repeated. Defaults to arm64-v8a and armeabi-v7a.
+    /// Target ABI(s). May be repeated. Defaults to arm64-v8a.
     #[arg(long = "abi", value_name = "ABI")]
     abis: Vec<String>,
 
@@ -302,7 +285,7 @@ struct ZygiskBuildArgs {
     #[arg(long, value_name = "VERSION")]
     ndk: Option<String>,
 
-    /// Universal APK to embed instead of using automatic APK discovery.
+    /// APK to embed instead of using automatic APK discovery.
     #[arg(long = "apk", value_name = "APK")]
     apk: Option<PathBuf>,
 
@@ -343,7 +326,7 @@ struct ZygiskCleanArgs {
     #[arg(long, value_enum, default_value_t = ZygiskCleanProfile::All)]
     profile: ZygiskCleanProfile,
 
-    /// Limit cleaning to ABI(s). Defaults to both supported Zygisk ABIs.
+    /// Limit cleaning to ABI(s). Defaults to all supported Zygisk ABIs.
     #[arg(long = "abi", value_name = "ABI")]
     abis: Vec<String>,
 }
@@ -358,9 +341,9 @@ enum ZygiskCleanProfile {
 /// Arguments shared by --native-only builds, `check`, and `clippy`.
 #[derive(Args)]
 struct NativeArgs {
-    /// Target ABI(s) to build.  May be repeated.  Defaults to arm64-v8a and armeabi-v7a.
+    /// Target ABI(s) to build. May be repeated. Defaults to arm64-v8a.
     ///
-    /// Valid values: arm64-v8a, armeabi-v7a
+    /// Valid value: arm64-v8a
     #[arg(long = "abi", value_name = "ABI")]
     abis: Vec<String>,
 }
@@ -550,14 +533,7 @@ fn should_build_proot(abis: &[&AbiSpec]) -> bool {
 
 fn go_android_target(spec: &AbiSpec) -> GoAndroidTarget {
     match spec.android_name {
-        "arm64-v8a" => GoAndroidTarget {
-            arch: "arm64",
-            arm: None,
-        },
-        "armeabi-v7a" => GoAndroidTarget {
-            arch: "arm",
-            arm: Some("7"),
-        },
+        "arm64-v8a" => GoAndroidTarget { arch: "arm64" },
         name => unreachable!("unsupported Android ABI {name}"),
     }
 }
@@ -1101,9 +1077,6 @@ pub(crate) fn task_build_cloudflared(abi_args: &[String]) -> Result<()> {
             .env("GOOS", "android")
             .env("GOARCH", target.arch)
             .env("CC", &cc);
-        if let Some(goarm) = target.arm {
-            command.env("GOARM", goarm);
-        }
         let status = command.status().with_context(|| {
             format!(
                 "failed to spawn Go cloudflared build for {}",
@@ -1380,8 +1353,7 @@ fn task_zygisk_build(args: &ZygiskBuildArgs) -> Result<PathBuf> {
         // and `./x zygisk flash` silently shipped a stale libwekit_native.so no matter how many
         // times the Rust sources changed.
         //
-        // Both ABIs unconditionally: the module payload requires a universal APK (see
-        // `resolve_zygisk_payload_apk`), so a single-ABI build would be rejected later anyway.
+        // Build every supported ABI before Gradle packages the Zygisk payload APK.
         task_prepare_apk_native_inputs(&[])?;
 
         let gradle_task = gradle_variant_task(
@@ -1497,7 +1469,7 @@ fn resolve_zygisk_payload_apk(
             "app/build/outputs/apk"
         };
         format!(
-            "no universal WeKit APK containing {} found in {source}",
+            "no WeKit APK containing {} found in {source}",
             ZYGISK_ABIS
                 .iter()
                 .map(|abi| abi.android_name)
@@ -2139,36 +2111,6 @@ mod tests {
     }
 
     #[test]
-    fn cloudflared_build_accepts_both_android_abis() {
-        let command = Cli::try_parse_from([
-            "xtask",
-            "cloudflared-build",
-            "--abi",
-            "arm64-v8a",
-            "--abi",
-            "armeabi-v7a",
-        ])
-        .unwrap()
-        .command;
-
-        let Cmd::CloudflaredBuild(args) = command else {
-            panic!("expected cloudflared-build command");
-        };
-        assert_eq!(args.abis, ["arm64-v8a", "armeabi-v7a"]);
-    }
-
-    #[test]
-    fn cloudflared_build_maps_android_abis_to_go_targets() {
-        let arm64 = go_android_target(&ABI_TABLE[0]);
-        assert_eq!(arm64.arch, "arm64");
-        assert_eq!(arm64.arm, None);
-
-        let arm32 = go_android_target(&ABI_TABLE[1]);
-        assert_eq!(arm32.arch, "arm");
-        assert_eq!(arm32.arm, Some("7"));
-    }
-
-    #[test]
     fn apk_native_build_plan_runs_configure_before_wekit_native() {
         assert_eq!(
             apk_native_build_steps(),
@@ -2196,14 +2138,14 @@ mod tests {
     #[test]
     fn chroot_cleanup_is_packaged_as_an_abi_native_artifact() {
         let root = Path::new("/workspace");
-        let (source, destination) = chroot_cleanup_artifact_paths(root, &ABI_TABLE[1]);
+        let (source, destination) = chroot_cleanup_artifact_paths(root, &ABI_TABLE[0]);
         assert_eq!(
             source,
-            root.join("target/armv7-linux-androideabi/release/chroot_cleanup")
+            root.join("target/aarch64-linux-android/release/chroot_cleanup")
         );
         assert_eq!(
             destination,
-            root.join("app/src/main/jniLibs/armeabi-v7a/libchroot_cleanup.so")
+            root.join("app/src/main/jniLibs/arm64-v8a/libchroot_cleanup.so")
         );
     }
 
@@ -2224,8 +2166,7 @@ mod tests {
     #[test]
     fn proot_build_selection_is_arm64_only() {
         assert!(should_build_proot(&[&ABI_TABLE[0]]));
-        assert!(!should_build_proot(&[&ABI_TABLE[1]]));
-        assert!(should_build_proot(&[&ABI_TABLE[0], &ABI_TABLE[1]]));
+        assert!(!should_build_proot(&[]));
     }
 
     #[test]
@@ -2423,9 +2364,9 @@ mod tests {
     }
 
     #[test]
-    fn zygisk_build_accepts_only_one_universal_apk() {
-        let args = parse_zygisk_build_args(&["--apk", "wekit-universal.apk"]);
-        assert_eq!(args.apk, Some(PathBuf::from("wekit-universal.apk")));
+    fn zygisk_build_accepts_only_one_payload_apk() {
+        let args = parse_zygisk_build_args(&["--apk", "wekit-arm64.apk"]);
+        assert_eq!(args.apk, Some(PathBuf::from("wekit-arm64.apk")));
 
         assert!(
             Cli::try_parse_from([
