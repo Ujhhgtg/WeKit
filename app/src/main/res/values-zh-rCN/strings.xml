@@ -1042,6 +1042,9 @@
     <string name="agent_model_already_added">%1$s（已添加）</string>
     <string name="agent_import_selected_models">导入（%1$d）</string>
     <string name="agent_edit_model">编辑模型</string>
+    <string name="agent_discard_creation_title">放弃创建？</string>
+    <string name="agent_discard_creation_message">当前填写的内容尚未保存，放弃后将丢失。</string>
+    <string name="agent_discard_creation_confirm">放弃</string>
     <string name="agent_model_id_label">模型 ID（传给 API）</string>
     <string name="agent_model_display_name_label">显示名称（可选）</string>
     <string name="agent_reasoning_effort">思考强度</string>

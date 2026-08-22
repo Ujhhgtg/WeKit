@@ -29,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +41,7 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Cloud_download
+import com.composables.icons.materialsymbols.outlined.Save
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
@@ -59,31 +61,61 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-/** Edits one provider (name/url/key) with instant-apply rows and manages its models. */
+/**
+ * Edits one provider (name/url/key/type) with instant-apply rows and manages its models. A blank
+ * [providerId] starts a new provider as an in-memory draft: the models section is hidden, 保存
+ * persists it and switches the screen to edit mode in place (models appear, no navigation), and
+ * leaving with a savable draft asks for confirmation first.
+ */
 @Composable
-fun ModelProviderDetailScreen(providerId: String, onOpenModel: (String) -> Unit, onBack: () -> Unit) {
+fun ModelProviderDetailScreen(
+    providerId: String,
+    onOpenModel: (providerId: String, modelId: String) -> Unit,
+    onBack: () -> Unit,
+) {
+    val creating = providerId.isBlank()
     val scope = rememberCoroutineScope()
     val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     var provider by remember { mutableStateOf<ModelProviderEntity?>(null) }
     var showDeleteProviderConfirm by remember { mutableStateOf(false) }
+    // Creation only: the id assigned by 保存. Saveable so that re-entering this entry after the
+    // in-place save (e.g. back from a model page) reloads the saved provider, not a fresh draft.
+    var savedId by rememberSaveable { mutableStateOf("") }
 
-    LaunchedEffect(providerId) {
-        provider = WeAgentRepository.getModelProvider(providerId)
+    LaunchedEffect(providerId, savedId) {
+        provider = when {
+            creating && savedId.isNotBlank() -> WeAgentRepository.getModelProvider(savedId)
+            creating -> ModelProviderEntity("", ModelProviderType.OPENAI_CHAT_COMPLETION, "", "https://api.openai.com/v1", "")
+            else -> WeAgentRepository.getModelProvider(providerId)
+        }
     }
 
-    val models by WeAgentRepository.observeModelsForProvider(providerId).collectAsState(initial = emptyList())
+    val p = provider
+
+    // True once the entity exists in Room: loaded for edit, or assigned by 保存 during creation.
+    // The route id stays blank after in-place creation, so this — not `creating` — gates edit mode.
+    val editing = !creating || savedId.isNotBlank()
+
+    // The id backing this screen: the route's, or the one assigned on save during creation (the
+    // route entry keeps its blank id, so the models list must key off this instead).
+    val activeId = if (creating) savedId else providerId
+    val models by remember(activeId) { WeAgentRepository.observeModelsForProvider(activeId) }
+        .collectAsState(initial = emptyList())
     // Auto-import state: fetched ids to pick from, plus loading.
     var importCandidates by remember { mutableStateOf<List<String>?>(null) }
     var importing by remember { mutableStateOf(false) }
 
-    val p = provider
-
     /**
-     * Every confirmed row edit is persisted immediately — there is no draft state and no save
-     * button. The API key is stored exactly as typed (no encryption anywhere in the pipeline).
+     * Every confirmed row edit of an existing provider is persisted immediately — there is no
+     * draft state and no save button in edit mode; during creation, edits only update the draft.
+     * The API key is stored exactly as typed (no encryption anywhere in the pipeline).
      */
     fun commitProvider(transform: (ModelProviderEntity) -> ModelProviderEntity) {
         val current = provider ?: return
+        if (!editing) {
+            provider = transform(current)
+            return
+        }
         scope.launch {
             val updated = transform(current)
             WeAgentRepository.upsertModelProvider(updated)
@@ -94,7 +126,14 @@ fun ModelProviderDetailScreen(providerId: String, onOpenModel: (String) -> Unit,
         }
     }
 
-    AgentSettingsScaffold(title = p?.name ?: stringResource(R.string.agent_provider_fallback_title), onBack = onBack) {
+    val savable = p?.baseUrl?.isNotBlank() == true
+    val guardedBack = rememberCreationBackGuard(!editing && savable, onBack)
+
+    AgentSettingsScaffold(
+        title = if (!editing) stringResource(R.string.agent_add_model_provider)
+        else p?.name ?: stringResource(R.string.agent_provider_fallback_title),
+        onBack = guardedBack,
+    ) {
         if (p == null) {
             item {
                 Box(
@@ -155,76 +194,105 @@ fun ModelProviderDetailScreen(providerId: String, onOpenModel: (String) -> Unit,
                 }
             }
         }
-        item {
-            AgentActionRow {
-                OutlinedButton(
-                    onClick = { showDeleteProviderConfirm = true },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text(stringResource(R.string.action_delete)) }
-            }
-        }
 
-        item { ModelSectionTitle(stringResource(R.string.agent_section_models)) }
-        if (models.isEmpty()) {
+        if (!editing) {
             item {
-                Text(
-                    text = stringResource(R.string.agent_empty_models_message),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 32.dp),
-                )
-            }
-        } else {
-            lazySegmentedItems(models, key = { it.id }) { m ->
-                Column(Modifier.padding(horizontal = 16.dp)) {
-                    BaseWidget(
-                        iconPlaceholder = false,
-                        title = m.displayName.ifBlank { m.modelIdRemote },
-                        description = "id=${m.modelIdRemote}" +
-                                (m.reasoningEffort?.let { " · effort=$it" } ?: "") +
-                                (m.contextWindow?.let { " · ctx=$it" } ?: "") +
-                                (m.maxTokens?.let { " · max=$it" } ?: "") +
-                                if (m.supportsVision) " · ${stringResource(R.string.agent_model_supports_vision_badge)}" else "",
-                        onClick = { onOpenModel(m.id) },
-                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    )
-                }
-            }
-        }
-        item {
-            AgentActionRow {
-                AgentListActionButton(
-                    label = stringResource(R.string.agent_add_model),
-                    icon = MaterialSymbols.Outlined.Add,
-                    enabled = !importing,
-                    onClick = { onOpenModel("") },
-                )
-                // Auto-import is only meaningful for the OpenAI-style /models endpoint.
-                if (p.type != ModelProviderType.ANTHROPIC_MESSAGES) {
+                // A blank name falls back to the provider type label, like the old add dialog did.
+                val fallbackName = p.type.label()
+                AgentActionRow {
                     AgentListActionButton(
-                        label = stringResource(R.string.agent_auto_import_models),
-                        icon = MaterialSymbols.Outlined.Cloud_download,
-                        loading = importing,
+                        label = stringResource(R.string.action_save),
+                        icon = MaterialSymbols.Outlined.Save,
+                        enabled = savable,
                         onClick = {
-                            importing = true
+                            val draft = p
                             scope.launch {
-                                val result = ModelProviderManager.listRemoteModels(p)
-                                importing = false
-                                result.fold(
-                                    // distinct(): duplicate ids would produce duplicate LazyColumn keys in the import picker
-                                    onSuccess = { importCandidates = it.distinct() },
-                                    onFailure = {
-                                        showToast(
-                                            localizedContext.getString(
-                                                R.string.agent_fetch_models_failed,
-                                                it.message,
-                                            )
-                                        )
-                                    },
+                                val saved = draft.copy(
+                                    id = UUID.randomUUID().toString(),
+                                    name = draft.name.ifBlank { fallbackName },
                                 )
+                                WeAgentRepository.upsertModelProvider(saved)
+                                // Stay in place: assigning the id switches the screen to edit mode
+                                // and reveals the models section.
+                                savedId = saved.id
+                                provider = saved
                             }
                         },
                     )
+                }
+            }
+        } else {
+            item {
+                AgentActionRow {
+                    OutlinedButton(
+                        onClick = { showDeleteProviderConfirm = true },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text(stringResource(R.string.action_delete)) }
+                }
+            }
+
+            item { ModelSectionTitle(stringResource(R.string.agent_section_models)) }
+            if (models.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.agent_empty_models_message),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 32.dp),
+                    )
+                }
+            } else {
+                lazySegmentedItems(models, key = { it.id }) { m ->
+                    Column(Modifier.padding(horizontal = 16.dp)) {
+                        BaseWidget(
+                            iconPlaceholder = false,
+                            title = m.displayName.ifBlank { m.modelIdRemote },
+                            description = "id=${m.modelIdRemote}" +
+                                    (m.reasoningEffort?.let { " · effort=$it" } ?: "") +
+                                    (m.contextWindow?.let { " · ctx=$it" } ?: "") +
+                                    (m.maxTokens?.let { " · max=$it" } ?: "") +
+                                    if (m.supportsVision) " · ${stringResource(R.string.agent_model_supports_vision_badge)}" else "",
+                            onClick = { onOpenModel(activeId, m.id) },
+                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        )
+                    }
+                }
+            }
+            item {
+                AgentActionRow {
+                    AgentListActionButton(
+                        label = stringResource(R.string.agent_add_model),
+                        icon = MaterialSymbols.Outlined.Add,
+                        enabled = !importing,
+                        onClick = { onOpenModel(activeId, "") },
+                    )
+                    // Auto-import is only meaningful for the OpenAI-style /models endpoint.
+                    if (p.type != ModelProviderType.ANTHROPIC_MESSAGES) {
+                        AgentListActionButton(
+                            label = stringResource(R.string.agent_auto_import_models),
+                            icon = MaterialSymbols.Outlined.Cloud_download,
+                            loading = importing,
+                            onClick = {
+                                importing = true
+                                scope.launch {
+                                    val result = ModelProviderManager.listRemoteModels(p)
+                                    importing = false
+                                    result.fold(
+                                        // distinct(): duplicate ids would produce duplicate LazyColumn keys in the import picker
+                                        onSuccess = { importCandidates = it.distinct() },
+                                        onFailure = {
+                                            showToast(
+                                                localizedContext.getString(
+                                                    R.string.agent_fetch_models_failed,
+                                                    it.message,
+                                                )
+                                            )
+                                        },
+                                    )
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -260,7 +328,7 @@ fun ModelProviderDetailScreen(providerId: String, onOpenModel: (String) -> Unit,
         onDismiss = { importCandidates = null },
         onImport = { picked ->
             scope.launch {
-                val (added, overwritten) = WeAgentRepository.importModels(providerId, picked)
+                val (added, overwritten) = WeAgentRepository.importModels(activeId, picked)
                 showToast(
                     localizedContext.getString(
                         R.string.agent_models_imported_result, added, overwritten
@@ -273,29 +341,34 @@ fun ModelProviderDetailScreen(providerId: String, onOpenModel: (String) -> Unit,
 }
 
 /**
- * Per-model settings, edited with instant-apply rows. A blank [modelId] starts a new model: the
- * entity is created on the first committed edit, and every row except the model id stays disabled
- * until one is set.
+ * Per-model settings. Editing is instant-apply; a blank [modelId] starts a new model kept as an
+ * in-memory draft: other rows stay disabled until a model id is entered, 保存 persists it and
+ * returns to the provider page, and leaving with a savable draft asks for confirmation first.
  */
 @Composable
 fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
+    val creating = modelId.isBlank()
     val scope = rememberCoroutineScope()
     val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
-    // Blank modelId = adding; otherwise null until the entity loads.
+    // Blank modelId = adding (a draft until saved); otherwise null until the entity loads.
     var model by remember { mutableStateOf<ModelEntity?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(modelId) {
-        model = if (modelId.isBlank()) {
+        model = if (creating) {
             ModelEntity("", providerId, "", null, null, "", null)
         } else {
             WeAgentRepository.getModel(modelId)
         }
     }
 
-    /** Persists one field immediately; the first edit of a new model assigns its id. */
+    /** Persists one field immediately in edit mode; during creation the edit only updates the draft. */
     fun commitModel(transform: (ModelEntity) -> ModelEntity) {
         val current = model ?: return
+        if (creating) {
+            model = transform(current)
+            return
+        }
         scope.launch {
             val updated = transform(current).copy(
                 id = current.id.ifEmpty { UUID.randomUUID().toString() },
@@ -307,10 +380,13 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
     }
 
     val m = model
+    // Other fields describe a concrete remote model, so they wait for a non-blank model id.
+    val ready = m?.modelIdRemote?.isNotBlank() == true
+    val guardedBack = rememberCreationBackGuard(creating && ready, onBack)
 
     AgentSettingsScaffold(
-        title = stringResource(if (modelId.isBlank()) R.string.agent_add_model else R.string.agent_edit_model),
-        onBack = onBack,
+        title = stringResource(if (creating) R.string.agent_add_model else R.string.agent_edit_model),
+        onBack = guardedBack,
     ) {
         if (m == null) {
             item {
@@ -323,9 +399,6 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
             }
             return@AgentSettingsScaffold
         }
-
-        // Other fields describe a concrete remote model, so they wait for a non-blank model id.
-        val ready = m.modelIdRemote.isNotBlank()
 
         item {
             SegmentedColumn {
@@ -428,7 +501,26 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
             }
         }
 
-        if (m.id.isNotBlank()) {
+        if (creating) {
+            item {
+                AgentActionRow {
+                    AgentListActionButton(
+                        label = stringResource(R.string.action_save),
+                        icon = MaterialSymbols.Outlined.Save,
+                        enabled = ready,
+                        onClick = {
+                            val draft = m
+                            scope.launch {
+                                WeAgentRepository.upsertModel(
+                                    draft.copy(id = UUID.randomUUID().toString(), providerId = providerId),
+                                )
+                                onBack()
+                            }
+                        },
+                    )
+                }
+            }
+        } else {
             item {
                 AgentActionRow {
                     OutlinedButton(

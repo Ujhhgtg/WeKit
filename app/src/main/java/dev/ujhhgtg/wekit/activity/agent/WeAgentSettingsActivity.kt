@@ -128,7 +128,11 @@ private fun WeAgentSettingsRoot(onFinish: () -> Unit) {
             entry<AgentSettingsRoute.ModelProviderDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
                 ModelProviderDetailScreen(
                     providerId = key.providerId,
-                    onOpenModel = { navigator.push(AgentSettingsRoute.ModelDetail(key.providerId, it)) },
+                    // providerId comes from the screen, not the route key: after creating a
+                    // provider in place the route entry still carries its blank creation id.
+                    onOpenModel = { providerId, modelId ->
+                        navigator.push(AgentSettingsRoute.ModelDetail(providerId, modelId))
+                    },
                     onBack = { navigator.pop() },
                 )
             }

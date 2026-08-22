@@ -1076,6 +1076,9 @@
     <string name="agent_model_already_added">%1$s (already added)</string>
     <string name="agent_import_selected_models">Import (%1$d)</string>
     <string name="agent_edit_model">Edit model</string>
+    <string name="agent_discard_creation_title">Discard creation?</string>
+    <string name="agent_discard_creation_message">The form has not been saved yet. If you discard it, what you entered will be lost.</string>
+    <string name="agent_discard_creation_confirm">Discard</string>
     <string name="agent_model_id_label">Model ID (sent to the API)</string>
     <string name="agent_model_display_name_label">Display name (optional)</string>
     <string name="agent_reasoning_effort">Reasoning effort</string>
