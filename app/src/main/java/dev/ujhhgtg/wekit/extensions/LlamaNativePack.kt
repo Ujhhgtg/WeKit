@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.extensions
 
-import android.os.Build
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Memory
@@ -41,7 +40,7 @@ object LlamaNativePack : ExtensionPack {
 
     override fun stagingDir(): File = File(baseDir, ".staging")
 
-    override fun isSupported(): Boolean = Build.SUPPORTED_ABIS.contains(ABI)
+    override fun isSupported(): Boolean = supportsArm64ExtensionProcess()
 
     /** The requested variant's library file, or null when not installed. */
     fun libraryFile(opencl: Boolean): File? {
@@ -51,8 +50,7 @@ object LlamaNativePack : ExtensionPack {
         return if (lib.isFile) lib else null
     }
 
-    override fun isInUse(): Boolean =
-        NativeLoader.isLlamaLoaded() || LocalLlamaController.isRunning()
+    override fun isInUse(): Boolean = LocalLlamaController.isLifecycleActive()
 
     override fun install(verifiedTmp: File, version: String, sha256: String, meta: String?) {
         val staging = File(baseDir, ".$version-installing")

@@ -37,7 +37,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use crate::llama::{Engine, EngineConfig, GenEvent, GenStats};
 use crate::parse::{OutEvent, THINK_CLOSE, ThinkToolParser};
 use crate::template;
-use crate::truncate::truncate_messages;
+use crate::truncate::{effective_max_tokens, prompt_token_budget, truncate_messages};
 use crate::wire::{
     ChatRequest, WireFunction, WireTool, WireToolCall, chat_completion_json, effort_to_config,
     message_text, models_json, sse_delta, sse_done, sse_usage,
@@ -122,25 +122,20 @@ struct Loaded {
 /// `/health`'s backend summary, snapshotted once after backend init (the
 /// ggml registry is static after that).
 struct BackendInfo {
-    requested: &'static str,
-    /// Per-device labels (`"Vulkan · Adreno (TM) 740"` style).
+    requested: String,
+    active: String,
+    /// Only devices participating in the fitted placement (`"Vulkan · Adreno
+    /// (TM) 740"` style, plus CPU for partial offload).
     devices: Vec<String>,
     /// Distinct registry names; always contains `"CPU"`.
     available: Vec<String>,
+    gpu_layers: u32,
+    total_layers: u32,
+    fallback_reason: Option<String>,
 }
 
-fn summarize_devices(requested: crate::llama::Backend) -> BackendInfo {
+fn summarize_devices(placement: &crate::llama::BackendPlacement) -> BackendInfo {
     let devices = list_llama_ggml_backend_devices();
-    let labels = devices
-        .iter()
-        .map(|d| {
-            if d.description.is_empty() {
-                d.backend.clone()
-            } else {
-                format!("{} · {}", d.backend, d.description)
-            }
-        })
-        .collect();
     let mut available: Vec<String> = devices.iter().map(|d| d.backend.clone()).collect();
     available.sort();
     available.dedup();
@@ -148,9 +143,13 @@ fn summarize_devices(requested: crate::llama::Backend) -> BackendInfo {
         available.insert(0, "CPU".to_owned());
     }
     BackendInfo {
-        requested: requested.as_str(),
-        devices: labels,
+        requested: placement.requested.as_str().to_owned(),
+        active: placement.active.clone(),
+        devices: placement.devices.clone(),
         available,
+        gpu_layers: placement.gpu_layers,
+        total_layers: placement.total_layers,
+        fallback_reason: placement.fallback_reason.clone(),
     }
 }
 
@@ -180,6 +179,7 @@ fn load(engine_cfg: EngineConfig) -> Result<Loaded, String> {
         LlamaBackend::init().map_err(|e| format!("llama backend init: {e:?}"))?,
     ));
     let engine = Engine::load(backend, &engine_cfg)?;
+    let backend_info = summarize_devices(engine.placement());
     let env: &'static minijinja::Environment<'static> = Box::leak(Box::new(template::build_env()));
     let source: &'static str = Box::leak(engine.chat_template().to_owned().into_boxed_str());
     let compiled = env
@@ -190,7 +190,7 @@ fn load(engine_cfg: EngineConfig) -> Result<Loaded, String> {
         template: compiled,
         model_id: engine.model_id().to_owned(),
         n_ctx: engine_cfg.n_ctx,
-        backend_info: summarize_devices(engine_cfg.backend),
+        backend_info,
     };
     Ok(Loaded { core, engine })
 }
@@ -413,8 +413,12 @@ async fn health(State(st): State<Arc<ServerState>>) -> Response {
         "tokensPerSec": if ema_bits == 0 { 0.0 } else { f32::from_bits(ema_bits) },
         "backend": {
             "requested": st.core.backend_info.requested,
+            "active": st.core.backend_info.active,
             "devices": st.core.backend_info.devices,
             "available": st.core.backend_info.available,
+            "gpuLayers": st.core.backend_info.gpu_layers,
+            "totalLayers": st.core.backend_info.total_layers,
+            "fallbackReason": st.core.backend_info.fallback_reason,
         },
     });
     ok_json(body.to_string())
@@ -457,16 +461,11 @@ async fn chat_completions(
     }
 
     let effort = effort_to_config(req.reasoning_effort.as_deref());
-    let max_tokens = req.max_tokens.or(req.max_completion_tokens).unwrap_or(4096);
-    let gen_reserve = u64::from(max_tokens) + 64;
-    let n_ctx = u64::from(st.core.n_ctx);
-    if n_ctx <= gen_reserve {
-        return error_json(
-            StatusCode::BAD_REQUEST,
-            &format!("context window {n_ctx} too small for max_tokens {max_tokens}"),
-        );
-    }
-    let budget = (n_ctx - gen_reserve) as usize;
+    let requested_max_tokens = req.max_tokens.or(req.max_completion_tokens).unwrap_or(4096);
+    let budget = match prompt_token_budget(st.core.n_ctx, requested_max_tokens) {
+        Ok(budget) => budget,
+        Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
+    };
     let tools = req.tools.as_deref();
 
     // Truncation counting and rendering both need the engine; the same lock
@@ -483,6 +482,15 @@ async fn chat_completions(
     let prompt = match st.core.render(&kept, tools, effort.enable_thinking) {
         Ok(prompt) => prompt,
         Err(e) => return error_json(StatusCode::BAD_REQUEST, &e),
+    };
+    let prompt_tokens = match engine.count_prompt_tokens(&prompt) {
+        Ok(tokens) => tokens,
+        Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
+    };
+    let max_tokens = match effective_max_tokens(st.core.n_ctx, requested_max_tokens, prompt_tokens)
+    {
+        Ok(max_tokens) => max_tokens,
+        Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
     };
 
     let id = format!("chatcmpl-{:x}", unix_nanos());

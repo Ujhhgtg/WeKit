@@ -30,7 +30,7 @@ use crate::server::HttpServerConfig;
 /// Idle self-exit after 10 minutes without a request (spec §3.2 preset).
 const IDLE_TIMEOUT_SECS: u64 = 600;
 /// Inclusive n_ctx bounds accepted from the Kotlin caller.
-const N_CTX_MIN: u32 = 100;
+const N_CTX_MIN: u32 = 4096;
 const N_CTX_MAX: u32 = 262_144;
 
 /// Lifecycle state mirrored into the JNI status JSON.

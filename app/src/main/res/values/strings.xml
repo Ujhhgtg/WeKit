@@ -3696,7 +3696,8 @@
     <string name="local_llm_server_start">Start</string>
     <string name="local_llm_server_stop">Stop</string>
     <string name="local_llm_server_idle_stopped">Stopped (idle timeout)</string>
-    <string name="local_llm_health_line">%1$s · %2$s · Uptime %3$s · RSS %4$.1f MB · %5$.1f tok/s</string>
+    <string name="local_llm_health_line">%1$s → %2$s · %3$s · GPU %4$d/%5$d layers · Uptime %6$s · RSS %7$.1f MB · %8$.1f tok/s</string>
+    <string name="local_llm_backend_fallback">Fallback: %1$s</string>
     <string name="local_llm_server_operation_failed">Server operation failed: %1$s</string>
     <string name="local_llm_backend_label">Compute backend</string>
     <string name="local_llm_backend_auto">Auto</string>
@@ -3707,9 +3708,10 @@
     <string name="local_llm_backend_unavailable">Unavailable</string>
     <string name="local_llm_backend_load_failed">Failed to load compute backend: %1$s</string>
     <string name="local_llm_manage_packs">Manage extension packs</string>
-    <string name="local_llm_device_unsupported">Device not supported (arm64-v8a required)</string>
+    <string name="local_llm_device_unsupported">Current process is unsupported (64-bit arm64-v8a required)</string>
     <string name="local_llm_no_models_hint">Install a model extension pack to add local models</string>
     <string name="local_llm_ctx_warning">Larger context windows use much more RAM; too high may cause OOM or startup failure. Applies on next server start.</string>
+    <string name="local_llm_ctx_bounds">Allowed %1$d–%2$d tokens; model default %3$d.</string>
     <string name="local_llm_model_desc">%1$s · ctx %2$d · thinking</string>
     <string name="settings_predictive_back_animation_title">Predictive back animation</string>
     <string name="settings_predictive_back_animation_summary">Enable system predictive back for module pages</string>

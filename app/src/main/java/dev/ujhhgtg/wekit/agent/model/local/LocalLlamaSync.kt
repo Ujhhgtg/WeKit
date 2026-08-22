@@ -103,7 +103,10 @@ object LocalLlamaSync {
                         contextWindow = if (current == null) {
                             model.defaultContextWindow
                         } else {
-                            current.contextWindow
+                            current.contextWindow?.coerceIn(
+                                LOCAL_LLAMA_MIN_CONTEXT_WINDOW,
+                                model.maxContextWindow,
+                            )
                         },
                         maxTokens = model.maxTokens,
                         supportsVision = false,

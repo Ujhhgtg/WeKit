@@ -7,6 +7,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
 
+const val LOCAL_LLAMA_MIN_CONTEXT_WINDOW = 4096
+
 /**
  * Registry of locally installed LLM models (GGUF weights shipped in model
  * extension packs). All lookups re-scan disk so installs/deletes are visible

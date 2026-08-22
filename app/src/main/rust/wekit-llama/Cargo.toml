@@ -20,6 +20,7 @@ opencl = ["llama-cpp-2/opencl"]
 
 [dependencies]
 llama-cpp-2 = { version = "=0.1.154", default-features = false, features = ["common", "android-static-stdcxx"] }
+llama-cpp-sys-2 = { version = "=0.1.154", default-features = false }
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
 tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "sync", "time", "macros", "net", "io-util"] }
 tokio-stream = { version = "0.1", default-features = false, features = ["sync"] }

@@ -24,12 +24,12 @@ fn rejects_relative_model_path() {
 #[test]
 fn rejects_out_of_range_n_ctx() {
     let _guard = TEST_LOCK.lock().unwrap();
-    for n_ctx in [99_u32, 262_145] {
+    for n_ctx in [4095_u32, 262_145] {
         let error = controller::start("/abs/model.gguf", n_ctx, "cpu", 0.6, 0.95, 20)
             .expect_err("out-of-range n_ctx must be rejected");
         assert_eq!(
             error,
-            format!("n_ctx must be within 100..=262144, got {n_ctx}")
+            format!("n_ctx must be within 4096..=262144, got {n_ctx}")
         );
     }
 }
@@ -58,7 +58,7 @@ fn start_failure_via_control_thread_marks_failed() {
     // thread, which forks; the child's model load fails and the error must
     // flow back through the pipe into the Failed status.
     let error =
-        controller::start("/nonexistent/model.gguf", 512, "cpu", 0.6, 0.95, 20).unwrap_err();
+        controller::start("/nonexistent/model.gguf", 4096, "cpu", 0.6, 0.95, 20).unwrap_err();
     assert!(error.contains("loading model"), "unexpected error: {error}");
     assert!(matches!(controller::status(), Status::Failed { .. }));
     assert!(controller::status_json().contains("loading model"));

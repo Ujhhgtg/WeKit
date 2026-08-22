@@ -120,65 +120,91 @@ object NativeLoader {
         }
     }
 
-    @Volatile
-    private var llamaLoaded = false
+    enum class LlamaVariant { BASE, OPENCL }
 
     @Volatile
-    private var llamaOpenclLoaded = false
+    private var llamaVariant: LlamaVariant? = null
 
     /** Whether a llama inference-library variant has been System.load-ed in this process. */
     @JvmStatic
-    fun isLlamaLoaded(): Boolean = llamaLoaded
+    fun isLlamaLoaded(): Boolean = llamaVariant != null
+
+    /** The native variant permanently mapped in this process, if any. */
+    @JvmStatic
+    fun loadedLlamaVariant(): LlamaVariant? = llamaVariant
 
     /**
      * Lazily loads the llama inference library from the llama-native extension
-     * pack. At most ONE variant is ever loaded per process: [preferOpencl] picks
-     * the OpenCL build (CPU/Vulkan/OpenCL) when possible, falling back to the base
-     * variant (CPU/Vulkan) when the OpenCL .so is absent or `System.load` fails
-     * (device without a vendor libOpenCL). Already-loaded base + requested OpenCL
-     * cannot be swapped in-process and stays base.
+     * pack. At most ONE variant is ever loaded per process. An OpenCL load failure
+     * may map the base library so other backends remain usable, but the explicit
+     * OpenCL request still fails loudly. A base-mapped process cannot switch to
+     * OpenCL until WeChat restarts.
      *
-     * @return whether the loaded variant is the OpenCL build.
+     * A mapped library never authorizes starts by itself: the corresponding pack
+     * file must still be installed, so deletion after stop blocks later starts.
      * Throws [dev.ujhhgtg.wekit.extensions.LlamaPackNotInstalledException] when
      * the pack is not installed — callers surface the install dialog.
      */
     @JvmStatic
-    fun ensureLlamaLoaded(preferOpencl: Boolean): Boolean {
-        if (llamaLoaded) return alreadyLoadedLlamaResult(preferOpencl)
+    fun ensureLlamaLoaded(preferOpencl: Boolean): LlamaVariant {
         synchronized(nativeLoadLock) {
-            if (llamaLoaded) return alreadyLoadedLlamaResult(preferOpencl)
+            llamaVariant?.let { return validateMappedLlamaVariant(it, preferOpencl) }
             if (preferOpencl) {
                 val openclLibrary = LlamaNativePack.libraryFile(opencl = true)
                 if (openclLibrary != null) {
                     try {
                         @SuppressLint("UnsafeDynamicallyLoadedCode")
                         System.load(openclLibrary.absolutePath)
-                        llamaLoaded = true
-                        llamaOpenclLoaded = true
-                        return true
-                    } catch (t: Throwable) {
-                        // Typical cause: device without a vendor libOpenCL.so.
-                        WeLogger.w("NativeLoader", "OpenCL llama variant failed to load; falling back to the base variant", t)
+                        return LlamaVariant.OPENCL.also { llamaVariant = it }
+                    } catch (t: UnsatisfiedLinkError) {
+                        WeLogger.w(
+                            "NativeLoader",
+                            "OpenCL llama variant failed to load; mapping the base variant for non-OpenCL backends",
+                            t,
+                        )
+                        loadBaseLlamaVariant()
+                        throw IllegalStateException(
+                            "OpenCL could not be loaded (${t.message ?: t.javaClass.simpleName}). " +
+                                "The base variant remains available; choose Auto, CPU, or Vulkan. " +
+                                "Restart WeChat before trying OpenCL again.",
+                            t,
+                        )
                     }
                 } else {
-                    WeLogger.w("NativeLoader", "OpenCL llama variant is not installed; loading the base variant")
+                    loadBaseLlamaVariant()
+                    throw IllegalStateException(
+                        "The installed llama-native pack has no OpenCL variant. " +
+                            "The base variant remains available; reinstall the pack and restart WeChat before trying OpenCL.",
+                    )
                 }
             }
-            val library = LlamaNativePack.libraryFile(opencl = false)
-                ?: throw LlamaPackNotInstalledException("llama-native extension pack is not installed")
-            @SuppressLint("UnsafeDynamicallyLoadedCode")
-            System.load(library.absolutePath)
-            llamaLoaded = true
-            llamaOpenclLoaded = false
-            return false
+            return loadBaseLlamaVariant()
         }
     }
 
-    private fun alreadyLoadedLlamaResult(preferOpencl: Boolean): Boolean {
-        if (preferOpencl && !llamaOpenclLoaded) {
-            WeLogger.w("NativeLoader", "base llama variant already loaded in this process; cannot switch to OpenCL")
+    private fun validateMappedLlamaVariant(
+        mapped: LlamaVariant,
+        preferOpencl: Boolean,
+    ): LlamaVariant {
+        if (LlamaNativePack.libraryFile(opencl = mapped == LlamaVariant.OPENCL) == null) {
+            throw LlamaPackNotInstalledException(
+                "llama-native extension pack is not installed; reinstall it before starting the mapped ${mapped.name.lowercase()} variant",
+            )
         }
-        return llamaOpenclLoaded
+        if (preferOpencl && mapped == LlamaVariant.BASE) {
+            throw IllegalStateException(
+                "The base llama variant is already loaded. Restart WeChat before starting the OpenCL backend.",
+            )
+        }
+        return mapped
+    }
+
+    private fun loadBaseLlamaVariant(): LlamaVariant {
+        val library = LlamaNativePack.libraryFile(opencl = false)
+            ?: throw LlamaPackNotInstalledException("llama-native extension pack is not installed")
+        @SuppressLint("UnsafeDynamicallyLoadedCode")
+        System.load(library.absolutePath)
+        return LlamaVariant.BASE.also { llamaVariant = it }
     }
 
     fun invokeToolExecutable(): File = synchronized(nativeLoadLock) {

@@ -48,6 +48,7 @@ import com.composables.icons.materialsymbols.outlined.Cloud_download
 import com.composables.icons.materialsymbols.outlined.Save
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.model.local.LocalLlama
+import dev.ujhhgtg.wekit.agent.model.local.LOCAL_LLAMA_MIN_CONTEXT_WINDOW
 import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaModels
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
@@ -625,16 +626,16 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
         }
     }
 
-    if (locked && m != null) {
+    if (locked && m != null && installedLocalModel != null) {
         LocalCtxDialog(
             show = showCtxDialog,
-            initial = m.contextWindow?.toString().orEmpty(),
+            initial = m.contextWindow ?: installedLocalModel.defaultContextWindow,
+            defaultValue = installedLocalModel.defaultContextWindow,
+            maxValue = installedLocalModel.maxContextWindow,
             onDismiss = { showCtxDialog = false },
-            onConfirm = { raw ->
+            onConfirm = { contextWindow ->
                 showCtxDialog = false
-                commitModel {
-                    it.copy(contextWindow = raw.filter(Char::isDigit).take(9).toIntOrNull())
-                }
+                commitModel { it.copy(contextWindow = contextWindow) }
             },
         )
     }
@@ -665,12 +666,16 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
 @Composable
 private fun LocalCtxDialog(
     show: Boolean,
-    initial: String,
+    initial: Int,
+    defaultValue: Int,
+    maxValue: Int,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
+    onConfirm: (Int) -> Unit,
 ) {
     if (!show) return
-    var value by remember(initial) { mutableStateOf(initial) }
+    var value by remember(initial) { mutableStateOf(initial.toString()) }
+    val parsed = value.toIntOrNull()
+    val valid = parsed != null && parsed in LOCAL_LLAMA_MIN_CONTEXT_WINDOW..maxValue
 
     BasicAlertDialog(onDismissRequest = onDismiss) {
         AlertDialogContent(
@@ -687,12 +692,26 @@ private fun LocalCtxDialog(
                         onValueChange = { value = it.filter(Char::isDigit).take(9) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
+                        isError = !valid,
+                        supportingText = {
+                            Text(
+                                stringResource(
+                                    R.string.local_llm_ctx_bounds,
+                                    LOCAL_LLAMA_MIN_CONTEXT_WINDOW,
+                                    maxValue,
+                                    defaultValue,
+                                )
+                            )
+                        },
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     )
                 }
             },
             confirmButton = {
-                TextButton(onClick = { onConfirm(value) }) {
+                TextButton(
+                    enabled = valid,
+                    onClick = { onConfirm(requireNotNull(parsed)) },
+                ) {
                     Text(stringResource(R.string.dialog_confirm))
                 }
             },

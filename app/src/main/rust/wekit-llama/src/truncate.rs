@@ -11,6 +11,56 @@
 
 use crate::wire::WireMessage;
 
+/// Tokens kept free for forced control tokens and llama.cpp bookkeeping.
+pub const CONTEXT_HEADROOM_TOKENS: u32 = 64;
+/// A large requested output cap must still leave a useful completion window
+/// after retaining the newest prompt history.
+const MIN_COMPLETION_RESERVE_TOKENS: u32 = 256;
+
+/// Maximum rendered-prompt size to retain before the exact prompt token count
+/// is known. `requested_max_tokens` is an upper cap, not a fixed reservation:
+/// large requests reserve a useful minimum completion and are clamped after
+/// rendering by [`effective_max_tokens`].
+pub fn prompt_token_budget(n_ctx: u32, requested_max_tokens: u32) -> Result<usize, String> {
+    if requested_max_tokens == 0 {
+        return Err("max_tokens must be at least 1".to_owned());
+    }
+    let completion_reserve = requested_max_tokens.min(MIN_COMPLETION_RESERVE_TOKENS);
+    let reserved = completion_reserve + CONTEXT_HEADROOM_TOKENS;
+    let prompt_budget = n_ctx
+        .checked_sub(reserved)
+        .filter(|value| *value > 0)
+        .ok_or_else(|| {
+            format!("context window {n_ctx} is too small for a useful completion reserve")
+        })?;
+    Ok(prompt_budget as usize)
+}
+
+/// Clamp the request's output ceiling to the space remaining after the real
+/// retained prompt and headroom. The returned value is the one generation and
+/// finish accounting must use downstream.
+pub fn effective_max_tokens(
+    n_ctx: u32,
+    requested_max_tokens: u32,
+    prompt_tokens: usize,
+) -> Result<u32, String> {
+    if requested_max_tokens == 0 {
+        return Err("max_tokens must be at least 1".to_owned());
+    }
+    let prompt_tokens = u32::try_from(prompt_tokens)
+        .map_err(|_| format!("rendered prompt is too large: {prompt_tokens} tokens"))?;
+    let used = prompt_tokens
+        .checked_add(CONTEXT_HEADROOM_TOKENS)
+        .ok_or_else(|| "rendered prompt token count overflow".to_owned())?;
+    let available = n_ctx
+        .checked_sub(used)
+        .filter(|value| *value > 0)
+        .ok_or_else(|| {
+            format!("rendered prompt {prompt_tokens} leaves no generation space in context {n_ctx}")
+        })?;
+    Ok(requested_max_tokens.min(available))
+}
+
 /// The truncation outcome: the kept window and how many messages were dropped.
 pub struct TruncationResult {
     pub messages: Vec<WireMessage>,

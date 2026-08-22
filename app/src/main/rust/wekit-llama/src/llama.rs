@@ -16,18 +16,19 @@
 //! exists to prevent); those panic loudly rather than degrading to a silent
 //! empty response.
 
+use std::ffi::CString;
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use llama_cpp_2::context::LlamaContext;
 use llama_cpp_2::context::params::{KvCacheType, LlamaContextParams};
-use llama_cpp_2::list_llama_ggml_backend_devices;
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
 use llama_cpp_2::model::{AddBos, LlamaModel};
 use llama_cpp_2::sampling::LlamaSampler;
+use llama_cpp_2::{LlamaBackendDevice, LlamaBackendDeviceType, list_llama_ggml_backend_devices};
 
 use crate::parse::THINK_CLOSE;
 use crate::template::render_prompt;
@@ -35,6 +36,12 @@ use crate::wire::{WireMessage, WireTool};
 
 /// Prompt decode batch capacity; also llama.cpp's default `n_batch`.
 const BATCH_TOKENS: usize = 512;
+/// Match llama.cpp's own conservative `--fit` default: leave 1 GiB free on
+/// every accelerator so Android's compositor and the host process retain
+/// working memory while llama.cpp chooses a partial offload.
+const AUTO_FIT_MARGIN_BYTES: usize = 1024 * 1024 * 1024;
+/// The product's useful minimum context, also enforced by the JNI controller.
+const AUTO_FIT_MIN_CTX: u32 = 4096;
 /// Offload every layer (`n_gpu_layers` counts down from the output side, so
 /// any value ≥ a real model's layer count means "all").
 const ALL_GPU_LAYERS: u32 = 99;
@@ -166,6 +173,17 @@ pub struct GenStats {
     pub tps: f32,
 }
 
+/// Model placement that actually survived model load and the probe context.
+#[derive(Debug, Clone)]
+pub struct BackendPlacement {
+    pub requested: Backend,
+    pub active: String,
+    pub devices: Vec<String>,
+    pub gpu_layers: u32,
+    pub total_layers: u32,
+    pub fallback_reason: Option<String>,
+}
+
 /// A loaded model plus its sampling parameters.
 ///
 /// Borrows the [`LlamaBackend`] it was loaded with (`new_context` requires
@@ -181,14 +199,98 @@ pub struct Engine<'a> {
     top_k: i32,
     template: String,
     model_id: String,
+    placement: BackendPlacement,
 }
 
-/// Model-load parameters implementing the [`Backend`] device policy.
-fn model_params(backend: Backend) -> Result<LlamaModelParams, String> {
+struct ModelAttempt {
+    model: LlamaModel,
+    placement: BackendPlacement,
+}
+
+fn device_label(device: &LlamaBackendDevice) -> String {
+    let description = if device.description.is_empty() {
+        device.name.as_str()
+    } else {
+        device.description.as_str()
+    };
+    if description.is_empty() {
+        device.backend.clone()
+    } else {
+        format!("{} · {description}", device.backend)
+    }
+}
+
+fn registered_gpu_devices() -> Vec<LlamaBackendDevice> {
+    list_llama_ggml_backend_devices()
+        .into_iter()
+        .filter(|device| {
+            matches!(
+                device.device_type,
+                LlamaBackendDeviceType::Gpu | LlamaBackendDeviceType::IntegratedGpu
+            )
+        })
+        .collect()
+}
+
+fn placement_from_loaded_model(
+    requested: Backend,
+    params: &LlamaModelParams,
+    model: &LlamaModel,
+    gpu_devices: &[LlamaBackendDevice],
+) -> BackendPlacement {
+    let total_layers = model.n_layer();
+    let gpu_layers = if gpu_devices.is_empty() {
+        0
+    } else if params.n_gpu_layers() < 0 {
+        total_layers
+    } else {
+        (params.n_gpu_layers() as u32).min(total_layers)
+    };
+    if gpu_layers == 0 {
+        return BackendPlacement {
+            requested,
+            active: "cpu".to_owned(),
+            devices: vec!["CPU".to_owned()],
+            gpu_layers,
+            total_layers,
+            fallback_reason: None,
+        };
+    }
+
+    let mut active_backends: Vec<String> = gpu_devices
+        .iter()
+        .map(|device| device.backend.to_ascii_lowercase())
+        .collect();
+    active_backends.sort();
+    active_backends.dedup();
+    let gpu_backend = active_backends.join("+");
+    let active = if gpu_layers < total_layers {
+        format!("cpu+{gpu_backend}")
+    } else {
+        gpu_backend
+    };
+    let mut devices: Vec<String> = gpu_devices.iter().map(device_label).collect();
+    if gpu_layers < total_layers {
+        devices.push("CPU".to_owned());
+    }
+    BackendPlacement {
+        requested,
+        active,
+        devices,
+        gpu_layers,
+        total_layers,
+        fallback_reason: None,
+    }
+}
+
+/// Fixed model-load parameters implementing strict non-auto policies.
+fn fixed_model_params(
+    backend: Backend,
+) -> Result<(LlamaModelParams, Vec<LlamaBackendDevice>), String> {
     let base = LlamaModelParams::default().with_use_mmap(true);
     match backend {
-        Backend::Auto => Ok(base.with_n_gpu_layers(ALL_GPU_LAYERS)),
-        Backend::Cpu => Ok(base.with_n_gpu_layers(0)),
+        Backend::Auto => Err("automatic placement must use fit_params".to_owned()),
+        Backend::Cpu => Ok((base.with_n_gpu_layers(0), Vec::new())),
         Backend::Vulkan | Backend::Opencl => {
             let want = backend.ggml_name();
             let devices = list_llama_ggml_backend_devices();
@@ -202,11 +304,61 @@ fn model_params(backend: Backend) -> Result<LlamaModelParams, String> {
                     have.join(", ")
                 ));
             };
-            base.with_n_gpu_layers(ALL_GPU_LAYERS)
+            let params = base
+                .with_n_gpu_layers(ALL_GPU_LAYERS)
                 .with_devices(&[dev.index])
-                .map_err(|e| format!("selecting {want} device {}: {e}", dev.index))
+                .map_err(|e| format!("selecting {want} device {}: {e}", dev.index))?;
+            Ok((params, vec![dev.clone()]))
         }
     }
+}
+
+fn load_model_attempt(
+    backend: &LlamaBackend,
+    cfg: &EngineConfig,
+    attempt: Backend,
+) -> Result<ModelAttempt, String> {
+    let (params, probe_params, gpu_devices) = if attempt == Backend::Auto {
+        let mut params = Box::pin(LlamaModelParams::default().with_use_mmap(true));
+        let mut probe_params = context_params(cfg.n_ctx, cfg.threads);
+        let model_path = CString::new(cfg.model_path.as_str())
+            .map_err(|_| "model path contains a NUL byte".to_owned())?;
+        let mut margins = vec![AUTO_FIT_MARGIN_BYTES; llama_cpp_2::max_devices()];
+        let fitted = params
+            .as_mut()
+            .fit_params(
+                &model_path,
+                &mut probe_params,
+                &mut margins,
+                AUTO_FIT_MIN_CTX,
+                llama_cpp_sys_2::GGML_LOG_LEVEL_ERROR,
+            )
+            .map_err(|e| format!("fitting automatic model placement: {e}"))?;
+        if fitted.n_ctx != cfg.n_ctx {
+            return Err(format!(
+                "automatic fitting changed explicit n_ctx {} to {}",
+                cfg.n_ctx, fitted.n_ctx
+            ));
+        }
+        (params, probe_params, registered_gpu_devices())
+    } else {
+        let (params, gpu_devices) = fixed_model_params(attempt)?;
+        (
+            Box::pin(params),
+            context_params(cfg.n_ctx, cfg.threads),
+            gpu_devices,
+        )
+    };
+    let model = LlamaModel::load_from_file(backend, &cfg.model_path, params.as_ref().get_ref())
+        .map_err(|e| format!("loading model {}: {e}", cfg.model_path))?;
+    drop(
+        model
+            .new_context(backend, probe_params)
+            .map_err(|e| format!("creating probe context: {e}"))?,
+    );
+    let placement =
+        placement_from_loaded_model(attempt, params.as_ref().get_ref(), &model, &gpu_devices);
+    Ok(ModelAttempt { model, placement })
 }
 
 /// Per-request context parameters (Q8_0 KV cache; quantized V requires flash
@@ -232,14 +384,29 @@ impl<'a> Engine<'a> {
     /// clean `Err` instead of aborting the inference child on its first
     /// request (workspace `panic = "abort"`).
     pub fn load(backend: &'a LlamaBackend, cfg: &EngineConfig) -> Result<Engine<'a>, String> {
-        let params = model_params(cfg.backend)?;
-        let model = LlamaModel::load_from_file(backend, &cfg.model_path, &params)
-            .map_err(|e| format!("loading model {}: {e}", cfg.model_path))?;
-        drop(
-            model
-                .new_context(backend, context_params(cfg.n_ctx, cfg.threads))
-                .map_err(|e| format!("creating probe context: {e}"))?,
-        );
+        let ModelAttempt {
+            model,
+            mut placement,
+        } = if cfg.backend == Backend::Auto {
+            match load_model_attempt(backend, cfg, Backend::Auto) {
+                Ok(loaded) => loaded,
+                Err(auto_error) => match load_model_attempt(backend, cfg, Backend::Cpu) {
+                    Ok(mut loaded) => {
+                        loaded.placement.requested = Backend::Auto;
+                        loaded.placement.fallback_reason = Some(auto_error);
+                        loaded
+                    }
+                    Err(cpu_error) => {
+                        return Err(format!(
+                            "automatic placement failed: {auto_error}; CPU fallback failed: {cpu_error}"
+                        ));
+                    }
+                },
+            }
+        } else {
+            load_model_attempt(backend, cfg, cfg.backend)?
+        };
+        placement.requested = cfg.backend;
         let template = model
             .chat_template(None)
             .map_err(|e| format!("reading chat template: {e}"))?
@@ -260,7 +427,13 @@ impl<'a> Engine<'a> {
             top_k: cfg.top_k,
             template,
             model_id,
+            placement,
         })
+    }
+
+    /// Backend and layer placement that survived the load-time probe.
+    pub fn placement(&self) -> &BackendPlacement {
+        &self.placement
     }
 
     /// The GGUF file stem (the id reported by `/v1/models`).
@@ -292,6 +465,15 @@ impl<'a> Engine<'a> {
             .str_to_token(&prompt, AddBos::Always)
             .map(|tokens| tokens.len())
             .unwrap_or(usize::MAX)
+    }
+
+    /// Token count of the exact retained prompt used to derive the effective
+    /// generation cap.
+    pub fn count_prompt_tokens(&self, prompt: &str) -> Result<usize, String> {
+        self.model
+            .str_to_token(prompt, AddBos::Always)
+            .map(|tokens| tokens.len())
+            .map_err(|e| format!("tokenizing rendered prompt: {e}"))
     }
 
     /// Generate one turn on a fresh context.

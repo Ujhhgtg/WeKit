@@ -147,3 +147,12 @@ fn result_is_a_verbatim_subsequence_of_the_input() {
     assert_eq!(r.dropped, 3);
     assert_eq!(r.messages.len(), 4);
 }
+
+#[test]
+fn context_4096_clamps_requested_8192_to_a_valid_effective_budget() {
+    let prompt_budget = prompt_token_budget(4096, 8192).unwrap();
+    let effective_max_tokens = effective_max_tokens(4096, 8192, 1024).unwrap();
+
+    assert_eq!(prompt_budget, 3776);
+    assert_eq!(effective_max_tokens, 3008);
+}

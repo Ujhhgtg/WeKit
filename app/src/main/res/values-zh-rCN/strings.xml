@@ -3726,7 +3726,8 @@
     <string name="local_llm_server_start">启动</string>
     <string name="local_llm_server_stop">停止</string>
     <string name="local_llm_server_idle_stopped">已停止（空闲超时）</string>
-    <string name="local_llm_health_line">%1$s · %2$s · 运行 %3$s · RSS %4$.1f MB · %5$.1f tok/s</string>
+    <string name="local_llm_health_line">%1$s → %2$s · %3$s · GPU 层 %4$d/%5$d · 运行 %6$s · RSS %7$.1f MB · %8$.1f tok/s</string>
+    <string name="local_llm_backend_fallback">回退原因：%1$s</string>
     <string name="local_llm_server_operation_failed">服务器操作失败：%1$s</string>
     <string name="local_llm_backend_label">计算后端</string>
     <string name="local_llm_backend_auto">自动</string>
@@ -3734,9 +3735,10 @@
     <string name="local_llm_backend_unavailable">不可用</string>
     <string name="local_llm_backend_load_failed">加载计算后端失败：%1$s</string>
     <string name="local_llm_manage_packs">管理扩展包</string>
-    <string name="local_llm_device_unsupported">设备不支持（需要 arm64-v8a）</string>
+    <string name="local_llm_device_unsupported">当前进程不受支持（需要 64 位 arm64-v8a）</string>
     <string name="local_llm_no_models_hint">安装模型扩展包以添加本地模型</string>
     <string name="local_llm_ctx_warning">更大的上下文窗口占用更多内存；过高可能导致内存不足（OOM）或启动失败。将在服务器下次启动时生效。</string>
+    <string name="local_llm_ctx_bounds">允许 %1$d–%2$d token；模型默认值为 %3$d。</string>
     <string name="local_llm_model_desc">%1$s · 上下文 %2$d · 支持思考</string>
     <string name="settings_predictive_back_animation_title">预见性返回动画</string>
     <string name="settings_predictive_back_animation_summary">为模块页面启用系统预见性返回</string>

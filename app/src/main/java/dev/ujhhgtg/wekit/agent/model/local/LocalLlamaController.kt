@@ -11,6 +11,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,8 +44,12 @@ sealed interface LlamaState {
 @Serializable
 data class HealthBackend(
     val requested: String,
+    val active: String,
     val devices: List<String> = emptyList(),
     val available: List<String> = emptyList(),
+    val gpuLayers: Int,
+    val totalLayers: Int,
+    val fallbackReason: String? = null,
 )
 
 /** `GET /health` payload of the inference server. */
@@ -95,7 +100,10 @@ object LocalLlamaController {
     /** Last successful `/health` probe; null while not Running or unreachable. */
     val health: StateFlow<LlamaHealth?> = healthFlow
 
+    private val pollLock = Any()
     private var pollJob: Job? = null
+    private val pollGeneration = AtomicLong()
+    private var pollPort: Int? = null
 
     /** The `(model, nCtx, backend)` tuple the native controller's child belongs to. */
     @Volatile
@@ -105,6 +113,10 @@ object LocalLlamaController {
         if (!NativeLoader.isLlamaLoaded()) return false
         return parseStatus(LlamaServerNative.serverStatus()).state == "running"
     }
+
+    /** Native payload deletion is blocked only while a child is starting or running. */
+    fun isLifecycleActive(): Boolean =
+        stateFlow.value is LlamaState.Starting || stateFlow.value is LlamaState.Running
 
     /** Absolute path of the model the running child serves, or null. */
     fun loadedModelPath(): String? = active?.modelPath
@@ -170,20 +182,20 @@ object LocalLlamaController {
         if (current is LlamaState.Running && active == desired) {
             return "http://127.0.0.1:${current.port}/v1"
         }
+        stopPolling()
         if (current is LlamaState.Starting || current is LlamaState.Running) stopInternal()
 
         stateFlow.value = LlamaState.Starting
         try {
             // The OpenCL library variant is only needed for the explicit OpenCL backend;
             // auto/cpu/vulkan run on the base (CPU/Vulkan) build.
-            val result = try {
-                NativeLoader.ensureLlamaLoaded(preferOpencl = backend == "opencl")
-                LlamaServerNative.startServer(desired.modelPath, nCtx, backend, configJsonFor(gguf))
-            } catch (e: UnsatisfiedLinkError) {
-                throw LlamaPackNotInstalledException(
-                    "llama-native extension pack is not installed: ${e.message}"
-                )
-            }
+            NativeLoader.ensureLlamaLoaded(preferOpencl = backend == "opencl")
+            val result = LlamaServerNative.startServer(
+                desired.modelPath,
+                nCtx,
+                backend,
+                configJsonFor(gguf),
+            )
             val status = parseStatus(result)
             if (status.state != "running") {
                 val reason = status.error?.takeIf(String::isNotBlank)
@@ -192,9 +204,10 @@ object LocalLlamaController {
             }
             active = desired
             stateFlow.value = LlamaState.Running(status.port!!, status.pid ?: -1, backend)
-            startPolling()
+            startPolling(stateFlow.value as LlamaState.Running)
             return "http://127.0.0.1:${status.port}/v1"
         } catch (failure: Throwable) {
+            stopPolling()
             active = null
             val reason = failure.message?.takeIf(String::isNotBlank)
                 ?: failure.javaClass.simpleName
@@ -204,9 +217,9 @@ object LocalLlamaController {
     }
 
     private fun stopInternal() {
+        stopPolling()
         if (NativeLoader.isLlamaLoaded()) LlamaServerNative.stopServer()
         active = null
-        healthFlow.value = null
         syncState()
     }
 
@@ -232,35 +245,75 @@ object LocalLlamaController {
         }
         if (mapped !is LlamaState.Running) active = null
         stateFlow.value = mapped
-        if (mapped is LlamaState.Running) startPolling() else healthFlow.value = null
+        if (mapped is LlamaState.Running) startPolling(mapped) else stopPolling()
     }
 
     /** Polls `/health` every 2s while Running; a failed probe reconciles against the native status. */
-    private fun startPolling() {
-        if (pollJob?.isActive == true) return
-        pollJob = scope.launch {
-            while (true) {
-                val running = stateFlow.value as? LlamaState.Running ?: break
-                healthFlow.value = try {
-                    val response = httpClient.get("http://127.0.0.1:${running.port}/health")
-                    if (response.status.isSuccess()) {
-                        json.decodeFromString(LlamaHealth.serializer(), response.bodyAsText())
-                    } else {
-                        null
+    private fun startPolling(running: LlamaState.Running) {
+        synchronized(pollLock) {
+            if (pollJob?.isActive == true && pollPort == running.port) return
+            stopPollingLocked()
+            healthFlow.value = null
+            val generation = pollGeneration.get()
+            pollPort = running.port
+            pollJob = scope.launch {
+                try {
+                    while (pollGeneration.get() == generation) {
+                        val current = stateFlow.value as? LlamaState.Running ?: break
+                        if (current.port != running.port) break
+                        val polledHealth = try {
+                            val response = httpClient.get("http://127.0.0.1:${running.port}/health")
+                            if (response.status.isSuccess()) {
+                                json.decodeFromString(LlamaHealth.serializer(), response.bodyAsText())
+                            } else {
+                                null
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            null
+                        }
+                        val published = synchronized(pollLock) {
+                            val stillCurrent = stateFlow.value as? LlamaState.Running
+                            if (pollGeneration.get() != generation || stillCurrent?.port != running.port) {
+                                false
+                            } else {
+                                healthFlow.value = polledHealth
+                                true
+                            }
+                        }
+                        if (!published) break
+                        if (polledHealth == null) {
+                            // The HTTP side died or never came up; native status remains authoritative.
+                            syncState()
+                            if (pollGeneration.get() != generation || stateFlow.value !is LlamaState.Running) break
+                        }
+                        delay(HEALTH_POLL_INTERVAL_MS)
                     }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    null
+                } finally {
+                    synchronized(pollLock) {
+                        if (pollGeneration.get() == generation) {
+                            pollJob = null
+                            pollPort = null
+                        }
+                    }
                 }
-                if (healthFlow.value == null) {
-                    // The HTTP side died or never came up; the native status stays authoritative.
-                    syncState()
-                    if (stateFlow.value !is LlamaState.Running) break
-                }
-                delay(HEALTH_POLL_INTERVAL_MS)
             }
         }
+    }
+
+    private fun stopPolling() {
+        synchronized(pollLock) {
+            stopPollingLocked()
+            healthFlow.value = null
+        }
+    }
+
+    private fun stopPollingLocked() {
+        pollGeneration.incrementAndGet()
+        pollJob?.cancel()
+        pollJob = null
+        pollPort = null
     }
 
     /**

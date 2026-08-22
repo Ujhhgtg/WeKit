@@ -351,13 +351,18 @@ private fun serverStateLine(state: LlamaState): String = when (state) {
 private fun healthLine(health: LlamaHealth): String = stringResource(
     R.string.local_llm_health_line,
     health.backend.requested,
-    devicesFirstOrNull(health.backend.devices),
+    health.backend.active,
+    health.backend.devices.joinToString().ifBlank { "—" },
+    health.backend.gpuLayers,
+    health.backend.totalLayers,
     DateUtils.formatElapsedTime(health.uptimeSec),
     health.rssBytes / (1024.0 * 1024.0),
     health.tokensPerSec,
-)
-
-private fun devicesFirstOrNull(devices: List<String>): String = devices.firstOrNull() ?: "—"
+).let { summary ->
+    health.backend.fallbackReason?.let { reason ->
+        "$summary · ${stringResource(R.string.local_llm_backend_fallback, reason)}"
+    } ?: summary
+}
 
 private enum class ServerOperation { START, STOP }
 
