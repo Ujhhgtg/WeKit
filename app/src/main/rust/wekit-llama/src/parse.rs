@@ -216,39 +216,62 @@ fn partial_marker_tail(buf: &str, marker: &str) -> usize {
 }
 
 /// Parse the inside of a `<tool_call>`…`</tool_call>` block:
-/// `<function=NAME>` followed by `<parameter=KEY>VALUE</parameter>` lines and
-/// a closing `</function>`. Tolerates surrounding whitespace and empty lines.
-/// Returns `None` for anything else (the caller then passes the raw text
-/// through as content).
+/// `<function=NAME>` followed by `<parameter=KEY>` parameters and a closing
+/// `</function>`. The canonical Qwen3.5 template renders each parameter with
+/// its value on the following line(s) (`<parameter=key>\nvalue\n</parameter>`,
+/// values may span multiple lines); the single-line spelling
+/// `<parameter=key>value</parameter>` is accepted too. Tolerates surrounding
+/// whitespace and empty lines outside parameter values. Returns `None` for
+/// anything else (the caller then passes the raw text through as content).
 fn parse_tool_call(block: &str) -> Option<(String, Vec<(String, String)>)> {
     let mut name: Option<String> = None;
     let mut params: Vec<(String, String)> = Vec::new();
+    let mut open_key: Option<String> = None;
+    let mut value_lines: Vec<&str> = Vec::new();
     for line in block.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-        if let Some(rest) = line.strip_prefix("<function=") {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("<parameter=") {
+            if name.is_none() || open_key.is_some() {
+                return None;
+            }
+            let (key, inline) = rest.split_once('>')?;
+            let key = key.trim();
+            if key.is_empty() {
+                return None;
+            }
+            if let Some(value) = inline.strip_suffix("</parameter>") {
+                // Single-line spelling.
+                params.push((key.to_owned(), value.to_owned()));
+            } else {
+                // Canonical multi-line spelling: collect until `</parameter>`.
+                open_key = Some(key.to_owned());
+                value_lines.clear();
+            }
+        } else if trimmed == "</parameter>" {
+            let key = open_key.take()?;
+            params.push((key, value_lines.join("\n")));
+            value_lines.clear();
+        } else if let Some(rest) = trimmed.strip_prefix("<function=") {
             let n = rest.strip_suffix('>')?.trim().to_owned();
             // The function line must come first and only once.
-            if name.is_some() || !params.is_empty() || n.is_empty() {
+            if name.is_some() || !params.is_empty() || n.is_empty() || open_key.is_some() {
                 return None;
             }
             name = Some(n);
-        } else if let Some(rest) = line.strip_prefix("<parameter=") {
-            // rest is `KEY>VALUE</parameter>`
-            let (key, value) = rest.split_once('>')?;
-            let value = value.strip_suffix("</parameter>")?;
-            let key = key.trim();
-            if name.is_none() || key.is_empty() {
+        } else if trimmed == "</function>" {
+            // Closing marker; an unterminated parameter is malformed.
+            if open_key.is_some() {
                 return None;
             }
-            params.push((key.to_owned(), value.to_owned()));
-        } else if line == "</function>" {
-            // Closing marker; nothing to collect.
-        } else {
+        } else if open_key.is_some() {
+            // Parameter value content (blank lines included, verbatim).
+            value_lines.push(line);
+        } else if !trimmed.is_empty() {
             return None;
         }
+    }
+    if open_key.is_some() {
+        return None;
     }
     Some((name?, params))
 }
@@ -312,5 +335,35 @@ mod tests {
             None
         );
         assert_eq!(parse_tool_call("\n<parameter=k>v</parameter>\n"), None);
+    }
+
+    #[test]
+    fn parse_tool_call_accepts_canonical_multiline_parameters() {
+        // The Qwen3.5 template renders each parameter value on its own
+        // line(s): `<parameter=key>\nvalue\n</parameter>`.
+        assert_eq!(
+            parse_tool_call(
+                "\n<function=get_weather>\n<parameter=city>\nTokyo\n</parameter>\n</function>\n"
+            ),
+            Some((
+                "get_weather".to_owned(),
+                vec![("city".to_owned(), "Tokyo".to_owned())]
+            ))
+        );
+        // Multi-line values keep their interior line breaks verbatim.
+        assert_eq!(
+            parse_tool_call(
+                "\n<function=f>\n<parameter=text>\nline one\nline two\n</parameter>\n</function>\n"
+            ),
+            Some((
+                "f".to_owned(),
+                vec![("text".to_owned(), "line one\nline two".to_owned())]
+            ))
+        );
+        // An unterminated parameter is malformed, not a silent empty value.
+        assert_eq!(
+            parse_tool_call("\n<function=f>\n<parameter=k>\nv\n</function>\n"),
+            None
+        );
     }
 }

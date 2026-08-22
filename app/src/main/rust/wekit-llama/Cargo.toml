@@ -22,6 +22,7 @@ opencl = ["llama-cpp-2/opencl"]
 llama-cpp-2 = { version = "=0.1.154", default-features = false, features = ["common", "android-static-stdcxx"] }
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
 tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "sync", "time", "macros", "net", "io-util"] }
+tokio-stream = { version = "0.1", default-features = false, features = ["sync"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 minijinja = "2"

@@ -116,6 +116,38 @@ pub fn perf_core_count(max_freqs: &[u64]) -> usize {
     max_freqs.iter().filter(|&&f| f == max).count()
 }
 
+/// Auto-detect the generation thread count: read every
+/// `/sys/devices/system/cpu/cpuN/cpufreq/cpuinfo_max_freq` and take the
+/// performance-core cluster size; when cpufreq is unavailable, fall back to
+/// the parallelism Rust sees. Never fewer than 1.
+pub fn detect_threads() -> i32 {
+    let mut freqs = Vec::new();
+    if let Ok(cpus) = std::fs::read_dir("/sys/devices/system/cpu") {
+        for entry in cpus.flatten() {
+            let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+                continue;
+            };
+            let Some(id) = name.strip_prefix("cpu") else {
+                continue;
+            };
+            if !id.bytes().all(|b| b.is_ascii_digit()) {
+                continue;
+            }
+            if let Ok(freq) = std::fs::read_to_string(entry.path().join("cpufreq/cpuinfo_max_freq"))
+                && let Ok(value) = freq.trim().parse::<u64>()
+            {
+                freqs.push(value);
+            }
+        }
+    }
+    let threads = if freqs.is_empty() {
+        std::thread::available_parallelism().map_or(1, |n| n.get())
+    } else {
+        perf_core_count(&freqs)
+    };
+    threads.min(i32::MAX as usize) as i32
+}
+
 /// One streamed generation event. Raw token pieces only — thinking/tool-call
 /// parsing is combined in the server layer.
 #[derive(Debug, Clone)]
@@ -179,7 +211,9 @@ fn model_params(backend: Backend) -> Result<LlamaModelParams, String> {
 
 /// Per-request context parameters (Q8_0 KV cache; quantized V requires flash
 /// attention, which llama.cpp enables by default via `AUTO` on the CPU and
-/// Vulkan backends this project ships).
+/// Vulkan backends this project ships). `no_perf = false` because llama.cpp
+/// now defaults it to `true`, which would zero `ctx.timings()` — and with it
+/// the server's tokens/s accounting.
 fn context_params(n_ctx: u32, threads: i32) -> LlamaContextParams {
     LlamaContextParams::default()
         .with_n_ctx(NonZeroU32::new(n_ctx))
@@ -187,6 +221,7 @@ fn context_params(n_ctx: u32, threads: i32) -> LlamaContextParams {
         .with_n_threads_batch(threads)
         .with_type_k(KvCacheType::Q8_0)
         .with_type_v(KvCacheType::Q8_0)
+        .with_no_perf(false)
 }
 
 impl<'a> Engine<'a> {

@@ -146,14 +146,36 @@ fn civil_from_unix_days(days: i64) -> (i64, u32, u32) {
     (if m <= 2 { y + 1 } else { y }, m, d)
 }
 
+/// The template render context (the HF transformers chat-template
+/// convention) for a conversation: `messages` (string `content`,
+/// `tool_calls` whose `arguments` are re-parsed into objects so templates
+/// can iterate them), `tools` in the OpenAI
+/// `{"type":"function","function":{…}}` shape, `add_generation_prompt`, and
+/// `enable_thinking`.
+///
+/// Public so the server can feed a *precompiled* template
+/// (`Environment::template_from_str`) instead of re-parsing the source on
+/// every request the way [`render_prompt`] does; the two paths build the
+/// exact same context.
+pub fn template_context(
+    messages: &[WireMessage],
+    tools: Option<&[WireTool]>,
+    enable_thinking: bool,
+) -> Json {
+    json!({
+        "messages": messages.iter().map(template_message).collect::<Vec<_>>(),
+        "tools": tools
+            .map(|t| t.iter().map(template_tool).collect::<Vec<_>>())
+            .unwrap_or_default(),
+        "add_generation_prompt": true,
+        "enable_thinking": enable_thinking,
+    })
+}
+
 /// Render the chat template into the final prompt string.
 ///
-/// The context follows the HF transformers chat-template convention:
-/// `messages` (with string `content` and `tool_calls` whose `arguments` are
-/// re-parsed into objects so templates can iterate them), `tools` in the
-/// OpenAI `{"type":"function","function":{…}}` shape, `add_generation_prompt`,
-/// and `enable_thinking`. Template errors (including `raise_exception`)
-/// surface as `Err` with the rendered error message.
+/// Re-parses `template` on every call; template errors (including
+/// `raise_exception`) surface as `Err` with the rendered error message.
 pub fn render_prompt(
     env: &Environment,
     template: &str,
@@ -161,15 +183,8 @@ pub fn render_prompt(
     tools: Option<&[WireTool]>,
     enable_thinking: bool,
 ) -> Result<String, String> {
-    let ctx = json!({
-        "messages": messages.iter().map(template_message).collect::<Vec<_>>(),
-        "tools": tools
-            .map(|t| t.iter().map(template_tool).collect::<Vec<_>>())
-            .unwrap_or_default(),
-        "add_generation_prompt": true,
-        "enable_thinking": enable_thinking,
-    });
-    env.render_str(template, &ctx).map_err(|e| e.to_string())
+    env.render_str(template, template_context(messages, tools, enable_thinking))
+        .map_err(|e| e.to_string())
 }
 
 /// Map one wire message into the template shape. `content` is flattened to
