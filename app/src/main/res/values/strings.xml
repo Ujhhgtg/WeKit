@@ -3682,6 +3682,32 @@
     <string name="agent_empty_skills_message">Skills are task playbooks the LLM loads on demand.</string>
     <string name="agent_empty_triggers_title">No triggers yet</string>
     <string name="agent_empty_triggers_message">Triggers automatically invoke the AI on a schedule, when a new message arrives, or when a database operation is detected.</string>
+    <string name="local_llm_provider_name">Local LLM Inference</string>
+    <string name="local_llm_builtin_badge">Built-in</string>
+    <string name="local_llm_no_packs">No model extension pack installed</string>
+    <string name="local_llm_models_count">%1$d model(s) available</string>
+    <string name="local_llm_section_server">Server</string>
+    <string name="local_llm_section_packs">Extension packs</string>
+    <string name="local_llm_section_models">Models</string>
+    <string name="local_llm_server_state_stopped">Stopped</string>
+    <string name="local_llm_server_state_starting">Starting…</string>
+    <string name="local_llm_server_state_running">Running · 127.0.0.1:%1$d</string>
+    <string name="local_llm_server_state_failed">Failed: %1$s</string>
+    <string name="local_llm_server_start">Start</string>
+    <string name="local_llm_server_stop">Stop</string>
+    <string name="local_llm_server_idle_stopped">Stopped (idle timeout)</string>
+    <string name="local_llm_backend_label">Compute backend</string>
+    <string name="local_llm_backend_auto">Auto</string>
+    <string name="local_llm_backend_cpu" translatable="false">CPU</string>
+    <string name="local_llm_backend_vulkan" translatable="false">Vulkan</string>
+    <string name="local_llm_backend_opencl" translatable="false">OpenCL</string>
+    <string name="local_llm_backend_restart_note">Applies on next server start</string>
+    <string name="local_llm_backend_unavailable">Unavailable</string>
+    <string name="local_llm_manage_packs">Manage extension packs</string>
+    <string name="local_llm_device_unsupported">Device not supported (arm64-v8a required)</string>
+    <string name="local_llm_no_models_hint">Install a model extension pack to add local models</string>
+    <string name="local_llm_ctx_warning">Larger context windows use much more RAM; too high may cause OOM or startup failure. Applies on next server start.</string>
+    <string name="local_llm_model_desc">%1$s · ctx %2$d · thinking</string>
     <string name="settings_predictive_back_animation_title">Predictive back animation</string>
     <string name="settings_predictive_back_animation_summary">Enable system predictive back for module pages</string>
     <string name="settings_predictive_back_animation_nuke_summary">Enable system predictive back for module pages; Nuke keeps its own page transition</string>
