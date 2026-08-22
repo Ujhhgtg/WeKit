@@ -20,6 +20,8 @@ import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /** Generic extension-pack plumbing: remote index, download, verify, install, state, delete. */
@@ -31,7 +33,8 @@ object ExtensionPacks {
     const val BASE_URL = "https://github.com/Ujhhgtg/WeKit/releases/download/Extensions"
     private const val INDEX_ASSET = "manifest.json"
 
-    val packs: List<ExtensionPack> = listOf(ScriptDepsPack, CloudflaredPack, ArchLinuxPack)
+    val packs: List<ExtensionPack> =
+        listOf(ScriptDepsPack, CloudflaredPack, ArchLinuxPack, LlamaNativePack, QwenModelPack)
 
     fun byId(id: String): ExtensionPack? = packs.firstOrNull { it.id == id }
 
@@ -108,6 +111,8 @@ object ExtensionPacks {
         if (pack.isInUse() || flow.value is Downloading || flow.value is Verifying) return false
         pack.installDir().deleteRecursively()
         pack.stagingDir().deleteRecursively()
+        if (pack.installDir().exists() || pack.stagingDir().exists()) return false
+        pack.onRemoved()
         refresh(pack)
         return true
     }
@@ -135,23 +140,31 @@ object ExtensionPacks {
     private suspend fun downloadInternal(pack: ExtensionPack, flow: MutableStateFlow<ExtensionPackState>) {
         val staging = pack.stagingDir().also { it.mkdirs() }
         val tmp = File(staging, "download.tmp")
-        tmp.delete()
         flow.value = Downloading(0f, 0, 0)
         try {
             val entry = remoteEntry(pack)
+            val url = entry.externalUrl ?: "$BASE_URL/${entry.asset}"
+            // Resume a partial download left behind by a hard process kill: HF and the
+            // GitHub CDN both answer `Range` with 206. Cancel/failure paths below delete
+            // the tmp file, so only crash remnants are ever resumed.
+            val existing = if (tmp.isFile) tmp.length() else 0L
+            val resume = existing > 0 && entry.bytes != null && existing < entry.bytes
             val request = Request.Builder()
-                .url("${BASE_URL}/${entry.asset}")
+                .url(url)
+                .apply { if (resume) header("Range", "bytes=$existing-") }
                 .build()
             val call = httpClient.newCall(request)
             synchronized(lock) { activeCalls[pack.id] = call }
             try {
                 call.execute().use { response ->
-                    if (!response.isSuccessful) error("HTTP ${response.code}")
-                    val body = response.body
-                    val total = body.contentLength()
-                    var downloaded = 0L
-                    body.byteStream().use { input ->
-                        tmp.outputStream().use { output ->
+                    if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+                    // A 200 here means the server ignored the Range header: restart from
+                    // scratch (FileOutputStream truncates), exactly like a fresh download.
+                    val appending = resume && response.code == 206
+                    val total = entry.bytes ?: response.body.contentLength()
+                    var downloaded = if (appending) existing else 0L
+                    response.body.byteStream().use { input ->
+                        FileOutputStream(tmp, appending).use { output ->
                             val buf = ByteArray(64 * 1024)
                             while (true) {
                                 currentCoroutineContext().ensureActive()
@@ -177,7 +190,8 @@ object ExtensionPacks {
                 tmp.delete()
                 error("SHA-256 mismatch (expected ${entry.sha256}); refusing to install")
             }
-            pack.install(tmp, entry.version, entry.sha256)
+            pack.install(tmp, entry.version, entry.sha256, entry.meta)
+            pack.onInstalled()
             WeLogger.i(TAG, "installed ${pack.id} ${entry.version}")
         } catch (e: CancellationException) {
             tmp.delete()

@@ -339,6 +339,10 @@
     <string name="extensions_pack_cloudflared_desc">Cloudflare Tunnel bridge for the built-in read-receipts backend</string>
     <string name="extensions_pack_archlinux_name">Arch Linux ARM64</string>
     <string name="extensions_pack_archlinux_desc">Root filesystem and PRoot launcher for local WeAgent Linux environments</string>
+    <string name="extensions_pack_llama_native_name">Local inference engine</string>
+    <string name="extensions_pack_llama_native_desc">llama.cpp inference runtime (CPU/Vulkan/OpenCL) for the built-in local LLM provider</string>
+    <string name="extensions_pack_qwen_model_name">Qwen3.8-4B Distill (Q4_K_M)</string>
+    <string name="extensions_pack_qwen_model_desc">Local LLM model weights (~2.8 GB), downloaded from Hugging Face. Requires the local inference engine.</string>
     <string name="extensions_pack_downloading">Downloading…</string>
     <string name="extensions_pack_installed_version">Installed: %1$s</string>
     <string name="extensions_pack_state_not_installed">Not installed</string>

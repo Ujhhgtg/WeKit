@@ -110,7 +110,7 @@ private fun ExtensionsRoot(autoPackId: String?, autoDownload: Boolean, onFinish:
         title = stringResource(R.string.extensions_screen_title),
         navigationIcon = { ExpressiveBackButton(onClick = onFinish) },
     ) {
-        for (pack in ExtensionPacks.packs) {
+        for (pack in ExtensionPacks.packs.filter(ExtensionPack::isSupported)) {
             item(key = pack.id) { PackGroup(pack) }
         }
     }

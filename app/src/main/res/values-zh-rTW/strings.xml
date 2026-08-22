@@ -310,6 +310,10 @@
     <string name="extensions_pack_cloudflared_desc">已讀追蹤內置服務器模式的 Cloudflare Tunnel 橋接庫</string>
     <string name="extensions_pack_archlinux_name">Arch Linux ARM64</string>
     <string name="extensions_pack_archlinux_desc">用於本地 WeAgent Linux 環境的根文件系統和 PRoot 啟動器</string>
+    <string name="extensions_pack_llama_native_name">本地推理引擎</string>
+    <string name="extensions_pack_llama_native_desc">內建本地 LLM 提供方的 llama.cpp 推理執行時（CPU/Vulkan/OpenCL）</string>
+    <string name="extensions_pack_qwen_model_name">Qwen3.8-4B Distill (Q4_K_M)</string>
+    <string name="extensions_pack_qwen_model_desc">本地 LLM 模型權重（約 2.8 GB），從 Hugging Face 下載。需先安裝本地推理引擎。</string>
     <string name="extensions_pack_downloading">正在下載…</string>
     <string name="extensions_pack_installed_version">已安裝: %1$s</string>
     <string name="extensions_pack_state_not_installed">未安裝</string>

@@ -54,7 +54,7 @@ object CloudflaredPack : ExtensionPack {
         NativeLoader.isCloudflaredLoaded() ||
             ReadReceipts.configuration().mode == ReadReceiptsServerMode.BUILT_IN
 
-    override fun install(verifiedTmp: File, version: String, sha256: String) {
+    override fun install(verifiedTmp: File, version: String, sha256: String, meta: String?) {
         val versionDir = baseDir.resolve(version)
         versionDir.deleteRecursively()
         versionDir.mkdirs()

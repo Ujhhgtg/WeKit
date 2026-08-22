@@ -7,9 +7,12 @@ import android.os.Process
 import com.tencent.mmkv.MMKV
 import dev.ujhhgtg.wekit.extensions.CloudflaredPack
 import dev.ujhhgtg.wekit.extensions.CloudflaredPackNotInstalledException
+import dev.ujhhgtg.wekit.extensions.LlamaNativePack
+import dev.ujhhgtg.wekit.extensions.LlamaPackNotInstalledException
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader.init
 import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import java.io.File
 import java.util.zip.ZipFile
@@ -115,6 +118,67 @@ object NativeLoader {
             System.load(library.absolutePath)
             cloudflaredLoaded = true
         }
+    }
+
+    @Volatile
+    private var llamaLoaded = false
+
+    @Volatile
+    private var llamaOpenclLoaded = false
+
+    /** Whether a llama inference-library variant has been System.load-ed in this process. */
+    @JvmStatic
+    fun isLlamaLoaded(): Boolean = llamaLoaded
+
+    /**
+     * Lazily loads the llama inference library from the llama-native extension
+     * pack. At most ONE variant is ever loaded per process: [preferOpencl] picks
+     * the OpenCL build (CPU/Vulkan/OpenCL) when possible, falling back to the base
+     * variant (CPU/Vulkan) when the OpenCL .so is absent or `System.load` fails
+     * (device without a vendor libOpenCL). Already-loaded base + requested OpenCL
+     * cannot be swapped in-process and stays base.
+     *
+     * @return whether the loaded variant is the OpenCL build.
+     * Throws [dev.ujhhgtg.wekit.extensions.LlamaPackNotInstalledException] when
+     * the pack is not installed — callers surface the install dialog.
+     */
+    @JvmStatic
+    fun ensureLlamaLoaded(preferOpencl: Boolean): Boolean {
+        if (llamaLoaded) return alreadyLoadedLlamaResult(preferOpencl)
+        synchronized(nativeLoadLock) {
+            if (llamaLoaded) return alreadyLoadedLlamaResult(preferOpencl)
+            if (preferOpencl) {
+                val openclLibrary = LlamaNativePack.libraryFile(opencl = true)
+                if (openclLibrary != null) {
+                    try {
+                        @SuppressLint("UnsafeDynamicallyLoadedCode")
+                        System.load(openclLibrary.absolutePath)
+                        llamaLoaded = true
+                        llamaOpenclLoaded = true
+                        return true
+                    } catch (t: Throwable) {
+                        // Typical cause: device without a vendor libOpenCL.so.
+                        WeLogger.w("NativeLoader", "OpenCL llama variant failed to load; falling back to the base variant", t)
+                    }
+                } else {
+                    WeLogger.w("NativeLoader", "OpenCL llama variant is not installed; loading the base variant")
+                }
+            }
+            val library = LlamaNativePack.libraryFile(opencl = false)
+                ?: throw LlamaPackNotInstalledException("llama-native extension pack is not installed")
+            @SuppressLint("UnsafeDynamicallyLoadedCode")
+            System.load(library.absolutePath)
+            llamaLoaded = true
+            llamaOpenclLoaded = false
+            return false
+        }
+    }
+
+    private fun alreadyLoadedLlamaResult(preferOpencl: Boolean): Boolean {
+        if (preferOpencl && !llamaOpenclLoaded) {
+            WeLogger.w("NativeLoader", "base llama variant already loaded in this process; cannot switch to OpenCL")
+        }
+        return llamaOpenclLoaded
     }
 
     fun invokeToolExecutable(): File = synchronized(nativeLoadLock) {
