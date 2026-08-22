@@ -19,6 +19,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
 
 /**
  * Builds and caches [LlmClient] adapters per model provider, and resolves a stored [ModelEntity]
@@ -47,8 +50,42 @@ object ModelProviderManager {
      * (type/baseUrl/apiKey) changed since last cached. [provider] must carry a usable apiKey (use
      * [WeAgentRepository.getModelProvider]); keys are stored as-is, so nothing needs decrypting.
      */
-    @Synchronized
     fun clientFor(provider: ModelProviderEntity): LlmClient {
+        check(provider.type != ModelProviderType.LOCAL_LLAMA) {
+            "local llama clients require a model-specific server lease"
+        }
+        return cachedClientFor(provider)
+    }
+
+    /**
+     * Returns a cold local client whose every collected stream resolves the current model file,
+     * starts the requested tuple, and exclusively leases that server/port through collection.
+     */
+    fun localClientFor(
+        provider: ModelProviderEntity,
+        modelIdRemote: String,
+        nCtx: Int,
+        backend: String,
+    ): LlmClient {
+        check(provider.type == ModelProviderType.LOCAL_LLAMA) {
+            "localClientFor requires a LOCAL_LLAMA provider"
+        }
+        return object : LlmClient {
+            override fun stream(request: LlmRequest): Flow<LlmStreamEvent> = flow {
+                val gguf = LocalLlamaModels.resolveModelFile(modelIdRemote)
+                    ?: error("local model pack is not installed: $modelIdRemote")
+                val lease = LocalLlamaController.acquireServerLease(gguf, nCtx, backend)
+                try {
+                    cachedClientFor(provider).stream(request).collect { emit(it) }
+                } finally {
+                    lease.release()
+                }
+            }
+        }
+    }
+
+    @Synchronized
+    private fun cachedClientFor(provider: ModelProviderEntity): LlmClient {
         val effectiveBase = if (provider.type == ModelProviderType.LOCAL_LLAMA) {
             LocalLlamaController.baseUrlOrNull().orEmpty()
         } else {

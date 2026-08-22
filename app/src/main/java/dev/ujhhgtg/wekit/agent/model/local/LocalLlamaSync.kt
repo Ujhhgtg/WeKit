@@ -11,28 +11,65 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 object LocalLlamaSync {
 
     private const val TAG = "LocalLlamaSync"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val stateLock = Any()
+    private val passMutex = Mutex()
 
-    @Volatile
-    private var pending = false
+    private var workerRunning = false
+    private var dirty = false
 
     fun schedule() {
-        if (pending) return
-        pending = true
-        scope.launch {
-            delay(500)
-            pending = false
-            runCatching { syncOnce() }
-                .onFailure { WeLogger.e(TAG, "sync failed", it) }
+        val launchWorker = synchronized(stateLock) {
+            dirty = true
+            if (workerRunning) {
+                false
+            } else {
+                workerRunning = true
+                true
+            }
+        }
+        if (launchWorker) scope.launch { runScheduledWorker(debounce = true) }
+    }
+
+    /** Runs one direct pass, serialized with scheduled work and other direct callers. */
+    suspend fun syncOnce() = passMutex.withLock { syncPass() }
+
+    private suspend fun runScheduledWorker(debounce: Boolean) {
+        if (debounce) delay(500)
+        try {
+            while (synchronized(stateLock) {
+                    if (dirty) {
+                        dirty = false
+                        true
+                    } else {
+                        false
+                    }
+                }) {
+                runCatching { passMutex.withLock { syncPass() } }
+                    .onFailure { WeLogger.e(TAG, "sync failed", it) }
+            }
+        } finally {
+            val relaunch = synchronized(stateLock) {
+                workerRunning = false
+                if (dirty) {
+                    workerRunning = true
+                    true
+                } else {
+                    false
+                }
+            }
+            if (relaunch) scope.launch { runScheduledWorker(debounce = false) }
         }
     }
 
-    suspend fun syncOnce() {
+    private suspend fun syncPass() {
         val db = WeAgentDatabase.instance
         val canonicalProvider = ModelProviderEntity(
             id = LocalLlama.PROVIDER_ID,

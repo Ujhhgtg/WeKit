@@ -741,23 +741,23 @@ object WeAgentRepository : ToolPermissionSource {
     }
 
     suspend fun upsertModel(model: ModelEntity) {
-        val existing = db.modelDao().getById(model.id)
-        if (model.providerId == LocalLlama.PROVIDER_ID || existing?.providerId == LocalLlama.PROVIDER_ID) {
-            check(existing != null && existing.providerId == LocalLlama.PROVIDER_ID &&
-                    model.providerId == LocalLlama.PROVIDER_ID) {
-                "local llama models are package-managed and cannot be added or reassigned manually"
-            }
-            check(
-                model.modelIdRemote == existing.modelIdRemote &&
-                        model.displayName == existing.displayName &&
-                        model.maxTokens == existing.maxTokens &&
-                        model.supportsVision == existing.supportsVision &&
-                        model.customJsonOverride == existing.customJsonOverride
-            ) {
-                "only reasoning effort and context window are editable for local llama models"
+        db.withTransaction {
+            val current = db.modelDao().getById(model.id)
+            if (model.providerId == LocalLlama.PROVIDER_ID || current?.providerId == LocalLlama.PROVIDER_ID) {
+                check(current != null && current.providerId == LocalLlama.PROVIDER_ID &&
+                        model.providerId == LocalLlama.PROVIDER_ID) {
+                    "local llama models are package-managed and cannot be added or reassigned manually"
+                }
+                db.modelDao().upsert(
+                    current.copy(
+                        reasoningEffort = model.reasoningEffort,
+                        contextWindow = model.contextWindow,
+                    )
+                )
+            } else {
+                db.modelDao().upsert(model)
             }
         }
-        db.modelDao().upsert(model)
     }
 
     /**

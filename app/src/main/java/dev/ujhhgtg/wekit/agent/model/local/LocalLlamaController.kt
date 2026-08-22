@@ -10,6 +10,7 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -141,6 +142,31 @@ object LocalLlamaController {
      * [IllegalStateException] carrying the native controller's failure reason.
      */
     suspend fun ensureReady(gguf: File, nCtx: Int, backend: String): String = mutex.withLock {
+        ensureReadyLocked(gguf, nCtx, backend)
+    }
+
+    /**
+     * Exclusively leases the singleton server for one collected request stream. The lifecycle
+     * mutex remains owned by the lease, so start, stop, and an incompatible request cannot change
+     * the model tuple or random port until [LocalLlamaServerLease.release].
+     */
+    internal suspend fun acquireServerLease(
+        gguf: File,
+        nCtx: Int,
+        backend: String,
+    ): LocalLlamaServerLease {
+        val owner = Any()
+        mutex.lock(owner)
+        return try {
+            ensureReadyLocked(gguf, nCtx, backend)
+            LocalLlamaServerLease { mutex.unlock(owner) }
+        } catch (error: Throwable) {
+            mutex.unlock(owner)
+            throw error
+        }
+    }
+
+    private fun ensureReadyLocked(gguf: File, nCtx: Int, backend: String): String {
         val desired = ActiveTuple(gguf.absolutePath, nCtx, backend)
         syncState()
         val current = stateFlow.value
@@ -173,7 +199,7 @@ object LocalLlamaController {
         active = desired
         stateFlow.value = LlamaState.Running(status.port!!, status.pid ?: -1, backend)
         startPolling()
-        "http://127.0.0.1:${status.port}/v1"
+        return "http://127.0.0.1:${status.port}/v1"
     }
 
     private fun stopInternal() {
@@ -262,5 +288,14 @@ object LocalLlamaController {
             pid = obj["pid"]?.jsonPrimitive?.intOrNull,
             error = obj["error"]?.takeIf { it !is JsonNull }?.jsonPrimitive?.content,
         )
+    }
+}
+
+/** Idempotent handle for the controller's exclusive request-stream lease. */
+internal class LocalLlamaServerLease internal constructor(private val releaseBlock: () -> Unit) {
+    private val released = AtomicBoolean(false)
+
+    fun release() {
+        if (released.compareAndSet(false, true)) releaseBlock()
     }
 }
