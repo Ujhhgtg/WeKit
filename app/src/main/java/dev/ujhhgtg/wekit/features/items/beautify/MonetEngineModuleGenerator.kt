@@ -86,9 +86,10 @@ object MonetEngineModuleGenerator : ClickableFeature() {
 
     private fun showGeneratorDialog(activity: Activity) {
         val resolvedPack = try {
+            val payloadDir = MonetGeneratorPack.requirePayloadDir()
             ResolvedPack(
                 generator = requireNotNull(MonetGeneratorPack.generator()),
-                payloadDir = requireNotNull(MonetGeneratorPack.payloadDir()),
+                payloadDir = payloadDir,
             )
         } catch (error: Throwable) {
             WeLogger.e(TAG, "failed to load Monet generator extension", error)

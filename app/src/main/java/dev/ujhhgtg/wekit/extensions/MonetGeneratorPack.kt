@@ -63,6 +63,15 @@ object MonetGeneratorPack : ExtensionPack {
     }
 
     @Synchronized
+    fun requirePayloadDir(): File {
+        val payload = requireNotNull(payloadDir()) { "missing Monet generator payload directory" }
+        for (name in REQUIRED_PAYLOAD_FILES) {
+            require(payload.resolve(name).isFile) { "missing Monet generator payload: $name" }
+        }
+        return payload
+    }
+
+    @Synchronized
     override fun install(verifiedTmp: File, version: String, sha256: String, meta: String?) {
         require(!isInUse()) { "cannot update Monet generator while it is in use" }
         val baseDir = installDir().also { it.mkdirs() }
@@ -107,4 +116,13 @@ object MonetGeneratorPack : ExtensionPack {
             if (!destination.exists() && previous.isDirectory) previous.renameTo(destination)
         }
     }
+
+    private val REQUIRED_PAYLOAD_FILES = listOf(
+        "template_api31.apk",
+        "template_api34.apk",
+        "monet_tables.json",
+        "customize.sh",
+        "update-binary",
+        "updater-script",
+    )
 }
