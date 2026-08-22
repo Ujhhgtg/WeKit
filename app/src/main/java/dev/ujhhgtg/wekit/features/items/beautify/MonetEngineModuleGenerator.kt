@@ -31,7 +31,6 @@ import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationListener
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequest
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResult
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationStage
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGeneratorApiV1
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetLogLevel
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -42,7 +41,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
-import java.io.File
 import kotlin.concurrent.thread
 import kotlin.io.path.div
 
@@ -86,11 +84,7 @@ object MonetEngineModuleGenerator : ClickableFeature() {
 
     private fun showGeneratorDialog(activity: Activity) {
         val resolvedPack = try {
-            val payloadDir = MonetGeneratorPack.requirePayloadDir()
-            ResolvedPack(
-                generator = requireNotNull(MonetGeneratorPack.generator()),
-                payloadDir = payloadDir,
-            )
+            requireNotNull(MonetGeneratorPack.resolve())
         } catch (error: Throwable) {
             WeLogger.e(TAG, "failed to load Monet generator extension", error)
             showInvalidPackDialog(activity)
@@ -106,14 +100,11 @@ object MonetEngineModuleGenerator : ClickableFeature() {
 
             LaunchedEffect(Unit) {
                 thread(name = "monet-module-generator") {
-                    var outputZip: File? = null
                     var currentStage = MonetGenerationStage.PREPARING
                     try {
                         val resolvedOutputZip =
                             (KnownPaths.downloads / "monet_engine_module.zip").toFile()
-                        outputZip = resolvedOutputZip
                         val workDir = (KnownPaths.moduleCache / "monet").toFile()
-                        deleteAdvertisedOutput(resolvedOutputZip)
                         val request = MonetGenerationRequest(
                             resources = HostInfo.application.resources,
                             packageName = HostInfo.packageName,
@@ -142,7 +133,6 @@ object MonetEngineModuleGenerator : ClickableFeature() {
                         )
                         window.decorView.post { state = GeneratorUiState.Done(result) }
                     } catch (error: Throwable) {
-                        outputZip?.let(::deleteAdvertisedOutput)
                         WeLogger.e(TAG, "generation failed during $currentStage", error)
                         window.decorView.post {
                             state = GeneratorUiState.Failed(
@@ -190,12 +180,6 @@ object MonetEngineModuleGenerator : ClickableFeature() {
         }
     }
 
-    private fun deleteAdvertisedOutput(outputZip: File) {
-        if (outputZip.exists() && !outputZip.delete()) {
-            WeLogger.w(TAG, "failed to delete incomplete output: $outputZip")
-        }
-    }
-
     private fun logEvent(event: MonetGenerationEvent.Log) {
         val error = event.error
         when (event.level) {
@@ -224,11 +208,6 @@ object MonetEngineModuleGenerator : ClickableFeature() {
             }
         }
     }
-
-    private data class ResolvedPack(
-        val generator: MonetGeneratorApiV1,
-        val payloadDir: File,
-    )
 }
 
 private sealed interface GeneratorUiState {

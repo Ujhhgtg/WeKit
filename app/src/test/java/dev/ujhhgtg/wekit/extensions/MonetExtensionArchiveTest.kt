@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -154,6 +156,138 @@ class MonetExtensionArchiveTest {
         assertFalse(staging.resolve("classes.dex").exists())
     }
 
+    @Test
+    fun `installed directory is revalidated against metadata and hashes`() {
+        val staging = temp.resolve("installed-staging")
+        extract(writeArchive(), staging)
+        PackFs.writeManifest(
+            staging,
+            PackManifest("monet-generator", "0123456789ab", "a".repeat(64), 1L),
+        )
+
+        MonetExtensionArchive.verifyInstalled(
+            staging,
+            MONET_GENERATOR_API_VERSION,
+            MONET_GENERATOR_ENTRYPOINT_V1,
+        )
+        staging.resolve("payload/monet_tables.json").writeText("corrupted")
+
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetExtensionArchive.verifyInstalled(
+                staging,
+                MONET_GENERATOR_API_VERSION,
+                MONET_GENERATOR_ENTRYPOINT_V1,
+            )
+        }
+    }
+
+    @Test
+    fun `installed directory rejects unexpected runtime files`() {
+        val staging = temp.resolve("installed-extra-staging")
+        extract(writeArchive(), staging)
+        staging.resolve("payload/extra").writeText("unexpected")
+
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetExtensionArchive.verifyInstalled(
+                staging,
+                MONET_GENERATOR_API_VERSION,
+                MONET_GENERATOR_ENTRYPOINT_V1,
+            )
+        }
+    }
+
+    @Test
+    fun `installed metadata contract is revalidated`() {
+        val staging = temp.resolve("installed-metadata-staging")
+        extract(writeArchive(), staging)
+        staging.resolve("extension.json").writeText(
+            staging.resolve("extension.json").readText()
+                .replace("\"apiVersion\":1", "\"apiVersion\":2"),
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetExtensionArchive.verifyInstalled(
+                staging,
+                MONET_GENERATOR_API_VERSION,
+                MONET_GENERATOR_ENTRYPOINT_V1,
+            )
+        }
+    }
+
+    @Test
+    fun `metadata is limited to sixteen KiB before extraction`() {
+        val archive = writeArchive(metadataPaddingBytes = 16 * 1024)
+        val staging = temp.resolve("oversized-metadata-staging")
+
+        assertThrows(IllegalArgumentException::class.java) { extract(archive, staging) }
+
+        assertFalse(staging.resolve("classes.dex").exists())
+    }
+
+    @Test
+    fun `each runtime entry enforces its declared size limit`() {
+        val limits = linkedMapOf(
+            "classes.dex" to 8 * 1024 * 1024,
+            "payload/template_api31.apk" to 1024 * 1024,
+            "payload/template_api34.apk" to 1024 * 1024,
+            "payload/monet_tables.json" to 1024 * 1024,
+            "payload/customize.sh" to 64 * 1024,
+            "payload/update-binary" to 64 * 1024,
+            "payload/updater-script" to 64 * 1024,
+        )
+
+        limits.forEach { (name, limit) ->
+            val actualFiles = FILE_CONTENTS + (name to "x".repeat(limit + 1))
+            val archive = writeArchive(
+                actualFiles = actualFiles,
+                declaredHashes = hashes(actualFiles),
+            )
+
+            assertThrows(
+                IllegalArgumentException::class.java,
+                { extract(archive, temp.resolve("oversized-${archiveCount}-staging")) },
+                name,
+            )
+        }
+    }
+
+    @Test
+    fun `streaming entry limit rejects bytes beyond declared budget`() {
+        val output = ByteArrayOutputStream()
+        val limiter = MonetExtractionLimiter(16)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            limiter.copy(
+                ByteArrayInputStream("12345".encodeToByteArray()),
+                output,
+                "classes.dex",
+                4,
+            )
+        }
+
+        assertEquals(0, output.size())
+    }
+
+    @Test
+    fun `streaming aggregate limit spans archive entries`() {
+        val limiter = MonetExtractionLimiter(5)
+        limiter.copy(
+            ByteArrayInputStream("123".encodeToByteArray()),
+            ByteArrayOutputStream(),
+            "classes.dex",
+            4,
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            limiter.copy(
+                ByteArrayInputStream("456".encodeToByteArray()),
+                ByteArrayOutputStream(),
+                "payload/customize.sh",
+                4,
+            )
+        }
+    }
+
     private fun extract(archive: File, staging: File): MonetExtensionMetadata =
         MonetExtensionArchive.extractAndVerify(
             archive,
@@ -168,14 +302,17 @@ class MonetExtensionArchiveTest {
         apiVersion: Int = MONET_GENERATOR_API_VERSION,
         entrypoint: String = MONET_GENERATOR_ENTRYPOINT_V1,
         extraEntries: Map<String, String> = emptyMap(),
+        metadataPaddingBytes: Int = 0,
     ): File {
-        val extensionJson = JsonObject(
-            mapOf(
-                "apiVersion" to JsonPrimitive(apiVersion),
-                "entrypoint" to JsonPrimitive(entrypoint),
-                "files" to JsonObject(declaredHashes.mapValues { JsonPrimitive(it.value) }),
-            ),
-        ).toString()
+        val metadataFields = linkedMapOf(
+            "apiVersion" to JsonPrimitive(apiVersion),
+            "entrypoint" to JsonPrimitive(entrypoint),
+            "files" to JsonObject(declaredHashes.mapValues { JsonPrimitive(it.value) }),
+        )
+        if (metadataPaddingBytes > 0) {
+            metadataFields["padding"] = JsonPrimitive("x".repeat(metadataPaddingBytes))
+        }
+        val extensionJson = JsonObject(metadataFields).toString()
         return temp.resolve("archive-${archiveCount++}.zip").also { archive ->
             ZipOutputStream(archive.outputStream()).use { zip ->
                 writeEntry(zip, "extension.json", extensionJson)

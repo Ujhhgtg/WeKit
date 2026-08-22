@@ -22,10 +22,9 @@ object MonetGeneratorPack : ExtensionPack {
     override val descriptionRes = R.string.extensions_pack_monet_generator_desc
     override val icon: ImageVector = MaterialSymbols.Outlined.Extension
 
-    private var cachedLoader: InMemoryDexClassLoader? = null
     @Volatile
-    private var cachedGenerator: MonetGeneratorApiV1? = null
-    private var loadedVersion: String? = null
+    private var cachedResolution: Resolved? = null
+    private var cachedLoader: InMemoryDexClassLoader? = null
 
     override fun installDir(): File =
         KnownPaths.moduleData.resolve("extensions/monet-generator").toFile()
@@ -33,14 +32,20 @@ object MonetGeneratorPack : ExtensionPack {
     override fun stagingDir(): File =
         KnownPaths.moduleData.resolve("extensions/monet-generator/.staging").toFile()
 
-    override fun isInUse(): Boolean = cachedGenerator != null
+    override fun isInUse(): Boolean = cachedResolution != null
 
     @Synchronized
-    fun generator(): MonetGeneratorApiV1? {
-        cachedGenerator?.let { return it }
+    internal fun resolve(): Resolved? {
+        cachedResolution?.let { return it }
         val manifest = installedManifest() ?: return null
-        val dex = installDir().resolve(manifest.version).resolve("classes.dex")
-        if (!dex.isFile) return null
+        val paths = MonetInstallPaths.resolve(installDir(), manifest.version)
+        MonetExtensionArchive.verifyInstalled(
+            paths.destination,
+            MONET_GENERATOR_API_VERSION,
+            MONET_GENERATOR_ENTRYPOINT_V1,
+        )
+        val dex = paths.destination.resolve("classes.dex")
+        val payloadDir = paths.destination.resolve("payload")
         val loader = InMemoryDexClassLoader(
             ByteBuffer.wrap(Files.readAllBytes(dex.toPath())),
             MonetGeneratorPack::class.java.classLoader,
@@ -50,34 +55,18 @@ object MonetGeneratorPack : ExtensionPack {
             .newInstance()
         require(instance is MonetGeneratorApiV1) { "incompatible Monet generator entrypoint" }
         cachedLoader = loader
-        loadedVersion = manifest.version
-        cachedGenerator = instance
-        return instance
-    }
-
-    @Synchronized
-    fun payloadDir(): File? {
-        val version = loadedVersion ?: installedManifest()?.version ?: return null
-        val payload = installDir().resolve(version).resolve("payload")
-        return if (payload.isDirectory) payload else null
-    }
-
-    @Synchronized
-    fun requirePayloadDir(): File {
-        val payload = requireNotNull(payloadDir()) { "missing Monet generator payload directory" }
-        for (name in REQUIRED_PAYLOAD_FILES) {
-            require(payload.resolve(name).isFile) { "missing Monet generator payload: $name" }
-        }
-        return payload
+        return Resolved(instance, payloadDir).also { cachedResolution = it }
     }
 
     @Synchronized
     override fun install(verifiedTmp: File, version: String, sha256: String, meta: String?) {
+        MonetInstallPaths.requireContentVersion(version)
         require(!isInUse()) { "cannot update Monet generator while it is in use" }
-        val baseDir = installDir().also { it.mkdirs() }
-        val staging = File(baseDir, ".$version-installing")
-        val destination = baseDir.resolve(version)
-        val previous = File(baseDir, ".$version-previous")
+        val paths = MonetInstallPaths.resolve(installDir(), version)
+        paths.baseDir.mkdirs()
+        val staging = paths.staging
+        val destination = paths.destination
+        val previous = paths.previous
         if (!destination.exists() && previous.isDirectory) {
             require(previous.renameTo(destination)) { "cannot restore prior Monet generator $version" }
         }
@@ -117,12 +106,8 @@ object MonetGeneratorPack : ExtensionPack {
         }
     }
 
-    private val REQUIRED_PAYLOAD_FILES = listOf(
-        "template_api31.apk",
-        "template_api34.apk",
-        "monet_tables.json",
-        "customize.sh",
-        "update-binary",
-        "updater-script",
+    internal class Resolved(
+        val generator: MonetGeneratorApiV1,
+        val payloadDir: File,
     )
 }

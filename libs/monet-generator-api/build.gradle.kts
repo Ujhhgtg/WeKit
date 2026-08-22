@@ -23,6 +23,7 @@ configure<LibraryExtension> {
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
         compileSdk = libs.versions.compileSdk.get().toInt()
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     compileOptions {
