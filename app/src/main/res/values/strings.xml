@@ -2770,6 +2770,7 @@
     <string name="beautify_global_background_set">Background image is set</string>
     <string name="beautify_global_background_not_set">No background image is set</string>
     <string name="beautify_global_background_selected">Background image set. Restart WeChat to apply.</string>
+    <string name="beautify_global_background_import_failed">Failed to import the background image</string>
     <string name="beautify_global_background_cleared">Background image cleared. Restart WeChat to apply.</string>
     <string name="beautify_global_background_status_bar">Transparent status bar background</string>
     <string name="beautify_global_background_status_bar_summary">Make the status bar background transparent</string>

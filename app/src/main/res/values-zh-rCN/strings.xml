@@ -2658,6 +2658,7 @@
     <string name="beautify_global_background_set">已设置背景图片</string>
     <string name="beautify_global_background_not_set">未设置背景图片</string>
     <string name="beautify_global_background_selected">背景图片已设置，重启微信生效</string>
+    <string name="beautify_global_background_import_failed">背景图片导入失败</string>
     <string name="beautify_global_background_cleared">已清除背景图片，重启微信生效</string>
     <string name="beautify_global_background_status_bar">状态栏背景透明</string>
     <string name="beautify_global_background_status_bar_summary">设置状态栏背景为透明</string>
