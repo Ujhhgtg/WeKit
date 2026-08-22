@@ -336,6 +336,8 @@
     <string name="extensions_screen_title">Extension packs</string>
     <string name="extensions_pack_script_deps_name">Java script dependencies</string>
     <string name="extensions_pack_script_deps_desc">Unobfuscated fastjson2 and okhttp DEX for the Java script engine</string>
+    <string name="extensions_pack_monet_generator_name">Monet module generator</string>
+    <string name="extensions_pack_monet_generator_desc">RRO builder, signer, and resources for the zero-overhead WeChat Monet module</string>
     <string name="extensions_pack_cloudflared_name">Cloudflared</string>
     <string name="extensions_pack_cloudflared_desc">Cloudflare Tunnel bridge for the built-in read-receipts backend</string>
     <string name="extensions_pack_archlinux_name">Arch Linux ARM64</string>
@@ -563,6 +565,18 @@
     <string name="feature_hide_other_devices_banner_description">Hide other devices logged in banner at top of homepage</string>
     <string name="feature_monet_engine_name">Monet engine</string>
     <string name="feature_monet_engine_description">Color WeChat native components according to the custom color matching set by the module</string>
+    <string name="feature_monet_module_generator_name">Monet engine (module)</string>
+    <string name="feature_monet_module_generator_description">Generate a root-installable WeChat Monet RRO with no runtime overhead. Requires Android 12+ and the Monet generator extension.</string>
+    <string name="monet_generator_unsupported">Android 12 or newer is required.</string>
+    <string name="monet_generator_preparing">Preparing extension payload…</string>
+    <string name="monet_generator_building">Building the overlay for this WeChat version…</string>
+    <string name="monet_generator_signing">Signing the overlay…</string>
+    <string name="monet_generator_packaging">Packaging the root module…</string>
+    <string name="monet_generator_pack_invalid">The Monet generator extension is damaged or incompatible. Delete it and download it again.</string>
+    <string name="monet_generator_failed">Generation failed during %1$s: %2$s</string>
+    <string name="monet_generator_output">Module generated at:\n%1$s</string>
+    <string name="monet_generator_counts">Covered %1$d resources (kept %2$d, added %3$d, pruned %4$d).</string>
+    <string name="monet_generator_install_hint">Install this ZIP with Magisk, KernelSU, APatch, or a derivative root manager, then reboot. KernelSU/APatch users must allow modules to affect WeChat in its app profile.</string>
     <string name="feature_replace_navigation_bar_name">Replace home navigation bar</string>
     <string name="feature_replace_navigation_bar_description">Replace the bottom navigation bar of the homepage with Material Design or Backdrop style</string>
     <string name="feature_themes_name">Themes</string>
