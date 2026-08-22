@@ -71,7 +71,7 @@ pub struct PackIndexEntry {
     pub sha256: String,
     /// Download URL for packs fetched from a third-party host instead of the
     /// WeKit release; `asset` is then a placeholder (e.g. `external`).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "externalUrl", skip_serializing_if = "Option::is_none")]
     pub external_url: Option<String>,
     /// Exact download size in bytes for externally hosted packs.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -846,11 +846,12 @@ mod tests {
         assert_eq!(entry.bytes, Some(2_783_446_304));
         let json = serde_json::to_value(&entry).unwrap();
         assert!(
-            json["external_url"]
+            json["externalUrl"]
                 .as_str()
                 .unwrap()
                 .contains("/391fc7d103e3942a408def3e4f51c2f85d464417/")
         );
+        assert!(json.get("external_url").is_none());
         assert!(
             json["meta"]
                 .as_str()
@@ -867,7 +868,7 @@ mod tests {
             &files(&[("llama-native.zip", "00")]),
         ))
         .unwrap();
-        assert!(plain.get("external_url").is_none());
+        assert!(plain.get("externalUrl").is_none());
         assert!(plain.get("bytes").is_none());
         assert!(plain.get("meta").is_none());
     }
