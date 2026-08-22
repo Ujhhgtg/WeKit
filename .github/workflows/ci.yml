@@ -468,8 +468,9 @@ jobs:
           go-version-file: app/src/main/go/wekit-cloudflared/go.mod
 
       - name: Install system dependencies
+        # glslc compiles the llama.cpp Vulkan shaders for the llama-native pack.
         run: |
-          sudo apt-get update && sudo apt-get install -y gcc-multilib
+          sudo apt-get update && sudo apt-get install -y gcc-multilib glslc
 
       - name: Grant execute permission
         run: chmod +x gradlew

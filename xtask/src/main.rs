@@ -168,7 +168,8 @@ enum Cmd {
     /// Prepare inputs and outputs used by the cloud Dex resolution CI jobs.
     DexTestCi(dex_test_ci::DexTestCiArgs),
 
-    /// Build extension packs (script-deps DEX, cloudflared zip) and their manifest.json index.
+    /// Build extension packs (script-deps DEX, cloudflared zip, llama-native zip) and their
+    /// manifest.json index (which always includes the static qwen3.8-4b-distill model entry).
     Extensions(extensions::ExtensionsArgs),
 
     /// Validate the Android English and Chinese resource catalogs.
