@@ -65,6 +65,7 @@ import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import dev.ujhhgtg.wekit.utils.android.showToast
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -119,6 +120,7 @@ fun ModelProviderDetailScreen(
      */
     fun commitProvider(transform: (ModelProviderEntity) -> ModelProviderEntity) {
         val current = provider ?: return
+        if (current.type == ModelProviderType.LOCAL_LLAMA) return
         if (!editing) {
             provider = transform(current)
             return
@@ -134,6 +136,7 @@ fun ModelProviderDetailScreen(
     }
 
     val savable = p?.baseUrl?.isNotBlank() == true
+    val noncanonicalLocal = p?.type == ModelProviderType.LOCAL_LLAMA
     val guardedBack = rememberCreationBackGuard(!editing && savable, onBack)
 
     AgentSettingsScaffold(
@@ -163,6 +166,7 @@ fun ModelProviderDetailScreen(
                         dialogTitle = stringResource(R.string.agent_field_name),
                         confirmLabel = stringResource(R.string.dialog_confirm),
                         dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = !noncanonicalLocal,
                     )
                 }
                 item {
@@ -173,6 +177,7 @@ fun ModelProviderDetailScreen(
                         dialogTitle = stringResource(R.string.agent_base_url),
                         confirmLabel = stringResource(R.string.dialog_confirm),
                         dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = !noncanonicalLocal,
                         keyboardType = KeyboardType.Uri,
                     )
                 }
@@ -184,6 +189,7 @@ fun ModelProviderDetailScreen(
                         dialogTitle = stringResource(R.string.agent_api_key_label),
                         confirmLabel = stringResource(R.string.dialog_confirm),
                         dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = !noncanonicalLocal,
                         keyboardType = KeyboardType.Password,
                         password = true,
                     )
@@ -195,7 +201,10 @@ fun ModelProviderDetailScreen(
                         title = stringResource(R.string.agent_provider_api_type),
                         description = null,
                         value = p.type,
-                        options = ModelProviderType.entries.map { DropdownOption(it, it.label()) },
+                        options = (GENERIC_MODEL_PROVIDER_TYPES +
+                                listOfNotNull(ModelProviderType.LOCAL_LLAMA.takeIf { noncanonicalLocal }))
+                            .map { DropdownOption(it, it.label()) },
+                        enabled = !noncanonicalLocal,
                         onValueChange = { value -> commitProvider { it.copy(type = value) } },
                     )
                 }
@@ -228,7 +237,7 @@ fun ModelProviderDetailScreen(
                     )
                 }
             }
-        } else {
+        } else if (!noncanonicalLocal) {
             item {
                 AgentActionRow {
                     OutlinedButton(
@@ -305,7 +314,7 @@ fun ModelProviderDetailScreen(
         }
     }
 
-    if (p != null) {
+    if (p != null && !noncanonicalLocal) {
         AgentConfirmDialog(
             show = showDeleteProviderConfirm,
             title = stringResource(R.string.agent_delete_provider),
@@ -347,6 +356,9 @@ fun ModelProviderDetailScreen(
     )
 }
 
+private val GENERIC_MODEL_PROVIDER_TYPES =
+    ModelProviderType.entries.filterNot { it == ModelProviderType.LOCAL_LLAMA }
+
 /**
  * Per-model settings. Editing is instant-apply; a blank [modelId] starts a new model kept as an
  * in-memory draft: other rows stay disabled until a model id is entered, 保存 persists it and
@@ -362,6 +374,7 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
     var model by remember { mutableStateOf<ModelEntity?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showCtxDialog by remember { mutableStateOf(false) }
+    var localCommitPending by remember { mutableStateOf(false) }
 
     LaunchedEffect(modelId) {
         model = if (creating) {
@@ -375,7 +388,32 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
     fun commitModel(transform: (ModelEntity) -> ModelEntity) {
         val current = model ?: return
         if (creating) {
+            if (locked) return
             model = transform(current)
+            return
+        }
+        if (locked) {
+            if (localCommitPending) return
+            val updated = transform(current).copy(providerId = providerId)
+            model = updated
+            localCommitPending = true
+            scope.launch {
+                try {
+                    WeAgentRepository.upsertModel(updated)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    model = current
+                    showToast(
+                        localizedContext.getString(
+                            R.string.agent_save_failed,
+                            e.message ?: e.javaClass.simpleName,
+                        )
+                    )
+                } finally {
+                    localCommitPending = false
+                }
+            }
             return
         }
         scope.launch {
@@ -472,7 +510,7 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
                         description = null,
                         value = m.reasoningEffort ?: "off",
                         options = EFFORT_GEARS.map { DropdownOption(it, effortGearLabel(it)) },
-                        enabled = ready,
+                        enabled = ready && (!locked || !localCommitPending),
                         onValueChange = { value ->
                             commitModel { it.copy(reasoningEffort = value.takeIf { it != "off" }) }
                         },
@@ -487,6 +525,7 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
                                 ?: installedLocalModel?.defaultContextWindow
                                 ?: 32768).toString() + " · " +
                                     stringResource(R.string.local_llm_backend_restart_note),
+                            enabled = ready && !localCommitPending,
                             onClick = { showCtxDialog = true },
                         )
                     } else {

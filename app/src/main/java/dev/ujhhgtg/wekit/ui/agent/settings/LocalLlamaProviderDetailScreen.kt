@@ -1,9 +1,13 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
+import android.text.format.DateUtils
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -15,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -37,14 +42,18 @@ import dev.ujhhgtg.wekit.extensions.ExtensionPackState
 import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.extensions.LlamaNativePack
 import dev.ujhhgtg.wekit.extensions.QwenModelPack
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
-import java.util.Locale
+import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun LocalLlamaProviderDetailScreen(
@@ -53,6 +62,7 @@ fun LocalLlamaProviderDetailScreen(
 ) {
     val scope = rememberCoroutineScope()
     val activity = LocalActivity.current ?: error("activity not provided")
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val state by LocalLlamaController.state.collectAsState()
     val health by LocalLlamaController.health.collectAsState()
     val nativePackState by ExtensionPacks.stateFlow(LlamaNativePack).collectAsState()
@@ -61,13 +71,29 @@ fun LocalLlamaProviderDetailScreen(
         WeAgentRepository.observeModelsForProvider(LocalLlama.PROVIDER_ID)
     }.collectAsState(initial = emptyList())
     var backend by remember { mutableStateOf("auto") }
+    var backendLoaded by remember { mutableStateOf(false) }
+    var backendPersisting by remember { mutableStateOf(false) }
+    var serverOperation by remember { mutableStateOf<ServerOperation?>(null) }
 
     LaunchedEffect(Unit) {
         LocalLlamaSync.schedule()
         ExtensionPacks.refresh(LlamaNativePack)
         ExtensionPacks.refresh(QwenModelPack)
         ExtensionPacks.checkUpdates()
-        backend = WeAgentSettings.localComputeBackend()
+        try {
+            backend = WeAgentSettings.localComputeBackend()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            showToast(
+                localizedContext.getString(
+                    R.string.local_llm_backend_load_failed,
+                    e.message ?: e.javaClass.simpleName,
+                )
+            )
+        } finally {
+            backendLoaded = true
+        }
     }
 
     val installedById = remember(models, modelPackState) {
@@ -79,6 +105,8 @@ fun LocalLlamaProviderDetailScreen(
     val startModel = localModels.firstOrNull()
     val starting = state is LlamaState.Starting
     val running = state is LlamaState.Running
+    val serverOperationPending = serverOperation != null
+    val lifecycleBusy = starting || serverOperationPending
     val backendUnavailable = running && backend != "auto" &&
             health?.backend?.available?.none { it.equals(backend, ignoreCase = true) } == true
     val backendDescription = buildString {
@@ -88,6 +116,7 @@ fun LocalLlamaProviderDetailScreen(
             append(stringResource(R.string.local_llm_backend_unavailable))
         }
     }
+    val healthDescription = health?.let { healthLine(it) }
 
     AgentSettingsScaffold(
         title = stringResource(R.string.local_llm_provider_name),
@@ -113,7 +142,7 @@ fun LocalLlamaProviderDetailScreen(
                     BaseWidget(
                         iconPlaceholder = false,
                         title = serverStateLine(state),
-                        description = health?.let(::healthLine),
+                        description = healthDescription,
                     )
                 }
                 item {
@@ -126,10 +155,33 @@ fun LocalLlamaProviderDetailScreen(
                         options = LocalLlama.BACKENDS.map { value ->
                             DropdownOption(value, backendLabel(value))
                         },
-                        enabled = !starting,
+                        enabled = backendLoaded && !backendPersisting && !lifecycleBusy,
                         onValueChange = { value ->
+                            if (!backendLoaded || backendPersisting || serverOperation != null ||
+                                LocalLlamaController.state.value is LlamaState.Starting
+                            ) {
+                                return@DropDownMenuWidget
+                            }
+                            val previous = backend
                             backend = value
-                            scope.launch { WeAgentSettings.setLocalComputeBackend(value) }
+                            backendPersisting = true
+                            scope.launch {
+                                try {
+                                    WeAgentSettings.setLocalComputeBackend(value)
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    backend = previous
+                                    showToast(
+                                        localizedContext.getString(
+                                            R.string.agent_save_failed,
+                                            e.message ?: e.javaClass.simpleName,
+                                        )
+                                    )
+                                } finally {
+                                    backendPersisting = false
+                                }
+                            }
                         },
                     )
                 }
@@ -140,28 +192,87 @@ fun LocalLlamaProviderDetailScreen(
                 AgentListActionButton(
                     label = stringResource(R.string.local_llm_server_start),
                     icon = MaterialSymbols.Outlined.Play_arrow,
-                    loading = starting,
-                    enabled = !running && startModel != null && LlamaNativePack.isSupported(),
+                    loading = serverOperation == ServerOperation.START || starting,
+                    enabled = !lifecycleBusy && backendLoaded && !backendPersisting && !running &&
+                            startModel != null && LlamaNativePack.isSupported(),
                     onClick = {
                         val (model, installed) = startModel ?: return@AgentListActionButton
                         val gguf = LocalLlamaModels.resolveModelFile(model.modelIdRemote)
                             ?: return@AgentListActionButton
-                        LocalLlamaController.start(
-                            gguf = gguf,
-                            nCtx = model.contextWindow ?: installed.defaultContextWindow,
-                            backend = backend,
-                        )
+                        if (!backendLoaded || backendPersisting || serverOperation != null ||
+                            LocalLlamaController.state.value is LlamaState.Starting ||
+                            LocalLlamaController.state.value is LlamaState.Running
+                        ) {
+                            return@AgentListActionButton
+                        }
+                        serverOperation = ServerOperation.START
+                        scope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    LocalLlamaController.ensureReady(
+                                        gguf = gguf,
+                                        nCtx = model.contextWindow ?: installed.defaultContextWindow,
+                                        backend = backend,
+                                    )
+                                }
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                showToast(
+                                    localizedContext.getString(
+                                        R.string.local_llm_server_operation_failed,
+                                        e.message ?: e.javaClass.simpleName,
+                                    )
+                                )
+                            } finally {
+                                serverOperation = null
+                            }
+                        }
                     },
                     modifier = Modifier.weight(1f),
                 )
                 OutlinedButton(
-                    onClick = LocalLlamaController::stop,
-                    enabled = running && !starting,
+                    onClick = {
+                        if (serverOperation != null ||
+                            LocalLlamaController.state.value !is LlamaState.Running
+                        ) {
+                            return@OutlinedButton
+                        }
+                        serverOperation = ServerOperation.STOP
+                        scope.launch {
+                            try {
+                                LocalLlamaController.stop().join()
+                                val after = LocalLlamaController.state.value
+                                check(after !is LlamaState.Running && after !is LlamaState.Starting) {
+                                    "server remained ${after.javaClass.simpleName} after stop"
+                                }
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                showToast(
+                                    localizedContext.getString(
+                                        R.string.local_llm_server_operation_failed,
+                                        e.message ?: e.javaClass.simpleName,
+                                    )
+                                )
+                            } finally {
+                                serverOperation = null
+                            }
+                        }
+                    },
+                    enabled = running && !lifecycleBusy,
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = MaterialTheme.colorScheme.error,
                     ),
                     modifier = Modifier.weight(1f),
                 ) {
+                    if (serverOperation == ServerOperation.STOP) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(Modifier.size(8.dp))
+                    }
                     Text(stringResource(R.string.local_llm_server_stop))
                 }
             }
@@ -236,16 +347,19 @@ private fun serverStateLine(state: LlamaState): String = when (state) {
     is LlamaState.Failed -> stringResource(R.string.local_llm_server_state_failed, state.reason)
 }
 
-private fun healthLine(health: LlamaHealth): String = String.format(
-    Locale.US,
-    "%s · %s · RSS %.1f MB · %.1f tok/s",
+@Composable
+private fun healthLine(health: LlamaHealth): String = stringResource(
+    R.string.local_llm_health_line,
     health.backend.requested,
     devicesFirstOrNull(health.backend.devices),
+    DateUtils.formatElapsedTime(health.uptimeSec),
     health.rssBytes / (1024.0 * 1024.0),
     health.tokensPerSec,
 )
 
 private fun devicesFirstOrNull(devices: List<String>): String = devices.firstOrNull() ?: "—"
+
+private enum class ServerOperation { START, STOP }
 
 @Composable
 private fun LocalLlamaSectionTitle(text: String) {

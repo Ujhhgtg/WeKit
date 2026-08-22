@@ -3726,10 +3726,13 @@
     <string name="local_llm_server_start">启动</string>
     <string name="local_llm_server_stop">停止</string>
     <string name="local_llm_server_idle_stopped">已停止（空闲超时）</string>
+    <string name="local_llm_health_line">%1$s · %2$s · 运行 %3$s · RSS %4$.1f MB · %5$.1f tok/s</string>
+    <string name="local_llm_server_operation_failed">服务器操作失败：%1$s</string>
     <string name="local_llm_backend_label">计算后端</string>
     <string name="local_llm_backend_auto">自动</string>
     <string name="local_llm_backend_restart_note">新值将在服务器下次启动时生效</string>
     <string name="local_llm_backend_unavailable">不可用</string>
+    <string name="local_llm_backend_load_failed">加载计算后端失败：%1$s</string>
     <string name="local_llm_manage_packs">管理扩展包</string>
     <string name="local_llm_device_unsupported">设备不支持（需要 arm64-v8a）</string>
     <string name="local_llm_no_models_hint">安装模型扩展包以添加本地模型</string>

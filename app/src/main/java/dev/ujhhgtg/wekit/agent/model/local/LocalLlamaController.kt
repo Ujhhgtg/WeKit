@@ -129,10 +129,8 @@ object LocalLlamaController {
         }
     }
 
-    /** Fire-and-forget stop for the UI. */
-    fun stop() {
-        scope.launch { mutex.withLock { stopInternal() } }
-    }
+    /** Starts a controller-owned stop and returns its job so UI callers can await completion. */
+    fun stop(): Job = scope.launch { mutex.withLock { stopInternal() } }
 
     /**
      * Single-flight: returns the OpenAI-compatible base URL with the server

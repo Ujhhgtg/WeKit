@@ -3696,6 +3696,8 @@
     <string name="local_llm_server_start">Start</string>
     <string name="local_llm_server_stop">Stop</string>
     <string name="local_llm_server_idle_stopped">Stopped (idle timeout)</string>
+    <string name="local_llm_health_line">%1$s · %2$s · Uptime %3$s · RSS %4$.1f MB · %5$.1f tok/s</string>
+    <string name="local_llm_server_operation_failed">Server operation failed: %1$s</string>
     <string name="local_llm_backend_label">Compute backend</string>
     <string name="local_llm_backend_auto">Auto</string>
     <string name="local_llm_backend_cpu" translatable="false">CPU</string>
@@ -3703,6 +3705,7 @@
     <string name="local_llm_backend_opencl" translatable="false">OpenCL</string>
     <string name="local_llm_backend_restart_note">Applies on next server start</string>
     <string name="local_llm_backend_unavailable">Unavailable</string>
+    <string name="local_llm_backend_load_failed">Failed to load compute backend: %1$s</string>
     <string name="local_llm_manage_packs">Manage extension packs</string>
     <string name="local_llm_device_unsupported">Device not supported (arm64-v8a required)</string>
     <string name="local_llm_no_models_hint">Install a model extension pack to add local models</string>
