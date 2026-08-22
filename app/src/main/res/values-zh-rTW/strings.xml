@@ -306,6 +306,8 @@
     <string name="extensions_screen_title">擴展包</string>
     <string name="extensions_pack_script_deps_name">Java 腳本依賴</string>
     <string name="extensions_pack_script_deps_desc">供 Java 腳本引擎使用的未混淆 fastjson2 與 okhttp DEX</string>
+    <string name="extensions_pack_monet_generator_name">莫奈模組產生器</string>
+    <string name="extensions_pack_monet_generator_desc">用於產生零執行時損耗微信莫奈 RRO 模組的建構器、簽章器與資源</string>
     <string name="extensions_pack_cloudflared_name">Cloudflared</string>
     <string name="extensions_pack_cloudflared_desc">已讀追蹤內置服務器模式的 Cloudflare Tunnel 橋接庫</string>
     <string name="extensions_pack_archlinux_name">Arch Linux ARM64</string>
@@ -524,6 +526,18 @@
     <string name="feature_hide_other_devices_banner_description">隱藏主頁頂部其他設備已登錄橫幅</string>
     <string name="feature_monet_engine_name">莫奈引擎</string>
     <string name="feature_monet_engine_description">根據模塊設置的自定義配色爲微信原生組件上色</string>
+    <string name="feature_monet_module_generator_name">莫奈引擎（模組）</string>
+    <string name="feature_monet_module_generator_description">產生可透過 Root 管理器安裝、零執行時損耗的微信莫奈 RRO 模組。需要 Android 12+ 與莫奈模組產生器擴充套件。</string>
+    <string name="monet_generator_unsupported">需要 Android 12 或更新版本。</string>
+    <string name="monet_generator_preparing">正在準備擴充套件資源…</string>
+    <string name="monet_generator_building">正在為目前微信版本產生資源覆蓋…</string>
+    <string name="monet_generator_signing">正在簽署資源覆蓋…</string>
+    <string name="monet_generator_packaging">正在封裝 Root 模組…</string>
+    <string name="monet_generator_pack_invalid">莫奈模組產生器擴充套件已損壞或不相容，請刪除後重新下載。</string>
+    <string name="monet_generator_failed">在%1$s階段產生失敗：%2$s</string>
+    <string name="monet_generator_output">模組已產生至：\n%1$s</string>
+    <string name="monet_generator_counts">共覆蓋 %1$d 項資源（保留 %2$d、新增 %3$d、裁剪 %4$d）。</string>
+    <string name="monet_generator_install_hint">請透過 Magisk、KernelSU、APatch 或其衍生 Root 管理器安裝此 ZIP，隨後重新啟動。KernelSU/APatch 使用者還需在微信的 App Profile 中允許模組作用於微信。</string>
     <string name="feature_replace_navigation_bar_name">美化首頁底部導航欄</string>
     <string name="feature_replace_navigation_bar_description">將首頁底欄替換爲 Material Design 或 Backdrop 風格</string>
     <string name="feature_themes_name">主題</string>

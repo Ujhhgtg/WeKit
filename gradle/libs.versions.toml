@@ -43,6 +43,9 @@ dexmaker = "2.28.6"
 dynamicanimation = "1.1.0"
 jsch = "2.28.6"
 sqliteJdbc = "3.50.3.0"
+arsclib = "1.4.0"
+apksig = "9.2.1"
+bouncycastle = "1.79"
 
 # noinspection UnusedVersionCatalogEntry
 namespace = "dev.ujhhgtg.wekit"
@@ -62,7 +65,6 @@ ndk = "30.0.14904198"
 [libraries]
 androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "annotation" }
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
-#androidx-compose-material3 = { module = "androidx.compose.material3:material3" } # use local-maven version
 androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "compose-material3" }
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle-runtime" }
@@ -111,10 +113,10 @@ alibaba-fastjson2 = { module = "com.alibaba.fastjson2:fastjson2", version.ref = 
 legacyxposed-api = { module = "de.robv.android.xposed:api", version = "82" }
 dexkit = { module = "org.luckypray:dexkit", version.ref = "dexkit" }
 dexmaker = { module = "com.linkedin.dexmaker:dexmaker", version.ref = "dexmaker" }
-#arsclib = { module = "io.github.reandroid:ARSCLib", version.ref = "arsclib" }
-#apksig = { module = "com.android.tools.build:apksig", version.ref = "apksig" }
-#bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
-#bouncycastle-pkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
+arsclib = { module = "io.github.reandroid:ARSCLib", version.ref = "arsclib" }
+apksig = { module = "com.android.tools.build:apksig", version.ref = "apksig" }
+bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+bouncycastle-pkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hidden-api-bypass" }
 libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsu" }
 libxposed-api = { module = "io.github.libxposed:api", version.ref = "libxposed" }

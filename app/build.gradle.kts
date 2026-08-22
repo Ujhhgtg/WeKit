@@ -294,6 +294,7 @@ dependencies {
     implementation(libs.mmkv)
 
     implementation(project(":libs:common:bsh"))
+    implementation(project(":libs:monet-generator-api"))
 
     compileOnly(libs.legacyxposed.api)
     compileOnly(libs.libxposed.api)

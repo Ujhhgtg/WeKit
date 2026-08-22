@@ -34,7 +34,14 @@ object ExtensionPacks {
     private const val INDEX_ASSET = "manifest.json"
 
     val packs: List<ExtensionPack> =
-        listOf(ScriptDepsPack, CloudflaredPack, ArchLinuxPack, LlamaNativePack, QwenModelPack)
+        listOf(
+            ScriptDepsPack,
+            MonetGeneratorPack,
+            CloudflaredPack,
+            ArchLinuxPack,
+            LlamaNativePack,
+            QwenModelPack,
+        )
 
     fun byId(id: String): ExtensionPack? = packs.firstOrNull { it.id == id }
 

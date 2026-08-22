@@ -1,23 +1,18 @@
 //! Desktop CLI for the WeKit llama server.
 //!
 //! ```text
-//! llama_server <model.gguf> [--ctx N] [--threads N] [--backend auto|cpu|vulkan|opencl] [--port P] [--fork]
+//! llama_server <model.gguf> [--ctx N] [--threads N] [--backend auto|cpu|vulkan|opencl] [--port P]
 //! ```
 //!
-//! Direct mode runs [`serve`] on this process's runtime; `--fork` runs the
-//! server in a forked child (the production Android topology) and the main
-//! thread blocks on the child. Defaults: ctx 4096, threads = detected
-//! performance cores, backend auto, ephemeral port, sampling preset
-//! temp 0.6 / top_p 0.95 / top_k 20, idle exit after 600s.
+//! Runs [`serve`] directly on this process's runtime. Defaults: ctx 4096,
+//! threads = detected performance cores, backend auto, ephemeral port,
+//! sampling preset temp 0.6 / top_p 0.95 / top_k 20, idle exit after 600s.
 
-use std::sync::Arc;
-
-use wekit_llama::fork::{self, ChildEvent};
 use wekit_llama::llama::{Backend, EngineConfig, detect_threads};
 use wekit_llama::server::{HttpServerConfig, serve};
 
 const USAGE: &str = "usage: llama_server <model.gguf> [--ctx N] [--threads N] \
-                     [--backend auto|cpu|vulkan|opencl] [--port P] [--fork]";
+                     [--backend auto|cpu|vulkan|opencl] [--port P]";
 
 fn main() {
     let mut model_path: Option<String> = None;
@@ -25,7 +20,6 @@ fn main() {
     let mut threads: Option<i32> = None;
     let mut backend = Backend::Auto;
     let mut bind_port: u16 = 0;
-    let mut do_fork = false;
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -40,7 +34,6 @@ fn main() {
                 });
             }
             "--port" => bind_port = parse_value(&mut args, &arg),
-            "--fork" => do_fork = true,
             other => {
                 if other.starts_with("--") || model_path.is_some() {
                     eprintln!("{USAGE}");
@@ -69,11 +62,7 @@ fn main() {
         bind_port,
     };
 
-    if do_fork {
-        run_forked(cfg);
-    } else {
-        run_direct(cfg);
-    }
+    run_direct(cfg);
 }
 
 fn parse_value<T: std::str::FromStr>(args: &mut impl Iterator<Item = String>, flag: &str) -> T {
@@ -103,27 +92,4 @@ fn run_direct(cfg: HttpServerConfig) {
         eprintln!("llama_server: {e}");
         std::process::exit(1);
     }
-}
-
-fn run_forked(cfg: HttpServerConfig) {
-    let on_event = Arc::new(|event: ChildEvent| match event {
-        ChildEvent::Ready { port } => println!("llama_server child ready port={port}"),
-        ChildEvent::Exiting { reason } => println!("llama_server child exiting: {reason}"),
-        ChildEvent::Died { reason } => eprintln!("llama_server child died: {reason}"),
-    });
-    let child = fork::fork_server(cfg, on_event).unwrap_or_else(|e| {
-        eprintln!("llama_server: {e}");
-        std::process::exit(1);
-    });
-    println!("ready port={} pid={}", child.port, child.pid);
-    // The watchdog thread reports child events; the main thread waits for
-    // the child itself (blocking waitpid; the reap in the watchdog either
-    // wins — then this returns ECHILD — or this wins).
-    let status = unsafe { libc::waitpid(child.pid, std::ptr::null_mut(), 0) };
-    if status < 0 && std::io::Error::last_os_error().raw_os_error() != Some(libc::ECHILD) {
-        let err = std::io::Error::last_os_error();
-        eprintln!("llama_server: waiting for child: {err}");
-        std::process::exit(1);
-    }
-    println!("llama_server child finished");
 }
