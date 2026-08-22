@@ -123,7 +123,6 @@ object LocalLlamaController {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                stateFlow.value = LlamaState.Failed(e.message ?: e.javaClass.simpleName)
                 WeLogger.e(TAG, "local llama start failed", e)
             }
         }
@@ -174,30 +173,34 @@ object LocalLlamaController {
         if (current is LlamaState.Starting || current is LlamaState.Running) stopInternal()
 
         stateFlow.value = LlamaState.Starting
-        // The OpenCL library variant is only needed for the explicit OpenCL backend;
-        // auto/cpu/vulkan run on the base (CPU/Vulkan) build.
-        val result = try {
-            NativeLoader.ensureLlamaLoaded(preferOpencl = backend == "opencl")
-            LlamaServerNative.startServer(desired.modelPath, nCtx, backend, configJsonFor(gguf))
-        } catch (e: UnsatisfiedLinkError) {
-            val failure = LlamaPackNotInstalledException("llama-native extension pack is not installed: ${e.message}")
-            stateFlow.value = LlamaState.Failed(failure.message!!)
-            throw failure
-        } catch (e: LlamaPackNotInstalledException) {
-            stateFlow.value = LlamaState.Failed(e.message!!)
-            throw e
-        }
-        val status = parseStatus(result)
-        if (status.state != "running") {
-            val reason = status.error ?: "start failed with state ${status.state}"
+        try {
+            // The OpenCL library variant is only needed for the explicit OpenCL backend;
+            // auto/cpu/vulkan run on the base (CPU/Vulkan) build.
+            val result = try {
+                NativeLoader.ensureLlamaLoaded(preferOpencl = backend == "opencl")
+                LlamaServerNative.startServer(desired.modelPath, nCtx, backend, configJsonFor(gguf))
+            } catch (e: UnsatisfiedLinkError) {
+                throw LlamaPackNotInstalledException(
+                    "llama-native extension pack is not installed: ${e.message}"
+                )
+            }
+            val status = parseStatus(result)
+            if (status.state != "running") {
+                val reason = status.error?.takeIf(String::isNotBlank)
+                    ?: "start failed with state ${status.state}"
+                throw IllegalStateException(reason)
+            }
+            active = desired
+            stateFlow.value = LlamaState.Running(status.port!!, status.pid ?: -1, backend)
+            startPolling()
+            return "http://127.0.0.1:${status.port}/v1"
+        } catch (failure: Throwable) {
             active = null
+            val reason = failure.message?.takeIf(String::isNotBlank)
+                ?: failure.javaClass.simpleName
             stateFlow.value = LlamaState.Failed(reason)
-            throw IllegalStateException(reason)
+            throw failure
         }
-        active = desired
-        stateFlow.value = LlamaState.Running(status.port!!, status.pid ?: -1, backend)
-        startPolling()
-        return "http://127.0.0.1:${status.port}/v1"
     }
 
     private fun stopInternal() {
