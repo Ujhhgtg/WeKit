@@ -725,6 +725,13 @@ fn task_configure() -> Result<()> {
         .with_context(|| format!("failed to write {}", zygisk_config_path.display()))?;
     println!("configure: wrote {}", zygisk_config_path.display());
 
+    // Write for wekit-llama (same linker config; llama-cpp-sys-2's build.rs drives its own cmake)
+    let llama_config_path = root.join("app/src/main/rust/wekit-llama/.cargo/config.toml");
+    fs::create_dir_all(llama_config_path.parent().unwrap())?;
+    fs::write(&llama_config_path, &out)
+        .with_context(|| format!("failed to write {}", llama_config_path.display()))?;
+    println!("configure: wrote {}", llama_config_path.display());
+
     Ok(())
 }
 

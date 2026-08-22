@@ -1,0 +1,30 @@
+[package]
+name = "wekit-llama"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "wekit_llama"
+crate-type = ["cdylib"]
+
+[[bin]]
+name = "llama_server"
+path = "src/bin/llama_server.rs"
+
+[features]
+default = ["vulkan"]
+vulkan = ["llama-cpp-2/vulkan"]
+opencl = ["llama-cpp-2/opencl"]
+
+[dependencies]
+llama-cpp-2 = { version = "=0.1.154", default-features = false, features = ["common", "android-static-stdcxx"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "sync", "time", "macros", "net", "io-util"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+minijinja = "2"
+encoding_rs = "0.8"
+libc = "0.2"
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = { version = "0.22", default-features = false }
