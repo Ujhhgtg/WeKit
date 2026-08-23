@@ -12,18 +12,33 @@
 //! device's vendor `libOpenCL.so` provides the real symbols at load time.
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    let target = std::env::var("TARGET").unwrap();
+    if target.contains("android") {
+        println!("cargo:rustc-link-lib=log");
+    }
     // GGML_OPENCL link directives are emitted by this top-level crate (the sys
     // side deliberately leaves them blank): at runtime the vendor libOpenCL.so
     // provides the DT_NEEDED resolution.
     if std::env::var("CARGO_FEATURE_OPENCL").is_ok() {
-        let target = std::env::var("TARGET").unwrap();
         if target.contains("android") {
             let out = std::env::var("OUT_DIR").unwrap();
-            std::fs::write(format!("{out}/opencl_stub.c"), "int wekit_opencl_stub = 0;\n").unwrap();
+            std::fs::write(
+                format!("{out}/opencl_stub.c"),
+                "int wekit_opencl_stub = 0;\n",
+            )
+            .unwrap();
             let cc = std::env::var(format!("CC_{}", target.replace('-', "_"))).unwrap();
             let status = std::process::Command::new(&cc)
-                .args(["-shared", "-fPIC", "-Wl,-soname,libOpenCL.so", "-o", &format!("{out}/libOpenCL.so"), &format!("{out}/opencl_stub.c")])
-                .status().expect("failed to spawn NDK clang for OpenCL stub");
+                .args([
+                    "-shared",
+                    "-fPIC",
+                    "-Wl,-soname,libOpenCL.so",
+                    "-o",
+                    &format!("{out}/libOpenCL.so"),
+                    &format!("{out}/opencl_stub.c"),
+                ])
+                .status()
+                .expect("failed to spawn NDK clang for OpenCL stub");
             assert!(status.success(), "OpenCL stub build failed");
             println!("cargo:rustc-link-arg=-Wl,--no-as-needed,{out}/libOpenCL.so");
         } else {

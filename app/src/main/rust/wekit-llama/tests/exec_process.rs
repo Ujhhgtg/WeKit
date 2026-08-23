@@ -105,7 +105,7 @@ fn watchdog_unexpected_eof_terminates_and_reaps_child() {
     .unwrap();
     assert_eq!(
         receive.recv_timeout(Duration::from_secs(2)).unwrap(),
-        "died: pipe closed unexpectedly"
+        "died: status pipe closed unexpectedly while child was still running"
     );
     assert_child_reaped_eventually(child.pid);
 }

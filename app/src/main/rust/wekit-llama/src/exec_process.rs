@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
+use crate::loge;
 use crate::server;
 use crate::server::HttpServerConfig;
 
@@ -196,6 +197,7 @@ pub fn spawn_test_program(program: &str) -> Result<SpawnedServer, String> {
     })
 }
 
+#[cfg(not(target_os = "android"))]
 fn prepare_command<K, V>(
     program: &str,
     arguments: Vec<String>,
@@ -531,6 +533,9 @@ pub fn notify_idle_exit() {
 
 pub fn run_server_process(cfg: HttpServerConfig, status_fd: i32) -> Result<(), String> {
     IDLE_PIPE_FD.store(status_fd, Ordering::SeqCst);
+    std::panic::set_hook(Box::new(move |info| {
+        pipe_write(status_fd, &error_line(&format!("panic: {info}")));
+    }));
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .thread_name("wekit-llama-io")
@@ -583,12 +588,12 @@ fn watch_child(mut reader: LineReader, pid: i32, on_event: Arc<dyn Fn(ChildEvent
                 break;
             }
             Some("error") => {
-                on_event(ChildEvent::Died {
-                    reason: message["msg"]
-                        .as_str()
-                        .unwrap_or("unknown child error")
-                        .to_owned(),
-                });
+                let reason = message["msg"]
+                    .as_str()
+                    .unwrap_or("unknown child error")
+                    .to_owned();
+                loge!("LocalLlama: {reason}");
+                on_event(ChildEvent::Died { reason });
                 terminal_seen = true;
                 break;
             }
@@ -596,11 +601,55 @@ fn watch_child(mut reader: LineReader, pid: i32, on_event: Arc<dyn Fn(ChildEvent
         }
     }
     if !terminal_seen {
-        on_event(ChildEvent::Died {
-            reason: "pipe closed unexpectedly".to_owned(),
-        });
+        let (reason, reaped) = unexpected_pipe_close_reason(pid);
+        loge!("LocalLlama: {reason}");
+        on_event(ChildEvent::Died { reason });
+        if reaped {
+            return;
+        }
     }
     stop_child(pid);
+}
+
+fn unexpected_pipe_close_reason(pid: i32) -> (String, bool) {
+    let deadline = Instant::now() + Duration::from_millis(250);
+    loop {
+        let mut status = 0;
+        let result = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+        if result == pid {
+            let reason = if libc::WIFSIGNALED(status) {
+                format!(
+                    "status pipe closed unexpectedly; child terminated by signal {}",
+                    libc::WTERMSIG(status)
+                )
+            } else if libc::WIFEXITED(status) {
+                format!(
+                    "status pipe closed unexpectedly; child exited with code {}",
+                    libc::WEXITSTATUS(status)
+                )
+            } else {
+                format!("status pipe closed unexpectedly; child wait status {status:#x}")
+            };
+            return (reason, true);
+        }
+        if result < 0 {
+            let error = io::Error::last_os_error();
+            if error.raw_os_error() == Some(libc::EINTR) {
+                continue;
+            }
+            return (
+                format!("status pipe closed unexpectedly; reading child status failed: {error}"),
+                error.raw_os_error() == Some(libc::ECHILD),
+            );
+        }
+        if Instant::now() >= deadline {
+            return (
+                "status pipe closed unexpectedly while child was still running".to_owned(),
+                false,
+            );
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
 }
 
 fn ready_line(port: u16) -> String {
