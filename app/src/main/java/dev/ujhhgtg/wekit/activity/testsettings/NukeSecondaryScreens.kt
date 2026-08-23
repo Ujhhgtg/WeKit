@@ -135,7 +135,7 @@ private fun NukeModuleDebugPage(onBack: (Offset) -> Unit) {
         Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
     }
     val features = remember(resolvedLocale) {
-        FeaturesProvider.ALL_HOOK_ITEMS.sortedWith { first, second ->
+        FeaturesProvider.ALL_FEATURES.sortedWith { first, second ->
             featureNameCollator.compare(first.localizedName(context), second.localizedName(context))
         }
     }

@@ -1,23 +1,19 @@
 # ====================================================================
 # XPOSED ENTRY POINTS (Critical Startup)
 # ====================================================================
-Ldev/ujhhgtg/wekit/loader/entry/lsp10x/Lsp10xUnifiedHookEntry;
+Ldev/ujhhgtg/wekit/loader/entry/lxp/LxpHookEntry;
 Ldev/ujhhgtg/wekit/loader/entry/xp51/Xp51HookEntry;
 
 # ====================================================================
 # CORE APIs & INTERNAL HOOKING INTERFACES
 # ====================================================================
-Ldev/ujhhgtg/wekit/hooks/api/core/WeAppMsgApi;
-Ldev/ujhhgtg/wekit/hooks/api/core/WeConversationApi;
-Ldev/ujhhgtg/wekit/hooks/api/core/WeDatabaseApi;
-Ldev/ujhhgtg/wekit/hooks/api/core/WeDatabaseListenerApi;
-Ldev/ujhhgtg/wekit/hooks/api/core/WeMessageApi;
-Ldev/ujhhgtg/wekit/hooks/api/core/WeServiceApi;
-Ldev/ujhhgtg/wekit/hooks/api/core/WeUnsafeApi;
-
-# ====================================================================
-# NETWORK APIs & LISTENERS
-# ====================================================================
-Ldev/ujhhgtg/wekit/hooks/api/net/WeNetSceneApi;
-Ldev/ujhhgtg/wekit/hooks/api/net/WePacketHelper;
-Ldev/ujhhgtg/wekit/hooks/api/net/listener/WePacketDispatcher;
+Ldev/ujhhgtg/wekit/features/api/core/WeAppMsgApi;
+Ldev/ujhhgtg/wekit/features/api/core/WeConversationApi;
+Ldev/ujhhgtg/wekit/features/api/core/WeDatabaseApi;
+Ldev/ujhhgtg/wekit/features/api/core/WeDatabaseListenerApi;
+Ldev/ujhhgtg/wekit/features/api/core/WeMessageApi;
+Ldev/ujhhgtg/wekit/features/api/core/WeServiceApi;
+Ldev/ujhhgtg/wekit/features/api/core/WeUnsafeApi;
+Ldev/ujhhgtg/wekit/features/api/net/WeNetSceneApi;
+Ldev/ujhhgtg/wekit/features/api/net/WePacketHelper;
+Ldev/ujhhgtg/wekit/features/api/net/listener/WePacketDispatcher;

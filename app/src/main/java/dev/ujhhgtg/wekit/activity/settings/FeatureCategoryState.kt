@@ -16,7 +16,7 @@ object FeatureCategoryState {
 
     val newItems: List<BaseFeature> by lazy {
         val visibleCategories = FEATURE_CATEGORIES.mapTo(mutableSetOf()) { it.id }
-        FeaturesProvider.ALL_HOOK_ITEMS.associateBy { it.technicalId }.values
+        FeaturesProvider.ALL_FEATURES.associateBy { it.technicalId }.values
             .mapNotNull { item ->
                 FeaturesProvider.SOURCE_KEY_BY_FEATURE[item]
                     ?.let(NewFeatures.ADDED_AT_BY_SOURCE_KEY::get)
@@ -31,7 +31,7 @@ object FeatureCategoryState {
     }
 
     fun enabledItems(): List<SwitchFeature> =
-        FeaturesProvider.ALL_HOOK_ITEMS
+        FeaturesProvider.ALL_FEATURES
             .associateBy { it.technicalId }
             .values
             .filterIsInstance<SwitchFeature>()

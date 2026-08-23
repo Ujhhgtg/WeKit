@@ -134,7 +134,7 @@ class FeaturesScanner(
             add(")")
         }.build()
         val provider = TypeSpec.objectBuilder("FeaturesProvider")
-            .addProperty(PropertySpec.builder("ALL_HOOK_ITEMS", listType).initializer(featureList).build())
+            .addProperty(PropertySpec.builder("ALL_FEATURES", listType).initializer(featureList).build())
             .addProperty(
                 PropertySpec.builder("SOURCE_KEY_BY_FEATURE", sourceMapType)
                     .initializer(sourceKeys)

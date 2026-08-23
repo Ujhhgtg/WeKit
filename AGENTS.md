@@ -49,7 +49,7 @@
 
 ## Entry Points & Architecture
 
-- Xposed entry: `dev.ujhhgtg.wekit.loader.entry.lsp10x.Lsp10xUnifiedHookEntry` (libxposed 101 & 100) and legacy Xposed API (51+) entry: `dev.ujhhgtg.wekit.loader.entry.xp51.Xp51HookEntry`
+- Xposed entry: `dev.ujhhgtg.wekit.loader.entry.lxp.LxpHookEntry` (libxposed 101 ~ 102) and legacy Xposed API (51+) entry: `dev.ujhhgtg.wekit.loader.entry.xp51.Xp51HookEntry`
 - Unified flow: `UnifiedEntryPoint.entry()` → `StartupAgent.startup()` → `WeLauncher.init()`
 - Feature objects inherit `BaseFeature`, declare `technicalId`/resource/category metadata as
   override properties, and are auto-discovered by KSP from their source subtype at compile time

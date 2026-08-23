@@ -73,7 +73,7 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
         Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
     }
     val searchableItems = remember(resolvedLocale) {
-        FeaturesProvider.ALL_HOOK_ITEMS
+        FeaturesProvider.ALL_FEATURES
             .filterIsInstance<SwitchFeature>()
             .sortedWith { first, second ->
                 featureNameCollator.compare(first.localizedName(context), second.localizedName(context))
@@ -237,7 +237,7 @@ fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
         when (categoryId) {
             NEW_FEATURES_CATEGORY -> FeatureCategoryState.newItems
             ENABLED_FEATURES_CATEGORY -> FeatureCategoryState.enabledItems()
-            else -> FeaturesProvider.ALL_HOOK_ITEMS
+            else -> FeaturesProvider.ALL_FEATURES
                 .filter { categoryId in it.categoryIds }
                 .sortedWith(
                     featureCategoryComparator { first, second ->
