@@ -7,6 +7,9 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 
 abstract class SwitchFeature : BaseFeature() {
 
+    /** Optional order override within each concrete settings category. Lower values appear first. */
+    open val displayOrder: Int? = null
+
     /**
      * Default state when the user has never toggled this feature.
      *
