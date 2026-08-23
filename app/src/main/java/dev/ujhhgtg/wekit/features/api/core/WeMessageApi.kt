@@ -6,6 +6,7 @@ import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Parcel
+import android.os.SystemClock
 import com.tencent.mm.api.IEmojiInfo
 import com.tencent.mm.opensdk.modelmsg.WXFileObject
 import com.tencent.mm.opensdk.modelmsg.WXMediaMessage
@@ -1753,6 +1754,10 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
+    private fun readFileViaVfs(path: String): ByteArray? {
+        return (vfsReadMethod.invoke(null, path) as? InputStream)?.use { it.readBytes() }
+    }
+
     fun shareWebpage(
         talker: String,
         title: String,
@@ -2048,9 +2053,14 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         val bigImgPath: String,
         val hevcPath: String?,
         val midImgPath: String?,
+        val thumbImgPath: String?,
+        val offset: Long,
+        val totalLen: Long,
         /** reserved1: 若 > 0, 表示存在"原图"行, 值为原图行的 id (仅基础行有意义)。 */
         val hdImgId: Long,
-    )
+    ) {
+        val isComplete: Boolean get() = offset == totalLen
+    }
 
     private fun ImgInfoRow(cursor: Cursor) = ImgInfoRow(
         localId = cursor.getLong(0),
@@ -2058,10 +2068,14 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         bigImgPath = cursor.getString(2) ?: "",
         hevcPath = cursor.getString(3),
         midImgPath = cursor.getString(4),
-        hdImgId = cursor.getLong(5),
+        thumbImgPath = cursor.getString(5),
+        offset = cursor.getLong(6),
+        totalLen = cursor.getLong(7),
+        hdImgId = cursor.getLong(8),
     )
 
-    private const val IMG_INFO_COLUMNS = "id, msgTalker, bigImgPath, hevcPath, midImgPath, reserved1"
+    private const val IMG_INFO_COLUMNS =
+        "id, msgTalker, bigImgPath, hevcPath, midImgPath, thumbImgPath, offset, totalLen, reserved1"
 
     private fun queryImgInfoRow(msgSvrId: Long): ImgInfoRow? {
         val rows = WeDatabaseApi.rawQuery(
@@ -2084,12 +2098,179 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
+    private fun queryImgInfoRowUntil(
+        msgSvrId: Long,
+        deadlineElapsedRealtime: Long,
+        pollIntervalMillis: Long,
+    ): ImgInfoRow? {
+        while (SystemClock.elapsedRealtime() < deadlineElapsedRealtime) {
+            queryImgInfoRow(msgSvrId)?.let { return it }
+            sleepForPoll(deadlineElapsedRealtime, pollIntervalMillis)
+        }
+        return null
+    }
+
+    private fun sleepForPoll(deadlineElapsedRealtime: Long, pollIntervalMillis: Long) {
+        val remaining = deadlineElapsedRealtime - SystemClock.elapsedRealtime()
+        if (remaining > 0L) SystemClock.sleep(minOf(pollIntervalMillis, remaining))
+    }
+
+    private val imageThumbnailPathMethod by lazy {
+        WeServiceApi.imageInfoStorage.reflekt().firstMethod {
+            parameters {
+                it.size == 3 &&
+                        it[0] == classMsgInfo.clazz &&
+                        it[1].isEnum &&
+                        it[2] == String::class.java
+            }
+            returnType = String::class.java
+        }.self
+    }
+
+    private val imageThumbnailType by lazy {
+        imageThumbnailPathMethod.parameterTypes[1].enumConstants!!.single {
+            (it as Enum<*>).name == "THUMB_IMAGE"
+        }
+    }
+
+    data class NotificationMediaFile(val path: Path, val mimeType: String)
+
+    private fun detectImageMime(bytes: ByteArray): String? = when {
+        bytes.size >= 3 && bytes.hasMagic(0, 0xff, 0xd8, 0xff) -> "image/jpeg"
+        bytes.size >= 8 && bytes.hasMagic(0, 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a) -> "image/png"
+        bytes.size >= 3 && bytes.hasMagic(0, 0x47, 0x49, 0x46) -> "image/gif"
+        bytes.size >= 12 &&
+                bytes.hasMagic(0, 0x52, 0x49, 0x46, 0x46) &&
+                bytes.hasMagic(8, 0x57, 0x45, 0x42, 0x50) -> "image/webp"
+
+        else -> null
+    }
+
+    private fun extensionForImageMime(mimeType: String): String = when (mimeType) {
+        "image/jpeg" -> "jpg"
+        "image/png" -> "png"
+        "image/gif" -> "gif"
+        "image/webp" -> "webp"
+        else -> error("unsupported image MIME type: $mimeType")
+    }
+
+    private fun detectImageMime(path: Path): String? {
+        if (!path.isRegularFile() || path.fileSize() <= 0L) return null
+        val header = ByteArray(12)
+        val size = Files.newInputStream(path).use { it.read(header) }
+        return detectImageMime(if (size == header.size) header else header.copyOf(size.coerceAtLeast(0)))
+    }
+
+    private fun reuseNotificationMedia(destination: Path): NotificationMediaFile? {
+        val mimeType = detectImageMime(destination) ?: return null
+        Files.setLastModifiedTime(destination, FileTime.fromMillis(System.currentTimeMillis()))
+        return NotificationMediaFile(destination, mimeType)
+    }
+
+    private fun materializeImageBytes(
+        sourceBytes: ByteArray,
+        destination: Path,
+        deadlineElapsedRealtime: Long,
+    ): NotificationMediaFile? {
+        reuseNotificationMedia(destination)?.let { return it }
+        if (SystemClock.elapsedRealtime() >= deadlineElapsedRealtime) return null
+
+        val bytes = MMWXGFJNI.wxam2PicBuf(
+            sourceBytes,
+            0,
+            MMWXGFJNI.WXAM_SCENE_MISC,
+        ) ?: sourceBytes
+        val mimeType = detectImageMime(bytes) ?: return null
+        if (SystemClock.elapsedRealtime() >= deadlineElapsedRealtime) return null
+        destination.parent.createDirectories()
+
+        var temporary: Path? = Files.createTempFile(
+            destination.parent,
+            ".${destination.name}.",
+            ".tmp",
+        )
+        try {
+            temporary!!.writeBytes(bytes)
+            try {
+                Files.move(
+                    temporary,
+                    destination,
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE,
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING)
+            }
+            temporary = null
+            return NotificationMediaFile(destination, mimeType)
+        } finally {
+            temporary?.deleteIfExists()
+        }
+    }
+
+    fun materializeNotificationThumbnail(
+        message: MessageInfo,
+        destination: Path,
+        deadlineElapsedRealtime: Long,
+    ): NotificationMediaFile? {
+        reuseNotificationMedia(destination)?.let { return it }
+        var previousPath: String? = null
+        var previousBytes: ByteArray? = null
+
+        while (SystemClock.elapsedRealtime() < deadlineElapsedRealtime) {
+            val thumbImgPath = queryImgInfoRow(message.serverId)?.thumbImgPath
+            if (!thumbImgPath.isNullOrEmpty()) {
+                val resolvedPath = imageThumbnailPathMethod.invoke(
+                    WeServiceApi.imageInfoStorage,
+                    message.instance,
+                    imageThumbnailType,
+                    thumbImgPath,
+                ) as String?
+                val sourceBytes = resolvedPath?.let { path ->
+                    runCatching { readFileViaVfs(path) }.getOrNull()
+                }
+                if (sourceBytes != null) {
+                    if (resolvedPath == previousPath && sourceBytes.contentEquals(previousBytes)) {
+                        materializeImageBytes(
+                            sourceBytes,
+                            destination,
+                            deadlineElapsedRealtime,
+                        )?.let { return it }
+                    }
+                    previousPath = resolvedPath
+                    previousBytes = sourceBytes
+                }
+            }
+            sleepForPoll(deadlineElapsedRealtime, 50L)
+        }
+        return null
+    }
+
+    fun materializeNotificationLargeImage(
+        msgSvrId: Long,
+        destination: Path,
+        deadlineElapsedRealtime: Long,
+    ): NotificationMediaFile? {
+        reuseNotificationMedia(destination)?.let { return it }
+        val source = ensureImageCachedFile(
+            msgSvrId,
+            deadlineElapsedRealtime,
+            pollIntervalMillis = 50L,
+        ) ?: return null
+        if (SystemClock.elapsedRealtime() >= deadlineElapsedRealtime) return null
+        val sourceBytes = runCatching {
+            readFileViaVfs(source.absolutePathString())
+        }.getOrNull() ?: return null
+        return materializeImageBytes(sourceBytes, destination, deadlineElapsedRealtime)
+    }
+
     /**
      * 解析 ImgInfo2 行对应的、已真正落地到 image2/ 的大图文件。
      * 微信可能把大图存为 bigImgPath / hevcPath / midImgPath 其中之一 (原图/HEVC 场景),
      * 因此逐个尝试并要求文件确实存在且非空。
      */
     private fun resolveExistingImageFile(row: ImgInfoRow): Path? {
+        if (!row.isComplete) return null
         return listOfNotNull(row.bigImgPath, row.hevcPath, row.midImgPath)
             .filter { it.isNotEmpty() && !it.startsWith("SERVERID://") }
             .firstNotNullOfOrNull { name ->
@@ -2108,21 +2289,41 @@ object WeMessageApi : ApiFeature(), IResolveDex {
      * 未下载的行也会读到 1; 微信内部判定完成用的是 totalLen==offset。同理 bigImgPath 被下载服务
      * 在真正写入文件字节 *之前* 就从 SERVERID:// 改写为最终文件名, 所以只能以磁盘上文件是否存在为准。
      */
-    private fun ensureImageCachedFile(msgSvrId: Long): Path? {
-        val baseRow = queryImgInfoRow(msgSvrId) ?: return null
+    private fun ensureImageCachedFile(
+        msgSvrId: Long,
+        deadlineElapsedRealtime: Long,
+        pollIntervalMillis: Long,
+    ): Path? {
+        val baseRow = queryImgInfoRowUntil(
+            msgSvrId,
+            deadlineElapsedRealtime,
+            pollIntervalMillis,
+        ) ?: return null
 
         // 有原图行则优先下载原图, 否则退回基础行
-        val targetRow = baseRow.hdImgId.takeIf { it > 0 }
-            ?.let { queryImgInfoRowById(it) }
-            ?.also { WeLogger.i(TAG, "image has original (hdImgId=${baseRow.hdImgId}), downloading original") }
-            ?: baseRow
+        val targetRow = if (baseRow.hdImgId > 0L) {
+            queryImgInfoRowById(baseRow.hdImgId)
+                ?.also {
+                    WeLogger.i(
+                        TAG,
+                        "image has original (hdImgId=${baseRow.hdImgId}), downloading original",
+                    )
+                }
+                ?: baseRow
+        } else {
+            baseRow
+        }
 
         // 已在磁盘上则直接返回
         resolveExistingImageFile(targetRow)?.let { return it }
 
         // 触发 CDN 下载, 轮询直到文件真正落地。talker 用基础行的 (原图行可能未存 msgTalker)。
         if (!triggerDownload(targetRow.localId, targetRow.talker.ifEmpty { baseRow.talker })) return null
-        return pollUntilImageFileExists(targetRow.localId)
+        return pollUntilImageFileExists(
+            targetRow.localId,
+            deadlineElapsedRealtime,
+            pollIntervalMillis,
+        )
     }
 
     /**
@@ -2132,7 +2333,11 @@ object WeMessageApi : ApiFeature(), IResolveDex {
      */
     fun cacheImage(msgSvrId: Long): String? {
         return try {
-            ensureImageCachedFile(msgSvrId)?.absolutePathString()
+            ensureImageCachedFile(
+                msgSvrId,
+                SystemClock.elapsedRealtime() + 120_000L,
+                pollIntervalMillis = 1_000L,
+            )?.absolutePathString()
         } catch (e: Exception) {
             WeLogger.e(TAG, "cacheImage failed", e)
             null
@@ -2145,7 +2350,11 @@ object WeMessageApi : ApiFeature(), IResolveDex {
      */
     fun downloadImage(msgSvrId: Long): String? {
         return try {
-            val file = ensureImageCachedFile(msgSvrId) ?: return null
+            val file = ensureImageCachedFile(
+                msgSvrId,
+                SystemClock.elapsedRealtime() + 120_000L,
+                pollIntervalMillis = 1_000L,
+            ) ?: return null
             decodeAndSave(file)
         } catch (e: Exception) {
             WeLogger.e(TAG, "downloadImage failed", e)
@@ -2190,10 +2399,13 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
 
     /** 轮询直到该 ImgInfo2 行的图片文件真正落地到磁盘 (以文件存在为准, 而非 iscomplete 标志)。 */
-    private fun pollUntilImageFileExists(imgLocalId: Long): Path? {
-        val deadline = System.currentTimeMillis() + 120_000
-        while (System.currentTimeMillis() < deadline) {
-            Thread.sleep(1000)
+    private fun pollUntilImageFileExists(
+        imgLocalId: Long,
+        deadlineElapsedRealtime: Long,
+        pollIntervalMillis: Long,
+    ): Path? {
+        while (SystemClock.elapsedRealtime() < deadlineElapsedRealtime) {
+            sleepForPoll(deadlineElapsedRealtime, pollIntervalMillis)
             val row = queryImgInfoRowById(imgLocalId) ?: continue
             resolveExistingImageFile(row)?.let { return it }
         }
@@ -2234,13 +2446,20 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
 
     /**
-     * 根据 md5 解密贴纸, 转为 GIF 并写入指定文件。
+     * 根据 md5 解密贴纸；WXGF 转为 GIF，标准图片格式保持原数据。
      * @return 保存后的文件路径, 失败返回 null
      */
-    fun decodeStickerToFile(md5: String, destination: Path): Path? {
+    fun decodeStickerToFile(md5: String, destination: Path): Path? =
+        decodeStickerToFile(md5, destination, logFailure = true)
+
+    private fun decodeStickerToFile(
+        md5: String,
+        destination: Path,
+        logFailure: Boolean,
+    ): Path? {
         var temporary: Path? = null
         return try {
-            if (destination.isRegularFile() && destination.fileSize() > 0L) {
+            if (detectImageMime(destination) != null) {
                 Files.setLastModifiedTime(destination, FileTime.fromMillis(System.currentTimeMillis()))
                 return destination
             }
@@ -2259,11 +2478,15 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                     returnType = ByteArray::class
                 }
                 .invoke(emojiInfo) as ByteArray
-            val gifBytes = MMWXGFJNI.nativeWxamToGif(encryptedBytes)
-            check(gifBytes.isNotEmpty()) { "converted sticker GIF is empty" }
+            val stickerBytes = if (MMWXGFJNI.isWxGF(encryptedBytes, encryptedBytes.size)) {
+                MMWXGFJNI.nativeWxamToGif(encryptedBytes)
+            } else {
+                encryptedBytes
+            }
+            check(detectImageMime(stickerBytes) != null) { "failed to decode sticker image" }
 
             temporary = Files.createTempFile(destination.parent, ".${destination.name}.", ".tmp")
-            temporary.outputStream().use { output -> output.write(gifBytes) }
+            temporary.outputStream().use { output -> output.write(stickerBytes) }
             check(temporary.isRegularFile() && temporary.fileSize() > 0L) {
                 "temporary sticker GIF is empty"
             }
@@ -2284,25 +2507,67 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
             destination
         } catch (error: Exception) {
-            WeLogger.e(TAG, "decodeStickerToFile failed for md5=$md5", error)
+            if (logFailure) WeLogger.e(TAG, "decodeStickerToFile failed for md5=$md5", error)
             null
         } finally {
             temporary?.deleteIfExists()
         }
     }
 
-    /**
-     * 根据 md5 解密贴纸, 转为 GIF 并保存到 Download/WeKit/。
-     * @return 保存后的文件路径, 失败返回 null
-     */
-    fun saveStickerByMd5(md5: String, fileName: String? = null): String? {
-        val outPath = KnownPaths.downloads /
-                (fileName ?: "sticker_${System.currentTimeMillis()}.gif")
-        return decodeStickerToFile(md5, outPath)?.absolutePathString()
+    fun materializeNotificationSticker(
+        md5: String,
+        destination: Path,
+        deadlineElapsedRealtime: Long,
+        wait: Boolean,
+    ): NotificationMediaFile? {
+        do {
+            if (wait && SystemClock.elapsedRealtime() >= deadlineElapsedRealtime) {
+                WeLogger.w(TAG, "notification sticker was not ready before deadline: $md5")
+                return null
+            }
+            decodeStickerToFile(md5, destination, logFailure = false)?.let {
+                if (wait && SystemClock.elapsedRealtime() >= deadlineElapsedRealtime) return null
+                return NotificationMediaFile(it, detectImageMime(it)!!)
+            }
+            if (!wait) return null
+            sleepForPoll(deadlineElapsedRealtime, 50L)
+        } while (true)
     }
 
     /**
-     * 根据 msgSvrId 解密贴纸, 转为 GIF 并保存到 Download/WeKit/。
+     * 根据 md5 解密贴纸, WXGF 转 GIF，标准图片保持原格式并保存到 Download/WeKit/。
+     * @return 保存后的文件路径, 失败返回 null
+     */
+    fun saveStickerByMd5(md5: String, fileName: String? = null): String? {
+        val temporary = KnownPaths.downloads / ".sticker-${UUID.randomUUID()}.media"
+        return try {
+            val decoded = decodeStickerToFile(md5, temporary) ?: return null
+            val mimeType = detectImageMime(decoded) ?: return null
+            val baseName = fileName?.substringBeforeLast('.', fileName)
+                ?: "sticker_${System.currentTimeMillis()}"
+            val destination = KnownPaths.downloads /
+                    "$baseName.${extensionForImageMime(mimeType)}"
+            try {
+                Files.move(
+                    decoded,
+                    destination,
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE,
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(decoded, destination, StandardCopyOption.REPLACE_EXISTING)
+            }
+            destination.absolutePathString()
+        } catch (error: Exception) {
+            WeLogger.e(TAG, "saveStickerByMd5 failed for md5=$md5", error)
+            null
+        } finally {
+            temporary.deleteIfExists()
+        }
+    }
+
+    /**
+     * 根据 msgSvrId 解密贴纸并以合适图片格式保存到 Download/WeKit/。
      * @return 保存后的文件路径, 失败返回 null
      */
     fun cacheAndSaveSticker(msgSvrId: Long): String? {

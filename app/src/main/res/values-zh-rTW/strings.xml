@@ -3557,6 +3557,15 @@
     <string name="notifications_self">我</string>
     <string name="notifications_unknown_content">未知內容（請向模塊開發者報告錯誤）</string>
     <string name="notifications_unknown_conversation">未知對話（請向模塊開發者報告錯誤）</string>
+    <string name="notifications_settings_title">通知進化設定</string>
+    <string name="notifications_image_behavior">圖片訊息</string>
+    <string name="notifications_image_disabled">不顯示圖片訊息</string>
+    <string name="notifications_image_wait_thumbnail">等待縮圖載入</string>
+    <string name="notifications_image_wait_large">等待大圖載入</string>
+    <string name="notifications_sticker_behavior">貼紙表情訊息</string>
+    <string name="notifications_sticker_loaded_only">僅顯示已載入貼紙</string>
+    <string name="notifications_sticker_wait_load">等待貼紙載入</string>
+    <string name="notifications_clear_history_after_quick_reply">快速回覆後清除訊息歷史</string>
     <string name="system_auto_approve_auto_login">自動批准登錄</string>
     <string name="system_auto_approve_auto_login_summary">自動批准其他設備的登錄請求</string>
     <string name="system_auto_approve_sync">自動批准同步</string>

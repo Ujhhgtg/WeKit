@@ -3573,6 +3573,15 @@
     <string name="notifications_self">我</string>
     <string name="notifications_unknown_content">未知内容（请向模块开发者报告错误）</string>
     <string name="notifications_unknown_conversation">未知对话（请向模块开发者报告错误）</string>
+    <string name="notifications_settings_title">通知进化设置</string>
+    <string name="notifications_image_behavior">图片消息</string>
+    <string name="notifications_image_disabled">不显示图片消息</string>
+    <string name="notifications_image_wait_thumbnail">等待缩略图加载</string>
+    <string name="notifications_image_wait_large">等待大图加载</string>
+    <string name="notifications_sticker_behavior">贴纸表情消息</string>
+    <string name="notifications_sticker_loaded_only">仅显示已加载贴纸</string>
+    <string name="notifications_sticker_wait_load">等待贴纸加载</string>
+    <string name="notifications_clear_history_after_quick_reply">快速回复后清除消息历史</string>
     <string name="system_auto_approve_auto_login">自动批准登录</string>
     <string name="system_auto_approve_auto_login_summary">自动批准其他设备的登录请求</string>
     <string name="system_auto_approve_sync">自动批准同步</string>

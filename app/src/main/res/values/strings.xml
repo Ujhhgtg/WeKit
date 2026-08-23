@@ -3536,6 +3536,15 @@
     <string name="notifications_self">Me</string>
     <string name="notifications_unknown_content">Unknown content (please report this to the module developer)</string>
     <string name="notifications_unknown_conversation">Unknown conversation (please report this to the module developer)</string>
+    <string name="notifications_settings_title">Enhanced notification settings</string>
+    <string name="notifications_image_behavior">Image messages</string>
+    <string name="notifications_image_disabled">Do not show images</string>
+    <string name="notifications_image_wait_thumbnail">Wait for thumbnail</string>
+    <string name="notifications_image_wait_large">Wait for large image</string>
+    <string name="notifications_sticker_behavior">Sticker messages</string>
+    <string name="notifications_sticker_loaded_only">Loaded stickers only</string>
+    <string name="notifications_sticker_wait_load">Wait for sticker loading</string>
+    <string name="notifications_clear_history_after_quick_reply">Clear message history after quick reply</string>
 
     <string name="system_auto_approve_auto_login">Auto-approve login</string>
     <string name="system_auto_approve_auto_login_summary">Automatically approve login requests from other devices</string>
