@@ -52,8 +52,6 @@ object MonetEngineModuleGenerator : ClickableFeature() {
 
     private const val TAG = "MonetEngineModuleGenerator"
 
-    override val noSwitchWidget = true
-
     override fun onClick(context: ComponentActivity) {
         val activity = context as Activity
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {

@@ -31,6 +31,8 @@ object FeaturesLoader {
 
     fun loadFeatures() {
         val allFeatures = FeaturesProvider.ALL_FEATURES
+        allFeatures.filterIsInstance<SwitchFeature>().forEach(SwitchFeature::loadPersistedState)
+
         val safeMode = SafeMode.isEnabled
         val featuresToStart = if (safeMode) {
             allFeatures.filterIsInstance<ApiFeature>()
