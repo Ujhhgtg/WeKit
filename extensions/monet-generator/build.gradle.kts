@@ -67,11 +67,8 @@ afterEvaluate {
         }
     }.files
     generateMonetGeneratorDex.configure {
-        programJars.from(runtimeClasspath.filter { !it.name.startsWith("kotlin-stdlib-") })
-        libraryJars.from(
-            apiLibrary,
-            runtimeClasspath.filter { it.name.startsWith("kotlin-stdlib-") },
-        )
+        programJars.from(runtimeClasspath)
+        libraryJars.from(apiLibrary)
     }
 }
 
