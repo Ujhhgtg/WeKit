@@ -12,7 +12,6 @@ import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -20,14 +19,13 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-@Feature(
-    id = "修改文本消息显示",
-    nameRes = "feature_modify_text_message_display_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_modify_text_message_display_description",
-)
 object ModifyTextMessageDisplay : SwitchFeature(),
     WeChatMessageContextMenuApi.IMenuItemsProvider {
+
+    override val technicalId = "修改文本消息显示"
+    override val nameRes = R.string.feature_modify_text_message_display_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_modify_text_message_display_description
 
     override fun onEnable() {
         WeChatMessageContextMenuApi.addProvider(this)

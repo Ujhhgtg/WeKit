@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLog
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLogRespProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.SetNicknameProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -22,13 +21,12 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(
-    id = "设置微信昵称",
-    nameRes = "feature_set_profile_nickname_name",
-    categoryIds = [FeatureCategoryIds.PROFILE],
-    descriptionRes = "feature_set_profile_nickname_description",
-)
 object SetProfileNickname : ClickableFeature() {
+
+    override val technicalId = "设置微信昵称"
+    override val nameRes = R.string.feature_set_profile_nickname_name
+    override val categoryIds = listOf(FeatureCategoryIds.PROFILE)
+    override val descriptionRes = R.string.feature_set_profile_nickname_description
 
     private const val TAG = "SetProfileNickname"
 

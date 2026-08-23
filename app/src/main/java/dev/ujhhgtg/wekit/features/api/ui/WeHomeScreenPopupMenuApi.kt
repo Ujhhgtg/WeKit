@@ -9,12 +9,12 @@ import androidx.core.util.size
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -28,13 +28,12 @@ import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
-@Feature(
-    id = "首页菜单服务",
-    nameRes = "feature_we_home_screen_popup_menu_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_home_screen_popup_menu_api_description",
-)
 object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
+
+    override val technicalId = "首页菜单服务"
+    override val nameRes = R.string.feature_we_home_screen_popup_menu_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_home_screen_popup_menu_api_description
 
     interface IMenuItemsProvider {
         fun getMenuItems(param: HookParam): List<MenuItem>

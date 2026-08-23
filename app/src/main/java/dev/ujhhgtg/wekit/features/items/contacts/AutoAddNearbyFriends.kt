@@ -9,18 +9,16 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.NearbyFriendProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.WeProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.reflection.int
 import java.util.LinkedList
 
-@Feature(
-    id = "自动添加附近的人",
-    nameRes = "feature_auto_add_nearby_friends_name",
-    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
-    descriptionRes = "feature_auto_add_nearby_friends_description",
-)
 object AutoAddNearbyFriends : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "自动添加附近的人"
+    override val nameRes = R.string.feature_auto_add_nearby_friends_name
+    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
+    override val descriptionRes = R.string.feature_auto_add_nearby_friends_description
 
     private val methodCreateMenu by dexMethod {
         matcher {

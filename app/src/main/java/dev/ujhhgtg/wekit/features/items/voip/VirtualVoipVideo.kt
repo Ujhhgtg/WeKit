@@ -32,7 +32,6 @@ import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -52,13 +51,12 @@ import kotlin.io.path.div
 import kotlin.io.path.exists
 import kotlin.io.path.moveTo
 
-@Feature(
-    id = "虚拟视频通话",
-    nameRes = "feature_virtual_voip_video_name",
-    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP],
-    descriptionRes = "feature_virtual_voip_video_description",
-)
 object VirtualVoipVideo : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "虚拟视频通话"
+    override val nameRes = R.string.feature_virtual_voip_video_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP)
+    override val descriptionRes = R.string.feature_virtual_voip_video_description
 
     private const val TAG = "VirtualVoipVideo"
 

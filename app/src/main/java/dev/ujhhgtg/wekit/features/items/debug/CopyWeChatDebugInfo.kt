@@ -10,19 +10,17 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 
-@Feature(
-    id = "复制调试信息",
-    nameRes = "feature_copy_we_chat_debug_info_name",
-    categoryIds = [FeatureCategoryIds.DEBUG],
-    descriptionRes = "feature_copy_we_chat_debug_info_description",
-)
 object CopyWeChatDebugInfo : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "复制调试信息"
+    override val nameRes = R.string.feature_copy_we_chat_debug_info_name
+    override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
+    override val descriptionRes = R.string.feature_copy_we_chat_debug_info_description
 
     override val noSwitchWidget = true
 

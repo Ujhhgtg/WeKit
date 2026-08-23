@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.contacts
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
@@ -7,7 +8,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.ChatroomSyncStateReadResult
 import dev.ujhhgtg.wekit.features.api.core.models.WeChatroomSyncState
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookCallback
@@ -25,13 +25,12 @@ import java.util.IdentityHashMap
 import java.util.LinkedHashMap
 import java.util.Locale
 
-@Feature(
-    id = "加入群聊自动免打扰",
-    nameRes = "feature_auto_dnd_after_join_group_name",
-    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
-    descriptionRes = "feature_auto_dnd_after_join_group_description",
-)
 object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "加入群聊自动免打扰"
+    override val nameRes = R.string.feature_auto_dnd_after_join_group_name
+    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
+    override val descriptionRes = R.string.feature_auto_dnd_after_join_group_description
 
     private const val TAG = "AutoDndAfterJoinGroup"
     private const val MAX_SNAPSHOTS = 128

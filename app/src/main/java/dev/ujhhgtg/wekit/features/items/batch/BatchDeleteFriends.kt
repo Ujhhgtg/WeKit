@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeContactApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -24,13 +23,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@Feature(
-    id = "批量删除好友",
-    nameRes = "feature_batch_delete_friends_name",
-    categoryIds = [FeatureCategoryIds.BATCH],
-    descriptionRes = "feature_batch_delete_friends_description",
-)
 object BatchDeleteFriends : ClickableFeature() {
+
+    override val technicalId = "批量删除好友"
+    override val nameRes = R.string.feature_batch_delete_friends_name
+    override val categoryIds = listOf(FeatureCategoryIds.BATCH)
+    override val descriptionRes = R.string.feature_batch_delete_friends_description
 
     private const val TAG = "BatchDeleteFriends"
 

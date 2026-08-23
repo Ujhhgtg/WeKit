@@ -14,8 +14,8 @@ import android.widget.TextView
 import androidx.compose.ui.graphics.toArgb
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.MonetEngine.DEFAULT_COLOR
 import dev.ujhhgtg.wekit.features.items.beautify.MonetEngine.primaryColor
@@ -35,13 +35,12 @@ import dev.ujhhgtg.wekit.utils.android.isDarkMode
  * through the selected palette style + color spec). Colors are resolved once per WeChat launch
  * (restart required for a change to apply).
  */
-@Feature(
-    id = "莫奈引擎",
-    nameRes = "feature_monet_engine_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_monet_engine_description",
-)
 object MonetEngine : ApiFeature() {
+
+    override val technicalId = "莫奈引擎"
+    override val nameRes = R.string.feature_monet_engine_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_monet_engine_description
 
     private const val TAG = "MonetEngine"
 

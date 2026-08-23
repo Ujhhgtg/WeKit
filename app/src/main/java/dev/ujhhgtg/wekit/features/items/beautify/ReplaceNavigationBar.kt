@@ -81,7 +81,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -106,13 +105,12 @@ import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
 import kotlin.math.roundToInt
 
-@Feature(
-    id = "美化首页底部导航栏",
-    nameRes = "feature_replace_navigation_bar_name",
-    categoryIds = [FeatureCategoryIds.BEAUTIFY],
-    descriptionRes = "feature_replace_navigation_bar_description",
-)
 object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "美化首页底部导航栏"
+    override val nameRes = R.string.feature_replace_navigation_bar_name
+    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
+    override val descriptionRes = R.string.feature_replace_navigation_bar_description
 
     private data class NavItem(
         val wechatIndex: Int,
@@ -559,7 +557,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                     .calculateBottomPadding()
                                             ),
                                         selectedIndex = { targetIndex },
-                                        onSelected = { navigateToTab(it) },
+                                        onSelected = { index ->
+                                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                                            navigateToTab(index)
+                                        },
                                         // Sample WeChat's real content (native ViewPager) into the
                                         // glass. rememberLayerBackdrop would only capture Compose
                                         // pixels, of which there are none behind this overlay bar.
@@ -576,8 +577,8 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                             activeContentColor = activeColor
                                         ),
                                         onSelectedTabTap = { index ->
+                                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                                             if (visibleTabItems[index].wechatIndex == 0) {
-                                                view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                                                 onTabClicked(index)
                                             }
                                         },

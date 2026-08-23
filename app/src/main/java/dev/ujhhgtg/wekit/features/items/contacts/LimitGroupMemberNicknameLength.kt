@@ -19,7 +19,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -30,13 +29,12 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(
-    id = "限制群成员昵称长度",
-    nameRes = "feature_limit_group_member_nickname_length_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_limit_group_member_nickname_length_description",
-)
 object LimitGroupMemberNicknameLength : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
+
+    override val technicalId = "限制群成员昵称长度"
+    override val nameRes = R.string.feature_limit_group_member_nickname_length_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_limit_group_member_nickname_length_description
 
     private var maxNicknameLength by prefOption("max_nickname_length", 10)
 

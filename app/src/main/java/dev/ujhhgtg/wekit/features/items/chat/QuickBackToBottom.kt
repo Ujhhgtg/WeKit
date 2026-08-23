@@ -15,24 +15,23 @@ import com.tencent.mm.pluginsdk.ui.tools.ChattingRecyclerView
 import com.tencent.mm.ui.chatting.view.MMChattingListView
 import com.tencent.mm.ui.widget.imageview.WeImageView
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.WeakHashMap
 
-@Feature(
-    id = "快捷回底",
-    nameRes = "feature_quick_back_to_bottom_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_quick_back_to_bottom_description",
-)
 object QuickBackToBottom : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "快捷回底"
+    override val nameRes = R.string.feature_quick_back_to_bottom_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_quick_back_to_bottom_description
 
     private const val TAG = "QuickBackToBottom"
 

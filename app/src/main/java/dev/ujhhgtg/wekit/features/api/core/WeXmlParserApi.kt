@@ -1,21 +1,20 @@
 package dev.ujhhgtg.wekit.features.api.core
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
-@Feature(
-    id = "XML 解析钩子服务",
-    nameRes = "feature_we_xml_parser_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_xml_parser_api_description",
-)
 object WeXmlParserApi : ApiFeature(), IResolveDex {
+
+    override val technicalId = "XML 解析钩子服务"
+    override val nameRes = R.string.feature_we_xml_parser_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_xml_parser_api_description
 
     private const val TAG = "WeXmlParserApi"
 

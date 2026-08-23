@@ -15,7 +15,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -28,13 +27,12 @@ import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import kotlin.io.path.copyTo
 
-@Feature(
-    id = "上传原图",
-    nameRes = "feature_no_compress_uploaded_images_name",
-    categoryIds = [FeatureCategoryIds.MOMENTS],
-    descriptionRes = "feature_no_compress_uploaded_images_description",
-)
 object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "上传原图"
+    override val nameRes = R.string.feature_no_compress_uploaded_images_name
+    override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
+    override val descriptionRes = R.string.feature_no_compress_uploaded_images_description
 
     private const val MODE_CONVERT = 0
     private const val MODE_COPY = 1

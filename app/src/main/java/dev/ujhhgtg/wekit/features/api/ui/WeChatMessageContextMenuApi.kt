@@ -27,7 +27,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.MergeChatMessageContextMenuItems
 import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
@@ -41,13 +40,12 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import java.lang.ref.WeakReference
 import java.lang.reflect.Modifier as JavaModifier
 
-@Feature(
-    id = "聊天界面消息菜单扩展",
-    nameRes = "feature_we_chat_message_context_menu_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_chat_message_context_menu_api_description",
-)
 object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
+
+    override val technicalId = "聊天界面消息菜单扩展"
+    override val nameRes = R.string.feature_we_chat_message_context_menu_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_chat_message_context_menu_api_description
 
     fun interface IMenuItemsProvider {
         fun getMenuItems(): List<MenuItem>

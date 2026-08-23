@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ModProfileProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLog
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLogRespProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -17,13 +16,12 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(
-    id = "清空资料信息",
-    nameRes = "feature_clear_profile_details_name",
-    categoryIds = [FeatureCategoryIds.ENTERTAIN],
-    descriptionRes = "feature_clear_profile_details_description",
-)
 object ClearProfileDetails : ClickableFeature() {
+
+    override val technicalId = "清空资料信息"
+    override val nameRes = R.string.feature_clear_profile_details_name
+    override val categoryIds = listOf(FeatureCategoryIds.ENTERTAIN)
+    override val descriptionRes = R.string.feature_clear_profile_details_description
 
     private const val TAG = "ClearProfileDetails"
 

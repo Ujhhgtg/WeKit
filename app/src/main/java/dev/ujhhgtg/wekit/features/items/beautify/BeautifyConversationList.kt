@@ -22,7 +22,6 @@ import dev.ujhhgtg.reflekt.reflected.ReflectedField
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -52,13 +51,12 @@ private enum class ConversationListPreset(
     MINIMAL_LIST(6, 0, 0, 0xFFFCFCFC.toInt(), 0xFF232323.toInt()),
 }
 
-@Feature(
-    id = "美化对话列表",
-    nameRes = "feature_beautify_conversation_list_name",
-    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.BEAUTIFY],
-    descriptionRes = "feature_beautify_conversation_list_description",
-)
 object BeautifyConversationList : ClickableFeature() {
+
+    override val technicalId = "美化对话列表"
+    override val nameRes = R.string.feature_beautify_conversation_list_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.BEAUTIFY)
+    override val descriptionRes = R.string.feature_beautify_conversation_list_description
 
     private const val TAG = "BeautifyConversationList"
 

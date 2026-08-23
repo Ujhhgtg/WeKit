@@ -26,7 +26,6 @@ import dev.ujhhgtg.wekit.features.api.net.WeTransferApi
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.fetchBeforeTransfer
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.sendPlaceOrder
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -53,14 +52,13 @@ import kotlin.io.path.writeText
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalSerializationApi::class)
-@Feature(
-    id = "爆破群成员实名首字",
-    nameRes = "feature_brute_force_group_member_real_names_first_char_name",
-    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.CONTACT_DETAILS],
-    descriptionRes = "feature_brute_force_group_member_real_names_first_char_description",
-)
 object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
     WeContactPrefsScreenApi.IContactInfoProvider {
+
+    override val technicalId = "爆破群成员实名首字"
+    override val nameRes = R.string.feature_brute_force_group_member_real_names_first_char_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.CONTACT_DETAILS)
+    override val descriptionRes = R.string.feature_brute_force_group_member_real_names_first_char_description
 
     private const val TAG = "BruteForceGroupMemberRealNamesFirstChar"
     private const val PREF_KEY = "exploit_real_name_first_char"

@@ -7,21 +7,20 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.isBuiltin
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.reflekt.utils.makeAccessible
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 
-@Feature(
-    id = "单击不关闭视频播放器",
-    nameRes = "feature_no_close_video_player_on_click_name",
-    categoryIds = [FeatureCategoryIds.MOMENTS],
-    descriptionRes = "feature_no_close_video_player_on_click_description",
-)
 object NoCloseVideoPlayerOnClick : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "单击不关闭视频播放器"
+    override val nameRes = R.string.feature_no_close_video_player_on_click_name
+    override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
+    override val descriptionRes = R.string.feature_no_close_video_player_on_click_description
 
     private lateinit var activityField: Field
     private lateinit var viewStateField: Field

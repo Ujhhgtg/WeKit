@@ -1,9 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.contacts.hidecontacts
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
 import dev.ujhhgtg.wekit.preferences.WePrefs
@@ -50,13 +50,12 @@ import dev.ujhhgtg.wekit.utils.WeLogger
  * hidden contact's chats and contact rows reappear, but their **notifications stay suppressed**.
  * Turn 隐藏联系人 off entirely to get notifications back.
  */
-@Feature(
-    id = "隐藏联系人通知抑制",
-    nameRes = "feature_hide_contacts_notifications_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_hide_contacts_notifications_description",
-)
 object HideContactsNotifications : ApiFeature(), IResolveDex {
+
+    override val technicalId = "隐藏联系人通知抑制"
+    override val nameRes = R.string.feature_hide_contacts_notifications_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_hide_contacts_notifications_description
 
     private const val TAG = "HideContactsNotifications"
 

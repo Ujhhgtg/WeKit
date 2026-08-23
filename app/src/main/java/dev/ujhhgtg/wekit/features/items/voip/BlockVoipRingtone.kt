@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -23,13 +22,12 @@ import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-@Feature(
-    id = "屏蔽铃声",
-    nameRes = "feature_block_voip_ringtone_name",
-    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP],
-    descriptionRes = "feature_block_voip_ringtone_description",
-)
 object BlockVoipRingtone : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "屏蔽铃声"
+    override val nameRes = R.string.feature_block_voip_ringtone_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP)
+    override val descriptionRes = R.string.feature_block_voip_ringtone_description
 
     private var disableOutCall by prefOption("voip_disable_ringtone_out_call", true)
     private var disableInCall by prefOption("voip_disable_ringtone_in_call", false)

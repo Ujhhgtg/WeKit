@@ -55,7 +55,6 @@ import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.CustomMessageBubbles.ICON_TINT_TAG
 import dev.ujhhgtg.wekit.features.items.beautify.CustomMessageBubbles.bubbleCache
@@ -85,13 +84,12 @@ import kotlin.io.path.exists
 import kotlin.io.path.fileSize
 import kotlin.io.path.getLastModifiedTime
 
-@Feature(
-    id = "自定义消息气泡",
-    nameRes = "feature_custom_message_bubbles_name",
-    categoryIds = [FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_custom_message_bubbles_description",
-)
 object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
+
+    override val technicalId = "自定义消息气泡"
+    override val nameRes = R.string.feature_custom_message_bubbles_name
+    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_custom_message_bubbles_description
 
     private const val TAG = "CustomMessageBubbles"
 

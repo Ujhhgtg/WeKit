@@ -2,22 +2,21 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import org.luckypray.dexkit.DexKitBridge
 
-@Feature(
-    id = "强制启用所有功能",
-    nameRes = "feature_force_enable_all_tools_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_force_enable_all_tools_description",
-)
 object ForceEnableAllTools : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "强制启用所有功能"
+    override val nameRes = R.string.feature_force_enable_all_tools_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_force_enable_all_tools_description
 
     private val classAppPanelConfig by dexClass()
     private val fieldAppPanelConfig by dexField()

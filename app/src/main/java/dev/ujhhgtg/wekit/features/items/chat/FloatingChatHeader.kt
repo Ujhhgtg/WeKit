@@ -48,7 +48,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -68,13 +67,12 @@ import java.util.WeakHashMap
 import kotlin.math.roundToInt
 
 @Suppress("DEPRECATION")
-@Feature(
-    id = "悬浮标题栏",
-    nameRes = "feature_floating_chat_header_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_floating_chat_header_description",
-)
 object FloatingChatHeader : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "悬浮标题栏"
+    override val nameRes = R.string.feature_floating_chat_header_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_floating_chat_header_description
 
     private const val TAG = "FloatingChatHeader"
 

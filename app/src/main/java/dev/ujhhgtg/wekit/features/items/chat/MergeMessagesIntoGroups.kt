@@ -3,23 +3,22 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.util.SparseBooleanArray
 import android.view.View
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookParam
 import java.lang.reflect.Field
 
-@Feature(
-    id = "合并消息显示",
-    nameRes = "feature_merge_messages_into_groups_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_merge_messages_into_groups_description",
-)
 object MergeMessagesIntoGroups : SwitchFeature(), WeChatMessageViewApi.ICreateViewListener {
+
+    override val technicalId = "合并消息显示"
+    override val nameRes = R.string.feature_merge_messages_into_groups_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_merge_messages_into_groups_description
 
     override fun onEnable() {
         WeChatMessageViewApi.addListener(this)

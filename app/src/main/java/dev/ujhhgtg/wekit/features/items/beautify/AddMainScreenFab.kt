@@ -99,7 +99,6 @@ import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.preferences.WePrefs
@@ -126,13 +125,12 @@ import java.lang.ref.WeakReference
 import java.util.UUID
 import java.util.WeakHashMap
 
-@Feature(
-    id = "主屏幕添加 FAB",
-    nameRes = "feature_add_main_screen_fab_name",
-    categoryIds = [FeatureCategoryIds.BEAUTIFY],
-    descriptionRes = "feature_add_main_screen_fab_description",
-)
 object AddMainScreenFab : ClickableFeature() {
+
+    override val technicalId = "主屏幕添加 FAB"
+    override val nameRes = R.string.feature_add_main_screen_fab_name
+    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
+    override val descriptionRes = R.string.feature_add_main_screen_fab_description
 
     private const val TAG = "AddMainScreenFab"
     private const val KEY_FAB_CONFIG = "fab_button_configs_json"

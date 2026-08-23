@@ -15,7 +15,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.getBoolOrFalse
@@ -26,13 +25,12 @@ import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(
-    id = "重定向微信日志",
-    nameRes = "feature_redirect_host_logs_name",
-    categoryIds = [FeatureCategoryIds.DEBUG],
-    descriptionRes = "feature_redirect_host_logs_description",
-)
 object RedirectHostLogs : ClickableFeature() {
+
+    override val technicalId = "重定向微信日志"
+    override val nameRes = R.string.feature_redirect_host_logs_name
+    override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
+    override val descriptionRes = R.string.feature_redirect_host_logs_description
 
     private const val TAG = "RedirectHostLogs"
     private const val KEY_PREFIX = "redirect_"

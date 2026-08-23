@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -27,13 +26,12 @@ import dev.ujhhgtg.wekit.utils.HookParam
 import kotlin.math.roundToInt
 import org.luckypray.dexkit.DexKitBridge
 
-@Feature(
-    id = "圆角头像",
-    nameRes = "feature_round_avatars_name",
-    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.BEAUTIFY],
-    descriptionRes = "feature_round_avatars_description",
-)
 object RoundAvatars : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "圆角头像"
+    override val nameRes = R.string.feature_round_avatars_name
+    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.BEAUTIFY)
+    override val descriptionRes = R.string.feature_round_avatars_description
 
     private const val KEY_ROUND_AVATAR = "round_avatar_radius_factor"
 

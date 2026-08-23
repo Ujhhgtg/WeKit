@@ -37,12 +37,13 @@
 ## Project Structure
 
 - `app/` — main Android module, entrypoints, hooks, UI, native Rust lib
-- `libs/common/annotation-scanner/` — KSP annotation processor (`@Feature` scanner)
+- `libs/common/annotation-scanner/` — KSP processors: source-subtype discovery for
+  `BaseFeature`/`ExtensionPack` objects plus the `@AgentTool` scanner
 - `libs/common/libxposed-api/` — compileOnly LibXposed API interface stubs (compileOnly since they are provided by user's Xposed framework)
 - `libs/common/bsh/` — submodule: forked BeanShell interpreter with snapshot serialization (`BshSnapshot`, `BshSnapshotHelper`); snapshots are encrypted AST byte representations used by the WAuxiliary Xposed module; `app/src/main/java/dev/ujhhgtg/wekit/utils/BshSnapshotDecompiler.kt` — decompiles encrypted BeanShell snapshot files back into Java-like source code; the AES key was recovered from WAuxiliary's decompiled source
 - `libs/common/reflekt/` — submodule: reflection utility library (`dev.ujhhgtg.reflekt`)
 - `libs/common/stubs/` — compileOnly stubs for WeChat and Android hidden classes
-- `buildSrc/` — custom Gradle tasks: `GenerateMethodHashesTask` (`IResolveDex` `resolveDex` method MD5 cache), `GenerateNewFeaturesTask` (features whose source file was added within 30 days of the HEAD commit → `NewFeatures.ADDED_AT_BY_NAME`, backing the 新功能 pseudo-category)
+- `buildSrc/` — custom Gradle tasks: `GenerateMethodHashesTask` (`IResolveDex` `resolveDex` method MD5 cache), `GenerateNewFeaturesTask` (Kotlin source files added within 30 days of the HEAD commit → `NewFeatures.ADDED_AT_BY_SOURCE_KEY`; KSP joins source keys to discovered features for the 新功能 pseudo-category)
 - `xtask/` — build orchestration behind `./x`: native-lib compilation + NDK linker config, APK
   assembly via Gradle, and Zygisk module packaging/flashing
 
@@ -50,7 +51,10 @@
 
 - Xposed entry: `dev.ujhhgtg.wekit.loader.entry.lsp10x.Lsp10xUnifiedHookEntry` (libxposed 101 & 100) and legacy Xposed API (51+) entry: `dev.ujhhgtg.wekit.loader.entry.xp51.Xp51HookEntry`
 - Unified flow: `UnifiedEntryPoint.entry()` → `StartupAgent.startup()` → `WeLauncher.init()`
-- Hook items annotated with `@Feature(path, description)`, auto-discovered by KSP annotation scanner at compile time
+- Feature objects inherit `BaseFeature`, declare `technicalId`/resource/category metadata as
+  override properties, and are auto-discovered by KSP from their source subtype at compile time
+- Extension pack objects implement `ExtensionPack`, declare a required `displayOrder`, and are
+  auto-discovered by the same KSP processor
 - Base classes: `SwitchFeature` (toggle on/off), `ClickableFeature` (toggle on/off with onClick event), `ApiFeature` (always-on), `BaseFeature` (abstract base, do not use directly)
 - DEX analysis via DexKit with `IResolveDex` interface; method resolve body MD5-hashed for cache (
   `GenerateMethodHashesTask`)

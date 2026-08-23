@@ -25,7 +25,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -48,13 +47,12 @@ import kotlin.math.ln
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.minutes
 
-@Feature(
-    id = "自动刷新",
-    nameRes = "feature_auto_refresh_name",
-    categoryIds = [FeatureCategoryIds.MOMENTS],
-    descriptionRes = "feature_auto_refresh_description",
-)
 object AutoRefresh : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "自动刷新"
+    override val nameRes = R.string.feature_auto_refresh_name
+    override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
+    override val descriptionRes = R.string.feature_auto_refresh_description
 
     private const val TAG = "AutoRefresh"
     private const val DEFAULT_INTERVAL_MINUTES = 30L

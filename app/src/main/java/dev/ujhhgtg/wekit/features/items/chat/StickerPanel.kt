@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
@@ -64,14 +63,13 @@ import kotlin.io.path.readBytes
 import kotlin.io.path.writeBytes
 import kotlin.time.Duration.Companion.minutes
 
-@Feature(
-    id = "表情面板",
-    nameRes = "feature_sticker_panel_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_sticker_panel_description",
-)
-object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in ChatFooterHooks
+// Entry implementation in ChatFooterHooks.
+object StickerPanel : SwitchFeature(), IResolveDex {
 
+    override val technicalId = "表情面板"
+    override val nameRes = R.string.feature_sticker_panel_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_sticker_panel_description
     private val methodLoadEmojiFile by dexMethod {
         matcher {
             usingEqStrings("MicroMsg.EmojiLoader", "load emoji file ")

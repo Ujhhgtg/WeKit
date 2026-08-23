@@ -22,6 +22,7 @@
 - [移除分享签名校验](remove-external-app-sharing-signature-verify.md) — 移除第三方应用分享到微信的签名校验
 - [灰度测试管理器](feature-flag-manager.md) — 查看和覆盖微信灰度 Feature Flag
 - [修改运动步数](modify-sports-step-count.md) — 修改微信运动步数
+- [运动排行榜自动点赞](auto-like-sports-rank.md) — 收到新排行榜后自动为符合条件的好友点赞
 - [自动批准设备登录](auto-approve-device-login.md) — 自动勾选选项并确认多设备登录请求
 - [强制启用 WebView 菜单](enable-webview-features.md) — 强制显示 WebView 页面右上角菜单
 - [恢复旧版「我」界面卡包](use-legacy-wallet-view-in-me-page.md) — 使用旧版「卡包」代替「小店与卡包」

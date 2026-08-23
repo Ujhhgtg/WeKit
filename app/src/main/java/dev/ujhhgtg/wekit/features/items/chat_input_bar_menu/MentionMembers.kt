@@ -24,7 +24,6 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.UserNameProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.WeProto
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
@@ -58,13 +57,12 @@ import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
  *   其内部调用 msgInfo 的 msgsource setter 并置脏, 随入库写入 lvbuffer,
  *   doScene 组装出网请求时 MsgSource 同样携带该节点。
  */
-@Feature(
-    id = "@所有人",
-    nameRes = "feature_mention_members_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_mention_members_description",
-)
 object MentionMembers : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "@所有人"
+    override val nameRes = R.string.feature_mention_members_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_mention_members_description
 
     /** 微信服务器对 atuserlist 人数的上限, 超出部分静默截断 */
     private const val MAX_AT_USERS = 200

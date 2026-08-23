@@ -40,7 +40,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoProvider
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.SplitGroupCall.resolveDex
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -63,13 +62,12 @@ import kotlin.random.Random
 import androidx.compose.ui.Modifier as UiModifier
 import java.lang.reflect.Modifier as ReflectModifier
 
-@Feature(
-    id = "分裂群组通话",
-    nameRes = "feature_split_group_call_name",
-    categoryIds = [FeatureCategoryIds.ENTERTAIN],
-    descriptionRes = "feature_split_group_call_description",
-)
 object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
+
+    override val technicalId = "分裂群组通话"
+    override val nameRes = R.string.feature_split_group_call_name
+    override val categoryIds = listOf(FeatureCategoryIds.ENTERTAIN)
+    override val descriptionRes = R.string.feature_split_group_call_description
 
     private const val TAG = "SplitGroupCall"
     private const val PREF_KEY = "split_group_call"

@@ -14,7 +14,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -23,13 +22,12 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.crash.NativeCrashHandler
 
-@Feature(
-    id = "测试崩溃",
-    nameRes = "feature_trigger_crash_name",
-    categoryIds = [FeatureCategoryIds.DEBUG],
-    descriptionRes = "feature_trigger_crash_description",
-)
 object TriggerCrash : ClickableFeature() {
+
+    override val technicalId = "测试崩溃"
+    override val nameRes = R.string.feature_trigger_crash_name
+    override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
+    override val descriptionRes = R.string.feature_trigger_crash_description
 
     private const val TAG = "TriggerCrash"
 

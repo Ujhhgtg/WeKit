@@ -42,7 +42,6 @@ import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -65,13 +64,12 @@ import kotlin.io.path.div
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-@Feature(
-    id = "应用全局背景",
-    nameRes = "feature_apply_global_background_name",
-    categoryIds = [FeatureCategoryIds.BEAUTIFY],
-    descriptionRes = "feature_apply_global_background_description",
-)
 object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "应用全局背景"
+    override val nameRes = R.string.feature_apply_global_background_name
+    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
+    override val descriptionRes = R.string.feature_apply_global_background_description
 
     private const val TAG = "ApplyGlobalBackground"
 

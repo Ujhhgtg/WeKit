@@ -24,7 +24,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.extensions.ScriptDepsPack
@@ -58,13 +57,12 @@ import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
-@Feature(
-    id = "脚本引擎 (Java)",
-    nameRes = "feature_java_scripting_hook_name",
-    categoryIds = [FeatureCategoryIds.SCRIPTING_JAVA],
-    descriptionRes = "feature_java_scripting_hook_description",
-)
 object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IUpdateListener, WeDatabaseListenerApi.IInsertListener {
+
+    override val technicalId = "脚本引擎 (Java)"
+    override val nameRes = R.string.feature_java_scripting_hook_name
+    override val categoryIds = listOf(FeatureCategoryIds.SCRIPTING_JAVA)
+    override val descriptionRes = R.string.feature_java_scripting_hook_description
 
     private const val TAG = "JavaScriptingHook"
     private const val DISABLED_FLAG = "disabled.flag"

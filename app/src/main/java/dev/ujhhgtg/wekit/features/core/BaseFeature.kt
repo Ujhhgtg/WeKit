@@ -23,19 +23,15 @@ import kotlin.reflect.KClass
 
 abstract class BaseFeature {
 
-    var technicalId: String = ""
-        internal set
+    abstract val technicalId: String
 
-    @StringRes
-    var nameRes: Int = 0
-        internal set
+    @get:StringRes
+    abstract val nameRes: Int
 
-    var categoryIds: List<String> = emptyList()
-        internal set
+    abstract val categoryIds: List<String>
 
-    @StringRes
-    var descriptionRes: Int? = null
-        internal set
+    @get:StringRes
+    open val descriptionRes: Int? = null
 
     val technicalPath: String
         get() = categoryIds.joinToString(",") + "/" + technicalId

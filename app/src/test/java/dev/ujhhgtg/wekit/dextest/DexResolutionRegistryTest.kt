@@ -18,13 +18,6 @@ class DexResolutionRegistryTest {
         assertFalse(entries.any { it.className.endsWith("MomentsEditorBackOptimization") })
 
         entries.forEach { entry ->
-            assertTrue(entry.technicalId.isNotEmpty())
-            assertTrue(entry.categoryIds.isNotEmpty())
-            assertTrue(entry.nameResEntry.matches(Regex("[a-z][a-z0-9_]*")))
-            assertTrue(
-                entry.descriptionResEntry == null ||
-                    entry.descriptionResEntry.matches(Regex("[a-z][a-z0-9_]*")),
-            )
             val type = Class.forName(entry.className, false, javaClass.classLoader)
             assertTrue(IResolveDex::class.java.isAssignableFrom(type))
         }

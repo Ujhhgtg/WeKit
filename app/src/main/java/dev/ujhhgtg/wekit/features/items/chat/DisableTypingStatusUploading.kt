@@ -1,19 +1,18 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import org.luckypray.dexkit.DexKitBridge
 
-@Feature(
-    id = "禁止上传正在输入状态",
-    nameRes = "feature_disable_typing_status_uploading_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_disable_typing_status_uploading_description",
-)
 object DisableTypingStatusUploading : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "禁止上传正在输入状态"
+    override val nameRes = R.string.feature_disable_typing_status_uploading_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_disable_typing_status_uploading_description
 
     private val classMmTypingSendReq by dexClass()
 

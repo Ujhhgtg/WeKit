@@ -21,7 +21,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -43,13 +42,12 @@ import java.util.ArrayDeque
 import java.util.Locale
 import java.util.WeakHashMap
 
-@Feature(
-    id = "修改显示余额",
-    nameRes = "feature_modify_wallet_balance_display_name",
-    categoryIds = [FeatureCategoryIds.PAYMENT],
-    descriptionRes = "feature_modify_wallet_balance_display_description",
-)
 object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "修改显示余额"
+    override val nameRes = R.string.feature_modify_wallet_balance_display_name
+    override val categoryIds = listOf(FeatureCategoryIds.PAYMENT)
+    override val descriptionRes = R.string.feature_modify_wallet_balance_display_description
 
     private const val LEGACY_BALANCE = "fake_wallet_balance"
     private const val LEGACY_LQT = "fake_wallet_balance_lqt"

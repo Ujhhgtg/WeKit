@@ -11,7 +11,6 @@ import androidx.compose.ui.Modifier
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
@@ -27,13 +26,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
-@Feature(
-    id = "批量免打扰",
-    nameRes = "feature_batch_mute_conversations_name",
-    categoryIds = [FeatureCategoryIds.BATCH],
-    descriptionRes = "feature_batch_mute_conversations_description",
-)
 object BatchMuteConversations : ClickableFeature() {
+
+    override val technicalId = "批量免打扰"
+    override val nameRes = R.string.feature_batch_mute_conversations_name
+    override val categoryIds = listOf(FeatureCategoryIds.BATCH)
+    override val descriptionRes = R.string.feature_batch_mute_conversations_description
 
     private const val TAG = "BatchMuteConversations"
 

@@ -37,7 +37,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.installListHooks
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.installMomentsHooks
@@ -71,14 +70,13 @@ import kotlin.time.Instant
 import java.lang.reflect.Modifier as JavaModifier
 
 
-@Feature(
-    id = "隐藏联系人",
-    nameRes = "feature_hide_contacts_name",
-    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
-    descriptionRes = "feature_hide_contacts_description",
-)
 object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputBarListener,
     WeDatabaseListenerApi.IQueryListener {
+
+    override val technicalId = "隐藏联系人"
+    override val nameRes = R.string.feature_hide_contacts_name
+    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
+    override val descriptionRes = R.string.feature_hide_contacts_description
 
     private const val TAG = "HideContacts"
 
@@ -543,7 +541,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * is never written in the first place, so neither 临时显示 nor removing the contact from the
      * hidden list can recover it. It also means whether a given pat survives depends on the
      * [temporarilyShown] state *at the instant the message arrived*, not at the instant it is read.
-     * Documented in the `@Feature` blurb; changing it would require buffering the pats instead.
+     * Documented in the feature description; changing it would require buffering the pats instead.
      */
     private fun hookPatMessage() {
         if (methodPatMsgInsert.isPlaceholder) {

@@ -60,6 +60,7 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.features.core.featureCategoryComparator
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
@@ -494,13 +495,27 @@ internal fun NukeFeatureCategoryPage(
     featureItems: List<SwitchFeature>,
     onBack: (Offset) -> Unit,
 ) {
-    val categoryTitle = LocalWeKitLocalizedContext.current.getString(featureCategoryTitleRes(categoryId))
+    val localizedContext = LocalWeKitLocalizedContext.current
+    val categoryTitle = localizedContext.getString(featureCategoryTitleRes(categoryId))
+    val resolvedLocale = WeKitLocaleController.resolvedLocale
+    val featureNameCollator = remember(resolvedLocale) {
+        Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
+    }
     val revision = FeatureCategoryState.revision
-    val items = remember(categoryId, featureItems, revision) {
+    val items = remember(categoryId, featureItems, revision, resolvedLocale) {
         when (categoryId) {
             NEW_FEATURES_CATEGORY -> NEW_FEATURE_ITEMS.filterIsInstance<SwitchFeature>()
             ENABLED_FEATURES_CATEGORY -> FeatureCategoryState.enabledItems()
-            else -> featureItems.filter { categoryId in it.categoryIds }
+            else -> featureItems
+                .filter { categoryId in it.categoryIds }
+                .sortedWith(
+                    featureCategoryComparator { first, second ->
+                        featureNameCollator.compare(
+                            first.localizedName(localizedContext),
+                            second.localizedName(localizedContext),
+                        )
+                    },
+                )
         }
     }
     val activity = LocalComponentActivity.current

@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.android.Intent
@@ -19,13 +18,12 @@ import dev.ujhhgtg.wekit.utils.android.baseActivity
  * 有未读互动时显示「N 条新消息」, 只有已读互动时显示「朋友的互动消息」,
  * 一条互动都没有时直接隐藏。这里把最后一种情况也改成显示。
  */
-@Feature(
-    id = "常驻互动消息入口",
-    nameRes = "feature_always_show_interaction_entry_name",
-    categoryIds = [FeatureCategoryIds.MOMENTS],
-    descriptionRes = "feature_always_show_interaction_entry_description",
-)
 object AlwaysShowInteractionEntry : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "常驻互动消息入口"
+    override val nameRes = R.string.feature_always_show_interaction_entry_name
+    override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
+    override val descriptionRes = R.string.feature_always_show_interaction_entry_description
 
     private const val HEADER_UIC =
         "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC"

@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -23,13 +22,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@Feature(
-    id = "批量隐藏对话",
-    nameRes = "feature_batch_hide_conversations_name",
-    categoryIds = [FeatureCategoryIds.BATCH],
-    descriptionRes = "feature_batch_hide_conversations_description",
-)
 object BatchHideConversations : ClickableFeature() {
+
+    override val technicalId = "批量隐藏对话"
+    override val nameRes = R.string.feature_batch_hide_conversations_name
+    override val categoryIds = listOf(FeatureCategoryIds.BATCH)
+    override val descriptionRes = R.string.feature_batch_hide_conversations_description
 
     override val noSwitchWidget = true
 

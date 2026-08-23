@@ -24,6 +24,7 @@ class LlamaPackNotInstalledException(message: String) : RuntimeException(message
 object LlamaNativePack : ExtensionPack {
 
     override val id = "llama-native"
+    override val displayOrder = 4
     override val nameRes = R.string.extensions_pack_llama_native_name
     override val descriptionRes = R.string.extensions_pack_llama_native_desc
     override val icon: ImageVector = MaterialSymbols.Outlined.Memory

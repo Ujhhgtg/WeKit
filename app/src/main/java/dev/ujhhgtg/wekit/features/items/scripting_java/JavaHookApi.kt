@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.scripting_java
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -13,13 +13,12 @@ import java.lang.reflect.Member
 import java.util.function.Consumer
 import java.util.function.Function
 
-@Feature(
-    id = "脚本 Hook 服务",
-    nameRes = "feature_java_hook_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_java_hook_api_description",
-)
 object JavaHookApi : ApiFeature() {
+
+    override val technicalId = "脚本 Hook 服务"
+    override val nameRes = R.string.feature_java_hook_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_java_hook_api_description
 
     private const val TAG = "JavaHookApi"
 

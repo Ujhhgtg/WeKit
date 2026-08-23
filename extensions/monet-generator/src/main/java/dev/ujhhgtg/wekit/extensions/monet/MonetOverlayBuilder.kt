@@ -9,6 +9,13 @@ import dev.ujhhgtg.wekit.extensions.monet.api.MonetLogLevel
 import java.io.File
 import java.util.zip.ZipFile
 
+internal fun loadMonetTemplate(templateApk: File): ApkModule =
+    ApkModule.loadApkFile(templateApk).apply {
+        // The extension publishes only code and Monet payloads, not ARSCLib's bundled framework
+        // APK resources. This builder writes already-resolved framework IDs and does not need them.
+        setLoadDefaultFramework(false)
+    }
+
 /**
  * Rewrites the template RRO against the resources of the WeChat APK described by [request].
  * Unknown hosts keep only live values matching the generic table and discover obfuscated semantic
@@ -31,8 +38,7 @@ internal class MonetOverlayBuilder(
         val added: Int,
     )
 
-    fun build(outputApk: File): Result {
-        val apk = ApkModule.loadApkFile(templateApk)
+    fun build(outputApk: File): Result = loadMonetTemplate(templateApk).use { apk ->
         val pkg = apk.tableBlock.pickOne()
             ?: error("overlay template has no resource package")
         val table = resolveTable()
@@ -68,7 +74,7 @@ internal class MonetOverlayBuilder(
             "overlay built: kept=$kept pruned=$pruned added=$added -> $outputApk",
             null,
         )
-        return Result(outputApk, kept, pruned, added)
+        Result(outputApk, kept, pruned, added)
     }
 
     private fun resolveTable(): MonetVersionTable {

@@ -5,23 +5,22 @@ import android.content.ContentValues
 import com.tencent.wcdb.database.SQLiteDatabase
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.constants.WeChatVersions
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
 @SuppressLint("DiscouragedApi")
-@Feature(
-    id = "数据库监听服务",
-    nameRes = "feature_we_database_listener_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_database_listener_api_description",
-)
 object WeDatabaseListenerApi : ApiFeature() {
+
+    override val technicalId = "数据库监听服务"
+    override val nameRes = R.string.feature_we_database_listener_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_database_listener_api_description
 
     fun interface IInsertListener {
         fun onInsert(table: String, values: ContentValues)

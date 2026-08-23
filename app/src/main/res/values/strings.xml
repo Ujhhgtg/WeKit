@@ -954,6 +954,8 @@
     <string name="feature_hide_module_from_app_list_description">Prevent WeChat from querying module installation status without affecting module functionality (experimental)</string>
     <string name="feature_link_external_app_jump_name">Open links with system apps</string>
     <string name="feature_link_external_app_jump_description">A dialog box is displayed when opening a link or card link, which can be opened directly using the system open method.\nIf you want to jump to a third-party application, you must first enable "Open supported web links in this application" in the corresponding application settings.</string>
+    <string name="feature_auto_like_sports_rank_name">Automatically like sports rankings</string>
+    <string name="feature_auto_like_sports_rank_description">Automatically like eligible friends after receiving a new WeChat Sports ranking</string>
     <string name="feature_modify_sports_step_count_name">Modify WeChat Sports step count</string>
     <string name="feature_modify_sports_step_count_description">Modify the number of exercise steps obtained from WeChat or manually uploaded</string>
     <string name="feature_nerf_background_process_checker_name">Disable WeChat process status detector</string>
@@ -1837,6 +1839,10 @@
     <string name="chat_auto_cache_select_contacts_hint">Tap to select contacts</string>
     <string name="chat_auto_cache_configure_whitelist">Configure whitelist</string>
     <string name="chat_auto_cache_configure_blacklist">Configure blacklist</string>
+    <string name="sports_rank_min_score">Minimum step count</string>
+    <string name="sports_rank_whitelist_description">Like only friends on the whitelist</string>
+    <string name="sports_rank_blacklist_description">Skip friends on the blacklist</string>
+    <string name="sports_rank_contacts_saved">Friends saved: %1$d</string>
     <string name="chat_member_inviter_title">View group inviter</string>
     <string name="chat_contact_tap_to_view">Tap to view</string>
     <string name="chat_member_inviter_querying">Querying…</string>
@@ -2694,8 +2700,18 @@
     <plurals name="contacts_detect_delete_done"><item quantity="one">Deletion complete: %1$d succeeded, %2$d failed</item><item quantity="other">Deletion complete: %1$d succeeded, %2$d failed</item></plurals>
     <string name="contacts_detect_warning_title">Warning</string>
     <string name="contacts_detect_warning_message">This feature may cause account abnormalities. Continue?</string>
+    <string name="contacts_detect_mode">Detection method</string>
+    <string name="contacts_detect_mode_before_transfer">Transfer preflight request</string>
+    <string name="contacts_detect_mode_verify_user">Verify-user relationship request</string>
+    <string name="contacts_detect_request_delay">Request interval (seconds)</string>
+    <string name="contacts_detect_status_transfer_abnormal">Status: Transfer response abnormal</string>
+    <string name="contacts_detect_status_deleted">Status: Deleted by this contact</string>
+    <string name="contacts_detect_status_blacklisted">Status: You are blacklisted</string>
+    <string name="contacts_detect_status_account_restricted">Status: Account restricted or abnormal</string>
+    <string name="contacts_detect_rate_limited">The server reported too many operations. Scanning has stopped; try again later.</string>
     <plurals name="contacts_detect_scanning"><item quantity="one">Scanning; please wait…\nCompleted: %1$d/%2$d friend</item><item quantity="other">Scanning; please wait…\nCompleted: %1$d/%2$d friends</item></plurals>
     <plurals name="contacts_detect_scan_done"><item quantity="one">Scan complete; %1$d friend has an abnormal status</item><item quantity="other">Scan complete; %1$d friends have an abnormal status</item></plurals>
+    <plurals name="contacts_detect_unresolved"><item quantity="one">%1$d friend could not be determined and was not included in the results.</item><item quantity="other">%1$d friends could not be determined and were not included in the results.</item></plurals>
     <string name="contacts_detect_status_abnormal">Status: Abnormal</string>
     <string name="contacts_detect_nickname">Nickname: %1$s</string>
     <string name="contacts_detect_remark">Remark: %1$s</string>
@@ -3520,6 +3536,15 @@
     <string name="notifications_self">Me</string>
     <string name="notifications_unknown_content">Unknown content (please report this to the module developer)</string>
     <string name="notifications_unknown_conversation">Unknown conversation (please report this to the module developer)</string>
+    <string name="notifications_settings_title">Enhanced notification settings</string>
+    <string name="notifications_image_behavior">Image messages</string>
+    <string name="notifications_image_disabled">Do not show images</string>
+    <string name="notifications_image_wait_thumbnail">Wait for thumbnail</string>
+    <string name="notifications_image_wait_large">Wait for large image</string>
+    <string name="notifications_sticker_behavior">Sticker messages</string>
+    <string name="notifications_sticker_loaded_only">Loaded stickers only</string>
+    <string name="notifications_sticker_wait_load">Wait for sticker loading</string>
+    <string name="notifications_clear_history_after_quick_reply">Clear message history after quick reply</string>
 
     <string name="system_auto_approve_auto_login">Auto-approve login</string>
     <string name="system_auto_approve_auto_login_summary">Automatically approve login requests from other devices</string>

@@ -17,7 +17,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -29,13 +28,12 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
-@Feature(
-    id = "添加自动备注",
-    nameRes = "feature_auto_remark_new_friends_name",
-    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
-    descriptionRes = "feature_auto_remark_new_friends_description",
-)
 object AutoRemarkNewFriends : ClickableFeature() {
+
+    override val technicalId = "添加自动备注"
+    override val nameRes = R.string.feature_auto_remark_new_friends_name
+    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
+    override val descriptionRes = R.string.feature_auto_remark_new_friends_description
 
     private const val TAG = "AutoRemarkNewFriends"
 

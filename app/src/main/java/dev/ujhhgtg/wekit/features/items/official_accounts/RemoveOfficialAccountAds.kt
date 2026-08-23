@@ -1,9 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.official_accounts
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.api.net.abc.IWePacketInterceptor
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -49,13 +49,12 @@ import org.json.JSONObject
  *   注意：**过滤始终执行**，[CAPTURE_MODE] 只控制是否额外 dump，不影响是否修改；收集完样本后
  *   把它置 false 关掉 dump 即可，过滤照常生效。
  */
-@Feature(
-    id = "公众号去广告",
-    nameRes = "feature_remove_official_account_ads_name",
-    categoryIds = [FeatureCategoryIds.OFFICIAL_ACCOUNTS],
-    descriptionRes = "feature_remove_official_account_ads_description",
-)
 object RemoveOfficialAccountAds : SwitchFeature(), IWePacketInterceptor {
+
+    override val technicalId = "公众号去广告"
+    override val nameRes = R.string.feature_remove_official_account_ads_name
+    override val categoryIds = listOf(FeatureCategoryIds.OFFICIAL_ACCOUNTS)
+    override val descriptionRes = R.string.feature_remove_official_account_ads_description
 
     private const val TAG = "RemoveOfficialAccountAds"
 

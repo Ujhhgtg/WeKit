@@ -2,21 +2,20 @@ package dev.ujhhgtg.wekit.features.items.profile
 
 import android.graphics.Bitmap
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.int
 import java.io.OutputStream
 
-@Feature(
-    id = "上传透明头像",
-    nameRes = "feature_upload_transparent_avatars_name",
-    categoryIds = [FeatureCategoryIds.PROFILE],
-    descriptionRes = "feature_upload_transparent_avatars_description",
-)
 object UploadTransparentAvatars : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "上传透明头像"
+    override val nameRes = R.string.feature_upload_transparent_avatars_name
+    override val categoryIds = listOf(FeatureCategoryIds.PROFILE)
+    override val descriptionRes = R.string.feature_upload_transparent_avatars_description
 
     private val TRIGGER_PATTERNS = listOf(
         "com.tencent.mm.modelavatar",

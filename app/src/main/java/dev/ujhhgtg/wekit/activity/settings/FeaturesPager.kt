@@ -33,6 +33,7 @@ import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.NewFeatures
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.features.core.featureCategoryComparator
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
@@ -239,9 +240,14 @@ fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
             ENABLED_FEATURES_CATEGORY -> FeatureCategoryState.enabledItems()
             else -> FeaturesProvider.ALL_HOOK_ITEMS
                 .filter { categoryId in it.categoryIds }
-                .sortedWith { first, second ->
-                    featureNameCollator.compare(first.localizedName(context), second.localizedName(context))
-                }
+                .sortedWith(
+                    featureCategoryComparator { first, second ->
+                        featureNameCollator.compare(
+                            first.localizedName(context),
+                            second.localizedName(context),
+                        )
+                    },
+                )
         }
     }
 

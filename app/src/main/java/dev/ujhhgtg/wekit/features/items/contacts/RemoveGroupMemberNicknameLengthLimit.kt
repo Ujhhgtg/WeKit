@@ -3,20 +3,19 @@ package dev.ujhhgtg.wekit.features.items.contacts
 import android.view.View
 import android.widget.TextView
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookParam
 
-@Feature(
-    id = "解除群成员昵称长度限制",
-    nameRes = "feature_remove_group_member_nickname_length_limit_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_remove_group_member_nickname_length_limit_description",
-)
 object RemoveGroupMemberNicknameLengthLimit : SwitchFeature(),
     WeChatMessageViewApi.ICreateViewListener {
+
+    override val technicalId = "解除群成员昵称长度限制"
+    override val nameRes = R.string.feature_remove_group_member_nickname_length_limit_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_remove_group_member_nickname_length_limit_description
 
     override fun onEnable() {
         WeChatMessageViewApi.addListener(this)

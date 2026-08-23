@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.extensions
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Extension
-import dalvik.system.InMemoryDexClassLoader
+import dalvik.system.DelegateLastClassLoader
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_API_VERSION
 import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_ENTRYPOINT_V1
@@ -11,20 +11,19 @@ import dev.ujhhgtg.wekit.extensions.monet.api.MonetGeneratorApiV1
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import java.io.File
-import java.nio.ByteBuffer
-import java.nio.file.Files
 
 /** Isolated Monet resource-overlay generator DEX and its version-matched payload files. */
 object MonetGeneratorPack : ExtensionPack {
 
     override val id = "monet-generator"
+    override val displayOrder = 1
     override val nameRes = R.string.extensions_pack_monet_generator_name
     override val descriptionRes = R.string.extensions_pack_monet_generator_desc
     override val icon: ImageVector = MaterialSymbols.Outlined.Extension
 
     @Volatile
     private var cachedResolution: Resolved? = null
-    private var cachedLoader: InMemoryDexClassLoader? = null
+    private var cachedLoader: DelegateLastClassLoader? = null
 
     override fun installDir(): File =
         KnownPaths.moduleData.resolve("extensions/monet-generator").toFile()
@@ -39,15 +38,24 @@ object MonetGeneratorPack : ExtensionPack {
         cachedResolution?.let { return it }
         val manifest = installedManifest() ?: return null
         val paths = MonetInstallPaths.resolve(installDir(), manifest.version)
-        MonetExtensionArchive.verifyInstalled(
+        val metadata = MonetExtensionArchive.verifyInstalled(
             paths.destination,
             MONET_GENERATOR_API_VERSION,
             MONET_GENERATOR_ENTRYPOINT_V1,
         )
-        val dex = paths.destination.resolve("classes.dex")
+        val installedDex = paths.destination.resolve("classes.dex")
         val payloadDir = paths.destination.resolve("payload")
-        val loader = InMemoryDexClassLoader(
-            ByteBuffer.wrap(Files.readAllBytes(dex.toPath())),
+        val dex = stageReadOnlyMonetDex(
+            installedDex,
+            KnownPaths.codeCacheDir
+                .resolve("monet-generator")
+                .resolve(manifest.version)
+                .resolve("classes.dex")
+                .toFile(),
+            metadata.files.getValue("classes.dex"),
+        )
+        val loader = DelegateLastClassLoader(
+            dex.absolutePath,
             MonetGeneratorPack::class.java.classLoader,
         )
         val instance = loader.loadClass(MONET_GENERATOR_ENTRYPOINT_V1)

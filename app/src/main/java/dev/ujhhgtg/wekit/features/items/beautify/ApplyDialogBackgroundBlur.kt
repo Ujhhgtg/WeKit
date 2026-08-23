@@ -20,7 +20,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -33,13 +32,12 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.lang.reflect.Modifier
 
-@Feature(
-    id = "对话框窗口级背景模糊",
-    nameRes = "feature_apply_dialog_background_blur_name",
-    categoryIds = [FeatureCategoryIds.BEAUTIFY],
-    descriptionRes = "feature_apply_dialog_background_blur_description",
-)
 object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "对话框窗口级背景模糊"
+    override val nameRes = R.string.feature_apply_dialog_background_blur_name
+    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
+    override val descriptionRes = R.string.feature_apply_dialog_background_blur_description
 
     private const val TAG = "ApplyDialogBackgroundBlur"
 

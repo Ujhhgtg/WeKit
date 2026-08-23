@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.panel.RECENT_PACK_ID
@@ -28,13 +27,12 @@ import kotlinx.coroutines.withContext
 import java.nio.file.Files
 import kotlin.io.path.name
 
-@Feature(
-    id = "保存到面板",
-    nameRes = "feature_save_to_panel_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_save_to_panel_description",
-)
 object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
+
+    override val technicalId = "保存到面板"
+    override val nameRes = R.string.feature_save_to_panel_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_save_to_panel_description
 
     private const val TAG = "SaveToPanel"
 

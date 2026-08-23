@@ -20,7 +20,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -32,13 +31,12 @@ import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.float
 import dev.ujhhgtg.wekit.utils.reflection.int
 
-@Feature(
-    id = "DPI 修改",
-    nameRes = "feature_custom_dpi_name",
-    categoryIds = [FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.SYSTEM_PRIVACY],
-    descriptionRes = "feature_custom_dpi_description",
-)
 object CustomDpi : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "DPI 修改"
+    override val nameRes = R.string.feature_custom_dpi_name
+    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.SYSTEM_PRIVACY)
+    override val descriptionRes = R.string.feature_custom_dpi_description
 
     private val methodGetDisplayMetrics by dexMethod {
         matcher {

@@ -5,13 +5,13 @@ import android.os.Looper
 import androidx.core.os.postDelayed
 import com.tencent.kinda.framework.module.impl.WXPCommReqResp
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
@@ -19,13 +19,12 @@ import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Proxy
 import java.util.concurrent.ConcurrentHashMap
 
-@Feature(
-    id = "数据包拦截与篡改服务",
-    nameRes = "feature_we_packet_dispatcher_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_packet_dispatcher_description",
-)
 object WePacketDispatcher : ApiFeature(), IResolveDex {
+
+    override val technicalId = "数据包拦截与篡改服务"
+    override val nameRes = R.string.feature_we_packet_dispatcher_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_packet_dispatcher_description
 
     private const val TAG = "WePacketDispatcher"
 

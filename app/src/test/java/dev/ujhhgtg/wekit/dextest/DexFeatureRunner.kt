@@ -25,7 +25,7 @@ internal fun runDexFeature(
         error.rethrowIfFatal()
         return DexTestFeatureReport(
             className = entry.className,
-            displayName = displayName(entry),
+            displayName = entry.className,
             methodHash = GeneratedMethodHashes.HASHES[entry.className].orEmpty(),
             outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
             elapsedMillis = started.elapsedNow().inWholeMilliseconds,
@@ -45,7 +45,7 @@ internal fun runDexFeature(
     val resolver = feature as? IResolveDex
         ?: return DexTestFeatureReport(
             className = entry.className,
-            displayName = displayName(entry),
+            displayName = displayName(feature),
             methodHash = GeneratedMethodHashes.HASHES[entry.className].orEmpty(),
             outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
             elapsedMillis = started.elapsedNow().inWholeMilliseconds,
@@ -85,7 +85,7 @@ internal fun runDexFeature(
     }
     return DexTestFeatureReport(
         className = entry.className,
-        displayName = displayName(entry),
+        displayName = displayName(feature),
         methodHash = GeneratedMethodHashes.HASHES[entry.className].orEmpty(),
         outcome = featureOutcome(delegates, error),
         elapsedMillis = started.elapsedNow().inWholeMilliseconds,
@@ -115,8 +115,8 @@ private fun featureOutcome(
     else -> DexTestFeatureOutcome.PASS
 }
 
-private fun displayName(entry: DexResolutionTestEntry) =
-    "${entry.categoryIds.joinToString(",")}/${entry.technicalId}"
+private fun displayName(feature: BaseFeature) =
+    "${feature.categoryIds.joinToString(",")}/${feature.technicalId}"
 
 internal fun Throwable.toDexTestError() = DexTestError(
     message = message ?: cause?.message,

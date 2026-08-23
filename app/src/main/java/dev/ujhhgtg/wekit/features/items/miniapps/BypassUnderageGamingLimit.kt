@@ -3,18 +3,17 @@ package dev.ujhhgtg.wekit.features.items.miniapps
 import android.view.View
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
-import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 
-@Feature(
-    id = "绕过防沉迷",
-    nameRes = "feature_bypass_underage_gaming_limit_name",
-    categoryIds = [FeatureCategoryIds.MINIAPPS],
-    descriptionRes = "feature_bypass_underage_gaming_limit_description",
-)
 object BypassUnderageGamingLimit : SwitchFeature() {
+
+    override val technicalId = "绕过防沉迷"
+    override val nameRes = R.string.feature_bypass_underage_gaming_limit_name
+    override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)
+    override val descriptionRes = R.string.feature_bypass_underage_gaming_limit_description
 
     override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND
 

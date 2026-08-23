@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -22,13 +21,12 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-@Feature(
-    id = "移除消息菜单项",
-    nameRes = "feature_remove_chat_message_context_menu_items_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_remove_chat_message_context_menu_items_description",
-)
 object RemoveChatMessageContextMenuItems : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "移除消息菜单项"
+    override val nameRes = R.string.feature_remove_chat_message_context_menu_items_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_remove_chat_message_context_menu_items_description
 
     // this is the method that builds the whole context menu (m0.a). we can't reliably hook the
     // individual menu.add(...) calls because wechat also inserts items by constructing MenuItem

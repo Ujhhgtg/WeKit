@@ -3,11 +3,11 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.content.ContentValues
 import android.os.SystemClock
 import androidx.activity.ComponentActivity
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
@@ -16,13 +16,12 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 
-@Feature(
-    id = "聊天自动回复",
-    nameRes = "feature_chat_auto_reply_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_chat_auto_reply_description",
-)
 object ChatAutoReply : ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
+
+    override val technicalId = "聊天自动回复"
+    override val nameRes = R.string.feature_chat_auto_reply_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_chat_auto_reply_description
 
     private const val TAG = "ChatAutoReply"
 

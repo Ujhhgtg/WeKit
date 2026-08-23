@@ -30,7 +30,6 @@ import dev.ujhhgtg.wekit.features.api.net.WeTransferApi
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.fetchBeforeTransfer
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.sendPlaceOrder
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -44,13 +43,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Feature(
-    id = "测试",
-    nameRes = "feature_experiments_name",
-    categoryIds = [FeatureCategoryIds.DEBUG],
-    descriptionRes = "feature_experiments_description",
-)
 object Experiments : ClickableFeature() {
+
+    override val technicalId = "测试"
+    override val nameRes = R.string.feature_experiments_name
+    override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
+    override val descriptionRes = R.string.feature_experiments_description
 
     @Suppress("unused")
     private const val TAG = "Experiments"

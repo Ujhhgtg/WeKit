@@ -3,22 +3,21 @@ package dev.ujhhgtg.wekit.features.api.ui
 import android.graphics.drawable.Drawable
 import android.view.ContextMenu
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
 import org.json.JSONObject
 import java.util.LinkedList
 
-@Feature(
-    id = "视频号分享菜单扩展",
-    nameRes = "feature_we_short_videos_share_menu_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_short_videos_share_menu_api_description",
-)
 object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
+
+    override val technicalId = "视频号分享菜单扩展"
+    override val nameRes = R.string.feature_we_short_videos_share_menu_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_short_videos_share_menu_api_description
 
     fun interface IMenuItemsProvider {
         fun getMenuItems(): List<MenuItem>

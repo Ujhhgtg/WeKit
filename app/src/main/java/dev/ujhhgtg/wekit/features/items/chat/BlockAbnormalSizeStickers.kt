@@ -3,18 +3,16 @@ package dev.ujhhgtg.wekit.features.items.chat
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(
-    id = "拦截异常大小贴纸表情",
-    nameRes = "feature_block_abnormal_size_stickers_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_block_abnormal_size_stickers_description",
-)
 object BlockAbnormalSizeStickers : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "拦截异常大小贴纸表情"
+    override val nameRes = R.string.feature_block_abnormal_size_stickers_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_block_abnormal_size_stickers_description
 
     override fun onEnable() {
         ctorMmWxgfDrawable.hookBefore {

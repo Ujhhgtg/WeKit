@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
@@ -26,13 +25,12 @@ import kotlinx.coroutines.launch
 import java.lang.ref.WeakReference
 import java.util.LinkedList
 
-@Feature(
-    id = "「添加的单个表情」管理器增强",
-    nameRes = "feature_stickers_manager_enhancements_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_stickers_manager_enhancements_description",
-)
 object StickersManagerEnhancements : SwitchFeature() {
+
+    override val technicalId = "「添加的单个表情」管理器增强"
+    override val nameRes = R.string.feature_stickers_manager_enhancements_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_stickers_manager_enhancements_description
 
     private const val TAG = "StickersManagerEnhancements"
 

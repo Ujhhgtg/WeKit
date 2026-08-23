@@ -6,19 +6,17 @@ import dev.ujhhgtg.wekit.R
 import com.tencent.mm.chatroom.ui.SelectedMemberChattingRecordUI
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.android.currentWxId
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 
-@Feature(
-    id = "查看群成员消息历史",
-    nameRes = "feature_display_group_member_messages_name",
-    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.CONTACT_DETAILS],
-    descriptionRes = "feature_display_group_member_messages_description",
-)
 object DisplayGroupMemberMessages : SwitchFeature(), WeContactPrefsScreenApi.IContactInfoProvider {
+
+    override val technicalId = "查看群成员消息历史"
+    override val nameRes = R.string.feature_display_group_member_messages_name
+    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.CONTACT_DETAILS)
+    override val descriptionRes = R.string.feature_display_group_member_messages_description
 
     private const val PREF_KEY = "member_msg"
 

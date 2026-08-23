@@ -5,23 +5,22 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.core.view.isVisible
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.util.WeakHashMap
 import org.luckypray.dexkit.DexKitBridge
 
-@Feature(
-    id = "自动查看原图",
-    nameRes = "feature_auto_view_original_media_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_auto_view_original_media_description",
-)
 object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "自动查看原图"
+    override val nameRes = R.string.feature_auto_view_original_media_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_auto_view_original_media_description
 
     private const val MEDIA_DOWNLOAD_TEXT_CLASS =
         "com.tencent.mm.plugin.media.view.download.MediaDownloadText"

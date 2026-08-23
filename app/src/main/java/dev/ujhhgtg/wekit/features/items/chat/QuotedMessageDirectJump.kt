@@ -16,7 +16,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -26,13 +25,12 @@ import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.enumValueOfClass
 
-@Feature(
-    id = "引用消息直达",
-    nameRes = "feature_quoted_message_direct_jump_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_quoted_message_direct_jump_description",
-)
 object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "引用消息直达"
+    override val nameRes = R.string.feature_quoted_message_direct_jump_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_quoted_message_direct_jump_description
 
     private var messageListDirectJump by prefOption("chat_quoted_direct_jump_message_list", true)
     private var inputBoxDirectJump by prefOption("chat_quoted_direct_jump_input_box", true)

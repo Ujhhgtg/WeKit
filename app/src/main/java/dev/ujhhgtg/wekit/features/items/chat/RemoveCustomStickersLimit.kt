@@ -1,23 +1,22 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.int
 import java.lang.reflect.Modifier
 
-@Feature(
-    id = "解除单个表情数量上限",
-    nameRes = "feature_remove_custom_stickers_limit_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_remove_custom_stickers_limit_description",
-)
 object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "解除单个表情数量上限"
+    override val nameRes = R.string.feature_remove_custom_stickers_limit_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_remove_custom_stickers_limit_description
 
     private val methodGetCustomEmojiMaxSize by dexMethod {
         matcher {

@@ -9,7 +9,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -21,13 +20,12 @@ import dev.ujhhgtg.wekit.utils.WeLogger
  * 并在确认框文本中追加"触发系统返回以留在当前页面"提示。
  * "保留"/"不保留"按钮语义保持不变。
  */
-@Feature(
-    id = "朋友圈编辑界面返回逻辑优化",
-    nameRes = "feature_moments_editor_back_optimization_name",
-    categoryIds = [FeatureCategoryIds.MOMENTS],
-    descriptionRes = "feature_moments_editor_back_optimization_description",
-)
 object MomentsEditorBackOptimization : SwitchFeature() {
+
+    override val technicalId = "朋友圈编辑界面返回逻辑优化"
+    override val nameRes = R.string.feature_moments_editor_back_optimization_name
+    override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
+    override val descriptionRes = R.string.feature_moments_editor_back_optimization_description
 
     private const val TAG = "MomentsEditorBackOptimization"
 

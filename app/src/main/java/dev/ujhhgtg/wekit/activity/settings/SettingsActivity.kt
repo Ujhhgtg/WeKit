@@ -169,7 +169,7 @@ val FEATURE_CATEGORIES = listOf(
 
 /**
  * Pseudo-category shown above the real ones. Deliberately kept out of [FEATURE_CATEGORIES] —
- * it isn't something a feature can declare in its `@Feature(categoryIds = ...)`.
+ * it isn't something a feature can declare in its `categoryIds` property.
  */
 const val NEW_FEATURES_CATEGORY = "new_features"
 const val ENABLED_FEATURES_CATEGORY = "enabled_features"
@@ -185,7 +185,7 @@ fun featureCategoryTitleRes(categoryId: String): Int =
 
 /**
  * Features whose source file entered the repo within [NewFeatures.WINDOW_DAYS] days of the build's
- * HEAD commit (collected at compile time by `GenerateNewFeaturesTask`), newest first.
+ * HEAD commit (joined by generated Feature source keys at compile time), newest first.
  *
  * Features that belong to no real category — the `API` internals — are dropped: they carry no
  * switch a user would meaningfully flip.

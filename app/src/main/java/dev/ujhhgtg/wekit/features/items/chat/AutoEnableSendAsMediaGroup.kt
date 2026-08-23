@@ -3,20 +3,19 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.app.Activity
 import android.widget.CheckBox
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-@Feature(
-    id = "自动启用合并发送媒体",
-    nameRes = "feature_auto_enable_send_as_media_group_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_auto_enable_send_as_media_group_description",
-)
 object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "自动启用合并发送媒体"
+    override val nameRes = R.string.feature_auto_enable_send_as_media_group_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_auto_enable_send_as_media_group_description
 
     private const val ALBUM_PREVIEW_UI = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
     private const val IMAGE_PREVIEW_UI = "com.tencent.mm.plugin.gallery.ui.ImagePreviewUI"

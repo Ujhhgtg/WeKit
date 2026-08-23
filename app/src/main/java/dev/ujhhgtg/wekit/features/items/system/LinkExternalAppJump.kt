@@ -38,7 +38,6 @@ import com.composables.icons.materialsymbols.outlined.Open_in_new
 import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeStartActivityApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -50,14 +49,13 @@ import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.openInSystem
 
-@Feature(
-    id = "链接跳转系统打开方式",
-    nameRes = "feature_link_external_app_jump_name",
-    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
-    descriptionRes = "feature_link_external_app_jump_description",
-)
 object LinkExternalAppJump : SwitchFeature(),
     WeStartActivityApi.IStartActivityListener {
+
+    override val technicalId = "链接跳转系统打开方式"
+    override val nameRes = R.string.feature_link_external_app_jump_name
+    override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
+    override val descriptionRes = R.string.feature_link_external_app_jump_description
 
     private const val TAG = "LinkExternalAppJump"
 

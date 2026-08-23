@@ -1,9 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
@@ -25,13 +25,12 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
  * 直接绕过完整判定的调用方 (如文本选择路径 com.tencent.mm.ui.chatting.x3)。
  * 全部 8.0.65–8.0.77 均存在, 按项目约定不设 allowFailure。
  */
-@Feature(
-    id = "反安全消息",
-    nameRes = "feature_anti_sec_msg_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_anti_sec_msg_description",
-)
 object AntiSecMsg : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "反安全消息"
+    override val nameRes = R.string.feature_anti_sec_msg_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_anti_sec_msg_description
 
     // 原始 sfn 检查: static (msgInfo) -> boolean, 含唯一的
     // ".msgsource.sec_msg_node.sfn" 字符串字面量

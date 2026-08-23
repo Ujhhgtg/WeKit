@@ -41,7 +41,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.PANEL_TOP_RESERVE_DP
 import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.maxPanelHeight
@@ -62,13 +61,12 @@ import dev.ujhhgtg.wekit.utils.android.constructor
 import java.lang.reflect.Modifier
 import java.util.WeakHashMap
 
-@Feature(
-    id = "悬浮输入框",
-    nameRes = "feature_floating_chat_footer_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_floating_chat_footer_description",
-)
 object FloatingChatFooter : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "悬浮输入框"
+    override val nameRes = R.string.feature_floating_chat_footer_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_floating_chat_footer_description
 
     private const val TAG = "FloatingChatFooter"
 

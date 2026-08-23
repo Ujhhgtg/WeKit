@@ -1,20 +1,19 @@
 package dev.ujhhgtg.wekit.features.items.voip
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.lang.reflect.Modifier
 
-@Feature(
-    id = "移除通话时聊天限制",
-    nameRes = "feature_remove_limits_during_calls_name",
-    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP],
-    descriptionRes = "feature_remove_limits_during_calls_description",
-)
 object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "移除通话时聊天限制"
+    override val nameRes = R.string.feature_remove_limits_during_calls_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP)
+    override val descriptionRes = R.string.feature_remove_limits_during_calls_description
 
     override fun onEnable() {
         listOf(

@@ -8,19 +8,17 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.CameraIcon
 
 @Suppress("DEPRECATION")
-@Feature(
-    id = "消息转圈",
-    nameRes = "feature_forward_messages_to_moments_name",
-    categoryIds = [FeatureCategoryIds.MOMENTS],
-    descriptionRes = "feature_forward_messages_to_moments_description",
-)
 object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
+
+    override val technicalId = "消息转圈"
+    override val nameRes = R.string.feature_forward_messages_to_moments_name
+    override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
+    override val descriptionRes = R.string.feature_forward_messages_to_moments_description
 
     override fun onEnable() {
         WeChatMessageContextMenuApi.addProvider(this)

@@ -29,7 +29,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.TimelineObjectProto
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.buildMusicTimelineBundle
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.moments.localizedMomentsString
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -68,13 +67,12 @@ import kotlin.io.path.outputStream
 import kotlin.io.path.readBytes
 import kotlin.time.Duration.Companion.milliseconds
 
-@Feature(
-    id = "朋友圈服务",
-    nameRes = "feature_we_moments_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_moments_api_description",
-)
 object WeMomentsApi : ApiFeature(), IResolveDex {
+
+    override val technicalId = "朋友圈服务"
+    override val nameRes = R.string.feature_we_moments_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_moments_api_description
 
     private const val TAG = "WeMomentsApi"
     private const val SNS_VIDEO_SCENE_TIMELINE_OFFLINE = 31

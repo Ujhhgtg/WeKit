@@ -7,19 +7,18 @@ import android.view.ViewGroup
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 
-@Feature(
-    id = "美化活动过渡动画",
-    nameRes = "feature_beautify_activity_transition_animation_name",
-    categoryIds = [FeatureCategoryIds.BEAUTIFY],
-    descriptionRes = "feature_beautify_activity_transition_animation_description",
-)
 object BeautifyActivityTransitionAnimation : SwitchFeature() {
+
+    override val technicalId = "美化活动过渡动画"
+    override val nameRes = R.string.feature_beautify_activity_transition_animation_name
+    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
+    override val descriptionRes = R.string.feature_beautify_activity_transition_animation_description
 
     private const val TAG = "BeautifyActivityTransitionAnimation"
     private var width = 0

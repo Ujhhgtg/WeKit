@@ -27,7 +27,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
@@ -40,12 +39,11 @@ import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.StringMatchType
 import java.lang.reflect.Modifier
 
-@Feature(
-    id = "设置模块入口",
-    nameRes = "feature_we_settings_injector_name",
-    categoryIds = [FeatureCategoryIds.API],
-)
 object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputBarListener {
+
+    override val technicalId = "设置模块入口"
+    override val nameRes = R.string.feature_we_settings_injector_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
 
     private val methodSetKey by dexMethod()
     private val methodSetTitle by dexMethod()

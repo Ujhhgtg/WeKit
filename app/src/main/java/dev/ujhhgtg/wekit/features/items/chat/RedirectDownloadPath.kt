@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -32,13 +31,12 @@ import java.util.Locale
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.div
 
-@Feature(
-    id = "重定向文件下载路径",
-    nameRes = "feature_redirect_download_path_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_redirect_download_path_description",
-)
 object RedirectDownloadPath : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "重定向文件下载路径"
+    override val nameRes = R.string.feature_redirect_download_path_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_redirect_download_path_description
 
     private const val TAG = "RedirectDownloadPath"
     private var saveDir by prefOption("redirect_download_path_save_dir", "")

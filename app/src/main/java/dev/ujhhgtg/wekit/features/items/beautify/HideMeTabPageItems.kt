@@ -18,7 +18,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -31,13 +30,12 @@ import java.util.Collections
 import java.util.WeakHashMap
 
 
-@Feature(
-    id = "「我」页面精简",
-    nameRes = "feature_hide_me_tab_page_items_name",
-    categoryIds = [FeatureCategoryIds.BEAUTIFY],
-    descriptionRes = "feature_hide_me_tab_page_items_description",
-)
 object HideMeTabPageItems : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "「我」页面精简"
+    override val nameRes = R.string.feature_hide_me_tab_page_items_name
+    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
+    override val descriptionRes = R.string.feature_hide_me_tab_page_items_description
 
     private var hideMoments by WePrefs.prefOption("hide_me_moments", false)
     private var hideFinder by WePrefs.prefOption("hide_me_finder", false)

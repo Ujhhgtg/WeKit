@@ -4,19 +4,18 @@ import android.app.ApplicationPackageManager
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(
-    id = "隐藏模块应用",
-    nameRes = "feature_hide_module_from_app_list_name",
-    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
-    descriptionRes = "feature_hide_module_from_app_list_description",
-)
 object HideModuleFromAppList : SwitchFeature() {
+
+    override val technicalId = "隐藏模块应用"
+    override val nameRes = R.string.feature_hide_module_from_app_list_name
+    override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
+    override val descriptionRes = R.string.feature_hide_module_from_app_list_description
 
     private const val TAG = "HideModuleFromAppList"
 

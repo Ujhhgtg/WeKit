@@ -9,7 +9,6 @@ import androidx.core.view.isVisible
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -17,13 +16,12 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-@Feature(
-    id = "强制平板模式",
-    nameRes = "feature_force_tablet_mode_name",
-    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
-    descriptionRes = "feature_force_tablet_mode_description",
-)
 object ForceTabletMode : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "强制平板模式"
+    override val nameRes = R.string.feature_force_tablet_mode_name
+    override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
+    override val descriptionRes = R.string.feature_force_tablet_mode_description
 
     private val methodIsTablet by dexMethod {
         matcher {

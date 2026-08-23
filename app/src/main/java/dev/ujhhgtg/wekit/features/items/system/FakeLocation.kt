@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -30,13 +29,12 @@ import org.osmdroid.util.GeoPoint
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
-@Feature(
-    id = "虚拟定位",
-    nameRes = "feature_fake_location_name",
-    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
-    descriptionRes = "feature_fake_location_description",
-)
 object FakeLocation : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "虚拟定位"
+    override val nameRes = R.string.feature_fake_location_name
+    override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
+    override val descriptionRes = R.string.feature_fake_location_description
 
     private val methodListener by dexMethod {
         matcher {

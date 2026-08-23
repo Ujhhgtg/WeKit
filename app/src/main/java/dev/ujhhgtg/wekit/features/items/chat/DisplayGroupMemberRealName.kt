@@ -10,9 +10,9 @@ import android.widget.TextView
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isGone
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
 
@@ -37,13 +37,12 @@ import dev.ujhhgtg.wekit.utils.HookParam
  * [DisplayGroupMemberRealNamesLastChar.fetchRealName]; on completion the same view is updated
  * if it has not yet been recycled to a different sender.
  */
-@Feature(
-    id = "显示群成员实名全字",
-    nameRes = "feature_display_group_member_real_name_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_display_group_member_real_name_description",
-)
 object DisplayGroupMemberRealName : ApiFeature(), WeChatMessageViewApi.ICreateViewListener {
+
+    override val technicalId = "显示群成员实名全字"
+    override val nameRes = R.string.feature_display_group_member_real_name_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_display_group_member_real_name_description
 
     /**
      * Integer tag key stamped onto the username [TextView] so async fetch callbacks can verify

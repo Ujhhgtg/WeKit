@@ -18,7 +18,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -36,13 +35,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
-@Feature(
-    id = "群发消息",
-    nameRes = "feature_mass_send_message_name",
-    categoryIds = [FeatureCategoryIds.BATCH],
-    descriptionRes = "feature_mass_send_message_description",
-)
 object MassSendMessage : ClickableFeature() {
+
+    override val technicalId = "群发消息"
+    override val nameRes = R.string.feature_mass_send_message_name
+    override val categoryIds = listOf(FeatureCategoryIds.BATCH)
+    override val descriptionRes = R.string.feature_mass_send_message_description
 
     private const val TAG = "MassSendMessage"
 

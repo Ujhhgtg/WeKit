@@ -35,7 +35,6 @@ import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -61,14 +60,13 @@ internal const val READ_RECEIPTS_NATIVE_TEXT_TAG = 0x7E000013
 
 internal data class ReadReceiptCountState(val count: Int?)
 
-@Feature(
-    id = "消息时间增强",
-    nameRes = "feature_message_time_enhancements_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_message_time_enhancements_description",
-)
 object MessageTimeEnhancements : ClickableFeature(),
     WeChatMessageViewApi.ICreateViewListener {
+
+    override val technicalId = "消息时间增强"
+    override val nameRes = R.string.feature_message_time_enhancements_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_message_time_enhancements_description
 
     override fun onEnable() {
         WeChatMessageViewApi.addListener(this)

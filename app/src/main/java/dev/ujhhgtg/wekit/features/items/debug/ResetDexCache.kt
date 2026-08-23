@@ -6,7 +6,6 @@ import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -18,13 +17,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@Feature(
-    id = "重置适配信息",
-    nameRes = "feature_reset_dex_cache_name",
-    categoryIds = [FeatureCategoryIds.DEBUG],
-    descriptionRes = "feature_reset_dex_cache_description",
-)
 object ResetDexCache : ClickableFeature() {
+
+    override val technicalId = "重置适配信息"
+    override val nameRes = R.string.feature_reset_dex_cache_name
+    override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
+    override val descriptionRes = R.string.feature_reset_dex_cache_description
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
