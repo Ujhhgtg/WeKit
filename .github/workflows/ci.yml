@@ -570,7 +570,7 @@ jobs:
 
       - name: Attest build provenance
         if: steps.published.outputs.skip == 'false'
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist/extensions/script-deps-*.dex
