@@ -541,7 +541,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * is never written in the first place, so neither 临时显示 nor removing the contact from the
      * hidden list can recover it. It also means whether a given pat survives depends on the
      * [temporarilyShown] state *at the instant the message arrived*, not at the instant it is read.
-     * Documented in the `@Feature` blurb; changing it would require buffering the pats instead.
+     * Documented in the feature description; changing it would require buffering the pats instead.
      */
     private fun hookPatMessage() {
         if (methodPatMsgInsert.isPlaceholder) {

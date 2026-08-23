@@ -169,7 +169,7 @@ val FEATURE_CATEGORIES = listOf(
 
 /**
  * Pseudo-category shown above the real ones. Deliberately kept out of [FEATURE_CATEGORIES] —
- * it isn't something a feature can declare in its `@Feature(categoryIds = ...)`.
+ * it isn't something a feature can declare in its `categoryIds` property.
  */
 const val NEW_FEATURES_CATEGORY = "new_features"
 const val ENABLED_FEATURES_CATEGORY = "enabled_features"
