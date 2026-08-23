@@ -26,7 +26,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
@@ -63,13 +62,12 @@ import java.util.WeakHashMap
  * 所以借宿主 stub 的话画中画一定被拒。Zygisk 模式下模块应用根本没有安装，
  * 因此本功能在该模式下直接停用。
  */
-@Feature(
-    id = "音视频通话使用画中画",
-    nameRes = "feature_pip_voip_name",
-    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP],
-    descriptionRes = "feature_pip_voip_description",
-)
 object PipVoip : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "音视频通话使用画中画"
+    override val nameRes = R.string.feature_pip_voip_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP)
+    override val descriptionRes = R.string.feature_pip_voip_description
 
     private const val TAG = "PipVoip"
     private const val HANGUP_SCENE = 4103

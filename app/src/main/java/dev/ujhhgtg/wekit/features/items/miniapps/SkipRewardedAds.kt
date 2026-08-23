@@ -2,10 +2,10 @@ package dev.ujhhgtg.wekit.features.items.miniapps
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -45,13 +45,12 @@ import java.util.concurrent.atomic.AtomicLong
  *   - .mb=new / .mbId -> MB 通道实例字段存在性。
  * 任一核心结构缺失时明确打 WeLogger.w 报告, 不注入半成品补丁。
  */
-@Feature(
-    id = "跳过激励广告",
-    nameRes = "feature_skip_rewarded_ads_name",
-    categoryIds = [FeatureCategoryIds.MINIAPPS],
-    descriptionRes = "feature_skip_rewarded_ads_description",
-)
 object SkipRewardedAds : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "跳过激励广告"
+    override val nameRes = R.string.feature_skip_rewarded_ads_name
+    override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)
+    override val descriptionRes = R.string.feature_skip_rewarded_ads_description
 
     private const val TAG = "SkipRewardedAds"
     private const val SESSION_WINDOW_MS = 30_000L

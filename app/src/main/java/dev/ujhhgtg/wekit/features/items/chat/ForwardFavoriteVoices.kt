@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.FavInfoProto
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -33,13 +32,12 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.div
 
-@Feature(
-    id = "转发收藏语音",
-    nameRes = "feature_forward_favorite_voices_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_forward_favorite_voices_description",
-)
 object ForwardFavoriteVoices : SwitchFeature() {
+
+    override val technicalId = "转发收藏语音"
+    override val nameRes = R.string.feature_forward_favorite_voices_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_forward_favorite_voices_description
 
     private data class FavoriteVoice(
         val filePath: String,

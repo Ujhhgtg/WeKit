@@ -6,21 +6,20 @@ import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.os.Build
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 // https://github.com/Ujhhgtg/PandorasBox
-@Feature(
-    id = "预见性返回动画",
-    nameRes = "feature_predictive_back_gestures_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_predictive_back_gestures_description",
-)
 object PredictiveBackGestures : ApiFeature() {
+
+    override val technicalId = "预见性返回动画"
+    override val nameRes = R.string.feature_predictive_back_gestures_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_predictive_back_gestures_description
 
     private const val PRIVATE_FLAG_ENABLE_ON_BACK_INVOKED_CALLBACK = 1 shl 2
     private const val PRIVATE_FLAG_DISABLE_ON_BACK_INVOKED_CALLBACK = 1 shl 3

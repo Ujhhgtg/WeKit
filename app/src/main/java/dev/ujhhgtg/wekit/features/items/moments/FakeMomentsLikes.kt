@@ -28,7 +28,6 @@ import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -45,14 +44,13 @@ import java.lang.reflect.Method
 import java.util.LinkedList
 import java.util.concurrent.ConcurrentHashMap
 
-@Feature(
-    id = "伪集赞",
-    nameRes = "feature_fake_moments_likes_name",
-    categoryIds = [FeatureCategoryIds.MOMENTS],
-    descriptionRes = "feature_fake_moments_likes_description",
-)
 object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider,
     WeDatabaseListenerApi.IUpdateListener {
+
+    override val technicalId = "伪集赞"
+    override val nameRes = R.string.feature_fake_moments_likes_name
+    override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
+    override val descriptionRes = R.string.feature_fake_moments_likes_description
 
     private const val TAG = "FakeMomentsLikes"
 

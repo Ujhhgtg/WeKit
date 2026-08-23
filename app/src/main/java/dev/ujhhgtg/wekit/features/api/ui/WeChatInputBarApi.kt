@@ -4,9 +4,9 @@ import android.text.Editable
 import android.text.TextWatcher
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarApi.addListener
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.Collections
@@ -19,13 +19,12 @@ import java.util.concurrent.CopyOnWriteArrayList
  * 监听聊天界面输入栏的文本变化事件，其他功能可通过 [addListener] 注册实现
  * [IInputBarListener] 接口的监听器来接收文本变化通知。
  */
-@Feature(
-    id = "聊天输入栏监听服务",
-    nameRes = "feature_we_chat_input_bar_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_chat_input_bar_api_description",
-)
 object WeChatInputBarApi : ApiFeature() {
+
+    override val technicalId = "聊天输入栏监听服务"
+    override val nameRes = R.string.feature_we_chat_input_bar_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_chat_input_bar_api_description
 
     /**
      * 输入栏文本变化监听器。

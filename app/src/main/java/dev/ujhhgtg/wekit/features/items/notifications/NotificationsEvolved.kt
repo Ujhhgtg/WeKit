@@ -36,7 +36,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -73,13 +72,12 @@ import kotlin.io.path.div
 import kotlin.io.path.isRegularFile
 import kotlin.time.Duration.Companion.milliseconds
 
-@Feature(
-    id = "通知进化",
-    nameRes = "feature_notifications_evolved_name",
-    categoryIds = [FeatureCategoryIds.NOTIFICATIONS],
-    descriptionRes = "feature_notifications_evolved_description",
-)
 object NotificationsEvolved : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "通知进化"
+    override val nameRes = R.string.feature_notifications_evolved_name
+    override val categoryIds = listOf(FeatureCategoryIds.NOTIFICATIONS)
+    override val descriptionRes = R.string.feature_notifications_evolved_description
 
     private const val TAG = "NotificationsEvolved"
 

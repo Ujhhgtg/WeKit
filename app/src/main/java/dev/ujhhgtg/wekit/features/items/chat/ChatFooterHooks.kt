@@ -3,22 +3,21 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.view.View
 import android.widget.ImageButton
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 
-@Feature(
-    id = "聊天输入栏钩子",
-    nameRes = "feature_chat_footer_hooks_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_chat_footer_hooks_description",
-)
 object ChatFooterHooks : ApiFeature(), IResolveDex {
+
+    override val technicalId = "聊天输入栏钩子"
+    override val nameRes = R.string.feature_chat_footer_hooks_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_chat_footer_hooks_description
 
     private val methodInitSmileyBtn by dexMethod {
         searchPackages("com.tencent.mm.pluginsdk.ui.chat")

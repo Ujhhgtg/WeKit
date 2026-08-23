@@ -5,7 +5,6 @@ import android.util.Base64
 import dev.ujhhgtg.wekit.R
 import androidx.core.net.toUri
 import dev.ujhhgtg.wekit.features.api.ui.WeShortVideosShareMenuApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.DownloadIcon
@@ -29,14 +28,13 @@ import kotlin.io.path.div
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 
-@Feature(
-    id = "下载媒体",
-    nameRes = "feature_download_media_name",
-    categoryIds = [FeatureCategoryIds.CHANNELS],
-    descriptionRes = "feature_download_media_description",
-)
 object DownloadMedia : SwitchFeature(),
     WeShortVideosShareMenuApi.IMenuItemsProvider {
+
+    override val technicalId = "下载媒体"
+    override val nameRes = R.string.feature_download_media_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHANNELS)
+    override val descriptionRes = R.string.feature_download_media_description
 
     private const val TAG = "DownloadMedia"
     private const val ENCRYPTED_PREFIX_SIZE = 128 * 1024

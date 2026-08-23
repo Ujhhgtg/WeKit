@@ -48,7 +48,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.system.FeatureFlagManager.cacheLock
 import dev.ujhhgtg.wekit.features.items.system.FeatureFlagManager.markCacheDirty
@@ -91,13 +90,12 @@ import java.lang.reflect.Modifier as JavaModifier
  * API entry: [fd5.d1].[b](String key, Object defaultValue) — central get method.
  * Key format: fullKey = b() + '_' + h()    (via [ly4.e.l])
  */
-@Feature(
-    id = "灰度测试管理器",
-    nameRes = "feature_feature_flag_manager_name",
-    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
-    descriptionRes = "feature_feature_flag_manager_description",
-)
 object FeatureFlagManager : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "灰度测试管理器"
+    override val nameRes = R.string.feature_feature_flag_manager_name
+    override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
+    override val descriptionRes = R.string.feature_feature_flag_manager_description
 
     private val overridesFile by lazy { KnownPaths.moduleData / "feature_flag_overrides.json" }
 

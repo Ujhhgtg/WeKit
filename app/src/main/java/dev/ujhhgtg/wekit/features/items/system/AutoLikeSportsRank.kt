@@ -28,7 +28,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -52,14 +51,13 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
 
-@Feature(
-    id = "运动排行榜自动点赞",
-    nameRes = "feature_auto_like_sports_rank_name",
-    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
-    descriptionRes = "feature_auto_like_sports_rank_description",
-)
 object AutoLikeSportsRank : ClickableFeature(), IResolveDex,
     WeDatabaseListenerApi.IInsertListener {
+
+    override val technicalId = "运动排行榜自动点赞"
+    override val nameRes = R.string.feature_auto_like_sports_rank_name
+    override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
+    override val descriptionRes = R.string.feature_auto_like_sports_rank_description
 
     private const val TAG = "AutoLikeSportsRank"
     private const val SPORTS_ACCOUNT = "gh_43f2581f6fd6"

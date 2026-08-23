@@ -2,9 +2,9 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import android.widget.ImageView
 import androidx.core.net.toUri
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -16,13 +16,12 @@ import dev.ujhhgtg.wekit.utils.WeLogger
  * URL through FinderLoaderApi before loading or prefetching it, so skipping this method prevents
  * either path from reaching the tracking server.
  */
-@Feature(
-    id = "反已读追踪",
-    nameRes = "feature_anti_read_receipts_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_anti_read_receipts_description",
-)
 object AntiReadReceipts : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "反已读追踪"
+    override val nameRes = R.string.feature_anti_read_receipts_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_anti_read_receipts_description
 
     private val methodLoadFinderImage by dexMethod {
         matcher {

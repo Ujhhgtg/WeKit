@@ -23,7 +23,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -34,13 +33,12 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.LinkedList
 
-@Feature(
-    id = "自定义尾巴",
-    nameRes = "feature_custom_source_app_name",
-    categoryIds = [FeatureCategoryIds.MOMENTS],
-    descriptionRes = "feature_custom_source_app_description",
-)
 object CustomSourceApp : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "自定义尾巴"
+    override val nameRes = R.string.feature_custom_source_app_name
+    override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
+    override val descriptionRes = R.string.feature_custom_source_app_description
 
     private const val TAG = "CustomSourceApp"
 

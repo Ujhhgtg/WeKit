@@ -4,19 +4,18 @@ import android.app.Activity
 import android.content.Intent
 import com.tencent.mm.plugin.webview.ui.tools.WebViewUI
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-@Feature(
-    id = "强制启用 WebView 菜单",
-    nameRes = "feature_enable_web_view_features_name",
-    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
-    descriptionRes = "feature_enable_web_view_features_description",
-)
 object EnableWebViewFeatures : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "强制启用 WebView 菜单"
+    override val nameRes = R.string.feature_enable_web_view_features_name
+    override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
+    override val descriptionRes = R.string.feature_enable_web_view_features_description
 
     private val TRUE_INTENT_KEYS =
         setOf("show_feedback", "KRightBtn", "KShowFixToolsBtn", "key_enable_fts_quick")

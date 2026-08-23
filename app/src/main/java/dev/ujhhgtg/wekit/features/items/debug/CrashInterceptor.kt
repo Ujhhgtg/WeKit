@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.debug
 
 import android.app.Activity
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -11,13 +10,12 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
 import dev.ujhhgtg.wekit.utils.crash.JavaCrashHandler
 
-@Feature(
-    id = "崩溃拦截",
-    nameRes = "feature_crash_interceptor_name",
-    categoryIds = [FeatureCategoryIds.DEBUG],
-    descriptionRes = "feature_crash_interceptor_description",
-)
 object CrashInterceptor : SwitchFeature() {
+
+    override val technicalId = "崩溃拦截"
+    override val nameRes = R.string.feature_crash_interceptor_name
+    override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
+    override val descriptionRes = R.string.feature_crash_interceptor_description
 
     private const val TAG = "CrashInterceptor"
 

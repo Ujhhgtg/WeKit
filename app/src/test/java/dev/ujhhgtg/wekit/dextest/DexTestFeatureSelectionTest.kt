@@ -62,11 +62,5 @@ class DexTestFeatureSelectionTest {
         )
     }
 
-    private fun entry(className: String) = DexResolutionTestEntry(
-        className = className,
-        technicalId = className,
-        nameResEntry = "feature_test_name",
-        categoryIds = listOf("chat"),
-        descriptionResEntry = null,
-    )
+    private fun entry(className: String) = DexResolutionTestEntry(className)
 }

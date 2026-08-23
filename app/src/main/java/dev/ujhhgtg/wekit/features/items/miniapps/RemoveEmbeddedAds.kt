@@ -2,23 +2,22 @@ package dev.ujhhgtg.wekit.features.items.miniapps
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.isBuiltin
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import org.json.JSONObject
 import java.lang.reflect.Field
 
-@Feature(
-    id = "移除嵌入广告",
-    nameRes = "feature_remove_embedded_ads_name",
-    categoryIds = [FeatureCategoryIds.MINIAPPS],
-    descriptionRes = "feature_remove_embedded_ads_description",
-)
 object RemoveEmbeddedAds : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "移除嵌入广告"
+    override val nameRes = R.string.feature_remove_embedded_ads_name
+    override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)
+    override val descriptionRes = R.string.feature_remove_embedded_ads_description
 
     /**
      * 奖励/激励视频广告位使用的 pos_id (微信内置广告位, 各版本稳定)。

@@ -79,21 +79,19 @@ class FeatureCategoryOrderingTest {
         featureCategoryComparator(compareBy(BaseFeature::technicalId))
 
     private class TestSwitch(
-        technicalId: String,
+        override val technicalId: String,
         override val displayOrder: Int? = null,
     ) : SwitchFeature() {
-        init {
-            this.technicalId = technicalId
-        }
+        override val nameRes: Int = 0
+        override val categoryIds: List<String> = listOf(FeatureCategoryIds.CHAT)
     }
 
     private class TestClickable(
-        technicalId: String,
+        override val technicalId: String,
         override val displayOrder: Int? = null,
     ) : ClickableFeature() {
-        init {
-            this.technicalId = technicalId
-        }
+        override val nameRes: Int = 0
+        override val categoryIds: List<String> = listOf(FeatureCategoryIds.CHAT)
 
         override fun onClick(context: ComponentActivity) = Unit
     }

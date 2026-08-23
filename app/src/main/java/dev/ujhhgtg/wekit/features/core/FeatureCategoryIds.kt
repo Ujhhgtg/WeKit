@@ -20,4 +20,26 @@ object FeatureCategoryIds {
     const val HOME_SCREEN_MENU = "home_screen_menu"
     const val CONTACT_DETAILS = "contact_details"
     const val API = "api"
+
+    val ALL: Set<String> = setOf(
+        CHAT,
+        CONTACTS_GROUPS,
+        PAYMENT,
+        MOMENTS,
+        SYSTEM_PRIVACY,
+        VOIP,
+        NOTIFICATIONS,
+        BEAUTIFY,
+        OFFICIAL_ACCOUNTS,
+        MINIAPPS,
+        CHANNELS,
+        PROFILE,
+        DEBUG,
+        SCRIPTING_JAVA,
+        ENTERTAIN,
+        BATCH,
+        HOME_SCREEN_MENU,
+        CONTACT_DETAILS,
+        API,
+    )
 }

@@ -5,20 +5,18 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoProvider
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.currentWxId
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(
-    id = "显示微信 ID",
-    nameRes = "feature_show_wx_id_in_contact_details_name",
-    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.CONTACT_DETAILS],
-    descriptionRes = "feature_show_wx_id_in_contact_details_description",
-)
 object ShowWxIdInContactDetails : SwitchFeature(), IContactInfoProvider {
+
+    override val technicalId = "显示微信 ID"
+    override val nameRes = R.string.feature_show_wx_id_in_contact_details_name
+    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.CONTACT_DETAILS)
+    override val descriptionRes = R.string.feature_show_wx_id_in_contact_details_description
 
     private const val PREF_KEY = "wxid_display"
 

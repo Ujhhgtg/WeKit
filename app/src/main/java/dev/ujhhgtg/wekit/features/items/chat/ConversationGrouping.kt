@@ -76,7 +76,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
@@ -103,13 +102,12 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import java.lang.reflect.Modifier as JavaModifier
 
-@Feature(
-    id = "对话分组",
-    nameRes = "feature_conversation_grouping_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_conversation_grouping_description",
-)
 object ConversationGrouping : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "对话分组"
+    override val nameRes = R.string.feature_conversation_grouping_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_conversation_grouping_description
 
     const val GROUP_PREFIX = "wekit_group_"
 

@@ -19,7 +19,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -32,16 +31,15 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import java.util.concurrent.atomic.AtomicBoolean
 
-@Feature(
-    id = "超级对话置顶",
-    nameRes = "feature_super_conversation_pinning_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_super_conversation_pinning_description",
-)
 object SuperConversationPinning : SwitchFeature(),
     WeConversationContextMenuApi.IMenuItemsProvider,
 //    WeDatabaseListenerApi.IQueryListener,
     IResolveDex {
+
+    override val technicalId = "超级对话置顶"
+    override val nameRes = R.string.feature_super_conversation_pinning_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_super_conversation_pinning_description
 
     private const val TAG = "SuperConversationPinning"
     private const val PRIORITIES_KEY = "super_conversation_pinning_priorities"

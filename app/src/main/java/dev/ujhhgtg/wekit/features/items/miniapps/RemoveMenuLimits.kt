@@ -1,8 +1,8 @@
 package dev.ujhhgtg.wekit.features.items.miniapps
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcesses
@@ -11,13 +11,12 @@ import org.luckypray.dexkit.query.enums.StringMatchType
 import org.luckypray.dexkit.query.matchers.base.AccessFlagsMatcher
 import java.lang.reflect.Modifier
 
-@Feature(
-    id = "去除菜单限制",
-    nameRes = "feature_remove_menu_limits_name",
-    categoryIds = [FeatureCategoryIds.MINIAPPS],
-    descriptionRes = "feature_remove_menu_limits_description",
-)
 object RemoveMenuLimits : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "去除菜单限制"
+    override val nameRes = R.string.feature_remove_menu_limits_name
+    override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)
+    override val descriptionRes = R.string.feature_remove_menu_limits_description
 
     private lateinit var showAndClickableEnumValue: Any
 

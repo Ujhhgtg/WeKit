@@ -34,7 +34,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -56,14 +55,13 @@ import java.util.Collections
 import java.util.WeakHashMap
 import kotlin.math.abs
 
-@Feature(
-    id = "滑动消息快捷操作",
-    nameRes = "feature_swipe_message_operations_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_swipe_message_operations_description",
-)
 object SwipeMessageOperations : ClickableFeature(), IResolveDex,
     WeChatMessageViewApi.ICreateViewListener {
+
+    override val technicalId = "滑动消息快捷操作"
+    override val nameRes = R.string.feature_swipe_message_operations_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_swipe_message_operations_description
 
     // Mutable per-view gesture state. RecyclerView recycles message views, so chattingContext is
     // refreshed on every onBindView (see onCreateView) rather than captured once.

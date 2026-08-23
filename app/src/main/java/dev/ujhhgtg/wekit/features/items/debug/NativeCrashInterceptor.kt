@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.debug
 
 import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -11,13 +10,12 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
 import dev.ujhhgtg.wekit.utils.crash.NativeCrashHandler
 
-@Feature(
-    id = "崩溃拦截 (Native)",
-    nameRes = "feature_native_crash_interceptor_name",
-    categoryIds = [FeatureCategoryIds.DEBUG],
-    descriptionRes = "feature_native_crash_interceptor_description",
-)
 object NativeCrashInterceptor : SwitchFeature() {
+
+    override val technicalId = "崩溃拦截 (Native)"
+    override val nameRes = R.string.feature_native_crash_interceptor_name
+    override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
+    override val descriptionRes = R.string.feature_native_crash_interceptor_description
 
     private const val TAG = "NativeCrashInterceptor"
 

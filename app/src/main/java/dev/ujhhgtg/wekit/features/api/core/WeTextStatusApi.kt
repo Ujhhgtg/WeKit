@@ -5,11 +5,11 @@ import android.widget.ImageView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -42,13 +42,12 @@ data class TextStatusEmoji(
     val attachedText: String?,
 )
 
-@Feature(
-    id = "微信状态服务",
-    nameRes = "feature_we_text_status_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_text_status_api_description",
-)
 object WeTextStatusApi : ApiFeature(), IResolveDex {
+
+    override val technicalId = "微信状态服务"
+    override val nameRes = R.string.feature_we_text_status_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_text_status_api_description
 
     private const val TAG = "WeTextStatusApi"
 

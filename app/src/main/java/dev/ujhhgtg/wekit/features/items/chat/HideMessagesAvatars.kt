@@ -15,7 +15,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -25,13 +24,12 @@ import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 
-@Feature(
-    id = "隐藏消息头像",
-    nameRes = "feature_hide_messages_avatars_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_hide_messages_avatars_description",
-)
 object HideMessagesAvatars : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
+
+    override val technicalId = "隐藏消息头像"
+    override val nameRes = R.string.feature_hide_messages_avatars_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_hide_messages_avatars_description
 
     var hideIncoming by prefOption("chat_hide_avatar_incoming", true)
     private var hideOutgoing by prefOption("chat_hide_avatar_outgoing", false)

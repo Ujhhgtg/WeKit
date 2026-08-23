@@ -40,7 +40,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -68,13 +67,12 @@ import org.commonmark.node.OrderedList
 import org.commonmark.node.Paragraph
 import java.lang.reflect.Field
 
-@Feature(
-    id = "Markdown 渲染",
-    nameRes = "feature_markdown_rendering_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_markdown_rendering_description",
-)
 object MarkdownRendering : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "Markdown 渲染"
+    override val nameRes = R.string.feature_markdown_rendering_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_markdown_rendering_description
 
     private const val TAG = "MarkdownRendering"
 

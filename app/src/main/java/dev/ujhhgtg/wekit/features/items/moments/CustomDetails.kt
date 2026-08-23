@@ -17,7 +17,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -37,13 +36,12 @@ import kotlin.io.path.exists
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
-@Feature(
-    id = "自定义底部详细信息",
-    nameRes = "feature_custom_details_name",
-    categoryIds = [FeatureCategoryIds.MOMENTS],
-    descriptionRes = "feature_custom_details_description",
-)
 object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
+
+    override val technicalId = "自定义底部详细信息"
+    override val nameRes = R.string.feature_custom_details_name
+    override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
+    override val descriptionRes = R.string.feature_custom_details_description
 
     private const val TAG = "CustomDetails"
 

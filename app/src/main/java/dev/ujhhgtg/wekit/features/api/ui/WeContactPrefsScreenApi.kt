@@ -11,8 +11,8 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.reflekt.utils.makeAccessible
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.lang.reflect.Constructor
@@ -20,12 +20,11 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.concurrent.CopyOnWriteArrayList
 
-@Feature(
-    id = "联系人页面扩展",
-    nameRes = "feature_we_contact_prefs_screen_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-)
 object WeContactPrefsScreenApi : ApiFeature() {
+
+    override val technicalId = "联系人页面扩展"
+    override val nameRes = R.string.feature_we_contact_prefs_screen_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
 
     interface IContactInfoProvider {
         fun getContactInfoItem(activity: Activity): List<PreferenceItem>

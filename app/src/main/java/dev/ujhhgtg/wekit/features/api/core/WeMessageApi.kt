@@ -25,6 +25,7 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isBuiltin
 import dev.ujhhgtg.reflekt.utils.makeAccessible
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -37,7 +38,6 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -90,13 +90,12 @@ import kotlin.random.Random
 
 
 @SuppressLint("DiscouragedApi")
-@Feature(
-    id = "消息发送服务",
-    nameRes = "feature_we_message_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_message_api_description",
-)
 object WeMessageApi : ApiFeature(), IResolveDex {
+
+    override val technicalId = "消息发送服务"
+    override val nameRes = R.string.feature_we_message_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_message_api_description
 
     private const val NOTIFICATION_THUMBNAIL_MIN_EDGE_DP = 180
 

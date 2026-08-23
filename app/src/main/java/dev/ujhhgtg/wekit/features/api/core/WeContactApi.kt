@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.api.core
 
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -12,7 +13,6 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.DelContactProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLog
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.UserNameProto
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
@@ -25,13 +25,12 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resume
 import kotlin.time.Duration.Companion.seconds
 
-@Feature(
-    id = "联系人服务",
-    nameRes = "feature_we_contact_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_contact_api_description",
-)
 object WeContactApi : ApiFeature(), IResolveDex {
+
+    override val technicalId = "联系人服务"
+    override val nameRes = R.string.feature_we_contact_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_contact_api_description
 
     private const val TAG = "WeContactApi"
     private const val VERIFY_USER_SCENE_REQUEST = 3

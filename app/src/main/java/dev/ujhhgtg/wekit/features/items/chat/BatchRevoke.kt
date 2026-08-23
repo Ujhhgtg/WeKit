@@ -5,20 +5,18 @@ import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.UndoIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(
-    id = "批量撤回",
-    nameRes = "feature_batch_revoke_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_batch_revoke_description",
-)
 object BatchRevoke : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
+
+    override val technicalId = "批量撤回"
+    override val nameRes = R.string.feature_batch_revoke_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_batch_revoke_description
 
     override fun onEnable() {
         WeChatMessageContextMenuApi.addProvider(this)

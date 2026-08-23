@@ -3,19 +3,18 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.view.KeyEvent
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-@Feature(
-    id = "快捷清除引用",
-    nameRes = "feature_quick_remove_quote_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_quick_remove_quote_description",
-)
 object QuickRemoveQuote : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "快捷清除引用"
+    override val nameRes = R.string.feature_quick_remove_quote_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_quick_remove_quote_description
 
     private val methodSupportAutoCompleteOnKey by dexMethod {
         searchPackages("com.tencent.mm.pluginsdk.ui.chat")

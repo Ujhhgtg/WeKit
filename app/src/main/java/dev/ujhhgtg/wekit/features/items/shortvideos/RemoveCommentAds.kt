@@ -4,22 +4,21 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.Collections
 import java.util.WeakHashMap
 
-@Feature(
-    id = "移除评论区广告",
-    nameRes = "feature_remove_comment_ads_name",
-    categoryIds = [FeatureCategoryIds.CHANNELS],
-    descriptionRes = "feature_remove_comment_ads_description",
-)
 object RemoveCommentAds : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "移除评论区广告"
+    override val nameRes = R.string.feature_remove_comment_ads_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHANNELS)
+    override val descriptionRes = R.string.feature_remove_comment_ads_description
 
     /**
      * 广告角标文案。8.0.65-8.0.76 评论区广告项右上角均为该文案

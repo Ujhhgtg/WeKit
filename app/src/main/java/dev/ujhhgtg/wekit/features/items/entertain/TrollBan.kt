@@ -2,23 +2,22 @@ package dev.ujhhgtg.wekit.features.items.entertain
 
 import androidx.activity.ComponentActivity
 import androidx.core.net.toUri
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeAlertDialogApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.collections.emptyHashSet
 import dev.ujhhgtg.wekit.utils.openInSystem
 import dev.ujhhgtg.wekit.utils.serialization.JsonToXmlConverter
 import org.json.JSONObject
 
-@Feature(
-    id = "防止封号",
-    nameRes = "feature_troll_ban_name",
-    categoryIds = [FeatureCategoryIds.ENTERTAIN],
-    descriptionRes = "feature_troll_ban_description",
-)
 object TrollBan : ClickableFeature() {
+
+    override val technicalId = "防止封号"
+    override val nameRes = R.string.feature_troll_ban_name
+    override val categoryIds = listOf(FeatureCategoryIds.ENTERTAIN)
+    override val descriptionRes = R.string.feature_troll_ban_description
 
     override val noSwitchWidget = true
 

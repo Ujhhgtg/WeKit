@@ -19,7 +19,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -55,13 +54,12 @@ import dev.ujhhgtg.wekit.utils.android.showToast
  *   "(?s)<sec_msg_node[^>]*>.*?</sec_msg_node>" 正则字面量 (8.0.72 为 az0.ia.O,
  *   8.0.65 为 zt0.t9.N), 签名均为 static (msgInfo, String, boolean) -> void。
  */
-@Feature(
-    id = "安全消息发送",
-    nameRes = "feature_send_sec_msg_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_send_sec_msg_description",
-)
 object SendSecMsg : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "安全消息发送"
+    override val nameRes = R.string.feature_send_sec_msg_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_send_sec_msg_description
 
     /** 被动模式: 所有自己发出的文本消息一律注入标记 */
     private const val MODE_PASSIVE = 0

@@ -45,7 +45,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -63,13 +62,12 @@ import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.Serializable
 import org.luckypray.dexkit.DexKitBridge
 
-@Feature(
-    id = "二维码扫描记录",
-    nameRes = "feature_qr_code_record_name",
-    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
-    descriptionRes = "feature_qr_code_record_description",
-)
 object QrCodeRecord : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "二维码扫描记录"
+    override val nameRes = R.string.feature_qr_code_record_name
+    override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
+    override val descriptionRes = R.string.feature_qr_code_record_description
 
     private const val TAG = "QrCodeRecord"
 

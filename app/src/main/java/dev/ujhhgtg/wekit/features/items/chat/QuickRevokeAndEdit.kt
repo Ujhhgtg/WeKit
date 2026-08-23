@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
@@ -21,13 +20,12 @@ import dev.ujhhgtg.wekit.utils.now
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
-@Feature(
-    id = "一键撤回并重新编辑",
-    nameRes = "feature_quick_revoke_and_edit_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_quick_revoke_and_edit_description",
-)
 object QuickRevokeAndEdit : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
+
+    override val technicalId = "一键撤回并重新编辑"
+    override val nameRes = R.string.feature_quick_revoke_and_edit_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_quick_revoke_and_edit_description
 
     override fun onEnable() {
         WeChatMessageContextMenuApi.addProvider(this)

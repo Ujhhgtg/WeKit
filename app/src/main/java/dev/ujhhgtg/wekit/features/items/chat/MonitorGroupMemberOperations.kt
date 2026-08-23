@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ChatRoomDataProto
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -23,13 +22,12 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 
-@Feature(
-    id = "群成员行为监控",
-    nameRes = "feature_monitor_group_member_operations_name",
-    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
-    descriptionRes = "feature_monitor_group_member_operations_description",
-)
 object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseListenerApi.IUpdateListener {
+
+    override val technicalId = "群成员行为监控"
+    override val nameRes = R.string.feature_monitor_group_member_operations_name
+    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
+    override val descriptionRes = R.string.feature_monitor_group_member_operations_description
 
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)

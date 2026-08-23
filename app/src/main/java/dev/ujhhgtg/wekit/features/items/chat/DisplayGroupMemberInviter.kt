@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoProvider
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -19,13 +18,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Feature(
-    id = "查看群成员邀请者",
-    nameRes = "feature_display_group_member_inviter_name",
-    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
-    descriptionRes = "feature_display_group_member_inviter_description",
-)
 object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
+
+    override val technicalId = "查看群成员邀请者"
+    override val nameRes = R.string.feature_display_group_member_inviter_name
+    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
+    override val descriptionRes = R.string.feature_display_group_member_inviter_description
 
     private const val TAG = "DisplayGroupMemberInviter"
 

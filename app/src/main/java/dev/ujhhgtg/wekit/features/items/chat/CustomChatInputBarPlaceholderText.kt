@@ -21,7 +21,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -33,13 +32,12 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.time.LocalDate
 
-@Feature(
-    id = "自定义输入框占位符文本",
-    nameRes = "feature_custom_chat_input_bar_placeholder_text_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_custom_chat_input_bar_placeholder_text_description",
-)
 object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IInsertListener {
+
+    override val technicalId = "自定义输入框占位符文本"
+    override val nameRes = R.string.feature_custom_chat_input_bar_placeholder_text_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_custom_chat_input_bar_placeholder_text_description
 
     private var lastDayOfMonth by prefOption("custom_pt_day", 0)
     private var totC by prefOption("custom_pt_tot_count", 0)

@@ -57,7 +57,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoProvider
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -89,13 +88,12 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.math.min
 
-@Feature(
-    id = "自定义好友本地头像",
-    nameRes = "feature_custom_local_friend_avatars_name",
-    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.CONTACT_DETAILS],
-    descriptionRes = "feature_custom_local_friend_avatars_description",
-)
 object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IResolveDex {
+
+    override val technicalId = "自定义好友本地头像"
+    override val nameRes = R.string.feature_custom_local_friend_avatars_name
+    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.CONTACT_DETAILS)
+    override val descriptionRes = R.string.feature_custom_local_friend_avatars_description
 
     private const val PREF_KEY = "custom_avatar"
     private const val SEP = ";"

@@ -26,7 +26,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.DexClassDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -42,13 +41,12 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import java.lang.ref.WeakReference
 import kotlin.math.abs
 
-@Feature(
-    id = "左划对话菜单",
-    nameRes = "feature_swipe_conversation_operations_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_swipe_conversation_operations_description",
-)
 object SwipeConversationOperations : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "左划对话菜单"
+    override val nameRes = R.string.feature_swipe_conversation_operations_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_swipe_conversation_operations_description
 
     // Layout / gesture tuning.
     private const val BUTTON_WIDTH_DP = 72  // width of each action button

@@ -32,7 +32,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -48,13 +47,12 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.nul
 
 
-@Feature(
-    id = "指纹支付",
-    nameRes = "feature_fingerprint_pay_name",
-    categoryIds = [FeatureCategoryIds.PAYMENT],
-    descriptionRes = "feature_fingerprint_pay_description",
-)
 object FingerprintPay : ClickableFeature() {
+
+    override val technicalId = "指纹支付"
+    override val nameRes = R.string.feature_fingerprint_pay_name
+    override val categoryIds = listOf(FeatureCategoryIds.PAYMENT)
+    override val descriptionRes = R.string.feature_fingerprint_pay_description
 
     private const val TAG = "FingerprintPay"
     private var encryptedData by prefOption("payment_pswd_encdata", nul<String>())

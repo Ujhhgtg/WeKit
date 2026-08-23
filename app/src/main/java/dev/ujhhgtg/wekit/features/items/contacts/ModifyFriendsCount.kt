@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -35,13 +34,12 @@ import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(
-    id = "修改好友数量",
-    nameRes = "feature_modify_friends_count_name",
-    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
-    descriptionRes = "feature_modify_friends_count_description",
-)
 object ModifyFriendsCount : ClickableFeature() {
+
+    override val technicalId = "修改好友数量"
+    override val nameRes = R.string.feature_modify_friends_count_name
+    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
+    override val descriptionRes = R.string.feature_modify_friends_count_description
 
     private const val TAG = "ModifyFriendsCount"
     private const val HIDE = -1

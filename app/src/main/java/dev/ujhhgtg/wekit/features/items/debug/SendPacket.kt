@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -22,13 +21,13 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(
-    id = "发包调试",
-    nameRes = "feature_send_packet_name",
-    categoryIds = [FeatureCategoryIds.DEBUG],
-    descriptionRes = "feature_send_packet_description",
-)
 object SendPacket : ClickableFeature() {
+
+    override val technicalId = "发包调试"
+    override val nameRes = R.string.feature_send_packet_name
+    override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
+    override val descriptionRes = R.string.feature_send_packet_description
+
     private const val TAG = "SendPacket"
 
     override fun onClick(context: ComponentActivity) {

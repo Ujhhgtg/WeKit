@@ -1,18 +1,17 @@
 package dev.ujhhgtg.wekit.features.items.system
 
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-@Feature(
-    id = "移除二维码扫描限制",
-    nameRes = "feature_remove_qr_code_scan_limit_name",
-    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
-    descriptionRes = "feature_remove_qr_code_scan_limit_description",
-)
 object RemoveQrCodeScanLimit : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "移除二维码扫描限制"
+    override val nameRes = R.string.feature_remove_qr_code_scan_limit_name
+    override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
+    override val descriptionRes = R.string.feature_remove_qr_code_scan_limit_description
 
     private enum class ScanScene(val source: Int, val a8KeyScene: Int) {
         CAMERA(0, 4), // 相机扫描

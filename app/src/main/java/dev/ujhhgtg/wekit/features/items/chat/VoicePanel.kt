@@ -11,7 +11,6 @@ import androidx.annotation.StringRes
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneExample
@@ -74,14 +73,13 @@ internal val EDGE_TTS_VOICES = listOf(
     EdgeTtsVoice("ja-JP-NanamiNeural", R.string.voice_edge_nanami),
 )
 
-@Feature(
-    id = "语音面板",
-    nameRes = "feature_voice_panel_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_voice_panel_description",
-)
-object VoicePanel : SwitchFeature() { // entry implementation in ChatFooterHooks
+// Entry implementation in ChatFooterHooks.
+object VoicePanel : SwitchFeature() {
 
+    override val technicalId = "语音面板"
+    override val nameRes = R.string.feature_voice_panel_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_voice_panel_description
     fun openPanel(anchor: View) {
         val context = anchor.context
         showVoicePanelSheet(

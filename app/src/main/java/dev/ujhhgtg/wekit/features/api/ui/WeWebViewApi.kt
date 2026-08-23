@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import android.webkit.ValueCallback
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.evaluateJavascript
@@ -11,7 +12,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.loadUrl
 import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.reload
 import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.tracked
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.luckypray.dexkit.query.enums.StringMatchType
@@ -33,13 +33,12 @@ import java.util.concurrent.TimeUnit
  * 两种 WebView 并不共享带这些方法的公共父类（xweb 的是 FrameLayout 包装器），因此所有操作均通过反射按
  * 方法名调用，同时适配二者（与 [dev.ujhhgtg.wekit.features.items.miniapps.ErudaConsole] 的做法一致）。
  */
-@Feature(
-    id = "WebView 追踪服务",
-    nameRes = "feature_we_web_view_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_web_view_api_description",
-)
 object WeWebViewApi : ApiFeature(), IResolveDex {
+
+    override val technicalId = "WebView 追踪服务"
+    override val nameRes = R.string.feature_we_web_view_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_web_view_api_description
 
     private const val TAG = "WeWebViewApi"
 

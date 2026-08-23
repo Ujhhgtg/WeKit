@@ -6,18 +6,16 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(
-    id = "发送卡片消息",
-    nameRes = "feature_send_card_message_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_send_card_message_description",
-)
 object SendCardMessage : SwitchFeature() {
+
+    override val technicalId = "发送卡片消息"
+    override val nameRes = R.string.feature_send_card_message_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_send_card_message_description
 
     private val provider = WeChatInputBarMenuApi.IActionItemsProvider {
         listOf(

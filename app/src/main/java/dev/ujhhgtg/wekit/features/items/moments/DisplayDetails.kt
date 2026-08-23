@@ -34,7 +34,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -53,13 +52,12 @@ import java.util.Collections
 import java.util.Locale
 import java.util.WeakHashMap
 
-@Feature(
-    id = "底部详细信息",
-    nameRes = "feature_display_details_name",
-    categoryIds = [FeatureCategoryIds.MOMENTS],
-    descriptionRes = "feature_display_details_description",
-)
 object DisplayDetails : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "底部详细信息"
+    override val nameRes = R.string.feature_display_details_name
+    override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
+    override val descriptionRes = R.string.feature_display_details_description
 
     private const val TAG = "DisplayDetails"
 

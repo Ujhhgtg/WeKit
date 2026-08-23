@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.system.localizedSystemString
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -85,13 +84,12 @@ import java.io.File
 import kotlin.io.path.div
 import kotlin.time.Duration.Companion.milliseconds
 
-@Feature(
-    id = "API + MCP 服务器",
-    nameRes = "feature_api_server_name",
-    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
-    descriptionRes = "feature_api_server_description",
-)
 object ApiServer : ClickableFeature() {
+
+    override val technicalId = "API + MCP 服务器"
+    override val nameRes = R.string.feature_api_server_name
+    override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
+    override val descriptionRes = R.string.feature_api_server_description
 
     private var authToken by prefOption("api_auth_token", "your_token")
 

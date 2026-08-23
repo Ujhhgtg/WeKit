@@ -6,12 +6,12 @@ import android.graphics.drawable.Drawable
 import android.view.ContextMenu
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.DexMethodDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -19,13 +19,12 @@ import dev.ujhhgtg.wekit.utils.reflection.BString
 import java.lang.reflect.Modifier
 import java.math.BigInteger
 
-@Feature(
-    id = "朋友圈菜单增强扩展",
-    nameRes = "feature_we_moments_context_menu_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_moments_context_menu_api_description",
-)
 object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
+
+    override val technicalId = "朋友圈菜单增强扩展"
+    override val nameRes = R.string.feature_we_moments_context_menu_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_moments_context_menu_api_description
 
     private const val TAG = "WeMomentsContextMenuApi"
 

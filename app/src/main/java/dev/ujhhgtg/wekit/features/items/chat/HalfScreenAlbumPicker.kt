@@ -28,7 +28,6 @@ import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -43,13 +42,12 @@ import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
 
-@Feature(
-    id = "半屏相册选择器",
-    nameRes = "feature_half_screen_album_picker_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_half_screen_album_picker_description",
-)
 object HalfScreenAlbumPicker : ClickableFeature() {
+
+    override val technicalId = "半屏相册选择器"
+    override val nameRes = R.string.feature_half_screen_album_picker_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_half_screen_album_picker_description
 
     private const val TAG = "HalfScreenAlbumPicker"
 

@@ -15,7 +15,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.VoiceMessagePlaybackOptimization.MODE_DISABLE
 import dev.ujhhgtg.wekit.features.items.chat.VoiceMessagePlaybackOptimization.MODE_INHERIT_PROGRESS
@@ -49,13 +48,12 @@ import dev.ujhhgtg.wekit.utils.reflection.bool
  *
  * 所有锚点均为跨版本稳定字符串, 按项目约定不加 allowFailure。
  */
-@Feature(
-    id = "语音消息播放逻辑优化",
-    nameRes = "feature_voice_message_playback_optimization_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_voice_message_playback_optimization_description",
-)
 object VoiceMessagePlaybackOptimization : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "语音消息播放逻辑优化"
+    override val nameRes = R.string.feature_voice_message_playback_optimization_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_voice_message_playback_optimization_description
 
     /** 完全禁用自动切换 */
     private const val MODE_DISABLE = 0

@@ -33,7 +33,6 @@ import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResult
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationStage
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetLogLevel
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -44,13 +43,12 @@ import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import kotlin.concurrent.thread
 import kotlin.io.path.div
 
-@Feature(
-    id = "莫奈引擎 (模块)",
-    nameRes = "feature_monet_module_generator_name",
-    categoryIds = [FeatureCategoryIds.BEAUTIFY],
-    descriptionRes = "feature_monet_module_generator_description",
-)
 object MonetEngineModuleGenerator : ClickableFeature() {
+
+    override val technicalId = "莫奈引擎 (模块)"
+    override val nameRes = R.string.feature_monet_module_generator_name
+    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
+    override val descriptionRes = R.string.feature_monet_module_generator_description
 
     private const val TAG = "MonetEngineModuleGenerator"
 

@@ -7,13 +7,13 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
 import android.widget.ImageView
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
@@ -36,13 +36,13 @@ import kotlin.io.path.outputStream
 import kotlin.math.roundToInt
 import org.luckypray.dexkit.DexKitBridge
 
-@Feature(
-    id = "表情消息以图片打开",
-    nameRes = "feature_view_sticker_as_image_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_view_sticker_as_image_description",
-)
 object ViewStickerAsImage : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "表情消息以图片打开"
+    override val nameRes = R.string.feature_view_sticker_as_image_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_view_sticker_as_image_description
+
     private const val TAG = "ViewStickerAsImage"
 
     private val methodEmojiClickHandler by dexMethod()

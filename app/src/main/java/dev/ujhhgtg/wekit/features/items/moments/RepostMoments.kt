@@ -4,7 +4,6 @@ import android.content.Context
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.SendIcon
@@ -16,13 +15,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Feature(
-    id = "转发 & 一键转发",
-    nameRes = "feature_repost_moments_name",
-    categoryIds = [FeatureCategoryIds.MOMENTS],
-    descriptionRes = "feature_repost_moments_description",
-)
 object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
+
+    override val technicalId = "转发 & 一键转发"
+    override val nameRes = R.string.feature_repost_moments_name
+    override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
+    override val descriptionRes = R.string.feature_repost_moments_description
 
     private const val TAG = "RepostMoments"
 

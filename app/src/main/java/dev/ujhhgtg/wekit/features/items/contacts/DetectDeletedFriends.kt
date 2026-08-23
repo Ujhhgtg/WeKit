@@ -32,7 +32,6 @@ import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferReqProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferRespProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -62,13 +61,12 @@ import kotlin.coroutines.resume
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
-@Feature(
-    id = "检测单向删除好友",
-    nameRes = "feature_detect_deleted_friends_name",
-    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
-    descriptionRes = "feature_detect_deleted_friends_description",
-)
 object DetectDeletedFriends : ClickableFeature() {
+
+    override val technicalId = "检测单向删除好友"
+    override val nameRes = R.string.feature_detect_deleted_friends_name
+    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
+    override val descriptionRes = R.string.feature_detect_deleted_friends_description
 
     override val noSwitchWidget = true
 

@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.FolderChoice
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -34,13 +33,12 @@ import dev.ujhhgtg.wekit.ui.utils.FolderAddIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(
-    id = "添加对话至归拢文件夹",
-    nameRes = "feature_add_to_aggregation_folder_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_add_to_aggregation_folder_description",
-)
 object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi.IMenuItemsProvider {
+
+    override val technicalId = "添加对话至归拢文件夹"
+    override val nameRes = R.string.feature_add_to_aggregation_folder_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_add_to_aggregation_folder_description
 
     private var showConfigDialog by prefOption("add_to_folder_show_config_dialog", false)
 

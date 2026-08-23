@@ -6,7 +6,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
@@ -16,13 +15,12 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import org.luckypray.dexkit.query.enums.StringMatchType
 
-@Feature(
-    id = "Eruda 调试面板",
-    nameRes = "feature_eruda_console_name",
-    categoryIds = [FeatureCategoryIds.MINIAPPS],
-    descriptionRes = "feature_eruda_console_description",
-)
 object ErudaConsole : SwitchFeature(), IResolveDex {
+
+    override val technicalId = "Eruda 调试面板"
+    override val nameRes = R.string.feature_eruda_console_name
+    override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)
+    override val descriptionRes = R.string.feature_eruda_console_description
 
     private val erudaScript by lazy {
         val resources = HostInfo.application.resources

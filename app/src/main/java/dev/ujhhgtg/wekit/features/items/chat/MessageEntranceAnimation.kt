@@ -25,7 +25,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -65,13 +64,12 @@ import java.util.WeakHashMap
  *   - 重力掉落: translationY = -250dp + scale 0.9, spring 回 0/1.0
  *     (translation stiffness=300, dampingRatio=0.5; scale stiffness=200, dampingRatio=0.6)。
  */
-@Feature(
-    id = "消息进入动画",
-    nameRes = "feature_message_entrance_animation_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_message_entrance_animation_description",
-)
 object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "消息进入动画"
+    override val nameRes = R.string.feature_message_entrance_animation_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_message_entrance_animation_description
 
     /**
      * 入场动效风格: 0=弹跳入场 1=平移滑入 2=重力掉落。

@@ -3,11 +3,11 @@ package dev.ujhhgtg.wekit.features.items.moments
 import android.content.ContentValues
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -15,16 +15,15 @@ import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
-@Feature(
-    id = "自动转发",
-    nameRes = "feature_auto_repost_moments_name",
-    categoryIds = [FeatureCategoryIds.MOMENTS],
-    descriptionRes = "feature_auto_repost_moments_description",
-)
 object AutoRepostMoments : AutoMomentsBase(),
     WeDatabaseListenerApi.IInsertListener,
     WeDatabaseListenerApi.IUpdateListener,
     AutoRefresh.IRefreshListener {
+
+    override val technicalId = "自动转发"
+    override val nameRes = R.string.feature_auto_repost_moments_name
+    override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
+    override val descriptionRes = R.string.feature_auto_repost_moments_description
 
     override val TAG = "AutoRepostMoments"
 

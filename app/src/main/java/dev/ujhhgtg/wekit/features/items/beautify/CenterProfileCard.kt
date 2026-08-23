@@ -40,7 +40,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -57,13 +56,12 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 
-@Feature(
-    id = "资料卡居中",
-    nameRes = "feature_center_profile_card_name",
-    categoryIds = [FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.PROFILE],
-    descriptionRes = "feature_center_profile_card_description",
-)
 object CenterProfileCard : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "资料卡居中"
+    override val nameRes = R.string.feature_center_profile_card_name
+    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.PROFILE)
+    override val descriptionRes = R.string.feature_center_profile_card_description
 
     private const val TAG = "CenterProfileCard"
     private const val CENTER_CARD_TAG = "wekit_account_info_center_card"

@@ -23,7 +23,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeXmlParserApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -38,13 +37,12 @@ import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
-@Feature(
-    id = "防撤回",
-    nameRes = "feature_anti_message_recall_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_anti_message_recall_description",
-)
 object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListener {
+
+    override val technicalId = "防撤回"
+    override val nameRes = R.string.feature_anti_message_recall_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_anti_message_recall_description
 
     private const val TAG = "AntiMessageRecall"
 

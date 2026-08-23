@@ -55,7 +55,6 @@
 //import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 //import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 //import dev.ujhhgtg.wekit.features.core.ClickableFeature
-//import dev.ujhhgtg.wekit.features.core.Feature
 //import dev.ujhhgtg.wekit.preferences.WePrefs
 //import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 //import dev.ujhhgtg.wekit.ui.content.Button
@@ -72,7 +71,7 @@
 //import kotlinx.coroutines.withContext
 //import java.io.Serializable
 //
-//@Feature(
+// Disabled feature metadata (
 //    name = "自定义对话通知",
 //    categories = ["通知"],
 //    description = "为每个对话单独设定通知方式\n• 声音:跟随全局 / 无声 / 自定义铃声\n• 振动: 跟随全局 / 短/ 长 / 禁用\n• 优先级: 跟随全局 / 低 / 中 / 高 / 紧急\n• 遵守免打扰: 跟随全局 / 关 / 开"

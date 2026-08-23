@@ -23,7 +23,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -271,15 +270,14 @@ internal class CoalescedOriginCallbacks<T> {
     }
 }
 
-@Feature(
-    id = "已读追踪",
-    nameRes = "feature_read_receipts_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_read_receipts_description",
-)
 object ReadReceipts : ClickableFeature(),
     WeChatMessageViewApi.ICreateViewListener,
     WeChatMessageViewApi.IMessageViewLifecycleListener {
+
+    override val technicalId = "已读追踪"
+    override val nameRes = R.string.feature_read_receipts_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_read_receipts_description
 
     private const val TAG = "ReadReceipts"
 

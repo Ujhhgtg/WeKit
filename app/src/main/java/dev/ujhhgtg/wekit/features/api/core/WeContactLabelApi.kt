@@ -2,25 +2,24 @@ package dev.ujhhgtg.wekit.features.api.core
 
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.makeAccessible
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi.modifyLabel
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.result.FieldUsingType
 import java.util.LinkedList
 
-@Feature(
-    id = "联系人标签服务",
-    nameRes = "feature_we_contact_label_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_contact_label_api_description",
-)
 object WeContactLabelApi : ApiFeature(), IResolveDex {
+
+    override val technicalId = "联系人标签服务"
+    override val nameRes = R.string.feature_we_contact_label_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_contact_label_api_description
 
     private const val TAG = "WeContactLabelApi"
 

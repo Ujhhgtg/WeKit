@@ -1,20 +1,19 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
 import android.content.ContentValues
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(
-    id = "朋友圈防撤回",
-    nameRes = "feature_anti_moments_delete_name",
-    categoryIds = [FeatureCategoryIds.MOMENTS],
-    descriptionRes = "feature_anti_moments_delete_description",
-)
 object AntiMomentsDelete : SwitchFeature(), WeDatabaseListenerApi.IUpdateListener {
+
+    override val technicalId = "朋友圈防撤回"
+    override val nameRes = R.string.feature_anti_moments_delete_name
+    override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
+    override val descriptionRes = R.string.feature_anti_moments_delete_description
 
     private const val TAG = "AntiMomentsDelete"
     private const val TBL_SNS_INFO = "SnsInfo"

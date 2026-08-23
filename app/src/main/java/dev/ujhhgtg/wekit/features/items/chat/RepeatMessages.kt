@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.ExposurePlus1Icon
@@ -19,13 +18,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Feature(
-    id = "消息复读",
-    nameRes = "feature_repeat_messages_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_repeat_messages_description",
-)
 object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
+
+    override val technicalId = "消息复读"
+    override val nameRes = R.string.feature_repeat_messages_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_repeat_messages_description
 
     private val TAG = RepeatMessages::class.java.simpleName
 
