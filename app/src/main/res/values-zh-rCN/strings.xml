@@ -3348,6 +3348,7 @@
     <string name="payment_wallet_balance_optional">零钱余额 (留空不修改)</string>
     <string name="payment_wealth_balance_optional">零钱通余额 (留空不修改)</string>
     <string name="payment_business_balance_optional">经营账户余额 (留空不修改)</string>
+    <string name="payment_balance_display_amount">显示金额</string>
     <string name="payment_wallet_balance_title">零钱</string>
     <string name="payment_wealth_balance_title">零钱通</string>
     <string name="payment_business_balance_title">经营账户</string>

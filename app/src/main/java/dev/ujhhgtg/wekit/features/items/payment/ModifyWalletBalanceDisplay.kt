@@ -8,13 +8,22 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
@@ -26,10 +35,11 @@ import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.reflection.BString
@@ -80,9 +90,9 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
     private var balance by prefOption(KEY_BALANCE, "0.00")
     private var lqt by prefOption(KEY_LQT, "0.00")
     private var business by prefOption(KEY_BUSINESS, null as String?)
-    private var enableBalance by prefOption(KEY_ENABLE_BALANCE, true)
-    private var enableLqt by prefOption(KEY_ENABLE_LQT, true)
-    private var enableBusiness by prefOption(KEY_ENABLE_BUSINESS, true)
+    private var enableBalance by prefOption(KEY_ENABLE_BALANCE, false)
+    private var enableLqt by prefOption(KEY_ENABLE_LQT, false)
+    private var enableBusiness by prefOption(KEY_ENABLE_BUSINESS, false)
     private var balanceMode by prefOption(KEY_MODE_BALANCE, MODE_FIXED)
     private var lqtMode by prefOption(KEY_MODE_LQT, MODE_FIXED)
     private var businessMode by prefOption(KEY_MODE_BUSINESS, MODE_FIXED)
@@ -453,16 +463,102 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_modify_wallet_balance_display_name)) },
                 text = {
-                    DefaultColumn {
-                        SwitchWidget(title = stringResource(R.string.payment_wallet_balance_title), checked = balanceEnabled, onCheckedChange = { balanceEnabled = it })
-                        TextField(balanceInput, { balanceInput = it }, label = { Text(stringResource(R.string.payment_wallet_balance_optional)) })
-                        DropDownMenuWidget(title = stringResource(R.string.payment_wallet_balance_mode), description = null, value = balanceModeInput, options = modes, onValueChange = { balanceModeInput = it })
-                        SwitchWidget(title = stringResource(R.string.payment_wealth_balance_title), checked = lqtEnabled, onCheckedChange = { lqtEnabled = it })
-                        TextField(lqtInput, { lqtInput = it }, label = { Text(stringResource(R.string.payment_wealth_balance_optional)) })
-                        DropDownMenuWidget(title = stringResource(R.string.payment_wealth_balance_mode), description = null, value = lqtModeInput, options = modes, onValueChange = { lqtModeInput = it })
-                        SwitchWidget(title = stringResource(R.string.payment_business_balance_title), checked = businessEnabled, onCheckedChange = { businessEnabled = it })
-                        TextField(businessInput, { businessInput = it }, label = { Text(stringResource(R.string.payment_business_balance_optional)) })
-                        DropDownMenuWidget(title = stringResource(R.string.payment_business_balance_mode), description = null, value = businessModeInput, options = modes, onValueChange = { businessModeInput = it })
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item {
+                                SwitchWidget(
+                                    title = stringResource(R.string.payment_wallet_balance_title),
+                                    checked = balanceEnabled,
+                                    onCheckedChange = { balanceEnabled = it },
+                                )
+                            }
+                            item(animatedVisibility = balanceEnabled) {
+                                BaseSupportingWidget(title = stringResource(R.string.payment_balance_display_amount)) {
+                                    OutlinedTextField(
+                                        value = balanceInput,
+                                        onValueChange = { balanceInput = it },
+                                        singleLine = true,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                    )
+                                }
+                            }
+                            item(animatedVisibility = balanceEnabled) {
+                                DropDownMenuWidget(
+                                    title = stringResource(R.string.payment_wallet_balance_mode),
+                                    description = null,
+                                    value = balanceModeInput,
+                                    options = modes,
+                                    onValueChange = { balanceModeInput = it },
+                                )
+                            }
+                        }
+
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item {
+                                SwitchWidget(
+                                    title = stringResource(R.string.payment_wealth_balance_title),
+                                    checked = lqtEnabled,
+                                    onCheckedChange = { lqtEnabled = it },
+                                )
+                            }
+                            item(animatedVisibility = lqtEnabled) {
+                                BaseSupportingWidget(title = stringResource(R.string.payment_balance_display_amount)) {
+                                    OutlinedTextField(
+                                        value = lqtInput,
+                                        onValueChange = { lqtInput = it },
+                                        singleLine = true,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                    )
+                                }
+                            }
+                            item(animatedVisibility = lqtEnabled) {
+                                DropDownMenuWidget(
+                                    title = stringResource(R.string.payment_wealth_balance_mode),
+                                    description = null,
+                                    value = lqtModeInput,
+                                    options = modes,
+                                    onValueChange = { lqtModeInput = it },
+                                )
+                            }
+                        }
+
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            item {
+                                SwitchWidget(
+                                    title = stringResource(R.string.payment_business_balance_title),
+                                    checked = businessEnabled,
+                                    onCheckedChange = { businessEnabled = it },
+                                )
+                            }
+                            item(animatedVisibility = businessEnabled) {
+                                BaseSupportingWidget(title = stringResource(R.string.payment_balance_display_amount)) {
+                                    OutlinedTextField(
+                                        value = businessInput,
+                                        onValueChange = { businessInput = it },
+                                        singleLine = true,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                    )
+                                }
+                            }
+                            item(animatedVisibility = businessEnabled) {
+                                DropDownMenuWidget(
+                                    title = stringResource(R.string.payment_business_balance_mode),
+                                    description = null,
+                                    value = businessModeInput,
+                                    options = modes,
+                                    onValueChange = { businessModeInput = it },
+                                )
+                            }
+                        }
                     }
                 },
                 confirmButton = {

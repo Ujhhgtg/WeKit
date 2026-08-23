@@ -3306,6 +3306,7 @@
     <string name="payment_wallet_balance_optional">Wallet balance (leave blank to keep unchanged)</string>
     <string name="payment_wealth_balance_optional">Wealth balance (leave blank to keep unchanged)</string>
     <string name="payment_business_balance_optional">Business account balance (leave blank to keep unchanged)</string>
+    <string name="payment_balance_display_amount">Displayed amount</string>
     <string name="payment_wallet_balance_title">Wallet balance</string>
     <string name="payment_wealth_balance_title">Wealth balance</string>
     <string name="payment_business_balance_title">Business account</string>

@@ -3333,6 +3333,7 @@
     <string name="payment_wallet_balance_optional">零錢餘額 (留空不修改)</string>
     <string name="payment_wealth_balance_optional">零錢通餘額 (留空不修改)</string>
     <string name="payment_business_balance_optional">經營賬戶餘額 (留空不修改)</string>
+    <string name="payment_balance_display_amount">顯示金額</string>
     <string name="payment_wallet_balance_title">零錢</string>
     <string name="payment_wealth_balance_title">零錢通</string>
     <string name="payment_business_balance_title">經營賬戶</string>
