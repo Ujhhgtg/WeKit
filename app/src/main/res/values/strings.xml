@@ -1303,6 +1303,7 @@
     <string name="fab_default_restart_wechat">Restart WeChat</string>
     <string name="fab_default_force_stop">Force stop</string>
     <string name="fab_default_mark_all_read">Mark all as read</string>
+    <string name="home_side_panel_action_add_friend">Add friends</string>
     <string name="fab_edit_position_hint">Drag the main button to reposition it, then tap it to save</string>
     <string name="fab_position_saved">FAB position saved</string>
     <string name="fab_all_marked_read">All unread messages marked as read</string>

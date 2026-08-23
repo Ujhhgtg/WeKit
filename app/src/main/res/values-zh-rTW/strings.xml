@@ -1260,6 +1260,7 @@
     <string name="fab_default_restart_wechat">重啓微信</string>
     <string name="fab_default_force_stop">強行停止</string>
     <string name="fab_default_mark_all_read">清空未讀</string>
+    <string name="home_side_panel_action_add_friend">新增朋友</string>
     <string name="fab_edit_position_hint">拖動主按鈕調整位置，然後點擊主按鈕保存</string>
     <string name="fab_position_saved">已保存 FAB 位置</string>
     <string name="fab_all_marked_read">已將全部未讀消息標爲已讀</string>

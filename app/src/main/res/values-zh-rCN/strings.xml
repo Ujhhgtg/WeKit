@@ -1263,6 +1263,7 @@
     <string name="fab_default_restart_wechat">重启微信</string>
     <string name="fab_default_force_stop">强行停止</string>
     <string name="fab_default_mark_all_read">清空未读</string>
+    <string name="home_side_panel_action_add_friend">添加朋友</string>
     <string name="fab_edit_position_hint">拖动主按钮调整位置，然后点击主按钮保存</string>
     <string name="fab_position_saved">已保存 FAB 位置</string>
     <string name="fab_all_marked_read">已将全部未读消息标为已读</string>

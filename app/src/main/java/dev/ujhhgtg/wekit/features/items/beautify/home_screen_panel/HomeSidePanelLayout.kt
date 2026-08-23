@@ -26,6 +26,7 @@ internal data class HomeSidePanelLayout(
 
 @Serializable
 internal enum class HomeSidePanelActionKind {
+    ADD_FRIEND,
     SCAN,
     MOMENTS,
     WALLET,
@@ -219,17 +220,10 @@ internal fun defaultHomeSidePanelLayout(
         DateTimeCardConfig(idGenerator.nextId()),
         WeatherCardConfig(idGenerator.nextId(), legacy.weatherCity),
         WalletCardConfig(idGenerator.nextId(), legacy.hideWalletBalance),
-        HorizontalActionsCardConfig(
-            idGenerator.nextId(),
-            listOf(
-                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.SCAN),
-                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.WALLET),
-                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.FAVORITES),
-            ),
-        ),
         VerticalActionsCardConfig(
             idGenerator.nextId(),
             listOf(
+                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.ADD_FRIEND),
                 HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.MOMENTS),
                 HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.CHANNELS),
                 HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.MARK_ALL_READ),

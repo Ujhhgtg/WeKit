@@ -113,6 +113,7 @@ private val HOME_SIDE_PANEL_CARD_TYPES = listOf(
 )
 
 private val HOME_SIDE_PANEL_ACTION_KINDS = listOf(
+    HomeSidePanelActionKind.ADD_FRIEND,
     HomeSidePanelActionKind.SCAN,
     HomeSidePanelActionKind.MOMENTS,
     HomeSidePanelActionKind.WALLET,
