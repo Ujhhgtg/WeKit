@@ -2711,11 +2711,23 @@
     </plurals>
     <string name="contacts_detect_warning_title">警告</string>
     <string name="contacts_detect_warning_message">此功能可能導致賬號異常，確定要執行嗎？</string>
+    <string name="contacts_detect_mode">檢測方式</string>
+    <string name="contacts_detect_mode_before_transfer">轉賬預檢查發包</string>
+    <string name="contacts_detect_mode_verify_user">驗證用戶關係發包</string>
+    <string name="contacts_detect_request_delay">請求間隔（秒）</string>
+    <string name="contacts_detect_status_transfer_abnormal">狀態：轉賬響應異常</string>
+    <string name="contacts_detect_status_deleted">狀態：已被對方刪除</string>
+    <string name="contacts_detect_status_blacklisted">狀態：已被對方拉黑</string>
+    <string name="contacts_detect_status_account_restricted">狀態：賬號受限或異常</string>
+    <string name="contacts_detect_rate_limited">服務器提示操作過於頻繁，掃描已停止，請稍後重試</string>
     <plurals name="contacts_detect_scanning">
         <item quantity="other">正在掃描，請稍等…\n已完成：%1$d/%2$d</item>
     </plurals>
     <plurals name="contacts_detect_scan_done">
         <item quantity="other">掃描完成，有 %1$d 個狀態異常的好友</item>
+    </plurals>
+    <plurals name="contacts_detect_unresolved">
+        <item quantity="other">另有 %1$d 個好友無法確定狀態，未計入結果</item>
     </plurals>
     <string name="contacts_detect_status_abnormal">狀態：異常</string>
     <string name="contacts_detect_nickname">暱稱：%1$s</string>

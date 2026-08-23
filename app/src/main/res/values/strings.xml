@@ -2694,8 +2694,18 @@
     <plurals name="contacts_detect_delete_done"><item quantity="one">Deletion complete: %1$d succeeded, %2$d failed</item><item quantity="other">Deletion complete: %1$d succeeded, %2$d failed</item></plurals>
     <string name="contacts_detect_warning_title">Warning</string>
     <string name="contacts_detect_warning_message">This feature may cause account abnormalities. Continue?</string>
+    <string name="contacts_detect_mode">Detection method</string>
+    <string name="contacts_detect_mode_before_transfer">Transfer preflight request</string>
+    <string name="contacts_detect_mode_verify_user">Verify-user relationship request</string>
+    <string name="contacts_detect_request_delay">Request interval (seconds)</string>
+    <string name="contacts_detect_status_transfer_abnormal">Status: Transfer response abnormal</string>
+    <string name="contacts_detect_status_deleted">Status: Deleted by this contact</string>
+    <string name="contacts_detect_status_blacklisted">Status: You are blacklisted</string>
+    <string name="contacts_detect_status_account_restricted">Status: Account restricted or abnormal</string>
+    <string name="contacts_detect_rate_limited">The server reported too many operations. Scanning has stopped; try again later.</string>
     <plurals name="contacts_detect_scanning"><item quantity="one">Scanning; please wait…\nCompleted: %1$d/%2$d friend</item><item quantity="other">Scanning; please wait…\nCompleted: %1$d/%2$d friends</item></plurals>
     <plurals name="contacts_detect_scan_done"><item quantity="one">Scan complete; %1$d friend has an abnormal status</item><item quantity="other">Scan complete; %1$d friends have an abnormal status</item></plurals>
+    <plurals name="contacts_detect_unresolved"><item quantity="one">%1$d friend could not be determined and was not included in the results.</item><item quantity="other">%1$d friends could not be determined and were not included in the results.</item></plurals>
     <string name="contacts_detect_status_abnormal">Status: Abnormal</string>
     <string name="contacts_detect_nickname">Nickname: %1$s</string>
     <string name="contacts_detect_remark">Remark: %1$s</string>
