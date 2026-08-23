@@ -45,7 +45,7 @@ jsch = "2.28.6"
 sqliteJdbc = "3.50.3.0"
 arsclib = "1.4.0"
 apksig = "9.2.1"
-bouncycastle = "1.79"
+bouncycastle = "1.85"
 
 # noinspection UnusedVersionCatalogEntry
 namespace = "dev.ujhhgtg.wekit"
