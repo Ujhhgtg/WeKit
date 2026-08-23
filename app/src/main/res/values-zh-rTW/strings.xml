@@ -915,6 +915,8 @@
     <string name="feature_hide_module_from_app_list_description">在不影響模塊功能的情況下防止微信查詢模塊安裝狀態 (實驗性)</string>
     <string name="feature_link_external_app_jump_name">鏈接跳轉系統打開方式</string>
     <string name="feature_link_external_app_jump_description">打開鏈接或卡片鏈接時顯示對話框, 可直接使用系統打開方式打開\n若要跳轉到第三方應用, 需先在對應應用設置中啓用「在此應用中打開支持的網頁鏈接」</string>
+    <string name="feature_auto_like_sports_rank_name">運動排行榜自動點贊</string>
+    <string name="feature_auto_like_sports_rank_description">收到新的微信運動排行榜後，自動爲符合條件的好友點贊</string>
     <string name="feature_modify_sports_step_count_name">修改運動步數</string>
     <string name="feature_modify_sports_step_count_description">修改微信獲取到的或手動上傳運動步數</string>
     <string name="feature_nerf_background_process_checker_name">禁用微信進程狀態檢測器</string>
@@ -1786,6 +1788,10 @@
     <string name="chat_auto_cache_select_contacts_hint">點擊選擇聯繫人</string>
     <string name="chat_auto_cache_configure_whitelist">配置白名單</string>
     <string name="chat_auto_cache_configure_blacklist">配置黑名單</string>
+    <string name="sports_rank_min_score">最低步數</string>
+    <string name="sports_rank_whitelist_description">僅爲白名單中的好友點贊</string>
+    <string name="sports_rank_blacklist_description">跳過黑名單中的好友</string>
+    <string name="sports_rank_contacts_saved">已保存 %1$d 位好友</string>
     <string name="chat_member_inviter_title">查看進羣邀請者</string>
     <string name="chat_contact_tap_to_view">點擊查看</string>
     <string name="chat_member_inviter_querying">正在查詢…</string>

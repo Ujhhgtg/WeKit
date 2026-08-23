@@ -917,6 +917,8 @@
     <string name="feature_hide_module_from_app_list_description">在不影响模块功能的情况下防止微信查询模块安装状态 (实验性)</string>
     <string name="feature_link_external_app_jump_name">链接跳转系统打开方式</string>
     <string name="feature_link_external_app_jump_description">打开链接或卡片链接时显示对话框, 可直接使用系统打开方式打开\n若要跳转到第三方应用, 需先在对应应用设置中启用「在此应用中打开支持的网页链接」</string>
+    <string name="feature_auto_like_sports_rank_name">运动排行榜自动点赞</string>
+    <string name="feature_auto_like_sports_rank_description">收到新的微信运动排行榜后，自动为符合条件的好友点赞</string>
     <string name="feature_modify_sports_step_count_name">修改运动步数</string>
     <string name="feature_modify_sports_step_count_description">修改微信获取到的或手动上传运动步数</string>
     <string name="feature_nerf_background_process_checker_name">禁用微信进程状态检测器</string>
@@ -1790,6 +1792,10 @@
     <string name="chat_auto_cache_select_contacts_hint">点击选择联系人</string>
     <string name="chat_auto_cache_configure_whitelist">配置白名单</string>
     <string name="chat_auto_cache_configure_blacklist">配置黑名单</string>
+    <string name="sports_rank_min_score">最低步数</string>
+    <string name="sports_rank_whitelist_description">仅为白名单中的好友点赞</string>
+    <string name="sports_rank_blacklist_description">跳过黑名单中的好友</string>
+    <string name="sports_rank_contacts_saved">已保存 %1$d 位好友</string>
     <string name="chat_member_inviter_title">查看进群邀请者</string>
     <string name="chat_contact_tap_to_view">点击查看</string>
     <string name="chat_member_inviter_querying">正在查询…</string>

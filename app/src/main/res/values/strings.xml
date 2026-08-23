@@ -954,6 +954,8 @@
     <string name="feature_hide_module_from_app_list_description">Prevent WeChat from querying module installation status without affecting module functionality (experimental)</string>
     <string name="feature_link_external_app_jump_name">Open links with system apps</string>
     <string name="feature_link_external_app_jump_description">A dialog box is displayed when opening a link or card link, which can be opened directly using the system open method.\nIf you want to jump to a third-party application, you must first enable "Open supported web links in this application" in the corresponding application settings.</string>
+    <string name="feature_auto_like_sports_rank_name">Automatically like sports rankings</string>
+    <string name="feature_auto_like_sports_rank_description">Automatically like eligible friends after receiving a new WeChat Sports ranking</string>
     <string name="feature_modify_sports_step_count_name">Modify WeChat Sports step count</string>
     <string name="feature_modify_sports_step_count_description">Modify the number of exercise steps obtained from WeChat or manually uploaded</string>
     <string name="feature_nerf_background_process_checker_name">Disable WeChat process status detector</string>
@@ -1837,6 +1839,10 @@
     <string name="chat_auto_cache_select_contacts_hint">Tap to select contacts</string>
     <string name="chat_auto_cache_configure_whitelist">Configure whitelist</string>
     <string name="chat_auto_cache_configure_blacklist">Configure blacklist</string>
+    <string name="sports_rank_min_score">Minimum step count</string>
+    <string name="sports_rank_whitelist_description">Like only friends on the whitelist</string>
+    <string name="sports_rank_blacklist_description">Skip friends on the blacklist</string>
+    <string name="sports_rank_contacts_saved">Friends saved: %1$d</string>
     <string name="chat_member_inviter_title">View group inviter</string>
     <string name="chat_contact_tap_to_view">Tap to view</string>
     <string name="chat_member_inviter_querying">Querying…</string>
