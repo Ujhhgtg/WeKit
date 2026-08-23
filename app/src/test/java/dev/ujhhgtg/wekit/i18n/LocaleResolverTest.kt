@@ -26,6 +26,10 @@ class LocaleResolverTest {
             SupportedLocale.TRADITIONAL_CHINESE,
             LocaleResolver.resolve(LanguageSelection.TRADITIONAL_CHINESE, system),
         )
+        assertEquals(
+            SupportedLocale.MEOW_CHINESE,
+            LocaleResolver.resolve(LanguageSelection.MEOW_CHINESE, emptyList()),
+        )
     }
 
     @Test

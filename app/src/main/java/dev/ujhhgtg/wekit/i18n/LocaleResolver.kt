@@ -9,6 +9,7 @@ object LocaleResolver {
     ): SupportedLocale = when (selection) {
         LanguageSelection.ENGLISH -> SupportedLocale.ENGLISH
         LanguageSelection.SIMPLIFIED_CHINESE -> SupportedLocale.SIMPLIFIED_CHINESE
+        LanguageSelection.MEOW_CHINESE -> SupportedLocale.MEOW_CHINESE
         LanguageSelection.TRADITIONAL_CHINESE -> SupportedLocale.TRADITIONAL_CHINESE
         LanguageSelection.SYSTEM -> systemLocales.firstNotNullOfOrNull(::mapSystemLocale)
             ?: SupportedLocale.ENGLISH
