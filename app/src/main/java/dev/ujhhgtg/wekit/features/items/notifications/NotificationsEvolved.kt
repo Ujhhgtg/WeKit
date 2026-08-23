@@ -210,7 +210,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     }
     private val notificationAvatarLoader by lazy {
         methodLoadNotificationAvatar.method.declaringClass.reflekt()
-            .firstConstructor { parameters(android.content.Context::class.java) }
+            .firstConstructor { parameters(Context::class) }
             .newInstance(HostInfo.application)
     }
 
@@ -229,7 +229,8 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     private const val PENDING_MESSAGE_TTL_MILLIS = 30_000L
     private const val AVATAR_CACHE_TTL_MILLIS = 5 * 60 * 1000L
     private const val SHORT_MEDIA_WAIT_MILLIS = 1_500L
-    private const val LARGE_IMAGE_WAIT_MILLIS = 3_000L
+    private const val STICKER_MEDIA_WAIT_MILLIS = 3_000L
+    private const val LARGE_IMAGE_WAIT_MILLIS = 5_000L
     private const val MEDIA_CACHE_MAX_AGE_MILLIS = 7 * 24 * 60 * 60 * 1000L
 
     // WeChat's original contentIntent per convWxId, stored so we can fire it after clearing history.
@@ -367,7 +368,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                 ) { deadline ->
                     WeMessageApi.materializeNotificationThumbnail(
                         message,
-                        notificationMediaDir / "image-thumb-${message.serverId}.media",
+                        notificationMediaDir / "image-thumb-v2-${message.serverId}.media",
                         deadline,
                     )
                 }
@@ -392,7 +393,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                     ?: return null
                 val wait = stickerNotificationMode == StickerNotificationMode.WAIT_FOR_LOAD
                 launchMediaTask(
-                    waitMillis = SHORT_MEDIA_WAIT_MILLIS,
+                    waitMillis = STICKER_MEDIA_WAIT_MILLIS,
                     awaitCompletion = true,
                 ) { deadline ->
                     WeMessageApi.materializeNotificationSticker(
@@ -577,7 +578,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                 wxId,
                 "",
             ) as? Bitmap? ?: return@runCatching null
-            Icon.createWithAdaptiveBitmap(bitmap)
+            Icon.createWithBitmap(bitmap)
         }.onFailure {
             WeLogger.w(TAG, "failed to load notification avatar for $wxId", it)
         }.getOrNull() ?: return null
@@ -834,6 +835,12 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                 }
 
                 builder.style = messagingStyle
+                val conversationIcon = loadAvatarIcon(convWxId)
+                if (conversationIcon != null) {
+                    builder.setLargeIcon(conversationIcon)
+                } else if (!convWxId.isGroupChatWxId) {
+                    builder.setLargeIcon(null as Icon?)
+                }
 
                 // 2.5. Wrap WeChat's contentIntent so tapping the notification clears
                 //      history before handing off to WeChat's own chat-open flow.

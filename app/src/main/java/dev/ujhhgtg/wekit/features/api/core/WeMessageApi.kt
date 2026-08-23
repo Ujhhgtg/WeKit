@@ -57,6 +57,7 @@ import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.matchers.base.AccessFlagsMatcher
 import org.luckypray.dexkit.result.FieldUsingType
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.lang.reflect.Constructor
@@ -96,6 +97,8 @@ import kotlin.random.Random
     descriptionRes = "feature_we_message_api_description",
 )
 object WeMessageApi : ApiFeature(), IResolveDex {
+
+    private const val NOTIFICATION_THUMBNAIL_MIN_EDGE_DP = 180
 
     // -------------------------------------------------------------------------------------
     // 基础消息类
@@ -2022,6 +2025,13 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
+    private val methodLoadEmojiFile by dexMethod {
+        matcher {
+            usingEqStrings("MicroMsg.EmojiLoader", "load emoji file ")
+            paramTypes("com.tencent.mm.storage.emotion.EmojiInfo", "boolean", null)
+        }
+    }
+
     // com.tencent.mm.pluginsdk.model.app 里的 "自动下载文件" Runnable (8069 为 b0, 8074 为 c0),
     // 构造参数为一个 MsgInfo, run() 会解析 appmsg XML、创建 appattach 行并向 CDN 发起下载任务。
     // 这正是微信里点击文件气泡"下载/缓存"所走的逻辑。
@@ -2171,16 +2181,53 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         sourceBytes: ByteArray,
         destination: Path,
         deadlineElapsedRealtime: Long,
+        minimumEdgePixels: Int? = null,
     ): NotificationMediaFile? {
         reuseNotificationMedia(destination)?.let { return it }
         if (SystemClock.elapsedRealtime() >= deadlineElapsedRealtime) return null
 
-        val bytes = MMWXGFJNI.wxam2PicBuf(
+        var bytes = MMWXGFJNI.wxam2PicBuf(
             sourceBytes,
             0,
             MMWXGFJNI.WXAM_SCENE_MISC,
         ) ?: sourceBytes
-        val mimeType = detectImageMime(bytes) ?: return null
+        var mimeType = detectImageMime(bytes) ?: return null
+        if (minimumEdgePixels != null && mimeType != "image/gif") {
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+            try {
+                val shortestEdge = minOf(bitmap.width, bitmap.height)
+                if (shortestEdge in 1 until minimumEdgePixels) {
+                    val scale = minimumEdgePixels.toFloat() / shortestEdge
+                    val scaled = Bitmap.createScaledBitmap(
+                        bitmap,
+                        (bitmap.width * scale).toInt(),
+                        (bitmap.height * scale).toInt(),
+                        true,
+                    )
+                    try {
+                        val output = ByteArrayOutputStream()
+                        val format = if (mimeType == "image/jpeg") {
+                            Bitmap.CompressFormat.JPEG
+                        } else {
+                            Bitmap.CompressFormat.PNG
+                        }
+                        check(scaled.compress(format, 90, output)) {
+                            "failed to scale notification thumbnail"
+                        }
+                        bytes = output.toByteArray()
+                        mimeType = if (format == Bitmap.CompressFormat.JPEG) {
+                            "image/jpeg"
+                        } else {
+                            "image/png"
+                        }
+                    } finally {
+                        if (scaled !== bitmap) scaled.recycle()
+                    }
+                }
+            } finally {
+                bitmap.recycle()
+            }
+        }
         if (SystemClock.elapsedRealtime() >= deadlineElapsedRealtime) return null
         destination.parent.createDirectories()
 
@@ -2235,6 +2282,10 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                             sourceBytes,
                             destination,
                             deadlineElapsedRealtime,
+                            minimumEdgePixels = (
+                                    HostInfo.application.resources.displayMetrics.density *
+                                            NOTIFICATION_THUMBNAIL_MIN_EDGE_DP
+                                    ).toInt(),
                         )?.let { return it }
                     }
                     previousPath = resolvedPath
@@ -2520,18 +2571,53 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         deadlineElapsedRealtime: Long,
         wait: Boolean,
     ): NotificationMediaFile? {
+        decodeStickerToFile(md5, destination, logFailure = false)?.let {
+            return NotificationMediaFile(it, detectImageMime(it)!!)
+        }
+        if (!wait) return null
+
+        startStickerLoad(md5)
         do {
-            if (wait && SystemClock.elapsedRealtime() >= deadlineElapsedRealtime) {
+            if (SystemClock.elapsedRealtime() >= deadlineElapsedRealtime) {
                 WeLogger.w(TAG, "notification sticker was not ready before deadline: $md5")
                 return null
             }
             decodeStickerToFile(md5, destination, logFailure = false)?.let {
-                if (wait && SystemClock.elapsedRealtime() >= deadlineElapsedRealtime) return null
+                if (SystemClock.elapsedRealtime() >= deadlineElapsedRealtime) return null
                 return NotificationMediaFile(it, detectImageMime(it)!!)
             }
-            if (!wait) return null
             sleepForPoll(deadlineElapsedRealtime, 50L)
         } while (true)
+    }
+
+    private fun startStickerLoad(md5: String) {
+        val loadMethod = methodLoadEmojiFile.method
+        val callbackType = loadMethod.parameterTypes[2]
+        val callback = Proxy.newProxyInstance(
+            callbackType.classLoader,
+            arrayOf(callbackType),
+        ) { proxy, callbackMethod, args ->
+            when (callbackMethod.name) {
+                "hashCode" -> System.identityHashCode(proxy)
+                "equals" -> proxy === args?.get(0)
+                "toString" -> "WeKitNotificationEmojiLoadCallback"
+                else -> null
+            }
+        }
+        val receiver = if (Modifier.isStatic(loadMethod.modifiers)) {
+            null
+        } else {
+            loadMethod.declaringClass.reflekt().firstField {
+                modifiers(Modifiers.STATIC)
+                type = loadMethod.declaringClass
+            }.getStatic()!!
+        }
+        loadMethod.invoke(
+            receiver,
+            WeServiceApi.getEmojiInfoByMd5(md5),
+            true,
+            callback,
+        )
     }
 
     /**
