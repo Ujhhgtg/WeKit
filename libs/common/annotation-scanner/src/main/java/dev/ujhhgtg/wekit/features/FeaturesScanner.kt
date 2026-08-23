@@ -12,6 +12,7 @@ import com.google.devtools.ksp.processing.SymbolProcessorProvider
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSDeclaration
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
@@ -25,7 +26,9 @@ import com.squareup.kotlinpoet.ksp.writeTo
 
 private const val PACKAGE_NAME = "dev.ujhhgtg.wekit"
 private const val FEATURES_CORE_PACKAGE = "$PACKAGE_NAME.features.core"
+private const val EXTENSIONS_PACKAGE = "$PACKAGE_NAME.extensions"
 private const val BASE_FEATURE = "BaseFeature"
+private const val EXTENSION_PACK = "$EXTENSIONS_PACKAGE.ExtensionPack"
 private const val RESOLVER_INTERFACE = "$PACKAGE_NAME.dexkit.abc.IResolveDex"
 private val RESOURCE_ENTRY_PATTERN = Regex("[a-z][a-z0-9_]*")
 private val VALID_CATEGORY_IDS = setOf(
@@ -71,6 +74,16 @@ class FeaturesScanner(
             .filterIsInstance<KSClassDeclaration>()
             .toList()
         if (symbols.isEmpty()) return emptyList()
+        val extensionPacks = resolver.getAllFiles()
+            .flatMap { file -> file.declarations.flatMap(KSDeclaration::classDeclarationsRecursively) }
+            .filter { it.classKind == ClassKind.OBJECT }
+            .filter { symbol ->
+                symbol.getAllSuperTypes().any {
+                    it.declaration.qualifiedName?.asString() == EXTENSION_PACK
+                }
+            }
+            .sortedBy { it.qualifiedName!!.asString() }
+            .toList()
 
         symbols.forEach { symbol ->
             if (symbol.classKind != ClassKind.OBJECT) {
@@ -97,7 +110,36 @@ class FeaturesScanner(
         generateRuntimeProvider(sortedSymbols, metadataBySymbol, dependencies)
         generateMetadataRegistry(sortedSymbols, metadataBySymbol, dependencies)
         generateDexResolutionRegistry(sortedSymbols, metadataBySymbol, dependencies)
+        generateExtensionPacksProvider(extensionPacks)
         return emptyList()
+    }
+
+    private fun generateExtensionPacksProvider(symbols: List<KSClassDeclaration>) {
+        val extensionPack = ClassName(EXTENSIONS_PACKAGE, "ExtensionPack")
+        val listType = ClassName("kotlin.collections", "List").parameterizedBy(extensionPack)
+        val initializer = CodeBlock.builder().apply {
+            add("validateExtensionPacks(\n")
+            indent()
+            add("listOf(\n")
+            indent()
+            symbols.forEach { add("%T,\n", it.toClassName()) }
+            unindent()
+            add(").sortedWith(compareBy({ it.displayOrder }, { it.id })),\n")
+            unindent()
+            add(")")
+        }.build()
+        val provider = TypeSpec.objectBuilder("ExtensionPacksProvider")
+            .addProperty(PropertySpec.builder("ALL_PACKS", listType).initializer(initializer).build())
+            .addKdoc("Auto-generated extension pack registry. Do not edit manually.\n")
+            .build()
+        val dependencies = Dependencies(
+            aggregating = true,
+            *symbols.map { it.containingFile!! }.toTypedArray(),
+        )
+        FileSpec.builder(EXTENSIONS_PACKAGE, "ExtensionPacksProvider")
+            .addType(provider)
+            .build()
+            .writeTo(codeGenerator, dependencies)
     }
 
     private fun readMetadata(symbol: KSClassDeclaration): FeatureMetadata {
@@ -305,3 +347,13 @@ private data class FeatureMetadata(
     val categoryIds: List<String>,
     val descriptionResEntry: String,
 )
+
+private fun KSDeclaration.classDeclarationsRecursively(): Sequence<KSClassDeclaration> = sequence {
+    val declaration = this@classDeclarationsRecursively
+    if (declaration is KSClassDeclaration) {
+        yield(declaration)
+        declaration.declarations.forEach { child ->
+            yieldAll(child.classDeclarationsRecursively())
+        }
+    }
+}

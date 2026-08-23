@@ -18,6 +18,7 @@ import java.nio.file.Files
 object ScriptDepsPack : ExtensionPack {
 
     override val id = "script-deps"
+    override val displayOrder = 0
     override val nameRes = R.string.extensions_pack_script_deps_name
     override val descriptionRes = R.string.extensions_pack_script_deps_desc
     override val icon: ImageVector = MaterialSymbols.Outlined.Extension

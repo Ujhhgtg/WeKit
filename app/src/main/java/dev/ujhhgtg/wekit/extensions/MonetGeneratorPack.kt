@@ -18,6 +18,7 @@ import java.nio.file.Files
 object MonetGeneratorPack : ExtensionPack {
 
     override val id = "monet-generator"
+    override val displayOrder = 1
     override val nameRes = R.string.extensions_pack_monet_generator_name
     override val descriptionRes = R.string.extensions_pack_monet_generator_desc
     override val icon: ImageVector = MaterialSymbols.Outlined.Extension

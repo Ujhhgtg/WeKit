@@ -20,6 +20,7 @@ class ArchLinuxPackNotInstalledException : IllegalStateException("Arch Linux ARM
 
 object ArchLinuxPack : ExtensionPack {
     override val id = "archlinux-arm64"
+    override val displayOrder = 3
     override val nameRes = R.string.extensions_pack_archlinux_name
     override val descriptionRes = R.string.extensions_pack_archlinux_desc
     override val icon: ImageVector = MaterialSymbols.Outlined.Terminal

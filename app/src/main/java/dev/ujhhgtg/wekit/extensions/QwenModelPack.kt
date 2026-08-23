@@ -19,6 +19,7 @@ import java.io.File
 object QwenModelPack : ModelExtensionPack {
 
     override val id = "qwen3.8-4b-distill"
+    override val displayOrder = 5
     override val nameRes = R.string.extensions_pack_qwen_model_name
     override val descriptionRes = R.string.extensions_pack_qwen_model_desc
     override val icon: ImageVector = MaterialSymbols.Outlined.Neurology

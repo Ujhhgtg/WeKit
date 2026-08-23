@@ -33,15 +33,7 @@ object ExtensionPacks {
     const val BASE_URL = "https://github.com/Ujhhgtg/WeKit/releases/download/Extensions"
     private const val INDEX_ASSET = "manifest.json"
 
-    val packs: List<ExtensionPack> =
-        listOf(
-            ScriptDepsPack,
-            MonetGeneratorPack,
-            CloudflaredPack,
-            ArchLinuxPack,
-            LlamaNativePack,
-            QwenModelPack,
-        )
+    val packs: List<ExtensionPack> = ExtensionPacksProvider.ALL_PACKS
 
     fun byId(id: String): ExtensionPack? = packs.firstOrNull { it.id == id }
 

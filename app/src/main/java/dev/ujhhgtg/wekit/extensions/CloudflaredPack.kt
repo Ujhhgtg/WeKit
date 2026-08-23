@@ -25,6 +25,7 @@ class CloudflaredPackNotInstalledException(message: String) : RuntimeException(m
 object CloudflaredPack : ExtensionPack {
 
     override val id = "cloudflared"
+    override val displayOrder = 2
     override val nameRes = R.string.extensions_pack_cloudflared_name
     override val descriptionRes = R.string.extensions_pack_cloudflared_desc
     override val icon: ImageVector = MaterialSymbols.Outlined.Cloud

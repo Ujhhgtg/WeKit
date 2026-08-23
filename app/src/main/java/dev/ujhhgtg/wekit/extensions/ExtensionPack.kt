@@ -11,6 +11,7 @@ import java.io.File
  */
 interface ExtensionPack {
     val id: String
+    val displayOrder: Int
 
     /** UI metadata: display name resource shown on the management screen and in dialogs. */
     val nameRes: Int
