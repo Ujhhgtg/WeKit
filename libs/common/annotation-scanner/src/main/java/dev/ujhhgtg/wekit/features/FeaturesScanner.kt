@@ -226,10 +226,30 @@ class FeaturesScanner(
             unindent()
             add(")")
         }.build()
+        val sourceKeyInitializer = CodeBlock.builder().apply {
+            addStatement("mapOf(")
+            indent()
+            symbols.forEach { symbol ->
+                val source = symbol.containingFile!!
+                val sourceKey = source.packageName.asString().replace('.', '/') + "/" + source.fileName
+                addStatement("%T to %S,", symbol.toClassName(), sourceKey)
+            }
+            unindent()
+            add(")")
+        }.build()
         val listType = ClassName("kotlin.collections", "List")
             .parameterizedBy(ClassName(FEATURES_CORE_PACKAGE, BASE_FEATURE))
+        val sourceMapType = ClassName("kotlin.collections", "Map").parameterizedBy(
+            ClassName(FEATURES_CORE_PACKAGE, BASE_FEATURE),
+            ClassName("kotlin", "String"),
+        )
         val provider = TypeSpec.objectBuilder("FeaturesProvider")
             .addProperty(PropertySpec.builder("ALL_HOOK_ITEMS", listType).initializer(initializer).build())
+            .addProperty(
+                PropertySpec.builder("SOURCE_KEY_BY_FEATURE", sourceMapType)
+                    .initializer(sourceKeyInitializer)
+                    .build(),
+            )
             .addKdoc("Auto-generated runtime feature registry. Do not edit manually.\n")
             .build()
         FileSpec.builder(FEATURES_CORE_PACKAGE, "FeaturesProvider")

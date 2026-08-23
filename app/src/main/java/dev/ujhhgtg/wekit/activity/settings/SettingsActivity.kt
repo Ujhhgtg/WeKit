@@ -185,7 +185,7 @@ fun featureCategoryTitleRes(categoryId: String): Int =
 
 /**
  * Features whose source file entered the repo within [NewFeatures.WINDOW_DAYS] days of the build's
- * HEAD commit (collected at compile time by `GenerateNewFeaturesTask`), newest first.
+ * HEAD commit (joined by generated Feature source keys at compile time), newest first.
  *
  * Features that belong to no real category — the `API` internals — are dropped: they carry no
  * switch a user would meaningfully flip.

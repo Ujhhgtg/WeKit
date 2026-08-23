@@ -18,7 +18,9 @@ object FeatureCategoryState {
         val visibleCategories = FEATURE_CATEGORIES.mapTo(mutableSetOf()) { it.id }
         FeaturesProvider.ALL_HOOK_ITEMS.associateBy { it.technicalId }.values
             .mapNotNull { item ->
-                NewFeatures.ADDED_AT_BY_ID[item.technicalId]?.let { addedAt -> item to addedAt }
+                FeaturesProvider.SOURCE_KEY_BY_FEATURE[item]
+                    ?.let(NewFeatures.ADDED_AT_BY_SOURCE_KEY::get)
+                    ?.let { addedAt -> item to addedAt }
             }
             .filter { (item, _) -> item.categoryIds.any { it in visibleCategories } }
             .sortedWith(
