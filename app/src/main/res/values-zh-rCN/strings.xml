@@ -587,7 +587,7 @@
     <string name="feature_disable_pat_name">禁用拍一拍</string>
     <string name="feature_disable_pat_description">双击他人头像时不发送拍一拍</string>
     <string name="feature_disable_pinned_chats_collapsing_name">禁用置顶聊天折叠</string>
-    <string name="feature_disable_pinned_chats_collapsing_description">隐藏「折叠置顶聊天」选项\n启用本功能后, 需重启微信 2 次以使更改完全生效</string>
+    <string name="feature_disable_pinned_chats_collapsing_description">隐藏「折叠置顶聊天」选项</string>
     <string name="feature_disable_speech_to_text_button_name">禁用输入框快捷语音转文字</string>
     <string name="feature_disable_speech_to_text_button_description">隐藏输入框右侧的语音转文字按钮</string>
     <string name="feature_disable_typing_status_uploading_name">禁止上传正在输入状态</string>

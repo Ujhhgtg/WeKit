@@ -624,7 +624,7 @@
     <string name="feature_disable_pat_name">Disable nudges</string>
     <string name="feature_disable_pat_description">When you double-click someone else’s avatar, the photo will not be sent.</string>
     <string name="feature_disable_pinned_chats_collapsing_name">Disable pinned chat collapse</string>
-    <string name="feature_disable_pinned_chats_collapsing_description">Hide the "Collapse Chat" option\nAfter enabling this feature, you need to restart WeChat 2 times for the changes to take full effect</string>
+    <string name="feature_disable_pinned_chats_collapsing_description">Hide the "Collapse Chat" option</string>
     <string name="feature_disable_speech_to_text_button_name">Disable input box shortcut speech-to-text</string>
     <string name="feature_disable_speech_to_text_button_description">Hide the speech-to-text button on the right side of the input box</string>
     <string name="feature_disable_typing_status_uploading_name">Disable typing-status uploads</string>
