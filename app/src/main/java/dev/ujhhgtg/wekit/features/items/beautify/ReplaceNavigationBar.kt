@@ -559,7 +559,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                     .calculateBottomPadding()
                                             ),
                                         selectedIndex = { targetIndex },
-                                        onSelected = { navigateToTab(it) },
+                                        onSelected = { index ->
+                                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                                            navigateToTab(index)
+                                        },
                                         // Sample WeChat's real content (native ViewPager) into the
                                         // glass. rememberLayerBackdrop would only capture Compose
                                         // pixels, of which there are none behind this overlay bar.
@@ -576,8 +579,8 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                             activeContentColor = activeColor
                                         ),
                                         onSelectedTabTap = { index ->
+                                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                                             if (visibleTabItems[index].wechatIndex == 0) {
-                                                view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                                                 onTabClicked(index)
                                             }
                                         },
