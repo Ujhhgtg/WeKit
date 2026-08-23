@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import android.content.Context
 import android.widget.ListView
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -46,6 +47,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -57,6 +59,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -67,11 +70,14 @@ import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Edit
 import com.composables.icons.materialsymbols.outlined.Swap_vert
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -80,7 +86,7 @@ import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.InjectedUiTheme
+import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -97,7 +103,12 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import java.lang.reflect.Modifier as JavaModifier
 
-@Feature(name = "对话分组", categories = ["聊天"], description = "向主页顶部添加 Tab 栏, 将对话分组\n建议同时启用「界面美化/隐藏主页下滑「最近」页」")
+@Feature(
+    id = "对话分组",
+    nameRes = "feature_conversation_grouping_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_conversation_grouping_description",
+)
 object ConversationGrouping : SwitchFeature(), IResolveDex {
 
     const val GROUP_PREFIX = "wekit_group_"
@@ -111,7 +122,7 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
 
     private fun isAllTab(id: String?): Boolean = id == ALL_TAB_ID
 
-    private fun allTab(): ChatGroup = ChatGroup(id = ALL_TAB_ID, name = "全部")
+    private fun allTab(): ChatGroup = ChatGroup(id = ALL_TAB_ID)
 
     // The SQL predicate for the currently selected tab, injected into WeChat's homepage
     // conversation-list query. null = "全部" (no filtering). We resolve the predicate once, when the
@@ -149,6 +160,7 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                 val groupsState = mutableStateOf(loadGroups())
                 setContent {
                     InjectedUiTheme {
+                        val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
                         var selectedGroupId by selectedGroupIdState
                         var groups by groupsState
 
@@ -183,13 +195,20 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                                 )
                             },
                             onDeleteGroup = { group ->
-                                saveGroups(loadGroups().filterNot { it.id == group.id })
-                                groups = loadGroups()
-                                if (selectedGroupId == group.id) {
-                                    selectedGroupId = ALL_TAB_ID
-                                    selectTab(ALL_TAB_ID)
+                                showConfirmDeleteGroupDialog(context, group) {
+                                    saveGroups(loadGroups().filterNot { it.id == group.id })
+                                    groups = loadGroups()
+                                    if (selectedGroupId == group.id) {
+                                        selectedGroupId = ALL_TAB_ID
+                                        selectTab(ALL_TAB_ID)
+                                    }
+                                    showToast(
+                                        localizedContext.getString(
+                                            R.string.conversation_group_deleted,
+                                            localizedGroupName(localizedContext, group),
+                                        )
+                                    )
                                 }
-                                showToast("已删除「${group.name}」")
                             },
                             onReorder = { orderedIds ->
                                 val current = loadGroups()
@@ -342,6 +361,7 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
         modifier: Modifier = Modifier,
         containerColor: Color = if (isSystemInDarkTheme()) Color(0xFF111111) else Color(0xFFEDEDED),
     ) {
+        val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
         var menuForGroupId by remember { mutableStateOf<String?>(null) }
         // Sort (edit) mode: tabs jiggle in place and can be long-pressed to drag-reorder.
         var sortMode by remember { mutableStateOf(false) }
@@ -383,9 +403,10 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                 ) {
                     items(orderedGroups, key = { it.id }) { group ->
                         val allTab = isAllTab(group.id)
+                        val label = groupDisplayName(group)
                         Box {
                             GroupTab(
-                                label = group.name,
+                                label = label,
                                 selected = selectedGroupId == group.id,
                                 onClick = { onTabSelected(group.id) },
                                 onLongClick = { menuForGroupId = group.id }
@@ -396,11 +417,11 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                                 onDismissRequest = { menuForGroupId = null }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("新建") },
+                                    text = { Text(stringResource(R.string.conversation_group_action_new)) },
                                     leadingIcon = {
                                         Icon(
                                             imageVector = MaterialSymbols.Outlined.Add,
-                                            contentDescription = "新建分组",
+                                            contentDescription = stringResource(R.string.conversation_group_new_description),
                                             modifier = Modifier.size(20.dp)
                                         )
                                     },
@@ -412,11 +433,11 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                                 // The fixed "全部" tab can be reordered but never edited or deleted.
                                 if (!allTab) {
                                     DropdownMenuItem(
-                                        text = { Text("编辑") },
+                                        text = { Text(stringResource(R.string.conversation_group_action_edit)) },
                                         leadingIcon = {
                                             Icon(
                                                 imageVector = MaterialSymbols.Outlined.Edit,
-                                                contentDescription = "编辑",
+                                                contentDescription = stringResource(R.string.conversation_group_action_edit),
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         },
@@ -427,11 +448,11 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                                     )
                                 }
                                 DropdownMenuItem(
-                                    text = { Text("排序") },
+                                    text = { Text(stringResource(R.string.conversation_group_action_reorder)) },
                                     leadingIcon = {
                                         Icon(
                                             imageVector = MaterialSymbols.Outlined.Swap_vert,
-                                            contentDescription = "排序",
+                                            contentDescription = stringResource(R.string.conversation_group_action_reorder),
                                             modifier = Modifier.size(20.dp)
                                         )
                                     },
@@ -443,11 +464,11 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                                 )
                                 if (!allTab) {
                                     DropdownMenuItem(
-                                        text = { Text("删除") },
+                                        text = { Text(stringResource(R.string.conversation_group_action_delete)) },
                                         leadingIcon = {
                                             Icon(
                                                 imageVector = MaterialSymbols.Outlined.Delete,
-                                                contentDescription = "删除",
+                                                contentDescription = stringResource(R.string.conversation_group_action_delete),
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         },
@@ -477,13 +498,13 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                         onClick = {
                             onReorder(order)
                             sortMode = false
-                            showToast("已保存排序")
+                            showToast(localizedContext.getString(R.string.conversation_group_order_saved))
                         },
                         colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors()
                     ) {
                         Icon(
                             imageVector = MaterialSymbols.Outlined.Check,
-                            contentDescription = "保存排序",
+                            contentDescription = stringResource(R.string.conversation_group_save_order_description),
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -491,6 +512,35 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
             }
         }
     }
+
+    private fun localizedGroupName(context: Context, group: ChatGroup): String {
+        if (isAllTab(group.id)) return context.getString(R.string.conversation_group_all)
+        if (group.name.isNotBlank()) return group.name
+        return when (group.builtInLabel) {
+            BuiltInGroupLabel.UNREAD -> context.getString(R.string.conversation_group_default_unread)
+            BuiltInGroupLabel.GROUPS -> context.getString(R.string.conversation_group_default_groups)
+            BuiltInGroupLabel.OFFICIALS -> context.getString(R.string.conversation_group_default_officials)
+            null -> ""
+        }
+    }
+
+    data class GroupChoice(val id: String, val name: String, val members: List<String>)
+
+    /** Public member snapshots used by contact pickers that need to filter by group. */
+    fun groupFilterOptions(context: Context): List<GroupChoice> =
+        loadGroups()
+            .filterNot { isAllTab(it.id) }
+            .map { group ->
+                GroupChoice(
+                    id = group.id,
+                    name = localizedGroupName(context, group),
+                    members = getGroupMembers(group),
+                )
+            }
+
+    @Composable
+    private fun groupDisplayName(group: ChatGroup): String =
+        localizedGroupName(LocalWeKitLocalizedContext.current, group)
 
     /**
      * The row shown while sorting: every tab jiggles in place (iOS home-screen editing feel), and a
@@ -534,9 +584,10 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
 
         LazyRow(
             state = listState,
-            // Reordering replaces scrolling in sort mode; disabling user scroll stops the drag from
-            // fighting the list's own horizontal scroll gesture. We auto-scroll near the edges below.
-            userScrollEnabled = false,
+            // Keep normal horizontal scrolling while nothing is picked up, so an overflowing tab
+            // row can be swiped left/right. Once a tab is picked up the drag consumes the gesture,
+            // and the auto-scroll below handles scrolling near the edges.
+            userScrollEnabled = draggingIndex == -1,
             modifier = Modifier
                 .fillMaxWidth()
                 .pointerInput(Unit) {
@@ -604,7 +655,7 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                 val settling = index == settleIndex
 
                 JiggleTab(
-                    label = group.name,
+                    label = groupDisplayName(group),
                     // Keep the lift look through the settle so scale eases out alongside the glide.
                     dragging = dragging || settling,
                     // Offset the jiggle phase by index so neighbouring tabs aren't perfectly in sync.
@@ -762,7 +813,7 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
     private fun showCreateGroupDialog(context: Context, onGroupCreated: () -> Unit) {
         showComposeDialog(context) {
             GroupEditorDialog(
-                title = "新建分组",
+                titleRes = R.string.conversation_group_create_title,
                 group = null,
                 onDismiss = onDismiss,
                 onSave = { group ->
@@ -783,14 +834,16 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
     ) {
         showComposeDialog(context) {
             GroupEditorDialog(
-                title = "编辑分组",
+                titleRes = R.string.conversation_group_edit_title,
                 group = group,
                 onDismiss = onDismiss,
                 onDelete = {
-                    val current = loadGroups()
-                    saveGroups(current.filterNot { it.id == group.id })
-                    onGroupDeleted()
-                    onDismiss()
+                    showConfirmDeleteGroupDialog(context, group) {
+                        val current = loadGroups()
+                        saveGroups(current.filterNot { it.id == group.id })
+                        onGroupDeleted()
+                        onDismiss()
+                    }
                 },
                 onSave = { updated ->
                     val current = loadGroups()
@@ -802,14 +855,36 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
         }
     }
 
+    private fun showConfirmDeleteGroupDialog(
+        context: Context,
+        group: ChatGroup,
+        onConfirm: () -> Unit,
+    ) {
+        showComposeDialog(context) {
+            val groupName = groupDisplayName(group)
+            AlertDialogContent(
+                title = { Text(stringResource(R.string.conversation_group_delete_title)) },
+                text = { Text(stringResource(R.string.conversation_group_delete_message, groupName)) },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+                confirmButton = {
+                    Button(onClick = {
+                        onDismiss()
+                        onConfirm()
+                    }) { Text(stringResource(R.string.conversation_group_action_delete)) }
+                }
+            )
+        }
+    }
+
     @Composable
     private fun GroupEditorDialog(
-        title: String,
+        @StringRes titleRes: Int,
         group: ChatGroup?,
         onDismiss: () -> Unit,
         onDelete: (() -> Unit)? = null,
         onSave: (ChatGroup) -> Unit
     ) {
+        val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
         val groupId = remember(group) { group?.id ?: newGroupId() }
         var name by remember(group) { mutableStateOf(group?.name ?: "") }
         var members by remember(group) { mutableStateOf(group?.members?.toSet().orEmpty()) }
@@ -837,20 +912,23 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(),
-            title = { Text(title) },
+            title = { Text(stringResource(titleRes)) },
             text = {
                 DefaultColumn {
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("分组名称") },
+                        label = { Text(stringResource(R.string.conversation_group_name)) },
+                        placeholder = group?.takeIf { it.builtInLabel != null }?.let { builtInGroup ->
+                            { Text(groupDisplayName(builtInGroup)) }
+                        },
                         singleLine = true
                     )
 
                     var typeExpanded by remember { mutableStateOf(false) }
                     Column {
-                        Text("归拢模式", style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.conversation_group_mode), style = MaterialTheme.typography.labelSmall)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -859,11 +937,11 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                         ) {
                             Text(
                                 text = when (type) {
-                                    GroupType.MANUAL -> "手动选择"
-                                    GroupType.PRESET_UNREAD -> "自动所有未读"
-                                    GroupType.PRESET_GROUPS -> "自动所有群聊"
-                                    GroupType.PRESET_OFFICIALS -> "自动所有公众号"
-                                    GroupType.SQL -> "自定义 SQL 规则"
+                                    GroupType.MANUAL -> stringResource(R.string.conversation_group_mode_manual)
+                                    GroupType.PRESET_UNREAD -> stringResource(R.string.conversation_group_mode_unread)
+                                    GroupType.PRESET_GROUPS -> stringResource(R.string.conversation_group_mode_groups)
+                                    GroupType.PRESET_OFFICIALS -> stringResource(R.string.conversation_group_mode_officials)
+                                    GroupType.SQL -> stringResource(R.string.conversation_group_mode_sql)
                                 },
                                 style = MaterialTheme.typography.bodyLarge
                             )
@@ -873,35 +951,35 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                             onDismissRequest = { typeExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("手动选择") },
+                                text = { Text(stringResource(R.string.conversation_group_mode_manual)) },
                                 onClick = {
                                     type = GroupType.MANUAL
                                     typeExpanded = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("自动所有未读") },
+                                text = { Text(stringResource(R.string.conversation_group_mode_unread)) },
                                 onClick = {
                                     type = GroupType.PRESET_UNREAD
                                     typeExpanded = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("自动所有群聊") },
+                                text = { Text(stringResource(R.string.conversation_group_mode_groups)) },
                                 onClick = {
                                     type = GroupType.PRESET_GROUPS
                                     typeExpanded = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("自动所有公众号") },
+                                text = { Text(stringResource(R.string.conversation_group_mode_officials)) },
                                 onClick = {
                                     type = GroupType.PRESET_OFFICIALS
                                     typeExpanded = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("自定义 SQL 规则") },
+                                text = { Text(stringResource(R.string.conversation_group_mode_sql)) },
                                 onClick = {
                                     type = GroupType.SQL
                                     typeExpanded = false
@@ -912,14 +990,14 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
 
                     when (type) {
                         GroupType.MANUAL -> {
-                            Text("已选择 $matchedCount 个对话")
+                            Text(stringResource(R.string.conversation_group_selected_count, matchedCount))
                             val context = LocalContext.current
                             Button(
                                 modifier = Modifier.fillMaxWidth(),
                                 onClick = {
                                     showComposeDialog(context) {
                                         ContactsSelector(
-                                            title = "选择对话",
+                                            title = stringResource(R.string.conversation_group_select_conversations),
                                             contacts = remember { WeDatabaseApi.getContacts() },
                                             initialSelectedWxIds = members,
                                             onDismiss = this.onDismiss,
@@ -931,20 +1009,20 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                                     }
                                 }
                             ) {
-                                Text("选择对话")
+                                Text(stringResource(R.string.conversation_group_select_conversations))
                             }
                         }
 
                         GroupType.PRESET_UNREAD -> {
-                            Text("自动归拢所有未读对话（当前匹配到 $matchedCount 个对话）")
+                            Text(stringResource(R.string.conversation_group_unread_match_count, matchedCount))
                         }
 
                         GroupType.PRESET_GROUPS -> {
-                            Text("自动归拢所有群聊（当前匹配到 $matchedCount 个对话）")
+                            Text(stringResource(R.string.conversation_group_groups_match_count, matchedCount))
                         }
 
                         GroupType.PRESET_OFFICIALS -> {
-                            Text("自动归拢所有公众号（当前匹配到 $matchedCount 个对话）")
+                            Text(stringResource(R.string.conversation_group_officials_match_count, matchedCount))
                         }
 
                         GroupType.SQL -> {
@@ -952,23 +1030,23 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                                 value = selectFields,
                                 onValueChange = { selectFields = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("SELECT 字段") },
+                                label = { Text(stringResource(R.string.conversation_group_select_fields)) },
                                 singleLine = true
                             )
                             OutlinedTextField(
                                 value = whereClause,
                                 onValueChange = { whereClause = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("WHERE 条件") },
+                                label = { Text(stringResource(R.string.conversation_group_where_clause)) },
                                 singleLine = false,
                                 maxLines = 4
                             )
                             Text(
-                                text = "当前匹配到 $matchedCount 个对话",
+                                text = stringResource(R.string.conversation_group_match_count, matchedCount),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = "数据源自 rcontact r, img_flag i, rconversation c\n示例: c.unReadCount > 0 AND r.username LIKE '%@chatroom'",
+                                text = stringResource(R.string.conversation_group_sql_help),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -978,13 +1056,13 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
             },
             dismissButton = {
                 if (onDelete != null) {
-                    TextButton(onDelete) { Text("删除") }
+                    TextButton(onDelete) { Text(stringResource(R.string.conversation_group_action_delete)) }
                 }
-                TextButton(onDismiss) { Text("取消") }
+                TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
             },
             confirmButton = {
                 Button(
-                    enabled = name.isNotBlank(),
+                    enabled = name.isNotBlank() || group?.builtInLabel != null,
                     onClick = {
                         val next = ChatGroup(
                             id = groupId,
@@ -992,12 +1070,13 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                             members = members.toList().sorted(),
                             type = type,
                             selectFields = selectFields.trim(),
-                            whereClause = whereClause.trim()
+                            whereClause = whereClause.trim(),
+                            builtInLabel = group?.builtInLabel,
                         )
                         onSave(next)
-                        showToast("已保存")
+                        showToast(localizedContext.getString(R.string.conversation_group_saved))
                     }
-                ) { Text("确定") }
+                ) { Text(stringResource(R.string.dialog_confirm)) }
             }
         )
     }
@@ -1098,7 +1177,11 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                 .map { group ->
                     group.copy(members = group.members.filter { it.isNotBlank() })
                 }
-                .filter { (isGroupId(it.id) || isAllTab(it.id)) && it.name.isNotBlank() }
+                .map(::migrateLegacyBuiltInLabel)
+                .filter {
+                    (isGroupId(it.id) || isAllTab(it.id)) &&
+                        (isAllTab(it.id) || it.name.isNotBlank() || it.builtInLabel != null)
+                }
         }.onFailure {
             WeLogger.w(TAG, "failed to decode groups config from $groupsFile", it)
         }.getOrDefault(emptyList())
@@ -1109,6 +1192,18 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
         return withAll
     }
 
+    private fun migrateLegacyBuiltInLabel(group: ChatGroup): ChatGroup {
+        if (isAllTab(group.id)) return group.copy(name = "")
+        if (group.builtInLabel != null) return group
+        val label = when {
+            group.type == GroupType.PRESET_UNREAD && group.name == "未读" -> BuiltInGroupLabel.UNREAD
+            group.type == GroupType.PRESET_GROUPS && group.name == "群聊" -> BuiltInGroupLabel.GROUPS
+            group.type == GroupType.PRESET_OFFICIALS && group.name == "公众号" -> BuiltInGroupLabel.OFFICIALS
+            else -> null
+        }
+        return if (label == null) group else group.copy(name = "", builtInLabel = label)
+    }
+
     // The groups seeded on first run, matching the tabs this feature used to hardcode
     // (minus 全部, which is the fixed non-deletable tab, and 好友).
     private fun defaultGroups(): List<ChatGroup> {
@@ -1117,9 +1212,21 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
         val base = System.currentTimeMillis()
         return listOf(
             allTab(),
-            ChatGroup(id = "$GROUP_PREFIX${base}", name = "未读", type = GroupType.PRESET_UNREAD),
-            ChatGroup(id = "$GROUP_PREFIX${base + 1}", name = "群聊", type = GroupType.PRESET_GROUPS),
-            ChatGroup(id = "$GROUP_PREFIX${base + 2}", name = "公众号", type = GroupType.PRESET_OFFICIALS)
+            ChatGroup(
+                id = "$GROUP_PREFIX${base}",
+                type = GroupType.PRESET_UNREAD,
+                builtInLabel = BuiltInGroupLabel.UNREAD,
+            ),
+            ChatGroup(
+                id = "$GROUP_PREFIX${base + 1}",
+                type = GroupType.PRESET_GROUPS,
+                builtInLabel = BuiltInGroupLabel.GROUPS,
+            ),
+            ChatGroup(
+                id = "$GROUP_PREFIX${base + 2}",
+                type = GroupType.PRESET_OFFICIALS,
+                builtInLabel = BuiltInGroupLabel.OFFICIALS,
+            ),
         )
     }
 
@@ -1151,12 +1258,20 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
     }
 
     @Serializable
+    private enum class BuiltInGroupLabel {
+        UNREAD,
+        GROUPS,
+        OFFICIALS,
+    }
+
+    @Serializable
     private data class ChatGroup(
         val id: String = "",
         val name: String = "",
         val members: List<String> = emptyList(),
         val type: GroupType = GroupType.MANUAL,
         val selectFields: String = "",
-        val whereClause: String = ""
+        val whereClause: String = "",
+        val builtInLabel: BuiltInGroupLabel? = null,
     )
 }

@@ -22,4 +22,8 @@ public class WxViewPager extends ViewGroup {
     public int getCurrentItem() {
         throw new RuntimeException("Stub!");
     }
+
+    public void setCurrentItem(int item, boolean smoothScroll) {
+        throw new RuntimeException("Stub!");
+    }
 }

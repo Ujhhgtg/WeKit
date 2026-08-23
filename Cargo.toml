@@ -1,5 +1,5 @@
 [workspace]
-members = ["app/src/main/rust/wekit-native/", "contrib/wekit-read-receipts-server", "wekit-zygisk/native/", "xtask"]
+members = ["app/src/main/rust/wekit-native/", "app/src/main/rust/wekit-llama/", "services/read-receipts", "wekit-zygisk/native/", "xtask"]
 resolver = "3"
 
 [profile.release]
@@ -11,3 +11,7 @@ panic = "abort"
 
 [profile.release.package.wekit-zygisk]
 strip = "none"
+
+# llama.cpp matmul perf; workspace "z"/LTO defaults stay
+[profile.release.package.wekit-llama]
+opt-level = 3

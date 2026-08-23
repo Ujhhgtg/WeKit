@@ -3,12 +3,14 @@ package dev.ujhhgtg.wekit.features.api.core
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi.hideConversation
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi.reloadConversations
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.runOnUiThread
@@ -19,7 +21,12 @@ import java.lang.reflect.Modifier
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-@Feature(name = "对话服务", categories = ["API"], description = "提供对话管理能力")
+@Feature(
+    id = "对话服务",
+    nameRes = "feature_we_conversation_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_conversation_api_description",
+)
 object WeConversationApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeConversationApi"
@@ -37,7 +44,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     }
     private val methodUpdateUnreadByTalker by dexMethod {
         matcher {
-            declaredClass(classConversationStorage.clazz)
+            declaredClass(classConversationStorage.data.name)
             usingEqStrings("MicroMsg.ConversationStorage", "updateUnreadByTalker %s")
         }
     }
@@ -47,7 +54,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     // "不显示该聊天" for a normal contact.
     private val methodDelChatContact by dexMethod {
         matcher {
-            declaredClass(classConversationStorage.clazz)
+            declaredClass(classConversationStorage.data.name)
             usingStrings("MicroMsg.ConversationStorage", "delChatContact username:")
             paramCount = 1
             paramTypes(String::class.java)
@@ -81,7 +88,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 //    }
     private val methodHiddenConvParent by dexMethod {
         matcher {
-            declaredClass(classConversationStorage.clazz)
+            declaredClass(classConversationStorage.data.name)
             usingEqStrings("Update rconversation set parentRef = '", "' where 1 != 1 ")
         }
     }
@@ -145,7 +152,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     // has the "placed top" high bits set. Anchored by the string it logs on a null/empty talker.
     private val methodIsPlacedTop by dexMethod(allowFailure = true) {
         matcher {
-            declaredClass(classConversationStorage.clazz)
+            declaredClass(classConversationStorage.data.name)
             usingStrings("MicroMsg.ConversationStorage", "isPlacedTop failed")
             paramCount = 1
             paramTypes(String::class.java)
@@ -157,7 +164,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     // that WeChat uses to sort pinned conversations to the top.
     private val methodSetPlacedTop by dexMethod(allowFailure = true) {
         matcher {
-            declaredClass(classConversationStorage.clazz)
+            declaredClass(classConversationStorage.data.name)
             usingStrings("MicroMsg.ConversationStorage", "setPlacedTop conversation failed")
             paramCount = 1
             paramTypes(String::class.java)
@@ -168,7 +175,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     // ConversationStorage.X(String) / unSetPlacedTop — clears the high bits, unpinning the row.
     private val methodUnSetPlacedTop by dexMethod(allowFailure = true) {
         matcher {
-            declaredClass(classConversationStorage.clazz)
+            declaredClass(classConversationStorage.data.name)
             usingStrings("MicroMsg.ConversationStorage", "unSetPlacedTop conversation failed")
             paramCount = 1
             paramTypes(String::class.java)
@@ -189,9 +196,9 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     }
     val methodNotifyConversationChanged by dexMethod(allowFailure = true) {
         matcher {
-            declaredClass(classConversationStorage.clazz.superclass!!)
+            declaredClass(classConversationStorage.data.superClass!!.name)
             paramCount = 3
-            paramTypes("int", classConversationStorage.clazz.superclass!!.name, "java.lang.Object")
+            paramTypes("int", classConversationStorage.data.superClass!!.name, "java.lang.Object")
             returnType(Void.TYPE)
         }
     }
@@ -200,7 +207,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     // talker), or null. Needed to hand the conversation object to the native delete helper below.
     private val methodGetConversationByTalker by dexMethod(allowFailure = true) {
         matcher {
-            declaredClass(classConversationStorage.clazz)
+            declaredClass(classConversationStorage.data.name)
             usingStrings("MicroMsg.ConversationStorage", "get null with username:")
             paramCount = 1
             paramTypes(String::class.java)

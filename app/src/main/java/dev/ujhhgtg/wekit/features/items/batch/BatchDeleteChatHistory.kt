@@ -3,10 +3,14 @@ package dev.ujhhgtg.wekit.features.items.batch
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
@@ -21,9 +25,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Feature(
-    name = "批量删除聊天记录",
-    categories = ["批量操作"],
-    description = "彻底清除选中对话的聊天记录 (删除 rconversation 与 message 记录), 此操作不可逆!"
+    id = "批量删除聊天记录",
+    nameRes = "feature_batch_delete_chat_history_name",
+    categoryIds = [FeatureCategoryIds.BATCH],
+    descriptionRes = "feature_batch_delete_chat_history_description",
 )
 object BatchDeleteChatHistory : ClickableFeature() {
 
@@ -36,13 +41,13 @@ object BatchDeleteChatHistory : ClickableFeature() {
 
         showComposeDialog(context) {
             ContactsSelector(
-                title = "选择要删除聊天记录的对话",
+                title = context.localizedBatchString(R.string.batch_delete_history_select),
                 contacts = contacts,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast("请选择至少一个对话")
+                        showToast(context.localizedBatchString(R.string.batch_select_at_least_one_conversation))
                         return@ContactsSelector
                     }
 
@@ -56,14 +61,22 @@ object BatchDeleteChatHistory : ClickableFeature() {
     private fun confirmAndDelete(context: Context, wxIds: Set<String>) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("删除聊天记录") },
-                text = { Text("确定要删除选中的 ${wxIds.size} 个对话的全部聊天记录吗? 此操作不可逆!") },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                title = { Text(stringResource(R.string.batch_delete_history_title)) },
+                text = {
+                    Text(
+                        pluralStringResource(
+                            R.plurals.batch_delete_history_confirm,
+                            wxIds.size,
+                            wxIds.size,
+                        ),
+                    )
+                },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         onDismiss()
                         deleteChatHistory(wxIds)
-                    }) { Text("删除") }
+                    }) { Text(stringResource(R.string.action_delete)) }
                 }
             )
         }
@@ -71,7 +84,13 @@ object BatchDeleteChatHistory : ClickableFeature() {
 
     private fun deleteChatHistory(wxIds: Set<String>) {
         CoroutineScope(Dispatchers.IO).launch {
-            showToastSuspend("正在删除 ${wxIds.size} 个对话的聊天记录...")
+            showToastSuspend(
+                localizedBatchQuantity(
+                    R.plurals.batch_delete_history_progress,
+                    wxIds.size,
+                    wxIds.size,
+                ),
+            )
 
             // Wipe the message rows first so a mid-way failure doesn't leave an empty conversation.
             val messagesDeleted = deleteMessageRows(wxIds) {
@@ -87,7 +106,14 @@ object BatchDeleteChatHistory : ClickableFeature() {
                 wxIds.forEach { wxId -> WeConversationApi.deleteConversation(wxId) }
             }
 
-            showToastSuspend("已删除 ${wxIds.size} 个对话的聊天记录 (共 $messagesDeleted 条消息)")
+            showToastSuspend(
+                localizedBatchQuantity(
+                    R.plurals.batch_delete_history_done,
+                    wxIds.size,
+                    wxIds.size,
+                    messagesDeleted,
+                ),
+            )
         }
     }
 }

@@ -7,18 +7,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeUnsafeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-@Feature(name = "启动微信内部 URL", categories = ["调试"], description = "跳转微信 weixin:// URL")
+@Feature(
+    id = "启动微信内部 URL",
+    nameRes = "feature_launch_internal_urls_name",
+    categoryIds = [FeatureCategoryIds.DEBUG],
+    descriptionRes = "feature_launch_internal_urls_description",
+)
 object LaunchInternalUrls : ClickableFeature(), IResolveDex {
 
     override val noSwitchWidget = true
@@ -29,20 +37,20 @@ object LaunchInternalUrls : ClickableFeature(), IResolveDex {
             var argsInput by remember { mutableStateOf("") }
 
             AlertDialogContent(
-                title = { Text("启动微信内部 URL") },
+                title = { Text(stringResource(R.string.debug_launch_internal_url_title)) },
                 text = {
                     DefaultColumn {
                         TextField(
                             value = url,
                             onValueChange = { url = it },
-                            label = { Text("URL") })
+                            label = { Text(stringResource(R.string.debug_launch_internal_url_url)) })
                         TextField(
                             value = argsInput,
                             onValueChange = { argsInput = it },
-                            label = { Text("参数 (可留空)") })
+                            label = { Text(stringResource(R.string.debug_launch_internal_url_arguments)) })
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         onDismiss()
@@ -52,7 +60,7 @@ object LaunchInternalUrls : ClickableFeature(), IResolveDex {
                             WeUnsafeApi.allocateInstance(methodOpenUrl.method.declaringClass),
                             *arrayOf(context, url, args.toTypedArray())
                         )
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 })
         }
     }

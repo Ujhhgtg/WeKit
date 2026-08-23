@@ -10,9 +10,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,23 +18,27 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.FolderChoice
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.FolderAddIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 @Feature(
-    name = "添加对话至归拢文件夹",
-    categories = ["聊天"],
-    description = "在首页对话列表长按菜单添加菜单项, 可将该对话加入「对话归拢」的手动文件夹\n需启用「对话归拢」"
+    id = "添加对话至归拢文件夹",
+    nameRes = "feature_add_to_aggregation_folder_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_add_to_aggregation_folder_description",
 )
 object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi.IMenuItemsProvider {
 
@@ -54,24 +56,19 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
         showComposeDialog(context) {
             var showConfigInput by remember { mutableStateOf(showConfigDialog) }
             AlertDialogContent(
-                title = { Text("添加对话至归拢文件夹") },
+                title = { Text(stringResource(R.string.feature_add_to_aggregation_folder_name)) },
                 text = {
-                    ListItem(
-                        modifier = Modifier.clickable { showConfigInput = !showConfigInput },
-                        trailingContent = {
-                            Switch(checked = showConfigInput, onCheckedChange = null)
+                    SwitchWidget(
+                        title = stringResource(R.string.chat_add_folder_open_config),
+                        description = stringResource(R.string.chat_add_folder_open_config_description),
+                        checked = showConfigInput,
+                        onCheckedChange = {
+                            showConfigInput = it
+                            showConfigDialog = it
                         },
-                        supportingContent = { Text("将对话加入文件夹后, 自动打开该文件夹的编辑对话框") },
-                        headlineContent = { Text("添加后打开配置对话框") },
                     )
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
-                confirmButton = {
-                    Button({
-                        showConfigDialog = showConfigInput
-                        onDismiss()
-                    }) { Text("确定") }
-                }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
             )
         }
     }
@@ -80,7 +77,7 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
         return listOf(
             WeConversationContextMenuApi.MenuItem(
                 id = 777019,
-                text = "加入文件夹",
+                text = localizedChatString(R.string.chat_add_folder_menu),
                 drawable = FolderAddIcon,
                 shouldShow = { context, _ ->
                     val talker = context.talker
@@ -94,13 +91,13 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
 
     private fun onMenuClick(context: Context, talker: String) {
         if (!ConversationAggregation.isEnabled) {
-            showToast(context, "请先启用「对话归拢」!")
+            showToast(context, context.localizedChatString(R.string.chat_add_folder_enable_grouping_first))
             return
         }
 
         val folders = ConversationAggregation.aggregationFolders()
         if (folders.isEmpty()) {
-            showToast(context, "暂无文件夹, 请先在「对话归拢」中新建一个")
+            showToast(context, context.localizedChatString(R.string.chat_add_folder_none_available))
             return
         }
 
@@ -111,7 +108,7 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
         showComposeDialog(context) {
             AlertDialogContent(
                 modifier = Modifier.fillMaxWidth(),
-                title = { Text("加入文件夹") },
+                title = { Text(stringResource(R.string.chat_add_folder_menu)) },
                 text = {
                     LazyColumn(
                         modifier = Modifier.heightIn(max = 420.dp),
@@ -120,7 +117,10 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
                         items(folders, key = { it.id }) { folder ->
                             FolderPickRow(folder) {
                                 if (folder.isAuto) {
-                                    showToast(context, "「${folder.name}」为自动归拢文件夹, 无法手动添加对话")
+                                    showToast(
+                                        context,
+                                        context.localizedChatString(R.string.chat_add_folder_automatic_unavailable, folder.name),
+                                    )
                                     return@FolderPickRow
                                 }
                                 onDismiss()
@@ -130,7 +130,7 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 }
             )
         }
@@ -138,10 +138,10 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
 
     private fun addToFolder(context: Context, folder: FolderChoice, talker: String) {
         if (!ConversationAggregation.addToFolder(folder.id, talker)) {
-            showToast(context, "「${folder.name}」无法手动添加对话")
+            showToast(context, context.localizedChatString(R.string.chat_add_folder_manual_unavailable, folder.name))
             return
         }
-        showToast(context, "已加入「${folder.name}」")
+        showToast(context, context.localizedChatString(R.string.chat_add_folder_success, folder.name))
         if (showConfigDialog) {
             ConversationAggregation.showAddToFolderDialog(context, folder.id, talker)
         }
@@ -157,7 +157,10 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
         ) {
             Text(folder.name)
             Text(
-                text = if (folder.isAuto) "自动归拢, 不可手动添加" else "手动文件夹",
+                text = stringResource(
+                    if (folder.isAuto) R.string.chat_add_folder_automatic_summary
+                    else R.string.chat_add_folder_manual_summary,
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

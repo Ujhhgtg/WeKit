@@ -4,11 +4,17 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
-@Feature(name = "XML 解析钩子服务", categories = ["API"], description = "提供篡改 XML 解析流程的能力")
+@Feature(
+    id = "XML 解析钩子服务",
+    nameRes = "feature_we_xml_parser_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_xml_parser_api_description",
+)
 object WeXmlParserApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeXmlParserApi"

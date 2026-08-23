@@ -11,7 +11,11 @@ import android.os.Environment
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.utils.android.getSystemService
@@ -49,13 +53,12 @@ sealed interface UpdateResult {
 private const val BASE_URL =
     "https://github.com/Ujhhgtg/WeKit/releases/download/CI"
 
-// APKs are published per entry-point flavor: app-<flavor>-<abi>-release.apk.
+// APKs are published per entry-point flavor: app-<flavor>-release.apk.
 // Stay on the same flavor the installed build was compiled for.
 private val FLAVOR = BuildConfig.FLAVOR_SLUG
 
 private val ABI_APK_MAP = mapOf(
-    "arm64-v8a" to "$BASE_URL/app-$FLAVOR-arm64-v8a-release.apk",
-    "armeabi-v7a" to "$BASE_URL/app-$FLAVOR-armeabi-v7a-release.apk",
+    "arm64-v8a" to "$BASE_URL/app-$FLAVOR-release.apk",
 )
 private const val UPDATE_JSON_URL = "$BASE_URL/update.json"
 private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
@@ -187,9 +190,14 @@ object AppUpdater {
         fileName: String,
         mimeType: String,
     ): Long {
+        val localizedContext = LocalizedContextFactory.create(
+            context,
+            WeKitLocaleController.resolvedLocale,
+            LocaleResourceMode.InjectedHost,
+        )
         val request = DownloadManager.Request(url.toUri()).apply {
-            setTitle("WeKit 更新")
-            setDescription("正在下载更新...")
+            setTitle(localizedContext.getString(R.string.noncompose_update_download_title))
+            setDescription(localizedContext.getString(R.string.noncompose_update_downloading))
             setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
             setMimeType(mimeType)

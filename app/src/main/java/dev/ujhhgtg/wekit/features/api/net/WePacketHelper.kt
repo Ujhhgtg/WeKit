@@ -6,18 +6,17 @@ import android.os.Looper
 import com.tencent.mm.network.v0
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
-import dev.ujhhgtg.reflekt.utils.isBuiltin
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
-import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.net.abc.WeRequestCallback
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
-import dev.ujhhgtg.wekit.utils.reflection.asClass
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +30,11 @@ import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
 
-@Feature(name = "网络数据包服务", categories = ["API"])
+@Feature(
+    id = "网络数据包服务",
+    nameRes = "feature_we_packet_helper_name",
+    categoryIds = [FeatureCategoryIds.API],
+)
 object WePacketHelper : ApiFeature(), IResolveDex {
 
     // 核心 Protobuf 类
@@ -113,8 +116,8 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         matcher {
             fields {
                 countMin(10)
-                add { type(classProtoBase.clazz) }
-                add { type(classProtoBase.clazz) }
+                add { type(classProtoBase.data.name) }
+                add { type(classProtoBase.data.name) }
                 add { type = "java.lang.String" }
             }
         }
@@ -136,7 +139,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     }
     val classNetScenePat by dexClass {
         matcher {
-            classNetSceneBase.clazz.let { superClass = it.name }
+            superClass = classNetSceneBase.data.name
 
             methods {
                 add {
@@ -159,7 +162,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
             methods {
                 add {
                     modifiers = Modifier.STATIC or Modifier.PUBLIC
-                    classNetQueue.clazz.let { returnType = it.name }
+                    returnType = classNetQueue.data.name
                 }
             }
         }
@@ -221,10 +224,10 @@ object WePacketHelper : ApiFeature(), IResolveDex {
 
     @SuppressLint("NonUniqueDexKitData")
     override fun resolveDex(dexKit: DexKitBridge) {
-        val wrapperName = classRawReq.clazz.superclass!!
+        val wrapperName = classRawReq.data.superClass!!.name
         val candidates = dexKit.findClass {
             matcher {
-                superClass = wrapperName.name
+                superClass = wrapperName
                 fields {
                     count(2)
                     add { type = "int" }
@@ -248,7 +251,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
             }
         }
 
-        val cbIface = classCallbackIface.clazz
+        val cbIface = classCallbackIface.data.name
         val callbackMethod = dexKit.findMethod {
             searchInClass(listOf(classCallbackIface.getClassData(dexKit)))
             matcher {
@@ -265,7 +268,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
             matcher {
                 modifiers = Modifier.STATIC or Modifier.PUBLIC
                 paramCount = 3
-                paramTypes(reqRespName.asClass, cbIface, bool)
+                paramTypes(reqRespName.name, cbIface, "boolean")
             }
         }.firstOrNull()
 
@@ -278,63 +281,57 @@ object WePacketHelper : ApiFeature(), IResolveDex {
 //            )
         }
 
-        try {
-            classOplogReq.find(dexKit) {
-                matcher {
-                    classProtoBase.clazz.let { superClass = it.name }
-                    usingStrings("/cgi-bin/micromsg-bin/oplog")
-                    fields { count(1) }
-                    methods {
-                        add {
-                            name = "op"
-                            paramTypes("int", "java.lang.Object[]")
-                        }
+        val directOplogReq = dexKit.findClass {
+            matcher {
+                superClass = classProtoBase.data.name
+                usingStrings("/cgi-bin/micromsg-bin/oplog")
+                fields { count(1) }
+                methods {
+                    add {
+                        name = "op"
+                        paramTypes("int", "java.lang.Object[]")
                     }
                 }
             }
-        } catch (_: RuntimeException) {
-            val wrapperClassData = dexKit.findClass {
-                matcher {
-                    methods {
-                        add {
-                            name = "getFuncId"
-                            returnType = "int"
-                            usingNumbers(681)
-                        }
-                        add {
-                            name = "toProtoBuf"
-                            returnType = "byte[]"
+        }
+
+        when (directOplogReq.size) {
+            1 -> classOplogReq.setDescriptor(directOplogReq.single())
+            0 -> {
+                val wrapperClassData = dexKit.findClass {
+                    matcher {
+                        methods {
+                            add {
+                                name = "getFuncId"
+                                returnType = "int"
+                                usingNumbers(681)
+                            }
+                            add {
+                                name = "toProtoBuf"
+                                returnType = "byte[]"
+                            }
                         }
                     }
-                }
-            }.firstOrNull() ?: throw NoSuchElementException("failed to locate wrapper class based on FuncId 681")
+                }.firstOrNull()
+                    ?: throw NoSuchElementException("failed to locate wrapper class based on FuncId 681")
 
-            val wrapperClassName = wrapperClassData.name
+                val protoBaseName = classProtoBase.data.name
+                val realProtoClass = wrapperClassData.fields
+                    .map { it.type }
+                    .firstOrNull { fieldType ->
+                        generateSequence(fieldType) { it.superClass }
+                            .any { it.name == protoBaseName }
+                    }
+                    ?: throw NoSuchElementException("failed to find protobuf field in FuncId 681 wrapper")
 
-            val wrapperClass = wrapperClassName.toClass()
-            val realProtoClass = wrapperClass.declaredFields.firstOrNull { field ->
-                val type = field.type
-                !type.isBuiltin && isExtendsBaseProtoBuf(type)
-            }?.type ?: throw NoSuchElementException("failed to find field in wrapper class")
-
-            WeLogger.i(TAG, "located oplog successfully: ${realProtoClass.name}")
-            classOplogReq.setDescriptor(realProtoClass.name)
-        }
-    }
-
-    /**
-     * 验证一个类是否继承自微信的 ProtoBuf 基类
-     */
-    private fun isExtendsBaseProtoBuf(cls: Class<*>?): Boolean {
-        var current = cls
-        while (current != null && current != Any::class.java) {
-            if (current.name.contains("protobuf")
-            ) {
-                return true
+                WeLogger.i(TAG, "located oplog successfully: ${realProtoClass.name}")
+                classOplogReq.setDescriptor(realProtoClass)
             }
-            current = current.getSuperclass()
+
+            else -> error(
+                "multiple direct oplog request classes found: ${directOplogReq.joinToString { it.name }}"
+            )
         }
-        return false
     }
 
     fun sendCgi(

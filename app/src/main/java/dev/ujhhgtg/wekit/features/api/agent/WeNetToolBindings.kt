@@ -2,14 +2,11 @@ package dev.ujhhgtg.wekit.features.api.agent
 
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.net.ExternalServiceId
-import dev.ujhhgtg.wekit.agent.workspace.VfsContext
-import dev.ujhhgtg.wekit.agent.workspace.WorkspaceVfs
 import dev.ujhhgtg.wekit.features.api.agent.WeNetToolBindings.SPILL_THRESHOLD_CHARS
 import dev.ujhhgtg.wekit.features.api.agent.WeNetToolBindings.braveSearch
 import dev.ujhhgtg.wekit.features.api.agent.WeNetToolBindings.exaSearch
 import dev.ujhhgtg.wekit.features.core.AgentTool
 import dev.ujhhgtg.wekit.features.core.AgentToolParam
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
@@ -32,13 +29,11 @@ import java.util.concurrent.TimeUnit
  * ([exaSearch], [braveSearch]) are only advertised to the model when the corresponding API key is
  * present (see [dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider.exaKeyPresent]).
  *
- * Large responses (over [SPILL_THRESHOLD_CHARS]) are written to a randomly-named `/cache/` file
- * and the model receives a truncation notice + path instead of the raw content, so it can use
- * [WeAgentFsToolBindings.readFile] with `startLine`/`endLine` to page through the result.
+ * Large responses (over [SPILL_THRESHOLD_CHARS]) are truncated to keep tool results bounded.
  */
 object WeNetToolBindings {
 
-    /** Inline-response character cap before spilling to /cache/ (~50 KiB of UTF-8). */
+    /** Inline-response character cap (~50 KiB of UTF-8). */
     private const val SPILL_THRESHOLD_CHARS = 50_000
 
     private const val DEFAULT_TIMEOUT_SEC = 30
@@ -56,25 +51,10 @@ object WeNetToolBindings {
             .build()
     }
 
-    private suspend fun vfs(): WorkspaceVfs? = currentCoroutineContext()[VfsContext]?.vfs
-
-    /**
-     * Returns [content] unchanged if it fits within [SPILL_THRESHOLD_CHARS]; otherwise writes the
-     * full content to a `/cache/` file and returns a truncation notice with the path so the model
-     * can read the file in chunks using [read_file] with line-range params.
-     */
-    private suspend fun maybeSpill(content: String, prefix: String, extension: String): String {
+    private fun boundResponse(content: String): String {
         if (content.length <= SPILL_THRESHOLD_CHARS) return content
-        val v = vfs()
-        return if (v != null) {
-            val path = v.writeToCacheSpill(prefix, extension, content)
-            val preview = content.take(500)
-            "[Output truncated — ${content.length} chars total. Full content saved to $path. " +
-                    "Use read_file with startLine/endLine to read it in parts.]\n\n$preview\n…"
-        } else {
-            content.take(SPILL_THRESHOLD_CHARS) +
-                    "\n\n[Truncated at $SPILL_THRESHOLD_CHARS chars — VFS unavailable for spill]"
-        }
+        return content.take(SPILL_THRESHOLD_CHARS) +
+                "\n\n[Output truncated at $SPILL_THRESHOLD_CHARS of ${content.length} characters]"
     }
 
     // -----------------------------------------------------------------------------------------
@@ -84,8 +64,7 @@ object WeNetToolBindings {
     @AgentTool(
         name = "fetch-text",
         description = "Fetch a web page and return its main text content (HTML tags stripped by Jsoup). " +
-                "If the page text exceeds the inline size cap, the full content is saved to a /cache/ file " +
-                "and a truncation notice with the path is returned; use read_file to page through it.",
+                "Responses exceeding the inline size cap are truncated.",
         sideEffect = false,
         group = AgentTool.BUILTIN_NET,
     )
@@ -111,7 +90,7 @@ object WeNetToolBindings {
             val bodyText = doc.body().wholeText().trim()
                 .replace(Regex("\n{3,}"), "\n\n")
 
-            maybeSpill(title + bodyText, "fetch", "txt")
+            boundResponse(title + bodyText)
         }.getOrElse { "fetch-text failed: ${it.message ?: it.javaClass.simpleName}" }
     }
 
@@ -122,7 +101,7 @@ object WeNetToolBindings {
     @AgentTool(
         name = "http-request",
         description = "Execute an arbitrary HTTP request and return a JSON object with statusCode, headers, and body. " +
-                "If the response body exceeds the inline size cap it is saved to /cache/ and a truncation notice is returned.",
+                "Responses exceeding the inline size cap are truncated.",
         sideEffect = true,
         group = AgentTool.BUILTIN_NET,
     )
@@ -180,7 +159,7 @@ object WeNetToolBindings {
                     put("body", resp.body.string())
                 }.toString()
             }
-            maybeSpill(result, "http", "json")
+            boundResponse(result)
         }.getOrElse { "http-request failed: ${it.message ?: it.javaClass.simpleName}" }
     }
 
@@ -255,7 +234,7 @@ object WeNetToolBindings {
                     })
                 }
             }
-            maybeSpill(compact.toString(), "exa", "json")
+            boundResponse(compact.toString())
         }.getOrElse { "exa-search failed: ${it.message ?: it.javaClass.simpleName}" }
     }
 
@@ -320,7 +299,7 @@ object WeNetToolBindings {
                     })
                 }
             }
-            maybeSpill(compact.toString(), "brave", "json")
+            boundResponse(compact.toString())
         }.getOrElse { "brave-search failed: ${it.message ?: it.javaClass.simpleName}" }
     }
 }

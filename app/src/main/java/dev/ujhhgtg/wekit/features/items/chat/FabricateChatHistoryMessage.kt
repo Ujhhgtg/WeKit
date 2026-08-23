@@ -25,22 +25,27 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Person_search
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.core.models.WeContact
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
@@ -69,7 +74,12 @@ import java.util.TimeZone
 import kotlin.math.abs
 import kotlin.random.Random
 
-@Feature(name = "伪造聊天记录消息", categories = ["聊天"], description = "创建伪造的聊天记录并生成卡片消息 XML")
+@Feature(
+    id = "伪造聊天记录消息",
+    nameRes = "feature_fabricate_chat_history_message_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_fabricate_chat_history_message_description",
+)
 object FabricateChatHistoryMessage : ClickableFeature() {
 
     override val noSwitchWidget = true
@@ -91,8 +101,10 @@ private fun ChatRecordXmlGeneratorDialog(
     contacts: List<WeContact>,
     onDismiss: () -> Unit
 ) {
-    var outerTitle by remember { mutableStateOf("聊天记录") }
-    var outerDesc by remember { mutableStateOf("描述") }
+    val defaultTitle = stringResource(R.string.chat_fabricate_record_default_title)
+    val defaultDescription = stringResource(R.string.chat_fabricate_record_default_description)
+    var outerTitle by remember { mutableStateOf(defaultTitle) }
+    var outerDesc by remember { mutableStateOf(defaultDescription) }
 
     val rows = remember {
         mutableStateListOf(
@@ -101,6 +113,7 @@ private fun ChatRecordXmlGeneratorDialog(
     }
 
     val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val contactsByWxId = remember(contacts) { contacts.associateBy { it.wxId } }
 
     val canGenerate by remember(rows, contacts) {
@@ -115,7 +128,7 @@ private fun ChatRecordXmlGeneratorDialog(
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxHeight(),
-        title = { Text("伪造聊天记录消息") },
+        title = { Text(stringResource(R.string.chat_fabricate_record_title)) },
         text = {
             Column(
                 modifier = Modifier
@@ -126,7 +139,7 @@ private fun ChatRecordXmlGeneratorDialog(
                     value = outerTitle,
                     onValueChange = { outerTitle = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("标题") },
+                    label = { Text(stringResource(R.string.chat_fabricate_record_title_field)) },
                     singleLine = true
                 )
 
@@ -140,7 +153,7 @@ private fun ChatRecordXmlGeneratorDialog(
                         value = outerDesc,
                         onValueChange = { outerDesc = it },
                         modifier = Modifier.weight(1f),
-                        label = { Text("描述") }
+                        label = { Text(stringResource(R.string.chat_fabricate_record_description_field)) }
                     )
 
                     Spacer(Modifier.width(8.dp))
@@ -151,7 +164,8 @@ private fun ChatRecordXmlGeneratorDialog(
                                 val takeCount = minOf(rows.size, 5)
                                 for (i in 0 until takeCount) {
                                     val row = rows[i]
-                                    val nickname = contactsByWxId[row.senderWxId]?.nickname ?: "未知"
+                                    val nickname = contactsByWxId[row.senderWxId]?.nickname
+                                        ?: localizedContext.getString(R.string.error_unknown)
                                     append("$nickname: ${row.text}")
                                     if (i < takeCount - 1) {
                                         append("\n")
@@ -163,7 +177,7 @@ private fun ChatRecordXmlGeneratorDialog(
                             }
                         }
                     ) {
-                        Text("生成")
+                        Text(stringResource(R.string.chat_fabricate_record_generate))
                     }
                 }
 
@@ -173,28 +187,34 @@ private fun ChatRecordXmlGeneratorDialog(
                     onClick = {
                         val clipboardText = readTextFromClipboard(context)
                         if (clipboardText.isNullOrBlank()) {
-                            showToast(context, "剪贴板为空!")
+                            showToast(
+                                context,
+                                localizedContext.getString(R.string.chat_fabricate_record_clipboard_empty),
+                            )
                             return@Button
                         }
                         runCatching {
                             val outerJson = XmlJsonParser.toJsonObject(clipboardText)
-                            val appmsg = outerJson["msg"]?.jsonObject?.get("appmsg")?.jsonObject ?: error("未找到 appmsg")
+                            val appmsg = outerJson["msg"]?.jsonObject?.get("appmsg")?.jsonObject
+                                ?: error(localizedContext.getString(R.string.chat_fabricate_record_missing_appmsg))
                             val parsedTitle = appmsg["title"]?.jsonPrimitive?.contentOrNull
                             val parsedDesc = appmsg["des"]?.jsonPrimitive?.contentOrNull
                             val recordItemCdata = appmsg["recorditem"]!!.jsonPrimitive.content
                             if (recordItemCdata.isBlank()) {
-                                error("recorditem 内容为空")
+                                error(localizedContext.getString(R.string.chat_fabricate_record_empty_recorditem))
                             }
                             val innerJson = XmlJsonParser.toJsonObject(recordItemCdata)
-                            val recordInfo = innerJson["recordinfo"]?.jsonObject ?: error("未找到 recordinfo")
-                            val datalist = recordInfo["datalist"]?.jsonObject ?: error("未找到 datalist")
+                            val recordInfo = innerJson["recordinfo"]?.jsonObject
+                                ?: error(localizedContext.getString(R.string.chat_fabricate_record_missing_recordinfo))
+                            val datalist = recordInfo["datalist"]?.jsonObject
+                                ?: error(localizedContext.getString(R.string.chat_fabricate_record_missing_datalist))
                             val dataItems: List<JsonObject> = when (val elems = datalist["dataitem"]) {
                                 is JsonArray -> elems.map { it.jsonObject }
                                 is JsonObject -> listOf(elems)
                                 else -> emptyList()
                             }
                             if (dataItems.isEmpty()) {
-                                error("未找到消息条目")
+                                error(localizedContext.getString(R.string.chat_fabricate_record_missing_items))
                             }
 
                             val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
@@ -218,21 +238,34 @@ private fun ChatRecordXmlGeneratorDialog(
                                 )
                             }
                             if (newRows.isEmpty()) {
-                                error("未能解析出有效消息")
+                                error(localizedContext.getString(R.string.chat_fabricate_record_no_valid_messages))
                             }
                             if (parsedTitle != null) outerTitle = parsedTitle
                             if (parsedDesc != null) outerDesc = parsedDesc
                             rows.clear()
                             rows.addAll(newRows)
-                            showToast(context, "已从剪贴板加载 ${newRows.size} 条消息")
+                            showToast(
+                                context,
+                                localizedContext.resources.getQuantityString(
+                                    R.plurals.chat_fabricate_record_loaded_count,
+                                    newRows.size,
+                                    newRows.size,
+                                ),
+                            )
                         }.onFailure {
-                            showToast(context, "解析失败: ${it.message}")
+                            showToast(
+                                context,
+                                localizedContext.getString(
+                                    R.string.chat_fabricate_record_parse_failed,
+                                    it.message ?: localizedContext.getString(R.string.error_unknown),
+                                ),
+                            )
                             WeLogger.e("FabricateChatHistoryMessage", "failed to parse messages from clipboard", it)
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("从剪贴板加载")
+                    Text(stringResource(R.string.chat_fabricate_record_load_clipboard))
                 }
 
                 Spacer(Modifier.height(12.dp))
@@ -242,7 +275,7 @@ private fun ChatRecordXmlGeneratorDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "消息列表",
+                        text = stringResource(R.string.chat_fabricate_record_message_list),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.weight(1f)
                     )
@@ -258,7 +291,10 @@ private fun ChatRecordXmlGeneratorDialog(
                             rows.add(MessageRowState(initialTimeMillis = nextTime))
                         }
                     ) {
-                        Icon(MaterialSymbols.Outlined.Add, contentDescription = "Add message")
+                        Icon(
+                            MaterialSymbols.Outlined.Add,
+                            contentDescription = stringResource(R.string.chat_fabricate_record_add_message),
+                        )
                     }
                 }
 
@@ -271,7 +307,7 @@ private fun ChatRecordXmlGeneratorDialog(
                         onPickSender = {
                             showComposeDialog(context) {
                                 SingleContactSelector(
-                                    title = "选择发送者",
+                                    title = localizedContext.getString(R.string.chat_fabricate_record_select_sender),
                                     contacts = contacts,
                                     initialSelectedWxId = row.senderWxId,
                                     onDismiss = this.onDismiss,
@@ -286,7 +322,10 @@ private fun ChatRecordXmlGeneratorDialog(
                             if (rows.size > 1) {
                                 rows.removeAt(index)
                             } else {
-                                showToast(context, "无法删除最后一条消息!")
+                                showToast(
+                                    context,
+                                    localizedContext.getString(R.string.chat_fabricate_record_cannot_delete_last),
+                                )
                             }
                         }
                     )
@@ -296,7 +335,7 @@ private fun ChatRecordXmlGeneratorDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
         },
         confirmButton = {
             Button(
@@ -310,9 +349,9 @@ private fun ChatRecordXmlGeneratorDialog(
                     )
 
                     copyToClipboard(context, xml)
-                    showToast(context, "已复制")
+                    showToast(context, localizedContext.getString(R.string.chat_message_details_copied))
                 }
-            ) { Text("复制") }
+            ) { Text(stringResource(R.string.chat_fabricate_record_copy)) }
             Button(
                 enabled = canGenerate,
                 onClick = {
@@ -324,19 +363,19 @@ private fun ChatRecordXmlGeneratorDialog(
                     )
                     showComposeDialog(context) {
                         SingleContactSelector(
-                            title = "选择发送目标",
+                            title = localizedContext.getString(R.string.chat_fabricate_record_select_target),
                             contacts = contacts,
                             initialSelectedWxId = null,
                             onDismiss = this.onDismiss,
                             onConfirm = { wxId ->
                                 WeMessageApi.sendXmlAppMsg(wxId, xml)
-                                showToast(context, "已发送")
+                                showToast(context, localizedContext.getString(R.string.chat_fabricate_record_sent))
                                 this.onDismiss()
                             }
                         )
                     }
                 }
-            ) { Text("发送") }
+            ) { Text(stringResource(R.string.chat_fabricate_record_send)) }
         }
     )
 }
@@ -362,7 +401,8 @@ private fun MessageRowEditor(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = selectedContact?.displayName ?: "选择发送者 →",
+                        text = selectedContact?.displayName
+                            ?: stringResource(R.string.chat_fabricate_record_choose_sender),
                         style = MaterialTheme.typography.titleSmall
                     )
                     if (selectedContact != null) {
@@ -375,14 +415,20 @@ private fun MessageRowEditor(
                 }
 
                 IconButton(onClick = onPickSender) {
-                    Icon(MaterialSymbols.Outlined.Person_search, contentDescription = "Select sender")
+                    Icon(
+                        MaterialSymbols.Outlined.Person_search,
+                        contentDescription = stringResource(R.string.chat_fabricate_record_select_sender),
+                    )
                 }
 
                 IconButton(
                     onClick = onRemove,
                     enabled = true
                 ) {
-                    Icon(MaterialSymbols.Outlined.Delete, contentDescription = "Remove message")
+                    Icon(
+                        MaterialSymbols.Outlined.Delete,
+                        contentDescription = stringResource(R.string.chat_fabricate_record_remove_message),
+                    )
                 }
             }
 
@@ -390,7 +436,7 @@ private fun MessageRowEditor(
                 value = row.text,
                 onValueChange = { row.text = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("消息内容") },
+                label = { Text(stringResource(R.string.chat_fabricate_record_message_content)) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default)
             )
 
@@ -399,7 +445,7 @@ private fun MessageRowEditor(
             WeDateTimeField(
                 value = row.timeText,
                 onValueChange = { row.timeText = it },
-                label = "发送时间 (yyyy-MM-dd HH:mm:ss)",
+                label = stringResource(R.string.chat_fabricate_record_send_time),
                 mode = WeDateTimeMode.DATE_TIME,
                 modifier = Modifier.fillMaxWidth()
             )

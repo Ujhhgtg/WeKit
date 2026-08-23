@@ -1,0 +1,19 @@
+{
+  "rootfs": {
+    "release": "2026.08",
+    "url": "https://mirror.yandex.ru/archlinux-arm/os/multi/ArchLinuxARM-2026.08-aarch64-rootfs.tar.gz",
+    "md5": "23eec86365b24f7913c403e8f4e8719b",
+    "sha256": "42a4eeaa038994ffd31fa173256ef2f0ef511358eeb41b9ea1f8626391b9b319",
+    "max_extracted_bytes": 12884901888,
+    "signature_url": "https://mirror.yandex.ru/archlinux-arm/os/multi/ArchLinuxARM-2026.08-aarch64-rootfs.tar.gz.sig",
+    "signing_fingerprint": "68B3537F39A313B3E574D06777193F152BDBE6A6"
+  },
+  "proot": {
+    "source": "https://github.com/berilevi/proot-static.git",
+    "commit": "6f8ebfd8e24887dfba64c3f2d7d5fe9dc059b60e"
+  },
+  "bridge": {
+    "cargo_package": "invoke_tool",
+    "target": "aarch64-linux-android"
+  }
+}

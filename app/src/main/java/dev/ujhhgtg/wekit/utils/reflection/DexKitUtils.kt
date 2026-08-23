@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.utils.reflection
 
-import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +38,8 @@ private object DexKitHolder {
         val acquired = if (current?.isValid == true) {
             current
         } else {
-            DexKitBridge.create(HostInfo.appInfo.sourceDir).also { bridge = it }
+            // Repackaging frameworks such as NPatch may expose a loader-only outer APK through sourceDir.
+            DexKitBridge.create(ClassLoaders.HOST, true).also { bridge = it }
         }
 
         activeLeaseCount++

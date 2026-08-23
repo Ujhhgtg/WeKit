@@ -21,14 +21,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.fetchBeforeTransfer
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.sendPlaceOrder
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -41,7 +44,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Feature(name = "测试", categories = ["调试"], description = "手动对指定 wxId 依次执行 beforetransfer 和 transferplaceorder 两个阶段的发包请求，并显示原始返回值")
+@Feature(
+    id = "测试",
+    nameRes = "feature_experiments_name",
+    categoryIds = [FeatureCategoryIds.DEBUG],
+    descriptionRes = "feature_experiments_description",
+)
 object Experiments : ClickableFeature() {
 
     @Suppress("unused")
@@ -58,10 +66,25 @@ object Experiments : ClickableFeature() {
         data object Running : Phase
         data class Done(
             /** beforetransfer 的完整 protobuf 响应 */
-            val beforeTransfer: String,
+            val beforeTransfer: ResultText,
             /** transferplaceorder 的完整 JSON 响应 */
-            val placeOrder: String?
+            val placeOrder: ResultText?
         ) : Phase
+    }
+
+    private sealed interface ResultText {
+        data class Raw(val value: String) : ResultText
+        data class Exception(val detail: String) : ResultText
+        data object RequestFailed : ResultText
+        data object TimedOut : ResultText
+    }
+
+    @Composable
+    private fun ResultText.asDisplayText(): String = when (this) {
+        is ResultText.Raw -> value
+        is ResultText.Exception -> stringResource(R.string.debug_experiments_exception, detail)
+        ResultText.RequestFailed -> stringResource(R.string.debug_experiments_request_failed)
+        ResultText.TimedOut -> stringResource(R.string.debug_experiments_request_timed_out)
     }
 
     // ── Dialog ───────────────────────────────────────────────────────────────
@@ -81,12 +104,12 @@ object Experiments : ClickableFeature() {
                     val result = runCatching {
                         val beforeTransfer = fetchBeforeTransfer(id, null)
                         val beforeStr = if (beforeTransfer != null) {
-                            buildString {
+                            ResultText.Raw(buildString {
                                 appendLine("maskedRealName: ${beforeTransfer.maskedRealName}")
                                 append("key: ${beforeTransfer.key}")
-                            }
+                            })
                         } else {
-                            "请求失败 (可能被删除/拉黑/账号异常)"
+                            ResultText.RequestFailed
                         }
 
                         val placeOrderStr = if (beforeTransfer?.key != null) {
@@ -100,13 +123,13 @@ object Experiments : ClickableFeature() {
                                 placeorderReserves = System.currentTimeMillis().toString()
                             )
                             val resp = sendPlaceOrder(ctx, inputName = null, checknameSign = null)
-                            if (resp != null) resp.toString(2) else "请求超时"
+                            if (resp != null) ResultText.Raw(resp.toString(2)) else ResultText.TimedOut
                         } else null
 
                         Phase.Done(beforeStr, placeOrderStr)
                     }.getOrElse { e ->
                         WeLogger.e(TAG, "发包失败", e)
-                        Phase.Done("异常: ${e.message}", null)
+                        Phase.Done(ResultText.Exception(e.message ?: e.javaClass.simpleName), null)
                     }
 
                     if (phase is Phase.Running) {
@@ -118,16 +141,12 @@ object Experiments : ClickableFeature() {
         }
 
         AlertDialogContent(
-            title = { Text("测试 — 两阶段发包") },
+            title = { Text(stringResource(R.string.debug_experiments_title)) },
             text = {
                 DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                     when (val current = phase) {
                         is Phase.Idle -> {
-                            Text(
-                                "先选择目标联系人，然后点击「开始」依次执行两阶段发包:\n" +
-                                        "1) beforetransfer — 取 maskedRealName / key\n" +
-                                        "2) transferplaceorder — 探测 checkname 挑战"
-                            )
+                            Text(stringResource(R.string.debug_experiments_instructions))
 
                             Spacer(Modifier.height(8.dp))
 
@@ -137,7 +156,7 @@ object Experiments : ClickableFeature() {
                                     .clickable {
                                         showComposeDialog(context) {
                                             SingleContactSelector(
-                                                title = "选择目标联系人",
+                                                title = stringResource(R.string.debug_experiments_select_contact),
                                                 contacts = contacts,
                                                 initialSelectedWxId = selectedWxId,
                                                 onDismiss = onDismiss,
@@ -156,7 +175,8 @@ object Experiments : ClickableFeature() {
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = selectedWxId ?: "点击选择联系人",
+                                        text = selectedWxId
+                                            ?: stringResource(R.string.debug_experiments_tap_to_select_contact),
                                         color = if (selectedWxId != null) {
                                             MaterialTheme.colorScheme.onSurface
                                         } else {
@@ -168,19 +188,22 @@ object Experiments : ClickableFeature() {
                         }
 
                         is Phase.Running -> {
-                            Text("发包中, 请稍等...")
+                            Text(stringResource(R.string.debug_experiments_sending))
                             LinearWavyProgressIndicator()
                         }
 
                         is Phase.Done -> {
                             Text(
-                                text = "阶段一 (beforetransfer):\n${current.beforeTransfer}",
+                                text = stringResource(
+                                    R.string.debug_experiments_phase_one_result,
+                                    current.beforeTransfer.asDisplayText(),
+                                ),
                                 fontFamily = FontFamily.Monospace
                             )
                             if (current.placeOrder != null) {
-                                Text("\n\n阶段二 (transferplaceorder):")
+                                Text(stringResource(R.string.debug_experiments_phase_two_title))
                                 Text(
-                                    text = current.placeOrder,
+                                    text = current.placeOrder.asDisplayText(),
                                     fontFamily = FontFamily.Monospace
                                 )
                             }
@@ -196,10 +219,10 @@ object Experiments : ClickableFeature() {
                                 if (selectedWxId != null) phase = Phase.Running
                             },
                             enabled = selectedWxId != null
-                        ) { Text("开始") }
+                        ) { Text(stringResource(R.string.debug_experiments_start)) }
                     }
 
-                    is Phase.Done -> Button(onDismiss) { Text("关闭") }
+                    is Phase.Done -> Button(onDismiss) { Text(stringResource(R.string.action_close)) }
                     else -> {}
                 }
             },
@@ -208,7 +231,7 @@ object Experiments : ClickableFeature() {
                     is Phase.Running -> TextButton(onClick = {
                         dialog.setCancelable(true)
                         phase = Phase.Idle
-                    }) { Text("终止") }
+                    }) { Text(stringResource(R.string.debug_experiments_stop)) }
                     else -> {}
                 }
             }

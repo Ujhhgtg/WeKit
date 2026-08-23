@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.content.ContentResolver
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.PickRootTelegramStickerSetsContract
 import dev.ujhhgtg.wekit.activity.RootTelegramStickerSetsResult
 import dev.ujhhgtg.wekit.activity.TransparentActivity
@@ -13,6 +14,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
 import dev.ujhhgtg.wekit.features.items.chat.panel.PickedPanelFile
@@ -63,9 +65,10 @@ import kotlin.io.path.writeBytes
 import kotlin.time.Duration.Companion.minutes
 
 @Feature(
-    name = "表情面板",
-    categories = ["聊天"],
-    description = "长按表情按钮打开表情面板"
+    id = "表情面板",
+    nameRes = "feature_sticker_panel_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_sticker_panel_description",
 )
 object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in ChatFooterHooks
 
@@ -146,9 +149,9 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
                         CoroutineScope(Dispatchers.IO).launch {
                             val result = runCatching {
                                 activity.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                                    ?: error("无法读取所选图片")
+                                    ?: error(localizedChatString(R.string.chat_sticker_selected_image_read_failed))
                             }.mapCatching { bytes ->
-                                require(bytes.isNotEmpty()) { "所选图片内容为空" }
+                                require(bytes.isNotEmpty()) { localizedChatString(R.string.chat_sticker_selected_image_empty) }
                                 bytes
                             }
                             withContext(Dispatchers.Main) {
@@ -185,7 +188,7 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
                     val temporary = item.localPath == null
                     try {
                         check(WeMessageApi.sendSticker(WeCurrentConversationApi.value, path)) {
-                            "表情发送失败"
+                            localizedChatString(R.string.chat_sticker_send_failed)
                         }
                         if (temporary) StickerPanelRepository.recordOnlineRecent(item)
                         else StickerPanelRepository.recordRecent(path)
@@ -212,7 +215,7 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
             item.localPath?.let { return@cancellableResult it }
             val bytes = resolveStickerBytes(item).getOrThrow()
             val extension = StickerPanelRepository.detectImageExtension(bytes)
-                ?: error("服务器返回了不支持的图片格式")
+                ?: error(localizedChatString(R.string.chat_sticker_server_unsupported_format))
             val path = PanelPaths.panelCacheDir / "sticker-${UUID.randomUUID()}.$extension"
             path.writeBytes(bytes)
             path.absolutePathString()
@@ -222,10 +225,10 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
     private suspend fun resolveStickerBytes(item: StickerItem): Result<ByteArray> = withContext(Dispatchers.IO) {
         cancellableResult {
             val bytes = item.localPath?.asPath?.readBytes() ?: run {
-                val objectId = item.remoteObjectId ?: error("没有可用表情对象")
+                val objectId = item.remoteObjectId ?: error(localizedChatString(R.string.chat_sticker_object_unavailable))
                 FunBoxServiceClient.downloadObject("image", objectId).getOrThrow()
             }
-            require(bytes.isNotEmpty()) { "表情图片内容为空" }
+            require(bytes.isNotEmpty()) { localizedChatString(R.string.chat_sticker_image_empty) }
             bytes
         }
     }
@@ -264,7 +267,7 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
 
             if (localPacks.all { it.onlineSourcePackId != null }) {
                 alreadyLinked = total
-                onProgress(StickerOnlineSourceRecoveryProgress(total, total, "所选本地包均已有在线来源"))
+                onProgress(StickerOnlineSourceRecoveryProgress(total, total, localizedChatString(R.string.chat_sticker_recovery_already_linked)))
                 return@cancellableResult StickerOnlineSourceRecoveryResult(
                     selected = total,
                     recovered = 0,
@@ -273,7 +276,7 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
                 )
             }
 
-            onProgress(StickerOnlineSourceRecoveryProgress(0, total, "正在读取在线表情包列表"))
+            onProgress(StickerOnlineSourceRecoveryProgress(0, total, localizedChatString(R.string.chat_sticker_recovery_reading_catalog)))
             val catalog = FunBoxStickerRepository.loadCatalog().getOrThrow()
             val uploads = FunBoxStickerRepository.loadMyUploads().getOrDefault(emptyList())
             val onlinePacks = (catalog + uploads).distinctBy(StickerPack::id)
@@ -283,7 +286,7 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
                     StickerOnlineSourceRecoveryProgress(
                         completed = index,
                         total = total,
-                        message = "正在匹配“${localPack.title}”",
+                        message = localizedChatString(R.string.chat_sticker_recovery_matching, localPack.title),
                     ),
                 )
                 when {
@@ -304,7 +307,7 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
                     StickerOnlineSourceRecoveryProgress(
                         completed = index + 1,
                         total = total,
-                        message = "已处理“${localPack.title}”",
+                        message = localizedChatString(R.string.chat_sticker_recovery_processed, localPack.title),
                     ),
                 )
             }
@@ -361,7 +364,7 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
                             val result = runCatching {
                                 contentResolver.openInputStream(uri)?.use { input ->
                                     Files.copy(input, temporary, StandardCopyOption.REPLACE_EXISTING)
-                                } ?: error("无法读取所选 Telegram 数据库")
+                                } ?: error(localizedChatString(R.string.chat_telegram_database_read_failed))
                                 TelegramStickerDatabase.readInstalledSets(temporary).getOrThrow()
                             }
                             temporary.deleteIfExists()
@@ -383,14 +386,17 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
         resolver: ContentResolver,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         if (files.isEmpty()) {
-            return@withContext Result.failure(IllegalArgumentException("所选内容中没有支持的图片文件"))
+            return@withContext Result.failure(
+                IllegalArgumentException(localizedChatString(R.string.chat_sticker_no_supported_selected)),
+            )
         }
 
         var imported = 0
         val failures = mutableListOf<Pair<String, Throwable>>()
         files.forEach { file ->
             runCatching {
-                val input = resolver.openInputStream(file.uri) ?: error("无法读取文件")
+                val input = resolver.openInputStream(file.uri)
+                    ?: error(localizedChatString(R.string.chat_sticker_file_read_failed))
                 input.use {
                     StickerPanelRepository.importSticker(packId, file.name, it).getOrThrow()
                 }
@@ -407,8 +413,14 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
             val first = failures.first()
             Result.failure(
                 IllegalStateException(
-                    "已导入 $imported 个，${failures.size} 个失败；${first.first}: " +
-                            (first.second.message ?: "未知错误"),
+                    localizedChatQuantity(
+                        R.plurals.chat_sticker_import_partial_failed,
+                        imported,
+                        imported,
+                        failures.size,
+                        first.first,
+                        first.second.message ?: localizedChatString(R.string.chat_unknown_error),
+                    ),
                     first.second,
                 ),
             )
@@ -422,7 +434,7 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
         cancellableResult {
             val importContext = currentCoroutineContext()
             onProgress(WeChatStickerImportProgress(WeChatStickerImportPhase.SCANNING))
-            check(WeDatabaseApi.isReady) { "微信数据库尚未就绪" }
+            check(WeDatabaseApi.isReady) { localizedChatString(R.string.chat_wechat_sticker_database_not_ready) }
             val md5s = WeDatabaseApi.rawQuery(
                 "SELECT md5 FROM EmojiInfo WHERE catalog = ? AND temp = ? ORDER BY reserved3 ASC",
                 arrayOf(WECHAT_CUSTOM_EMOJI_CATALOG, 0),
@@ -459,11 +471,13 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
                     unchanged++
                 } else {
                     cancellableResult {
-                        check(cacheWeChatSticker(md5)) { "微信表情下载失败" }
+                        check(cacheWeChatSticker(md5)) {
+                            localizedChatString(R.string.chat_wechat_sticker_download_failed)
+                        }
                         val exportedPath = WeMessageApi.saveStickerByMd5(
                             md5,
                             ".wekit-wechat-$md5-${UUID.randomUUID()}.gif",
-                        ) ?: error("无法导出微信表情")
+                        ) ?: error(localizedChatString(R.string.chat_wechat_sticker_export_failed))
                         try {
                             importContext.ensureActive()
                             exportedPath.asPath.inputStream().use { input ->
@@ -495,19 +509,25 @@ object StickerPanel : SwitchFeature(), IResolveDex { // entry implementation in 
             if (md5s.isNotEmpty() && imported == 0 && unchanged == 0) {
                 val firstFailure = failures.firstOrNull()?.second
                 throw IllegalStateException(
-                    "微信原生表情导入失败：${firstFailure?.message ?: "未知错误"}",
+                    localizedChatString(
+                        R.string.chat_wechat_sticker_import_failed,
+                        firstFailure?.message ?: localizedChatString(R.string.chat_unknown_error),
+                    ),
                     firstFailure,
                 )
             }
 
-            buildString {
-                if (md5s.isEmpty()) {
-                    append("微信没有「添加的单个表情」")
-                } else {
-                    append("已更新「$packName」：新增 $imported 个")
-                    if (unchanged > 0) append("，$unchanged 个无需更新")
-                    if (failures.isNotEmpty()) append("，${failures.size} 个失败")
-                }
+            if (md5s.isEmpty()) {
+                localizedChatString(R.string.chat_wechat_sticker_no_custom)
+            } else {
+                localizedChatQuantity(
+                    R.plurals.chat_wechat_sticker_import_result,
+                    imported,
+                    packName,
+                    imported,
+                    unchanged,
+                    failures.size,
+                )
             }
         }
     }

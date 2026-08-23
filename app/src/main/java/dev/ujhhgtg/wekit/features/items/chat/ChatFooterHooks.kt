@@ -8,12 +8,16 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
-import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
-import android.widget.Button as AndroidButton
 
-@Feature(name = "聊天输入栏钩子", categories = ["API"], description = "集中提供聊天输入栏相关钩子")
+@Feature(
+    id = "聊天输入栏钩子",
+    nameRes = "feature_chat_footer_hooks_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_chat_footer_hooks_description",
+)
 object ChatFooterHooks : ApiFeature(), IResolveDex {
 
     private val methodInitSmileyBtn by dexMethod {
@@ -26,10 +30,10 @@ object ChatFooterHooks : ApiFeature(), IResolveDex {
     override fun onEnable() {
         methodInitSmileyBtn.hookAfter {
             val chatFooter = thisObject as ChatFooter
-            val searchedView = chatFooter.findViewByChildIndexes<View>(0)!!
-            val imgButtons = searchedView.findViewsWhich<ImageButton> { view ->
+            val searchedView = chatFooter.findViewByChildIndexes(0)!!
+            val imgButtons = searchedView.findViewsWhich { view ->
                 view.javaClass.simpleName == "WeImageButton"
-            }.toList()
+            }.map { it as ImageButton }.toList()
 
             if (VoicePanel.isEnabled) {
                 val voiceBtn = imgButtons.first()
@@ -48,22 +52,12 @@ object ChatFooterHooks : ApiFeature(), IResolveDex {
             }
 
             val menuBtn = imgButtons.last()
-            val sendBtn = searchedView.findViewWhich<AndroidButton> { view ->
-                view.javaClass.name == "android.widget.Button" && run {
-                    val text = (view as AndroidButton).text?.toString()?.trim() ?: ""
-                    text == "发送" || text.equals("send", ignoreCase = true)
-                }
-            }!!
+            val sendBtn = WeChatInputBarMenuApi.findSendButton(chatFooter)
 
             listOf(menuBtn, sendBtn).forEach {
                 it.setOnLongClickListener { view ->
-                    val context = view.context
-                    if (WeChatInputBarMenuApi.hasItems(context, chatFooter)) {
-                        WeChatInputBarMenuApi.showMenu(context, chatFooter)
-                        true
-                    } else {
-                        false
-                    }
+                    WeChatInputBarMenuApi.showMenu(view.context, chatFooter)
+                    true
                 }
             }
         }

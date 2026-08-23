@@ -7,12 +7,14 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 @Feature(
-    name = "禁用存储空间不足检测",
-    categories = ["系统与隐私"],
-    description = "「隐藏应用列表」等隐藏 Root 模块有时会使应用获取到的可用空间不正确, 而微信在可用空间不足时会强制要求清理空间才可继续使用, 本功能移除了该限制"
+    id = "禁用存储空间不足检测",
+    nameRes = "feature_disable_low_available_storage_detection_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_disable_low_available_storage_detection_description",
 )
 object DisableLowAvailableStorageDetection : SwitchFeature(), IResolveDex {
 

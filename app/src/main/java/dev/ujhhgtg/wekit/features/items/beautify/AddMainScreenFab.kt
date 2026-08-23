@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import androidx.activity.ComponentActivity
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseIn
 import androidx.compose.animation.core.EaseInCubic
@@ -18,14 +19,13 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -38,9 +38,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -49,7 +46,6 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -58,24 +54,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Drag_handle
@@ -89,6 +83,7 @@ import com.composables.icons.materialsymbols.outlinedfilled.Close
 import com.composables.icons.materialsymbols.outlinedfilled.Drag_pan
 import com.composables.icons.materialsymbols.outlinedfilled.Extension
 import com.composables.icons.materialsymbols.outlinedfilled.Favorite
+import com.composables.icons.materialsymbols.outlinedfilled.Mark_chat_read
 import com.composables.icons.materialsymbols.outlinedfilled.Movie
 import com.composables.icons.materialsymbols.outlinedfilled.Qr_code_scanner
 import com.composables.icons.materialsymbols.outlinedfilled.Restart_alt
@@ -98,32 +93,45 @@ import com.composables.icons.materialsymbols.outlinedfilled.Wallet
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.conversation.BaseConversationUI
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.reflekt.utils.fastJavaMethod
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.InjectedUiTheme
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
+import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import dev.ujhhgtg.wekit.ui.utils.rootView
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.killHost
 import dev.ujhhgtg.wekit.utils.restartHost
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.lang.ref.WeakReference
 import java.util.UUID
+import java.util.WeakHashMap
 
-@Feature(name = "主屏幕添加 FAB", categories = ["界面美化"], description = "向微信主屏幕添加浮动操作按钮")
+@Feature(
+    id = "主屏幕添加 FAB",
+    nameRes = "feature_add_main_screen_fab_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_add_main_screen_fab_description",
+)
 object AddMainScreenFab : ClickableFeature() {
 
     private const val TAG = "AddMainScreenFab"
@@ -149,7 +157,6 @@ object AddMainScreenFab : ClickableFeature() {
 
     private var expanded by mutableStateOf(false)
 
-    /** 位置编辑模式。设置界面通过 [ActivityProxy][dev.ujhhgtg.wekit.loader.utils.n] 运行在微信进程内，因此静态标记即可跨界面共享 */
     private var editMode by mutableStateOf(false)
 
     /** 相对默认锚点的偏移，单位 dp；负值表示向左 / 向上 */
@@ -158,6 +165,9 @@ object AddMainScreenFab : ClickableFeature() {
 
     /** 进入编辑模式时的位置，用于「取消」还原 */
     private var offsetBeforeEdit = 0f to 0f
+    private val hostViews = WeakHashMap<Activity, WeakReference<ComposeView>>()
+
+    internal fun hostViewFor(activity: Activity): ComposeView? = hostViews[activity]?.get()
 
     private class FabMenuEntry(
         val name: String,
@@ -176,12 +186,33 @@ object AddMainScreenFab : ClickableFeature() {
     }
 
     @Serializable
+    enum class BuiltInFabLabel {
+        SCAN,
+        MOMENTS,
+        WALLET,
+        CHANNELS,
+        SETTINGS,
+        FAVORITES,
+        MODULE_SETTINGS,
+        RESTART_WECHAT,
+        FORCE_STOP,
+        MARK_ALL_READ,
+    }
+
+    @Serializable
     data class FabItemConfig(
         val id: String,
         val type: FabType,
-        val name: String,
+        val name: String = "",
         val iconName: String,
-        val targetActivity: String? = null
+        val targetActivity: String? = null,
+        val builtInLabel: BuiltInFabLabel? = null,
+    )
+
+    private data class FabPreset(
+        val label: BuiltInFabLabel,
+        val iconName: String,
+        val activityClassName: String,
     )
 
     // 可选图标池映射
@@ -197,41 +228,114 @@ object AddMainScreenFab : ClickableFeature() {
             "Update" to MaterialSymbols.OutlinedFilled.Update,
             "Bookmark" to MaterialSymbols.OutlinedFilled.Bookmark,
             "Favorite" to MaterialSymbols.OutlinedFilled.Favorite,
-            "Check_circle" to MaterialSymbols.OutlinedFilled.Check_circle
+            "Mark_chat_read" to MaterialSymbols.OutlinedFilled.Mark_chat_read,
+            "Check_circle" to MaterialSymbols.OutlinedFilled.Check_circle,
         )
     }
 
     // 预设 Activity 映射
-    private val presets = mapOf(
-        "扫一扫" to "com.tencent.mm.plugin.scanner.ui.BaseScanUI",
-        "朋友圈" to "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI",
-        "钱包" to "com.tencent.mm.plugin.mall.ui.MallIndexUIv2",
-        "视频号" to "com.tencent.mm.plugin.finder.ui.FinderHomeAffinityUI",
-        "设置" to "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI",
-        "收藏夹" to "com.tencent.mm.plugin.fav.ui.FavoriteIndexUI"
+    private val presets = listOf(
+        FabPreset(BuiltInFabLabel.SCAN, "Qr_code_scanner", "com.tencent.mm.plugin.scanner.ui.BaseScanUI"),
+        FabPreset(BuiltInFabLabel.MOMENTS, "Camera", "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI"),
+        FabPreset(BuiltInFabLabel.WALLET, "Wallet", "com.tencent.mm.plugin.mall.ui.MallIndexUIv2"),
+        FabPreset(BuiltInFabLabel.CHANNELS, "Movie", "com.tencent.mm.plugin.finder.ui.FinderHomeAffinityUI"),
+        FabPreset(BuiltInFabLabel.SETTINGS, "Settings", "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI"),
+        FabPreset(BuiltInFabLabel.FAVORITES, "Favorite", "com.tencent.mm.plugin.fav.ui.FavoriteIndexUI"),
     )
 
     // 默认配置列表
     private val defaultList = listOf(
-        FabItemConfig("1", FabType.START_ACTIVITY, "扫一扫", "Qr_code_scanner", "com.tencent.mm.plugin.scanner.ui.BaseScanUI"),
-        FabItemConfig("2", FabType.START_ACTIVITY, "朋友圈", "Camera", "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI"),
-        FabItemConfig("3", FabType.START_ACTIVITY, "钱包", "Wallet", "com.tencent.mm.plugin.mall.ui.MallIndexUIv2"),
-        FabItemConfig("4", FabType.START_ACTIVITY, "视频号", "Movie", "com.tencent.mm.plugin.finder.ui.FinderHomeAffinityUI"),
-        FabItemConfig("5", FabType.START_ACTIVITY, "设置", "Settings", "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI"),
-        FabItemConfig("6", FabType.MODULE_SETTINGS, "模块设置", "Extension"),
-        FabItemConfig("9", FabType.RESTART_HOST, "重启微信", "Update"),
-        FabItemConfig("7", FabType.FORCE_STOP, "强行停止", "Cancel"),
-        FabItemConfig("8", FabType.MARK_ALL_READ, "清空未读", "Check_circle")
+        FabItemConfig("1", FabType.START_ACTIVITY, iconName = "Qr_code_scanner", targetActivity = "com.tencent.mm.plugin.scanner.ui.BaseScanUI", builtInLabel = BuiltInFabLabel.SCAN),
+        FabItemConfig("2", FabType.START_ACTIVITY, iconName = "Camera", targetActivity = "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI", builtInLabel = BuiltInFabLabel.MOMENTS),
+        FabItemConfig("3", FabType.START_ACTIVITY, iconName = "Wallet", targetActivity = "com.tencent.mm.plugin.mall.ui.MallIndexUIv2", builtInLabel = BuiltInFabLabel.WALLET),
+        FabItemConfig("4", FabType.START_ACTIVITY, iconName = "Movie", targetActivity = "com.tencent.mm.plugin.finder.ui.FinderHomeAffinityUI", builtInLabel = BuiltInFabLabel.CHANNELS),
+        FabItemConfig("5", FabType.START_ACTIVITY, iconName = "Settings", targetActivity = "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI", builtInLabel = BuiltInFabLabel.SETTINGS),
+        FabItemConfig("6", FabType.MODULE_SETTINGS, iconName = "Extension", builtInLabel = BuiltInFabLabel.MODULE_SETTINGS),
+        FabItemConfig("9", FabType.RESTART_HOST, iconName = "Update", builtInLabel = BuiltInFabLabel.RESTART_WECHAT),
+        FabItemConfig("7", FabType.FORCE_STOP, iconName = "Cancel", builtInLabel = BuiltInFabLabel.FORCE_STOP),
+        FabItemConfig("8", FabType.MARK_ALL_READ, iconName = "Mark_chat_read", builtInLabel = BuiltInFabLabel.MARK_ALL_READ),
     )
+
+    @StringRes
+    private fun labelRes(label: BuiltInFabLabel): Int = when (label) {
+        BuiltInFabLabel.SCAN -> R.string.fab_default_scan
+        BuiltInFabLabel.MOMENTS -> R.string.fab_default_moments
+        BuiltInFabLabel.WALLET -> R.string.fab_default_wallet
+        BuiltInFabLabel.CHANNELS -> R.string.fab_default_channels
+        BuiltInFabLabel.SETTINGS -> R.string.fab_default_settings
+        BuiltInFabLabel.FAVORITES -> R.string.fab_default_favorites
+        BuiltInFabLabel.MODULE_SETTINGS -> R.string.fab_default_module_settings
+        BuiltInFabLabel.RESTART_WECHAT -> R.string.fab_default_restart_wechat
+        BuiltInFabLabel.FORCE_STOP -> R.string.fab_default_force_stop
+        BuiltInFabLabel.MARK_ALL_READ -> R.string.fab_default_mark_all_read
+    }
+
+    private fun localizedName(context: Context, item: FabItemConfig): String =
+        item.name.ifBlank { item.builtInLabel?.let { context.getString(labelRes(it)) }.orEmpty() }
+
+    private fun builtInLabelFor(type: FabType): BuiltInFabLabel? = when (type) {
+        FabType.START_ACTIVITY -> null
+        FabType.MARK_ALL_READ -> BuiltInFabLabel.MARK_ALL_READ
+        FabType.MODULE_SETTINGS -> BuiltInFabLabel.MODULE_SETTINGS
+        FabType.RESTART_HOST -> BuiltInFabLabel.RESTART_WECHAT
+        FabType.FORCE_STOP -> BuiltInFabLabel.FORCE_STOP
+    }
+
+    @StringRes
+    private fun iconLabelRes(iconName: String): Int = when (iconName) {
+        "Qr_code_scanner" -> R.string.fab_icon_qr_scanner
+        "Camera" -> R.string.fab_icon_camera
+        "Wallet" -> R.string.fab_icon_wallet
+        "Movie" -> R.string.fab_icon_video
+        "Settings" -> R.string.fab_icon_settings
+        "Extension" -> R.string.fab_icon_extension
+        "Cancel" -> R.string.fab_icon_cancel
+        "Update" -> R.string.fab_icon_update
+        "Bookmark" -> R.string.fab_icon_bookmark
+        "Favorite" -> R.string.fab_icon_favorite
+        "Mark_chat_read" -> R.string.fab_icon_mark_as_read
+        "Check_circle" -> R.string.fab_icon_check_circle
+        else -> error("unsupported FAB icon: $iconName")
+    }
 
     private fun loadConfig(): List<FabItemConfig> {
         val jsonStr = WePrefs.getString(KEY_FAB_CONFIG) ?: return defaultList
         return try {
-            Json.decodeFromString<List<FabItemConfig>>(jsonStr)
+            Json.decodeFromString<List<FabItemConfig>>(jsonStr).map(::migrateLegacyBuiltInLabel)
         } catch (e: Exception) {
             WeLogger.e(TAG, "解析依赖失败，还原默认配置", e)
             defaultList
         }
+    }
+
+    private fun migrateLegacyBuiltInLabel(item: FabItemConfig): FabItemConfig {
+        if (item.builtInLabel != null) return item
+        val label = when (item.type) {
+            FabType.START_ACTIVITY if item.name == "扫一扫" &&
+                    item.targetActivity == "com.tencent.mm.plugin.scanner.ui.BaseScanUI" -> BuiltInFabLabel.SCAN
+
+            FabType.START_ACTIVITY if item.name == "朋友圈" &&
+                    item.targetActivity == "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI" -> BuiltInFabLabel.MOMENTS
+
+            FabType.START_ACTIVITY if item.name == "钱包" &&
+                    item.targetActivity == "com.tencent.mm.plugin.mall.ui.MallIndexUIv2" -> BuiltInFabLabel.WALLET
+
+            FabType.START_ACTIVITY if item.name == "视频号" &&
+                    item.targetActivity == "com.tencent.mm.plugin.finder.ui.FinderHomeAffinityUI" -> BuiltInFabLabel.CHANNELS
+
+            FabType.START_ACTIVITY if item.name == "设置" &&
+                    item.targetActivity == "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI" -> BuiltInFabLabel.SETTINGS
+
+            FabType.START_ACTIVITY if item.name == "收藏夹" &&
+                    item.targetActivity == "com.tencent.mm.plugin.fav.ui.FavoriteIndexUI" -> BuiltInFabLabel.FAVORITES
+
+            FabType.MODULE_SETTINGS if item.name == "模块设置" -> BuiltInFabLabel.MODULE_SETTINGS
+            FabType.RESTART_HOST if item.name == "重启微信" -> BuiltInFabLabel.RESTART_WECHAT
+            FabType.FORCE_STOP if item.name == "强行停止" -> BuiltInFabLabel.FORCE_STOP
+            FabType.MARK_ALL_READ if item.name == "清空未读" -> BuiltInFabLabel.MARK_ALL_READ
+            else -> null
+        }
+        return if (label == null) item else item.copy(name = "", builtInLabel = label)
     }
 
     private fun saveConfig(list: List<FabItemConfig>) {
@@ -258,7 +362,7 @@ object AddMainScreenFab : ClickableFeature() {
      * [CLEAR_TOP][Intent.FLAG_ACTIVITY_CLEAR_TOP] 会结束 LauncherUI 之上的所有界面，
      * 因此无论设置界面是从主界面还是从微信设置里打开的，都能直接回到主界面。
      */
-    private fun enterEditMode(activity: Activity) {
+    private fun enterEditMode(activity: Activity, localizedContext: Context) {
         loadOffset()
         offsetBeforeEdit = offsetXDp to offsetYDp
         editMode = true
@@ -276,14 +380,14 @@ object AddMainScreenFab : ClickableFeature() {
         }.onFailure { WeLogger.e(TAG, "无法返回微信主界面", it) }
 
         activity.finish()
-        showToast("拖动主按钮调整位置, 点击主按钮保存")
+        showToast(localizedContext.getString(R.string.fab_edit_position_hint))
     }
 
-    private fun exitEditMode(save: Boolean) {
+    private fun exitEditMode(save: Boolean, localizedContext: Context) {
         if (save) {
             WePrefs.putFloat(KEY_FAB_OFFSET_X, offsetXDp)
             WePrefs.putFloat(KEY_FAB_OFFSET_Y, offsetYDp)
-            showToast("已保存 FAB 位置")
+            showToast(localizedContext.getString(R.string.fab_position_saved))
         } else {
             offsetXDp = offsetBeforeEdit.first
             offsetYDp = offsetBeforeEdit.second
@@ -292,12 +396,12 @@ object AddMainScreenFab : ClickableFeature() {
         expanded = false
     }
 
-    private fun startActivityByName(context: Context, className: String) {
-        val intent = Intent().apply {
-            setClassName(context.packageName, className)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    private fun startActivityByName(activity: Activity, className: String) {
+        val intent = Intent().setClassName(activity.packageName, className)
+        if (className == "com.tencent.mm.plugin.mall.ui.MallIndexUIv2") {
+            intent.putExtra("key_not_goto_launcher_ui_when_back", true)
         }
-        context.startActivity(intent)
+        activity.startActivity(intent)
     }
 
     override fun onEnable() {
@@ -311,51 +415,49 @@ object AddMainScreenFab : ClickableFeature() {
             // 编辑过程中被重建（例如旋转屏幕）时不要覆盖尚未保存的位置
             if (!editMode) loadOffset()
 
-            // 动态解析已经保存的配置生成菜单项目
             val configList = loadConfig()
-
-            val menuItems = configList.map { item ->
-                val icon = iconPool[item.iconName] ?: MaterialSymbols.OutlinedFilled.Add
-                val action: () -> Unit = when (item.type) {
-                    FabType.START_ACTIVITY -> {
-                        { item.targetActivity?.let { startActivityByName(activity, it) } }
-                    }
-
-                    FabType.MARK_ALL_READ -> {
-                        {
-                            WeConversationApi.markAllAsRead()
-                            showToast("已将全部未读消息标为已读")
-                        }
-                    }
-
-                    FabType.MODULE_SETTINGS -> {
-                        {
-                            activity.startActivity(Intent(activity, SettingsActivity::class.java).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            })
-                        }
-                    }
-
-                    FabType.RESTART_HOST -> {
-                        { restartHost() }
-                    }
-
-                    FabType.FORCE_STOP -> {
-                        { killHost() }
-                    }
-                }
-                FabMenuEntry(item.name, icon, onClick = action)
-            }
 
             val lifecycleOwner = LifecycleOwnerProvider.lifecycleOwner
             val root = activity.rootView
 
-            root.addView(
-                ComposeView(activity).apply {
+            val hostView = ComposeView(activity).apply {
                     setLifecycleOwner(lifecycleOwner)
 
                     setContent {
                         InjectedUiTheme {
+                            val localizedContext = LocalWeKitLocalizedContext.current
+                            val menuItems = configList.map { item ->
+                                val icon = iconPool[item.iconName] ?: MaterialSymbols.OutlinedFilled.Add
+                                val action: () -> Unit = when (item.type) {
+                                    FabType.START_ACTIVITY -> {
+                                        { item.targetActivity?.let { startActivityByName(activity, it) } }
+                                    }
+
+                                    FabType.MARK_ALL_READ -> {
+                                        {
+                                            WeConversationApi.markAllAsRead()
+                                            showToast(localizedContext.getString(R.string.fab_all_marked_read))
+                                        }
+                                    }
+
+                                    FabType.MODULE_SETTINGS -> {
+                                        {
+                                            activity.startActivity(Intent(activity, SettingsActivity::class.java).apply {
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            })
+                                        }
+                                    }
+
+                                    FabType.RESTART_HOST -> {
+                                        { restartHost() }
+                                    }
+
+                                    FabType.FORCE_STOP -> {
+                                        { killHost() }
+                                    }
+                                }
+                                FabMenuEntry(localizedName(localizedContext, item), icon, onClick = action)
+                            }
                             val backgroundColor = if (isSystemInDarkTheme()) Color(0xFF191919) else Color(0xFFF7F7F7)
                             val activeColor = MaterialTheme.colorScheme.primary
                             val errorColor = MaterialTheme.colorScheme.error
@@ -386,12 +488,12 @@ object AddMainScreenFab : ClickableFeature() {
 
                                 val entries = if (editMode) {
                                     listOf(
-                                        FabMenuEntry("重置位置", MaterialSymbols.OutlinedFilled.Restart_alt) {
+                                        FabMenuEntry(stringResource(R.string.fab_reset_position), MaterialSymbols.OutlinedFilled.Restart_alt) {
                                             offsetXDp = 0f
                                             offsetYDp = 0f
                                         },
-                                        FabMenuEntry("取消", MaterialSymbols.OutlinedFilled.Close, destructive = true) {
-                                            exitEditMode(save = false)
+                                        FabMenuEntry(stringResource(R.string.dialog_cancel), MaterialSymbols.OutlinedFilled.Close, destructive = true) {
+                                            exitEditMode(save = false, localizedContext)
                                         },
                                     )
                                 } else {
@@ -401,12 +503,11 @@ object AddMainScreenFab : ClickableFeature() {
                                 // 展开方向始终按真实菜单的高度计算，这样编辑模式下预览到的方向就是最终效果。
                                 // 上方放得下就向上展开（默认行为），放不下再考虑向下。
                                 val menuHeight = menuHeightOf(maxOf(menuItems.size, entries.size))
-                                val roomAbove = fabTop
                                 val roomBelow = maxHeight - fabTop - FAB_SIZE
                                 val expandDown = when {
-                                    menuHeight <= roomAbove -> false
+                                    menuHeight <= fabTop -> false
                                     menuHeight <= roomBelow -> true
-                                    else -> roomBelow > roomAbove
+                                    else -> roomBelow > fabTop
                                 }
 
                                 // 菜单与 FAB 都只有一个固定的调用点，展开方向只改变修饰符参数。
@@ -425,7 +526,7 @@ object AddMainScreenFab : ClickableFeature() {
                                         .padding(
                                             start = if (onRight) 0.dp else fabLeft,
                                             end = if (onRight) (maxWidth - fabLeft - FAB_SIZE).coerceAtLeast(0.dp) else 0.dp,
-                                            top = if (expandDown) (fabTop + FAB_SIZE + MENU_GAP) else 0.dp,
+                                            top = if (expandDown) fabTop + FAB_SIZE + MENU_GAP else 0.dp,
                                             bottom = if (expandDown) 0.dp else (maxHeight - fabTop + MENU_GAP).coerceAtLeast(0.dp),
                                         ),
                                     entries = entries,
@@ -447,19 +548,21 @@ object AddMainScreenFab : ClickableFeature() {
                                     maxDx = maxDx,
                                     minDy = minDy,
                                     maxDy = maxDy,
+                                    localizedContext = localizedContext,
                                 )
                             }
                         }
                     }
                 }
-            )
+            root.addView(hostView)
+            hostViews[activity] = WeakReference(hostView)
         }
 
-        LauncherUI::class.reflekt().firstMethod("startChatting").hookBefore {
+        LauncherUI::startChatting.fastJavaMethod!!.hookBefore {
             if (!editMode) expanded = false
         }
 
-        BaseConversationUI::class.reflekt().firstMethod("startChatting").hookBefore {
+        BaseConversationUI::startChatting.fastJavaMethod!!.hookBefore {
             if (!editMode) expanded = false
         }
     }
@@ -569,11 +672,15 @@ object AddMainScreenFab : ClickableFeature() {
         maxDx: Float,
         minDy: Float,
         maxDy: Float,
+        localizedContext: Context,
     ) {
         val editing = editMode
 
         FloatingActionButton(
-            onClick = { if (editing) exitEditMode(save = true) else expanded = !expanded },
+            onClick = {
+                if (editing) exitEditMode(save = true, localizedContext)
+                else expanded = !expanded
+            },
             containerColor = backgroundColor,
             shape = CircleShape,
             // 拖动会消费触摸事件并取消点击，因此拖动与点击保存可以共存
@@ -594,7 +701,7 @@ object AddMainScreenFab : ClickableFeature() {
             if (editing) {
                 Icon(
                     MaterialSymbols.OutlinedFilled.Check,
-                    contentDescription = "保存位置",
+                    contentDescription = stringResource(R.string.fab_save_position_description),
                     tint = SAVE_GREEN
                 )
             } else {
@@ -619,57 +726,64 @@ object AddMainScreenFab : ClickableFeature() {
             var newName by remember { mutableStateOf("") }
             var newActivity by remember { mutableStateOf("") }
             var newIconName by remember { mutableStateOf("Qr_code_scanner") }
+            var newBuiltInLabel by remember { mutableStateOf<BuiltInFabLabel?>(null) }
 
             val hasType = { type: FabType -> existingItems.any { it.type == type } }
-            val canAdd = newName.isNotBlank() &&
+            val canAdd = (newName.isNotBlank() || newBuiltInLabel != null) &&
                     (newType != FabType.START_ACTIVITY || newActivity.isNotBlank())
 
             AlertDialogContent(
-                title = { Text("添加快捷按钮") },
+                title = { Text(stringResource(R.string.fab_add_shortcut_title)) },
                 text = {
                     DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                         Text(
-                            "选择要放到主屏幕 FAB 菜单里的功能。",
+                            stringResource(R.string.fab_add_shortcut_message),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            "功能类型",
+                            stringResource(R.string.fab_action_type),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(top = 12.dp)
                         )
 
                         val typeOptions = listOf(
-                            FabType.START_ACTIVITY to "启动 Activity",
-                            FabType.MARK_ALL_READ to "清空未读",
-                            FabType.MODULE_SETTINGS to "模块设置",
-                            FabType.RESTART_HOST to "重启微信",
-                            FabType.FORCE_STOP to "强行停止",
+                            FabType.START_ACTIVITY to R.string.fab_type_start_activity,
+                            FabType.MARK_ALL_READ to R.string.fab_default_mark_all_read,
+                            FabType.MODULE_SETTINGS to R.string.fab_default_module_settings,
+                            FabType.RESTART_HOST to R.string.fab_default_restart_wechat,
+                            FabType.FORCE_STOP to R.string.fab_default_force_stop,
                         )
-                        typeOptions.forEach { (type, label) ->
-                            val unavailable = type != FabType.START_ACTIVITY && hasType(type)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(enabled = !unavailable) { newType = type },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                RadioButton(
-                                    selected = newType == type,
-                                    onClick = { newType = type },
-                                    enabled = !unavailable,
-                                )
-                                Text(
-                                    text = if (unavailable) "$label（已添加）" else label,
-                                    color = if (unavailable) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
-                                )
+                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                            typeOptions.forEach { (type, labelRes) ->
+                                item(key = type) {
+                                    val label = stringResource(labelRes)
+                                    val unavailable = type != FabType.START_ACTIVITY && hasType(type)
+                                    RadioButtonWidget(
+                                        iconPlaceholder = false,
+                                        title = if (unavailable) {
+                                            stringResource(R.string.fab_type_already_added, label)
+                                        } else {
+                                            label
+                                        },
+                                        selected = newType == type,
+                                        enabled = !unavailable,
+                                        onSelect = {
+                                            newType = type
+                                            newBuiltInLabel = builtInLabelFor(type)
+                                        },
+                                    )
+                                }
                             }
                         }
 
                         OutlinedTextField(
                             value = newName,
                             onValueChange = { newName = it },
-                            label = { Text("按钮名称") },
+                            label = { Text(stringResource(R.string.fab_button_name)) },
+                            placeholder = newBuiltInLabel?.let { builtInLabel ->
+                                { Text(stringResource(labelRes(builtInLabel))) }
+                            },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -680,27 +794,33 @@ object AddMainScreenFab : ClickableFeature() {
                             OutlinedTextField(
                                 value = newActivity,
                                 onValueChange = { newActivity = it },
-                                label = { Text("Activity 完整类名") },
+                                label = { Text(stringResource(R.string.fab_activity_class_name)) },
                                 singleLine = true,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(top = 8.dp),
                             )
                             Text(
-                                "预设入口",
+                                stringResource(R.string.fab_presets),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(top = 12.dp)
                             )
-                            presets.forEach { (presetName, presetClass) ->
+                            presets.forEach { preset ->
+                                val presetName = stringResource(labelRes(preset.label))
                                 Text(
-                                    text = "$presetName  ·  $presetClass",
+                                    text = stringResource(
+                                        R.string.fab_preset_entry,
+                                        presetName,
+                                        preset.activityClassName,
+                                    ),
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            newActivity = presetClass
-                                            if (newName.isBlank()) newName = presetName
+                                            newActivity = preset.activityClassName
+                                            newIconName = preset.iconName
+                                            newBuiltInLabel = if (newName.isBlank()) preset.label else null
                                         }
                                         .padding(vertical = 6.dp),
                                 )
@@ -708,7 +828,7 @@ object AddMainScreenFab : ClickableFeature() {
                         }
 
                         Text(
-                            "图标",
+                            stringResource(R.string.fab_icon),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(top = 12.dp)
@@ -737,7 +857,10 @@ object AddMainScreenFab : ClickableFeature() {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = icon,
-                                            contentDescription = iconName,
+                                            contentDescription = stringResource(
+                                                R.string.fab_select_icon_description,
+                                                stringResource(iconLabelRes(iconName)),
+                                            ),
                                             tint = if (selected) {
                                                 MaterialTheme.colorScheme.onSecondaryContainer
                                             } else {
@@ -750,7 +873,7 @@ object AddMainScreenFab : ClickableFeature() {
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -762,12 +885,13 @@ object AddMainScreenFab : ClickableFeature() {
                                     name = newName.trim(),
                                     iconName = newIconName,
                                     targetActivity = if (newType == FabType.START_ACTIVITY) newActivity.trim() else null,
+                                    builtInLabel = newBuiltInLabel,
                                 )
                             )
                             onDismiss()
                         },
                         enabled = canAdd,
-                    ) { Text("添加") }
+                    ) { Text(stringResource(R.string.action_add)) }
                 },
             )
         }
@@ -776,11 +900,8 @@ object AddMainScreenFab : ClickableFeature() {
     @OptIn(ExperimentalFoundationApi::class)
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
+            val localizedContext = LocalWeKitLocalizedContext.current
             var currentItems by remember { mutableStateOf(loadConfig()) }
-            var draggingIndex by remember { mutableStateOf<Int?>(null) }
-            var dragOffset by remember { mutableFloatStateOf(0f) }
-            val listState = rememberLazyListState()
-            val coroutineScope = rememberCoroutineScope()
 
             fun moveItem(from: Int, to: Int) {
                 if (from == to || from !in currentItems.indices || to !in currentItems.indices) return
@@ -792,7 +913,7 @@ object AddMainScreenFab : ClickableFeature() {
             }
 
             AlertDialogContent(
-                title = { Text("FAB 悬浮按钮") },
+                title = { Text(stringResource(R.string.fab_settings_title)) },
                 text = {
                     DefaultColumn {
                         Row(
@@ -801,9 +922,9 @@ object AddMainScreenFab : ClickableFeature() {
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("主屏幕快捷入口", fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.fab_shortcuts_title), fontWeight = FontWeight.SemiBold)
                                 Text(
-                                    "长按拖动手柄调整顺序，改动会立即生效",
+                                    stringResource(R.string.fab_reorder_immediate_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -818,7 +939,7 @@ object AddMainScreenFab : ClickableFeature() {
                                 }
                             ) {
                                 Icon(MaterialSymbols.OutlinedFilled.Add, contentDescription = null)
-                                Text("添加")
+                                Text(stringResource(R.string.action_add))
                             }
                         }
 
@@ -828,7 +949,7 @@ object AddMainScreenFab : ClickableFeature() {
                                 .clip(MaterialTheme.shapes.medium)
                                 .clickable {
                                     onDismiss()
-                                    enterEditMode(context)
+                                    enterEditMode(context, localizedContext)
                                 }
                                 .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -843,9 +964,9 @@ object AddMainScreenFab : ClickableFeature() {
                                     .weight(1f)
                                     .padding(start = 12.dp)
                             ) {
-                                Text("调整位置", fontWeight = FontWeight.Medium)
+                                Text(stringResource(R.string.fab_adjust_position), fontWeight = FontWeight.Medium)
                                 Text(
-                                    "回到微信主界面拖动按钮，点击绿色对勾保存",
+                                    stringResource(R.string.fab_adjust_position_summary),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -854,108 +975,44 @@ object AddMainScreenFab : ClickableFeature() {
 
                         if (currentItems.isEmpty()) {
                             Text(
-                                "还没有快捷入口，点击右上角“添加”开始配置。",
+                                stringResource(R.string.fab_empty_shortcuts),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(vertical = 28.dp),
                             )
                         } else {
-                            LazyColumn(
-                                state = listState,
+                            ReorderableList(
+                                items = currentItems,
+                                itemKey = { it.id },
+                                onMove = { from, to -> moveItem(from, to) },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .heightIn(max = 420.dp)
                                     .padding(top = 8.dp),
-                                userScrollEnabled = draggingIndex == null,
-                            ) {
-                                itemsIndexed(
-                                    items = currentItems,
-                                    key = { _, item -> item.id },
-                                ) { index, item ->
-                                    val isDragging = index == draggingIndex
+                            ) { item, dragHandleModifier ->
                                     val description = when (item.type) {
-                                        FabType.START_ACTIVITY -> item.targetActivity ?: "启动 Activity"
-                                        FabType.MARK_ALL_READ -> "将全部未读消息标记为已读"
-                                        FabType.MODULE_SETTINGS -> "打开模块设置"
-                                        FabType.RESTART_HOST -> "重新启动微信进程"
-                                        FabType.FORCE_STOP -> "终止微信进程"
+                                        FabType.START_ACTIVITY -> item.targetActivity
+                                            ?: stringResource(R.string.fab_type_start_activity)
+                                        FabType.MARK_ALL_READ -> stringResource(R.string.fab_description_mark_all_read)
+                                        FabType.MODULE_SETTINGS -> stringResource(R.string.fab_description_open_module_settings)
+                                        FabType.RESTART_HOST -> stringResource(R.string.fab_description_restart_wechat)
+                                        FabType.FORCE_STOP -> stringResource(R.string.fab_description_stop_wechat)
                                     }
+                                    val itemName = localizedName(localizedContext, item)
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .zIndex(if (isDragging) 1f else 0f)
-                                            .graphicsLayer {
-                                                translationY = if (isDragging) dragOffset else 0f
-                                                scaleX = if (isDragging) 1.02f else 1f
-                                                scaleY = if (isDragging) 1.02f else 1f
-                                                shadowElevation = if (isDragging) 8.dp.toPx() else 0f
-                                            }
-                                            .then(if (isDragging) Modifier else Modifier.animateItem())
                                             .padding(vertical = 3.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Box(
                                             modifier = Modifier
                                                 .size(48.dp)
-                                                .pointerInput(item.id) {
-                                                    detectDragGesturesAfterLongPress(
-                                                        onDragStart = {
-                                                            draggingIndex = listState.layoutInfo.visibleItemsInfo
-                                                                .firstOrNull { it.key == item.id }
-                                                                ?.index
-                                                                ?: index
-                                                            dragOffset = 0f
-                                                        },
-                                                        onDragCancel = {
-                                                            draggingIndex = null
-                                                            dragOffset = 0f
-                                                        },
-                                                        onDragEnd = {
-                                                            draggingIndex = null
-                                                            dragOffset = 0f
-                                                        },
-                                                        onDrag = { change, amount ->
-                                                            change.consume()
-                                                            val currentIndex = draggingIndex ?: return@detectDragGesturesAfterLongPress
-                                                            dragOffset += amount.y
-                                                            val currentInfo = listState.layoutInfo.visibleItemsInfo
-                                                                .firstOrNull { it.index == currentIndex }
-                                                                ?: return@detectDragGesturesAfterLongPress
-                                                            val start = currentInfo.offset + dragOffset
-                                                            val end = start + currentInfo.size
-                                                            val target = listState.layoutInfo.visibleItemsInfo.firstOrNull { targetInfo ->
-                                                                if (targetInfo.index == currentIndex) {
-                                                                    false
-                                                                } else if (dragOffset > 0f) {
-                                                                    targetInfo.index > currentIndex &&
-                                                                            end > targetInfo.offset + targetInfo.size / 2
-                                                                } else {
-                                                                    targetInfo.index < currentIndex &&
-                                                                            start < targetInfo.offset + targetInfo.size / 2
-                                                                }
-                                                            }
-                                                            if (target != null) {
-                                                                moveItem(currentIndex, target.index)
-                                                                dragOffset -= target.offset - currentInfo.offset
-                                                                draggingIndex = target.index
-                                                            }
-
-                                                            val viewport = listState.layoutInfo
-                                                            val center = currentInfo.offset + dragOffset + currentInfo.size / 2
-                                                            when {
-                                                                center < viewport.viewportStartOffset + 56 && listState.canScrollBackward ->
-                                                                    coroutineScope.launch { listState.scrollBy(-12f) }
-
-                                                                center > viewport.viewportEndOffset - 56 && listState.canScrollForward ->
-                                                                    coroutineScope.launch { listState.scrollBy(12f) }
-                                                            }
-                                                        },
-                                                    )
-                                                },
+                                                .then(dragHandleModifier),
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Icon(
                                                 imageVector = MaterialSymbols.Outlined.Drag_handle,
-                                                contentDescription = "拖动以调整顺序",
+                                                contentDescription = stringResource(R.string.fab_drag_to_reorder_description),
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
                                         }
@@ -970,7 +1027,7 @@ object AddMainScreenFab : ClickableFeature() {
                                         Column(modifier = Modifier
                                             .weight(1f)
                                             .padding(start = 8.dp)) {
-                                            Text(item.name, fontWeight = FontWeight.Medium)
+                                            Text(itemName, fontWeight = FontWeight.Medium)
                                             Text(
                                                 description,
                                                 style = MaterialTheme.typography.bodySmall,
@@ -987,17 +1044,19 @@ object AddMainScreenFab : ClickableFeature() {
                                         ) {
                                             Icon(
                                                 imageVector = MaterialSymbols.Outlined.Delete,
-                                                contentDescription = "删除 ${item.name}",
+                                                contentDescription = stringResource(
+                                                    R.string.fab_delete_description,
+                                                    itemName,
+                                                ),
                                                 tint = MaterialTheme.colorScheme.error,
                                             )
                                         }
                                     }
                                 }
-                            }
                         }
                     }
                 },
-                confirmButton = { TextButton(onDismiss) { Text("完成") } },
+                confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.action_done)) } },
             )
         }
     }

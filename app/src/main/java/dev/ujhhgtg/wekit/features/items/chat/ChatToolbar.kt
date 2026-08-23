@@ -10,13 +10,12 @@ import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.FrameLayout
 import android.widget.GridView
+import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,38 +28,34 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenuPopup
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
+import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.core.view.children
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -71,7 +66,6 @@ import com.composables.icons.materialsymbols.outlined.Attach_file
 import com.composables.icons.materialsymbols.outlined.Attach_money
 import com.composables.icons.materialsymbols.outlined.Camera
 import com.composables.icons.materialsymbols.outlined.Chat
-import com.composables.icons.materialsymbols.outlined.Check
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Drag_handle
 import com.composables.icons.materialsymbols.outlined.Edit
@@ -91,6 +85,7 @@ import com.tencent.mm.pluginsdk.ui.chat.AppPanel
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
@@ -98,13 +93,14 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.InjectedUiTheme
+import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
@@ -125,10 +121,13 @@ import java.util.WeakHashMap
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
-private enum class ToolbarDisplayMode(val preferenceValue: String, val label: String) {
-    ICON_AND_TEXT("icon_and_text", "图标+文字"),
-    ICON_ONLY("icon_only", "仅图标"),
-    TEXT_ONLY("text_only", "仅文字");
+private enum class ToolbarDisplayMode(
+    val preferenceValue: String,
+    @StringRes val labelRes: Int,
+) {
+    ICON_AND_TEXT("icon_and_text", R.string.chat_toolbar_mode_icon_and_text),
+    ICON_ONLY("icon_only", R.string.chat_toolbar_mode_icon_only),
+    TEXT_ONLY("text_only", R.string.chat_toolbar_mode_text_only);
 
     companion object {
         fun fromPreference(value: String): ToolbarDisplayMode =
@@ -137,7 +136,12 @@ private enum class ToolbarDisplayMode(val preferenceValue: String, val label: St
 }
 
 @SuppressLint("StaticFieldLeak")
-@Feature(name = "聊天工具栏", categories = ["聊天"], description = "在输入框上方添加工具栏")
+@Feature(
+    id = "聊天工具栏",
+    nameRes = "feature_chat_toolbar_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_chat_toolbar_description",
+)
 object ChatToolbar : ClickableFeature(), IResolveDex {
 
     private const val TAG = "ChatToolbar"
@@ -181,6 +185,13 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         }
     }
 
+    private val methodAppGridGetView by dexMethod {
+        matcher {
+            usingStrings("MicroMsg.AppGrid", "pos:", "page:")
+            name = "getView"
+        }
+    }
+
     private data class MenuItem(
         val name: String,
         val onClickListener: AdapterView.OnItemClickListener,
@@ -213,11 +224,68 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
      * own key here.
      */
     private val panelTools = WeakHashMap<AppPanel, PanelTools>()
+    private val appGridToolTypes = WeakHashMap<View, Int>()
 
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
     private fun toolsOf(appPanel: AppPanel): PanelTools =
         synchronized(panelTools) { panelTools.getOrPut(appPanel) { PanelTools() } }
+
+    private fun toolbarNameForAppGridType(type: Int): String? = when (type) {
+        0 -> "相册"
+        1 -> "拍摄"
+        2 -> "视频通话"
+        3, 4 -> "语音通话"
+        6 -> "位置"
+        7 -> "红包"
+        8 -> "礼物"
+        9 -> "转账"
+        11 -> "语音输入"
+        12 -> "收藏"
+        14 -> "接龙"
+        16 -> "个人名片"
+        20 -> "文件"
+        22 -> "音乐"
+        else -> null
+    }
+
+    /**
+     * AppGrid resolves native tools to an internal type before rendering them. Capture that
+     * type from getView instead of using the localized TextView label as an identity.
+     */
+    private fun captureAppGridToolType(appGrid: Any, itemView: View) {
+        val drawable = buildList {
+            fun collect(view: View) {
+                if (view is ImageView && view.drawable != null) add(view.drawable)
+                if (view is ViewGroup) view.children.forEach(::collect)
+            }
+            collect(itemView)
+        }.firstOrNull() ?: return
+        val resourceId = drawable.reflekt()
+            .firstField { type = Int::class; superclass() }
+            .get() as Int
+        val resourceName = itemView.resources.getResourceEntryName(resourceId)
+        val type = mapOf(
+            "panel_icon_pic" to 0,
+            "panel_icon_camera" to 1,
+            "panel_icon_voip" to 2,
+            "panel_icon_multitalk" to 3,
+            "panel_icon_voipvoice" to 4,
+            "panel_icon_location" to 6,
+            "panel_icon_luckymoney" to 7,
+            "icons_filled_gift_chatting" to 8,
+            "panel_icon_transfer" to 9,
+            "panel_icon_voiceinput" to 11,
+            "panel_icon_fav" to 12,
+            "icons_outlined_continued_form" to 14,
+            "panel_icon_friendcard" to 16,
+            "panel_icon_file_explorer" to 20,
+            "icon_music_filled" to 22,
+        )[resourceName]
+        if (type == null) return
+
+        synchronized(appGridToolTypes) { appGridToolTypes[itemView] = type }
+    }
 
     private var itemsOrder by WePrefs.prefOption("chat_toolbar_order", NAME_TO_ICON_MAP.keys.joinToString(","))
     private var enabledItems by WePrefs.prefOption("chat_toolbar_enabled_items", NAME_TO_ICON_MAP.keys)
@@ -250,6 +318,32 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         QUICK_REPLY_NAME -> MaterialSymbols.Outlined.Chat
         WEAGENT_NAME -> MaterialSymbols.Outlined.Smart_toy
         else -> NAME_TO_ICON_MAP.getValue(name)
+    }
+
+    /**
+     * The keys remain the exact host labels and legacy preference identities. Only presentation is
+     * localized, so changing WeKit's language never rewrites the saved order or host matching.
+     */
+    @StringRes
+    private fun labelResFor(name: String): Int = when (name) {
+        "相册" -> R.string.chat_toolbar_tool_album
+        "拍摄" -> R.string.chat_toolbar_tool_camera
+        "系统拍摄" -> R.string.chat_toolbar_tool_system_camera
+        "视频通话" -> R.string.chat_toolbar_tool_video_call
+        "语音通话" -> R.string.chat_toolbar_tool_voice_call
+        "位置" -> R.string.chat_toolbar_tool_location
+        "红包" -> R.string.chat_toolbar_tool_red_packet
+        "礼物" -> R.string.chat_toolbar_tool_gift
+        "转账" -> R.string.chat_toolbar_tool_transfer
+        "语音输入" -> R.string.chat_toolbar_tool_voice_input
+        "收藏" -> R.string.chat_toolbar_tool_favorites
+        "接龙" -> R.string.chat_toolbar_tool_solitaire
+        "文件" -> R.string.chat_toolbar_tool_file
+        "个人名片" -> R.string.chat_toolbar_tool_contact_card
+        "音乐" -> R.string.chat_toolbar_tool_music
+        QUICK_REPLY_NAME -> R.string.chat_toolbar_quick_reply
+        WEAGENT_NAME -> R.string.feature_we_agent_name
+        else -> error("unsupported toolbar item: $name")
     }
 
     // Ensures every supported item is present while preserving the user's saved order. Legacy
@@ -289,7 +383,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
 
         // (0, 0, 0) is the MMFlipper holding one GridView per page; absent until AppPanel.init()
         // has inflated the panel's layout.
-        val grids = appPanel.findViewByChildIndexes<ViewGroup>(0, 0, 0)
+        val grids = (appPanel.findViewByChildIndexes(0, 0, 0) as ViewGroup?)
             ?.children?.map { view -> view as GridView }
             ?: return
 
@@ -301,12 +395,12 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             val listAdapter = grid.adapter
 
             listAdapter.iterable(grid).forEachIndexed { index, itemView ->
-                val name = (itemView.tag.reflekt()
-                    .firstField { type = TextView::class }
-                    .get()!! as TextView).text.toString()
+                val canonicalName = synchronized(appGridToolTypes) {
+                    appGridToolTypes[itemView]?.let(::toolbarNameForAppGridType)
+                } ?: return@forEachIndexed
                 tools.add(
-                    name to MenuItem(
-                        name,
+                    canonicalName to MenuItem(
+                        canonicalName,
                         onClickListener,
                         onLongClickListener,
                         WeakReference(grid),
@@ -348,7 +442,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             if (toolsOf(appPanel).lastSnapshotTime != null) return@postDelayed
             // initAppGrid dereferences views that AppPanel.init() inflates, so only force it once
             // the panel's layout is there.
-            if (appPanel.findViewByChildIndexes<ViewGroup>(0, 0, 0) == null) return@postDelayed
+            if (appPanel.findViewByChildIndexes(0, 0, 0) == null) return@postDelayed
 
             WeLogger.d(TAG, "grid was never initialized for this chat footer, forcing initAppGrid")
             // R8 staticizes initAppGrid on current builds, which is why the hooks read the panel out
@@ -381,7 +475,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                 val metrics = appPanel.resources.displayMetrics
                 val width = metrics.widthPixels
                 val fallbackDp = if (metrics.widthPixels < metrics.heightPixels) 215 else 158
-                val containerHeight = appPanel.findViewByChildIndexes<View>(0, 0)
+                val containerHeight = appPanel.findViewByChildIndexes(0, 0)
                     ?.layoutParams?.height?.takeIf { it > 0 }
                     ?: (fallbackDp * metrics.density).toInt()
                 val dotStrip = (22 * metrics.density).toInt()
@@ -411,6 +505,11 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             }
         }
 
+        methodAppGridGetView.hookAfter {
+            val itemView = result as View
+            captureAppGridToolType(thisObject!!, itemView)
+        }
+
         ChatFooter::class.constructor.hookAfter {
             val chatFooter = thisObject as FrameLayout
             val activity = chatFooter.context as Activity
@@ -418,15 +517,15 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             val lifecycleOwner = LifecycleOwnerProvider.getOrCreate(activity)
 
             chatFooter.setLifecycleOwner(lifecycleOwner)
-            val linearLayout = chatFooter.findViewByChildIndexes<LinearLayout>(0, 1)!!
+            val linearLayout = chatFooter.findViewByChildIndexes(0, 1)!! as LinearLayout
             linearLayout.setLifecycleOwner(lifecycleOwner)
-            if (linearLayout.findViewWhich<View> { it is ComposeView } != null) return@hookAfter
+            if (linearLayout.findViewWhich { it is ComposeView } != null) return@hookAfter
             activity.window.decorView.setLifecycleOwner(lifecycleOwner)
 
             // The panel is part of the footer's own layout and ChatFooter.initAppPanel() has already
             // run inside the constructor, so it is reachable here. Bind this toolbar to that panel
             // only, and make sure something initializes its grid.
-            val appPanel = chatFooter.findViewWhich<AppPanel> { it is AppPanel }
+            val appPanel = chatFooter.findViewWhich { it is AppPanel } as AppPanel?
             if (appPanel == null) WeLogger.w(TAG, "no AppPanel in this chat footer, toolbar will stay empty")
             val toolsFlow = appPanel?.let { toolsOf(it).flow } ?: MutableStateFlow(emptyList())
             appPanel?.let { scheduleGridInitWatchdog(it) }
@@ -467,20 +566,18 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             })
 
                             tools.forEach { (name, menuItem) ->
-                                if (name in NAME_TO_ICON_MAP && name != "系统拍摄") {
-                                    // item views are inflated by the snapshot and only held weakly,
-                                    // so they can be collected before the chip is ever tapped
-                                    val gridView = menuItem.gridView.get() ?: return@forEach
-                                    val itemView = menuItem.itemView.get() ?: return@forEach
-                                    list.add(name to {
-                                        menuItem.onClickListener.onItemClick(
-                                            gridView,
-                                            itemView,
-                                            menuItem.indexInGrid,
-                                            0
-                                        )
-                                    })
-                                }
+                                // item views are inflated by the snapshot and only held weakly,
+                                // so they can be collected before the chip is ever tapped
+                                val gridView = menuItem.gridView.get() ?: return@forEach
+                                val itemView = menuItem.itemView.get() ?: return@forEach
+                                list.add(name to {
+                                    menuItem.onClickListener.onItemClick(
+                                        gridView,
+                                        itemView,
+                                        menuItem.indexInGrid,
+                                        0
+                                    )
+                                })
                             }
 
                             list.distinctBy { it.first }
@@ -497,7 +594,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                         ) {
                             items(sortedVisibleItems, key = { it.first }) { (name, onClick) ->
                                 val icon = iconFor(name)
-                                FeatureChip(name, icon, displayMode, onClick)
+                                FeatureChip(stringResource(labelResFor(name)), icon, displayMode, onClick)
                             }
                         }
                     }
@@ -511,9 +608,10 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             panelTools.values.forEach { it.flow.value = emptyList() }
             panelTools.clear()
         }
+        synchronized(appGridToolTypes) { appGridToolTypes.clear() }
     }
 
-    @OptIn(ExperimentalFoundationApi::class)
+    @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             val currentOrder = remember {
@@ -524,10 +622,9 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                 mutableStateOf(ToolbarDisplayMode.fromPreference(displayModeValue))
             }
             var displayModeMenuExpanded by remember { mutableStateOf(false) }
-
             AlertDialogContent(
                 modifier = Modifier.fillMaxWidth(),
-                title = { Text("聊天工具栏") },
+                title = { Text(stringResource(R.string.feature_chat_toolbar_name)) },
                 text = {
                     DefaultColumn {
                         Box(modifier = Modifier.fillMaxWidth()) {
@@ -535,40 +632,40 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { displayModeMenuExpanded = true },
-                                headlineContent = { Text("显示样式") },
-                                supportingContent = { Text(currentDisplayMode.label) },
+                                content = { Text(stringResource(R.string.chat_toolbar_display_style)) },
+                                supportingContent = { Text(stringResource(currentDisplayMode.labelRes)) },
                                 trailingContent = {
                                     Icon(
                                         MaterialSymbols.Outlined.Arrow_drop_down,
-                                        contentDescription = "选择显示样式",
+                                        contentDescription = stringResource(R.string.chat_toolbar_select_display_style_description),
                                     )
                                 },
                             )
-                            DropdownMenu(
-                                expanded = displayModeMenuExpanded,
-                                onDismissRequest = { displayModeMenuExpanded = false },
-                            ) {
-                                ToolbarDisplayMode.entries.forEach { mode ->
-                                    DropdownMenuItem(
-                                        text = { Text(mode.label) },
-                                        trailingIcon = if (mode == currentDisplayMode) ({
-                                            Icon(
-                                                MaterialSymbols.Outlined.Check,
-                                                contentDescription = null,
+                            Box(Modifier.align(Alignment.CenterStart)) {
+                                DropdownMenuPopup(
+                                    expanded = displayModeMenuExpanded,
+                                    onDismissRequest = { displayModeMenuExpanded = false },
+                                ) {
+                                    DropdownMenuGroup(shapes = MenuDefaults.groupShapes()) {
+                                        ToolbarDisplayMode.entries.forEachIndexed { index, mode ->
+                                            DropdownMenuItem(
+                                                selected = mode == currentDisplayMode,
+                                                onClick = {
+                                                    currentDisplayMode = mode
+                                                    displayModeMenuExpanded = false
+                                                },
+                                                text = { Text(stringResource(mode.labelRes)) },
+                                                shapes = MenuDefaults.itemShape(index, ToolbarDisplayMode.entries.size),
                                             )
-                                        }) else null,
-                                        onClick = {
-                                            currentDisplayMode = mode
-                                            displayModeMenuExpanded = false
-                                        },
-                                    )
+                                        }
+                                    }
                                 }
                             }
                         }
                         Column {
-                            Text("显示与顺序", style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.chat_toolbar_display_order), style = MaterialTheme.typography.titleSmall)
                             Text(
-                                "长按拖动手柄调整顺序，使用开关控制是否显示",
+                                stringResource(R.string.chat_toolbar_reorder_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -583,6 +680,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                 .fillMaxWidth()
                                 .heightIn(max = 480.dp),
                         ) { name, dragHandleModifier ->
+                            val label = stringResource(labelResFor(name))
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -597,7 +695,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                 ) {
                                     Icon(
                                         MaterialSymbols.Outlined.Drag_handle,
-                                        contentDescription = "拖动 $name",
+                                        contentDescription = stringResource(R.string.chat_toolbar_drag_item_description, label),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -613,7 +711,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                     )
                                 }
                                 Text(
-                                    text = name,
+                                    text = label,
                                     modifier = Modifier
                                         .weight(1f)
                                         .padding(horizontal = 8.dp),
@@ -626,7 +724,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                     IconButton(onClick = { showQuickReplyConfig(context) }) {
                                         Icon(
                                             MaterialSymbols.Outlined.Settings,
-                                            contentDescription = "配置快捷回复",
+                                            contentDescription = stringResource(R.string.chat_toolbar_configure_quick_reply_description),
                                         )
                                     }
                                 }
@@ -651,12 +749,12 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                         displayModeValue = currentDisplayMode.preferenceValue
                         onDismiss()
                     }) {
-                        Text("确定")
+                        Text(stringResource(R.string.dialog_confirm))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = onDismiss) {
-                        Text("取消")
+                        Text(stringResource(R.string.dialog_cancel))
                     }
                 }
             )
@@ -670,10 +768,10 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
 
             AlertDialogContent(
                 modifier = Modifier.fillMaxWidth(),
-                title = { Text(QUICK_REPLY_NAME) },
+                title = { Text(stringResource(R.string.chat_toolbar_quick_reply)) },
                 text = {
                     if (replies.isEmpty()) {
-                        Text("暂无快捷回复, 请在「聊天工具栏」设置中配置")
+                        Text(stringResource(R.string.chat_toolbar_quick_reply_empty_picker))
                     } else {
                         LazyColumn {
                             items(replies) { reply ->
@@ -682,7 +780,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                         insertQuickReply(reply)
                                         onDismiss()
                                     },
-                                    headlineContent = { Text(reply) },
+                                    content = { Text(reply) },
                                 )
                             }
                         }
@@ -690,7 +788,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                 },
                 confirmButton = {
                     TextButton(onClick = onDismiss) {
-                        Text("关闭")
+                        Text(stringResource(R.string.dialog_close))
                     }
                 }
             )
@@ -699,7 +797,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
 
     private fun showQuickReplyEditor(
         context: Context,
-        title: String,
+        @StringRes titleRes: Int,
         initialValue: String = "",
         onSave: (String) -> Unit,
     ) {
@@ -707,18 +805,18 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             var value by remember { mutableStateOf(initialValue) }
 
             AlertDialogContent(
-                title = { Text(title) },
+                title = { Text(stringResource(titleRes)) },
                 text = {
                     TextField(
                         value = value,
                         onValueChange = { value = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("输入回复内容") },
+                        placeholder = { Text(stringResource(R.string.chat_toolbar_reply_placeholder)) },
                         minLines = 3,
                         maxLines = 8,
                     )
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -726,7 +824,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             onDismiss()
                         },
                         enabled = value.isNotBlank(),
-                    ) { Text("保存") }
+                    ) { Text(stringResource(R.string.action_save)) }
                 },
             )
         }
@@ -742,7 +840,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
 
             AlertDialogContent(
                 modifier = Modifier.fillMaxWidth(),
-                title = { Text(QUICK_REPLY_NAME) },
+                title = { Text(stringResource(R.string.chat_toolbar_quick_reply)) },
                 text = {
                     DefaultColumn {
                         Row(
@@ -751,28 +849,28 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("回复内容", style = MaterialTheme.typography.titleSmall)
+                                Text(stringResource(R.string.chat_toolbar_reply_contents), style = MaterialTheme.typography.titleSmall)
                                 Text(
-                                    "点击编辑，长按手柄调整顺序",
+                                    stringResource(R.string.chat_toolbar_reply_reorder_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                             TextButton(
                                 onClick = {
-                                    showQuickReplyEditor(context, "添加快捷回复") { text ->
+                                    showQuickReplyEditor(context, R.string.chat_toolbar_add_quick_reply) { text ->
                                         replies.add(QuickReplyDraft(text = text))
                                     }
                                 }
                             ) {
                                 Icon(MaterialSymbols.Outlined.Add, contentDescription = null)
-                                Text("添加")
+                                Text(stringResource(R.string.action_add))
                             }
                         }
 
                         if (replies.isEmpty()) {
                             Text(
-                                "暂无快捷回复，点击右上角“添加”创建。",
+                                stringResource(R.string.chat_toolbar_quick_reply_empty_config),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(vertical = 28.dp),
                             )
@@ -790,7 +888,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                 val editReply = {
                                     showQuickReplyEditor(
                                         context = context,
-                                        title = "编辑快捷回复",
+                                        titleRes = R.string.chat_toolbar_edit_quick_reply,
                                         initialValue = reply.text,
                                     ) { text ->
                                         val index = replies.indexOfFirst { it.id == reply.id }
@@ -812,7 +910,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                     ) {
                                         Icon(
                                             MaterialSymbols.Outlined.Drag_handle,
-                                            contentDescription = "拖动快捷回复",
+                                            contentDescription = stringResource(R.string.chat_toolbar_drag_quick_reply_description),
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
@@ -828,13 +926,13 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                     IconButton(onClick = editReply) {
                                         Icon(
                                             MaterialSymbols.Outlined.Edit,
-                                            contentDescription = "编辑快捷回复",
+                                            contentDescription = stringResource(R.string.chat_toolbar_edit_quick_reply_description),
                                         )
                                     }
                                     IconButton(onClick = { replies.removeAll { it.id == reply.id } }) {
                                         Icon(
                                             MaterialSymbols.Outlined.Delete,
-                                            contentDescription = "删除快捷回复",
+                                            contentDescription = stringResource(R.string.chat_toolbar_delete_quick_reply_description),
                                             tint = MaterialTheme.colorScheme.error,
                                         )
                                     }
@@ -848,117 +946,15 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                         saveQuickReplies(replies.map { it.text.trim() }.filter { it.isNotEmpty() })
                         onDismiss()
                     }) {
-                        Text("确定")
+                        Text(stringResource(R.string.dialog_confirm))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = onDismiss) {
-                        Text("取消")
+                        Text(stringResource(R.string.dialog_cancel))
                     }
                 }
             )
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun <T> ReorderableList(
-    items: List<T>,
-    itemKey: (T) -> Any,
-    onMove: (from: Int, to: Int) -> Unit,
-    modifier: Modifier = Modifier,
-    itemContent: @Composable (item: T, dragHandleModifier: Modifier) -> Unit,
-) {
-    val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
-    val hapticFeedback = LocalHapticFeedback.current
-    var draggingKey by remember { mutableStateOf<Any?>(null) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
-
-    LazyColumn(
-        state = listState,
-        modifier = modifier,
-        userScrollEnabled = draggingKey == null,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        itemsIndexed(
-            items = items,
-            key = { _, item -> itemKey(item) },
-        ) { _, item ->
-            val key = itemKey(item)
-            val isDragging = draggingKey == key
-            val dragHandleModifier = Modifier.pointerInput(key) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = {
-                        if (listState.layoutInfo.visibleItemsInfo.any { it.key == key }) {
-                            draggingKey = key
-                            dragOffset = 0f
-                            hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
-                        }
-                    },
-                    onDragCancel = {
-                        draggingKey = null
-                        dragOffset = 0f
-                    },
-                    onDragEnd = {
-                        draggingKey = null
-                        dragOffset = 0f
-                    },
-                    onDrag = { change, amount ->
-                        change.consume()
-                        if (draggingKey != key) return@detectDragGesturesAfterLongPress
-                        dragOffset += amount.y
-
-                        val currentInfo = listState.layoutInfo.visibleItemsInfo
-                            .firstOrNull { it.key == key }
-                            ?: return@detectDragGesturesAfterLongPress
-                        val currentIndex = currentInfo.index
-                        val start = currentInfo.offset + dragOffset
-                        val end = start + currentInfo.size
-                        val target = listState.layoutInfo.visibleItemsInfo.firstOrNull { targetInfo ->
-                            if (targetInfo.index == currentIndex) {
-                                false
-                            } else if (dragOffset > 0f) {
-                                targetInfo.index > currentIndex &&
-                                        end > targetInfo.offset + targetInfo.size / 2
-                            } else {
-                                targetInfo.index < currentIndex &&
-                                        start < targetInfo.offset + targetInfo.size / 2
-                            }
-                        }
-                        if (target != null) {
-                            onMove(currentIndex, target.index)
-                            dragOffset -= target.offset - currentInfo.offset
-                        }
-
-                        val viewport = listState.layoutInfo
-                        val center = currentInfo.offset + dragOffset + currentInfo.size / 2
-                        when {
-                            center < viewport.viewportStartOffset + 56 && listState.canScrollBackward ->
-                                coroutineScope.launch { listState.scrollBy(-12f) }
-
-                            center > viewport.viewportEndOffset - 56 && listState.canScrollForward ->
-                                coroutineScope.launch { listState.scrollBy(12f) }
-                        }
-                    },
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .zIndex(if (isDragging) 1f else 0f)
-                    .graphicsLayer {
-                        translationY = if (isDragging) dragOffset else 0f
-                        scaleX = if (isDragging) 1.02f else 1f
-                        scaleY = if (isDragging) 1.02f else 1f
-                        shadowElevation = if (isDragging) 8.dp.toPx() else 0f
-                    }
-                    .then(if (isDragging) Modifier else Modifier.animateItem())
-            ) {
-                itemContent(item, dragHandleModifier)
-            }
         }
     }
 }

@@ -5,11 +5,17 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.int
 
-@Feature(name = "群聊管理服务", categories = ["API"], description = "提供添加/删除/邀请群成员能力")
+@Feature(
+    id = "群聊管理服务",
+    nameRes = "feature_we_group_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_group_api_description",
+)
 object WeGroupApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeGroupApi"

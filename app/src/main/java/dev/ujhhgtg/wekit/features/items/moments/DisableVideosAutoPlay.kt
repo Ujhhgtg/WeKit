@@ -3,12 +3,14 @@ package dev.ujhhgtg.wekit.features.items.moments
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 @Feature(
-    name = "禁止自动播放视频",
-    categories = ["朋友圈"],
-    description = "禁止朋友圈中的视频自动播放"
+    id = "禁止自动播放视频",
+    nameRes = "feature_disable_videos_auto_play_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_disable_videos_auto_play_description",
 )
 object DisableVideosAutoPlay : SwitchFeature(), IResolveDex {
 

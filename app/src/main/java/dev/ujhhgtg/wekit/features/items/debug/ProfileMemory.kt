@@ -5,9 +5,15 @@ import android.os.Process
 import androidx.activity.ComponentActivity
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(name = "内存分析", categories = ["调试"], description = "分析微信内存占用组成")
+@Feature(
+    id = "内存分析",
+    nameRes = "feature_profile_memory_name",
+    categoryIds = [FeatureCategoryIds.DEBUG],
+    descriptionRes = "feature_profile_memory_description",
+)
 object ProfileMemory : ClickableFeature() {
 
     private const val TAG = "ProfileMemory"

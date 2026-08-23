@@ -2,27 +2,33 @@ package dev.ujhhgtg.wekit.features.items.voip
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-@Feature(name = "屏蔽铃声", categories = ["聊天", "音视频通话"], description = "屏蔽音视频通话铃声")
+@Feature(
+    id = "屏蔽铃声",
+    nameRes = "feature_block_voip_ringtone_name",
+    categoryIds = [FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP],
+    descriptionRes = "feature_block_voip_ringtone_description",
+)
 object BlockVoipRingtone : ClickableFeature(), IResolveDex {
 
     private var disableOutCall by prefOption("voip_disable_ringtone_out_call", true)
@@ -55,31 +61,38 @@ object BlockVoipRingtone : ClickableFeature(), IResolveDex {
             var inCall by remember { mutableStateOf(disableInCall) }
 
             AlertDialogContent(
-                title = { Text("屏蔽铃声") },
+                title = { Text(stringResource(R.string.feature_block_voip_ringtone_name)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable { outCall = !outCall },
-                            trailingContent = { Switch(checked = outCall, onCheckedChange = { outCall = it }) },
-                            supportingContent = { Text("屏蔽拨出音视频通话时的铃声") },
-                            headlineContent = { Text("屏蔽呼出铃声") },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { inCall = !inCall },
-                            trailingContent = { Switch(checked = inCall, onCheckedChange = { inCall = it }) },
-                            supportingContent = { Text("屏蔽收到音视频通话请求时的铃声") },
-                            headlineContent = { Text("屏蔽呼入铃声") },
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.voip_block_outgoing),
+                                description = stringResource(R.string.voip_block_outgoing_summary),
+                                checked = outCall,
+                                onCheckedChange = {
+                                    outCall = it
+                                    disableOutCall = it
+                                },
+                            )
+                        }
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.voip_block_incoming),
+                                description = stringResource(R.string.voip_block_incoming_summary),
+                                checked = inCall,
+                                onCheckedChange = {
+                                    inCall = it
+                                    disableInCall = it
+                                },
+                            )
+                        }
                     }
                 },
-                confirmButton = {
-                    Button(onClick = {
-                        disableOutCall = outCall
-                        disableInCall = inCall
-                        onDismiss()
-                    }) { Text("保存") }
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
             )
         }
     }

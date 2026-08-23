@@ -16,10 +16,11 @@ data class SessionEntity(
     @PrimaryKey val id: String,
     val title: String,
     val systemPromptId: String?,
-    val workspaceId: String?,
+    val linuxEnvironmentId: String?,
+    val lastEffectiveLinuxEnvironmentId: String?,
     /**
      * Bound model id, or null for "默认" — meaning follow [dev.ujhhgtg.wekit.agent.data.WeAgentSettings.defaultModelId] resolved
-     * at turn time (like [systemPromptId]/[workspaceId]). Null lets changing the global default apply
+     * at turn time (like [systemPromptId]/[linuxEnvironmentId]). Null lets changing the global default apply
      * to existing sessions instead of snapshotting the model at creation.
      */
     val modelId: String?,
@@ -94,6 +95,24 @@ data class ToolCallEntity(
      *   Content when replaying the assistant turn; Gemini 3 returns HTTP 400 if it is omitted.
      */
     val providerSignature: String? = null,
+)
+
+@Entity(
+    tableName = "bridge_tool_audits",
+    indices = [Index("sessionId"), Index("environmentId")],
+)
+data class BridgeToolAuditEntity(
+    @PrimaryKey val id: String,
+    val sessionId: String,
+    val environmentId: String,
+    val parentToolCallId: String?,
+    val providerId: String,
+    val toolName: String,
+    val argumentsJson: String,
+    val approvalStatus: ApprovalStatus?,
+    val executionOutcome: String,
+    val result: String,
+    val executedAt: Instant,
 )
 
 // ---------------------------------------------------------------------------

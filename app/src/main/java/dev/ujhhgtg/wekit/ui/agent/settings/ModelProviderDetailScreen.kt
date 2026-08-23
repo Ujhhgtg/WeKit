@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,191 +9,333 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
-import com.composables.icons.materialsymbols.outlined.Visibility
-import com.composables.icons.materialsymbols.outlined.Visibility_off
+import com.composables.icons.materialsymbols.outlined.Add
+import com.composables.icons.materialsymbols.outlined.Chevron_right
+import com.composables.icons.materialsymbols.outlined.Cloud_download
+import com.composables.icons.materialsymbols.outlined.Save
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.agent.model.local.LocalLlama
+import dev.ujhhgtg.wekit.agent.model.local.LOCAL_LLAMA_MIN_CONTEXT_WINDOW
+import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaModels
+import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
 import dev.ujhhgtg.wekit.agent.model.ModelProviderManager
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
+import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
+import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import dev.ujhhgtg.wekit.utils.android.showToast
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
-import top.yukonga.miuix.kmp.window.WindowDialog
 import java.util.UUID
 
-/** Edits one provider (name/url/key) and manages its models (id + reasoning gear + custom JSON). */
+/**
+ * Edits one provider (name/url/key/type) with instant-apply rows and manages its models. A blank
+ * [providerId] starts a new provider as an in-memory draft: the models section is hidden, 保存
+ * persists it and switches the screen to edit mode in place (models appear, no navigation), and
+ * leaving with a savable draft asks for confirmation first.
+ */
 @Composable
-fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
+fun ModelProviderDetailScreen(
+    providerId: String,
+    onOpenModel: (providerId: String, modelId: String) -> Unit,
+    onBack: () -> Unit,
+) {
+    val creating = providerId.isBlank()
     val scope = rememberCoroutineScope()
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     var provider by remember { mutableStateOf<ModelProviderEntity?>(null) }
+    var showDeleteProviderConfirm by remember { mutableStateOf(false) }
+    // Creation only: the id assigned by 保存. Saveable so that re-entering this entry after the
+    // in-place save (e.g. back from a model page) reloads the saved provider, not a fresh draft.
+    var savedId by rememberSaveable { mutableStateOf("") }
 
-    // Connection fields are hoisted to screen scope so both "保存" and "自动导入模型" read the live,
-    // possibly-unsaved values. The API key field holds the key exactly as stored — there is no
-    // encryption anywhere in the pipeline, so nothing has to be encoded/decoded around it.
-    var name by remember { mutableStateOf("") }
-    var baseUrl by remember { mutableStateOf("") }
-    var apiKey by remember { mutableStateOf("") }
-    LaunchedEffect(providerId) {
-        val fresh = WeAgentRepository.getModelProvider(providerId)
-        provider = fresh
-        if (fresh != null) {
-            name = fresh.name; baseUrl = fresh.baseUrl; apiKey = fresh.apiKey
+    LaunchedEffect(providerId, savedId) {
+        provider = when {
+            creating && savedId.isNotBlank() -> WeAgentRepository.getModelProvider(savedId)
+            creating -> ModelProviderEntity("", ModelProviderType.OPENAI_CHAT_COMPLETION, "", "https://api.openai.com/v1", "")
+            else -> WeAgentRepository.getModelProvider(providerId)
         }
     }
 
-    val models by WeAgentRepository.observeModelsForProvider(providerId).collectAsState(initial = emptyList())
-    // null = closed; empty-id ModelEntity = adding; existing = editing.
-    var editingModel by remember { mutableStateOf<ModelEntity?>(null) }
-    // Auto-import state: fetched ids to pick from, plus loading/error.
-    var importCandidates by remember { mutableStateOf<List<String>?>(null) }
-    var importing by remember { mutableStateOf(false) }
-    // API keys are stored in the clear, so at least don't render them in the clear.
-    var showApiKey by remember { mutableStateOf(false) }
-
     val p = provider
 
-    AgentSettingsScaffold(title = p?.name ?: "提供方", onBack = onBack) {
+    // True once the entity exists in Room: loaded for edit, or assigned by 保存 during creation.
+    // The route id stays blank after in-place creation, so this — not `creating` — gates edit mode.
+    val editing = !creating || savedId.isNotBlank()
+
+    // The id backing this screen: the route's, or the one assigned on save during creation (the
+    // route entry keeps its blank id, so the models list must key off this instead).
+    val activeId = if (creating) savedId else providerId
+    val models by remember(activeId) { WeAgentRepository.observeModelsForProvider(activeId) }
+        .collectAsState(initial = emptyList())
+    // Auto-import state: fetched ids to pick from, plus loading.
+    var importCandidates by remember { mutableStateOf<List<String>?>(null) }
+    var importing by remember { mutableStateOf(false) }
+
+    /**
+     * Every confirmed row edit of an existing provider is persisted immediately — there is no
+     * draft state and no save button in edit mode; during creation, edits only update the draft.
+     * The API key is stored exactly as typed (no encryption anywhere in the pipeline).
+     */
+    fun commitProvider(transform: (ModelProviderEntity) -> ModelProviderEntity) {
+        val current = provider ?: return
+        if (current.type == ModelProviderType.LOCAL_LLAMA) return
+        if (!editing) {
+            provider = transform(current)
+            return
+        }
+        scope.launch {
+            val updated = transform(current)
+            WeAgentRepository.upsertModelProvider(updated)
+            ModelProviderManager.invalidate(current.id)
+            // Keep the local copy in sync so the scaffold title reflects a rename
+            // (LaunchedEffect(providerId) only runs once, on first composition).
+            provider = updated
+        }
+    }
+
+    val savable = p?.baseUrl?.isNotBlank() == true
+    val noncanonicalLocal = p?.type == ModelProviderType.LOCAL_LLAMA
+    val guardedBack = rememberCreationBackGuard(!editing && savable, onBack)
+
+    AgentSettingsScaffold(
+        title = if (!editing) stringResource(R.string.agent_add_model_provider)
+        else p?.name ?: stringResource(R.string.agent_provider_fallback_title),
+        onBack = guardedBack,
+    ) {
         if (p == null) {
-            item { EmptyHint("加载中…") }
+            item {
+                Box(
+                    Modifier.fillParentMaxWidth().padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(Modifier.size(28.dp))
+                }
+            }
             return@AgentSettingsScaffold
         }
 
-        item { SmallTitle("连接") }
         item {
-            Card(Modifier.padding(bottom = 6.dp)) {
-                Column(Modifier.padding(12.dp)) {
-                    TextField(value = name, onValueChange = { name = it }, label = "名称", useLabelAsPlaceholder = true, singleLine = true)
-                    Spacer(Modifier.height(8.dp))
-                    TextField(value = baseUrl, onValueChange = { baseUrl = it }, label = "Base URL", useLabelAsPlaceholder = true, singleLine = true)
-                    Spacer(Modifier.height(8.dp))
-                    TextField(
-                        value = apiKey,
-                        onValueChange = { apiKey = it },
-                        label = "API Key",
-                        useLabelAsPlaceholder = true,
-                        singleLine = true,
-                        visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        trailingIcon = {
-                            IconButton(onClick = { showApiKey = !showApiKey }) {
-                                Icon(
-                                    imageVector = if (showApiKey) MaterialSymbols.Outlined.Visibility_off
-                                    else MaterialSymbols.Outlined.Visibility,
-                                    contentDescription = if (showApiKey) "隐藏" else "显示",
+            SegmentedColumn(title = stringResource(R.string.agent_section_connection)) {
+                item {
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_field_name),
+                        value = p.name,
+                        onValueChange = { value -> commitProvider { it.copy(name = value) } },
+                        dialogTitle = stringResource(R.string.agent_field_name),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = !noncanonicalLocal,
+                    )
+                }
+                item {
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_base_url),
+                        value = p.baseUrl,
+                        onValueChange = { value -> commitProvider { it.copy(baseUrl = value) } },
+                        dialogTitle = stringResource(R.string.agent_base_url),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = !noncanonicalLocal,
+                        keyboardType = KeyboardType.Uri,
+                    )
+                }
+                item {
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_api_key_label),
+                        value = p.apiKey,
+                        onValueChange = { value -> commitProvider { it.copy(apiKey = value) } },
+                        dialogTitle = stringResource(R.string.agent_api_key_label),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = !noncanonicalLocal,
+                        keyboardType = KeyboardType.Password,
+                        password = true,
+                    )
+                }
+                item {
+                    DropDownMenuWidget(
+                        icon = null,
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_provider_api_type),
+                        description = null,
+                        value = p.type,
+                        options = (GENERIC_MODEL_PROVIDER_TYPES +
+                                listOfNotNull(ModelProviderType.LOCAL_LLAMA.takeIf { noncanonicalLocal }))
+                            .map { DropdownOption(it, it.label()) },
+                        enabled = !noncanonicalLocal,
+                        onValueChange = { value -> commitProvider { it.copy(type = value) } },
+                    )
+                }
+            }
+        }
+
+        if (!editing) {
+            item {
+                // A blank name falls back to the provider type label, like the old add dialog did.
+                val fallbackName = p.type.label()
+                AgentActionRow {
+                    AgentListActionButton(
+                        label = stringResource(R.string.action_save),
+                        icon = MaterialSymbols.Outlined.Save,
+                        enabled = savable,
+                        onClick = {
+                            val draft = p
+                            scope.launch {
+                                val saved = draft.copy(
+                                    id = UUID.randomUUID().toString(),
+                                    name = draft.name.ifBlank { fallbackName },
                                 )
+                                WeAgentRepository.upsertModelProvider(saved)
+                                // Stay in place: assigning the id switches the screen to edit mode
+                                // and reveals the models section.
+                                savedId = saved.id
+                                provider = saved
                             }
                         },
                     )
-                    Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth()) {
-                        TextButton(
-                            text = "删除提供方",
-                            onClick = { scope.launch { WeAgentRepository.deleteModelProvider(p.id); onBack() } },
-                            modifier = Modifier.weight(1f),
+                }
+            }
+        } else if (!noncanonicalLocal) {
+            item {
+                AgentActionRow {
+                    OutlinedButton(
+                        onClick = { showDeleteProviderConfirm = true },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text(stringResource(R.string.action_delete)) }
+                }
+            }
+
+            item { ModelSectionTitle(stringResource(R.string.agent_section_models)) }
+            if (models.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.agent_empty_models_message),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 32.dp),
+                    )
+                }
+            } else {
+                lazySegmentedItems(models, key = { it.id }) { m ->
+                    Column(Modifier.padding(horizontal = 16.dp)) {
+                        BaseWidget(
+                            iconPlaceholder = false,
+                            title = m.displayName.ifBlank { m.modelIdRemote },
+                            description = "id=${m.modelIdRemote}" +
+                                    (m.reasoningEffort?.let { " · effort=$it" } ?: "") +
+                                    (m.contextWindow?.let { " · ctx=$it" } ?: "") +
+                                    (m.maxTokens?.let { " · max=$it" } ?: "") +
+                                    if (m.supportsVision) " · ${stringResource(R.string.agent_model_supports_vision_badge)}" else "",
+                            onClick = { onOpenModel(activeId, m.id) },
+                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                         )
-                        Spacer(Modifier.width(12.dp))
-                        TextButton(
-                            text = "保存",
+                    }
+                }
+            }
+            item {
+                AgentActionRow {
+                    AgentListActionButton(
+                        label = stringResource(R.string.agent_add_model),
+                        icon = MaterialSymbols.Outlined.Add,
+                        enabled = !importing,
+                        onClick = { onOpenModel(activeId, "") },
+                    )
+                    // Auto-import is only meaningful for the OpenAI-style /models endpoint.
+                    if (p.type != ModelProviderType.ANTHROPIC_MESSAGES) {
+                        AgentListActionButton(
+                            label = stringResource(R.string.agent_auto_import_models),
+                            icon = MaterialSymbols.Outlined.Cloud_download,
+                            loading = importing,
                             onClick = {
+                                importing = true
                                 scope.launch {
-                                    val updated = p.copy(name = name, baseUrl = baseUrl, apiKey = apiKey)
-                                    WeAgentRepository.upsertModelProvider(updated)
-                                    ModelProviderManager.invalidate(p.id)
-                                    // Keep the local copy in sync so the scaffold title reflects a rename
-                                    // (LaunchedEffect(providerId) only runs once, on first composition).
-                                    provider = updated
+                                    val result = ModelProviderManager.listRemoteModels(p)
+                                    importing = false
+                                    result.fold(
+                                        // distinct(): duplicate ids would produce duplicate LazyColumn keys in the import picker
+                                        onSuccess = { importCandidates = it.distinct() },
+                                        onFailure = {
+                                            showToast(
+                                                localizedContext.getString(
+                                                    R.string.agent_fetch_models_failed,
+                                                    it.message,
+                                                )
+                                            )
+                                        },
+                                    )
                                 }
                             },
-                            colors = ButtonDefaults.textButtonColorsPrimary(),
-                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
             }
         }
+    }
 
-        item { SmallTitle("模型") }
-        if (models.isEmpty()) item { EmptyHint("还没有模型。") }
-        items(models.size, key = { models[it].id }) { i ->
-            val m = models[i]
-            Card(Modifier.padding(bottom = 6.dp)) {
-                ArrowPreference(
-                    title = m.displayName.ifBlank { m.modelIdRemote },
-                    summary = "id=${m.modelIdRemote}" +
-                            (m.reasoningEffort?.let { " · effort=$it" } ?: "") +
-                            (m.contextWindow?.let { " · ctx=$it" } ?: "") +
-                            (m.maxTokens?.let { " · max=$it" } ?: "") +
-                            if (m.supportsVision) " · 视觉" else "",
-                    onClick = { editingModel = m }
-                )
-            }
-        }
-        item {
-            Button(
-                onClick = { editingModel = ModelEntity("", providerId, "", null, null, "", null) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-            ) { Text("添加模型") }
-        }
-        // Auto-import is only meaningful for the OpenAI-style /models endpoint.
-        if (p.type != ModelProviderType.ANTHROPIC_MESSAGES) {
-            item {
-                TextButton(
-                    text = if (importing) "获取模型列表中…" else "自动导入模型",
-                    enabled = !importing,
-                    onClick = {
-                        importing = true
-                        scope.launch {
-                            // Use the live (possibly unsaved) connection fields, per project decision.
-                            val result = ModelProviderManager.listRemoteModels(
-                                p.copy(name = name, baseUrl = baseUrl, apiKey = apiKey)
-                            )
-                            importing = false
-                            result.fold(
-                                onSuccess = { importCandidates = it },
-                                onFailure = { showToast("获取失败：${it.message}") },
-                            )
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
-                )
-            }
-        }
+    if (p != null && !noncanonicalLocal) {
+        AgentConfirmDialog(
+            show = showDeleteProviderConfirm,
+            title = stringResource(R.string.agent_delete_provider),
+            message = stringResource(R.string.agent_delete_provider_confirm),
+            confirmLabel = stringResource(R.string.action_delete),
+            dismissLabel = stringResource(R.string.dialog_cancel),
+            destructive = true,
+            onConfirm = {
+                showDeleteProviderConfirm = false
+                scope.launch {
+                    try {
+                        WeAgentRepository.deleteModelProvider(p.id)
+                        onBack()
+                    } catch (e: Exception) {
+                        showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
+                    }
+                }
+            },
+            onDismiss = { showDeleteProviderConfirm = false },
+        )
     }
 
     ImportModelsDialog(
@@ -202,47 +345,418 @@ fun ModelProviderDetailScreen(providerId: String, onBack: () -> Unit) {
         onDismiss = { importCandidates = null },
         onImport = { picked ->
             scope.launch {
-                val added = WeAgentRepository.importModels(providerId, picked)
-                showToast("已导入 $added 个模型")
+                val (added, overwritten) = WeAgentRepository.importModels(activeId, picked)
+                showToast(
+                    localizedContext.getString(
+                        R.string.agent_models_imported_result, added, overwritten
+                    )
+                )
             }
             importCandidates = null
         },
     )
+}
 
-    ModelDialog(
-        show = editingModel != null,
-        existing = editingModel ?: ModelEntity("", providerId, "", null, null, "", null),
-        onDismiss = { editingModel = null },
-        onDelete = editingModel?.id?.takeIf { it.isNotEmpty() }?.let { id -> { scope.launch { WeAgentRepository.deleteModel(id) }; editingModel = null } },
-        onSave = { remoteId, display, effort, customJson, contextWindow, maxTokens, supportsVision ->
-            editingModel?.let { m ->
-                scope.launch {
-                    WeAgentRepository.upsertModel(
-                        m.copy(
-                            id = m.id.ifEmpty { UUID.randomUUID().toString() },
-                            providerId = providerId,
-                            modelIdRemote = remoteId,
-                            reasoningEffort = effort,
-                            customJsonOverride = customJson,
-                            displayName = display.ifBlank { remoteId },
-                            contextWindow = contextWindow,
-                            maxTokens = maxTokens,
-                            supportsVision = supportsVision,
+private val GENERIC_MODEL_PROVIDER_TYPES =
+    ModelProviderType.entries.filterNot { it == ModelProviderType.LOCAL_LLAMA }
+
+/**
+ * Per-model settings. Editing is instant-apply; a blank [modelId] starts a new model kept as an
+ * in-memory draft: other rows stay disabled until a model id is entered, 保存 persists it and
+ * returns to the provider page, and leaving with a savable draft asks for confirmation first.
+ */
+@Composable
+fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
+    val creating = modelId.isBlank()
+    val locked = providerId == LocalLlama.PROVIDER_ID
+    val scope = rememberCoroutineScope()
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    // Blank modelId = adding (a draft until saved); otherwise null until the entity loads.
+    var model by remember { mutableStateOf<ModelEntity?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showCtxDialog by remember { mutableStateOf(false) }
+    var localCommitPending by remember { mutableStateOf(false) }
+
+    LaunchedEffect(modelId) {
+        model = if (creating) {
+            ModelEntity("", providerId, "", null, null, "", null)
+        } else {
+            WeAgentRepository.getModel(modelId)
+        }
+    }
+
+    /** Persists one field immediately in edit mode; during creation the edit only updates the draft. */
+    fun commitModel(transform: (ModelEntity) -> ModelEntity) {
+        val current = model ?: return
+        if (creating) {
+            if (locked) return
+            model = transform(current)
+            return
+        }
+        if (locked) {
+            if (localCommitPending) return
+            val updated = transform(current).copy(providerId = providerId)
+            model = updated
+            localCommitPending = true
+            scope.launch {
+                try {
+                    WeAgentRepository.upsertModel(updated)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    model = current
+                    showToast(
+                        localizedContext.getString(
+                            R.string.agent_save_failed,
+                            e.message ?: e.javaClass.simpleName,
                         )
+                    )
+                } finally {
+                    localCommitPending = false
+                }
+            }
+            return
+        }
+        scope.launch {
+            val updated = transform(current).copy(
+                id = current.id.ifEmpty { UUID.randomUUID().toString() },
+                providerId = providerId,
+            )
+            WeAgentRepository.upsertModel(updated)
+            model = updated
+        }
+    }
+
+    val m = model
+    val installedLocalModel = remember(locked, m?.modelIdRemote) {
+        if (locked) {
+            LocalLlamaModels.listInstalled().firstOrNull { it.id == m?.modelIdRemote }
+        } else {
+            null
+        }
+    }
+    // Other fields describe a concrete remote model, so they wait for a non-blank model id.
+    val ready = m?.modelIdRemote?.isNotBlank() == true
+    val guardedBack = rememberCreationBackGuard(creating && ready, onBack)
+
+    AgentSettingsScaffold(
+        title = stringResource(if (creating) R.string.agent_add_model else R.string.agent_edit_model),
+        onBack = guardedBack,
+    ) {
+        if (m == null) {
+            item {
+                Box(
+                    Modifier.fillParentMaxWidth().padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(Modifier.size(28.dp))
+                }
+            }
+            return@AgentSettingsScaffold
+        }
+
+        item {
+            SegmentedColumn {
+                item {
+                    if (locked) {
+                        BaseWidget(
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_model_id_label),
+                            description = m.modelIdRemote,
+                        )
+                    } else {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.agent_model_id_label),
+                            value = m.modelIdRemote,
+                            onValueChange = { value ->
+                                commitModel { raw ->
+                                    val next = raw.copy(modelIdRemote = value)
+                                    if (next.displayName.isBlank() || next.displayName == next.modelIdRemote) {
+                                        next.copy(displayName = value)
+                                    } else {
+                                        next
+                                    }
+                                }
+                            },
+                            dialogTitle = stringResource(R.string.agent_model_id_label),
+                            confirmLabel = stringResource(R.string.dialog_confirm),
+                            dismissLabel = stringResource(R.string.dialog_cancel),
+                        )
+                    }
+                }
+                item {
+                    if (locked) {
+                        BaseWidget(
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_model_display_name_label),
+                            description = m.displayName,
+                        )
+                    } else {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.agent_model_display_name_label),
+                            value = m.displayName,
+                            onValueChange = { value -> commitModel { it.copy(displayName = value) } },
+                            dialogTitle = stringResource(R.string.agent_model_display_name_label),
+                            confirmLabel = stringResource(R.string.dialog_confirm),
+                            dismissLabel = stringResource(R.string.dialog_cancel),
+                            enabled = ready,
+                        )
+                    }
+                }
+                item {
+                    DropDownMenuWidget(
+                        icon = null,
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_reasoning_effort),
+                        description = null,
+                        value = m.reasoningEffort ?: "off",
+                        options = EFFORT_GEARS.map { DropdownOption(it, effortGearLabel(it)) },
+                        enabled = ready && (!locked || !localCommitPending),
+                        onValueChange = { value ->
+                            commitModel { it.copy(reasoningEffort = value.takeIf { it != "off" }) }
+                        },
+                    )
+                }
+                item {
+                    if (locked) {
+                        BaseWidget(
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_context_window_label),
+                            description = (m.contextWindow
+                                ?: installedLocalModel?.defaultContextWindow
+                                ?: 32768).toString() + " · " +
+                                    stringResource(R.string.local_llm_backend_restart_note),
+                            enabled = ready && !localCommitPending,
+                            onClick = { showCtxDialog = true },
+                        )
+                    } else {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.agent_context_window_label),
+                            value = m.contextWindow?.toString().orEmpty(),
+                            onValueChange = { value ->
+                                commitModel { it.copy(contextWindow = value.filter(Char::isDigit).take(9).toIntOrNull()) }
+                            },
+                            dialogTitle = stringResource(R.string.agent_context_window_label),
+                            confirmLabel = stringResource(R.string.dialog_confirm),
+                            dismissLabel = stringResource(R.string.dialog_cancel),
+                            enabled = ready,
+                            keyboardType = KeyboardType.Number,
+                            filter = { it.filter(Char::isDigit).take(9) },
+                        )
+                    }
+                }
+                item {
+                    if (locked) {
+                        BaseWidget(
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_max_output_tokens_label),
+                            description = (installedLocalModel?.maxTokens ?: m.maxTokens)?.toString().orEmpty(),
+                        )
+                    } else {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.agent_max_output_tokens_label),
+                            value = m.maxTokens?.toString().orEmpty(),
+                            onValueChange = { value ->
+                                commitModel { it.copy(maxTokens = value.filter(Char::isDigit).take(9).toIntOrNull()) }
+                            },
+                            dialogTitle = stringResource(R.string.agent_max_output_tokens_label),
+                            confirmLabel = stringResource(R.string.dialog_confirm),
+                            dismissLabel = stringResource(R.string.dialog_cancel),
+                            enabled = ready,
+                            keyboardType = KeyboardType.Number,
+                            filter = { it.filter(Char::isDigit).take(9) },
+                        )
+                    }
+                }
+                if (!locked) {
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.agent_custom_json_label),
+                            value = m.customJsonOverride.orEmpty(),
+                            onValueChange = { value -> commitModel { it.copy(customJsonOverride = value.ifBlank { null }) } },
+                            dialogTitle = stringResource(R.string.agent_custom_json_label),
+                            confirmLabel = stringResource(R.string.dialog_confirm),
+                            dismissLabel = stringResource(R.string.dialog_cancel),
+                            enabled = ready,
+                            singleLine = false,
+                        )
+                    }
+                    item {
+                        SwitchWidget(
+                            iconPlaceholder = false,
+                            title = stringResource(R.string.agent_supports_vision),
+                            description = stringResource(R.string.agent_supports_vision_summary),
+                            enabled = ready,
+                            checked = m.supportsVision,
+                            onCheckedChange = { value -> commitModel { it.copy(supportsVision = value) } },
+                        )
+                    }
+                }
+            }
+        }
+
+        if (creating && !locked) {
+            item {
+                AgentActionRow {
+                    AgentListActionButton(
+                        label = stringResource(R.string.action_save),
+                        icon = MaterialSymbols.Outlined.Save,
+                        enabled = ready,
+                        onClick = {
+                            val draft = m
+                            scope.launch {
+                                WeAgentRepository.upsertModel(
+                                    draft.copy(id = UUID.randomUUID().toString(), providerId = providerId),
+                                )
+                                onBack()
+                            }
+                        },
                     )
                 }
             }
-            editingModel = null
+        } else if (!locked) {
+            item {
+                AgentActionRow {
+                    OutlinedButton(
+                        onClick = { showDeleteConfirm = true },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text(stringResource(R.string.action_delete)) }
+                }
+            }
+        }
+    }
+
+    if (locked && m != null && installedLocalModel != null) {
+        LocalCtxDialog(
+            show = showCtxDialog,
+            initial = m.contextWindow ?: installedLocalModel.defaultContextWindow,
+            defaultValue = installedLocalModel.defaultContextWindow,
+            maxValue = installedLocalModel.maxContextWindow,
+            onDismiss = { showCtxDialog = false },
+            onConfirm = { contextWindow ->
+                showCtxDialog = false
+                commitModel { it.copy(contextWindow = contextWindow) }
+            },
+        )
+    }
+
+    AgentConfirmDialog(
+        show = showDeleteConfirm,
+        title = stringResource(R.string.action_delete),
+        message = stringResource(R.string.agent_delete_model_confirm),
+        confirmLabel = stringResource(R.string.action_delete),
+        dismissLabel = stringResource(R.string.dialog_cancel),
+        destructive = true,
+        onConfirm = {
+            showDeleteConfirm = false
+            scope.launch {
+                try {
+                    model?.id?.takeIf { it.isNotBlank() }?.let { WeAgentRepository.deleteModel(it) }
+                    onBack()
+                } catch (e: Exception) {
+                    showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
+                }
+            }
         },
+        onDismiss = { showDeleteConfirm = false },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LocalCtxDialog(
+    show: Boolean,
+    initial: Int,
+    defaultValue: Int,
+    maxValue: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit,
+) {
+    if (!show) return
+    var value by remember(initial) { mutableStateOf(initial.toString()) }
+    val parsed = value.toIntOrNull()
+    val valid = parsed != null && parsed in LOCAL_LLAMA_MIN_CONTEXT_WINDOW..maxValue
+
+    BasicAlertDialog(onDismissRequest = onDismiss) {
+        AlertDialogContent(
+            title = { Text(stringResource(R.string.agent_context_window_label)) },
+            text = {
+                Column {
+                    Text(
+                        text = stringResource(R.string.local_llm_ctx_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    OutlinedTextField(
+                        value = value,
+                        onValueChange = { value = it.filter(Char::isDigit).take(9) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        isError = !valid,
+                        supportingText = {
+                            Text(
+                                stringResource(
+                                    R.string.local_llm_ctx_bounds,
+                                    LOCAL_LLAMA_MIN_CONTEXT_WINDOW,
+                                    maxValue,
+                                    defaultValue,
+                                )
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = valid,
+                    onClick = { onConfirm(requireNotNull(parsed)) },
+                ) {
+                    Text(stringResource(R.string.dialog_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.dialog_cancel))
+                }
+            },
+        )
+    }
+}
+
+/** Mirrors [SegmentedColumn]'s section title styling for sections whose rows are laid out lazily. */
+@Composable
+private fun ModelSectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 32.dp, top = 8.dp, bottom = 16.dp),
     )
 }
 
 /** Reasoning-effort gears. "off" means omit the field entirely. */
 private val EFFORT_GEARS = listOf("off", "minimal", "low", "medium", "high", "xhigh", "max")
 
+@Composable
+private fun effortGearLabel(value: String): String = stringResource(
+    when (value) {
+        "off" -> R.string.agent_reasoning_effort_off
+        "minimal" -> R.string.agent_reasoning_effort_minimal
+        "low" -> R.string.agent_reasoning_effort_low
+        "medium" -> R.string.agent_reasoning_effort_medium
+        "high" -> R.string.agent_reasoning_effort_high
+        "xhigh" -> R.string.agent_reasoning_effort_extra_high
+        "max" -> R.string.agent_reasoning_effort_maximum
+        else -> error("Unknown reasoning effort: $value")
+    }
+)
+
+
 /**
  * Model-import picker: lists ids fetched from the provider's `/models` endpoint. Ids already added
- * are shown checked+disabled; the rest start selected. Confirming imports the selected new ones.
+ * start unchecked (selecting one overwrites its config) and carry an "(已导入)" suffix; the rest
+ * start selected. Confirming imports every selected id.
  */
 @Composable
 private fun ImportModelsDialog(
@@ -259,123 +773,45 @@ private fun ImportModelsDialog(
         mutableStateListOf<String>().apply { addAll(candidates.filter { it !in existingRemoteIds }) }
     }
 
-    WindowDialog(show = show, title = "导入模型（${candidates.size}）", onDismissRequest = onDismiss) {
+    WeKitBasicDialog(show = show, title = stringResource(R.string.agent_import_models_title, candidates.size), onDismissRequest = onDismiss) {
         Column {
             if (candidates.isEmpty()) {
-                Text("该提供方未返回任何模型。")
+                Text(stringResource(R.string.agent_provider_returned_no_models))
             } else {
-                LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                    items(candidates.size, key = { candidates[it] }) { i ->
-                        val id = candidates[i]
+                Text(
+                    text = stringResource(R.string.agent_import_overwrite_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+                    lazySegmentedItems(candidates, key = { it }) { id ->
                         val already = id in existingRemoteIds
-                        val checked = already || id in selected
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable(enabled = !already) { if (id in selected) selected.remove(id) else selected.add(id) }
-                                .padding(vertical = 10.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(if (checked) "☑" else "☐", modifier = Modifier.width(28.dp))
-                            Text(
-                                id + if (already) "（已添加）" else "",
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                            )
-                        }
+                        val checked = id in selected
+                        // The whole row toggles; the checkbox is a pure indicator with no semantics of its own.
+                        BaseWidget(
+                            iconPlaceholder = false,
+                            title = if (already) stringResource(R.string.agent_model_already_added, id) else id,
+                            onClick = { if (id in selected) selected.remove(id) else selected.add(id) },
+                            trailingContent = {
+                                Checkbox(
+                                    checked = checked,
+                                    onCheckedChange = null,
+                                    modifier = Modifier.clearAndSetSemantics { },
+                                )
+                            },
+                        )
                     }
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth()) {
-                TextButton(text = "取消", onClick = onDismiss, modifier = Modifier.weight(1f))
-                Spacer(Modifier.width(12.dp))
-                TextButton(
-                    text = "导入（${selected.size}）",
-                    onClick = { onImport(selected.toList()) },
-                    enabled = selected.isNotEmpty(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ModelDialog(
-    show: Boolean,
-    existing: ModelEntity,
-    onDismiss: () -> Unit,
-    onDelete: (() -> Unit)?,
-    onSave: (remoteId: String, display: String, effort: String?, customJson: String?, contextWindow: Int?, maxTokens: Int?, supportsVision: Boolean) -> Unit,
-) {
-    // Every field is keyed on [existing] (and [show]): the dialog is composed unconditionally, with a
-    // blank placeholder entity while nothing is being edited, so unkeyed state would capture those
-    // blanks and 保存 would then overwrite the stored model's whole config with them.
-    var remoteId by remember(existing, show) { mutableStateOf(existing.modelIdRemote) }
-    var display by remember(existing, show) { mutableStateOf(existing.displayName) }
-    var customJson by remember(existing, show) { mutableStateOf(existing.customJsonOverride.orEmpty()) }
-    var contextWindow by remember(existing, show) { mutableStateOf(existing.contextWindow?.toString().orEmpty()) }
-    var maxTokens by remember(existing, show) { mutableStateOf(existing.maxTokens?.toString().orEmpty()) }
-    var supportsVision by remember(existing, show) { mutableStateOf(existing.supportsVision) }
-    var effortIndex by remember(existing, show) { mutableIntStateOf(EFFORT_GEARS.indexOf(existing.reasoningEffort ?: "off").coerceAtLeast(0)) }
-
-    WindowDialog(show = show, title = if (existing.id.isEmpty()) "添加模型" else "编辑模型", onDismissRequest = onDismiss) {
-        Column {
-            TextField(value = remoteId, onValueChange = { remoteId = it }, label = "模型 ID（传给 API）", useLabelAsPlaceholder = true, singleLine = true)
-            Spacer(Modifier.height(8.dp))
-            TextField(value = display, onValueChange = { display = it }, label = "显示名称（可选）", useLabelAsPlaceholder = true, singleLine = true)
-            Spacer(Modifier.height(8.dp))
-            WindowDropdownPreference(
-                title = "思考强度",
-                items = EFFORT_GEARS,
-                selectedIndex = effortIndex,
-                onSelectedIndexChange = { effortIndex = it },
-            )
-            Spacer(Modifier.height(8.dp))
-            TextField(
-                value = contextWindow,
-                onValueChange = { v -> contextWindow = v.filter { it.isDigit() }.take(9) },
-                label = "上下文窗口（token，可选，用于显示占用百分比）",
-                useLabelAsPlaceholder = true,
-                singleLine = true,
-            )
-            Spacer(Modifier.height(8.dp))
-            TextField(
-                value = maxTokens,
-                onValueChange = { v -> maxTokens = v.filter { it.isDigit() }.take(9) },
-                label = "最大输出 token（可选，限制单次回复长度）",
-                useLabelAsPlaceholder = true,
-                singleLine = true,
-            )
-            Spacer(Modifier.height(8.dp))
-            TextField(value = customJson, onValueChange = { customJson = it }, label = "自定义 JSON 透传（可选）", useLabelAsPlaceholder = true, maxLines = 4)
-            Spacer(Modifier.height(8.dp))
-            SwitchPreference(
-                title = "支持视觉（图片输入）",
-                summary = "开启后 AI 才能使用 ui-screenshot 截图工具查看界面",
-                checked = supportsVision,
-                onCheckedChange = { supportsVision = it },
-            )
-            Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth()) {
-                if (onDelete != null) {
-                    TextButton(text = "删除", onClick = onDelete, modifier = Modifier.weight(1f))
-                    Spacer(Modifier.width(8.dp))
-                }
-                TextButton(text = "取消", onClick = onDismiss, modifier = Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 Spacer(Modifier.width(8.dp))
                 TextButton(
-                    text = "保存",
-                    onClick = {
-                        val effort = EFFORT_GEARS[effortIndex].takeIf { it != "off" }
-                        onSave(remoteId, display, effort, customJson.ifBlank { null }, contextWindow.toIntOrNull(), maxTokens.toIntOrNull(), supportsVision)
-                    },
-                    enabled = remoteId.isNotBlank(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    modifier = Modifier.weight(1f),
-                )
+                    onClick = { onImport(selected.toList()) },
+                    enabled = selected.isNotEmpty(),
+                ) { Text(stringResource(R.string.agent_import_selected_models, selected.size)) }
             }
         }
     }

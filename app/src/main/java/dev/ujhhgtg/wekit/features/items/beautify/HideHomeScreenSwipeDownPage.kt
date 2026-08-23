@@ -5,11 +5,17 @@ import android.widget.AbsListView
 import android.widget.ListView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.ConversationGrouping
 import dev.ujhhgtg.wekit.utils.invokeOriginalMethod
 
-@Feature(name = "隐藏主页下滑「最近」页", categories = ["界面美化"], description = "禁用主页下滑功能")
+@Feature(
+    id = "隐藏主页下滑「最近」页",
+    nameRes = "feature_hide_home_screen_swipe_down_page_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY],
+    descriptionRes = "feature_hide_home_screen_swipe_down_page_description",
+)
 object HideHomeScreenSwipeDownPage : SwitchFeature() {
 
     override fun onEnable() {

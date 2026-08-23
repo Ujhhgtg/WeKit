@@ -3,208 +3,319 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref, clippy::missing_safety_doc)]
 
 mod audio_utils;
+#[cfg(test)]
+#[allow(dead_code)]
+mod chroot_cleanup;
 mod crash_handler;
 mod crash_triggerer;
 mod logging;
-mod nuke_client;
-mod nuke_crypto;
+mod owned_process;
+mod pty;
+mod read_receipts_server;
 mod telegram_sticker;
 mod utils;
 
-use std::{
-    ffi::CString,
-    fs::File,
-    io::Read,
-    panic::{AssertUnwindSafe, catch_unwind},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::ffi::CString;
 
 use crash_handler::{install_crash_handler, uninstall_crash_handler};
 use crash_triggerer::trigger_test_crash;
 
 use jni::sys::{
-    JNI_FALSE, JNI_TRUE, JNI_VERSION_1_6, JNIEnv as RawJNIEnv, JavaVM, jboolean, jint, jlong,
-    jobject, jstring,
+    JNI_FALSE, JNI_TRUE, JNI_VERSION_1_6, JNIEnv as RawJNIEnv, JavaVM, jboolean, jbyteArray, jint,
+    jlong, jlongArray, jobject, jobjectArray, jstring,
 };
 use libc::c_void;
 
 use crate::utils::with_jstring;
 
-fn new_jstring(env: *mut RawJNIEnv, value: &str) -> jstring {
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_environment_OwnedProcess_00024Native_start(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    argv: jobjectArray,
+    environment: jobjectArray,
+    cwd: jstring,
+) -> jlongArray {
+    let result = string_array(env, argv).and_then(|argv| {
+        string_array(env, environment).and_then(|environment| {
+            with_jstring(env, cwd, |cwd| {
+                owned_process::start(argv, environment, cwd.to_owned())
+            })
+            .unwrap_or_else(|| Err("missing cwd".into()))
+        })
+    });
+    match result {
+        Ok(started) => unsafe {
+            let pid = started.process.pid();
+            let pgid = started.process.pgid();
+            let array = ((**env).v1_6.NewLongArray)(env, 6);
+            if array.is_null() {
+                libc::close(started.stdin);
+                libc::close(started.stdout);
+                libc::close(started.stderr);
+                return std::ptr::null_mut();
+            }
+            let process = Box::new(started.process);
+            let values = [
+                (&*process as *const owned_process::OwnedProcess) as jlong,
+                pid as jlong,
+                pgid as jlong,
+                started.stdin as jlong,
+                started.stdout as jlong,
+                started.stderr as jlong,
+            ];
+            ((**env).v1_6.SetLongArrayRegion)(env, array, 0, values.len() as jint, values.as_ptr());
+            if ((**env).v1_6.ExceptionCheck)(env) != JNI_FALSE {
+                libc::close(started.stdin);
+                libc::close(started.stdout);
+                libc::close(started.stderr);
+                return std::ptr::null_mut();
+            }
+            let _ = Box::into_raw(process);
+            array
+        },
+        Err(error) => {
+            loge!("owned process start failed: {error}");
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_environment_OwnedProcess_00024Native_pollExit(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+) -> jint {
+    if handle == 0 {
+        return i32::MIN;
+    }
+    match unsafe { &*(handle as *const owned_process::OwnedProcess) }.poll_exit() {
+        Ok(Some(code)) => code,
+        Ok(None) => i32::MIN + 1,
+        Err(error) => {
+            loge!("owned process wait failed: {error}");
+            i32::MIN
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_environment_OwnedProcess_00024Native_terminateGroup(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+    grace_millis: jlong,
+) -> jboolean {
+    if handle != 0
+        && unsafe { &*(handle as *const owned_process::OwnedProcess) }
+            .terminate_group(std::time::Duration::from_millis(grace_millis.max(0) as u64))
+            .is_ok()
+    {
+        JNI_TRUE
+    } else {
+        JNI_FALSE
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_environment_OwnedProcess_00024Native_close(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+) {
+    if handle != 0 {
+        unsafe {
+            drop(Box::from_raw(handle as *mut owned_process::OwnedProcess));
+        }
+    }
+}
+
+fn native_string(env: *mut RawJNIEnv, value: &str) -> jstring {
     if env.is_null() {
         return std::ptr::null_mut();
     }
+
     unsafe {
         let fns = *env;
-        let value = CString::new(value)
-            .unwrap_or_else(|_| CString::new("native string conversion failed").unwrap());
-        ((*fns).v1_6.NewStringUTF)(env, value.as_ptr())
-    }
-}
-
-fn random_uuid_v4() -> Result<String, String> {
-    let mut bytes = [0u8; 16];
-    File::open("/dev/urandom")
-        .and_then(|mut source| source.read_exact(&mut bytes))
-        .map_err(|error| format!("nonce generation failed: {error}"))?;
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    Ok(format!(
-        "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-        bytes[0],
-        bytes[1],
-        bytes[2],
-        bytes[3],
-        bytes[4],
-        bytes[5],
-        bytes[6],
-        bytes[7],
-        bytes[8],
-        bytes[9],
-        bytes[10],
-        bytes[11],
-        bytes[12],
-        bytes[13],
-        bytes[14],
-        bytes[15]
-    ))
-}
-
-fn nuke_client_error(message: impl Into<String>) -> String {
-    serde_json::json!({
-        "success": false,
-        "error": message.into(),
-    })
-    .to_string()
-}
-
-fn nuke_request_headers(auth: &nuke_client::ClientAuth) -> serde_json::Value {
-    serde_json::json!({
-        "Content-Type": "application/json",
-        "X-Client-Id": auth.user_id,
-        "X-Platform": auth.platform,
-        "X-Timestamp": auth.timestamp,
-        "X-Nonce": auth.nonce,
-        "X-Signature": auth.signature,
-    })
-}
-
-fn run_nuke_client_transaction() -> String {
-    use nuke_client::{
-        ClientAuth, DEFAULT_CLIENT_REPORT_URL, DEFAULT_WECHAT_PLATFORM, DEFAULT_WECHAT_USER_ID,
-        client_users_endpoint_for_report, current_native_sync_signer_observations,
-        fixed_native_wechat_report, is_valid_wechat_user_id, prepare_one_report,
-        prepare_registration, send_prepared_registration, send_prepared_report,
-        sign_prepared_registration_with_signer_observations,
-        sign_prepared_report_with_signer_observations,
-    };
-
-    let user_id = DEFAULT_WECHAT_USER_ID;
-    if !is_valid_wechat_user_id(user_id) {
-        return nuke_client_error(
-            "default WeChat id must be wxid_ followed by 14 lowercase alphanumeric characters",
-        );
-    }
-
-    let result = (|| -> Result<serde_json::Value, String> {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|error| format!("clock failed: {error}"))?
-            .as_secs()
-            .to_string();
-        let registration_endpoint = client_users_endpoint_for_report(DEFAULT_CLIENT_REPORT_URL)
-            .map_err(|error| error.to_string())?;
-        let registration_auth = ClientAuth {
-            user_id: user_id.to_owned(),
-            platform: DEFAULT_WECHAT_PLATFORM.to_owned(),
-            timestamp: timestamp.clone(),
-            nonce: random_uuid_v4()?,
-            signature: String::new(),
-        };
-        let report_auth = ClientAuth {
-            user_id: user_id.to_owned(),
-            platform: DEFAULT_WECHAT_PLATFORM.to_owned(),
-            timestamp,
-            nonce: random_uuid_v4()?,
-            signature: String::new(),
-        };
-        let observations =
-            current_native_sync_signer_observations(0).map_err(|error| error.to_string())?;
-
-        let prepared_registration =
-            prepare_registration(&registration_auth).map_err(|error| error.to_string())?;
-        let signed_registration = sign_prepared_registration_with_signer_observations(
-            &prepared_registration,
-            &registration_auth,
-            observations.registration,
-        )
-        .map_err(|error| error.to_string())?;
-        let registration = send_prepared_registration(
-            &registration_endpoint,
-            &prepared_registration,
-            &signed_registration,
-        )
-        .map_err(|error| error.to_string())?;
-
-        let report_json = fixed_native_wechat_report()
-            .to_json_bytes()
-            .map_err(|error| error.to_string())?;
-        let prepared_report =
-            prepare_one_report(&report_json, &report_auth).map_err(|error| error.to_string())?;
-        let signed_report = sign_prepared_report_with_signer_observations(
-            &prepared_report,
-            &report_auth,
-            observations.report,
-        )
-        .map_err(|error| error.to_string())?;
-        let report =
-            send_prepared_report(DEFAULT_CLIENT_REPORT_URL, &prepared_report, &signed_report)
-                .map_err(|error| error.to_string())?;
-
-        Ok(serde_json::json!({
-            "success": true,
-            "userId": user_id,
-            "registration": {
-                "endpoint": registration_endpoint,
-                "httpStatus": registration.http_status,
-                "requestHeaders": nuke_request_headers(&signed_registration),
-                "requestBody": registration.request_body,
-                "canonicalPayload": registration.canonical_payload,
-                "responseBody": registration.response_body,
-                "code": registration.code,
-                "message": registration.message,
-            },
-            "report": {
-                "endpoint": DEFAULT_CLIENT_REPORT_URL,
-                "httpStatus": report.http_status,
-                "requestHeaders": nuke_request_headers(&signed_report),
-                "requestBody": report.request_body,
-                "canonicalPayload": report.canonical_payload,
-                "responseBody": report.response_body,
-                "decryptedJson": report.decrypted_json,
-            },
-        }))
-    })();
-
-    match result {
-        Ok(value) => value.to_string(),
-        Err(error) => nuke_client_error(error),
+        let c_str = CString::new(value)
+            .unwrap_or_else(|_| CString::new("native conversion failed").unwrap());
+        ((*fns).v1_6.NewStringUTF)(env, c_str.as_ptr())
     }
 }
 
 fn native_error_string(env: *mut RawJNIEnv, result: Result<(), String>) -> jstring {
-    if env.is_null() {
-        return std::ptr::null_mut();
-    }
-
     match result {
         Ok(()) => std::ptr::null_mut(),
-        Err(message) => unsafe {
-            let fns = *env;
-            let c_str = CString::new(message)
-                .unwrap_or_else(|_| CString::new("native conversion failed").unwrap());
-            ((*fns).v1_6.NewStringUTF)(env, c_str.as_ptr())
-        },
+        Err(message) => native_string(env, &message),
+    }
+}
+
+fn string_array(env: *mut RawJNIEnv, array: jobjectArray) -> Result<Vec<String>, String> {
+    if env.is_null() || array.is_null() {
+        return Err("missing string array".into());
+    }
+    unsafe {
+        let fns = *env;
+        let len = ((*fns).v1_6.GetArrayLength)(env, array as jobject);
+        let mut result = Vec::with_capacity(len as usize);
+        for index in 0..len {
+            let item = ((*fns).v1_6.GetObjectArrayElement)(env, array, index) as jstring;
+            let value = with_jstring(env, item, str::to_owned)
+                .ok_or_else(|| "invalid string array item".to_owned())?;
+            ((*fns).v1_6.DeleteLocalRef)(env, item as jobject);
+            result.push(value);
+        }
+        Ok(result)
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_start(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    argv: jobjectArray,
+    environment: jobjectArray,
+    cwd: jstring,
+    cols: jint,
+    rows: jint,
+) -> jlong {
+    let result = string_array(env, argv).and_then(|argv| {
+        string_array(env, environment).and_then(|environment| {
+            with_jstring(env, cwd, |cwd| {
+                pty::start(argv, environment, cwd.to_owned(), cols, rows)
+            })
+            .unwrap_or_else(|| Err("missing cwd".into()))
+        })
+    });
+    match result {
+        Ok(handle) => Box::into_raw(Box::new(handle)) as jlong,
+        Err(error) => {
+            loge!("pty start failed: {error}");
+            0
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_write(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+    bytes: jbyteArray,
+) -> jboolean {
+    if handle == 0 || bytes.is_null() {
+        return JNI_FALSE;
+    }
+    unsafe {
+        let fns = *env;
+        let len = ((*fns).v1_6.GetArrayLength)(env, bytes as jobject);
+        let ptr = ((*fns).v1_6.GetByteArrayElements)(env, bytes, std::ptr::null_mut());
+        if ptr.is_null() {
+            return JNI_FALSE;
+        }
+        let result = pty::write(
+            &*(handle as *const pty::Pty),
+            std::slice::from_raw_parts(ptr as *const u8, len as usize),
+        );
+        ((*fns).v1_6.ReleaseByteArrayElements)(env, bytes, ptr, 0);
+        match result {
+            Ok(()) => JNI_TRUE,
+            Err(error) => {
+                loge!("pty write failed: {error}");
+                JNI_FALSE
+            }
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_read(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+    buffer: jbyteArray,
+) -> jint {
+    if handle == 0 || buffer.is_null() {
+        return -2;
+    }
+    unsafe {
+        let fns = *env;
+        let len = ((*fns).v1_6.GetArrayLength)(env, buffer);
+        if len <= 0 {
+            return -2;
+        }
+        let ptr = ((*fns).v1_6.GetByteArrayElements)(env, buffer, std::ptr::null_mut());
+        if ptr.is_null() {
+            return -2;
+        }
+        let result = pty::read(
+            &*(handle as *const pty::Pty),
+            std::slice::from_raw_parts_mut(ptr as *mut u8, len as usize),
+        );
+        ((*fns).v1_6.ReleaseByteArrayElements)(env, buffer, ptr, 0);
+        match result {
+            Ok(pty::ReadResult::Data(count)) => count as jint,
+            Ok(pty::ReadResult::Timeout) => 0,
+            Ok(pty::ReadResult::Eof) => -1,
+            Err(error) => {
+                loge!("pty read failed: {error}");
+                -2
+            }
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_resize(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+    cols: jint,
+    rows: jint,
+) -> jboolean {
+    if handle != 0 && pty::resize(unsafe { &*(handle as *const pty::Pty) }, cols, rows).is_ok() {
+        JNI_TRUE
+    } else {
+        JNI_FALSE
+    }
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_waitForExit(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+) -> jint {
+    if handle == 0 {
+        return -2;
+    }
+    pty::wait(unsafe { &*(handle as *const pty::Pty) }).unwrap_or_else(|error| {
+        loge!("pty wait failed: {error}");
+        -2
+    })
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_kill(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+) -> jboolean {
+    if handle != 0 && pty::kill(unsafe { &*(handle as *const pty::Pty) }).is_ok() {
+        JNI_TRUE
+    } else {
+        JNI_FALSE
+    }
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_agent_terminal_NativeTerminalBackend_00024NativePty_close(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+) {
+    if handle != 0 {
+        unsafe {
+            drop(Box::from_raw(handle as *mut pty::Pty));
+        }
     }
 }
 
@@ -212,18 +323,55 @@ fn native_error_string(env: *mut RawJNIEnv, result: Result<(), String>) -> jstri
 // JNI exports
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Execute the native-equivalent Nuke registration and encrypted report flow.
+/// Start the loopback-only embedded read-receipts origin.
+///
+/// Java signature: `(Ljava/lang/String;ILjava/lang/String;)Ljava/lang/String;`
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsNative_startServer(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    database_path: jstring,
+    port: jint,
+    connector_authenticator: jstring,
+) -> jstring {
+    let result = if !(0..=u16::MAX as jint).contains(&port) {
+        Err("server port must be between 0 and 65535".to_owned())
+    } else {
+        with_jstring(env, database_path, |database_path| {
+            with_jstring(env, connector_authenticator, |connector_authenticator| {
+                read_receipts_server::start(database_path, port as u16, connector_authenticator)
+                    .map(|_| ())
+            })
+            .unwrap_or_else(|| Err("missing or unreadable connector authenticator".to_owned()))
+        })
+        .unwrap_or_else(|| Err("missing or unreadable database path".to_owned()))
+    };
+    if let Err(error) = &result {
+        loge!("failed to start read receipts server: {error}");
+    }
+    native_error_string(env, result)
+}
+
+/// Request asynchronous shutdown of the embedded read-receipts origin.
+///
+/// Java signature: `()V`
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsNative_stopServer(
+    _env: *mut RawJNIEnv,
+    _thiz: jobject,
+) {
+    read_receipts_server::stop();
+}
+
+/// Return a bounded JSON status object with `state`, `port`, and `error` fields.
 ///
 /// Java signature: `()Ljava/lang/String;`
 #[unsafe(no_mangle)]
-pub extern "C" fn Java_dev_ujhhgtg_wekit_features_items_debug_Experiments2_submitNukeReportNative(
+pub extern "C" fn Java_dev_ujhhgtg_wekit_features_items_chat_ReadReceiptsNative_serverStatus(
     env: *mut RawJNIEnv,
     _thiz: jobject,
 ) -> jstring {
-    let result = run_nuke_client_transaction();
-    let result = catch_unwind(AssertUnwindSafe(|| result))
-        .unwrap_or_else(|_| nuke_client_error("native client panicked"));
-    new_jstring(env, &result)
+    native_string(env, &read_receipts_server::status().to_json())
 }
 
 /// Install the native crash handler.

@@ -3,10 +3,16 @@ package dev.ujhhgtg.wekit.features.items.moments
 import com.tencent.mm.plugin.sns.storage.ADInfo
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(name = "拦截朋友圈广告", categories = ["朋友圈"], description = "拦截朋友圈广告")
+@Feature(
+    id = "拦截朋友圈广告",
+    nameRes = "feature_remove_moments_ads_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_remove_moments_ads_description",
+)
 object RemoveMomentsAds : SwitchFeature() {
 
     private const val TAG = "RemoveMomentsAds"

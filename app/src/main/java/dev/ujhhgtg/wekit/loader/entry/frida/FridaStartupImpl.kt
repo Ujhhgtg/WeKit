@@ -2,6 +2,8 @@ package dev.ujhhgtg.wekit.loader.entry.frida
 
 import android.util.Log
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.HostLocalizedStrings
 import dev.ujhhgtg.wekit.loader.abc.IClassLoaderHelper
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
 import java.io.File
@@ -13,7 +15,7 @@ object FridaStartupImpl : ILoaderService {
     private lateinit var mHostDataDir: File
     private var mXblService: Map<String, Method>? = null
     override var classLoaderHelper: IClassLoaderHelper? = null
-    override val loaderName: String = "Frida 注入加载器"
+    override val loaderName: String get() = HostLocalizedStrings.get(R.string.loader_frida_inject_name)
 
     internal fun setModulePath(modulePath: File) {
         mModulePath = modulePath

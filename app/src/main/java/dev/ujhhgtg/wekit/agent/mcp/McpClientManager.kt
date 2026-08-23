@@ -144,6 +144,12 @@ object McpClientManager {
      * connected first, so the button also works as "retry now" instead of silently no-op'ing while
      * the backoff loop sleeps. Both paths publish to [McpToolProvider.status], so the UI follows.
      */
+    /** Rebuilds one provider from its stored row after its connection settings changed. */
+    suspend fun reload(id: String) {
+        removeProvider(id)
+        sync()
+    }
+
     suspend fun refreshTools(providerId: String): Boolean {
         val provider = providerMap[providerId] ?: return false
         if (provider.state != McpConnectionState.CONNECTED) {

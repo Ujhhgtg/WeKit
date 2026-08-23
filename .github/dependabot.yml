@@ -79,9 +79,9 @@ updates:
           - "minor"
           - "patch"
 
-  # Cargo — contrib read-receipts server (separate project)
+  # Cargo — read-receipts service (separate project)
   - package-ecosystem: "cargo"
-    directory: "/contrib/wekit-read-receipts-server"
+    directory: "/services/read-receipts"
     schedule:
       interval: "daily"
       time: "06:00"

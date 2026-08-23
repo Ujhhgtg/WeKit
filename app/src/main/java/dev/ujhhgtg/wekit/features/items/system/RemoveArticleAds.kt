@@ -4,12 +4,18 @@ import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.api.net.abc.IWePacketInterceptor
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.json.JSONArray
 import org.json.JSONObject
 
-@Feature(name = "去除文章广告", categories = ["系统与隐私"], description = "清除文章中的广告数据")
+@Feature(
+    id = "去除文章广告",
+    nameRes = "feature_remove_article_ads_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_remove_article_ads_description",
+)
 object RemoveArticleAds : SwitchFeature(), IWePacketInterceptor {
 
     private const val TAG = "RemoveArticleAds"

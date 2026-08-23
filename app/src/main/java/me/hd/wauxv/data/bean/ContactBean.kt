@@ -1,8 +1,9 @@
 package me.hd.wauxv.data.bean
 
 import androidx.annotation.Keep
-import com.alibaba.fastjson2.JSONObject
 import dev.ujhhgtg.reflekt.reflekt
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 @Suppress("unused")
 @Keep
@@ -25,11 +26,11 @@ class ContactBean(
     fun getUsername(): String = username
 
     override fun toString(): String {
-        val json = JSONObject()
-        json["username"] = username
-        json["alias"] = alias
-        json["conRemark"] = conRemark
-        json["nickname"] = nickname
-        return json.toString()
+        return buildJsonObject {
+            put("username", username)
+            put("alias", alias)
+            put("conRemark", conRemark)
+            put("nickname", nickname)
+        }.toString()
     }
 }

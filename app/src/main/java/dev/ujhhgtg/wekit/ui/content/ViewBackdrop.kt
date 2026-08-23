@@ -27,6 +27,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.graphics.withTranslation
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import top.yukonga.miuix.kmp.blur.Backdrop
 
 /**
@@ -44,18 +47,19 @@ import top.yukonga.miuix.kmp.blur.Backdrop
  * which draw blank behind the bar; that is an accepted limitation of View.draw().
  */
 @Composable
-fun rememberViewBackdrop(sourceView: View): ViewBackdrop {
+fun rememberViewBackdrop(
+    sourceView: View,
+    lifecycleOwner: LifecycleOwner,
+): ViewBackdrop {
     val graphicsLayer = rememberGraphicsLayer()
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
 
     val backdrop = remember(graphicsLayer) { ViewBackdrop(graphicsLayer) }
-    backdrop.sourceView = sourceView
-    backdrop.density = density
-    backdrop.layoutDirection = layoutDirection
+    backdrop.updateEnvironment(sourceView, density, layoutDirection)
 
     // Ask the glass to re-capture whenever WeChat's own content is about to redraw — a scroll, a
-    // tab switch (setCurrentItem scrolls the pager), an incoming message, etc. `bumpVersion` writes
+    // tab switch (setCurrentItem scrolls the pager), an incoming message, etc. `bumpGeneration` writes
     // a snapshot state that `drawBackdrop` reads, which is what actually forces the backdrop draw node
     // to re-run its layer recording; a plain View.invalidate() only recomposites the cached render
     // nodes and would NOT re-run the capture, so a settled static tab froze on its last frame.
@@ -64,18 +68,51 @@ fun rememberViewBackdrop(sourceView: View): ViewBackdrop {
     // overlay ComposeView, not `sourceView`, so `sourceView.isDirty` is true only when WeChat's
     // content genuinely needs to redraw. When WeChat is idle nothing dirties the source, we skip the
     // bump, and the glass costs nothing.
-    DisposableEffect(sourceView) {
+    DisposableEffect(sourceView, lifecycleOwner) {
         val observer = sourceView.viewTreeObserver
         val listener = ViewTreeObserver.OnPreDrawListener {
             if (sourceView.isDirty) {
-                backdrop.bumpVersion()
+                backdrop.bumpGeneration()
             }
             true
         }
+        val layoutListener = View.OnLayoutChangeListener { _, left, top, right, bottom,
+            oldLeft, oldTop, oldRight, oldBottom ->
+            if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) {
+                backdrop.bumpGeneration()
+            }
+        }
+        val attachListener = object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) = backdrop.onSourceAttached()
+
+            override fun onViewDetachedFromWindow(v: View) = backdrop.invalidateSource()
+        }
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START,
+                Lifecycle.Event.ON_RESUME -> backdrop.startLifecycle()
+                Lifecycle.Event.ON_STOP -> backdrop.prepareLifecycle(false)
+                Lifecycle.Event.ON_DESTROY -> {
+                    backdrop.prepareLifecycle(false)
+                    backdrop.invalidateSource()
+                }
+                else -> Unit
+            }
+        }
+        backdrop.prepareLifecycle(
+            lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED),
+        )
         observer.addOnPreDrawListener(listener)
+        sourceView.addOnLayoutChangeListener(layoutListener)
+        sourceView.addOnAttachStateChangeListener(attachListener)
+        lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
         onDispose {
             (if (observer.isAlive) observer else sourceView.viewTreeObserver)
                 .removeOnPreDrawListener(listener)
+            sourceView.removeOnLayoutChangeListener(layoutListener)
+            sourceView.removeOnAttachStateChangeListener(attachListener)
+            lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
+            backdrop.prepareLifecycle(false)
         }
     }
 
@@ -94,7 +131,12 @@ class ViewBackdrop internal constructor(
     // Bumped whenever the source content redraws. Read inside drawBackdrop so the draw phase
     // subscribes to it: a change re-runs the backdrop draw node's layer recording (and thus our
     // recapture) rather than just recompositing stale render nodes.
-    private var version by mutableIntStateOf(0)
+    private var generation by mutableIntStateOf(0)
+    private val captureState = ViewBackdropCaptureState()
+    private var captureInProgress = false
+    private var lifecycleStarted = false
+    private var sourceIdentity: ViewBackdropCaptureIdentity? = null
+    private val windowIdentityState = ViewBackdropWindowIdentityState()
 
     // Coordinate lookups are done against the source view's window position, so the offset the
     // effect needs doesn't depend on Compose recomposition.
@@ -109,8 +151,67 @@ class ViewBackdrop internal constructor(
     override var offsetResidualY: Float = 0f
         private set
 
-    internal fun bumpVersion() {
-        version++
+    internal fun updateEnvironment(
+        view: View,
+        density: Density,
+        layoutDirection: LayoutDirection,
+    ) {
+        if (sourceView !== view) {
+            captureState.invalidate()
+            sourceIdentity = ViewBackdropCaptureIdentity(view)
+            windowIdentityState.reset()
+            generation++
+        }
+        sourceView = view
+        this.density = density
+        this.layoutDirection = layoutDirection
+    }
+
+    internal fun bumpGeneration() {
+        generation++
+    }
+
+    internal fun onSourceAttached() {
+        bumpGeneration()
+    }
+
+    internal fun invalidateSource() {
+        captureState.invalidate()
+        offsetResidualX = 0f
+        offsetResidualY = 0f
+        windowIdentityState.reset()
+        generation++
+    }
+
+    internal fun prepareLifecycle(started: Boolean) {
+        lifecycleStarted = started
+    }
+
+    internal fun startLifecycle() {
+        lifecycleStarted = true
+        bumpGeneration()
+    }
+
+    private fun currentCaptureKey(view: View): ViewBackdropCaptureKey? {
+        if (!lifecycleStarted || !view.isAttachedToWindow) return null
+        val windowIdentity = windowIdentityState.update(view.windowToken) {
+            captureState.invalidate()
+            offsetResidualX = 0f
+            offsetResidualY = 0f
+        }
+            ?: return null
+        return ViewBackdropCaptureKey(
+            source = sourceIdentity!!,
+            window = windowIdentity,
+            generation = generation,
+            width = view.width,
+            height = view.height,
+            scrollX = view.scrollX,
+            scrollY = view.scrollY,
+            density = density.density,
+            fontScale = density.fontScale,
+            layoutDirection = if (layoutDirection == LayoutDirection.Ltr) 0 else 1,
+        )
     }
 
     /**
@@ -152,15 +253,29 @@ class ViewBackdrop internal constructor(
         // Scale the capture down by 1/downscaleFactor so it fits, exactly like LayerBackdrop.
         downscaleFactor: Int,
     ) {
-        @Suppress("UNUSED_EXPRESSION") version // subscribe the draw phase to source redraws
-        val view = sourceView ?: return
-        val barCoordinates = coordinates ?: return
+        @Suppress("UNUSED_EXPRESSION") generation
+        val view = sourceView ?: return noCapture()
+        val key = currentCaptureKey(view) ?: return noCapture()
+        val barCoordinates = coordinates ?: return noCapture()
 
         // Capture the source here, during the overlay's own draw. viewParent draws the source
         // (mViewPager) before this ComposeView, so its display list is already the current frame —
         // unlike an OnPreDrawListener, which would capture the previous frame and freeze the glass
         // on a settled static tab. If the source isn't ready yet, keep whatever was last recorded.
-        recordSource()
+        if (captureInProgress) return noCapture()
+        when (captureState.decide(key)) {
+            ViewBackdropCaptureDecision.CAPTURE -> {
+                captureInProgress = true
+                try {
+                    if (recordSource()) captureState.captureSucceeded(key)
+                } finally {
+                    captureInProgress = false
+                }
+            }
+            ViewBackdropCaptureDecision.REUSE,
+            ViewBackdropCaptureDecision.SKIP -> Unit
+        }
+        if (!captureState.canDrawFor(key)) return noCapture()
 
         // Position of the bar (this consumer) relative to the captured source view, i.e. how far
         // into the source the region behind the bar sits. We translate the layer by -offset so that
@@ -193,5 +308,10 @@ class ViewBackdrop internal constructor(
                 drawLayer(graphicsLayer)
             }
         }
+    }
+
+    private fun DrawScope.noCapture() {
+        offsetResidualX = 0f
+        offsetResidualY = 0f
     }
 }

@@ -2,6 +2,8 @@
 
 package dev.ujhhgtg.wekit.features.core
 
+import android.content.Context
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import dev.ujhhgtg.reflekt.reflected.BaseReflectedMethod
 import dev.ujhhgtg.reflekt.reflected.ReflectedConstructor
@@ -21,13 +23,27 @@ import kotlin.reflect.KClass
 
 abstract class BaseFeature {
 
-    var name: String = ""
-    var categories: List<String> = emptyList()
+    var technicalId: String = ""
+        internal set
 
-    val displayName: String
-        get() = "${categories.joinToString(",")}/$name"
+    @StringRes
+    var nameRes: Int = 0
+        internal set
 
-    var description: String = ""
+    var categoryIds: List<String> = emptyList()
+        internal set
+
+    @StringRes
+    var descriptionRes: Int? = null
+        internal set
+
+    val technicalPath: String
+        get() = categoryIds.joinToString(",") + "/" + technicalId
+
+    fun localizedName(context: Context): String = context.getString(nameRes)
+
+    fun localizedDescription(context: Context): String =
+        descriptionRes?.let(context::getString).orEmpty()
 
     open fun startup() {
         error("You shouldn't inherit BaseFeature")
@@ -44,7 +60,7 @@ abstract class BaseFeature {
             isActive = true
             onEnable()
         }.onFailure { e ->
-            WeLogger.e(TAG, "failed to enable feature $displayName", e)
+            WeLogger.e(TAG, "failed to enable feature $technicalPath", e)
             // ensure transaction is fully discarded
             unhookAll()
             isActive = false
@@ -59,7 +75,7 @@ abstract class BaseFeature {
             unhookAll()
             onDisable()
         }.onFailure { e ->
-            WeLogger.e(TAG, "failed to disable feature $displayName", e)
+            WeLogger.e(TAG, "failed to disable feature $technicalPath", e)
             isActive = true
         }
     }
@@ -185,7 +201,7 @@ abstract class BaseFeature {
     internal fun executeHookAction(param: HookParam, action: HookAction) {
         runCatching {
             action(param)
-        }.onFailure { e -> WeLogger.e("executeHookAction", "failed to execute hook of $name", e) }
+        }.onFailure { e -> WeLogger.e("executeHookAction", "failed to execute hook of $technicalId", e) }
     }
 
     companion object {

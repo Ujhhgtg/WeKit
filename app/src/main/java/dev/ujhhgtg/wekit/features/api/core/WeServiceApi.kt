@@ -4,17 +4,24 @@ import android.content.Context
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Modifier
 
-@Feature(name = "微信服务管理服务", categories = ["API"], description = "提供获取并使用微信服务的能力")
+@Feature(
+    id = "微信服务管理服务",
+    nameRes = "feature_we_service_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_service_api_description",
+)
 object WeServiceApi : ApiFeature(), IResolveDex {
 
     private val methodServiceManagerGetService by dexMethod {
@@ -76,8 +83,8 @@ object WeServiceApi : ApiFeature(), IResolveDex {
     }
     val classImageFeatureService by dexClass {
         matcher {
-            addFieldForType(classImageInfoStorage.clazz)
-            addFieldForType(methodDownloadImageServiceDownloadImage.method.declaringClass)
+            addFieldForType(classImageInfoStorage.data.name)
+            addFieldForType(methodDownloadImageServiceDownloadImage.data.declaredClassName)
         }
     }
     private val methodApiManagerGetApi by dexMethod {

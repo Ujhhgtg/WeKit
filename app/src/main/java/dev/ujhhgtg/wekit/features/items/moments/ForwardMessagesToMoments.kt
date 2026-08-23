@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
+import dev.ujhhgtg.wekit.R
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Camera
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
@@ -8,11 +9,17 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.CameraIcon
 
 @Suppress("DEPRECATION")
-@Feature(name = "消息转圈", categories = ["朋友圈"], description = "将一些简单的消息转发到朋友圈")
+@Feature(
+    id = "消息转圈",
+    nameRes = "feature_forward_messages_to_moments_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_forward_messages_to_moments_description",
+)
 object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
 
     override fun onEnable() {
@@ -83,7 +90,7 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777009, "转圈", CameraIcon, MaterialSymbols.Outlined.Camera,
+                777009, localizedMomentsString(R.string.moments_forward_messages_menu), CameraIcon, MaterialSymbols.Outlined.Camera,
                 isSupported = { it.type in SUPPORTED_MSG_TYPES },
                 // Moments can post: pure text, text + images, text + a single video, or multiple
                 // images. video can't be mixed with images and only one video is allowed. multiple

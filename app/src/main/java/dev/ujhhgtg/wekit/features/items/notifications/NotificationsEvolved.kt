@@ -14,6 +14,7 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.Icon
 import androidx.core.content.ContextCompat
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -22,6 +23,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.TargetProcesses
@@ -45,9 +47,10 @@ import kotlin.io.path.writeBytes
 import kotlin.time.Duration.Companion.milliseconds
 
 @Feature(
-    name = "通知进化",
-    categories = ["通知"],
-    description = "让微信的新消息通知更易用\n1. 「快速回复」按钮\n2. 「标记为已读」按钮\n3. 使用原生对话样式 (MessagingStyle)"
+    id = "通知进化",
+    nameRes = "feature_notifications_evolved_name",
+    categoryIds = [FeatureCategoryIds.NOTIFICATIONS],
+    descriptionRes = "feature_notifications_evolved_description",
 )
 object NotificationsEvolved : SwitchFeature(), IResolveDex {
 
@@ -63,6 +66,18 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
         }
     }
 
+    // com.tencent.mm.storage.ConversationStorage#updateUnreadByTalker(talker) — same declaration
+    // as ConversationAggregation.methodConversationStorageUpdateUnreadByTalker. WeChat calls it
+    // whenever a conversation's unread state is cleared (chat opened / marked read elsewhere), so
+    // the accumulated MessagingStyle history for that talker is stale and should be dropped.
+    private val methodConversationStorageUpdateUnreadByTalker by dexMethod(allowFailure = true) {
+        matcher {
+            usingStrings("MicroMsg.ConversationStorage", "updateUnreadByTalker %s", "update conversation failed")
+            paramTypes("java.lang.String")
+            returnType("boolean")
+        }
+    }
+
     // talker wxid captured from x.d, read back in the synchronous Notification.Builder.build() hook
     private val currentTalker = ThreadLocal<String?>()
 
@@ -70,10 +85,12 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
 
     private val lastGroupChatSender = LruCache<String, String>()
 
-    private data class HistoryEntry(val senderName: String, val text: String, val timestamp: Long)
+    private data class HistoryEntry(val senderName: String?, val text: String, val timestamp: Long)
 
     // Per-conversation message history rebuilt into MessagingStyle on each notification update.
-    // Cleared when the user replies or marks as read; bounded to avoid unbounded growth.
+    // Cleared when WeChat clears the conversation's unread state (updateUnreadByTalker) or when
+    // the user marks it read; quick replies are re-added so the exchange stays visible. Bounded
+    // to avoid unbounded growth.
     private val messageHistory = LinkedHashMap<String, ArrayDeque<HistoryEntry>>()
     private const val MAX_HISTORY = 7
 
@@ -107,6 +124,13 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
                     WeMessageApi.sendText(targetWxId, replyContent)
                     WeConversationApi.markAsRead(targetWxId)
                     notificationManager.cancel(targetWxId.hashCode())
+
+                    // Keep the exchange visible in the accumulated history. markAsRead goes through
+                    // ConversationStorage.updateUnreadByTalker, whose hook below clears this
+                    // conversation's history, so re-add our own reply afterwards (only if queued).
+                    val history = messageHistory.getOrPut(targetWxId) { ArrayDeque() }
+                    history.addLast(HistoryEntry(null, replyContent, System.currentTimeMillis()))
+                    while (history.size > MAX_HISTORY) history.removeFirst()
                 }
 
                 ACTION_MARK_READ -> {
@@ -181,6 +205,16 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
             currentTalker.set(args[1] as? String)
         }
 
+        // WeChat calls ConversationStorage.updateUnreadByTalker(talker) when a conversation's
+        // unread state is cleared outside our receiver (chat opened, read elsewhere, ...). Drop
+        // that talker's accumulated history so the next notification doesn't replay stale messages.
+        if (!methodConversationStorageUpdateUnreadByTalker.isPlaceholder) {
+            methodConversationStorageUpdateUnreadByTalker.hookBefore {
+                val username = args.firstOrNull() as? String ?: return@hookBefore
+                messageHistory.remove(username)
+            }
+        }
+
         Notification.Builder::class.reflekt()
             .firstMethod { name = "build" }
             .hookBefore {
@@ -196,10 +230,10 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
                 }
 
                 val notifTitle = notif.extras.getString(Notification.EXTRA_TITLE)
-                    ?: "未知对话 (请向模块开发者报告错误)"
+                    ?: localizedNotificationString(R.string.notifications_unknown_conversation)
                 val notifText =
                     notif.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-                        ?: "未知内容 (请向模块开发者报告错误)"
+                        ?: localizedNotificationString(R.string.notifications_unknown_content)
 
                 // 1. Resolve exact WXID from the talker captured in the x.d hook
                 val convWxId = currentTalker.get()
@@ -242,7 +276,8 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
                 // 2. Build the MessagingStyle, accumulating messages so that "2" doesn't
                 //    erase "1" when the user hasn't acted on the notification yet.
                 // TODO: add cropping
-                val mePerson = Person.Builder().setName("我")
+                val selfName = localizedNotificationString(R.string.notifications_self)
+                val mePerson = Person.Builder().setName(selfName)
                     .apply {
                         if (::meAvatarIcon.isInitialized)
                             setIcon(meAvatarIcon)
@@ -264,7 +299,7 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
                 while (history.size > MAX_HISTORY) history.removeFirst()
 
                 for (entry in history) {
-                    val person = Person.Builder().setName(entry.senderName).build()
+                    val person = Person.Builder().setName(entry.senderName ?: selfName).build()
                     messagingStyle.addMessage(entry.text, entry.timestamp, person)
                 }
 
@@ -300,7 +335,7 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
 
                 // 3. Quick Reply Action
                 val remoteInput = RemoteInput.Builder("key_reply_content")
-                    .setLabel("输入回复内容...")
+                    .setLabel(localizedNotificationString(R.string.notifications_reply_hint))
                     .build()
 
                 val replyIntent = Intent(ACTION_REPLY).apply {
@@ -314,7 +349,7 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
 
                 val replyAction = Notification.Action.Builder(
                     Icon.createWithResource(context, android.R.drawable.ic_menu_send),
-                    "回复", replyPendingIntent
+                    localizedNotificationString(R.string.notifications_action_reply), replyPendingIntent
                 ).addRemoteInput(remoteInput).build()
 
                 // 4. Mark as Read Action
@@ -328,7 +363,7 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
                 )
                 val readAction = Notification.Action.Builder(
                     Icon.createWithResource(context, android.R.drawable.ic_menu_view),
-                    "标为已读", readPendingIntent
+                    localizedNotificationString(R.string.notifications_action_mark_read), readPendingIntent
                 ).build()
 
                 // Apply actions directly to the builder

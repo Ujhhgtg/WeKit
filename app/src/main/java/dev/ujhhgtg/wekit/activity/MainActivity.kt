@@ -2,11 +2,13 @@ package dev.ujhhgtg.wekit.activity
 
 import android.content.ComponentName
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +23,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
@@ -37,12 +40,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import androidx.core.net.toUri
@@ -55,7 +60,12 @@ import com.composables.icons.materialsymbols.outlinedfilled.More_vert
 import com.composables.icons.materialsymbols.outlinedfilled.Warning
 import com.topjohnwu.superuser.Shell
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
+import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
@@ -63,6 +73,7 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
 import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleAppTheme
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.androidUserId
 import dev.ujhhgtg.wekit.utils.android.getEnabled
 import dev.ujhhgtg.wekit.utils.android.setEnabled
@@ -93,13 +104,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        if (intent?.action == ManagerLaunchContract.ACTION_OPEN_LSPOSED_MANAGER) {
+            handleOpenLsposedManager()
+            return
+        }
+
         if (intent?.action == TelegramDatabaseImportContract.ACTION_PICK_ROOT_STICKER_SETS) {
             if (!PackageNames.isWeChat(callingPackage.orEmpty())) {
                 setResult(
                     RESULT_CANCELED,
                     Intent().putExtra(
                         TelegramDatabaseImportContract.EXTRA_ERROR,
-                        "只允许从微信内的 WeKit 面板启动此操作",
+                        localizedString(R.string.module_app_sticker_import_invalid_caller),
                     ),
                 )
                 finish()
@@ -111,11 +127,13 @@ class MainActivity : ComponentActivity() {
                     RootTelegramStickerSetPickerContent(
                         discoverInstances = {
                             RootTelegramStickerSetRepository.discoverInstances(
+                                this,
                                 applicationInfo.uid / 100000,
                             )
                         },
                         readInstalledSets = { instance ->
                             RootTelegramStickerSetRepository.readInstalledSets(
+                                this,
                                 cacheDir,
                                 applicationInfo.uid,
                                 instance,
@@ -158,6 +176,131 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun localizedString(@StringRes resourceId: Int, vararg formatArgs: Any): String =
+        LocalizedContextFactory.create(
+            this,
+            WeKitLocaleController.resolvedLocale,
+            LocaleResourceMode.ModuleApp,
+        ).getString(resourceId, *formatArgs)
+
+    private fun handleOpenLsposedManager() {
+        if (!PackageNames.isWeChat(callingPackage.orEmpty())) {
+            setResult(
+                RESULT_CANCELED,
+                Intent().putExtra(
+                    ManagerLaunchContract.EXTRA_ERROR,
+                    localizedString(R.string.manager_launch_invalid_caller),
+                ),
+            )
+            finish()
+            return
+        }
+
+        Shell.getShell()
+        if (Shell.isAppGrantedRoot() != true) {
+            showManagerLaunchError(R.string.manager_launch_root_required)
+            return
+        }
+
+        setContent {
+            ModuleAppTheme {
+                ManagerLaunchContent(
+                    title = stringResource(R.string.manager_launch_opening_title),
+                    message = null,
+                    showProgress = true,
+                    onClose = ::finish,
+                )
+            }
+        }
+
+        val secretCodeAction = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            "android.telephony.action.SECRET_CODE"
+        } else {
+            "android.provider.Telephony.SECRET_CODE"
+        }
+        Shell.cmd(
+            "am start -c org.matrix.vector.manager.LAUNCH_MANAGER " +
+                "com.android.shell/.BugreportWarningActivity",
+        ).submit { vectorResult ->
+            Shell.cmd(
+                "am broadcast -a $secretCodeAction " +
+                    "-d android_secret_code://5776733 android",
+            ).submit { lsposedResult ->
+                if (vectorResult.isSuccess || lsposedResult.isSuccess) {
+                    runOnUiThread {
+                        setResult(RESULT_OK)
+                        finish()
+                    }
+                } else {
+                    val details = (vectorResult.out + vectorResult.err +
+                        lsposedResult.out + lsposedResult.err)
+                        .joinToString("\n")
+                    WeLogger.e("MainActivity", "manager launch commands failed: $details")
+                    runOnUiThread {
+                        showManagerLaunchError(R.string.manager_launch_failed_message)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showManagerLaunchError(@StringRes message: Int) {
+        setContent {
+            ModuleAppTheme {
+                ManagerLaunchContent(
+                    title = stringResource(R.string.manager_launch_failed_title),
+                    message = stringResource(message),
+                    showProgress = false,
+                    onClose = ::finish,
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun ManagerLaunchContent(
+        title: String,
+        message: String?,
+        showProgress: Boolean,
+        onClose: () -> Unit,
+    ) {
+        Scaffold { contentPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(contentPadding)
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                if (showProgress) {
+                    CircularProgressIndicator()
+                } else {
+                    Icon(
+                        imageVector = MaterialSymbols.OutlinedFilled.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(40.dp),
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(title, style = MaterialTheme.typography.titleLarge)
+                if (message != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Button(onClick = onClose) {
+                        Text(stringResource(R.string.dialog_close))
+                    }
+                }
+            }
+        }
+    }
+
     private data class ActivationState(
         val isActivated: Boolean,
         val title: String,
@@ -167,6 +310,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun AppContent(resultLauncher: ActivityResultLauncher<String>, onUrlClick: (String) -> Unit) {
+        val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
         val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
         var showMenu by remember { mutableStateOf(false) }
@@ -192,18 +336,27 @@ class MainActivity : ComponentActivity() {
             val isHookEnabled = remember(xposedService) {
                 xposedService?.scope?.contains(PackageNames.WECHAT) == true
             }
-
-            return remember(isHookEnabled, xposedService) {
-                ActivationState(
-                    isActivated = isHookEnabled,
-                    title = if (isHookEnabled) "已激活" else "未激活",
-                    desc = xposedService?.let {
-                        "${it.frameworkName} ${it.frameworkVersion} " +
-                                "(${it.frameworkVersionCode}), API ${it.apiVersion}"
-                    } ?: "未检测到 Xposed 框架, 请确认已在管理器中启用模块并勾选微信",
-                    color = if (isHookEnabled) Color(0xFF4CAF50) else Color(0xFFF44336)
+            val title = stringResource(
+                if (isHookEnabled) R.string.module_app_activation_active
+                else R.string.module_app_activation_inactive,
+            )
+            val description = if (xposedService == null) {
+                stringResource(R.string.module_app_activation_xposed_not_detected)
+            } else {
+                stringResource(
+                    R.string.module_app_activation_framework_details,
+                    xposedService!!.frameworkName,
+                    xposedService!!.frameworkVersion,
+                    xposedService!!.frameworkVersionCode,
+                    xposedService!!.apiVersion,
                 )
             }
+            return ActivationState(
+                isActivated = isHookEnabled,
+                title = title,
+                desc = description,
+                color = if (isHookEnabled) Color(0xFF4CAF50) else Color(0xFFF44336),
+            )
         }
 
         Scaffold(
@@ -217,7 +370,11 @@ class MainActivity : ComponentActivity() {
                                 style = MaterialTheme.typography.titleLarge
                             )
                             Text(
-                                text = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                                text = stringResource(
+                                    R.string.module_app_version_summary,
+                                    BuildConfig.VERSION_NAME,
+                                    BuildConfig.VERSION_CODE,
+                                ),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
@@ -231,7 +388,7 @@ class MainActivity : ComponentActivity() {
                         IconButton(onClick = { showMenu = !showMenu }) {
                             Icon(
                                 MaterialSymbols.OutlinedFilled.More_vert,
-                                contentDescription = "Menu"
+                                contentDescription = stringResource(R.string.accessibility_overflow_menu),
                             )
                         }
                         DropdownMenu(
@@ -239,35 +396,42 @@ class MainActivity : ComponentActivity() {
                             onDismissRequest = { showMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("设置宿主包名") },
+                                text = { Text(stringResource(R.string.module_app_set_host_package_title)) },
                                 onClick = {
                                     showMenu = false
                                     showModifyHostPkgNameDialog = true
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("修复模块加载") },
+                                text = { Text(stringResource(R.string.module_app_repair_loading_title)) },
                                 onClick = {
                                     showMenu = false
                                     showConfirmDeleteTinkerDialog = true
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("清除模块数据") },
+                                text = { Text(stringResource(R.string.module_app_clear_data_title)) },
                                 onClick = {
                                     showMenu = false
                                     showConfirmDeleteModuleDataDialog = true
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("反编译 BeanShell 快照") },
+                                text = { Text(stringResource(R.string.feature_decompile_bean_shell_snapshot_name)) },
                                 onClick = {
                                     showMenu = false
                                     resultLauncher.launch("*/*")
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text(if (isLauncherIconEnabled) "隐藏桌面图标" else "显示桌面图标") },
+                                text = {
+                                    Text(
+                                        stringResource(
+                                            if (isLauncherIconEnabled) R.string.module_app_hide_launcher_icon
+                                            else R.string.module_app_show_launcher_icon,
+                                        ),
+                                    )
+                                },
                                 onClick = {
                                     showMenu = false
                                     val componentName = ComponentName(
@@ -280,7 +444,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("关于") },
+                                text = { Text(stringResource(R.string.module_app_about_title)) },
                                 onClick = {
                                     showMenu = false
                                     showAboutDialog = true
@@ -345,14 +509,17 @@ class MainActivity : ComponentActivity() {
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.width(16.dp))
-                            Text("构建信息", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                stringResource(R.string.module_app_build_info_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        InfoItem("构建提交哈希", BuildConfig.COMMIT_HASH)
+                        InfoItem(stringResource(R.string.module_app_build_commit_hash_label), BuildConfig.COMMIT_HASH)
                         Spacer(modifier = Modifier.height(8.dp))
                         InfoItem(
-                            "构建提交时间",
+                            stringResource(R.string.module_app_build_commit_time_label),
                             formatEpoch(BuildConfig.BUILD_TIMESTAMP, true)
                         )
                     }
@@ -375,7 +542,12 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     shortcutError = (result.out + result.err)
                                         .joinToString("\n")
-                                        .ifBlank { "无法启动微信 (包名: $hostPkg)" }
+                                        .ifBlank {
+                                            localizedContext.getString(
+                                                R.string.module_app_force_start_wechat_failed,
+                                                hostPkg,
+                                            )
+                                        }
                                 }
                             }
                         }
@@ -395,12 +567,12 @@ class MainActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
                             Text(
-                                text = "打开微信",
+                                text = stringResource(R.string.module_app_open_wechat_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "一键强行停止并启动微信",
+                                text = stringResource(R.string.module_app_open_wechat_summary),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -421,7 +593,7 @@ class MainActivity : ComponentActivity() {
                             isLaunchingWeChat = true
                         } catch (e: Exception) {
                             shortcutError = e.message
-                                ?: "无法打开微信 (包名: $hostPkg)"
+                                ?: localizedContext.getString(R.string.module_app_open_wechat_failed, hostPkg)
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -439,12 +611,12 @@ class MainActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
                             Text(
-                                text = "打开模块设置",
+                                text = stringResource(R.string.module_app_open_settings_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "打开微信内的模块设置",
+                                text = stringResource(R.string.module_app_open_settings_summary),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -464,13 +636,20 @@ class MainActivity : ComponentActivity() {
 
                     AlertDialog(
                         onDismissRequest = { showModifyHostPkgNameDialog = false },
-                        title = { Text("设置宿主包名") },
+                        title = { Text(stringResource(R.string.module_app_set_host_package_title)) },
                         text = {
                             DefaultColumn {
-                                Text("本选项控制模块应用首页三个快捷方式打开的目标微信包名, 适用于通过修改包名而非多用户实现多微信共存的用户")
+                                Text(stringResource(R.string.module_app_host_package_explanation))
 
                                 TextField(
-                                    label = { Text("宿主包名 (默认为 com.tencent.mm)") },
+                                    label = {
+                                        Text(
+                                            stringResource(
+                                                R.string.module_app_host_package_label,
+                                                PackageNames.WECHAT,
+                                            ),
+                                        )
+                                    },
                                     value = pkgName,
                                     onValueChange = { pkgName = it }
                                 )
@@ -480,7 +659,7 @@ class MainActivity : ComponentActivity() {
                         dismissButton = {
                             TextButton(onClick = {
                                 showModifyHostPkgNameDialog = false
-                            }) { Text("取消") }
+                            }) { Text(stringResource(R.string.dialog_cancel)) }
                         },
                         confirmButton = {
                             Button(onClick = {
@@ -488,7 +667,7 @@ class MainActivity : ComponentActivity() {
                                 prefs.edit {
                                     putString("host_pkg_name", pkgName)
                                 }
-                            }) { Text("确定") }
+                            }) { Text(stringResource(R.string.dialog_confirm)) }
                         })
                 }
 
@@ -510,19 +689,19 @@ class MainActivity : ComponentActivity() {
 
                     AlertDialog(
                         onDismissRequest = { showConfirmDeleteTinkerDialog = false },
-                        title = { Text("修复模块加载") },
+                        title = { Text(stringResource(R.string.module_app_repair_loading_title)) },
                         text = {
                             Text(
-                                "本操作将尝试修复微信热更新导致的模块不加载, 执行后请重启微信\n" +
-                                        "将清空以下路径的内容, 并将其权限递归设置为 000 以阻止微信重读写, 请确认无误后再继续!\n${
-                                            paths.joinToString("\n") { "- $it" }
-                                        }"
+                                stringResource(
+                                    R.string.module_app_repair_loading_message,
+                                    paths.joinToString("\n") { "- $it" },
+                                ),
                             )
                         },
                         dismissButton = {
                             TextButton(onClick = {
                                 showConfirmDeleteTinkerDialog = false
-                            }) { Text("取消") }
+                            }) { Text(stringResource(R.string.dialog_cancel)) }
                         },
                         confirmButton = {
                             Button(onClick = {
@@ -541,9 +720,12 @@ class MainActivity : ComponentActivity() {
                                             .redirectErrorStream(true)
                                             .start()
                                     }
-                                    showToast(this@MainActivity, "操作成功!")
+                                    showToast(
+                                        this@MainActivity,
+                                        localizedContext.getString(R.string.module_app_repair_loading_success),
+                                    )
                                 }
-                            }) { Text("确定") }
+                            }) { Text(stringResource(R.string.dialog_confirm)) }
                         })
                 }
 
@@ -558,18 +740,19 @@ class MainActivity : ComponentActivity() {
 
                     AlertDialog(
                         onDismissRequest = { showConfirmDeleteModuleDataDialog = false },
-                        title = { Text("清除模块数据") },
+                        title = { Text(stringResource(R.string.module_app_clear_data_title)) },
                         text = {
                             Text(
-                                "本操作将删除模块的功能配置, 用于解决部分功能导致微信无限闪退, 删除后请重启微信\n将删除以下路径的文件, 请确认无误后再删除!\n${
-                                    paths.joinToString("\n") { "- $it" }
-                                }"
+                                stringResource(
+                                    R.string.module_app_clear_data_message,
+                                    paths.joinToString("\n") { "- $it" },
+                                ),
                             )
                         },
                         dismissButton = {
                             TextButton(onClick = {
                                 showConfirmDeleteModuleDataDialog = false
-                            }) { Text("取消") }
+                            }) { Text(stringResource(R.string.dialog_cancel)) }
                         },
                         confirmButton = {
                             Button(onClick = {
@@ -583,33 +766,36 @@ class MainActivity : ComponentActivity() {
                                             .redirectErrorStream(true)
                                             .start()
                                     }
-                                    showToast(this@MainActivity, "删除成功!")
+                                    showToast(
+                                        this@MainActivity,
+                                        localizedContext.getString(R.string.module_app_clear_data_success),
+                                    )
                                 }
-                            }) { Text("确定") }
+                            }) { Text(stringResource(R.string.dialog_confirm)) }
                         })
                 }
 
                 if (showNoRootDialog) {
                     AlertDialog(
                         onDismissRequest = { showNoRootDialog = false },
-                        title = { Text("未授予 Root 权限") },
-                        text = { Text("请授予 Root 权限以执行此操作") },
+                        title = { Text(stringResource(R.string.module_app_root_required_title)) },
+                        text = { Text(stringResource(R.string.module_app_root_required_message)) },
                         confirmButton = {
                             Button(onClick = {
                                 showNoRootDialog = false
-                            }) { Text("确定") }
+                            }) { Text(stringResource(R.string.dialog_confirm)) }
                         })
                 }
 
                 shortcutError?.let { error ->
                     AlertDialog(
                         onDismissRequest = { shortcutError = null },
-                        title = { Text("操作失败") },
+                        title = { Text(stringResource(R.string.module_app_operation_failed_title)) },
                         text = { Text(error) },
                         confirmButton = {
                             Button(onClick = {
                                 shortcutError = null
-                            }) { Text("确定") }
+                            }) { Text(stringResource(R.string.dialog_confirm)) }
                         })
                 }
 
@@ -622,13 +808,13 @@ class MainActivity : ComponentActivity() {
 
                 LinkCard(
                     icon = GitHubIcon,
-                    title = "GitHub",
+                    title = stringResource(R.string.brand_github),
                     subtitle = "Ujhhgtg/WeKit",
                     onClick = { onUrlClick("https://github.com/Ujhhgtg/WeKit") }
                 )
                 LinkCard(
                     icon = TelegramIcon,
-                    title = "Telegram",
+                    title = stringResource(R.string.brand_telegram),
                     subtitle = "https://t.me/+7j5dJ6g16B43OWVl",
                     onClick = { onUrlClick("https://t.me/+7j5dJ6g16B43OWVl") }
                 )
@@ -637,19 +823,19 @@ class MainActivity : ComponentActivity() {
             if (showAboutDialog) {
                 AlertDialog(
                     onDismissRequest = { showAboutDialog = false },
-                    title = { Text(text = "关于") },
+                    title = { Text(text = stringResource(R.string.module_app_about_title)) },
                     text = {
                         Column {
-                            Text("${BuildConfig.TAG} 是一款基于 Xposed 框架的开源免费微信模块")
+                            Text(stringResource(R.string.module_app_about_description, BuildConfig.TAG))
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("版本: ${BuildConfig.VERSION_NAME}")
-                            Text("版本号: ${BuildConfig.VERSION_CODE}")
-                            Text("作者：Ujhhgtg@github, cwuom@github")
+                            Text(stringResource(R.string.module_app_about_version, BuildConfig.VERSION_NAME))
+                            Text(stringResource(R.string.module_app_about_version_code, BuildConfig.VERSION_CODE))
+                            Text(stringResource(R.string.module_app_about_authors))
                         }
                     },
                     confirmButton = {
                         TextButton(onClick = { showAboutDialog = false }) {
-                            Text("确定")
+                            Text(stringResource(R.string.dialog_confirm))
                         }
                     },
                 )

@@ -1,13 +1,17 @@
 package dev.ujhhgtg.wekit.agent.data
 
+import dev.ujhhgtg.wekit.utils.fs.asPath
+import androidx.room.withTransaction
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository.getExternalServiceKey
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository.permissionCache
 import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ExternalServiceEntity
 import dev.ujhhgtg.wekit.agent.data.entity.MessageEntity
 import dev.ujhhgtg.wekit.agent.data.entity.MessageRole
+import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
+import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
 import dev.ujhhgtg.wekit.agent.data.entity.PerTurnPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PresetPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ProviderEntity
@@ -18,12 +22,22 @@ import dev.ujhhgtg.wekit.agent.data.entity.ToolPermissionEntity
 import dev.ujhhgtg.wekit.agent.model.LlmMessage
 import dev.ujhhgtg.wekit.agent.model.LlmRole
 import dev.ujhhgtg.wekit.agent.model.LlmToolCall
+import dev.ujhhgtg.wekit.agent.model.local.LocalLlama
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
+import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentDeletionPlan
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentSessionState
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentSessionTransition
+import dev.ujhhgtg.wekit.agent.environment.toSnapshot
+import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
 import dev.ujhhgtg.wekit.agent.tool.ToolMode
 import dev.ujhhgtg.wekit.agent.tool.ToolPermissionSource
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -54,6 +68,24 @@ object WeAgentRepository : ToolPermissionSource {
 
     override fun modeFor(providerId: String, toolName: String, factoryDefault: ToolMode): ToolMode =
         permissionCache[key(providerId, toolName)] ?: factoryDefault
+
+    suspend fun appendBridgeToolAudit(entry: dev.ujhhgtg.wekit.agent.bridge.ToolBridgeSession.AuditEntry) {
+        db.bridgeToolAuditDao().insert(
+            dev.ujhhgtg.wekit.agent.data.entity.BridgeToolAuditEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                sessionId = entry.sessionId,
+                environmentId = entry.environmentId,
+                parentToolCallId = entry.parentToolCallId,
+                providerId = entry.providerId,
+                toolName = entry.tool,
+                argumentsJson = entry.argumentsJson,
+                approvalStatus = entry.approvalStatus,
+                executionOutcome = entry.executionOutcome,
+                result = entry.result,
+                executedAt = java.time.Instant.now(),
+            )
+        )
+    }
 
     /**
      * Idempotent first-run/every-launch seeding:
@@ -145,6 +177,9 @@ object WeAgentRepository : ToolPermissionSource {
      * dozen other surfaces. Encrypting here would only obscure the key from its owner.
      */
     suspend fun upsertModelProvider(provider: ModelProviderEntity) {
+        check(provider.id != LocalLlama.PROVIDER_ID && provider.type != ModelProviderType.LOCAL_LLAMA) {
+            "the local llama provider is managed by WeKit and cannot be created or edited manually"
+        }
         db.modelProviderDao().upsert(provider)
     }
 
@@ -181,6 +216,30 @@ object WeAgentRepository : ToolPermissionSource {
     suspend fun getMessages(sessionId: String): List<MessageEntity> =
         db.messageDao().getForSession(sessionId)
 
+    /** Records a model-visible environment transition exactly once for a session. */
+    suspend fun announceEffectiveLinuxEnvironment(sessionId: String, environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot, previousEnvironment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot? = null): Boolean =
+        db.withTransaction {
+            val session = db.sessionDao().getById(sessionId) ?: return@withTransaction false
+            if (session.lastEffectiveLinuxEnvironmentId == environment.id) return@withTransaction false
+            db.sessionDao().setLastEffectiveLinuxEnvironmentId(sessionId, environment.id)
+            db.messageDao().insert(
+                MessageEntity(
+                    id = UUID.randomUUID().toString(),
+                    sessionId = sessionId,
+                    role = MessageRole.SYSTEM,
+                    content = environmentReminder(previousEnvironment, environment),
+                    createdAt = nextStamp(),
+                )
+            )
+            true
+        }
+
+    private fun environmentReminder(previous: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot?, environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot): String =
+        "[系统提醒] 当前 Linux 环境已切换为「${environment.displayName}」(${environment.type.name})。" +
+            "工作目录：${environment.workingDirectory}；Shell：${environment.shell}；" +
+            "架构：${environment.architecture}；权限边界：${environment.privilegesAndCapabilities}；" +
+            "invoke_tool：${environment.bridgeLocation ?: "不可用"}；旧环境：${previous?.let { "${it.displayName} (${it.type.name})，工作目录：${it.workingDirectory}；Shell：${it.shell}；架构：${it.architecture}；权限边界：${it.privilegesAndCapabilities}；invoke_tool：${it.bridgeLocation ?: "不可用"}" } ?: "未设置"}。"
+
     /** One tool-call row by its call id (used to restore tool name / status on UI reload). */
     suspend fun getToolCall(callId: String): ToolCallEntity? =
         db.toolCallDao().getById(callId)
@@ -188,12 +247,8 @@ object WeAgentRepository : ToolPermissionSource {
     /** First configured model id, if any (used to seed a new session when no default is set). */
     suspend fun firstModelId(): String? = db.modelDao().first()?.id
 
-    /** Real directory name for a workspace id (its `name` doubles as the on-disk folder). */
-    suspend fun getWorkspaceName(workspaceId: String): String? =
-        db.workspaceDao().getById(workspaceId)?.name
-
     /** Creates a new session with a placeholder title; returns its id. modelId null = "默认" (follow settings default). */
-    suspend fun createSession(modelId: String?, systemPromptId: String?, workspaceId: String?): String {
+    suspend fun createSession(modelId: String?, systemPromptId: String?): String {
         val now = nextStamp()
         val id = UUID.randomUUID().toString()
         db.sessionDao().upsert(
@@ -201,7 +256,8 @@ object WeAgentRepository : ToolPermissionSource {
                 id = id,
                 title = "新对话",
                 systemPromptId = systemPromptId,
-                workspaceId = workspaceId,
+                linuxEnvironmentId = null,
+                lastEffectiveLinuxEnvironmentId = null,
                 modelId = modelId,
                 createdAt = now,
                 updatedAt = now,
@@ -271,7 +327,7 @@ object WeAgentRepository : ToolPermissionSource {
 
     /**
      * Creates a branch of [sourceSessionId] containing all messages up to and including the one
-     * at [upToTimestamp]. Session metadata (model, system prompt, workspace, favorite) is copied;
+     * at [upToTimestamp]. Session metadata (model, system prompt, Linux environment, favorite) is copied;
      * token usage and triggers are not. Returns the new session id. The caller is responsible for
      * switching the foreground to the new session.
      *
@@ -289,7 +345,8 @@ object WeAgentRepository : ToolPermissionSource {
                 id = newSessionId,
                 title = "[分支] ${source.title}",
                 systemPromptId = source.systemPromptId,
-                workspaceId = source.workspaceId,
+                linuxEnvironmentId = source.linuxEnvironmentId,
+                lastEffectiveLinuxEnvironmentId = source.lastEffectiveLinuxEnvironmentId,
                 modelId = source.modelId,
                 favorite = source.favorite,
                 createdAt = now,
@@ -380,9 +437,16 @@ object WeAgentRepository : ToolPermissionSource {
         db.sessionDao().upsert(s.copy(systemPromptId = systemPromptId, updatedAt = nextStamp()))
     }
 
-    suspend fun updateSessionWorkspace(id: String, workspaceId: String?) {
-        val s = db.sessionDao().getById(id) ?: return
-        db.sessionDao().upsert(s.copy(workspaceId = workspaceId, updatedAt = nextStamp()))
+    suspend fun updateSessionLinuxEnvironment(id: String, environmentId: String?) {
+        if (environmentId != null) requireEnvironmentExists(environmentId)
+        val session = db.sessionDao().getById(id) ?: return
+        db.sessionDao().upsert(
+            session.copy(
+                linuxEnvironmentId = environmentId,
+                lastEffectiveLinuxEnvironmentId = null,
+                updatedAt = nextStamp(),
+            )
+        )
     }
 
     // --- write paths used by the engine's HistorySink ---
@@ -559,7 +623,7 @@ object WeAgentRepository : ToolPermissionSource {
         for (m in rows) {
             when (m.role) {
                 MessageRole.USER -> out += LlmMessage(role = LlmRole.USER, content = m.content)
-                MessageRole.SYSTEM -> Unit // composed per-turn, never replayed
+                MessageRole.SYSTEM -> out += LlmMessage(role = LlmRole.USER, content = m.content)
                 MessageRole.ASSISTANT -> {
                     val calls = db.toolCallDao().getForMessage(m.id).map {
                         LlmToolCall(it.id, it.toolName, it.argumentsJson, providerSignature = it.providerSignature)
@@ -603,48 +667,194 @@ object WeAgentRepository : ToolPermissionSource {
     fun observePerTurnPrompts(): Flow<List<PerTurnPromptEntity>> = db.perTurnPromptDao().observeAll()
     fun observeConditionalPrompts(): Flow<List<ConditionalPromptEntity>> = db.conditionalPromptDao().observeAll()
     fun observePresetPrompts(): Flow<List<PresetPromptEntity>> = db.presetPromptDao().observeAll()
-    fun observeWorkspaces() = db.workspaceDao().observeAll()
+    fun observeLinuxEnvironments(): Flow<List<LinuxEnvironmentEntity>> =
+        db.linuxEnvironmentDao().observeAll()
+
+    suspend fun getLinuxEnvironment(id: String): LinuxEnvironmentEntity? =
+        if (id == NATIVE_ENVIRONMENT_ID) null else db.linuxEnvironmentDao().getById(id)
+
+    fun observeLinuxEnvironment(id: String): Flow<LinuxEnvironmentEntity?> =
+        if (id == NATIVE_ENVIRONMENT_ID) flowOf(null) else db.linuxEnvironmentDao().observeById(id)
+
+    suspend fun getAllLinuxEnvironments(): List<LinuxEnvironmentEntity> =
+        db.linuxEnvironmentDao().getAllOnce()
+
+    fun observeDefaultLinuxEnvironmentId(): Flow<String> = combine(
+        db.settingDao().observeValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID),
+        db.linuxEnvironmentDao().observeAll(),
+    ) { configured, environments ->
+        resolveEffectiveLinuxEnvironmentId(null, configured, environments.mapTo(HashSet()) { it.id })
+    }
+
+    fun observeSessionEffectiveLinuxEnvironmentId(sessionId: String): Flow<String> = combine(
+        db.sessionDao().observeLinuxEnvironmentId(sessionId),
+        db.settingDao().observeValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID),
+        db.linuxEnvironmentDao().observeAll(),
+    ) { sessionEnvironmentId, defaultEnvironmentId, environments ->
+        resolveEffectiveLinuxEnvironmentId(
+            sessionEnvironmentId,
+            defaultEnvironmentId,
+            environments.mapTo(HashSet()) { it.id },
+        )
+    }
+
+    suspend fun getEffectiveLinuxEnvironmentId(sessionId: String): String {
+        val sessionIdValue = db.sessionDao().getById(sessionId)?.linuxEnvironmentId
+        val defaultId = WeAgentSettings.defaultLinuxEnvironmentId()
+        return resolveEffectiveLinuxEnvironmentId(
+            sessionIdValue,
+            defaultId,
+            db.linuxEnvironmentDao().getAllOnce().mapTo(HashSet()) { it.id },
+        )
+    }
+
+    suspend fun setDefaultLinuxEnvironmentId(id: String) {
+        requireEnvironmentExists(id)
+        WeAgentSettings.set(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID, id)
+    }
 
     // ---------------------------------------------------------------------------
     // Settings-screen CRUD (Phase 8)
     // ---------------------------------------------------------------------------
 
+    /**
+     * Transactionally deletes a model provider together with its models, every session model
+     * binding pointing at those models, and any settings default (default/small model) that
+     * referenced one of them. In-memory caches and the live UI selection are updated after the
+     * transaction commits.
+     */
     suspend fun deleteModelProvider(id: String) {
-        db.modelProviderDao().deleteById(id)
+        check(id != LocalLlama.PROVIDER_ID) {
+            "the local llama provider is built in and cannot be deleted"
+        }
+        val modelIds = db.modelDao().getForProviderOnce(id).map { it.id }.toSet()
+        val settingKeys = WeAgentSettings.modelDefaultKeysFor(modelIds)
+        db.withTransaction {
+            if (modelIds.isNotEmpty()) db.sessionDao().clearModelBindings(modelIds.toList())
+            settingKeys.forEach { db.settingDao().delete(it) }
+            db.modelDao().deleteForProvider(id)
+            db.modelProviderDao().deleteById(id)
+        }
+        settingKeys.forEach { WeAgentSettings.clearCached(it) }
         dev.ujhhgtg.wekit.agent.model.ModelProviderManager.invalidate(id)
+        notifyModelsDeleted(modelIds)
     }
 
-    suspend fun upsertModel(model: ModelEntity) = db.modelDao().upsert(model)
-    suspend fun deleteModel(id: String) = db.modelDao().deleteById(id)
+    suspend fun upsertModel(model: ModelEntity) {
+        db.withTransaction {
+            val current = db.modelDao().getById(model.id)
+            if (model.providerId == LocalLlama.PROVIDER_ID || current?.providerId == LocalLlama.PROVIDER_ID) {
+                check(current != null && current.providerId == LocalLlama.PROVIDER_ID &&
+                        model.providerId == LocalLlama.PROVIDER_ID) {
+                    "local llama models are package-managed and cannot be added or reassigned manually"
+                }
+                db.modelDao().upsert(
+                    current.copy(
+                        reasoningEffort = model.reasoningEffort,
+                        contextWindow = model.contextWindow,
+                    )
+                )
+            } else {
+                db.modelDao().upsert(model)
+            }
+        }
+    }
 
     /**
-     * Bulk-imports [remoteIds] as models under [providerId], skipping ids already present. Returns
-     * the number newly added. Each imported model uses the remote id as its display name, no
-     * reasoning gear, no custom override.
+     * Transactionally deletes one model, clearing every session model binding and any settings
+     * default that referenced it. No-op when the row is already gone (double delete).
      */
-    suspend fun importModels(providerId: String, remoteIds: List<String>): Int {
-        val existing = db.modelDao().getAllOnce()
-            .filter { it.providerId == providerId }
-            .map { it.modelIdRemote }
-            .toSet()
-        val toAdd = remoteIds.filter { it !in existing }
-        toAdd.forEach { id ->
-            db.modelDao().upsert(
-                ModelEntity(
-                    id = UUID.randomUUID().toString(),
-                    providerId = providerId,
-                    modelIdRemote = id,
-                    reasoningEffort = null,
-                    customJsonOverride = null,
-                    displayName = id,
-                )
-            )
+    suspend fun deleteModel(id: String) {
+        val model = db.modelDao().getById(id) ?: return
+        check(model.providerId != LocalLlama.PROVIDER_ID) {
+            "local llama models are package-managed and cannot be deleted manually"
         }
-        return toAdd.size
+        deleteStoredModel(model)
+    }
+
+    /** Package sync-only stale-row deletion that retains the normal model-deletion cascade. */
+    internal suspend fun deleteLocalLlamaModelForSync(id: String) {
+        val model = db.modelDao().getById(id) ?: return
+        check(model.providerId == LocalLlama.PROVIDER_ID) {
+            "sync deletion is restricted to local llama model rows"
+        }
+        deleteStoredModel(model)
+    }
+
+    private suspend fun deleteStoredModel(model: ModelEntity) {
+        val settingKeys = WeAgentSettings.modelDefaultKeysFor(setOf(model.id))
+        db.withTransaction {
+            db.sessionDao().clearModelBindings(listOf(model.id))
+            settingKeys.forEach { db.settingDao().delete(it) }
+            db.modelDao().deleteById(model.id)
+        }
+        settingKeys.forEach { WeAgentSettings.clearCached(it) }
+        notifyModelsDeleted(setOf(model.id))
+    }
+
+    /** Outcome of [importModels]: how many rows were newly added vs overwritten in place. */
+    data class ModelImportResult(val added: Int, val overwritten: Int)
+
+    /**
+     * Bulk-imports [remoteIds] as models under [providerId] in one transaction. An id already
+     * present for this provider keeps its local row id but is reset to a freshly-imported state
+     * (displayName = remote id, no reasoning gear, no custom override/context/max-token values,
+     * no vision); new ids get fresh UUIDs. Returns separate added/overwritten counts.
+     */
+    suspend fun importModels(providerId: String, remoteIds: List<String>): ModelImportResult {
+        check(providerId != LocalLlama.PROVIDER_ID) {
+            "local llama models are derived from installed packages and cannot be imported manually"
+        }
+        var added = 0
+        var overwritten = 0
+        db.withTransaction {
+            val existing = db.modelDao().getForProviderOnce(providerId).associateBy { it.modelIdRemote }
+            for (remoteId in remoteIds) {
+                val cur = existing[remoteId]
+                if (cur == null) {
+                    db.modelDao().upsert(
+                        ModelEntity(
+                            id = UUID.randomUUID().toString(),
+                            providerId = providerId,
+                            modelIdRemote = remoteId,
+                            reasoningEffort = null,
+                            customJsonOverride = null,
+                            displayName = remoteId,
+                        )
+                    )
+                    added++
+                } else {
+                    db.modelDao().upsert(
+                        cur.copy(
+                            displayName = remoteId,
+                            reasoningEffort = null,
+                            customJsonOverride = null,
+                            contextWindow = null,
+                            maxTokens = null,
+                            supportsVision = false,
+                        )
+                    )
+                    overwritten++
+                }
+            }
+        }
+        return ModelImportResult(added, overwritten)
     }
 
     fun observeModelsForProvider(providerId: String): Flow<List<ModelEntity>> =
         db.modelDao().observeForProvider(providerId)
+
+    /**
+     * Best-effort live-UI refresh after model rows were deleted (models or a whole provider).
+     * Only the Compose selection state is cleared — the DB is already committed at this point, so
+     * a failure here must not roll anything back.
+     */
+    private fun notifyModelsDeleted(modelIds: Set<String>) {
+        if (modelIds.isEmpty()) return
+        runCatching {
+            dev.ujhhgtg.wekit.features.api.agent.WeAgentService.onModelsDeleted(modelIds)
+        }
+    }
 
     /** Upserts an MCP server row (kind=MCP) and re-syncs the client manager. */
     suspend fun upsertMcpProvider(provider: ProviderEntity) {
@@ -659,7 +869,22 @@ object WeAgentRepository : ToolPermissionSource {
     }
 
     suspend fun upsertSystemPrompt(p: SystemPromptEntity) = db.systemPromptDao().upsert(p)
-    suspend fun deleteSystemPrompt(id: String) = db.systemPromptDao().deleteById(id)
+
+    /**
+     * Transactionally deletes a system prompt, clearing every session binding and the settings
+     * default that referenced it. No-op when the row is already gone (double delete).
+     */
+    suspend fun deleteSystemPrompt(id: String) {
+        db.systemPromptDao().getById(id) ?: return
+        val settingKeys = WeAgentSettings.systemPromptDefaultKeysFor(setOf(id))
+        db.withTransaction {
+            db.sessionDao().clearSystemPromptBindings(id)
+            settingKeys.forEach { db.settingDao().delete(it) }
+            db.systemPromptDao().deleteById(id)
+        }
+        settingKeys.forEach { WeAgentSettings.clearCached(it) }
+        runCatching { dev.ujhhgtg.wekit.features.api.agent.WeAgentService.onSystemPromptDeleted(id) }
+    }
     suspend fun getAllSystemPromptsOnce(): List<SystemPromptEntity> = db.systemPromptDao().getAllOnce()
 
     suspend fun upsertPerTurnPrompt(p: PerTurnPromptEntity) = db.perTurnPromptDao().upsert(p)
@@ -671,14 +896,152 @@ object WeAgentRepository : ToolPermissionSource {
     suspend fun upsertPresetPrompt(p: PresetPromptEntity) = db.presetPromptDao().upsert(p)
     suspend fun deletePresetPrompt(id: String) = db.presetPromptDao().deleteById(id)
 
-    suspend fun upsertWorkspace(w: dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity) =
-        db.workspaceDao().upsert(w)
+    suspend fun upsertLinuxEnvironment(environment: LinuxEnvironmentEntity) {
+        require(environment.id != NATIVE_ENVIRONMENT_ID) { "native environment is built in" }
+        validateLinuxEnvironment(environment)
+        db.withTransaction {
+            val existing = db.linuxEnvironmentDao().getById(environment.id)
+            validateLinuxEnvironmentUpdate(existing, environment)
+            db.linuxEnvironmentDao().upsert(environment)
+        }
+    }
 
-    suspend fun deleteWorkspace(id: String) = db.workspaceDao().deleteById(id)
+    suspend fun deleteLinuxEnvironment(
+        id: String,
+        deletedEnvironment: EnvironmentSnapshot,
+        nativeEnvironment: EnvironmentSnapshot,
+    ): Boolean {
+        require(id != NATIVE_ENVIRONMENT_ID) { "native environment cannot be deleted" }
+        var deleted = false
+        db.withTransaction {
+            val existing = db.linuxEnvironmentDao().getById(id) ?: return@withTransaction
+            check(existing.id == deletedEnvironment.id) { "deleted environment snapshot does not match the stored row" }
+            val stored = db.linuxEnvironmentDao().getAllOnce()
+            val sessions = db.sessionDao().getAllOnce()
+            val deletionPlan = planLinuxEnvironmentDeletion(
+                deletedEnvironment = deletedEnvironment,
+                nativeEnvironment = nativeEnvironment,
+                defaultEnvironmentId = db.settingDao().getValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID),
+                sessions = sessions.map {
+                    LinuxEnvironmentSessionState(it.id, it.linuxEnvironmentId, it.lastEffectiveLinuxEnvironmentId)
+                },
+                storedEnvironmentIds = stored.mapTo(HashSet()) { it.id },
+                storedEnvironmentSnapshots = stored.associate { it.id to it.toSnapshot() },
+            )
+            db.settingDao().upsert(
+                dev.ujhhgtg.wekit.agent.data.entity.SettingEntity(
+                    WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID,
+                    deletionPlan.defaultEnvironmentId,
+                )
+            )
+            deletionPlan.transitions.forEach { transition ->
+                db.sessionDao().transitionLinuxEnvironment(
+                    transition.sessionId,
+                    transition.environmentId,
+                    transition.environment.id,
+                )
+                db.messageDao().insert(
+                    MessageEntity(
+                        id = UUID.randomUUID().toString(),
+                        sessionId = transition.sessionId,
+                        role = MessageRole.SYSTEM,
+                        content = environmentReminder(transition.previousEnvironment, transition.environment),
+                        createdAt = nextStamp(),
+                    )
+                )
+            }
+            deleted = db.linuxEnvironmentDao().deleteById(id) != 0
+        }
+        WeAgentSettings.clearCached(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID)
+        return deleted
+    }
 
     suspend fun getAllModelsOnce(): List<ModelEntity> = db.modelDao().getAllOnce()
-    suspend fun observeWorkspacesOnce(): List<dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity> =
-        db.workspaceDao().getAllOnce()
+
+    internal fun resolveEffectiveLinuxEnvironmentId(
+        sessionEnvironmentId: String?,
+        defaultEnvironmentId: String?,
+        storedEnvironmentIds: Set<String>,
+    ): String = when {
+        sessionEnvironmentId == NATIVE_ENVIRONMENT_ID -> NATIVE_ENVIRONMENT_ID
+        sessionEnvironmentId != null && sessionEnvironmentId in storedEnvironmentIds -> sessionEnvironmentId
+        defaultEnvironmentId == NATIVE_ENVIRONMENT_ID -> NATIVE_ENVIRONMENT_ID
+        defaultEnvironmentId != null && defaultEnvironmentId in storedEnvironmentIds -> defaultEnvironmentId
+        else -> NATIVE_ENVIRONMENT_ID
+    }
+
+    internal fun planLinuxEnvironmentDeletion(
+        deletedEnvironment: EnvironmentSnapshot,
+        nativeEnvironment: EnvironmentSnapshot,
+        defaultEnvironmentId: String?,
+        sessions: List<LinuxEnvironmentSessionState>,
+        storedEnvironmentIds: Set<String>,
+        storedEnvironmentSnapshots: Map<String, EnvironmentSnapshot> = emptyMap(),
+    ): LinuxEnvironmentDeletionPlan {
+        val remainingIds = storedEnvironmentIds - deletedEnvironment.id
+        val replacementDefaultId = resolveEffectiveLinuxEnvironmentId(null, defaultEnvironmentId, remainingIds)
+        val snapshots = storedEnvironmentSnapshots + (NATIVE_ENVIRONMENT_ID to nativeEnvironment)
+        val transitions = sessions.mapNotNull { session ->
+            if (session.environmentId != deletedEnvironment.id &&
+                session.lastEffectiveEnvironmentId != deletedEnvironment.id &&
+                !(session.environmentId == null && defaultEnvironmentId == deletedEnvironment.id)
+            ) return@mapNotNull null
+
+            val bindingId = session.environmentId?.takeUnless { it == deletedEnvironment.id }
+            val effectiveId = resolveEffectiveLinuxEnvironmentId(bindingId, replacementDefaultId, remainingIds)
+            LinuxEnvironmentSessionTransition(
+                sessionId = session.sessionId,
+                environmentId = bindingId,
+                previousEnvironment = deletedEnvironment,
+                environment = requireNotNull(snapshots[effectiveId]) { "replacement environment $effectiveId has no snapshot" },
+            )
+        }
+        return LinuxEnvironmentDeletionPlan(replacementDefaultId, transitions)
+    }
+
+    internal fun validateLinuxEnvironmentUpdate(
+        existing: LinuxEnvironmentEntity?,
+        incoming: LinuxEnvironmentEntity,
+    ) {
+        require(existing == null || existing.type == incoming.type) { "environment type is immutable" }
+    }
+
+    private suspend fun requireEnvironmentExists(id: String) {
+        require(id == NATIVE_ENVIRONMENT_ID || db.linuxEnvironmentDao().getById(id) != null) {
+            "environment $id does not exist"
+        }
+    }
+
+    private fun validateLinuxEnvironment(environment: LinuxEnvironmentEntity) {
+        require(environment.name.isNotBlank()) { "environment name is required" }
+        require(environment.workingDirectory.isNotBlank()) { "working directory is required" }
+        dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager.parseEnvironmentVariables(
+            environment.environmentVariablesJson,
+        )
+        require(environment.type != LinuxEnvironmentType.NATIVE) { "native environment is built in" }
+        require(
+            (environment.sshCredentialCiphertext == null) == (environment.sshCredentialIv == null)
+        ) { "encrypted SSH credentials require both ciphertext and IV" }
+        when (environment.type) {
+            LinuxEnvironmentType.PROOT, LinuxEnvironmentType.CHROOT -> {
+                require(!environment.rootfsPath.isNullOrBlank()) { "local environments require a rootfs path" }
+                require(environment.sshHost == null) { "local environments cannot contain SSH configuration" }
+                if (environment.type == LinuxEnvironmentType.CHROOT) {
+                    dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceLayout.validatePublishedRootfs(
+                        environment.rootfsPath.asPath
+                    )
+                }
+            }
+            LinuxEnvironmentType.SSH -> {
+                require(environment.rootfsPath == null) { "SSH environments cannot contain a rootfs path" }
+                require(!environment.sshHost.isNullOrBlank()) { "SSH host is required" }
+                require(environment.sshPort != null && environment.sshPort in 1..65535) { "SSH port is invalid" }
+                require(!environment.sshUsername.isNullOrBlank()) { "SSH username is required" }
+                require(!environment.sshAuthenticationType.isNullOrBlank()) { "SSH authentication type is required" }
+            }
+            LinuxEnvironmentType.NATIVE -> error("native environment is built in")
+        }
+    }
 
     // ---------------------------------------------------------------------------
     // Triggers (WeAgent trigger system)

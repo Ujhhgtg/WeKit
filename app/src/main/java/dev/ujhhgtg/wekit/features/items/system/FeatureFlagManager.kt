@@ -16,7 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.Icon
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -35,21 +36,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Close
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.system.FeatureFlagManager.cacheLock
 import dev.ujhhgtg.wekit.features.items.system.FeatureFlagManager.markCacheDirty
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
@@ -83,7 +91,12 @@ import java.lang.reflect.Modifier as JavaModifier
  * API entry: [fd5.d1].[b](String key, Object defaultValue) — central get method.
  * Key format: fullKey = b() + '_' + h()    (via [ly4.e.l])
  */
-@Feature(name = "灰度测试管理器", categories = ["系统与隐私"], description = "覆盖微信灰度测试 (Feature Flag) 的值")
+@Feature(
+    id = "灰度测试管理器",
+    nameRes = "feature_feature_flag_manager_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_feature_flag_manager_description",
+)
 object FeatureFlagManager : ClickableFeature(), IResolveDex {
 
     private val overridesFile by lazy { KnownPaths.moduleData / "feature_flag_overrides.json" }
@@ -129,7 +142,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
 
     private data class FlagDetails(
         val internalName: String = "",
-        val description: String = "(无)",
+        val description: String = "",
         val typeName: String = "",
         val configKey: String = ""
     )
@@ -157,13 +170,13 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
 
             FlagDetails(
                 internalName = internalName,
-                description = description.ifBlank { "(无)" },
+                description = description,
                 typeName = typeName,
                 configKey = configKey
             )
         }.getOrElse { e ->
             WeLogger.e(TAG, "failed to instantiate or inspect $className", e)
-            FlagDetails(description = "(无)")
+            FlagDetails()
         }
     }
 
@@ -362,7 +375,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
         val context = LocalContext.current
 
         AlertDialogContent(
-            title = { Text("灰度测试管理器") },
+            title = { Text(stringResource(R.string.feature_feature_flag_manager_name)) },
             text = {
                 Column(
                     modifier = Modifier
@@ -425,7 +438,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
             },
             confirmButton = {
                 TextButton(onClick = onDismiss) {
-                    Text("关闭")
+                    Text(stringResource(R.string.action_close))
                 }
             }
         )
@@ -441,7 +454,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularWavyProgressIndicator()
                 Spacer(Modifier.height(8.dp))
-                Text("正在扫描灰度测试类, 请稍等...")
+                Text(stringResource(R.string.system_feature_flags_scanning))
             }
         }
     }
@@ -453,7 +466,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                 .fillMaxWidth()
                 .weight(1f), contentAlignment = Alignment.Center
         ) {
-            Text("未找到灰度测试类", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.system_feature_flags_empty), style = MaterialTheme.typography.bodyMedium)
         }
     }
 
@@ -464,7 +477,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                 .fillMaxWidth()
                 .weight(1f), contentAlignment = Alignment.Center
         ) {
-            Text("未找到匹配的类或功能", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.system_feature_flags_no_match), style = MaterialTheme.typography.bodyMedium)
         }
     }
 
@@ -480,12 +493,15 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp),
-            placeholder = { Text("搜索类名或功能简介...") },
+            placeholder = { Text(stringResource(R.string.system_feature_flags_search_hint)) },
             singleLine = true,
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = onClear) {
-                        Text("×")
+                        Icon(
+                            MaterialSymbols.Outlined.Close,
+                            contentDescription = stringResource(R.string.action_close),
+                        )
                     }
                 }
             }
@@ -527,7 +543,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
             modifier = modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick),
-            headlineContent = {
+            content = {
                 Text(
                     text = className.substringAfterLast('.'),
                     style = MaterialTheme.typography.bodyLarge
@@ -535,7 +551,9 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
             },
             supportingContent = {
                 Text(
-                    text = details?.description ?: "加载中...",
+                    text = details?.description?.ifBlank {
+                        stringResource(R.string.system_none)
+                    } ?: stringResource(R.string.system_loading),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -563,7 +581,9 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
 
         val currentDetails = details ?: FlagDetails()
         val internalName = currentDetails.internalName
-        val description = currentDetails.description
+        val description = currentDetails.description.ifBlank {
+            stringResource(R.string.system_none)
+        }
         val typeName = currentDetails.typeName
         val configKey = currentDetails.configKey
 
@@ -587,28 +607,28 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                         .fillMaxWidth()
                         .clip(MaterialTheme.shapes.large)
                 ) {
-                    CopyInfoItem("复制完整类名", className)
-                    CopyInfoItem("复制功能内部名称", internalName)
-                    CopyInfoItem("复制功能简介", description)
-                    CopyInfoItem("复制配置键名", configKey)
+                    CopyInfoItem(stringResource(R.string.system_feature_flags_copy_class), className)
+                    CopyInfoItem(stringResource(R.string.system_feature_flags_copy_internal_name), internalName)
+                    CopyInfoItem(stringResource(R.string.system_feature_flags_copy_description), description)
+                    CopyInfoItem(stringResource(R.string.system_feature_flags_copy_config_key), configKey)
 
                     ListItem(
                         modifier = Modifier.clickable {
                             if (runtimeKey == null) {
-                                showToast("无法解析该灰度测试项的键名")
+                                showToast(localizedSystemString(R.string.system_feature_flags_key_unavailable))
                                 return@clickable
                             }
                             onOpenOverrideDialog(runtimeKey, effectiveTypeName)
                         },
-                        supportingContent = { Text("为该灰度测试项覆盖其当前取值") },
-                        headlineContent = {
-                            Text("覆盖功能取值", style = MaterialTheme.typography.bodyLarge)
+                        supportingContent = { Text(stringResource(R.string.system_feature_flags_override_summary)) },
+                        content = {
+                            Text(stringResource(R.string.system_feature_flags_override), style = MaterialTheme.typography.bodyLarge)
                         },
                     )
                 }
             },
             confirmButton = {
-                TextButton(onClick = onDismiss) { Text("取消") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
             }
         )
     }
@@ -620,7 +640,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
         ListItem(
             modifier = Modifier.clickable { copyToClipboard(context, value) },
             supportingContent = { Text(value) },
-            headlineContent = { Text(label, style = MaterialTheme.typography.bodyLarge) },
+            content = { Text(label, style = MaterialTheme.typography.bodyLarge) },
         )
     }
 
@@ -649,39 +669,45 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
         var rawValue by remember { mutableStateOf(existingOverride?.rawValue ?: "") }
 
         AlertDialogContent(
-            title = { Text("设置覆盖值") },
+            title = { Text(stringResource(R.string.system_feature_flags_set_override)) },
             text = {
                 Column {
-                    TextField(
+                    DropDownMenuWidget(
+                        title = stringResource(R.string.system_feature_flags_type),
+                        description = null,
                         value = type,
+                        options = listOf(
+                            DropdownOption("i", "Int"),
+                            DropdownOption("f", "Float"),
+                            DropdownOption("l", "Long"),
+                            DropdownOption("s", "String"),
+                        ),
                         onValueChange = { type = it },
-                        singleLine = true,
-                        label = { Text("类型 ([s]tring/[f]loat/[i]nt/[l]ong)") }
                     )
                     Spacer(Modifier.height(8.dp))
                     TextField(
                         value = rawValue,
                         onValueChange = { rawValue = it },
                         singleLine = true,
-                        label = { Text("值") }
+                        label = { Text(stringResource(R.string.system_feature_flags_value)) }
                     )
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) { Text("取消") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 TextButton(onClick = {
                     val overrides = loadOverrides().values.toMutableList()
                     val existingIndex = overrides.indexOfFirst { it.runtimeKey == runtimeKey }
                     if (existingIndex == -1) {
                         WeLogger.i(TAG, "override not found for $runtimeKey, nothing to clear")
-                        showToast("未找到该灰度测试的覆盖值!")
+                        showToast(localizedSystemString(R.string.system_feature_flags_override_not_found))
                         return@TextButton
                     }
                     WeLogger.i(TAG, "removing override for $runtimeKey")
                     overrides.removeAt(existingIndex)
                     saveOverrides(overrides)
                     onDismiss()
-                }) { Text("清除") }
+                }) { Text(stringResource(R.string.action_clear)) }
             },
             confirmButton = {
                 Button(onClick = {
@@ -692,7 +718,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                         "i", "int" -> {
                             val v = rawValueStr.toIntOrNull()
                             if (v == null) {
-                                showToast("值格式不正确, 请重新输入")
+                                showToast(localizedSystemString(R.string.system_feature_flags_invalid_value))
                                 return@Button
                             }
                             FeatureFlagOverride(runtimeKey, "i", rawValueStr)
@@ -701,7 +727,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                         "l", "long" -> {
                             val v = rawValueStr.toLongOrNull()
                             if (v == null) {
-                                showToast("值格式不正确, 请重新输入")
+                                showToast(localizedSystemString(R.string.system_feature_flags_invalid_value))
                                 return@Button
                             }
                             FeatureFlagOverride(runtimeKey, "l", rawValueStr)
@@ -710,14 +736,14 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                         "f", "float" -> {
                             val v = rawValueStr.toFloatOrNull()
                             if (v == null) {
-                                showToast("值格式不正确, 请重新输入")
+                                showToast(localizedSystemString(R.string.system_feature_flags_invalid_value))
                                 return@Button
                             }
                             FeatureFlagOverride(runtimeKey, "f", rawValueStr)
                         }
 
                         else -> {
-                            showToast("类型格式不正确, 请重新输入")
+                            showToast(localizedSystemString(R.string.system_feature_flags_invalid_type))
                             return@Button
                         }
                     }
@@ -733,7 +759,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                     }
                     saveOverrides(overrides)
                     onDismiss()
-                }) { Text("确定") }
+                }) { Text(stringResource(R.string.dialog_confirm)) }
             }
         )
     }

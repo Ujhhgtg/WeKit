@@ -7,9 +7,15 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-@Feature(name = "强制启用 WebView 菜单", categories = ["系统与隐私"], description = "强制显示 WebView 页面右上角菜单按钮")
+@Feature(
+    id = "强制启用 WebView 菜单",
+    nameRes = "feature_enable_web_view_features_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_enable_web_view_features_description",
+)
 object EnableWebViewFeatures : SwitchFeature(), IResolveDex {
 
     private val TRUE_INTENT_KEYS =

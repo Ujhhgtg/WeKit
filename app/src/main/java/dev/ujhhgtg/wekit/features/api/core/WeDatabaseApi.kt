@@ -8,16 +8,21 @@ import com.tencent.wcdb.database.SQLiteDatabase
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.core.models.ChatroomSyncStateReadResult
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
+import dev.ujhhgtg.wekit.features.api.core.models.WeChatroomSyncState
 import dev.ujhhgtg.wekit.features.api.core.models.WeContact
 import dev.ujhhgtg.wekit.features.api.core.models.WeGroup
 import dev.ujhhgtg.wekit.features.api.core.models.WeMessage
 import dev.ujhhgtg.wekit.features.api.core.models.WeOfficialAccount
+import dev.ujhhgtg.wekit.features.api.core.models.normalizeChatroomMemberIds
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ChatRoomDataProto
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.int
@@ -29,7 +34,12 @@ import java.lang.reflect.Modifier
 
 @OptIn(ExperimentalSerializationApi::class)
 @SuppressLint("DiscouragedApi")
-@Feature(name = "数据库服务", categories = ["API"], description = "提供数据库直接查询能力")
+@Feature(
+    id = "数据库服务",
+    nameRes = "feature_we_database_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_database_api_description",
+)
 object WeDatabaseApi : ApiFeature(), IResolveDex {
 
     private val classMmKernel by dexClass {
@@ -39,7 +49,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     }
     private val methodGetStorage by dexMethod {
         matcher {
-            declaredClass(classMmKernel.clazz)
+            declaredClass(classMmKernel.data.name)
             modifiers = Modifier.PUBLIC or Modifier.STATIC
             paramCount = 0
             usingStrings("mCoreStorage not initialized!")
@@ -306,6 +316,8 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
 
         /** 获取群聊成员列表字符串 */
         const val GROUP_MEMBERS = "SELECT memberlist FROM chatroom WHERE chatroomname = '%s'"
+
+        const val CHATROOM_SYNC_STATE = "SELECT memberlist, chatroomVersion FROM chatroom WHERE chatroomname = ?"
     }
 
     override fun onEnable() {
@@ -527,6 +539,27 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 nicknamePinyin = row.str("quanPin"),
                 avatarUrl = row.str("avatarUrl")
             )
+        }
+    }
+
+    fun getChatroomSyncState(roomId: String): ChatroomSyncStateReadResult {
+        if (!isReady || roomId.isEmpty()) return ChatroomSyncStateReadResult.Unavailable
+
+        return try {
+            db.rawQuery(SqlStatements.CHATROOM_SYNC_STATE, arrayOf(roomId)).use { cursor ->
+                if (!cursor.moveToFirst()) return ChatroomSyncStateReadResult.MissingRow
+
+                ChatroomSyncStateReadResult.Available(
+                    WeChatroomSyncState(
+                        roomId = roomId,
+                        memberIds = normalizeChatroomMemberIds(cursor.getString(0).orEmpty()),
+                        memberVersion = if (cursor.isNull(1)) null else cursor.getInt(1),
+                    ),
+                )
+            }
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "failed to get chatroom sync state; roomId=$roomId", e)
+            ChatroomSyncStateReadResult.Unavailable
         }
     }
 

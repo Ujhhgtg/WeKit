@@ -19,7 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 // drop-in replacement for AlertDialog that should be used in showComposeDialog()
-// to avoid creating multiple Windows
+// to avoid creating 2 Windows for one Dialog
 @Composable
 fun AlertDialogContent(
     modifier: Modifier = Modifier,
@@ -33,7 +33,7 @@ fun AlertDialogContent(
         shape = MaterialTheme.shapes.extraLarge,
         tonalElevation = 6.dp,
         modifier = modifier
-//            .padding(12.dp)
+            .padding(4.dp)
             .fillMaxWidth()
             .wrapContentHeight()
     ) {

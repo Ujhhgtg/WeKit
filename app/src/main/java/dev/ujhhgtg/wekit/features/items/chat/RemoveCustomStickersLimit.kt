@@ -2,17 +2,20 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.int
 import java.lang.reflect.Modifier
 
 @Feature(
-    name = "解除单个表情数量上限",
-    categories = ["聊天"],
-    description = "解除表情面板「添加的单个表情」分类的 999 个数量上限, 允许无限添加图片表情"
+    id = "解除单个表情数量上限",
+    nameRes = "feature_remove_custom_stickers_limit_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_remove_custom_stickers_limit_description",
 )
 object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
 
@@ -41,7 +44,7 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
 
     private val methodGetMmkv by dexMethod {
         matcher {
-            declaredClass(classMmkv.clazz)
+            declaredClass(classMmkv.data.name)
             usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
         }
     }
@@ -54,10 +57,10 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
 
     private val methodCreateCgiBack by dexMethod {
         matcher {
-            declaredClass(classCgiBack.clazz)
+            declaredClass(classCgiBack.data.name)
             modifiers = Modifier.STATIC
             paramCount(6)
-            returnType(classCgiBack.clazz)
+            returnType(classCgiBack.data.name)
         }
     }
 

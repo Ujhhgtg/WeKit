@@ -10,14 +10,16 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
 
 @Feature(
-    name = "对话菜单增强扩展",
-    categories = ["API"],
-    description = "为主页对话列表长按菜单提供添加菜单项功能"
+    id = "对话菜单增强扩展",
+    nameRes = "feature_we_conversation_context_menu_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_conversation_context_menu_api_description",
 )
 object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
 
@@ -27,14 +29,14 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
         fun getMenuItems(): List<MenuItem>
     }
 
-    private val menuItems = mutableMapOf<String, List<MenuItem>>()
+    private val menuItemProviders = mutableSetOf<IMenuItemsProvider>()
 
     fun addProvider(provider: IMenuItemsProvider) {
-        menuItems[provider.javaClass.name] = provider.getMenuItems()
+        menuItemProviders += provider
     }
 
     fun removeProvider(provider: IMenuItemsProvider) {
-        menuItems.remove(provider.javaClass.name)
+        menuItemProviders -= provider
     }
 
     data class MenuItem(
@@ -92,7 +94,7 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
 
         val context = resolveContext(param.thisObject!!) ?: return
 
-        for (item in menuItems.values.flatten()) {
+        for (item in menuItemProviders.flatMap { it.getMenuItems() }) {
             try {
                 if (!item.shouldShow(context, item.id)) continue
                 menu.add(groupId, item.id, 0, item.text).icon = item.drawable
@@ -114,7 +116,7 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
 
         val context = resolveContext(listener) ?: return
 
-        for (item in menuItems.values.flatten()) {
+        for (item in menuItemProviders.flatMap { it.getMenuItems() }) {
             try {
                 if (item.id == clickedId) {
                     item.onClick(context)

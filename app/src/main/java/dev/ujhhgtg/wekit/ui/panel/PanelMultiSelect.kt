@@ -1,12 +1,16 @@
 package dev.ujhhgtg.wekit.ui.panel
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Deselect
 import com.composables.icons.materialsymbols.outlined.Done_all
 import com.composables.icons.materialsymbols.outlined.Select_all
+import dev.ujhhgtg.wekit.R
 
+@Composable
 internal fun <T> panelMultiSelectActions(
     items: List<T>,
     selectedKeys: Set<String>,
@@ -19,13 +23,13 @@ internal fun <T> panelMultiSelectActions(
 ): List<PanelAction> = listOf(
     PanelAction(
         MaterialSymbols.Outlined.Close,
-        "关闭",
+        stringResource(R.string.dialog_close),
         headerStart = true,
         onClick = onClose,
     ),
     PanelAction(
         MaterialSymbols.Outlined.Select_all,
-        "全选",
+        stringResource(R.string.panel_action_select_all),
         enabled = items.isNotEmpty(),
         showLabel = true,
     ) {
@@ -33,7 +37,7 @@ internal fun <T> panelMultiSelectActions(
     },
     PanelAction(
         MaterialSymbols.Outlined.Deselect,
-        "反选",
+        stringResource(R.string.panel_action_invert_selection),
         enabled = items.isNotEmpty(),
         showLabel = true,
     ) {
@@ -41,7 +45,7 @@ internal fun <T> panelMultiSelectActions(
     },
     PanelAction(
         MaterialSymbols.Outlined.Done_all,
-        "连选",
+        stringResource(R.string.panel_action_select_range),
         enabled = selectedKeys.size > 1,
         showLabel = true,
     ) {

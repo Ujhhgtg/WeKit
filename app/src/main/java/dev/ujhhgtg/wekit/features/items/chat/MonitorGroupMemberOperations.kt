@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.view.View
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
@@ -14,6 +15,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ChatRoomDataProto
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
@@ -21,7 +23,12 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 
-@Feature(name = "群成员行为监控", categories = ["联系人与群组"], description = "监控群成员的退群与修改群昵称行为")
+@Feature(
+    id = "群成员行为监控",
+    nameRes = "feature_monitor_group_member_operations_name",
+    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
+    descriptionRes = "feature_monitor_group_member_operations_description",
+)
 object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseListenerApi.IUpdateListener {
 
     override fun onEnable() {
@@ -107,7 +114,7 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
             val displayString = if (displayName.isNotEmpty()) "$displayName ($wxId)" else wxId
 
             val href = "weixin://weixinhongbao/wekit/chatroom_userinfo/$wxId"
-            val content = """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> 退出了群组"""
+            val content = """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> ${localizedChatString(R.string.chat_group_member_left)}"""
 
             WeMessageApi.createSimpleMsgInfoAndInsert(
                 type = MessageType.SYSTEM.code,
@@ -131,11 +138,11 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
             val displayName = WeDatabaseApi.getDisplayName(wxId)
             val displayString = if (displayName.isNotEmpty()) "$displayName ($wxId)" else wxId
 
-            val oldShow = oldName.ifEmpty { "(无)" }
-            val newShow = newName.ifEmpty { "(无)" }
+            val oldShow = oldName.ifEmpty { localizedChatString(R.string.chat_group_member_no_nickname) }
+            val newShow = newName.ifEmpty { localizedChatString(R.string.chat_group_member_no_nickname) }
 
             val href = "weixin://weixinhongbao/wekit/chatroom_userinfo/$wxId"
-            val content = """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> 修改群昵称：$oldShow → $newShow"""
+            val content = """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> ${localizedChatString(R.string.chat_group_member_nickname_changed, oldShow, newShow)}"""
 
             WeMessageApi.createSimpleMsgInfoAndInsert(
                 type = MessageType.SYSTEM.code,

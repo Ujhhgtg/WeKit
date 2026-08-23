@@ -6,3 +6,7 @@ repositories {
     mavenCentral()
     google()
 }
+
+dependencies {
+    testImplementation(kotlin("test"))
+}

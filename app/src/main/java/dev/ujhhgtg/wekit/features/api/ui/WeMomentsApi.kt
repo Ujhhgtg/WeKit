@@ -11,14 +11,17 @@ import android.os.Bundle
 import android.os.Looper
 import android.os.Parcelable
 import android.os.SystemClock
+import androidx.annotation.StringRes
 import dev.ujhhgtg.reflekt.Reflect
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
@@ -27,6 +30,8 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.TimelineObjectProto
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.buildMusicTimelineBundle
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.features.items.moments.localizedMomentsString
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.Intent
@@ -64,9 +69,10 @@ import kotlin.io.path.readBytes
 import kotlin.time.Duration.Companion.milliseconds
 
 @Feature(
-    name = "朋友圈服务",
-    categories = ["API"],
-    description = "提供操作朋友圈的能力"
+    id = "朋友圈服务",
+    nameRes = "feature_we_moments_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_moments_api_description",
 )
 object WeMomentsApi : ApiFeature(), IResolveDex {
 
@@ -80,7 +86,55 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         val success: Boolean,
         val sent: Boolean,
         val message: String,
-        val error: Throwable? = null
+        val error: Throwable? = null,
+    ) {
+        @StringRes
+        var messageRes: Int? = null
+            private set
+
+        companion object {
+            @JvmSynthetic
+            internal fun repost(
+                success: Boolean,
+                sent: Boolean,
+                message: String,
+                error: Throwable?,
+                @StringRes messageRes: Int?,
+            ): ActionResult = ActionResult(
+                success = success,
+                sent = sent,
+                message = message,
+                error = error,
+            ).apply {
+                this.messageRes = messageRes
+            }
+        }
+    }
+
+    private fun repostResult(
+        success: Boolean,
+        sent: Boolean,
+        message: String,
+        @StringRes messageRes: Int,
+        error: Throwable? = null,
+    ): ActionResult = ActionResult.repost(
+        success = success,
+        sent = sent,
+        message = message,
+        error = error,
+        messageRes = messageRes,
+    )
+
+    private fun repostExceptionResult(
+        error: Throwable,
+        fallbackMessage: String,
+        @StringRes fallbackMessageRes: Int,
+    ): ActionResult = ActionResult.repost(
+        success = false,
+        sent = false,
+        message = error.message ?: fallbackMessage,
+        error = error,
+        messageRes = fallbackMessageRes.takeIf { error.message == null },
     )
 
     private const val SNS_INFO_CLASS = "com.tencent.mm.plugin.sns.storage.SnsInfo"
@@ -112,22 +166,22 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val fieldInteractionSnsInfo by dexField {
         matcher {
-            declaredClass(classImproveInteractionLayout.clazz)
-            type(classImproveSnsInfo.clazz)
+            declaredClass(classImproveInteractionLayout.data.name)
+            type(classImproveSnsInfo.data.name)
         }
     }
 
     // --- end used by AutoMomentsBase ---
     private val methodSendLike by dexMethod(allowFailure = true) {
         matcher {
-            declaredClass(classSnsService.clazz)
+            declaredClass(classSnsService.data.name)
             modifiers = Modifier.STATIC
             paramTypes(SNS_INFO_CLASS, "int", null, "int")
         }
     }
     private val methodCancelLike by dexMethod {
         matcher {
-            declaredClass(classSnsService.clazz)
+            declaredClass(classSnsService.data.name)
             modifiers = Modifier.STATIC
             paramTypes(String::class.java)
             returnType(Void.TYPE)
@@ -148,7 +202,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         matcher {
             modifiers = Modifier.STATIC
             paramCount(0)
-            returnType(methodGetSnsInfoByLocalId.method.declaringClass)
+            returnType(methodGetSnsInfoByLocalId.data.declaredClassName)
             usingStrings(
                 "com.tencent.mm.plugin.sns.model.SnsCore",
                 "getSnsInfoStorage"
@@ -157,7 +211,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     }
     private val methodGetSnsInfoBySnsId by dexMethod {
         matcher {
-            declaredClass(methodGetSnsInfoByLocalId.method.declaringClass)
+            declaredClass(methodGetSnsInfoByLocalId.data.declaredClassName)
             paramTypes("long")
             returnType(SNS_INFO_CLASS)
             usingStrings("select *,rowid from SnsInfo  where SnsInfo.snsId=")
@@ -195,7 +249,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val ctorUploadPackHelper by dexConstructor {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             paramCount(2)
         }
     }
@@ -203,7 +257,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodCommit by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             usingEqStrings("commit", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
         }
     }
@@ -211,7 +265,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodSetContentDes by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             usingEqStrings("setContentDes", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
         }
     }
@@ -219,7 +273,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodSetSdkId by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             usingEqStrings("setSdkId", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
         }
     }
@@ -227,7 +281,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodSetSdkAppName by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             usingEqStrings("setSdkAppName", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
         }
     }
@@ -235,7 +289,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodSetUploadList by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             usingEqStrings("setUploadList", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
         }
     }
@@ -243,10 +297,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodAddImageMediaObjByPath by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             returnType(bool)
             paramCount(2)
-            paramTypes(String::class.java, String::class.java)
             usingStrings("addImageMediaObjByPath", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
         }
     }
@@ -254,10 +307,8 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodAddSightObjectByPath by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classUploadPackHelper.clazz)
+            declaredClass(classUploadPackHelper.data.name)
             returnType(bool)
-            paramCount(4)
-            paramTypes(String::class.java, String::class.java, String::class.java, String::class.java)
             usingStrings("addSightObjectByPath", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
         }
     }
@@ -277,7 +328,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     // 媒体上传元素构造器: (path, type)。
     val ctorSnsUploadElement by dexConstructor {
         matcher {
-            declaredClass(classSnsUploadElement.clazz)
+            declaredClass(classSnsUploadElement.data.name)
             paramCount(2)
             paramTypes("java.lang.String", "int")
         }
@@ -291,14 +342,14 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetSnsBigName by dexMethod {
         matcher {
-            declaredClass(classSnsUtil.clazz)
+            declaredClass(classSnsUtil.data.name)
             usingEqStrings("getSnsBigName")
         }
     }
 
     val methodGetSnsThumbName by dexMethod {
         matcher {
-            declaredClass(classSnsUtil.clazz)
+            declaredClass(classSnsUtil.data.name)
             usingEqStrings("getSnsThumbName")
         }
     }
@@ -311,7 +362,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetMediaFilePath by dexMethod {
         matcher {
-            declaredClass(classSnsPathHelper.clazz)
+            declaredClass(classSnsPathHelper.data.name)
             usingEqStrings("getMediaFilePath")
         }
     }
@@ -324,14 +375,14 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetSnsVideoPath by dexMethod {
         matcher {
-            declaredClass(classSnsVideoLogic.clazz)
+            declaredClass(classSnsVideoLogic.data.name)
             usingEqStrings("getSnsVideoPath")
         }
     }
 
     val methodGenCdnMediaId by dexMethod(allowFailure = true) {
         matcher {
-            declaredClass(classSnsVideoLogic.clazz)
+            declaredClass(classSnsVideoLogic.data.name)
             modifiers = Modifier.STATIC
             paramCount(2)
             paramTypes("int", null)
@@ -342,7 +393,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetSnsVideoFullPath by dexMethod {
         matcher {
-            declaredClass(classSnsVideoLogic.clazz)
+            declaredClass(classSnsVideoLogic.data.name)
             modifiers = Modifier.STATIC
             paramCount(2)
             paramTypes(String::class.java, null)
@@ -356,7 +407,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodIsSnsVideoDownloadFinished by dexMethod {
         matcher {
-            declaredClass(classSnsVideoLogic.clazz)
+            declaredClass(classSnsVideoLogic.data.name)
             modifiers = Modifier.STATIC
             paramCount(2)
             paramTypes(String::class.java, null)
@@ -370,7 +421,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetSnsVideoThumbImagePath by dexMethod {
         matcher {
-            declaredClass(classSnsVideoLogic.clazz)
+            declaredClass(classSnsVideoLogic.data.name)
             usingEqStrings("getSnsVideoThumbImagePath")
         }
     }
@@ -383,7 +434,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetAccSnsPath by dexMethod {
         matcher {
-            declaredClass(classSnsCore.clazz)
+            declaredClass(classSnsCore.data.name)
             modifiers = Modifier.STATIC
             paramCount(0)
             returnType(String::class.java)
@@ -393,7 +444,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodGetSnsVideoService by dexMethod {
         matcher {
-            declaredClass(classSnsCore.clazz)
+            declaredClass(classSnsCore.data.name)
             modifiers = Modifier.STATIC
             paramCount(0)
             usingStrings("getSnsVideoService", "com.tencent.mm.plugin.sns.model.SnsCore")
@@ -402,7 +453,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     val methodDownloadVideo by dexMethod {
         matcher {
-            declaredClass(methodGetSnsVideoService.method.returnType)
+            declaredClass(methodGetSnsVideoService.data.returnTypeName)
             paramCount(7)
             paramTypes(null, "int", "java.lang.String", "boolean", "boolean", "int", "java.lang.String")
             returnType(bool)
@@ -422,7 +473,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     // SnsCore.getSnsDownManager(): 取 DownloadManager 单例, 与 getSnsVideoService 同构。
     val methodGetSnsDownManager by dexMethod {
         matcher {
-            declaredClass(classSnsCore.clazz)
+            declaredClass(classSnsCore.data.name)
             modifiers = Modifier.STATIC
             paramCount(0)
             usingStrings("getSnsDownManager", "com.tencent.mm.plugin.sns.model.SnsCore")
@@ -433,7 +484,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     val methodAddDownLoadSns by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
-            declaredClass(classSnsDownloadManager.clazz)
+            declaredClass(classSnsDownloadManager.data.name)
             paramCount(4)
             returnType(bool)
             usingEqStrings("addDownLoadSns", "com.tencent.mm.plugin.sns.model.DownloadManager")
@@ -528,7 +579,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     private val methodSnsUiActionOnActivityResult by dexMethod {
         matcher {
-            declaredClass(classSnsUiAction.clazz)
+            declaredClass(classSnsUiAction.data.name)
             paramCount(3)
             paramTypes(Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Intent::class.java)
             returnType(Void.TYPE)
@@ -538,7 +589,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     private val methodSnsUploadOnCreate by dexMethod {
         matcher {
-            declaredClass(classSnsUploadUi.clazz)
+            declaredClass(classSnsUploadUi.data.name)
             paramCount(1)
             paramTypes(Bundle::class.java)
             returnType(Void.TYPE)
@@ -807,7 +858,18 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             if (copyExistingFile(videoPath, tempVideoPath)) {
                 val helper = ctorUploadPackHelper.constructor.newInstance(15, null)
                 methodSetContentDes.method.invoke(helper, text)
-                methodAddSightObjectByPath.method.invoke(helper, tempVideoPath, tempThumbPath, "", "")
+                if (methodAddSightObjectByPath.method.parameterCount == 5) {
+                    methodAddSightObjectByPath.method.invoke(
+                        helper,
+                        tempVideoPath,
+                        tempThumbPath,
+                        "",
+                        "",
+                        "",
+                    )
+                } else {
+                    methodAddSightObjectByPath.method.invoke(helper, tempVideoPath, tempThumbPath, "", "")
+                }
                 if (!sdkId.isNullOrEmpty()) {
                     methodSetSdkId.method.invoke(helper, sdkId)
                 }
@@ -1535,32 +1597,76 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     ): ActionResult {
         return try {
             if (!content.hasLivePhoto) {
-                return ActionResult(success = false, sent = false, message = "这条朋友圈不包含实况图片!")
+                return repostResult(
+                    false,
+                    false,
+                    "这条朋友圈不包含实况图片!",
+                    R.string.moments_repost_no_live_photo,
+                )
             }
 
             ensureImagePathsCached(content.mediaList, content.nativeMediaList)
-                ?: return ActionResult(success = false, sent = false, message = "图片下载失败或超时!")
+                ?: return repostResult(
+                    false,
+                    false,
+                    "图片下载失败或超时!",
+                    R.string.moments_repost_image_download_failed,
+                )
             if (!ensureLivePhotoVideosCached(content)) {
-                return ActionResult(success = false, sent = false, message = "实况视频下载失败或超时, 请稍后重试!")
+                return repostResult(
+                    false,
+                    false,
+                    "实况视频下载失败或超时, 请稍后重试!",
+                    R.string.moments_repost_live_photo_video_download_failed,
+                )
             }
 
             val resolved = resolveMediaItems(content)
-                ?: return ActionResult(success = false, sent = false, message = "未找到本地缓存的图片!")
+                ?: return repostResult(
+                    false,
+                    false,
+                    "未找到本地缓存的图片!",
+                    R.string.moments_repost_image_cache_missing,
+                )
             if (resolved.degradedLivePhotos) {
-                return ActionResult(success = false, sent = false, message = "实况未缓存, 请先播放一次后再试!")
+                return repostResult(
+                    false,
+                    false,
+                    "实况未缓存, 请先播放一次后再试!",
+                    R.string.moments_repost_live_photo_cache_missing,
+                )
             }
 
             val editorMedia = prepareGalleryEditorMedia(activity, resolved.items)
-                ?: return ActionResult(success = false, sent = false, message = "实况保存到相册失败!")
+                ?: return repostResult(
+                    false,
+                    false,
+                    "实况保存到相册失败!",
+                    R.string.moments_repost_live_photo_save_failed,
+                )
 
             if (openMomentMixedMediaEditorFromAlbumResult(activity, text, editorMedia, source)) {
-                ActionResult(success = true, sent = false, message = "已打开编辑界面")
+                repostResult(
+                    true,
+                    false,
+                    "已打开编辑界面",
+                    R.string.moments_repost_editor_opened,
+                )
             } else {
-                ActionResult(success = false, sent = false, message = "实况图片自动选择失败!")
+                repostResult(
+                    false,
+                    false,
+                    "实况图片自动选择失败!",
+                    R.string.moments_repost_live_photo_select_failed,
+                )
             }
         } catch (e: Exception) {
             WeLogger.e(TAG, "openMomentLivePhotoEditorFromAlbumResult failed", e)
-            ActionResult(success = false, sent = false, message = e.message ?: "打开实况图片编辑界面异常!", error = e)
+            repostExceptionResult(
+                e,
+                "打开实况图片编辑界面异常!",
+                R.string.moments_repost_live_photo_editor_failed,
+            )
         }
     }
 
@@ -1957,7 +2063,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             if (bigPath != null && vfsFileExists(bigPath)) {
                 bigPath
             } else {
-                if (warnOnThumb) showToast("警告: 正在使用缩略图, 建议先查看一次图片以下载原图!")
+                if (warnOnThumb) {
+                    showToast(localizedMomentsString(R.string.noncompose_moments_thumbnail_warning))
+                }
                 val thumbPath = resolveThumbImagePath(media, nativeMedia)
                 if (thumbPath != null && vfsFileExists(thumbPath)) thumbPath else null
             }
@@ -2282,7 +2390,12 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
      */
     fun quickRepost(snsInfo: Any?, nativeTimeline: Any? = null): ActionResult {
         val content = getMomentContent(snsInfo, nativeTimeline)
-            ?: return ActionResult(success = false, sent = false, message = "无法解析朋友圈内容")
+            ?: return repostResult(
+                false,
+                false,
+                "无法解析朋友圈内容",
+                R.string.moments_repost_parse_failed,
+            )
         return quickRepost(content)
     }
 
@@ -2292,7 +2405,12 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
      */
     suspend fun quickRepostEnsuringCached(snsInfo: Any?, nativeTimeline: Any? = null): ActionResult {
         val content = getMomentContent(snsInfo, nativeTimeline)
-            ?: return ActionResult(success = false, sent = false, message = "无法解析朋友圈内容")
+            ?: return repostResult(
+                false,
+                false,
+                "无法解析朋友圈内容",
+                R.string.moments_repost_parse_failed,
+            )
         return quickRepostEnsuringCached(content)
     }
 
@@ -2302,31 +2420,52 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             when (content.type) {
                 15, 5 -> { // 视频
                     val video = ensureVideoPaths(HostInfo.application, content)
-                        ?: return ActionResult(success = false, sent = false, message = "视频下载失败或超时")
+                        ?: return repostResult(
+                            false,
+                            false,
+                            "视频下载失败或超时",
+                            R.string.moments_repost_video_download_failed,
+                        )
                     val ok = postTextAndVideo(HostInfo.application, text, video.videoPath, video.thumbPath)
-                    if (ok) ActionResult(success = true, sent = true, message = "已加入发送队列")
-                    else ActionResult(success = false, sent = false, message = "转发失败")
+                    if (ok) {
+                        repostResult(true, true, "已加入发送队列", R.string.moments_repost_queued)
+                    } else {
+                        repostResult(false, false, "转发失败", R.string.moments_repost_failed)
+                    }
                 }
 
                 1, 54 -> { // 图片 / 实况
                     if (content.hasLivePhoto) {
                         // 实况相册: 先把静态封面图缓存到位 (实况视频缺失时会自动退化为静态图)
                         ensureImagePathsCached(content.mediaList, content.nativeMediaList)
-                            ?: return ActionResult(success = false, sent = false, message = "图片下载失败或超时")
+                            ?: return repostResult(
+                                false,
+                                false,
+                                "图片下载失败或超时",
+                                R.string.moments_repost_image_download_failed,
+                            )
                         return quickRepost(content)
                     }
                     val paths = ensureImagePathsCached(content.mediaList, content.nativeMediaList)
-                        ?: return ActionResult(success = false, sent = false, message = "图片下载失败或超时")
+                        ?: return repostResult(
+                            false,
+                            false,
+                            "图片下载失败或超时",
+                            R.string.moments_repost_image_download_failed,
+                        )
                     val ok = postTextAndImages(text, paths)
-                    if (ok) ActionResult(success = true, sent = true, message = "已加入发送队列")
-                    else ActionResult(success = false, sent = false, message = "转发失败")
+                    if (ok) {
+                        repostResult(true, true, "已加入发送队列", R.string.moments_repost_queued)
+                    } else {
+                        repostResult(false, false, "转发失败", R.string.moments_repost_failed)
+                    }
                 }
 
                 else -> quickRepost(content)
             }
         } catch (e: Exception) {
             WeLogger.e(TAG, "quickRepostEnsuringCached failed", e)
-            ActionResult(success = false, sent = false, message = e.message ?: "转发出现异常", error = e)
+            repostExceptionResult(e, "转发出现异常", R.string.moments_repost_failed)
         }
     }
 
@@ -2379,11 +2518,21 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
      */
     fun quickRepostCardMoment(content: MomentContent): ActionResult {
         val nativeContentObj = content.nativeContentObj
-            ?: return ActionResult(success = false, sent = false, message = "无法解析卡片内容!")
+            ?: return repostResult(
+                false,
+                false,
+                "无法解析卡片内容!",
+                R.string.moments_repost_card_parse_failed,
+            )
 
         return try {
             val cloned = cloneNativeContentObj(nativeContentObj)
-                ?: return ActionResult(success = false, sent = false, message = "卡片内容克隆失败!")
+                ?: return repostResult(
+                    false,
+                    false,
+                    "卡片内容克隆失败!",
+                    R.string.moments_repost_card_clone_failed,
+                )
 
             // 用源内容类型构造 helper, 使 commit 走对应的分支; ctor 也会把该类型写入 ContentObj.type。
             val helper = ctorUploadPackHelper.constructor.newInstance(content.type, null)
@@ -2393,7 +2542,12 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             val timelineField = helper.reflekt()
                 .firstField { type { timelineObjectClass.isAssignableFrom(it) }; superclass() }
             val helperTimeline = timelineField.get()
-                ?: return ActionResult(success = false, sent = false, message = "无法获取转发容器!")
+                ?: return repostResult(
+                    false,
+                    false,
+                    "无法获取转发容器!",
+                    R.string.moments_repost_container_unavailable,
+                )
             helperTimeline.reflekt().firstField { name = "ContentObj"; superclass() }.set(cloned)
 
             // 说明文字 (caption) 落在 TimeLineObject.ContentDesc, 经 setContentDes 设置。
@@ -2402,13 +2556,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             val localId = methodCommit.method.invoke(helper) as Int
             WeLogger.i(TAG, "quickRepostCardMoment: type=${content.type}, localId=$localId")
             if (localId > 0) {
-                ActionResult(success = true, sent = true, message = "已加入发送队列")
+                repostResult(true, true, "已加入发送队列", R.string.moments_repost_queued)
             } else {
-                ActionResult(success = false, sent = false, message = "转发失败!")
+                repostResult(false, false, "转发失败!", R.string.moments_repost_failed)
             }
         } catch (e: Exception) {
             WeLogger.e(TAG, "quickRepostCardMoment failed", e)
-            ActionResult(success = false, sent = false, message = e.message ?: "转发出现异常", error = e)
+            repostExceptionResult(e, "转发出现异常", R.string.moments_repost_failed)
         }
     }
 
@@ -2677,15 +2831,30 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 1, 54 -> { // 图片 / 实况相册 (可混合静态图与实况图片)
                     if (content.hasLivePhoto) {
                         val resolved = resolveMediaItems(content)
-                            ?: return ActionResult(success = false, sent = false, message = "未找到本地缓存的图片")
+                            ?: return repostResult(
+                                false,
+                                false,
+                                "未找到本地缓存的图片",
+                                R.string.moments_repost_image_cache_missing,
+                            )
                         val sent = postTextAndMixedMedia(text, resolved.items)
                         if (sent && resolved.degradedLivePhotos) {
-                            return ActionResult(success = true, sent = true, message = "已加入发送队列 (部分实况视频未下载, 已按静态图转发)")
+                            return repostResult(
+                                true,
+                                true,
+                                "已加入发送队列 (部分实况视频未下载, 已按静态图转发)",
+                                R.string.moments_repost_queued_static_live_photos,
+                            )
                         }
                         sent
                     } else {
                         val paths = prepareImagePaths(content.mediaList, content.nativeMediaList)
-                            ?: return ActionResult(success = false, sent = false, message = "未找到本地缓存的图片")
+                            ?: return repostResult(
+                                false,
+                                false,
+                                "未找到本地缓存的图片",
+                                R.string.moments_repost_image_cache_missing,
+                            )
                         postTextAndImages(text, paths)
                     }
                 }
@@ -2694,7 +2863,12 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                     val videoPath = fetchFinishedVideoPath(content.snsTableId, content.nativeMediaList)
                     val thumbPath = fetchVideoThumbPath(content.nativeMediaList)
                     if (videoPath == null || thumbPath == null) {
-                        return ActionResult(success = false, sent = false, message = "未找到本地缓存的视频, 请播放一次后再转发")
+                        return repostResult(
+                            false,
+                            false,
+                            "未找到本地缓存的视频, 请播放一次后再转发",
+                            R.string.moments_repost_video_cache_missing,
+                        )
                     }
                     postTextAndVideo(HostInfo.application, text, videoPath, thumbPath)
                 }
@@ -2703,13 +2877,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             }
 
             if (ok) {
-                ActionResult(success = true, sent = true, message = "已加入发送队列")
+                repostResult(true, true, "已加入发送队列", R.string.moments_repost_queued)
             } else {
-                ActionResult(success = false, sent = false, message = "转发失败")
+                repostResult(false, false, "转发失败", R.string.moments_repost_failed)
             }
         } catch (e: Exception) {
             WeLogger.e(TAG, "quickRepost failed", e)
-            ActionResult(success = false, sent = false, message = e.message ?: "转发出现异常", error = e)
+            repostExceptionResult(e, "转发出现异常", R.string.moments_repost_failed)
         }
     }
 

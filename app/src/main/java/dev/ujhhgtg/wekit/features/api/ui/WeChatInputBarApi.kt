@@ -7,6 +7,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarApi.addListener
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.Collections
 import java.util.WeakHashMap
@@ -19,9 +20,10 @@ import java.util.concurrent.CopyOnWriteArrayList
  * [IInputBarListener] 接口的监听器来接收文本变化通知。
  */
 @Feature(
-    name = "聊天输入栏监听服务",
-    categories = ["API"],
-    description = "提供聊天输入栏文本变化的监听能力"
+    id = "聊天输入栏监听服务",
+    nameRes = "feature_we_chat_input_bar_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_chat_input_bar_api_description",
 )
 object WeChatInputBarApi : ApiFeature() {
 

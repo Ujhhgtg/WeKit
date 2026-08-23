@@ -12,6 +12,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferRespProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferReqProto
@@ -21,6 +23,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -44,9 +47,10 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
 @Feature(
-    name = "显示群成员实名尾字",
-    categories = ["聊天"],
-    description = "通过转账接口获取并显示群成员的实名尾字"
+    id = "显示群成员实名尾字",
+    nameRes = "feature_display_group_member_real_names_last_char_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_display_group_member_real_names_last_char_description",
 )
 object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoProvider {
 
@@ -65,21 +69,21 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
             var fg by remember { mutableStateOf(annotationFg) }
 
             AlertDialogContent(
-                title = { Text("显示群成员实名尾字") },
+                title = { Text(stringResource(R.string.feature_display_group_member_real_names_last_char_name)) },
                 text = {
                     DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                         WeColorField(
-                            label = "前景色",
+                            label = stringResource(R.string.chat_color_foreground),
                             value = fg,
                             onValueChange = { fg = it })
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         annotationFg = fg
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.dialog_confirm)) }
                 })
         }
     }
@@ -222,8 +226,9 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
         return listOf(
             PreferenceItem(
                 key = PREF_KEY,
-                title = "获取实名尾字",
-                summary = realNames[memberId]?.let { "实名: $it" } ?: "点击获取",
+                title = activity.localizedChatString(R.string.chat_real_name_fetch_title),
+                summary = realNames[memberId]?.let { activity.localizedChatString(R.string.chat_real_name_value, it) }
+                    ?: activity.localizedChatString(R.string.chat_contact_tap_to_fetch),
                 position = 1
             )
         )
@@ -240,17 +245,17 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
 
             val cached = realNames[memberId]
             if (cached != null) {
-                showToast(activity, "实名: $cached")
+                showToast(activity, activity.localizedChatString(R.string.chat_real_name_value, cached))
                 return true
             }
 
-            showToast(activity, "正在获取...")
+            showToast(activity, activity.localizedChatString(R.string.chat_real_name_fetching))
             actualFetchRealName(memberId, groupId) { result ->
                 mainHandler.post {
                     when (result) {
-                        is FetchResult.Found -> showToast(activity, "实名: ${result.realName}")
-                        FetchResult.NoRealName -> showToast(activity, "获取失败: 可能被删除/被拉黑/对方账号异常!")
-                        is FetchResult.Failure -> showToast(activity, "获取失败: ${result.errMsg ?: result.errCode}!")
+                        is FetchResult.Found -> showToast(activity, activity.localizedChatString(R.string.chat_real_name_value, result.realName))
+                        FetchResult.NoRealName -> showToast(activity, activity.localizedChatString(R.string.chat_real_name_not_found))
+                        is FetchResult.Failure -> showToast(activity, activity.localizedChatString(R.string.chat_real_name_fetch_failed, result.errMsg ?: result.errCode))
                     }
                 }
             }

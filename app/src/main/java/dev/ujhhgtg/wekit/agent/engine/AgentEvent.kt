@@ -37,9 +37,6 @@ sealed interface AgentEvent {
     /** The turn ended normally: the model returned no further tool calls. */
     data class TurnCompleted(val finalText: String?) : AgentEvent
 
-    /** The turn hit the max-model-request cap (§2.1). */
-    data class MaxRequestsReached(val cap: Int) : AgentEvent
-
     /** The turn ended with an uncaught error (§1.2 Error ball state). */
     data class TurnFailed(val error: Throwable) : AgentEvent
 }

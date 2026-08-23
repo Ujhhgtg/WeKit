@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getSystemService
@@ -18,7 +19,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.seconds
 
-@Feature(name = "分享进化", categories = ["聊天"], description = "让微信的系统分享菜单更易用 (没写完)")
+@Feature(
+    id = "分享进化",
+    nameRes = "feature_external_sharing_evolved_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_external_sharing_evolved_description",
+)
 object ExternalSharingEvolved : ClickableFeature() {
 
     private const val TAG = "ExternalSharingEvolved"

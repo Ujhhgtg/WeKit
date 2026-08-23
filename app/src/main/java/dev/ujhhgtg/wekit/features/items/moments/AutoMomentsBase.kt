@@ -68,7 +68,7 @@ abstract class AutoMomentsBase : ClickableFeature() {
     }
 
     private fun attachToTimelineList(root: ViewGroup) {
-        val list = root.findViewWhich<ViewGroup> { it is WxRecyclerView } ?: return
+        val list = root.findViewWhich { it is WxRecyclerView } as? WxRecyclerView? ?: return
         synchronized(attachedRoots) {
             if (!attachedRoots.add(root)) return
         }
@@ -147,7 +147,7 @@ abstract class AutoMomentsBase : ClickableFeature() {
     protected fun locateSnsInfo(itemView: View): Any? {
         extractImproveSnsInfo(itemView)?.let { return it }
 
-        val interactionView = itemView.findViewWhich<View> {
+        val interactionView = itemView.findViewWhich {
             classImproveInteractionLayout.clazz.isInstance(it)
         } ?: return null
 

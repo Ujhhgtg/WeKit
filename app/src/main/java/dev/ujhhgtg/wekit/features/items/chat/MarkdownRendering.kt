@@ -17,24 +17,23 @@ import android.text.style.StyleSpan
 import android.util.TypedValue
 import android.view.View
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import androidx.core.graphics.withTranslation
 import com.tencent.mm.ui.widget.MMNeat7extView
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -42,9 +41,13 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
@@ -65,7 +68,12 @@ import org.commonmark.node.OrderedList
 import org.commonmark.node.Paragraph
 import java.lang.reflect.Field
 
-@Feature(name = "Markdown 渲染", categories = ["聊天"], description = "渲染 Markdown 消息")
+@Feature(
+    id = "Markdown 渲染",
+    nameRes = "feature_markdown_rendering_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_markdown_rendering_description",
+)
 object MarkdownRendering : ClickableFeature(), IResolveDex {
 
     private const val TAG = "MarkdownRendering"
@@ -449,93 +457,96 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("Markdown 渲染") },
+                title = { Text(stringResource(R.string.feature_markdown_rendering_name)) },
                 text = {
-                    Column {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                         var renderMode by remember { mutableStateOf(selectedRenderMode) }
 
-                        Text(
-                            "解析与渲染引擎",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        ListItem(
-                            modifier = if (nativeRendererAvailable) {
-                                Modifier.clickable {
-                                    renderMode = RenderMode.NATIVE
-                                    setRenderMode(renderMode)
-                                }
-                            } else {
-                                Modifier
-                            },
-                            trailingContent = {
-                                RadioButton(
+                        SegmentedColumn(
+                            title = stringResource(R.string.chat_markdown_render_engine),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item(key = "native") {
+                                RadioButtonWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_markdown_native),
+                                    description = stringResource(R.string.chat_markdown_native_description),
                                     selected = renderMode == RenderMode.NATIVE,
-                                    onClick = null,
-                                    enabled = nativeRendererAvailable
+                                    enabled = nativeRendererAvailable,
+                                    onClick = {
+                                        renderMode = RenderMode.NATIVE
+                                        setRenderMode(renderMode)
+                                    },
                                 )
-                            },
-                            supportingContent = { Text("使用微信 OpenClaw 路径执行原生 Markdown 渲染") },
-                            headlineContent = { Text("微信原生") },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                renderMode = RenderMode.HTML
-                                setRenderMode(renderMode)
-                            },
-                            trailingContent = { RadioButton(renderMode == RenderMode.HTML, null) },
-                            supportingContent = { Text("使用 Rust crate 解析并转换为 HTML, 再使用 android.text.HTML 渲染") },
-                            headlineContent = { Text("markdown-rs + Html") },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                renderMode = RenderMode.MARKWON
-                                setRenderMode(renderMode)
-                            },
-                            trailingContent = { RadioButton(renderMode == RenderMode.MARKWON, null) },
-                            supportingContent = { Text("使用 Markwon Java 库直接渲染 Markdown") },
-                            headlineContent = { Text("Markwon") },
-                        )
+                            }
+                            item(key = "html") {
+                                RadioButtonWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_markdown_html),
+                                    description = stringResource(R.string.chat_markdown_html_description),
+                                    selected = renderMode == RenderMode.HTML,
+                                    onClick = {
+                                        renderMode = RenderMode.HTML
+                                        setRenderMode(renderMode)
+                                    },
+                                )
+                            }
+                            item(key = "markwon") {
+                                RadioButtonWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_markdown_markwon),
+                                    description = stringResource(R.string.chat_markdown_markwon_description),
+                                    selected = renderMode == RenderMode.MARKWON,
+                                    onClick = {
+                                        renderMode = RenderMode.MARKWON
+                                        setRenderMode(renderMode)
+                                    },
+                                )
+                            }
+                        }
 
                         var noTextSizing by
                         remember { mutableStateOf(WePrefs.getBoolOrFalse(KEY_NO_TEXT_SIZING)) }
-                        Text(
-                            "通用引擎设定",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                noTextSizing = !noTextSizing
-                                WePrefs.putBool(KEY_NO_TEXT_SIZING, noTextSizing)
-                            },
-                            trailingContent = { Switch(noTextSizing, null) },
-                            supportingContent = { Text("不对 Headers, Subheaders 等组件改变字体大小") },
-                            headlineContent = { Text("禁止改变字体大小") },
-                        )
+                        SegmentedColumn(
+                            title = stringResource(R.string.chat_markdown_general_settings),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item(key = "no_text_sizing") {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_markdown_disable_text_sizing),
+                                    description = stringResource(R.string.chat_markdown_disable_text_sizing_description),
+                                    checked = noTextSizing,
+                                    onCheckedChange = {
+                                        noTextSizing = it
+                                        WePrefs.putBool(KEY_NO_TEXT_SIZING, it)
+                                    },
+                                )
+                            }
+                        }
 
                         var compactHtml by
                         remember { mutableStateOf(WePrefs.getBoolOrFalse(KEY_COMPACT_HTML)) }
-                        Text(
-                            "markdown-rs + Html 引擎设定",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                compactHtml = !compactHtml
-                                WePrefs.putBool(KEY_COMPACT_HTML, compactHtml)
-                            },
-                            trailingContent = { Switch(compactHtml, null) },
-                            supportingContent = { Text("使用一个而非两个换行来分段") },
-                            headlineContent = { Text("使用紧凑 HTML 渲染") },
-                        )
+                        SegmentedColumn(
+                            title = stringResource(R.string.chat_markdown_html_settings),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item(key = "compact_html") {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_markdown_compact_html),
+                                    description = stringResource(R.string.chat_markdown_compact_html_description),
+                                    checked = compactHtml,
+                                    onCheckedChange = {
+                                        compactHtml = it
+                                        WePrefs.putBool(KEY_COMPACT_HTML, it)
+                                    },
+                                )
+                            }
+                        }
                     }
                 },
-                confirmButton = { TextButton(onDismiss) { Text("关闭") } }
+                confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }

@@ -34,6 +34,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.conversation.BaseConversationUI
@@ -41,7 +43,9 @@ import com.tencent.mm.ui.conversation.ConvBoxServiceConversationUI
 import com.tencent.mm.ui.conversation.MainUI
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
+import dev.ujhhgtg.reflekt.utils.fastJavaMethod
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -51,8 +55,10 @@ import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.syncFoldersToDatabase
 import dev.ujhhgtg.wekit.features.items.contacts.CustomLocalFriendAvatars
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.BaseContactSelector
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -81,7 +87,12 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import java.lang.reflect.Modifier as JavaModifier
 
-@Feature(name = "对话归拢", categories = ["聊天"], description = "将多个对话归拢在一个文件夹内\n设置对话头像需同时启用「自定义好友本地头像」")
+@Feature(
+    id = "对话归拢",
+    nameRes = "feature_conversation_aggregation_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_conversation_aggregation_description",
+)
 object ConversationAggregation : ClickableFeature(),
     WeDatabaseListenerApi.IQueryListener,
     WeDatabaseListenerApi.IInsertListener,
@@ -308,6 +319,10 @@ object ConversationAggregation : ClickableFeature(),
     /** A folder choice exposed to other features (e.g. the "add to folder" conversation menu). */
     data class FolderChoice(val id: String, val name: String, val isAuto: Boolean)
 
+    /** Public member snapshot used by contact pickers that need to filter by folder. */
+    fun folderMembers(folderId: String): List<String> =
+        folderById(folderId)?.let(::getFolderMembers).orEmpty()
+
     /** Public snapshot of the configured folders, for features that let the user pick one. */
     fun aggregationFolders(): List<FolderChoice> =
         loadFolders().map { FolderChoice(it.id, it.name, it.type != FolderType.MANUAL) }
@@ -358,13 +373,13 @@ object ConversationAggregation : ClickableFeature(),
     private fun removeMemberFromFolder(folderId: String, talker: String) {
         val folder = folderById(folderId) ?: return
         if (folder.type != FolderType.MANUAL || talker !in folder.members) {
-            showToast("该对话不在此手动文件夹中!")
+            showToast(localizedChatString(R.string.chat_aggregation_not_in_manual_folder))
             return
         }
         val updated = folder.copy(members = folder.members.filterNot { it == talker })
         saveFolders(loadFolders().map { if (it.id == updated.id) updated else it })
         syncFoldersToDatabase()
-        showToast("已移出「${folder.name}」")
+        showToast(localizedChatString(R.string.chat_aggregation_removed_from_folder, folder.name))
     }
 
     // Called by WeDatabaseListenerApi when WeChat inserts a conversation row
@@ -516,19 +531,19 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     private fun hookMainUiRefresh() {
-        MainUI::class.reflekt().firstMethod("onResume").hookAfter {
+        MainUI::onResume.fastJavaMethod!!.hookAfter {
             syncFoldersToDatabase()
         }
     }
 
     private fun hookOpenFolder() {
-        LauncherUI::class.reflekt().firstMethod("startChatting").hookBefore {
+        LauncherUI::startChatting.fastJavaMethod!!.hookBefore {
             interceptFolderChatOpen(args.firstOrNull() as? String, thisObject) {
                 result = null
             }
         }
 
-        BaseConversationUI::class.reflekt().firstMethod("startChatting").hookBefore {
+        BaseConversationUI::startChatting.fastJavaMethod!!.hookBefore {
             interceptFolderChatOpen(args.firstOrNull() as? String, thisObject) {
                 result = null
             }
@@ -596,7 +611,12 @@ object ConversationAggregation : ClickableFeature(),
             args[3] = View.OnCreateContextMenuListener { menu, view, menuInfo ->
                 createListener.onCreateContextMenu(menu, view, menuInfo)
                 runCatching {
-                    menu.add(0, REMOVE_FROM_FOLDER_MENU_ID, REMOVE_FROM_FOLDER_MENU_ORDER, "移出文件夹")
+                    menu.add(
+                        0,
+                        REMOVE_FROM_FOLDER_MENU_ID,
+                        REMOVE_FROM_FOLDER_MENU_ORDER,
+                        localizedChatString(R.string.chat_aggregation_remove_from_folder),
+                    )
                 }.onFailure { WeLogger.e(TAG, "failed to add folder menu item", it) }
             }
 
@@ -704,7 +724,7 @@ object ConversationAggregation : ClickableFeature(),
     ) {
         val members = getFolderMembers(folder).filterNot(::isFolderId).distinct()
         if (members.isEmpty()) {
-            showToast("文件夹中没有对话")
+            showToast(localizedChatString(R.string.chat_aggregation_folder_empty))
             return
         }
 
@@ -750,20 +770,22 @@ object ConversationAggregation : ClickableFeature(),
         }
 
         BaseContactSelector(
-            title = "选择文件夹里的转发对象",
+            title = stringResource(R.string.chat_aggregation_select_forward_target),
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
             filteredContacts = filteredContacts,
             confirmButtonText = "",
             confirmButtonEnabled = false,
             showConfirmButton = false,
-            dismissButtonText = "取消",
+            dismissButtonText = stringResource(R.string.dialog_cancel),
             onDismiss = onDismiss,
             onConfirm = {},
             selectionKey = Unit,
             isSelected = { false },
             trailingControl = { contact ->
-                TextButton(onClick = { onSelect(contact.wxId) }) { Text("选择") }
+                TextButton(onClick = { onSelect(contact.wxId) }) {
+                    Text(stringResource(R.string.chat_aggregation_select))
+                }
             },
             onItemClick = { contact -> onSelect(contact.wxId) }
         )
@@ -867,7 +889,12 @@ object ConversationAggregation : ClickableFeature(),
             true
         }
 
-        fragment.addIconOptionMenu(FOLDER_CONFIG_MENU_ID, "配置", EditIcon, listener)
+        fragment.addIconOptionMenu(
+            FOLDER_CONFIG_MENU_ID,
+            localizedChatString(R.string.chat_aggregation_configure),
+            EditIcon,
+            listener,
+        )
     }
 
     private fun syncFoldersToDatabase() {
@@ -1446,7 +1473,7 @@ object ConversationAggregation : ClickableFeature(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(),
-                title = { Text("对话归拢") },
+                title = { Text(stringResource(R.string.chat_aggregation_title)) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         LazyColumn(
@@ -1455,7 +1482,7 @@ object ConversationAggregation : ClickableFeature(),
                         ) {
                             if (folders.isEmpty()) {
                                 item {
-                                    Text("暂无文件夹, 点击「新建」来创建一个")
+                                    Text(stringResource(R.string.chat_aggregation_no_folders))
                                 }
                             }
                             items(folders, key = { it.id }) { folder ->
@@ -1472,24 +1499,27 @@ object ConversationAggregation : ClickableFeature(),
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("关闭") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
                     TextButton(onClick = {
                         syncFoldersToDatabase()
-                        showToast("已重建文件夹索引")
-                    }) { Text("重载") }
+                        showToast(localizedChatString(R.string.chat_aggregation_index_rebuilt))
+                    }) { Text(stringResource(R.string.chat_aggregation_reload)) }
                     TextButton(onClick = {
                         showCreateFolderDialog(context) {
                             folders = loadFolders()
                         }
-                    }) { Text("新建") }
+                    }) { Text(stringResource(R.string.chat_aggregation_create)) }
                 },
                 confirmButton = {
                     Button(onClick = {
                         saveFolders(folders)
                         syncFoldersToDatabase()
-                        showToast(context, "已保存, 重启微信生效")
+                        showToast(
+                            context,
+                            context.localizedChatString(R.string.chat_aggregation_saved_restart),
+                        )
                         onDismiss()
-                    }) { Text("保存") }
+                    }) { Text(stringResource(R.string.action_save)) }
                 }
             )
         }
@@ -1498,7 +1528,7 @@ object ConversationAggregation : ClickableFeature(),
     private fun showCreateFolderDialog(context: Context, onFolderCreated: () -> Unit) {
         showComposeDialog(context) {
             FolderEditorDialog(
-                title = "新建文件夹",
+                title = stringResource(R.string.chat_aggregation_create_folder),
                 folder = null,
                 onDismiss = onDismiss,
                 onSave = { folder ->
@@ -1519,7 +1549,7 @@ object ConversationAggregation : ClickableFeature(),
     ) {
         showComposeDialog(context) {
             FolderEditorDialog(
-                title = "编辑文件夹",
+                title = stringResource(R.string.chat_aggregation_edit_folder),
                 folder = folder,
                 onDismiss = onDismiss,
                 onDelete = {
@@ -1539,6 +1569,14 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     @Composable
+    private fun folderTypeLabel(type: FolderType): String = when (type) {
+        FolderType.MANUAL -> stringResource(R.string.chat_aggregation_mode_manual)
+        FolderType.PRESET_GROUPS -> stringResource(R.string.chat_aggregation_mode_all_groups)
+        FolderType.PRESET_OFFICIALS -> stringResource(R.string.chat_aggregation_mode_all_officials)
+        FolderType.SQL -> stringResource(R.string.chat_aggregation_mode_sql)
+    }
+
+    @Composable
     private fun FolderRow(folder: ChatFolder, onClick: () -> Unit) {
         val count = remember(folder) { getFolderMembers(folder).size }
         Column(
@@ -1549,10 +1587,26 @@ object ConversationAggregation : ClickableFeature(),
         ) {
             Text(folder.name)
             val desc = when (folder.type) {
-                FolderType.MANUAL -> "手动选择: $count 个对话"
-                FolderType.PRESET_GROUPS -> "所有群聊: $count 个对话"
-                FolderType.PRESET_OFFICIALS -> "所有公众号: $count 个对话"
-                FolderType.SQL -> "SQL规则: $count 个对话"
+                FolderType.MANUAL -> pluralStringResource(
+                    R.plurals.chat_aggregation_manual_conversation_count,
+                    count,
+                    count,
+                )
+                FolderType.PRESET_GROUPS -> pluralStringResource(
+                    R.plurals.chat_aggregation_groups_conversation_count,
+                    count,
+                    count,
+                )
+                FolderType.PRESET_OFFICIALS -> pluralStringResource(
+                    R.plurals.chat_aggregation_officials_conversation_count,
+                    count,
+                    count,
+                )
+                FolderType.SQL -> pluralStringResource(
+                    R.plurals.chat_aggregation_sql_conversation_count,
+                    count,
+                    count,
+                )
             }
             Text(desc)
         }
@@ -1604,13 +1658,16 @@ object ConversationAggregation : ClickableFeature(),
                         value = name,
                         onValueChange = { name = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("文件夹名称") },
+                        label = { Text(stringResource(R.string.chat_aggregation_folder_name)) },
                         singleLine = true
                     )
 
                     var typeExpanded by remember { mutableStateOf(false) }
                     Column {
-                        Text("归拢模式", style = MaterialTheme.typography.labelSmall)
+                        Text(
+                            stringResource(R.string.chat_aggregation_mode),
+                            style = MaterialTheme.typography.labelSmall,
+                        )
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1618,12 +1675,7 @@ object ConversationAggregation : ClickableFeature(),
                                 .padding(vertical = 8.dp)
                         ) {
                             Text(
-                                text = when (type) {
-                                    FolderType.MANUAL -> "手动选择"
-                                    FolderType.PRESET_GROUPS -> "自动所有群聊"
-                                    FolderType.PRESET_OFFICIALS -> "自动所有公众号"
-                                    FolderType.SQL -> "自定义 SQL 规则"
-                                },
+                                text = folderTypeLabel(type),
                                 style = MaterialTheme.typography.bodyLarge
                             )
                         }
@@ -1632,28 +1684,28 @@ object ConversationAggregation : ClickableFeature(),
                             onDismissRequest = { typeExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("手动选择") },
+                                text = { Text(stringResource(R.string.chat_aggregation_mode_manual)) },
                                 onClick = {
                                     type = FolderType.MANUAL
                                     typeExpanded = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("自动所有群聊") },
+                                text = { Text(stringResource(R.string.chat_aggregation_mode_all_groups)) },
                                 onClick = {
                                     type = FolderType.PRESET_GROUPS
                                     typeExpanded = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("自动所有公众号") },
+                                text = { Text(stringResource(R.string.chat_aggregation_mode_all_officials)) },
                                 onClick = {
                                     type = FolderType.PRESET_OFFICIALS
                                     typeExpanded = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("自定义 SQL 规则") },
+                                text = { Text(stringResource(R.string.chat_aggregation_mode_sql)) },
                                 onClick = {
                                     type = FolderType.SQL
                                     typeExpanded = false
@@ -1664,18 +1716,27 @@ object ConversationAggregation : ClickableFeature(),
 
                     when (type) {
                         FolderType.MANUAL -> {
-                            Text("已选择 $matchedCount 个对话")
+                            Text(
+                                pluralStringResource(
+                                    R.plurals.chat_aggregation_selected_count,
+                                    matchedCount,
+                                    matchedCount,
+                                ),
+                            )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 val context = LocalContext.current
+                                val localizedContext = LocalWeKitLocalizedContext.current
                                 Button(
                                     modifier = Modifier.weight(1f),
                                     onClick = {
                                         showComposeDialog(context) {
                                             ContactsSelector(
-                                                title = "选择对话",
+                                                title = localizedContext.getString(
+                                                    R.string.chat_aggregation_choose_conversations,
+                                                ),
                                                 contacts = remember { WeDatabaseApi.getContacts() },
                                                 initialSelectedWxIds = members,
                                                 onDismiss = this.onDismiss,
@@ -1687,7 +1748,7 @@ object ConversationAggregation : ClickableFeature(),
                                         }
                                     }
                                 ) {
-                                    Text("选择对话")
+                                    Text(stringResource(R.string.chat_aggregation_choose_conversations))
                                 }
 
                                 if (hasAvatar) {
@@ -1695,23 +1756,39 @@ object ConversationAggregation : ClickableFeature(),
                                         CustomLocalFriendAvatars.removeAvatar(folderId)
                                         hasAvatar = false
                                     }) {
-                                        Text("清除头像")
+                                        Text(stringResource(R.string.chat_aggregation_clear_avatar))
                                     }
                                 }
                                 Button(onClick = {
                                     if (!CustomLocalFriendAvatars.isEnabled) {
-                                        showToast("请启用「自定义好友本地头像」以使用头像相关功能!")
+                                        showToast(
+                                            localizedChatString(R.string.chat_aggregation_enable_custom_avatar),
+                                        )
                                     }
 
                                     CustomLocalFriendAvatars.selectAvatarImage(HostInfo.application, folderId)
                                 }) {
-                                    Text(if (hasAvatar) "更换头像" else "设置头像")
+                                    Text(
+                                        stringResource(
+                                            if (hasAvatar) {
+                                                R.string.chat_aggregation_change_avatar
+                                            } else {
+                                                R.string.chat_aggregation_set_avatar
+                                            },
+                                        ),
+                                    )
                                 }
                             }
                         }
 
                         FolderType.PRESET_GROUPS -> {
-                            Text("自动归拢所有群聊（当前匹配到 $matchedCount 个对话）")
+                            Text(
+                                pluralStringResource(
+                                    R.plurals.chat_aggregation_auto_groups_count,
+                                    matchedCount,
+                                    matchedCount,
+                                ),
+                            )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1721,7 +1798,7 @@ object ConversationAggregation : ClickableFeature(),
                                         CustomLocalFriendAvatars.removeAvatar(folderId)
                                         hasAvatar = false
                                     }) {
-                                        Text("清除头像")
+                                        Text(stringResource(R.string.chat_aggregation_clear_avatar))
                                     }
                                 }
                                 Button(
@@ -1730,13 +1807,24 @@ object ConversationAggregation : ClickableFeature(),
                                         CustomLocalFriendAvatars.selectAvatarImage(HostInfo.application, folderId)
                                     }
                                 ) {
-                                    Text(if (hasAvatar) "更换头像" else "设置头像")
+                                    Text(
+                                        stringResource(
+                                            if (hasAvatar) R.string.chat_aggregation_change_avatar
+                                            else R.string.chat_aggregation_set_avatar,
+                                        ),
+                                    )
                                 }
                             }
                         }
 
                         FolderType.PRESET_OFFICIALS -> {
-                            Text("自动归拢所有公众号（当前匹配到 $matchedCount 个对话）")
+                            Text(
+                                pluralStringResource(
+                                    R.plurals.chat_aggregation_auto_officials_count,
+                                    matchedCount,
+                                    matchedCount,
+                                ),
+                            )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1746,7 +1834,7 @@ object ConversationAggregation : ClickableFeature(),
                                         CustomLocalFriendAvatars.removeAvatar(folderId)
                                         hasAvatar = false
                                     }) {
-                                        Text("清除头像")
+                                        Text(stringResource(R.string.chat_aggregation_clear_avatar))
                                     }
                                 }
                                 Button(
@@ -1755,7 +1843,12 @@ object ConversationAggregation : ClickableFeature(),
                                         CustomLocalFriendAvatars.selectAvatarImage(HostInfo.application, folderId)
                                     }
                                 ) {
-                                    Text(if (hasAvatar) "更换头像" else "设置头像")
+                                    Text(
+                                        stringResource(
+                                            if (hasAvatar) R.string.chat_aggregation_change_avatar
+                                            else R.string.chat_aggregation_set_avatar,
+                                        ),
+                                    )
                                 }
                             }
                         }
@@ -1765,23 +1858,27 @@ object ConversationAggregation : ClickableFeature(),
                                 value = selectFields,
                                 onValueChange = { selectFields = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("SELECT 字段") },
+                                label = { Text(stringResource(R.string.chat_aggregation_select_fields)) },
                                 singleLine = true
                             )
                             OutlinedTextField(
                                 value = whereClause,
                                 onValueChange = { whereClause = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("WHERE 条件") },
+                                label = { Text(stringResource(R.string.chat_aggregation_where_clause)) },
                                 singleLine = false,
                                 maxLines = 4
                             )
                             Text(
-                                text = "当前匹配到 $matchedCount 个对话",
+                                text = pluralStringResource(
+                                    R.plurals.chat_aggregation_current_match_count,
+                                    matchedCount,
+                                    matchedCount,
+                                ),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = "数据源自 rcontact r, img_flag i, rconversation c\n示例: c.unReadCount > 0 AND r.username LIKE '%@chatroom'",
+                                text = stringResource(R.string.chat_aggregation_sql_help),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1794,7 +1891,7 @@ object ConversationAggregation : ClickableFeature(),
                                         CustomLocalFriendAvatars.removeAvatar(folderId)
                                         hasAvatar = false
                                     }) {
-                                        Text("清除头像")
+                                        Text(stringResource(R.string.chat_aggregation_clear_avatar))
                                     }
                                 }
                                 Button(
@@ -1803,7 +1900,12 @@ object ConversationAggregation : ClickableFeature(),
                                         CustomLocalFriendAvatars.selectAvatarImage(HostInfo.application, folderId)
                                     }
                                 ) {
-                                    Text(if (hasAvatar) "更换头像" else "设置头像")
+                                    Text(
+                                        stringResource(
+                                            if (hasAvatar) R.string.chat_aggregation_change_avatar
+                                            else R.string.chat_aggregation_set_avatar,
+                                        ),
+                                    )
                                 }
                             }
                         }
@@ -1812,9 +1914,9 @@ object ConversationAggregation : ClickableFeature(),
             },
             dismissButton = {
                 if (onDelete != null) {
-                    TextButton(onDelete) { Text("删除") }
+                    TextButton(onDelete) { Text(stringResource(R.string.action_delete)) }
                 }
-                TextButton(onDismiss) { Text("取消") }
+                TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
             },
             confirmButton = {
                 Button(
@@ -1831,9 +1933,9 @@ object ConversationAggregation : ClickableFeature(),
                             pinFlag = folder?.pinFlag ?: 0L
                         )
                         onSave(next)
-                        showToast("已保存")
+                        showToast(localizedChatString(R.string.chat_aggregation_saved))
                     }
-                ) { Text("确定") }
+                ) { Text(stringResource(R.string.dialog_confirm)) }
             }
         )
     }
