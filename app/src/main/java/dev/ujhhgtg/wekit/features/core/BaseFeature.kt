@@ -80,10 +80,6 @@ abstract class BaseFeature {
 
     open fun onDisable() {}
 
-    @Composable
-    open fun Ui() {
-    }
-
     private val _dexDelegates = mutableListOf<BaseDexDelegate>()
     val dexDelegates: List<BaseDexDelegate> get() = _dexDelegates
     internal fun registerDexDelegate(d: BaseDexDelegate) {

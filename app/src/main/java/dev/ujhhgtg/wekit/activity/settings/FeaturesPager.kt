@@ -147,7 +147,6 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                             checked = featureChecked(feature),
                             onCheckedChange = {},
                         )
-                        feature.Ui()
                     }
                 }
             }
@@ -278,7 +277,6 @@ fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
                         checked = featureChecked(feature),
                         onCheckedChange = {},
                     )
-                    feature.Ui()
                 }
             }
         }
