@@ -17,6 +17,9 @@
 pub mod controller;
 pub mod exec_process;
 pub mod llama;
+#[path = "../../wekit-native/src/logging.rs"]
+#[allow(dead_code)]
+mod logging;
 pub mod parse;
 pub mod server;
 pub mod template;
