@@ -21,15 +21,10 @@ object DexKitMonetEvidenceCollector {
         val methodsByCandidate = candidates
             .sortedBy(MonetDexCandidate::resourceId)
             .associateWith { candidate -> collectCandidateMethods(bridge, candidate) }
-        val resourceIdsByMethod = buildMap<String, Set<Int>> {
-            methodsByCandidate.forEach { (candidate, methods) ->
-                methods.forEach { method ->
-                    put(
-                        method.descriptor,
-                        get(method.descriptor).orEmpty() + candidate.resourceId,
-                    )
-                }
-            }
+        val methodDescriptorsByResourceId = methodsByCandidate.mapKeys { (candidate) ->
+            candidate.resourceId
+        }.mapValues { (_, methods) ->
+            methods.map(MethodData::descriptor)
         }
 
         return methodsByCandidate.map { (candidate, methods) ->
@@ -40,9 +35,11 @@ object DexKitMonetEvidenceCollector {
                         descriptor = method.descriptor,
                         strings = method.usingStrings,
                         invokes = method.invokes.map(::invokedMethodShape),
-                        resourceIds = resourceIdsByMethod
-                            .getValue(method.descriptor)
-                            .filterNot { it == candidate.resourceId },
+                        resourceIds = neighboringResourceIdsForMethod(
+                            candidateResourceId = candidate.resourceId,
+                            methodDescriptor = method.descriptor,
+                            methodDescriptorsByResourceId = methodDescriptorsByResourceId,
+                        ),
                         fields = method.usingFields.map { usingField ->
                             MonetFieldAccessEvidence(
                                 descriptor = usingField.field.descriptor,
@@ -81,6 +78,20 @@ object DexKitMonetEvidenceCollector {
     }
 }
 
+internal fun neighboringResourceIdsForMethod(
+    candidateResourceId: Int,
+    methodDescriptor: String,
+    methodDescriptorsByResourceId: Map<Int, List<String>>,
+): List<Int> = methodDescriptorsByResourceId
+    .asSequence()
+    .filter { (resourceId, descriptors) ->
+        resourceId != candidateResourceId && methodDescriptor in descriptors
+    }
+    .map { (resourceId) -> resourceId }
+    .distinct()
+    .sorted()
+    .toList()
+
 internal fun normalizeMethodEvidence(
     descriptor: String,
     strings: List<String>,
@@ -97,11 +108,23 @@ internal fun normalizeMethodEvidence(
     ),
 )
 
-private fun invokedMethodShape(method: MethodData): String {
-    val params = method.paramTypeNames.joinToString(",", transform = ::normalizedTypeShape)
-    val returnType = normalizedTypeShape(method.returnTypeName)
-    return if (hasStablePublicOwner(method.declaredClassName)) {
-        "${method.declaredClassName}#${method.name}($params):$returnType"
+private fun invokedMethodShape(method: MethodData): String = normalizeInvokedMethodShape(
+    owner = method.declaredClassName,
+    name = method.name,
+    paramTypeNames = method.paramTypeNames,
+    returnTypeName = method.returnTypeName,
+)
+
+internal fun normalizeInvokedMethodShape(
+    owner: String,
+    name: String,
+    paramTypeNames: List<String>,
+    returnTypeName: String,
+): String {
+    val params = paramTypeNames.joinToString(",", transform = ::normalizedTypeShape)
+    val returnType = normalizedTypeShape(returnTypeName)
+    return if (isStablePublicOwner(owner)) {
+        "$owner#$name($params):$returnType"
     } else {
         "($params):$returnType"
     }
@@ -110,13 +133,13 @@ private fun invokedMethodShape(method: MethodData): String {
 private fun normalizedTypeShape(typeName: String): String = when {
     typeName.endsWith("[]") -> normalizedTypeShape(typeName.removeSuffix("[]")) + "[]"
     typeName in PRIMITIVE_TYPE_NAMES -> typeName
-    hasStablePublicOwner(typeName) -> typeName
+    isStablePublicOwner(typeName) -> typeName
     else -> "object"
 }
 
-private fun hasStablePublicOwner(typeName: String): Boolean {
-    if (PUBLIC_API_PREFIXES.any(typeName::startsWith)) return true
-    if (!typeName.startsWith("com.tencent.mm.")) return false
+private fun isStablePublicOwner(typeName: String): Boolean {
+    if (PLATFORM_API_PREFIXES.any(typeName::startsWith)) return true
+    if (!typeName.startsWith(WECHAT_OPEN_SDK_PREFIX)) return false
 
     val outerClassName = typeName.substringAfterLast('.').substringBefore('$')
     return outerClassName.firstOrNull()?.isUpperCase() == true
@@ -134,11 +157,10 @@ private val PRIMITIVE_TYPE_NAMES = setOf(
     "void",
 )
 
-private val PUBLIC_API_PREFIXES = listOf(
+private val PLATFORM_API_PREFIXES = listOf(
     "android.",
-    "androidx.",
     "java.",
     "javax.",
-    "kotlin.",
-    "kotlinx.",
 )
+
+private const val WECHAT_OPEN_SDK_PREFIX = "com.tencent.mm.opensdk."

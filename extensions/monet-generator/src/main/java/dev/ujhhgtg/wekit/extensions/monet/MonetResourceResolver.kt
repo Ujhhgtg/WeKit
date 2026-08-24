@@ -107,9 +107,17 @@ internal object MonetResourceResolver {
         val dexStates = states.values.filter { state ->
             state.candidateIds.size > 1 && state.role.dexAnchors.isNotEmpty()
         }
-        val requestedCandidates = dexStates
-            .flatMap(ResolutionState::candidateIds)
-            .distinct()
+        val requestedResourceIds = buildSet {
+            dexStates.forEach { state ->
+                addAll(state.candidateIds)
+                state.role.dexAnchors.forEach { anchor ->
+                    anchor.neighboringRoleIds.forEach { roleId ->
+                        states[roleId]?.candidateIds?.singleOrNull()?.let(::add)
+                    }
+                }
+            }
+        }
+        val requestedCandidates = requestedResourceIds
             .sorted()
             .map { resourceId ->
                 val node = requireNotNull(graph.node(resourceId))

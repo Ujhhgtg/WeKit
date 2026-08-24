@@ -107,6 +107,26 @@ class MonetResourceResolverTest {
     }
 
     @Test
+    fun `dex request includes uniquely resolved roles referenced as neighbors`() {
+        val provider = RecordingEvidenceProvider(
+            evidenceFor = mapOf(AMBIGUOUS_ID to matchingNeighborDexEvidence),
+        )
+
+        val report = resolveFixture(
+            twoEqualDrawables = true,
+            provider = provider,
+            dexAnchored = true,
+            neighboringDexAnchor = true,
+        )
+
+        assertEquals(
+            listOf(setOf(FIRST_ID, AMBIGUOUS_ID, LAYOUT_ID)),
+            provider.requestedIdSets,
+        )
+        assertEquals(AMBIGUOUS_ID, report.resolved.getValue(ROLE_ID).resourceId)
+    }
+
+    @Test
     fun `unique resource result never requests dex evidence`() {
         val provider = RecordingEvidenceProvider(
             evidenceFor = mapOf(AMBIGUOUS_ID to matchingDexEvidence),
@@ -205,6 +225,7 @@ class MonetResourceResolverTest {
         matchingLayoutIncoming: Boolean = false,
         provider: MonetDexEvidenceProvider = RecordingEvidenceProvider(),
         dexAnchored: Boolean = false,
+        neighboringDexAnchor: Boolean = false,
         profileTarget: Int? = null,
         graphTarget: Int? = null,
     ): MonetResolutionReport {
@@ -255,7 +276,16 @@ class MonetResourceResolverTest {
             xmlShapeSha256 = TARGET_SHAPE,
             requiredIncomingRoleIds = if (matchingLayoutIncoming) listOf(LAYOUT_ROLE_ID) else emptyList(),
             dexAnchors = if (dexAnchored) {
-                listOf(MonetDexAnchor(stableStrings = listOf("ChattingUI")))
+                listOf(
+                    MonetDexAnchor(
+                        stableStrings = listOf("ChattingUI"),
+                        neighboringRoleIds = if (neighboringDexAnchor) {
+                            listOf(LAYOUT_ROLE_ID)
+                        } else {
+                            emptyList()
+                        },
+                    ),
+                )
             } else {
                 emptyList()
             },
@@ -321,6 +351,11 @@ class MonetResourceResolverTest {
                     fieldAccesses = emptyList(),
                 ),
             ),
+        )
+        val matchingNeighborDexEvidence = matchingDexEvidence.copy(
+            methods = matchingDexEvidence.methods.map { method ->
+                method.copy(neighboringResourceIds = listOf(LAYOUT_ID))
+            },
         )
     }
 }
