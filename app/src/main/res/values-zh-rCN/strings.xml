@@ -2271,8 +2271,12 @@
     <string name="chat_message_time_always_show">显示每条消息时间</string>
     <string name="chat_message_time_invalid_number">数字格式不正确</string>
     <string name="chat_floating_header_title">悬浮标题栏</string>
-    <string name="chat_floating_header_restart_hint">改动在重新进入聊天后生效</string>
+    <string name="chat_floating_header_restart_hint">改动即时生效</string>
     <string name="chat_floating_header_summary">标题栏及标题下方的置顶消息等卡片均以悬浮卡片显示</string>
+    <string name="chat_floating_header_style_label">标题栏样式</string>
+    <string name="chat_floating_header_style_integrated">一体式</string>
+    <string name="chat_floating_header_style_separated">分体式</string>
+    <string name="chat_floating_component_gap_label">最小组件间距</string>
     <string name="chat_floating_corner_radius">圆角半径：%1$d dp</string>
     <string name="chat_floating_side_margin">侧边距：%1$d dp</string>
     <string name="chat_floating_top_gap">顶部间距：%1$d dp</string>

@@ -1,13 +1,19 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import android.animation.StateListAnimator
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Outline
+import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
 import android.util.AttributeSet
@@ -21,6 +27,7 @@ import android.view.ViewTreeObserver
 import android.view.Window
 import android.view.WindowInsets
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
@@ -32,6 +39,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -54,6 +62,8 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.allViews
@@ -61,6 +71,7 @@ import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.isDarkMode
 import dev.ujhhgtg.wekit.utils.reflection.int
 import java.lang.reflect.Field
 import java.util.WeakHashMap
@@ -81,6 +92,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private const val DEFAULT_TOP_GAP = 4
     private const val DEFAULT_EXTRA_GAP = 8
     private const val DEFAULT_ELEVATION = 4
+    private const val DEFAULT_COMPONENT_GAP = 8
 
     private const val MIN_CORNER_RADIUS = 0
     private const val MAX_CORNER_RADIUS = 32
@@ -92,6 +104,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private const val MAX_EXTRA_GAP = 24
     private const val MIN_ELEVATION = 0
     private const val MAX_ELEVATION = 16
+    private const val MIN_COMPONENT_GAP = 0
+    private const val MAX_COMPONENT_GAP = 24
 
     private const val RECONCILE_LAYOUT = 1
     private const val RECONCILE_TIPS = 1 shl 1
@@ -114,6 +128,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     /** 消息列表与多选快捷按钮所在的内容区 (layout ss 的 bki)。 */
     private const val CHATTING_CONTENT_CLASS = "com.tencent.mm.pluginsdk.ui.chat.ChattingContent"
+
+    private const val TOOLBAR_CLASS = "androidx.appcompat.widget.Toolbar"
 
     /** 内容宿主里这些子 View 不是"标题下挂件", 排除在悬浮卡之外。 */
     private const val ME_HOLDER_VIEW_CLASS = "com.tencent.mm.magicbrush.plugin.emoji.ui.MEHolderView"
@@ -192,6 +208,26 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private var topGapDp by prefOption("floating_chat_header_top_gap", DEFAULT_TOP_GAP)
     private var extraGapDp by prefOption("floating_chat_header_extra_gap", DEFAULT_EXTRA_GAP)
     private var elevationDp by prefOption("floating_chat_header_elevation", DEFAULT_ELEVATION)
+    private var componentGapDp by prefOption(
+        "floating_chat_header_component_gap",
+        DEFAULT_COMPONENT_GAP,
+    )
+    private var headerLayoutStyleName by prefOption(
+        "floating_chat_header_layout_style",
+        HeaderLayoutStyle.INTEGRATED.name,
+    )
+
+    private var headerLayoutStyle: HeaderLayoutStyle
+        get() = runCatching { HeaderLayoutStyle.valueOf(headerLayoutStyleName) }
+            .getOrDefault(HeaderLayoutStyle.INTEGRATED)
+        set(value) {
+            headerLayoutStyleName = value.name
+        }
+
+    private enum class HeaderLayoutStyle {
+        INTEGRATED,
+        SEPARATED,
+    }
 
     /** 每个窗口是否已由本特性启用状态栏 edge-to-edge。 */
     private val edgeToEdgeApplied = WeakHashMap<Window, Boolean>()
@@ -381,7 +417,166 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** 上次实际套用的样式, 配置变化后下一帧自动重刷。 */
     private val headerStyles = WeakHashMap<View, HeaderStyle>()
 
+    /** 每个会话布局当前使用的分体式装饰层。 */
+    private val separatedHeaderStates = WeakHashMap<View, SeparatedHeaderState>()
+
+    /** 已报过“找不到标题栏三段结构”的会话布局。 */
+    private val separatedHeaderWarned = WeakHashMap<View, Boolean>()
+
     private data class HeaderStyle(val cornerRadiusDp: Int, val elevationDp: Int)
+
+    private data class HeaderVisualState(
+        val view: View,
+        val background: Drawable?,
+        val outlineProvider: ViewOutlineProvider?,
+        val clipToOutline: Boolean,
+        val elevation: Float,
+        val translationZ: Float,
+        val stateListAnimator: StateListAnimator?,
+    )
+
+    private data class HeaderClipState(
+        val view: ViewGroup,
+        val clipChildren: Boolean,
+        val clipToPadding: Boolean,
+    )
+
+    private class SeparatedHeaderState(
+        val layout: View,
+        val header: View,
+        val toolbar: ViewGroup,
+        val root: RelativeLayout,
+        val left: View,
+        val title: View,
+        val right: View,
+        var menuHost: ViewGroup?,
+        val decorationLayer: FrameLayout,
+        val decoration: SeparatedHeaderDecorationView,
+        val surfaceColor: Int,
+        val visualStates: List<HeaderVisualState>,
+        val clipStates: List<HeaderClipState>,
+    ) {
+        val layoutListeners = HashMap<View, View.OnLayoutChangeListener>()
+        lateinit var attachListener: View.OnAttachStateChangeListener
+        lateinit var menuAttachListener: View.OnAttachStateChangeListener
+        var menuRetryObserver: ViewTreeObserver? = null
+        var menuRetryListener: ViewTreeObserver.OnGlobalLayoutListener? = null
+        var updatePosted = false
+    }
+
+    private class SeparatedHeaderDecorationView(context: Context) : View(context) {
+        private val leftRect = RectF()
+        private val titleRect = RectF()
+        private val rightRect = RectF()
+        private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+        }
+        private var titleRadius = 0f
+        private var buttonRadius = 0f
+        private var surfaceColor = Color.TRANSPARENT
+        private var shadowRadius = 0f
+        private var shadowOffsetY = 0f
+        private var shadowColor = Color.TRANSPARENT
+        private var strokeWidth = 0f
+        private var strokeColor = Color.TRANSPARENT
+
+        init {
+            setLayerType(LAYER_TYPE_SOFTWARE, null)
+            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+            isClickable = false
+            isFocusable = false
+        }
+
+        fun shadowPadding(elevationPx: Float): Int {
+            val radius = elevationPx * 1.5f
+            val offset = elevationPx * 0.5f
+            return (radius + offset + 2f).roundToInt().coerceAtLeast(1)
+        }
+
+        fun update(
+            left: RectF,
+            title: RectF,
+            right: RectF,
+            offset: Float,
+            titleRadius: Float,
+            elevationPx: Float,
+            surfaceColor: Int,
+            darkMode: Boolean,
+            density: Float,
+        ) {
+            val leftLeft = left.left + offset
+            val leftTop = left.top + offset
+            val leftRight = left.right + offset
+            val leftBottom = left.bottom + offset
+            val titleLeft = title.left + offset
+            val titleTop = title.top + offset
+            val titleRight = title.right + offset
+            val titleBottom = title.bottom + offset
+            val rightLeft = right.left + offset
+            val rightTop = right.top + offset
+            val rightRight = right.right + offset
+            val rightBottom = right.bottom + offset
+            val nextShadowRadius = elevationPx * 1.5f
+            val nextShadowOffsetY = elevationPx * 0.5f
+            val nextShadowColor = if (darkMode) 0x99000000.toInt() else 0x52000000
+            val nextStrokeWidth = if (darkMode) density.coerceAtLeast(1f) else 0f
+            if (leftRect.left == leftLeft && leftRect.top == leftTop &&
+                leftRect.right == leftRight && leftRect.bottom == leftBottom &&
+                titleRect.left == titleLeft && titleRect.top == titleTop &&
+                titleRect.right == titleRight && titleRect.bottom == titleBottom &&
+                rightRect.left == rightLeft && rightRect.top == rightTop &&
+                rightRect.right == rightRight && rightRect.bottom == rightBottom &&
+                this.titleRadius == titleRadius && this.surfaceColor == surfaceColor &&
+                shadowRadius == nextShadowRadius && shadowOffsetY == nextShadowOffsetY &&
+                shadowColor == nextShadowColor && strokeWidth == nextStrokeWidth
+            ) {
+                return
+            }
+            leftRect.set(left)
+            titleRect.set(title)
+            rightRect.set(right)
+            leftRect.offset(offset, offset)
+            titleRect.offset(offset, offset)
+            rightRect.offset(offset, offset)
+            this.titleRadius = titleRadius
+            buttonRadius = left.height() / 2f
+            this.surfaceColor = surfaceColor
+            shadowRadius = nextShadowRadius
+            shadowOffsetY = nextShadowOffsetY
+            shadowColor = nextShadowColor
+            strokeWidth = nextStrokeWidth
+            strokeColor = 0x24FFFFFF
+            invalidate()
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            if (shadowRadius > 0f) {
+                shadowPaint.color = surfaceColor
+                shadowPaint.setShadowLayer(shadowRadius, 0f, shadowOffsetY, shadowColor)
+                drawCards(canvas, shadowPaint)
+                shadowPaint.clearShadowLayer()
+            }
+            fillPaint.color = surfaceColor
+            drawCards(canvas, fillPaint)
+            if (strokeWidth > 0f) {
+                strokePaint.strokeWidth = strokeWidth
+                strokePaint.color = strokeColor
+                drawCards(canvas, strokePaint)
+            }
+        }
+
+        private fun drawCards(canvas: Canvas, paint: Paint) {
+            if (!leftRect.isEmpty) canvas.drawRoundRect(leftRect, buttonRadius, buttonRadius, paint)
+            if (!titleRect.isEmpty) canvas.drawRoundRect(titleRect, titleRadius, titleRadius, paint)
+            if (!rightRect.isEmpty) {
+                val radius = rightRect.height() / 2f
+                canvas.drawRoundRect(rightRect, radius, radius, paint)
+            }
+        }
+    }
 
     override fun onEnable() {
         cacheAnimationGroupFields()
@@ -647,7 +842,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private fun applyIfReady(layout: View): Int {
         val header = currentHeader(layout) ?: return 0
         reparentIfNeeded(layout, header)
-        applyCardStyle(header)
+        applyHeaderStyle(layout, header)
         applyMargins(layout, header)
         applyHeaderZoneCards(layout, header)
         val tipsCovered = applyHeaderZoneOverlays(layout, header)
@@ -827,6 +1022,430 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         view.elevation = expectedElevation
         headerStyles[view] = style
         WeLogger.d(TAG, "applied drawing style: corner=${cornerRadiusDp}dp elev=${elevationDp}dp")
+    }
+
+    private fun applyHeaderStyle(layout: View, header: View) {
+        if (headerLayoutStyle == HeaderLayoutStyle.INTEGRATED) {
+            removeSeparatedHeader(layout)
+            applyCardStyle(header)
+        } else {
+            applySeparatedHeaderStyle(layout, header)
+        }
+    }
+
+    private fun applySeparatedHeaderStyle(layout: View, header: View) {
+        if (header.parent === layout && windowBarHeaders[layout] != true) {
+            removeSeparatedHeader(layout)
+            return
+        }
+        val current = separatedHeaderStates[layout]
+        val state = if (current != null &&
+            current.header === header &&
+            current.root.isAttachedToWindow &&
+            current.root.parent === current.toolbar &&
+            current.root.rootView === header.rootView
+        ) {
+            current
+        } else {
+            if (current != null) disposeSeparatedHeader(current, restoreVisuals = true)
+            createSeparatedHeaderState(layout, header)?.also {
+                separatedHeaderStates[layout] = it
+                separatedHeaderWarned.remove(layout)
+            }
+        }
+        if (state == null) {
+            if (separatedHeaderWarned.put(layout, true) == null) {
+                WeLogger.w(TAG, "split header skipped: title bar components not found")
+            }
+            applyCardStyle(header)
+            return
+        }
+        neutralizeSeparatedHeader(state)
+        refreshSeparatedHeader(state)
+    }
+
+    private fun createSeparatedHeaderState(layout: View, header: View): SeparatedHeaderState? {
+        val toolbar = header.allViews.firstOrNull { it.javaClass.name == TOOLBAR_CLASS } as? ViewGroup
+            ?: return null
+        val parts = (0 until toolbar.childCount)
+            .map(toolbar::getChildAt)
+            .filterIsInstance<RelativeLayout>()
+            .firstNotNullOfOrNull(::findSeparatedParts)
+            ?: return null
+        val menuHost = findMenuHost(parts.right)
+        val surfaceColor = sampleHeaderSurfaceColor(header)
+        val visualStates = listOf(header, toolbar, parts.root).distinct().map { view ->
+            HeaderVisualState(
+                view = view,
+                background = view.background,
+                outlineProvider = view.outlineProvider,
+                clipToOutline = view.clipToOutline,
+                elevation = view.elevation,
+                translationZ = view.translationZ,
+                stateListAnimator = view.stateListAnimator,
+            )
+        }
+        val clipStates = captureHeaderClipStates(parts.root, header)
+        val decorationLayer = FrameLayout(header.context).apply {
+            clipChildren = false
+            clipToPadding = false
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            isClickable = false
+            isFocusable = false
+        }
+        val decoration = SeparatedHeaderDecorationView(header.context)
+        decorationLayer.addView(
+            decoration,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        parts.root.addView(
+            decorationLayer,
+            0,
+            RelativeLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        val state = SeparatedHeaderState(
+            layout = layout,
+            header = header,
+            toolbar = toolbar,
+            root = parts.root,
+            left = parts.left,
+            title = parts.title,
+            right = parts.right,
+            menuHost = menuHost,
+            decorationLayer = decorationLayer,
+            decoration = decoration,
+            surfaceColor = surfaceColor,
+            visualStates = visualStates,
+            clipStates = clipStates,
+        )
+        state.attachListener = object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                postSeparatedHeaderUpdate(state)
+            }
+
+            override fun onViewDetachedFromWindow(v: View) {
+                if (separatedHeaderStates[layout] === state) {
+                    disposeSeparatedHeader(state, restoreVisuals = true)
+                    scheduleReconcile(layout, RECONCILE_LAYOUT)
+                }
+            }
+        }
+        state.root.addOnAttachStateChangeListener(state.attachListener)
+        state.menuAttachListener = object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                postSeparatedHeaderUpdate(state)
+            }
+
+            override fun onViewDetachedFromWindow(v: View) {
+                v.removeOnAttachStateChangeListener(this)
+                if (state.menuHost === v) state.menuHost = null
+                startMenuHostRetry(state)
+                postSeparatedHeaderUpdate(state)
+            }
+        }
+        if (menuHost != null) {
+            menuHost.addOnAttachStateChangeListener(state.menuAttachListener)
+        } else {
+            startMenuHostRetry(state)
+        }
+        neutralizeSeparatedHeader(state)
+        syncSeparatedHeaderObservers(state)
+        headerStyles.remove(header)
+        return state
+    }
+
+    private data class SeparatedParts(
+        val root: RelativeLayout,
+        val left: View,
+        val title: View,
+        val right: View,
+    )
+
+    private fun findSeparatedParts(root: RelativeLayout): SeparatedParts? {
+        val children = (0 until root.childCount).map(root::getChildAt)
+        val title = children.firstOrNull { child ->
+            val lp = child.layoutParams as? RelativeLayout.LayoutParams ?: return@firstOrNull false
+            lp.getRule(RelativeLayout.CENTER_IN_PARENT) != 0
+        } ?: return null
+        val right = children.firstOrNull { child ->
+            val lp = child.layoutParams as? RelativeLayout.LayoutParams ?: return@firstOrNull false
+            lp.getRule(RelativeLayout.ALIGN_PARENT_RIGHT) != 0 ||
+                lp.getRule(RelativeLayout.ALIGN_PARENT_END) != 0
+        } ?: return null
+        val left = children.firstOrNull { it !== title && it !== right } ?: return null
+        return SeparatedParts(root, left, title, right)
+    }
+
+    private fun findMenuHost(right: View): ViewGroup? {
+        val group = right as ViewGroup
+        return (0 until group.childCount)
+            .map(group::getChildAt)
+            .filterIsInstance<ViewGroup>()
+            .firstOrNull()
+    }
+
+    private fun syncMenuHost(state: SeparatedHeaderState) {
+        val current = findMenuHost(state.right)?.takeIf { it.isAttachedToWindow }
+        if (state.menuHost === current) {
+            if (current == null) startMenuHostRetry(state)
+            return
+        }
+        state.menuHost?.removeOnAttachStateChangeListener(state.menuAttachListener)
+        state.menuHost = current
+        if (current != null) {
+            current.addOnAttachStateChangeListener(state.menuAttachListener)
+            stopMenuHostRetry(state)
+        } else {
+            startMenuHostRetry(state)
+        }
+    }
+
+    private fun startMenuHostRetry(state: SeparatedHeaderState) {
+        if (state.menuRetryListener != null || !state.root.isAttachedToWindow) return
+        val observer = state.root.viewTreeObserver
+        val listener = ViewTreeObserver.OnGlobalLayoutListener {
+            if (separatedHeaderStates[state.layout] !== state || !state.root.isAttachedToWindow) {
+                stopMenuHostRetry(state)
+                return@OnGlobalLayoutListener
+            }
+            val replacement = findMenuHost(state.right)?.takeIf { it.isAttachedToWindow }
+                ?: return@OnGlobalLayoutListener
+            state.menuHost = replacement
+            replacement.addOnAttachStateChangeListener(state.menuAttachListener)
+            stopMenuHostRetry(state)
+            postSeparatedHeaderUpdate(state)
+        }
+        state.menuRetryObserver = observer
+        state.menuRetryListener = listener
+        observer.addOnGlobalLayoutListener(listener)
+    }
+
+    private fun stopMenuHostRetry(state: SeparatedHeaderState) {
+        val listener = state.menuRetryListener ?: return
+        state.menuRetryObserver?.takeIf { it.isAlive }?.removeOnGlobalLayoutListener(listener)
+        state.menuRetryObserver = null
+        state.menuRetryListener = null
+    }
+
+    private fun captureHeaderClipStates(root: ViewGroup, header: View): List<HeaderClipState> {
+        val states = ArrayList<HeaderClipState>()
+        var current: ViewGroup? = root
+        while (current != null) {
+            states += HeaderClipState(current, current.clipChildren, current.clipToPadding)
+            if (current !== root && current.height > header.height * 2) break
+            current = current.parent as? ViewGroup
+        }
+        return states
+    }
+
+    private fun neutralizeSeparatedHeader(state: SeparatedHeaderState) {
+        state.visualStates.forEach { original ->
+            val view = original.view
+            val background = view.background
+            if (background !is ColorDrawable || background.color != Color.TRANSPARENT) {
+                view.background = ColorDrawable(Color.TRANSPARENT)
+            }
+            if (view.outlineProvider != null) view.outlineProvider = null
+            if (view.clipToOutline) view.clipToOutline = false
+            if (view.elevation != 0f) view.elevation = 0f
+            if (view.translationZ != 0f) view.translationZ = 0f
+            if (view.stateListAnimator != null) view.stateListAnimator = null
+        }
+        state.clipStates.forEach { clip ->
+            if (clip.view.clipChildren) clip.view.clipChildren = false
+            if (clip.view.clipToPadding) clip.view.clipToPadding = false
+        }
+    }
+
+    private fun refreshSeparatedHeader(state: SeparatedHeaderState) {
+        if (!state.root.isAttachedToWindow || state.root.width <= 0 || state.root.height <= 0) return
+        syncMenuHost(state)
+        syncSeparatedHeaderObservers(state)
+        val density = state.root.resources.displayMetrics.density
+        val elevationPx = elevationDp * density
+        val shadowPadding = state.decoration.shadowPadding(elevationPx)
+        val targetWidth = state.root.width + shadowPadding * 2
+        val targetHeight = state.root.height + shadowPadding * 2
+        val params = state.decoration.layoutParams as FrameLayout.LayoutParams
+        if (params.width != targetWidth || params.height != targetHeight ||
+            params.leftMargin != -shadowPadding || params.topMargin != -shadowPadding
+        ) {
+            params.width = targetWidth
+            params.height = targetHeight
+            params.leftMargin = -shadowPadding
+            params.topMargin = -shadowPadding
+            state.decoration.layoutParams = params
+        }
+
+        val rootHeight = state.root.height.toFloat()
+        val buttonDiameter = rootHeight
+        val backIcon = state.left.allViews.firstOrNull { it is ImageView && it.isVisible }
+        val backBounds = RectF()
+        val leftBounds = RectF()
+        boundsInHeaderRoot(state.left, state.root, leftBounds)
+        val leftCenterX = if (backIcon != null) {
+            boundsInHeaderRoot(backIcon, state.root, backBounds)
+            backBounds.left + backIcon.paddingLeft +
+                (backIcon.width - backIcon.paddingLeft - backIcon.paddingRight) / 2f
+        } else {
+            leftBounds.centerX()
+        }
+        val leftCard = RectF(
+            leftCenterX - buttonDiameter / 2f,
+            0f,
+            leftCenterX + buttonDiameter / 2f,
+            rootHeight,
+        )
+
+        val rightCard = RectF()
+        state.menuHost?.let { menuHost ->
+            for (index in 0 until menuHost.childCount) {
+                val child = menuHost.getChildAt(index)
+                if (!child.isVisible || child.width <= 0 || child.height <= 0) continue
+                val bounds = RectF()
+                boundsInHeaderRoot(child, state.root, bounds)
+                val actionCard = RectF(
+                    bounds.centerX() - buttonDiameter / 2f,
+                    0f,
+                    bounds.centerX() + buttonDiameter / 2f,
+                    rootHeight,
+                )
+                if (rightCard.isEmpty) rightCard.set(actionCard) else rightCard.union(actionCard)
+            }
+        }
+
+        val gapPx = componentGapDp * density
+        val leftReserve = leftCard.right + gapPx
+        val rightReserve = if (rightCard.isEmpty) {
+            leftReserve
+        } else {
+            state.root.width - rightCard.left + gapPx
+        }
+        // 多 action 半屏右区比左侧宽；名称卡仍须以屏幕为中心，因此配置值是两侧
+        // 可见间距的下限，较宽一侧严格命中，另一侧可能留出更多空间。
+        val sideReserve = maxOf(leftReserve, rightReserve)
+        val titleCard = RectF(
+            sideReserve,
+            0f,
+            state.root.width - sideReserve,
+            rootHeight,
+        )
+        if (titleCard.right <= titleCard.left) titleCard.setEmpty()
+
+        state.decoration.update(
+            left = leftCard,
+            title = titleCard,
+            right = rightCard,
+            offset = shadowPadding.toFloat(),
+            titleRadius = cornerRadiusDp * density,
+            elevationPx = elevationPx,
+            surfaceColor = state.surfaceColor,
+            darkMode = state.root.context.isDarkMode,
+            density = density,
+        )
+    }
+
+    private fun syncSeparatedHeaderObservers(state: SeparatedHeaderState) {
+        val observed = LinkedHashSet<View>()
+        observed += state.root
+        observed += state.left
+        observed += state.title
+        observed += state.right
+        state.menuHost?.let(observed::add)
+        state.left.allViews.firstOrNull { it is ImageView && it.isVisible }?.let(observed::add)
+        state.menuHost?.let { menuHost ->
+            for (index in 0 until menuHost.childCount) {
+                observed += menuHost.getChildAt(index)
+            }
+        }
+        state.layoutListeners.keys.toList().filterNot(observed::contains).forEach { view ->
+            view.removeOnLayoutChangeListener(state.layoutListeners.remove(view))
+        }
+        observed.filterNot(state.layoutListeners::containsKey).forEach { view ->
+            val listener = View.OnLayoutChangeListener {
+                    _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+                if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) {
+                    postSeparatedHeaderUpdate(state)
+                }
+            }
+            state.layoutListeners[view] = listener
+            view.addOnLayoutChangeListener(listener)
+        }
+    }
+
+    private fun postSeparatedHeaderUpdate(state: SeparatedHeaderState) {
+        if (state.updatePosted) return
+        state.updatePosted = true
+        state.root.post {
+            state.updatePosted = false
+            if (separatedHeaderStates[state.layout] !== state) return@post
+            if (!state.root.isAttachedToWindow) {
+                scheduleReconcile(state.layout, RECONCILE_LAYOUT)
+                return@post
+            }
+            neutralizeSeparatedHeader(state)
+            refreshSeparatedHeader(state)
+        }
+    }
+
+    private fun boundsInHeaderRoot(view: View, root: View, out: RectF) {
+        val rootLocation = IntArray(2)
+        val viewLocation = IntArray(2)
+        root.getLocationInWindow(rootLocation)
+        view.getLocationInWindow(viewLocation)
+        val left = (viewLocation[0] - rootLocation[0]).toFloat()
+        val top = (viewLocation[1] - rootLocation[1]).toFloat()
+        out.set(left, top, left + view.width, top + view.height)
+    }
+
+    private fun sampleHeaderSurfaceColor(header: View): Int {
+        val fallback = if (header.context.isDarkMode) 0xFF242424.toInt() else 0xFFF7F7F7.toInt()
+        if (header.width <= 0 || header.height <= 0) return fallback
+        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.translate(-(header.width / 2f), -1f)
+        header.draw(canvas)
+        val sampled = bitmap.getPixel(0, 0)
+        bitmap.recycle()
+        return if (Color.alpha(sampled) >= 0x80) sampled else fallback
+    }
+
+    private fun removeSeparatedHeader(layout: View) {
+        separatedHeaderStates[layout]?.let { disposeSeparatedHeader(it, restoreVisuals = true) }
+    }
+
+    private fun disposeSeparatedHeader(state: SeparatedHeaderState, restoreVisuals: Boolean) {
+        if (separatedHeaderStates[state.layout] === state) separatedHeaderStates.remove(state.layout)
+        state.layoutListeners.forEach { (view, listener) ->
+            view.removeOnLayoutChangeListener(listener)
+        }
+        state.layoutListeners.clear()
+        state.root.removeOnAttachStateChangeListener(state.attachListener)
+        state.menuHost?.removeOnAttachStateChangeListener(state.menuAttachListener)
+        stopMenuHostRetry(state)
+        if (state.decorationLayer.parent === state.root) {
+            state.root.removeView(state.decorationLayer)
+        }
+        if (restoreVisuals) {
+            state.visualStates.forEach { original ->
+                original.view.background = original.background
+                original.view.outlineProvider = original.outlineProvider
+                original.view.clipToOutline = original.clipToOutline
+                original.view.stateListAnimator = original.stateListAnimator
+                original.view.elevation = original.elevation
+                original.view.translationZ = original.translationZ
+            }
+            state.clipStates.forEach { original ->
+                original.view.clipChildren = original.clipChildren
+                original.view.clipToPadding = original.clipToPadding
+            }
+        }
     }
 
     /**
@@ -2015,6 +2634,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     private fun disposeTracker(layout: View) {
+        removeSeparatedHeader(layout)
         statusBarPreDraws.remove(layout)?.let { listener ->
             runCatching { layout.viewTreeObserver.removeOnPreDrawListener(listener) }
         }
@@ -2156,6 +2776,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         reparentBlocked.clear()
         lookupWarned.clear()
         headerStyles.clear()
+        separatedHeaderStates.values.toList().forEach {
+            disposeSeparatedHeader(it, restoreVisuals = true)
+        }
+        separatedHeaderStates.clear()
+        separatedHeaderWarned.clear()
         statusBarPreDraws.clear()
         statusBarOffsets.clear()
         statusBarWrappersNeutralized.clear()
@@ -2164,11 +2789,13 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
+            var layoutStyle by remember { mutableStateOf(headerLayoutStyle) }
             var corner by remember { mutableIntStateOf(cornerRadiusDp) }
             var side by remember { mutableIntStateOf(sideMarginDp) }
             var topGap by remember { mutableIntStateOf(topGapDp) }
             var extraGap by remember { mutableIntStateOf(extraGapDp) }
             var elevation by remember { mutableIntStateOf(elevationDp) }
+            var componentGap by remember { mutableIntStateOf(componentGapDp) }
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.chat_floating_header_title)) },
@@ -2181,6 +2808,49 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                                     title = stringResource(R.string.chat_floating_header_restart_hint),
                                     description = stringResource(R.string.chat_floating_header_summary),
                                 )
+                            }
+                            item(key = "layout_style") {
+                                DropDownMenuWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.chat_floating_header_style_label),
+                                    description = null,
+                                    value = layoutStyle,
+                                    options = listOf(
+                                        DropdownOption(
+                                            HeaderLayoutStyle.INTEGRATED,
+                                            stringResource(R.string.chat_floating_header_style_integrated),
+                                        ),
+                                        DropdownOption(
+                                            HeaderLayoutStyle.SEPARATED,
+                                            stringResource(R.string.chat_floating_header_style_separated),
+                                        ),
+                                    ),
+                                    onValueChange = {
+                                        layoutStyle = it
+                                        headerLayoutStyle = it
+                                        scheduleAllLayouts(RECONCILE_LAYOUT)
+                                    },
+                                )
+                            }
+                            item(
+                                key = "component_gap",
+                                animatedVisibility = layoutStyle == HeaderLayoutStyle.SEPARATED,
+                            ) {
+                                BaseItemContainer {
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.chat_floating_component_gap_label),
+                                        value = componentGap,
+                                        startInt = MIN_COMPONENT_GAP,
+                                        endInt = MAX_COMPONENT_GAP,
+                                        stepSize = 1,
+                                        valueSuffix = "dp",
+                                        onValueChange = {
+                                            componentGap = it
+                                            componentGapDp = it
+                                            scheduleAllLayouts(RECONCILE_LAYOUT)
+                                        },
+                                    )
+                                }
                             }
                             item {
                                 BaseItemContainer {

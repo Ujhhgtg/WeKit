@@ -2315,8 +2315,12 @@
     <string name="chat_message_time_always_show">Show time on every message</string>
     <string name="chat_message_time_invalid_number">Invalid number</string>
     <string name="chat_floating_header_title">Floating header</string>
-    <string name="chat_floating_header_restart_hint">Changes apply after reopening the chat</string>
+    <string name="chat_floating_header_restart_hint">Changes apply immediately</string>
     <string name="chat_floating_header_summary">Show the header and cards below it, such as pinned messages, as floating cards</string>
+    <string name="chat_floating_header_style_label">Header style</string>
+    <string name="chat_floating_header_style_integrated">Integrated</string>
+    <string name="chat_floating_header_style_separated">Separated</string>
+    <string name="chat_floating_component_gap_label">Minimum component spacing</string>
     <string name="chat_floating_corner_radius">Corner radius: %1$d dp</string>
     <string name="chat_floating_side_margin">Side margin: %1$d dp</string>
     <string name="chat_floating_top_gap">Top spacing: %1$d dp</string>
