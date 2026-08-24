@@ -1,3 +1,5 @@
+-keep class dev.ujhhgtg.wekit.extensions.monet.api.** { *; }
+
 -keep public class dev.ujhhgtg.wekit.extensions.monet.MonetGeneratorEntrypointV1 {
     public <init>();
     public dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResult generate(
