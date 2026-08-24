@@ -1,6 +1,8 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
+import com.android.apksig.ApkVerifier
 import com.android.apksig.KeyConfig
+import com.reandroid.archive.block.SignatureId
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder
 import org.bouncycastle.jce.provider.BouncyCastleProvider
@@ -21,6 +23,15 @@ internal object MonetApkSigner {
     }
 
     fun sign(unsignedApk: File, signedApk: File, minSdk: Int) {
+        require(unsignedApk.isFile) { "Unsigned Monet overlay does not exist: $unsignedApk" }
+        require(unsignedApk.canonicalFile != signedApk.canonicalFile) {
+            "Monet signer input and output must be different files"
+        }
+        loadMonetTemplate(unsignedApk).use { apk ->
+            require(apk.androidManifest.minSdkVersion == minSdk) {
+                "Monet signer minSdk $minSdk disagrees with manifest ${apk.androidManifest.minSdkVersion}"
+            }
+        }
         val kpg = KeyPairGenerator.getInstance("RSA")
         kpg.initialize(2048)
         val keyPair = kpg.generateKeyPair()
@@ -56,5 +67,21 @@ internal object MonetApkSigner {
             .setMinSdkVersion(minSdk)
             .build()
             .sign()
+
+        val verification = ApkVerifier.Builder(signedApk).build().verify()
+        require(verification.isVerified && verification.isVerifiedUsingV3Scheme) {
+            "Signed Monet overlay failed APK signature verification: ${verification.errors}"
+        }
+        loadMonetTemplate(signedApk).use { apk ->
+            val signatures = requireNotNull(apk.apkSignatureBlock) {
+                "Signed Monet overlay has no APK signing block"
+            }
+            require(signatures.getSignature(SignatureId.V2) != null) {
+                "Signed Monet overlay has no APK Signature Scheme v2 block"
+            }
+            require(signatures.getSignature(SignatureId.V3) != null) {
+                "Signed Monet overlay has no APK Signature Scheme v3 block"
+            }
+        }
     }
 }
