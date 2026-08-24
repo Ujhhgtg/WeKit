@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -67,6 +68,7 @@ internal fun HomeSidePanelImageCard(
     onSelectImage: (String) -> Unit = {},
     onScaleModeChange: (String, HomeSidePanelImageScaleMode) -> Unit = { _, _ -> },
     onHeightChange: (String, Int) -> Unit = { _, _ -> },
+    onImageDimensionsChange: (String, Int, Int) -> Unit = { _, _, _ -> },
     onDeleteCard: (String) -> Unit = {},
 ) {
     val shape = RoundedCornerShape(24.dp)
@@ -75,8 +77,21 @@ internal fun HomeSidePanelImageCard(
     }
     var visualHeightDp by remember(card.id) { mutableFloatStateOf(card.heightDp.toFloat()) }
     var resizing by remember(card.id) { mutableStateOf(false) }
+    var decodedDimensions by remember(card.imageAssetId) {
+        mutableStateOf(card.persistedImageDimensions)
+    }
+    var decodedAspectRatioUnsupported by remember(card.imageAssetId) { mutableStateOf(false) }
     LaunchedEffect(card.heightDp) {
         if (!resizing) visualHeightDp = card.heightDp.toFloat()
+    }
+    LaunchedEffect(decodedDimensions, editMode) {
+        val dimensions = decodedDimensions ?: return@LaunchedEffect
+        if (
+            editMode &&
+            (card.imageWidthPx != dimensions.widthPx || card.imageHeightPx != dimensions.heightPx)
+        ) {
+            onImageDimensionsChange(card.id, dimensions.widthPx, dimensions.heightPx)
+        }
     }
     val bodyEnabled = editMode && !importing
     val selectionLabel = stringResource(
@@ -95,78 +110,116 @@ internal fun HomeSidePanelImageCard(
         Modifier
     }
 
-    HomeSidePanelCardFrame(
-        cardId = card.id,
-        modifier = modifier.fillMaxWidth(),
-        cardModifier = Modifier
-            .fillMaxWidth()
-            .height(visualHeightDp.dp)
-            .then(bodyModifier),
-        shape = shape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        editMode = editMode,
-        onEdit = null,
-        onDelete = null,
-        badgeContent = if (editMode) {
-            {
-                HomeSidePanelImageBadge(
-                    card = card,
-                    enabled = !importing,
-                    onScaleModeChange = onScaleModeChange,
-                    onDeleteCard = onDeleteCard,
-                )
-            }
-        } else {
-            null
-        },
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(shape)
-                .background(MaterialTheme.colorScheme.surfaceContainerLow),
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val dimensions = decodedDimensions ?: card.persistedImageDimensions
+        val autoHeightPx = dimensions?.let {
+            constraints.maxWidth.toLong() * it.heightPx.toLong() / it.widthPx.toLong()
+        }
+        val autoRatioUnsupported = card.scaleMode == HomeSidePanelImageScaleMode.AUTO_RATIO &&
+            (decodedAspectRatioUnsupported ||
+                (autoHeightPx != null && autoHeightPx > HOME_SIDE_PANEL_IMAGE_MAX_MEASURED_HEIGHT_PX))
+        val effectiveHeightDp = if (
+            card.scaleMode == HomeSidePanelImageScaleMode.AUTO_RATIO &&
+            dimensions != null &&
+            !autoRatioUnsupported
         ) {
-            if (card.imageAssetId != null && imageFile != null && !imageFailed) {
-                AsyncImage(
-                    model = imageFile.toFile(),
-                    imageLoader = GlobalImageLoader,
-                    contentDescription = stringResource(R.string.home_side_panel_card_image),
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = card.scaleMode.contentScale,
-                    onState = { state -> imageFailed = state is AsyncImagePainter.State.Error },
-                )
+            maxWidth.value * dimensions.heightPx.toFloat() / dimensions.widthPx.toFloat()
+        } else {
+            visualHeightDp
+        }
+        HomeSidePanelCardFrame(
+            cardId = card.id,
+            modifier = Modifier.fillMaxWidth(),
+            cardModifier = Modifier
+                .fillMaxWidth()
+                .height(effectiveHeightDp.dp)
+                .then(bodyModifier),
+            shape = shape,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            editMode = editMode,
+            onEdit = null,
+            onDelete = null,
+            badgeContent = if (editMode) {
+                {
+                    HomeSidePanelImageBadge(
+                        card = card,
+                        enabled = !importing,
+                        onScaleModeChange = onScaleModeChange,
+                        onDeleteCard = onDeleteCard,
+                    )
+                }
             } else {
-                HomeSidePanelImagePlaceholder(
-                    message = when {
-                        imageFailed && editMode -> R.string.home_side_panel_image_load_failed_replace
-                        imageFailed -> R.string.home_side_panel_image_load_failed
-                        editMode || preview -> R.string.home_side_panel_image_select
-                        else -> R.string.home_side_panel_image_enter_edit
-                    },
-                )
-            }
-
-            if (editMode) {
-                HomeSidePanelImageResizeHandle(
-                    enabled = !importing,
-                    configuredHeightDp = card.heightDp,
-                    onResizeStateChange = { active -> resizing = active },
-                    onVisualHeightChange = { visualHeightDp = it },
-                    onHeightCommit = { onHeightChange(card.id, it) },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 5.dp),
-                )
-            }
-
-            if (importing) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.28f)),
-                    contentAlignment = Alignment.Center,
+                null
+            },
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(shape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow),
+            ) {
+                if (
+                    card.imageAssetId != null &&
+                    imageFile != null &&
+                    !imageFailed &&
+                    !autoRatioUnsupported
                 ) {
-                    CircularProgressIndicator()
+                    AsyncImage(
+                        model = imageFile.toFile(),
+                        imageLoader = GlobalImageLoader,
+                        contentDescription = stringResource(R.string.home_side_panel_card_image),
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = card.scaleMode.contentScale,
+                        onState = { state ->
+                            imageFailed = state is AsyncImagePainter.State.Error
+                            if (state is AsyncImagePainter.State.Success) {
+                                val width = state.result.image.width
+                                val height = state.result.image.height
+                                if (width > 0 && height > 0) {
+                                    if (isHomeSidePanelImageAspectRatioSupported(width, height)) {
+                                        decodedAspectRatioUnsupported = false
+                                        decodedDimensions = HomeSidePanelImageDimensions(width, height)
+                                    } else {
+                                        decodedAspectRatioUnsupported = true
+                                    }
+                                }
+                            }
+                        },
+                    )
+                } else {
+                    HomeSidePanelImagePlaceholder(
+                        message = when {
+                            autoRatioUnsupported -> R.string.home_side_panel_image_aspect_ratio_unsupported
+                            imageFailed && editMode -> R.string.home_side_panel_image_load_failed_replace
+                            imageFailed -> R.string.home_side_panel_image_load_failed
+                            editMode || preview -> R.string.home_side_panel_image_select
+                            else -> R.string.home_side_panel_image_enter_edit
+                        },
+                    )
+                }
+
+                if (editMode && card.scaleMode != HomeSidePanelImageScaleMode.AUTO_RATIO) {
+                    HomeSidePanelImageResizeHandle(
+                        enabled = !importing,
+                        configuredHeightDp = card.heightDp,
+                        onResizeStateChange = { active -> resizing = active },
+                        onVisualHeightChange = { visualHeightDp = it },
+                        onHeightCommit = { onHeightChange(card.id, it) },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 5.dp),
+                    )
+                }
+
+                if (importing) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.28f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
             }
         }
@@ -211,6 +264,10 @@ private fun HomeSidePanelImageBadge(
         DropdownOption(
             HomeSidePanelImageScaleMode.FILL_BOUNDS,
             stringResource(R.string.home_side_panel_image_scale_stretch),
+        ),
+        DropdownOption(
+            HomeSidePanelImageScaleMode.AUTO_RATIO,
+            stringResource(R.string.home_side_panel_image_scale_auto_ratio),
         ),
     )
     AnimatedVisibility(
@@ -290,7 +347,10 @@ private fun HomeSidePanelImageResizeHandle(
                                 HomeSidePanelPointerLifecycleDecision.Continue -> {
                                     val deltaDp = with(density) { change.positionChange().y.toDp().value }
                                     if (deltaDp != 0f) {
-                                        rawHeight = (rawHeight + deltaDp).coerceIn(120f, 480f)
+                                        rawHeight = (rawHeight + deltaDp).coerceIn(
+                                            HOME_SIDE_PANEL_IMAGE_MIN_HEIGHT_DP.toFloat(),
+                                            HOME_SIDE_PANEL_IMAGE_MAX_HEIGHT_DP.toFloat(),
+                                        )
                                         onVisualHeightChange(rawHeight)
                                     }
                                     change.consume()
@@ -306,7 +366,13 @@ private fun HomeSidePanelImageResizeHandle(
                             }
                         }
                         if (completed) {
-                            onHeightCommit(((rawHeight / 8f).roundToInt() * 8).coerceIn(120, 480))
+                            onHeightCommit(
+                                ((rawHeight / HOME_SIDE_PANEL_IMAGE_HEIGHT_STEP_DP).roundToInt() *
+                                    HOME_SIDE_PANEL_IMAGE_HEIGHT_STEP_DP).coerceIn(
+                                    HOME_SIDE_PANEL_IMAGE_MIN_HEIGHT_DP,
+                                    HOME_SIDE_PANEL_IMAGE_MAX_HEIGHT_DP,
+                                ),
+                            )
                         }
                     } finally {
                         if (!completed) onVisualHeightChange(configuredHeightDp.toFloat())
@@ -334,4 +400,19 @@ private val HomeSidePanelImageScaleMode.contentScale: ContentScale
         HomeSidePanelImageScaleMode.CROP -> ContentScale.Crop
         HomeSidePanelImageScaleMode.FIT -> ContentScale.Fit
         HomeSidePanelImageScaleMode.FILL_BOUNDS -> ContentScale.FillBounds
+        HomeSidePanelImageScaleMode.AUTO_RATIO -> ContentScale.Fit
     }
+
+private data class HomeSidePanelImageDimensions(
+    val widthPx: Int,
+    val heightPx: Int,
+)
+
+private val ImageCardConfig.persistedImageDimensions: HomeSidePanelImageDimensions?
+    get() {
+        val width = imageWidthPx ?: return null
+        val height = imageHeightPx ?: return null
+        return HomeSidePanelImageDimensions(width, height)
+    }
+
+private const val HOME_SIDE_PANEL_IMAGE_MAX_MEASURED_HEIGHT_PX = 262_000L

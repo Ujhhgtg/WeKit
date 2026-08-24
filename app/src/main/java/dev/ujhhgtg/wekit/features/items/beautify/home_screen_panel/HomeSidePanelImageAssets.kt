@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import android.graphics.BitmapFactory
+import android.media.ExifInterface
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import java.io.InputStream
 import java.nio.file.Files
@@ -20,9 +21,15 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 internal sealed interface HomeSidePanelImageImportResult {
-    data class Success(val assetId: String, val file: Path) : HomeSidePanelImageImportResult
+    data class Success(
+        val assetId: String,
+        val file: Path,
+        val widthPx: Int,
+        val heightPx: Int,
+    ) : HomeSidePanelImageImportResult
     data object TooLarge : HomeSidePanelImageImportResult
     data object TooManyPixels : HomeSidePanelImageImportResult
+    data object UnsupportedAspectRatio : HomeSidePanelImageImportResult
     data object InvalidImage : HomeSidePanelImageImportResult
     data class Failure(val error: Throwable) : HomeSidePanelImageImportResult
 }
@@ -142,12 +149,21 @@ internal class HomeSidePanelImageAssetStore(
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
                 return@withContext HomeSidePanelImageImportResult.InvalidImage
             }
-            if (bounds.outWidth.toLong() * bounds.outHeight.toLong() > MAX_IMAGE_PIXELS) {
+            val dimensions = orientedDimensions(partial, bounds.outWidth, bounds.outHeight)
+            if (dimensions.widthPx.toLong() * dimensions.heightPx.toLong() > MAX_IMAGE_PIXELS) {
                 return@withContext HomeSidePanelImageImportResult.TooManyPixels
+            }
+            if (!isHomeSidePanelImageAspectRatioSupported(dimensions.widthPx, dimensions.heightPx)) {
+                return@withContext HomeSidePanelImageImportResult.UnsupportedAspectRatio
             }
             currentCoroutineContext().ensureActive()
             moveAtomically(partial, destination)
-            HomeSidePanelImageImportResult.Success(assetId, destination)
+            HomeSidePanelImageImportResult.Success(
+                assetId = assetId,
+                file = destination,
+                widthPx = dimensions.widthPx,
+                heightPx = dimensions.heightPx,
+            )
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
@@ -158,6 +174,25 @@ internal class HomeSidePanelImageAssetStore(
     }
 
     private fun formalAsset(assetId: String): Path = root / assetId
+
+    private fun orientedDimensions(path: Path, widthPx: Int, heightPx: Int): ImportedDimensions {
+        val orientation = runCatching {
+            ExifInterface(path.toString()).getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL,
+            )
+        }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+        return if (
+            orientation == ExifInterface.ORIENTATION_ROTATE_90 ||
+            orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
+            orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
+            orientation == ExifInterface.ORIENTATION_TRANSVERSE
+        ) {
+            ImportedDimensions(heightPx, widthPx)
+        } else {
+            ImportedDimensions(widthPx, heightPx)
+        }
+    }
 
     private fun moveAtomically(source: Path, destination: Path) {
         Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE)
@@ -184,4 +219,9 @@ internal class HomeSidePanelImageAssetStore(
         const val MAX_IMAGE_BYTES = 50L * 1024L * 1024L
         const val MAX_IMAGE_PIXELS = 50_000_000L
     }
+
+    private data class ImportedDimensions(
+        val widthPx: Int,
+        val heightPx: Int,
+    )
 }

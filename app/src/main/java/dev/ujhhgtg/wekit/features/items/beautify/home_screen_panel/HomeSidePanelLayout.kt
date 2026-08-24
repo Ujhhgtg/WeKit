@@ -9,6 +9,10 @@ import kotlinx.serialization.json.JsonClassDiscriminator
 import java.util.UUID
 
 internal const val HOME_SIDE_PANEL_LAYOUT_VERSION = 1
+internal const val HOME_SIDE_PANEL_IMAGE_MIN_HEIGHT_DP = 80
+internal const val HOME_SIDE_PANEL_IMAGE_MAX_HEIGHT_DP = 800
+internal const val HOME_SIDE_PANEL_IMAGE_HEIGHT_STEP_DP = 8
+internal const val HOME_SIDE_PANEL_IMAGE_MAX_ASPECT_RATIO = 100
 
 internal fun interface HomeSidePanelIdGenerator {
     fun nextId(): String
@@ -109,6 +113,7 @@ internal enum class HomeSidePanelImageScaleMode {
     CROP,
     FIT,
     FILL_BOUNDS,
+    AUTO_RATIO,
 }
 
 @Serializable
@@ -116,6 +121,8 @@ internal enum class HomeSidePanelImageScaleMode {
 internal data class ImageCardConfig(
     override val id: String,
     val imageAssetId: String? = null,
+    val imageWidthPx: Int? = null,
+    val imageHeightPx: Int? = null,
     val heightDp: Int = 240,
     val scaleMode: HomeSidePanelImageScaleMode = HomeSidePanelImageScaleMode.CROP,
 ) : HomeSidePanelCardConfig() {
@@ -173,8 +180,29 @@ internal fun validateHomeSidePanelLayout(layout: HomeSidePanelLayout) {
                         throw InvalidHomeSidePanelLayoutException("Invalid image asset ID: $assetId")
                     }
                 }
-                if (card.heightDp !in 120..480 || card.heightDp % 8 != 0) {
+                if (
+                    card.heightDp !in HOME_SIDE_PANEL_IMAGE_MIN_HEIGHT_DP..HOME_SIDE_PANEL_IMAGE_MAX_HEIGHT_DP ||
+                    card.heightDp % HOME_SIDE_PANEL_IMAGE_HEIGHT_STEP_DP != 0
+                ) {
                     throw InvalidHomeSidePanelLayoutException("Invalid image card height: ${card.heightDp}")
+                }
+                val width = card.imageWidthPx
+                val height = card.imageHeightPx
+                if (card.imageAssetId == null && (width != null || height != null)) {
+                    throw InvalidHomeSidePanelLayoutException("An empty image card cannot have dimensions")
+                }
+                if ((width == null) != (height == null)) {
+                    throw InvalidHomeSidePanelLayoutException("Image dimensions must both be present or absent")
+                }
+                if (width != null && height != null) {
+                    if (
+                        width <= 0 ||
+                        height <= 0 ||
+                        width.toLong() * height.toLong() > 50_000_000L ||
+                        !isHomeSidePanelImageAspectRatioSupported(width, height)
+                    ) {
+                        throw InvalidHomeSidePanelLayoutException("Invalid image dimensions: ${width}x$height")
+                    }
                 }
             }
 
@@ -183,6 +211,13 @@ internal fun validateHomeSidePanelLayout(layout: HomeSidePanelLayout) {
             else -> Unit
         }
     }
+}
+
+internal fun isHomeSidePanelImageAspectRatioSupported(width: Int, height: Int): Boolean {
+    if (width <= 0 || height <= 0) return false
+    val longer = maxOf(width, height).toLong()
+    val shorter = minOf(width, height).toLong()
+    return longer <= shorter * HOME_SIDE_PANEL_IMAGE_MAX_ASPECT_RATIO
 }
 
 internal fun HomeSidePanelLayout.imageAssetIds(): Set<String> = cards

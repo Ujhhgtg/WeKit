@@ -286,6 +286,7 @@ private fun HomeSidePanelLayoutCard(
             onSelectImage = panelState::selectImage,
             onScaleModeChange = panelState::updateImageScaleMode,
             onHeightChange = panelState::updateImageHeight,
+            onImageDimensionsChange = panelState::updateImageDimensions,
             onDeleteCard = panelState::removeCard,
         )
 

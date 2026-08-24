@@ -345,7 +345,13 @@ internal class HomeSidePanelState(
                             if (currentCardExists) {
                                 when (result) {
                                     is HomeSidePanelImageImportResult.Success -> mutateImageDraft {
-                                        updateImage(request.cardId) { it.copy(imageAssetId = result.assetId) }
+                                        updateImage(request.cardId) {
+                                            it.copy(
+                                                imageAssetId = result.assetId,
+                                                imageWidthPx = result.widthPx,
+                                                imageHeightPx = result.heightPx,
+                                            )
+                                        }
                                     }
 
                                     HomeSidePanelImageImportResult.TooLarge -> publishMessage(
@@ -354,6 +360,10 @@ internal class HomeSidePanelState(
 
                                     HomeSidePanelImageImportResult.TooManyPixels -> publishMessage(
                                         beautifyText(R.string.home_side_panel_image_dimensions_too_large),
+                                    )
+
+                                    HomeSidePanelImageImportResult.UnsupportedAspectRatio -> publishMessage(
+                                        beautifyText(R.string.home_side_panel_image_aspect_ratio_unsupported),
                                     )
 
                                     HomeSidePanelImageImportResult.InvalidImage -> publishMessage(
@@ -389,6 +399,12 @@ internal class HomeSidePanelState(
 
     fun updateImageHeight(cardId: String, heightDp: Int) {
         mutateImageDraft { updateImage(cardId) { it.copy(heightDp = heightDp) } }
+    }
+
+    fun updateImageDimensions(cardId: String, widthPx: Int, heightPx: Int) {
+        mutateImageDraft {
+            updateImage(cardId) { it.copy(imageWidthPx = widthPx, imageHeightPx = heightPx) }
+        }
     }
 
     fun imageFile(cardId: String): Path? {

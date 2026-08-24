@@ -3192,9 +3192,11 @@
     <string name="home_side_panel_image_scale_crop">Crop</string>
     <string name="home_side_panel_image_scale_fit">Fit</string>
     <string name="home_side_panel_image_scale_stretch">Stretch</string>
+    <string name="home_side_panel_image_scale_auto_ratio">Auto ratio</string>
     <string name="home_side_panel_image_resize">Resize image card</string>
     <string name="home_side_panel_image_too_large">Image is too large</string>
     <string name="home_side_panel_image_dimensions_too_large">Image dimensions are too large</string>
+    <string name="home_side_panel_image_aspect_ratio_unsupported">Image aspect ratio is too extreme</string>
     <string name="home_side_panel_image_invalid">Invalid image</string>
     <string name="home_side_panel_image_import_failed">Image import failed</string>
     <string name="home_side_panel_card_horizontal_actions">Horizontal tiles</string>
