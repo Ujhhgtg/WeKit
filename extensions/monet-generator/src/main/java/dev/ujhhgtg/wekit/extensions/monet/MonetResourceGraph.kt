@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
+import java.security.MessageDigest
 import java.util.Collections
 
 internal data class MonetResourceKey(val type: String, val name: String)
@@ -97,6 +98,49 @@ internal class MonetResourceGraph private constructor(
     fun referenceSignature(resourceId: Int): MonetReferenceSignature? =
         referenceSignature(resourceId, linkedSetOf())
 
+    /**
+     * Canonical digest for exact Monet profiles. The serialization is deliberately independent
+     * of APK/split order and ARSC iteration order while retaining IDs, configured values, resource
+     * edges, and normalized XML shapes. Any caller selecting an exact profile must use this digest.
+     */
+    fun resourceDigest(): String {
+        val canonical = buildString {
+            appendDigestToken("monet-resource-graph-v1")
+            nodesById.values
+                .sortedBy { it.id.toUInt() }
+                .forEach { node ->
+                    appendDigestToken("node")
+                    appendDigestToken(node.id.toUInt().toString())
+                    appendDigestToken(node.key.type)
+                    appendDigestToken(node.key.name)
+                    node.values
+                        .sortedWith(compareBy({ it.qualifiers }, { it.value.digestToken() }))
+                        .forEach { configured ->
+                            appendDigestToken(configured.qualifiers)
+                            appendDigestToken(configured.value.digestToken())
+                        }
+                    appendDigestToken("node-end")
+                }
+            xmlDataBySource.entries
+                .sortedBy { it.key.toUInt() }
+                .forEach { (sourceId, xmlData) ->
+                    appendDigestToken("xml")
+                    appendDigestToken(sourceId.toUInt().toString())
+                    xmlData.referenceIds.sortedBy(Int::toUInt).forEach { referenceId ->
+                        appendDigestToken(referenceId.toUInt().toString())
+                    }
+                    appendDigestToken("references-end")
+                    xmlData.shapes.map(MonetXmlShape::sha256).sorted().forEach(::appendDigestToken)
+                    appendDigestToken("xml-end")
+                }
+        }
+        return MessageDigest.getInstance("SHA-256")
+            .digest(canonical.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte ->
+                (byte.toInt() and 0xff).toString(16).padStart(2, '0')
+            }
+    }
+
     private fun referenceSignature(
         resourceId: Int,
         expanding: Set<Int>,
@@ -159,6 +203,24 @@ internal class MonetResourceGraph private constructor(
         val referenceIds: Set<Int> = emptySet(),
         val shapes: Set<MonetXmlShape> = emptySet(),
     )
+}
+
+private fun MonetResourceValue.digestToken(): String = when (this) {
+    is MonetResourceValue.Literal -> "literal:$valueType:${data.toULong()}"
+    is MonetResourceValue.Reference -> "reference:$valueType:${resourceId.toUInt()}"
+    is MonetResourceValue.File -> "file:$path"
+    is MonetResourceValue.Complex -> buildString {
+        append("complex:").append(parentId.toUInt())
+        items.sortedWith(compareBy({ it.nameId.toUInt() }, { it.value.digestToken() }))
+            .forEach { item ->
+                append(':').append(item.nameId.toUInt()).append('=')
+                append(item.value.digestToken())
+            }
+    }
+}
+
+private fun StringBuilder.appendDigestToken(value: String) {
+    append(value.toByteArray(Charsets.UTF_8).size).append(':').append(value)
 }
 
 private fun MonetResourceNode.snapshot(): MonetResourceNode = copy(

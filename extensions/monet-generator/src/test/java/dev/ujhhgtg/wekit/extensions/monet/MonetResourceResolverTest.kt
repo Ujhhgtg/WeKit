@@ -153,6 +153,32 @@ class MonetResourceResolverTest {
     }
 
     @Test
+    fun `verified exact profile disambiguates an ambiguous live-valid candidate set`() {
+        val report = resolveFixture(
+            twoEqualDrawables = true,
+            profileTarget = AMBIGUOUS_ID,
+        )
+
+        assertEquals(AMBIGUOUS_ID, report.resolved.getValue(ROLE_ID).resourceId)
+        assertTrue(report.resolved.getValue(ROLE_ID).profileMatched)
+        assertEquals(
+            setOf(FIRST_ID, AMBIGUOUS_ID),
+            report.diagnostics.getValue(ROLE_ID).candidateIds.toSet(),
+        )
+    }
+
+    @Test
+    fun `profile target rejected by a live constraint is profile drift`() {
+        val error = assertThrows(MonetResolutionException::class.java) {
+            resolveFixture(profileTarget = FIRST_ID)
+        }
+
+        assertEquals(MonetResolutionFailure.PROFILE_DRIFT, error.diagnostic.failure)
+        assertEquals(FIRST_ID, error.diagnostic.profileCandidateId)
+        assertEquals(listOf(AMBIGUOUS_ID), error.diagnostic.candidateIds)
+    }
+
+    @Test
     fun `profile disagreement with live graph is fatal`() {
         val error = assertThrows(MonetResolutionException::class.java) {
             resolveFixture(profileTarget = FIRST_ID, graphTarget = AMBIGUOUS_ID)

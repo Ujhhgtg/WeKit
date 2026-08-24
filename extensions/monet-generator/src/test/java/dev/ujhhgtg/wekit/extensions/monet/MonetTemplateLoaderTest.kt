@@ -9,9 +9,9 @@ import java.io.File
 class MonetTemplateLoaderTest {
 
     @ParameterizedTest
-    @ValueSource(strings = ["template_api31.apk", "template_api34.apk"])
+    @ValueSource(strings = ["template_base_api31.apk", "template_base_api34.apk"])
     fun `template loads without bundled Android framework resources`(name: String) {
-        val template = File("../../app/embedded/monet", name)
+        val template = File("../../app/embedded/monet/templates", name)
 
         loadMonetTemplate(template).use { apk ->
             assertNotNull(apk.tableBlock.pickOne())

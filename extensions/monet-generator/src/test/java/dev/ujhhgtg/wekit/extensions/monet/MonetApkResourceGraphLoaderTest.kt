@@ -21,8 +21,8 @@ class MonetApkResourceGraphLoaderTest {
     @Test
     fun `loader reads colors drawables and xml references without framework apk`() {
         val graph = MonetApkResourceGraphLoader.load(
-            listOf(File("../../app/embedded/monet/template_api31.apk")),
-            "dev.ujhhgtg.wekit.monetengine.overlay",
+            listOf(File("../../app/embedded/monet/templates/template_base_api31.apk")),
+            TARGET_PACKAGE,
         )
 
         assertNotNull(graph.node(MonetResourceKey("color", "Brand")))
@@ -34,10 +34,26 @@ class MonetApkResourceGraphLoaderTest {
     fun `loader persists stable xml shapes and deduplicates identical apk inputs`() {
         val single = MonetApkResourceGraphLoader.load(listOf(template), TARGET_PACKAGE)
         val duplicate = MonetApkResourceGraphLoader.load(listOf(template, template), TARGET_PACKAGE)
-        val splashId = single.node(MonetResourceKey("drawable", "logo"))!!.id
+        val splashId = single.node(MonetResourceKey("drawable", "dhq"))!!.id
 
         assertTrue(single.xmlShapes(splashId).isNotEmpty())
         assertEquals(single.xmlShapes(splashId), duplicate.xmlShapes(splashId))
+    }
+
+    @Test
+    fun `loader reads binary xml from obfuscated path using arsc owner type`() {
+        val obfuscated = writeFixture("obfuscated-path.apk") { module ->
+            module.listResFiles().single { resFile ->
+                resFile.asSequence().any { it.name == "dhq" }
+            }.filePath = "res/i/dhq.xml"
+        }
+
+        val graph = MonetApkResourceGraphLoader.load(listOf(obfuscated), TARGET_PACKAGE)
+        val logoId = graph.node(MonetResourceKey("drawable", "dhq"))!!.id
+        val iconId = graph.node(MonetResourceKey("drawable", "icon"))!!.id
+
+        assertTrue(graph.xmlShapes(logoId).isNotEmpty())
+        assertTrue(iconId in graph.outgoing(logoId))
     }
 
     @Test
@@ -133,12 +149,12 @@ class MonetApkResourceGraphLoaderTest {
         module.tableBlock.listPackages().single { it.name == TARGET_PACKAGE }
 
     private companion object {
-        const val TARGET_PACKAGE = "dev.ujhhgtg.wekit.monetengine.overlay"
+        const val TARGET_PACKAGE = "monet.com.tencent.mm"
         const val COMPLEX_PARENT_ID = 0x0106000d
         const val COMPLEX_LITERAL_KEY = 0x01010000
         const val COMPLEX_REFERENCE_KEY = 0x01010001
         const val COMPLEX_REFERENCE_ID = 0x0106000e
 
-        val template = File("../../app/embedded/monet/template_api31.apk")
+        val template = File("../../app/embedded/monet/templates/template_base_api31.apk")
     }
 }

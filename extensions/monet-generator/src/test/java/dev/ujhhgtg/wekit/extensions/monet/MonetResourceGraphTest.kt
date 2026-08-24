@@ -158,4 +158,40 @@ class MonetResourceGraphTest {
         assertEquals(complex, graph.node(complexId)!!.values.single().value)
         assertEquals(setOf(parentId, referencedId), graph.outgoing(complexId))
     }
+
+    @Test
+    fun `canonical graph digest is independent of input ordering`() {
+        val first = MonetResourceNode(
+            id = 0x7f060001,
+            key = MonetResourceKey("color", "surface"),
+            values = listOf(
+                MonetConfiguredValue("night", MonetResourceValue.Literal("COLOR_ARGB8", 2)),
+                MonetConfiguredValue("", MonetResourceValue.Literal("COLOR_ARGB8", 1)),
+            ),
+        )
+        val second = MonetResourceNode(
+            id = 0x7f080002,
+            key = MonetResourceKey("drawable", "bubble"),
+            values = listOf(
+                MonetConfiguredValue("", MonetResourceValue.Reference(first.id)),
+            ),
+        )
+        val shapeA = MonetXmlShape("a".repeat(64))
+        val shapeB = MonetXmlShape("b".repeat(64))
+
+        val forward = MonetResourceGraph(listOf(first, second))
+            .withXmlData(second.id, setOf(first.id), linkedSetOf(shapeA, shapeB))
+        val reversed = MonetResourceGraph(
+            listOf(
+                second,
+                first.copy(values = first.values.reversed()),
+            ),
+        ).withXmlData(second.id, linkedSetOf(first.id), linkedSetOf(shapeB, shapeA))
+
+        assertEquals(forward.resourceDigest(), reversed.resourceDigest())
+        assertEquals(
+            "dc0f6c8e3cb1eb7f77c859b92cafd9e0695f183779679fe68b2e99b66eeb3904",
+            forward.resourceDigest(),
+        )
+    }
 }

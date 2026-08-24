@@ -173,23 +173,26 @@ internal object MonetResourceResolver {
         catalog.roles.forEach { role ->
             val state = states[role.id] ?: return@forEach
             val profileCandidate = profileCandidate(role.id, graph, profiles, state)
-            val failure = when (state.candidateIds.size) {
-                0 -> MonetResolutionFailure.NOT_FOUND
-                1 -> null
-                else -> MonetResolutionFailure.AMBIGUOUS
-            }
-            if (profileCandidate != null &&
-                (state.candidateIds.size != 1 || state.candidateIds.single() != profileCandidate)
-            ) {
+            if (profileCandidate != null && profileCandidate !in state.candidateIds) {
                 throw MonetResolutionException(
                     state.diagnostic(
                         failure = MonetResolutionFailure.PROFILE_DRIFT,
                         profileCandidateId = profileCandidate,
-                        message = "profile target disagrees with the unique generic result",
+                        message = "profile target failed one or more live resource constraints",
                     ),
                 )
             }
-            if (failure != null) {
+            val selectedId = when (state.candidateIds.size) {
+                0 -> null
+                1 -> state.candidateIds.single()
+                else -> profileCandidate
+            }
+            if (selectedId == null) {
+                val failure = if (state.candidateIds.isEmpty()) {
+                    MonetResolutionFailure.NOT_FOUND
+                } else {
+                    MonetResolutionFailure.AMBIGUOUS
+                }
                 val diagnostic = state.diagnostic(failure = failure)
                 diagnostics[role.id] = diagnostic
                 if (role.core) throw MonetResolutionException(diagnostic)
@@ -197,11 +200,10 @@ internal object MonetResourceResolver {
                 return@forEach
             }
 
-            val resourceId = state.candidateIds.single()
             resolved[role.id] = MonetResolvedRole(
                 roleId = role.id,
-                resourceId = resourceId,
-                key = requireNotNull(graph.node(resourceId)).key,
+                resourceId = selectedId,
+                key = requireNotNull(graph.node(selectedId)).key,
                 profileMatched = profileCandidate != null,
             )
             diagnostics[role.id] = state.diagnostic(

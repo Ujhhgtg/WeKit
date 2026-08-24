@@ -1,0 +1,3619 @@
+{
+  "overlays": [
+    {
+      "fileName": "MonetWeChat.apk",
+      "id": "base-api31",
+      "packageName": "monet.com.tencent.mm",
+      "templateFile": "templates/template_base_api31.apk",
+      "templateResources": {
+        "about.authors.prefix": {
+          "name": "mej",
+          "type": "string"
+        },
+        "about.authors.suffix": {
+          "name": "mei",
+          "type": "string"
+        },
+        "about.compatibility": {
+          "name": "aua",
+          "type": "string"
+        },
+        "about.separator": {
+          "name": "jva",
+          "type": "string"
+        },
+        "about.slogan": {
+          "name": "a0c",
+          "type": "string"
+        },
+        "about.title": {
+          "name": "kco",
+          "type": "string"
+        },
+        "about.update-date": {
+          "name": "jw",
+          "type": "string"
+        },
+        "brand.circular.background": {
+          "name": "dik",
+          "type": "drawable"
+        },
+        "chat.brand-action.background": {
+          "name": "bm4",
+          "type": "drawable"
+        },
+        "chat.bubble.incoming.link": {
+          "name": "a54",
+          "type": "drawable"
+        },
+        "chat.bubble.incoming.link.mask": {
+          "name": "a36",
+          "type": "drawable"
+        },
+        "chat.bubble.incoming.normal": {
+          "name": "a53",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.link": {
+          "name": "a8o",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.link.mask": {
+          "name": "a4m",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.normal": {
+          "name": "a8m",
+          "type": "drawable"
+        },
+        "chat.input.transparent-layer": {
+          "name": "p5",
+          "type": "drawable"
+        },
+        "chat.red-envelope.incoming.alias": {
+          "name": "redcoverreceivermsgnodebg",
+          "type": "drawable"
+        },
+        "chat.red-envelope.incoming.normal": {
+          "name": "yw",
+          "type": "drawable"
+        },
+        "chat.red-envelope.incoming.received": {
+          "name": "z1",
+          "type": "drawable"
+        },
+        "chat.red-envelope.outgoing.alias": {
+          "name": "redcoversendermsgnodebg",
+          "type": "drawable"
+        },
+        "chat.red-envelope.outgoing.normal": {
+          "name": "z8",
+          "type": "drawable"
+        },
+        "chat.red-envelope.outgoing.received": {
+          "name": "zc",
+          "type": "drawable"
+        },
+        "chat.transfer.incoming.expired": {
+          "name": "c2c_chatfrom_remittance_expired_bg",
+          "type": "drawable"
+        },
+        "chat.transfer.outgoing.expired": {
+          "name": "c2c_chatto_remittance_expired_bg",
+          "type": "drawable"
+        },
+        "chat.voice-to-text.background": {
+          "name": "a7s",
+          "type": "drawable"
+        },
+        "launcher.splash.background": {
+          "name": "dhq",
+          "type": "drawable"
+        },
+        "launcher.themed.icon": {
+          "name": "b",
+          "type": "mipmap"
+        },
+        "main.surface.header.primary": {
+          "name": "cbr",
+          "type": "drawable"
+        },
+        "main.surface.header.secondary": {
+          "name": "cbs",
+          "type": "drawable"
+        },
+        "payment.key.primary": {
+          "name": "dq7",
+          "type": "drawable"
+        },
+        "payment.key.secondary": {
+          "name": "dq8",
+          "type": "drawable"
+        },
+        "theme.color.10000000--10ffffff.slot-01": {
+          "name": "ahf",
+          "type": "color"
+        },
+        "theme.color.10000000--10ffffff.slot-02": {
+          "name": "ahk",
+          "type": "color"
+        },
+        "theme.color.10000000--10ffffff.slot-03": {
+          "name": "awp",
+          "type": "color"
+        },
+        "theme.color.10000000--10ffffff.slot-04": {
+          "name": "tw",
+          "type": "color"
+        },
+        "theme.color.10000000--10ffffff.slot-05": {
+          "name": "up",
+          "type": "color"
+        },
+        "theme.color.10000000--10ffffff.slot-06": {
+          "name": "xw",
+          "type": "color"
+        },
+        "theme.color.10000000--system-surface-container-dark.slot-01": {
+          "name": "BW_90",
+          "type": "color"
+        },
+        "theme.color.10000000--system-surface-container-dark.slot-02": {
+          "name": "BW_90_K",
+          "type": "color"
+        },
+        "theme.color.system-accent1-100--system-accent1-800.slot-01": {
+          "name": "Brand_170",
+          "type": "color"
+        },
+        "theme.color.system-accent1-100--system-accent1-800.slot-02": {
+          "name": "Brand_170_CARE",
+          "type": "color"
+        },
+        "theme.color.system-accent1-100--system-accent1-800.slot-03": {
+          "name": "Brand_BG_130",
+          "type": "color"
+        },
+        "theme.color.system-accent1-100--system-accent1-800.slot-04": {
+          "name": "Brand_BG_130_CARE",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-01": {
+          "name": "Brand_90",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-02": {
+          "name": "Brand_90_CARE",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-03": {
+          "name": "Brand_BG_90",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-04": {
+          "name": "Brand_BG_90_CARE",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-05": {
+          "name": "LightGreen",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-06": {
+          "name": "LightGreen_100",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-07": {
+          "name": "LightGreen_100_CARE",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-08": {
+          "name": "Red_90",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-09": {
+          "name": "Red_90_CARE",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-10": {
+          "name": "b3w",
+          "type": "color"
+        },
+        "theme.color.system-accent2-600--system-accent2-600.slot-01": {
+          "name": "r",
+          "type": "color"
+        },
+        "theme.color.system-accent2-600--system-accent2-600.slot-02": {
+          "name": "s",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-01": {
+          "name": "Brand",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-02": {
+          "name": "Brand_100",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-03": {
+          "name": "Brand_100_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-04": {
+          "name": "Brand_120",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-05": {
+          "name": "Brand_120_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-06": {
+          "name": "Brand_80",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-07": {
+          "name": "Brand_80_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-08": {
+          "name": "Brand_BG_100",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-09": {
+          "name": "Brand_BG_100_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-10": {
+          "name": "Brand_BG_110",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-11": {
+          "name": "Brand_BG_110_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-12": {
+          "name": "Brand_K",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-13": {
+          "name": "Link",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-14": {
+          "name": "LinkFinder_100",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-15": {
+          "name": "LinkFinder_100_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-16": {
+          "name": "Link_100",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-17": {
+          "name": "Link_100_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-18": {
+          "name": "Red",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-19": {
+          "name": "Red_100",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-20": {
+          "name": "Yellow_BG_100",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-21": {
+          "name": "Yellow_BG_100_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-22": {
+          "name": "a40",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-23": {
+          "name": "ajm",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-24": {
+          "name": "an4",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-25": {
+          "name": "atk",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-26": {
+          "name": "aty",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-27": {
+          "name": "kp",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-01": {
+          "name": "BW_BG_30",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-02": {
+          "name": "a25",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-03": {
+          "name": "a28",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-04": {
+          "name": "a4v",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-05": {
+          "name": "a4z",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-06": {
+          "name": "a6c",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-07": {
+          "name": "a71",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-08": {
+          "name": "a7g",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-09": {
+          "name": "a8t",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-10": {
+          "name": "a94",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-11": {
+          "name": "ajh",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-12": {
+          "name": "b_",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-13": {
+          "name": "kf",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-14": {
+          "name": "kg",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-15": {
+          "name": "kh",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-16": {
+          "name": "kj",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-17": {
+          "name": "n5",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-18": {
+          "name": "n8",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-19": {
+          "name": "n_",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-20": {
+          "name": "nb",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-21": {
+          "name": "s1",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-22": {
+          "name": "xa",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--10ffffff.slot-01": {
+          "name": "a29",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--10ffffff.slot-02": {
+          "name": "aab",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--10ffffff.slot-03": {
+          "name": "aad",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-primary-dark": {
+          "name": "akw",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-01": {
+          "name": "BW_30_Alpha_0_9",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-02": {
+          "name": "BW_93",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-03": {
+          "name": "BW_93_Night_Mode",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-04": {
+          "name": "BW_97",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-05": {
+          "name": "BW_BG_95",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-06": {
+          "name": "BW_BG_98",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-07": {
+          "name": "UN_BW_93",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-08": {
+          "name": "a1p",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-09": {
+          "name": "a1x",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-10": {
+          "name": "a24",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-11": {
+          "name": "a2g",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-12": {
+          "name": "a2r",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-13": {
+          "name": "a2s",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-14": {
+          "name": "a2w",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-15": {
+          "name": "a2x",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-16": {
+          "name": "a32",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-17": {
+          "name": "a36",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-18": {
+          "name": "a3a",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-19": {
+          "name": "a8w",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-20": {
+          "name": "a_c",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-21": {
+          "name": "a_g",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-22": {
+          "name": "a_l",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-23": {
+          "name": "aar",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-24": {
+          "name": "ab1",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-25": {
+          "name": "ad9",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-26": {
+          "name": "adr",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-27": {
+          "name": "af6",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-28": {
+          "name": "af_",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-29": {
+          "name": "aff",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-30": {
+          "name": "akp",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-31": {
+          "name": "akt",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-32": {
+          "name": "aow",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-33": {
+          "name": "ap3",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-34": {
+          "name": "asp",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-35": {
+          "name": "aum",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-36": {
+          "name": "awb",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-37": {
+          "name": "b",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-38": {
+          "name": "i",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-39": {
+          "name": "j",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-40": {
+          "name": "k",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-41": {
+          "name": "l",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-42": {
+          "name": "n0",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-43": {
+          "name": "no",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-44": {
+          "name": "nq",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-45": {
+          "name": "o",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-46": {
+          "name": "ou",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-47": {
+          "name": "ov",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-48": {
+          "name": "p",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-49": {
+          "name": "qy",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-50": {
+          "name": "qz",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-51": {
+          "name": "ub",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-52": {
+          "name": "vf",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-53": {
+          "name": "vm",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-54": {
+          "name": "vo",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-55": {
+          "name": "xr",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-56": {
+          "name": "xy",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-57": {
+          "name": "xz",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-58": {
+          "name": "y1",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-59": {
+          "name": "y2",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-60": {
+          "name": "y4",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-light.slot-01": {
+          "name": "jv",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-light.slot-02": {
+          "name": "jw",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-light.slot-03": {
+          "name": "jz",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-light.slot-04": {
+          "name": "k3",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-light.slot-05": {
+          "name": "k4",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-light.slot-06": {
+          "name": "k7",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-container-dark": {
+          "name": "BW_BG_20",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-01": {
+          "name": "BW_BG_19",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-02": {
+          "name": "a0q",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-03": {
+          "name": "aaq",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-04": {
+          "name": "af2",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-05": {
+          "name": "ap8",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-06": {
+          "name": "bb",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-07": {
+          "name": "mw",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-08": {
+          "name": "n1",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-09": {
+          "name": "sg",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-10": {
+          "name": "sl",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-11": {
+          "name": "sr",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-12": {
+          "name": "xb",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-13": {
+          "name": "xl",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-14": {
+          "name": "yd",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-01": {
+          "name": "BW_100",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-02": {
+          "name": "BW_BG_100",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-03": {
+          "name": "UN_BW_100_Alpha_0_8",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-04": {
+          "name": "a67",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-05": {
+          "name": "a7f",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-06": {
+          "name": "abv",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-07": {
+          "name": "axh",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-08": {
+          "name": "m",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-09": {
+          "name": "n",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-10": {
+          "name": "t",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-light.slot-01": {
+          "name": "BW_0_Alpha_0_9_Night_Mode",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-light.slot-02": {
+          "name": "BW_0_Alpha_0_9_White_Mode",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-light.slot-03": {
+          "name": "BW_0_Alpha_0_9_night_mode",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-light.slot-04": {
+          "name": "q6",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-01": {
+          "name": "BW_85",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-02": {
+          "name": "a1g",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-03": {
+          "name": "a2_",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-04": {
+          "name": "a2p",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-05": {
+          "name": "a_w",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-06": {
+          "name": "aa4",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-07": {
+          "name": "agq",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-08": {
+          "name": "tt",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-09": {
+          "name": "tv",
+          "type": "color"
+        },
+        "theme.color.unknown--e6ffffff": {
+          "name": "u6",
+          "type": "color"
+        },
+        "theme.color.unknown--system-primary-dark": {
+          "name": "ta",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-container-dark.slot-01": {
+          "name": "abg",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-container-dark.slot-02": {
+          "name": "agj",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-container-dark.slot-03": {
+          "name": "agp",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-container-dark.slot-04": {
+          "name": "amr",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-container-dark.slot-05": {
+          "name": "ayt",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-dark.slot-01": {
+          "name": "aq6",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-dark.slot-02": {
+          "name": "ni",
+          "type": "color"
+        }
+      }
+    },
+    {
+      "fileName": "MonetWeChat.apk",
+      "id": "base-api34",
+      "packageName": "monet.com.tencent.mm",
+      "templateFile": "templates/template_base_api34.apk",
+      "templateResources": {
+        "about.authors.prefix": {
+          "name": "mej",
+          "type": "string"
+        },
+        "about.authors.suffix": {
+          "name": "mei",
+          "type": "string"
+        },
+        "about.compatibility": {
+          "name": "aua",
+          "type": "string"
+        },
+        "about.separator": {
+          "name": "jva",
+          "type": "string"
+        },
+        "about.slogan": {
+          "name": "a0c",
+          "type": "string"
+        },
+        "about.title": {
+          "name": "kco",
+          "type": "string"
+        },
+        "about.update-date": {
+          "name": "jw",
+          "type": "string"
+        },
+        "brand.circular.background": {
+          "name": "dik",
+          "type": "drawable"
+        },
+        "chat.brand-action.background": {
+          "name": "bm4",
+          "type": "drawable"
+        },
+        "chat.bubble.incoming.link": {
+          "name": "a54",
+          "type": "drawable"
+        },
+        "chat.bubble.incoming.link.mask": {
+          "name": "a36",
+          "type": "drawable"
+        },
+        "chat.bubble.incoming.normal": {
+          "name": "a53",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.link": {
+          "name": "a8o",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.link.mask": {
+          "name": "a4m",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.normal": {
+          "name": "a8m",
+          "type": "drawable"
+        },
+        "chat.input.transparent-layer": {
+          "name": "p5",
+          "type": "drawable"
+        },
+        "chat.red-envelope.incoming.alias": {
+          "name": "redcoverreceivermsgnodebg",
+          "type": "drawable"
+        },
+        "chat.red-envelope.incoming.normal": {
+          "name": "yw",
+          "type": "drawable"
+        },
+        "chat.red-envelope.incoming.received": {
+          "name": "z1",
+          "type": "drawable"
+        },
+        "chat.red-envelope.outgoing.alias": {
+          "name": "redcoversendermsgnodebg",
+          "type": "drawable"
+        },
+        "chat.red-envelope.outgoing.normal": {
+          "name": "z8",
+          "type": "drawable"
+        },
+        "chat.red-envelope.outgoing.received": {
+          "name": "zc",
+          "type": "drawable"
+        },
+        "chat.transfer.incoming.expired": {
+          "name": "c2c_chatfrom_remittance_expired_bg",
+          "type": "drawable"
+        },
+        "chat.transfer.outgoing.expired": {
+          "name": "c2c_chatto_remittance_expired_bg",
+          "type": "drawable"
+        },
+        "chat.voice-to-text.background": {
+          "name": "a7s",
+          "type": "drawable"
+        },
+        "launcher.splash.background": {
+          "name": "dhq",
+          "type": "drawable"
+        },
+        "launcher.themed.icon": {
+          "name": "b",
+          "type": "mipmap"
+        },
+        "main.surface.header.primary": {
+          "name": "cbr",
+          "type": "drawable"
+        },
+        "main.surface.header.secondary": {
+          "name": "cbs",
+          "type": "drawable"
+        },
+        "payment.key.primary": {
+          "name": "dq7",
+          "type": "drawable"
+        },
+        "payment.key.secondary": {
+          "name": "dq8",
+          "type": "drawable"
+        },
+        "theme.color.10000000--10ffffff.slot-01": {
+          "name": "ahf",
+          "type": "color"
+        },
+        "theme.color.10000000--10ffffff.slot-02": {
+          "name": "ahk",
+          "type": "color"
+        },
+        "theme.color.10000000--10ffffff.slot-03": {
+          "name": "awp",
+          "type": "color"
+        },
+        "theme.color.10000000--10ffffff.slot-04": {
+          "name": "tw",
+          "type": "color"
+        },
+        "theme.color.10000000--10ffffff.slot-05": {
+          "name": "up",
+          "type": "color"
+        },
+        "theme.color.10000000--10ffffff.slot-06": {
+          "name": "xw",
+          "type": "color"
+        },
+        "theme.color.10000000--system-surface-container-dark.slot-01": {
+          "name": "BW_90",
+          "type": "color"
+        },
+        "theme.color.10000000--system-surface-container-dark.slot-02": {
+          "name": "BW_90_K",
+          "type": "color"
+        },
+        "theme.color.system-accent1-100--system-accent1-800.slot-01": {
+          "name": "Brand_170",
+          "type": "color"
+        },
+        "theme.color.system-accent1-100--system-accent1-800.slot-02": {
+          "name": "Brand_170_CARE",
+          "type": "color"
+        },
+        "theme.color.system-accent1-100--system-accent1-800.slot-03": {
+          "name": "Brand_BG_130",
+          "type": "color"
+        },
+        "theme.color.system-accent1-100--system-accent1-800.slot-04": {
+          "name": "Brand_BG_130_CARE",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-01": {
+          "name": "Brand_90",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-02": {
+          "name": "Brand_90_CARE",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-03": {
+          "name": "Brand_BG_90",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-04": {
+          "name": "Brand_BG_90_CARE",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-05": {
+          "name": "LightGreen",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-06": {
+          "name": "LightGreen_100",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-07": {
+          "name": "LightGreen_100_CARE",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-08": {
+          "name": "Red_90",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-09": {
+          "name": "Red_90_CARE",
+          "type": "color"
+        },
+        "theme.color.system-accent1-300--system-accent1-400.slot-10": {
+          "name": "b3w",
+          "type": "color"
+        },
+        "theme.color.system-accent2-600--system-accent2-600.slot-01": {
+          "name": "r",
+          "type": "color"
+        },
+        "theme.color.system-accent2-600--system-accent2-600.slot-02": {
+          "name": "s",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-01": {
+          "name": "Brand",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-02": {
+          "name": "Brand_100",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-03": {
+          "name": "Brand_100_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-04": {
+          "name": "Brand_120",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-05": {
+          "name": "Brand_120_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-06": {
+          "name": "Brand_80",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-07": {
+          "name": "Brand_80_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-08": {
+          "name": "Brand_BG_100",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-09": {
+          "name": "Brand_BG_100_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-10": {
+          "name": "Brand_BG_110",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-11": {
+          "name": "Brand_BG_110_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-12": {
+          "name": "Brand_K",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-13": {
+          "name": "Link",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-14": {
+          "name": "LinkFinder_100",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-15": {
+          "name": "LinkFinder_100_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-16": {
+          "name": "Link_100",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-17": {
+          "name": "Link_100_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-18": {
+          "name": "Red",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-19": {
+          "name": "Red_100",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-20": {
+          "name": "Yellow_BG_100",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-21": {
+          "name": "Yellow_BG_100_CARE",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-22": {
+          "name": "a40",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-23": {
+          "name": "ajm",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-24": {
+          "name": "an4",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-25": {
+          "name": "atk",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-26": {
+          "name": "aty",
+          "type": "color"
+        },
+        "theme.color.system-primary-light--system-primary-dark.slot-27": {
+          "name": "kp",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-01": {
+          "name": "BW_BG_30",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-02": {
+          "name": "a25",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-03": {
+          "name": "a28",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-04": {
+          "name": "a4v",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-05": {
+          "name": "a4z",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-06": {
+          "name": "a6c",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-07": {
+          "name": "a71",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-08": {
+          "name": "a7g",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-09": {
+          "name": "a8t",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-10": {
+          "name": "a94",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-11": {
+          "name": "ajh",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-12": {
+          "name": "b_",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-13": {
+          "name": "kf",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-14": {
+          "name": "kg",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-15": {
+          "name": "kh",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-16": {
+          "name": "kj",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-17": {
+          "name": "n5",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-18": {
+          "name": "n8",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-19": {
+          "name": "n_",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-20": {
+          "name": "nb",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-21": {
+          "name": "s1",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-dark--system-surface-container-dark.slot-22": {
+          "name": "xa",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--10ffffff.slot-01": {
+          "name": "a29",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--10ffffff.slot-02": {
+          "name": "aab",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--10ffffff.slot-03": {
+          "name": "aad",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-primary-dark": {
+          "name": "akw",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-01": {
+          "name": "BW_30_Alpha_0_9",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-02": {
+          "name": "BW_93",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-03": {
+          "name": "BW_93_Night_Mode",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-04": {
+          "name": "BW_97",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-05": {
+          "name": "BW_BG_95",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-06": {
+          "name": "BW_BG_98",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-07": {
+          "name": "UN_BW_93",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-08": {
+          "name": "a1p",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-09": {
+          "name": "a1x",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-10": {
+          "name": "a24",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-11": {
+          "name": "a2g",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-12": {
+          "name": "a2r",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-13": {
+          "name": "a2s",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-14": {
+          "name": "a2w",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-15": {
+          "name": "a2x",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-16": {
+          "name": "a32",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-17": {
+          "name": "a36",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-18": {
+          "name": "a3a",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-19": {
+          "name": "a8w",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-20": {
+          "name": "a_c",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-21": {
+          "name": "a_g",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-22": {
+          "name": "a_l",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-23": {
+          "name": "aar",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-24": {
+          "name": "ab1",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-25": {
+          "name": "ad9",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-26": {
+          "name": "adr",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-27": {
+          "name": "af6",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-28": {
+          "name": "af_",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-29": {
+          "name": "aff",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-30": {
+          "name": "akp",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-31": {
+          "name": "akt",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-32": {
+          "name": "aow",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-33": {
+          "name": "ap3",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-34": {
+          "name": "asp",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-35": {
+          "name": "aum",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-36": {
+          "name": "awb",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-37": {
+          "name": "b",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-38": {
+          "name": "i",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-39": {
+          "name": "j",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-40": {
+          "name": "k",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-41": {
+          "name": "l",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-42": {
+          "name": "n0",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-43": {
+          "name": "no",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-44": {
+          "name": "nq",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-45": {
+          "name": "o",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-46": {
+          "name": "ou",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-47": {
+          "name": "ov",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-48": {
+          "name": "p",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-49": {
+          "name": "qy",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-50": {
+          "name": "qz",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-51": {
+          "name": "ub",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-52": {
+          "name": "vf",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-53": {
+          "name": "vm",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-54": {
+          "name": "vo",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-55": {
+          "name": "xr",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-56": {
+          "name": "xy",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-57": {
+          "name": "xz",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-58": {
+          "name": "y1",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-59": {
+          "name": "y2",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-60": {
+          "name": "y4",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-light.slot-01": {
+          "name": "jv",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-light.slot-02": {
+          "name": "jw",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-light.slot-03": {
+          "name": "jz",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-light.slot-04": {
+          "name": "k3",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-light.slot-05": {
+          "name": "k4",
+          "type": "color"
+        },
+        "theme.color.system-surface-container-light--system-surface-container-light.slot-06": {
+          "name": "k7",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-container-dark": {
+          "name": "BW_BG_20",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-01": {
+          "name": "BW_BG_19",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-02": {
+          "name": "a0q",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-03": {
+          "name": "aaq",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-04": {
+          "name": "af2",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-05": {
+          "name": "ap8",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-06": {
+          "name": "bb",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-07": {
+          "name": "mw",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-08": {
+          "name": "n1",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-09": {
+          "name": "sg",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-10": {
+          "name": "sl",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-11": {
+          "name": "sr",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-12": {
+          "name": "xb",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-13": {
+          "name": "xl",
+          "type": "color"
+        },
+        "theme.color.system-surface-dark--system-surface-dark.slot-14": {
+          "name": "yd",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-01": {
+          "name": "BW_100",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-02": {
+          "name": "BW_BG_100",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-03": {
+          "name": "UN_BW_100_Alpha_0_8",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-04": {
+          "name": "a67",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-05": {
+          "name": "a7f",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-06": {
+          "name": "abv",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-07": {
+          "name": "axh",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-08": {
+          "name": "m",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-09": {
+          "name": "n",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-dark.slot-10": {
+          "name": "t",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-light.slot-01": {
+          "name": "BW_0_Alpha_0_9_Night_Mode",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-light.slot-02": {
+          "name": "BW_0_Alpha_0_9_White_Mode",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-light.slot-03": {
+          "name": "BW_0_Alpha_0_9_night_mode",
+          "type": "color"
+        },
+        "theme.color.system-surface-light--system-surface-light.slot-04": {
+          "name": "q6",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-01": {
+          "name": "BW_85",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-02": {
+          "name": "a1g",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-03": {
+          "name": "a2_",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-04": {
+          "name": "a2p",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-05": {
+          "name": "a_w",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-06": {
+          "name": "aa4",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-07": {
+          "name": "agq",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-08": {
+          "name": "tt",
+          "type": "color"
+        },
+        "theme.color.unknown--10ffffff.slot-09": {
+          "name": "tv",
+          "type": "color"
+        },
+        "theme.color.unknown--e6ffffff": {
+          "name": "u6",
+          "type": "color"
+        },
+        "theme.color.unknown--system-primary-dark": {
+          "name": "ta",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-container-dark.slot-01": {
+          "name": "abg",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-container-dark.slot-02": {
+          "name": "agj",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-container-dark.slot-03": {
+          "name": "agp",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-container-dark.slot-04": {
+          "name": "amr",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-container-dark.slot-05": {
+          "name": "ayt",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-dark.slot-01": {
+          "name": "aq6",
+          "type": "color"
+        },
+        "theme.color.unknown--system-surface-dark.slot-02": {
+          "name": "ni",
+          "type": "color"
+        }
+      }
+    },
+    {
+      "fileName": "MonetWeChatClassicBubble.apk",
+      "id": "classic-bubble",
+      "packageName": "monet.classicbubble.com.tencent.mm",
+      "selectionCondition": {
+        "bubbleStyle": "CLASSIC"
+      },
+      "templateFile": "templates/template_classic.apk",
+      "templateResources": {
+        "chat.bubble.incoming.link": {
+          "name": "a54",
+          "type": "drawable"
+        },
+        "chat.bubble.incoming.link.mask": {
+          "name": "a36",
+          "type": "drawable"
+        },
+        "chat.bubble.incoming.normal": {
+          "name": "a53",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.link": {
+          "name": "a8o",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.link.mask": {
+          "name": "a4m",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.normal": {
+          "name": "a8m",
+          "type": "drawable"
+        },
+        "chat.red-envelope.incoming.normal": {
+          "name": "yw",
+          "type": "drawable"
+        },
+        "chat.red-envelope.incoming.received": {
+          "name": "z1",
+          "type": "drawable"
+        },
+        "chat.red-envelope.outgoing.normal": {
+          "name": "z8",
+          "type": "drawable"
+        },
+        "chat.red-envelope.outgoing.received": {
+          "name": "zc",
+          "type": "drawable"
+        },
+        "chat.transfer.incoming.expired": {
+          "name": "c2c_chatfrom_remittance_expired_bg",
+          "type": "drawable"
+        },
+        "chat.transfer.outgoing.expired": {
+          "name": "c2c_chatto_remittance_expired_bg",
+          "type": "drawable"
+        }
+      }
+    },
+    {
+      "fileName": "MonetWeChatBubblePro.apk",
+      "id": "pro-bubble",
+      "packageName": "monet.bubblepro.com.tencent.mm",
+      "selectionCondition": {
+        "bubbleStyle": "PRO"
+      },
+      "templateFile": "templates/template_pro.apk",
+      "templateResources": {
+        "chat.bubble.incoming.link": {
+          "name": "a54",
+          "type": "drawable"
+        },
+        "chat.bubble.incoming.link.mask": {
+          "name": "a36",
+          "type": "drawable"
+        },
+        "chat.bubble.incoming.normal": {
+          "name": "a53",
+          "type": "drawable"
+        },
+        "chat.bubble.incoming.pro": {
+          "name": "c2creceivermsgnodebg",
+          "type": "drawable"
+        },
+        "chat.bubble.incoming.pro.handled": {
+          "name": "c2creceivermsgnodebg_handled",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.link": {
+          "name": "a8o",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.link.mask": {
+          "name": "a4m",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.normal": {
+          "name": "a8m",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.pro": {
+          "name": "c2csendermsgnodebg",
+          "type": "drawable"
+        },
+        "chat.bubble.outgoing.pro.handled": {
+          "name": "c2csendermsgnodebg_handled",
+          "type": "drawable"
+        }
+      }
+    },
+    {
+      "fileName": "MonetWeChatMultiSceneCorners.apk",
+      "id": "multi-scene-corners",
+      "packageName": "monet.multiscenecorners.com.tencent.mm",
+      "selectionCondition": {
+        "multiSceneCornersEnabled": true
+      },
+      "templateFile": "templates/template_corners.apk",
+      "templateResources": {
+        "chat.input.background": {
+          "name": "bw7",
+          "type": "drawable"
+        },
+        "chat.quote.background": {
+          "name": "cf8",
+          "type": "drawable"
+        },
+        "payment.key.pressed": {
+          "name": "dq_",
+          "type": "drawable"
+        }
+      }
+    },
+    {
+      "fileName": "MonetWeChatSolidTab.apk",
+      "id": "solid-tab",
+      "packageName": "monet.solidtab.com.tencent.mm",
+      "selectionCondition": {
+        "tabStyle": "SOLID"
+      },
+      "templateFile": "templates/template_solid_tab.apk",
+      "templateResources": {
+        "main.tab.background": {
+          "name": "df",
+          "type": "color"
+        }
+      }
+    },
+    {
+      "fileName": "MonetWeChatBlurTab.apk",
+      "id": "blur-tab",
+      "packageName": "monet.blurtab.com.tencent.mm",
+      "selectionCondition": {
+        "tabStyle": "BLUR"
+      },
+      "templateFile": "templates/template_blur_tab.apk",
+      "templateResources": {
+        "main.tab.background": {
+          "name": "df",
+          "type": "color"
+        }
+      }
+    }
+  ],
+  "roles": [
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:3439329279",
+      "id": "theme.color.system-surface-light--system-surface-light.slot-01",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:3439329279",
+      "id": "theme.color.system-surface-light--system-surface-light.slot-02",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:3439329279",
+      "id": "theme.color.system-surface-light--system-surface-light.slot-03",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294967295",
+      "id": "theme.color.system-surface-light--system-surface-dark.slot-01",
+      "minSdk": 31,
+      "nightValue": "reference:REFERENCE:color:literal:COLOR_RGB8:4279834905:-",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:1307438573",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-01",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4280295456",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4292532954",
+      "id": "theme.color.unknown--10ffffff.slot-01",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4281348144",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293256677",
+      "id": "theme.color.10000000--system-surface-container-dark.slot-01",
+      "minSdk": 31,
+      "nightValue": "reference:REFERENCE:color:literal:COLOR_ARGB8:234881023:-",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293256677",
+      "id": "theme.color.10000000--system-surface-container-dark.slot-02",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293783021",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-02",
+      "minSdk": 31,
+      "nightValue": "reference:REFERENCE:color:literal:COLOR_RGB8:4279308561:-",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293783021",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-03",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-04",
+      "minSdk": 31,
+      "nightValue": "reference:REFERENCE:color:literal:COLOR_RGB8:4280295456:-",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294967295",
+      "id": "theme.color.system-surface-light--system-surface-dark.slot-02",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4279834905",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-01",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4281545523",
+      "id": "theme.color.system-surface-dark--system-surface-container-dark",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4283190348",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-01",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4284506208",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_RGB8:4293783021:reference:REFERENCE:color:literal:COLOR_RGB8:4279308561:-",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-05",
+      "minSdk": 31,
+      "nightValue": "reference:REFERENCE:color:literal:COLOR_RGB8:4279308561:-",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_RGB8:4294440951:reference:REFERENCE:color:literal:COLOR_RGB8:4280295456:-",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-06",
+      "minSdk": 31,
+      "nightValue": "reference:REFERENCE:color:literal:COLOR_RGB8:4280295456:-",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4278698336",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-01",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4278698336",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-02",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4278290754",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-03",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4278698336",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4281912703",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-04",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4278557260",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4281912703",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-05",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4278557260",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4290047182",
+      "id": "theme.color.system-accent1-100--system-accent1-800.slot-01",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4278336028",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4290047182",
+      "id": "theme.color.system-accent1-100--system-accent1-800.slot-02",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4278336028",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4278557260",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-06",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4281912703",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4278557260",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-07",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4281912703",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4278627926",
+      "id": "theme.color.system-accent1-300--system-accent1-400.slot-01",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4280338288",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4278627926",
+      "id": "theme.color.system-accent1-300--system-accent1-400.slot-02",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4280338288",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4280987239",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-08",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4280987239",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-09",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4282299765",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-10",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4280654940",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4282299765",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-11",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4280654940",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4285122196",
+      "id": "theme.color.system-accent1-100--system-accent1-800.slot-03",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4280121928",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4285122196",
+      "id": "theme.color.system-accent1-100--system-accent1-800.slot-04",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4280121928",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4280654940",
+      "id": "theme.color.system-accent1-300--system-accent1-400.slot-03",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4282299765",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4280654940",
+      "id": "theme.color.system-accent1-300--system-accent1-400.slot-04",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4282299765",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4278698336",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-12",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4288015465",
+      "id": "theme.color.system-accent1-300--system-accent1-400.slot-05",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4282299765",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4288015465",
+      "id": "theme.color.system-accent1-300--system-accent1-400.slot-06",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4282299765",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4288015465",
+      "id": "theme.color.system-accent1-300--system-accent1-400.slot-07",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4282299765",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4283919253",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-13",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4286419113",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4278199910",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-14",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4292798975",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4278199910",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-15",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4292798975",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4283919253",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-16",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4286419113",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4283919253",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-17",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4286419113",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294594897",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-18",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4294594897",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-19",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4292954441",
+      "id": "theme.color.system-accent1-300--system-accent1-400.slot-08",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4294599266",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4292954441",
+      "id": "theme.color.system-accent1-300--system-accent1-400.slot-09",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4294599266",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:3439329279",
+      "id": "theme.color.system-surface-light--system-surface-dark.slot-03",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293783021",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-07",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4293899776",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-20",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4290744576",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4293899776",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-21",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4290744576",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "file:res/f/ab.xml",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-02",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:reference:REFERENCE:color:literal:COLOR_ARGB8:2348810240:literal:COLOR_ARGB8:2164260863:-",
+      "id": "theme.color.unknown--10ffffff.slot-02",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4281874488",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-08",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:436207616",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-09",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-10",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294967295",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-02",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4279834905",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-03",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:1308622847",
+      "id": "theme.color.system-surface-container-light--10ffffff.slot-01",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:452984831",
+      "id": "theme.color.unknown--10ffffff.slot-03",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:2164260863",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-11",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294967295",
+      "id": "theme.color.unknown--10ffffff.slot-04",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4280295456",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:654311423",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-12",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:3437160959",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-13",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-14",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4281479730",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-15",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4281874488",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294926662",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-16",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4287935452",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-17",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-18",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:352321535",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:3439295252",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-22",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:855638016",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-04",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4288327124",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-05",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4291801463",
+      "id": "theme.color.system-surface-light--system-surface-dark.slot-04",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4292953916",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-06",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_RGB8:4278698336:-",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-07",
+      "minSdk": 31,
+      "nightValue": "reference:REFERENCE:color:literal:COLOR_RGB8:4278190080:-",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:436207616",
+      "id": "theme.color.system-surface-light--system-surface-dark.slot-05",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:2348810240",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-08",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:2147483648",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-09",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294111986",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-19",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_ARGB8:3841982464:literal:COLOR_ARGB8:3439329279",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-10",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294967295",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-20",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:2147483648",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-21",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-22",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:3439329279",
+      "id": "theme.color.unknown--10ffffff.slot-05",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_RGB8:4293783021:reference:REFERENCE:color:literal:COLOR_RGB8:4279308561:-",
+      "id": "theme.color.unknown--10ffffff.slot-06",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294111986",
+      "id": "theme.color.system-surface-container-light--10ffffff.slot-02",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4281348144",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294111986",
+      "id": "theme.color.system-surface-container-light--10ffffff.slot-03",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4281348144",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4281545523",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-03",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4280953387",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-23",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-24",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4284637796",
+      "id": "theme.color.unknown--system-surface-container-dark.slot-01",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4281677109",
+      "id": "theme.color.system-surface-light--system-surface-dark.slot-06",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:2130706432",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-25",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293783021",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-26",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4281545523",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-04",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4280492835",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-27",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_RGB8:4278698336:-",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-28",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-29",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:352321535",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "file:res/f/aq.xml",
+      "id": "theme.color.unknown--system-surface-container-dark.slot-02",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_ARGB8:4293783021:literal:COLOR_ARGB8:4279308561",
+      "id": "theme.color.unknown--system-surface-container-dark.slot-03",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4280558628",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_ARGB8:436207616:literal:COLOR_ARGB8:234881023",
+      "id": "theme.color.unknown--10ffffff.slot-07",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4281348144",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293256677",
+      "id": "theme.color.10000000--10ffffff.slot-01",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293256677",
+      "id": "theme.color.10000000--10ffffff.slot-02",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4281348144",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:reference:REFERENCE:color:literal:COLOR_RGB8:4294967295:reference:REFERENCE:color:literal:COLOR_RGB8:4279834905:-:reference:REFERENCE:color:literal:COLOR_RGB8:4279834905:-",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-11",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:reference:REFERENCE:color:literal:COLOR_ARGB8:3858759680:literal:COLOR_ARGB8:3439329279:-",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-23",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294967295",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-30",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293783021",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-31",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-primary-dark",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4294967295",
+      "id": "theme.color.unknown--system-surface-container-dark.slot-04",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4076863487",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-24",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:1795162112",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-32",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-33",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4283256141",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:1291845631",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-05",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:reference:REFERENCE:color:literal:COLOR_ARGB8:3858759680:literal:COLOR_ARGB8:3439329279:-",
+      "id": "theme.color.unknown--system-surface-dark.slot-01",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294111986",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-34",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4279834905",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:reference:REFERENCE:color:literal:COLOR_RGB8:4294967295:reference:REFERENCE:color:literal:COLOR_RGB8:4279834905:-:reference:REFERENCE:color:literal:COLOR_RGB8:4279834905:-",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-25",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293309565",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-26",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294111986",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-35",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4280558628",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4294111986",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-36",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293256677",
+      "id": "theme.color.10000000--10ffffff.slot-03",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4280558628",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:654311423",
+      "id": "theme.color.system-surface-light--system-surface-dark.slot-07",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:822083583",
+      "id": "theme.color.unknown--system-surface-container-dark.slot-05",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_ARGB8:3841982464:literal:COLOR_ARGB8:3439329279",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-37",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:reference:REFERENCE:color:literal:COLOR_ARGB8:3858759680:literal:COLOR_ARGB8:3439329279:-",
+      "id": "theme.color.system-accent1-300--system-accent1-400.slot-10",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4279308561",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-12",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4279834905",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-06",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:3522623222",
+      "id": "main.tab.background",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:3978502947",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4293783021",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-38",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4279308561",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4293783021",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-39",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4279308561",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_ARGB8:3439329279:-",
+      "id": "theme.color.system-surface-container-light--system-surface-container-light.slot-01",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:3439329279",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "file:res/f/o.xml",
+      "id": "theme.color.system-surface-container-light--system-surface-container-light.slot-02",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-light.slot-03",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-40",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4280163870",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:637534208",
+      "id": "theme.color.system-surface-container-light--system-surface-container-light.slot-04",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:1275068416",
+      "id": "theme.color.system-surface-container-light--system-surface-container-light.slot-05",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:3438145005",
+      "id": "theme.color.system-surface-container-light--system-surface-container-light.slot-06",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:234881023",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:reference:REFERENCE:color:literal:COLOR_ARGB8:1291845632:literal:COLOR_ARGB8:1308622847:-",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-13",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:1308622847",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-14",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4278212427",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-15",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4283190348",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-16",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294917694",
+      "id": "theme.color.system-primary-light--system-primary-dark.slot-27",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-41",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4280163870",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4294967295",
+      "id": "theme.color.system-surface-light--system-surface-dark.slot-08",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4279834905",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294926662",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-07",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4294967295",
+      "id": "theme.color.system-surface-light--system-surface-dark.slot-09",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4279834905",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294111986",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-42",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4279834905",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-08",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:1291845632",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-17",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4279505439",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-18",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4280689210",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-19",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4283190348",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-20",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294309365",
+      "id": "theme.color.unknown--system-surface-dark.slot-02",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4292927712",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-43",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293783021",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-44",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-45",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4280295456",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:218103808",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-46",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-47",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4281479730",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-48",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4280295456",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_RGB8:4294967295:-",
+      "id": "theme.color.system-surface-light--system-surface-light.slot-04",
+      "minSdk": 31,
+      "nightValue": "reference:REFERENCE:color:literal:COLOR_ARGB8:234881023:-",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294111986",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-49",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294111986",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-50",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4283190348",
+      "id": "theme.color.system-accent2-600--system-accent2-600.slot-01",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4282400832",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4283190348",
+      "id": "theme.color.system-accent2-600--system-accent2-600.slot-02",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4282400832",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:234881023",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-21",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4294967295",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-09",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4284900966",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-10",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4287137928",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-11",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4294967295",
+      "id": "theme.color.system-surface-light--system-surface-dark.slot-10",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:4281084972",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_ARGB8:4283919253:literal:COLOR_ARGB8:4286419113",
+      "id": "theme.color.unknown--system-primary-dark",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4281815170",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294177779",
+      "id": "theme.color.unknown--10ffffff.slot-08",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:218103808",
+      "id": "theme.color.unknown--10ffffff.slot-09",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:1291845632",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293256677",
+      "id": "theme.color.10000000--10ffffff.slot-04",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4280295456",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_ARGB8:3858759680:-",
+      "id": "theme.color.unknown--e6ffffff",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294111986",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-51",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_RGB8:4279308561",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293256677",
+      "id": "theme.color.10000000--10ffffff.slot-05",
+      "minSdk": 31,
+      "nightValue": "reference:REFERENCE:color:reference:REFERENCE:color:literal:COLOR_ARGB8:436207616:literal:COLOR_ARGB8:234881023:literal:COLOR_RGB8:4281348144",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:3724541952",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-52",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4278698336",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-53",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293783021",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-54",
+      "minSdk": 31,
+      "nightValue": "literal:COLOR_ARGB8:234881023",
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:864585864",
+      "id": "theme.color.system-surface-container-dark--system-surface-container-dark.slot-22",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "reference:REFERENCE:color:literal:COLOR_ARGB8:436207616:reference:REFERENCE:color:literal:COLOR_ARGB8:452984831:-",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-12",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:3439329279",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-13",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294951461",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-55",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4293256677",
+      "id": "theme.color.10000000--10ffffff.slot-06",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:637534208",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-56",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:2348810240",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-57",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_RGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-58",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:2348810240",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-59",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "literal:COLOR_ARGB8:4294440951",
+      "id": "theme.color.system-surface-container-light--system-surface-container-dark.slot-60",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "defaultValue": "file:res/f/a6.xml",
+      "id": "theme.color.system-surface-dark--system-surface-dark.slot-14",
+      "minSdk": 31,
+      "type": "color"
+    },
+    {
+      "core": true,
+      "id": "chat.bubble.incoming.link.mask",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "3fa4ccd4850fb58a6a7dec6994cdbfe180bdca3437668174d854d9c0ecfd8174"
+    },
+    {
+      "core": true,
+      "id": "chat.bubble.outgoing.link.mask",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "c34cd79589669a11125b7f1dffa7b5dfb693531c48d63f364051c3e0342766f5"
+    },
+    {
+      "core": true,
+      "id": "chat.bubble.incoming.normal",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "8bdaa65d3dee3fd7409f2c241070a0ef65eef5d9b82ea08f9c967f7940cfec81"
+    },
+    {
+      "core": true,
+      "id": "chat.bubble.incoming.link",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "b8f1c24f11dfb2b19a8cbc3a4ea05c1d4b4111a2899282ab07ae07cc207a85db"
+    },
+    {
+      "core": true,
+      "id": "chat.voice-to-text.background",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "7f69b1ee0b038fb541f7ebd21b42151a54f53aea8037ce996492e48e5d5722b5"
+    },
+    {
+      "core": true,
+      "id": "chat.bubble.outgoing.normal",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "3532e483c2d54fe3755ad5d667db2249c74962d073d504ec154c20d5dde3cb43"
+    },
+    {
+      "core": true,
+      "id": "chat.bubble.outgoing.link",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "c09ae085d10ac233c8e1f6d11eec74c4046c2c5c269b95ed4511f925cd7541a2"
+    },
+    {
+      "core": true,
+      "id": "chat.brand-action.background",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "df10411c447ffbf3c894778b688f4affca3a0cf960552b1711ec9733a674816e"
+    },
+    {
+      "core": true,
+      "id": "chat.input.background",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "6cede5367137fe6f8dbf23d08fc076a28f474b35123e7786a6700ff77cdc6c17"
+    },
+    {
+      "core": true,
+      "id": "chat.transfer.incoming.expired",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "9d34b56e70b1056209c92e761b9c77d285afb22765a7b2a532622e4e8c0d3aa0"
+    },
+    {
+      "core": true,
+      "id": "chat.transfer.outgoing.expired",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "e9f7cae1ff566bac3c3c5992c055eff6e68445183ddf6792393c0d8a219eff3c"
+    },
+    {
+      "core": true,
+      "id": "chat.bubble.incoming.pro",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "c38d62c50408bb529e5fc4a86ee13074afe1cd923efb51d154e5dd969ba65f88"
+    },
+    {
+      "core": true,
+      "id": "chat.bubble.incoming.pro.handled",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "654f2853864b7d210100c3a784831f86ccadfcefb781353fac85c7e78f7f4e2d"
+    },
+    {
+      "core": true,
+      "id": "chat.bubble.outgoing.pro",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "5d0853f9dd88fa615e90bc0436fbb58f6d01090d72d66263f357225c1675051a"
+    },
+    {
+      "core": true,
+      "id": "chat.bubble.outgoing.pro.handled",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "e62d4cd8cd966a8abff5c78c7c77a2667a091db6a032d4ee928a9af45792d4f2"
+    },
+    {
+      "core": true,
+      "id": "main.surface.header.primary",
+      "minSdk": 31,
+      "type": "drawable"
+    },
+    {
+      "core": true,
+      "id": "main.surface.header.secondary",
+      "minSdk": 31,
+      "type": "drawable"
+    },
+    {
+      "core": true,
+      "id": "chat.quote.background",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "77b8aa0c5126b698b4f58171ab18c2fdd86453d42fe7ce901af54b58f9d638ff"
+    },
+    {
+      "core": true,
+      "id": "launcher.splash.background",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "c25fd5a09b2e26ab9a9c0ed1982d0e2c7604440114f4b122437a4c1494db21aa"
+    },
+    {
+      "core": true,
+      "id": "brand.circular.background",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "e8a389616f6fb1c59aa10f90998e7a667731e9b06b90d197fa01f8424fa31cee"
+    },
+    {
+      "core": true,
+      "id": "payment.key.primary",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "af8208481aec0e95f89a782b22d8612fa071f84accfe46d1e72654feee8f0a36"
+    },
+    {
+      "core": true,
+      "id": "payment.key.secondary",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "7d716f26c172d972c455852b46afe29d56a9936bfe94e7327648758376a1159a"
+    },
+    {
+      "core": true,
+      "id": "payment.key.pressed",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "1d2a6770b6e28a2fbfefd8b6ae7f652956d3dd4c1d2d87ccd50eadaef91fc6a4"
+    },
+    {
+      "core": true,
+      "id": "chat.input.transparent-layer",
+      "minSdk": 31,
+      "type": "drawable"
+    },
+    {
+      "core": true,
+      "id": "chat.red-envelope.incoming.alias",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "b8f1c24f11dfb2b19a8cbc3a4ea05c1d4b4111a2899282ab07ae07cc207a85db"
+    },
+    {
+      "core": true,
+      "id": "chat.red-envelope.outgoing.alias",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "c09ae085d10ac233c8e1f6d11eec74c4046c2c5c269b95ed4511f925cd7541a2"
+    },
+    {
+      "core": true,
+      "id": "chat.red-envelope.incoming.normal",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "c38d62c50408bb529e5fc4a86ee13074afe1cd923efb51d154e5dd969ba65f88"
+    },
+    {
+      "core": true,
+      "id": "chat.red-envelope.incoming.received",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "654f2853864b7d210100c3a784831f86ccadfcefb781353fac85c7e78f7f4e2d"
+    },
+    {
+      "core": true,
+      "id": "chat.red-envelope.outgoing.normal",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "5d0853f9dd88fa615e90bc0436fbb58f6d01090d72d66263f357225c1675051a"
+    },
+    {
+      "core": true,
+      "id": "chat.red-envelope.outgoing.received",
+      "minSdk": 31,
+      "type": "drawable",
+      "xmlShapeSha256": "e62d4cd8cd966a8abff5c78c7c77a2667a091db6a032d4ee928a9af45792d4f2"
+    },
+    {
+      "core": false,
+      "id": "launcher.themed.icon",
+      "minSdk": 33,
+      "type": "mipmap"
+    },
+    {
+      "core": false,
+      "id": "about.slogan",
+      "minSdk": 31,
+      "type": "string"
+    },
+    {
+      "core": false,
+      "id": "about.compatibility",
+      "minSdk": 31,
+      "type": "string"
+    },
+    {
+      "core": false,
+      "id": "about.separator",
+      "minSdk": 31,
+      "type": "string"
+    },
+    {
+      "core": false,
+      "id": "about.update-date",
+      "minSdk": 31,
+      "type": "string"
+    },
+    {
+      "core": false,
+      "id": "about.title",
+      "minSdk": 31,
+      "type": "string"
+    },
+    {
+      "core": false,
+      "id": "about.authors.suffix",
+      "minSdk": 31,
+      "type": "string"
+    },
+    {
+      "core": false,
+      "id": "about.authors.prefix",
+      "minSdk": 31,
+      "type": "string"
+    }
+  ],
+  "schemaVersion": 1
+}

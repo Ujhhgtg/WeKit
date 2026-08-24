@@ -23,15 +23,17 @@ internal object MonetApkResourceGraphLoader {
 
                 module.listResFiles()
                     .asSequence()
-                    .filter { it.filePath.isMonetXmlPath() && it.isBinaryXml }
                     .forEach { resFile ->
                         val owners = resFile.asSequence()
-                            .filter { it.packageBlock.name == targetPackage }
+                            .filter {
+                                it.packageBlock.name == targetPackage &&
+                                    it.typeName in MONET_XML_RESOURCE_TYPES
+                            }
                             .map { entry ->
                                 XmlIdentity(entry.resourceId, entry.resConfig.qualifiers, resFile.filePath)
                             }
                             .toList()
-                        if (owners.isNotEmpty()) {
+                        if (owners.isNotEmpty() && resFile.isBinaryXml) {
                             val xml = MonetBinaryXmlReader.read(
                                 module.loadResXmlDocument(resFile.inputSource),
                             )
@@ -121,9 +123,6 @@ internal object MonetApkResourceGraphLoader {
         )
     }
 
-    private fun String.isMonetXmlPath(): Boolean =
-        endsWith(".xml") && (startsWith("res/layout") || startsWith("res/drawable"))
-
     private data class MutableResource(
         val id: Int,
         val key: MonetResourceKey,
@@ -153,4 +152,6 @@ internal object MonetApkResourceGraphLoader {
         val identity: XmlIdentity,
         val xml: MonetBinaryXml,
     )
+
+    private val MONET_XML_RESOURCE_TYPES = setOf("drawable", "layout")
 }
