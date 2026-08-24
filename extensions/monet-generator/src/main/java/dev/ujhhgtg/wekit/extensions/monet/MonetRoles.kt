@@ -17,7 +17,9 @@ internal data class MonetRoleCatalog(
     val overlays: List<MonetOverlayDefinition>,
 ) {
     init {
-        require(schemaVersion > 0) { "Monet role catalog schemaVersion must be positive" }
+        require(schemaVersion == SUPPORTED_SCHEMA_VERSION) {
+            "Unsupported Monet role catalog schemaVersion: $schemaVersion"
+        }
         val roleIds = roles.map(MonetRoleDefinition::id)
         require(roleIds.size == roleIds.toSet().size) { "Monet role catalog contains duplicate role IDs" }
         val knownRoleIds = roleIds.toSet()
@@ -41,6 +43,7 @@ internal data class MonetRoleCatalog(
     fun hasRole(roleId: String): Boolean = roles.any { it.id == roleId }
 
     companion object {
+        const val SUPPORTED_SCHEMA_VERSION = 1
         private val json = Json { ignoreUnknownKeys = false }
 
         fun load(payloadDir: File): MonetRoleCatalog = json.decodeFromString<MonetRoleCatalog>(
@@ -48,6 +51,86 @@ internal data class MonetRoleCatalog(
         )
     }
 }
+
+@Serializable
+internal data class MonetProfileCatalog(
+    val schemaVersion: Int,
+    val digestAlgorithm: String,
+    val verifiedProfiles: List<MonetVerifiedProfile>,
+    val structuralOnlyProfiles: List<MonetStructuralProfile>,
+) {
+    init {
+        require(schemaVersion == SUPPORTED_SCHEMA_VERSION) {
+            "Unsupported Monet profile catalog schemaVersion: $schemaVersion"
+        }
+        require(digestAlgorithm == SUPPORTED_DIGEST_ALGORITHM) {
+            "Unsupported Monet resource graph digest algorithm: $digestAlgorithm"
+        }
+        require(verifiedProfiles.map(MonetVerifiedProfile::resourceDigest).toSet().size == verifiedProfiles.size) {
+            "Monet profile catalog contains duplicate verified resource digests"
+        }
+        val domesticVersions = structuralOnlyProfiles
+            .filter { it.channel == "domestic" }
+            .map(MonetStructuralProfile::versionName)
+        require(domesticVersions.size == DOMESTIC_VERSIONS.size && domesticVersions.toSet() == DOMESTIC_VERSIONS) {
+            "Monet profile catalog must contain exactly the five audited domestic versions"
+        }
+        require(structuralOnlyProfiles.all { !it.selectable }) {
+            "Structural-only Monet profiles must not be selectable"
+        }
+    }
+
+    companion object {
+        const val SUPPORTED_SCHEMA_VERSION = 1
+        const val SUPPORTED_DIGEST_ALGORITHM = "monet-resource-graph-v1"
+        val DOMESTIC_VERSIONS = setOf("8.0.65", "8.0.67", "8.0.69", "8.0.74", "8.0.76")
+        private val json = Json { ignoreUnknownKeys = false }
+
+        fun load(payloadDir: File): MonetProfileCatalog = json.decodeFromString<MonetProfileCatalog>(
+            payloadDir.resolve("monet_profiles.json").readText(),
+        )
+    }
+}
+
+@Serializable
+internal data class MonetVerifiedProfile(
+    val resourceDigest: String,
+    val versionName: String,
+    val versionCode: Int,
+    val channel: String,
+    val sourceApksSha256: String,
+    @Serializable(with = MonetResourceKeyMapSerializer::class)
+    val roles: Map<String, MonetResourceKey>,
+) {
+    init {
+        require(resourceDigest.matches(Regex("[0-9a-f]{64}"))) { "Invalid verified profile digest" }
+        require(sourceApksSha256.matches(Regex("[0-9a-f]{64}"))) { "Invalid verified profile source hash" }
+        require(roles.values.toSet().size == roles.size) {
+            "Verified Monet profile assigns one resource key to multiple roles"
+        }
+    }
+
+    fun toResolutionProfile(): MonetProfile = MonetProfile(resourceDigest, versionName, channel, roles)
+}
+
+@Serializable
+internal data class MonetStructuralProfile(
+    val versionName: String,
+    val versionCode: Int? = null,
+    val channel: String,
+    val selectable: Boolean,
+    val sourceKind: String? = null,
+    val reason: String,
+    @Serializable(with = MonetResourceKeyMapSerializer::class)
+    val roles: Map<String, MonetResourceKey> = emptyMap(),
+    val sourceEvidence: MonetSourceEvidence? = null,
+)
+
+@Serializable
+internal data class MonetSourceEvidence(
+    val resourceFileCount: Int,
+    val resourceSnapshotSha256: String,
+)
 
 @Serializable
 internal data class MonetRoleDefinition(

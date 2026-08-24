@@ -3364,14 +3364,14 @@
       "id": "chat.bubble.incoming.link.mask",
       "minSdk": 31,
       "type": "drawable",
-      "xmlShapeSha256": "3fa4ccd4850fb58a6a7dec6994cdbfe180bdca3437668174d854d9c0ecfd8174"
+      "xmlShapeSha256": "305c13a225aa78ef3c06a44314a65d474cac7b6e195feb4d64b455c242c6e86f"
     },
     {
       "core": true,
       "id": "chat.bubble.outgoing.link.mask",
       "minSdk": 31,
       "type": "drawable",
-      "xmlShapeSha256": "c34cd79589669a11125b7f1dffa7b5dfb693531c48d63f364051c3e0342766f5"
+      "xmlShapeSha256": "305c13a225aa78ef3c06a44314a65d474cac7b6e195feb4d64b455c242c6e86f"
     },
     {
       "core": true,

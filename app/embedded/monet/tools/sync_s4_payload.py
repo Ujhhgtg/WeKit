@@ -103,6 +103,10 @@ TEMPLATE_SPECS = (
     ),
 )
 
+EXPECTED_TEMPLATE_NAMES = tuple(spec[0] for spec in TEMPLATE_SPECS)
+MANAGED_OUTPUT_FILES = ("monet_roles.json", "monet_profiles.json", "upstream.txt")
+LEGACY_OUTPUT_NAMES = ("template_api31.apk", "template_api34.apk", "monet_tables.json")
+
 EXPECTED_TARGET_COUNTS = {"color": 191, "drawable": 30, "mipmap": 1, "string": 7}
 
 # Framework colors referenced by the exact S4 base table. Keeping this audited subset here
@@ -200,7 +204,7 @@ KNOWN_ROLE_IDS = {
 # this importer reviewable. The decoded object is keyed by "type/name". It was produced
 # from MonetApkResourceGraphLoader over the exact APKS hash above; the production graph
 # digest independently protects exact-profile selection.
-PLAY_CONSTRAINTS_B85 = r"""c-rM$*=}1$68#rFXX4%$zBz$o43cpGWoCkTB6_7LuA(SWa*%(YLs?5-iWK|ul9~Wx12zP+x=vTua;m!NKhDBzJX?JD;rBl2e;m&*9R9ZbFT=sbvj2}+OlQ46&SJ{$X1x5j8{gpPv+;157H-`8@z-B|J@0=!|NMjLaltKTmT7zT=XcxJ{QUxQM_zOKfOFD$O-jh#1s>!Dv%)IPtUUYf>_Pj}hZiZQMVf}xJOA|4r}Ix=e*DyXSiiS*8Ep+0mdM`U8bEllyUHz5PPE`gYQ70+t71a{UP#qYYh?BIndIvQ>U2>q3>BiG%hsEkGpUr;hno7EeHbtpN*LcTwI%(ZTO(;K!0W}e;e^r7KEsKTif(R%w~5zHNR5?reG~{mtn9j@CuiK)(GQ;wipb3+Z0!n9!MM2stHxj`wjmkcT!GiGz^Ns0)w;kEk|;*ZraHSVj$59|lV|h}_s)~J`FeZi2-|z~+}`1?dIFzcxM{5RR-@prTy2O~h0MqOYxIBoc>bxyLd+7quO94G%j%&UYAMr%*J_kfGex#&Y`4)PsnzuxwS)*w4Xf1%yAo!$Xl%F9<ES-leDTp%RSKWa;g!O+j(ZHPwpGX>wJ}wxkZ^98F|QT2-R3d0Ru<%!WvtPR+wIG=jJr41qAegXX02AT)(%PvE68@GEjMs9&Ai2SC1s4->SL$)Ff-egw%qQqG}|`*_Gq*^olgg{O=nx@Jci<*53l^cthIh#q%^JOnJ~E&``mFS;unSOGD4NskCkd$9#UuB(@{N(w{+bi*I8EyloiUGs(u<yV_LLibJSW(E8TEC{V-O`U25AFnC`mUxl)yhKfY<>1DvR%*7FqW`&nrPjMNZrWuomXv`DCS-J%FVD-RXwKrz&&x|Y1Nqt1VQ>3^H#Jx|a~hoRuN)eac(Jg@MdG#<}ZZK;#x2I)svmQS=^LP)K4Xl;1_9aTGWwMADRjuU$A>ks*Z^WWc1#)SYKwCd*%oBIi}{hz54p#MfS=7NsSTXcj5CMe0Wqj$B^Trr{*EzQS7>*-q|EDs--Ic5%@lsVR7P>p7U8KFz*eyznMvql)+*z}-M_~o!m>3P?gf8~JPu|*|Lut`p-U=5hp^=V8~1;4PR^s4JfcgMU_XsbCXHQk*^)2k@sti{2hMkrPat7<N%EyqDNgxzuX_;_%VaYiLCqe_q##S0F{8aTymrL>V!aq#2PTgBJ<UV<}CS#iJPRQ(kKg<jE!NEPa@p{xWWD`9KeeK`EoV0E8igB25ENTass+@U(?>Rk6+_X=sVtj?4|Bg-mL2ApY;L@1@!l)$a%a4wHNZa}9E6H4@I`J3y94h6A4=whz^xI-cDuR5?+=fq#)0;mAwTf5F-H_Oh&chhv$f+KF;3p%%`POoqc&P_>|Jni6Geo(C$d0A^)hOxh`zYA4bQ&PHRwAJy%i6%<$vYN%k;a!-^?C?8Wm+Q#_0o5>#5}x}<El9<}`Mp@k;Brq#ceT;c4d$JbeUX56Oq?F`OeGta5?x1`o(EUmF+LUOw_ltbnqV&S;SW>X#i;B1np&8b7bj`oH_CGF;FndsBfQCSmy;9DD7cYEOREgoLu?w5M)MBTX0+^(Oh>B@<!7>JF~EF<dn#(B5twN7MWb%cYFQQ40Ie9MWdWM=)3mnh_@kn<(Y$tMN!R_8K=W2gU#Y*GuU^kj!pgSHp_ZfngKV_Cua901M=bBL+|A@P4Ec45UHKNF{;FeK%}-OoUgNyG=rEYOukEP~V+7RD6vF<0(Gz>V`m5y!->;uMKeE0TS%3J{I@XS2z>1jyF=kcop}5sX68LmcdxkA8V75OK-a~_*HC?`+rrYlRTlzzdX}37^<?8MBWY+9XF25emUPdhvT7A#;@Bl`k#V=-cBVL=6xRzWrUIC9pHGR;MD5Q`g?~Zi+<O!XCB&6y|#Y;EzqA8y+4?Qy@)_eOFs?0;9L5EAM(MA0O9!44dDr7HPJVAJTA^sxVrV*f8*`j+Jzneo(+SC5Zw6vMkC#%CRhNka^a!L-LrcdeNHE$~0_7<giT3iuJ0=877>1n@yil&TZv~ZrOZ~X;|7ujLGp+S~;NtUOx7FSVB>#|>*ULD?I&rTMWo43-lo9dY?(l<9{otfRf)2;IS-OSOlcYeD`{M!k>vUYWUc-px7dbsSOeSxZcXekKVq9Sgt-%k^5d6`;}m+L`?G1hf`*)_=C#Fj7IuIq1(H08SSta^E(@&@Aos4i@~bVs-XczSNx+w;D%@&yT%v}7d9Ws7jo_*E3M<!$S<Sz*X+C3m?x(HLYi_1&l=Oe3C~{~~4G_!ABPHv7?=`RTq>e3F}?UgaIjZS|Z&Ga(Ta<ujn$$>CotxSe(Va&u)my>qowG$kawOcmC-^GCeNYbp2i9I^EGyK#rN8+VHq&5NX>^#8ln;TMK?_lM6L?!I<-lyu+WEyF$QqFA(Nl`q0^&y~1(8al;=TRA^YJKh{V%M3qU$p@M5&hY1N7jB;L2aX9J;@OE1qA-$VFO5@9#}t&cB1E4PHN?l@)-OMmGE|Fbq=+_<6mneu+{7U!dvL6F;RqZG(b*Xg66=twne;l-n6uMf#_W~llG7keR6KJfh@^oha5M&FSvGM<{x*(<*oDLR=$w*~$CP-E8i$ivV1g1&97$Qpl(LN08<rd~*#?lAtgRp+r(oy?4zUNv&U5i5Q>e`pCh*Kt>rC*0I{~dS&?x-6pgCqNSQvAjXqSi%0lCH*8GRFnzJ43W^<)<got5=8CE`If;30x$oqS}}3kK4I9cIa0a)xjnlC?@$mV`+%O3j$xI2W_WKbB^vpGv-7mj@Q1G9gn)7iC1IiJmcGg9fW)k!T(z5h+k9U<-UACLX-t8#rcraM+!GN-PWw3sd3(<2;x|vx*cZ0)!xlP=N&*7|dp6ib7JFK{Vmqu$^NK9DcILKip!u3rNhAzy*R3I%l5&#0ssASH@)Faz@ZP_@q@tO8Ack!hqJ7JEcJZRB8fQ={-R12fKi%kYbWttviC8R5r*Pj7P*qK;46fW}$`Wk}{qEPyqlTIcptaP=V?O5ZJCCF5EINW|RIRO@_;*L&fZ;yZLaDVt?xkvjXRAXF%D=g_kO6;wh1+$%tH*P?$Y@M@MF)L!cp<NF*GF48jzH$0ZX;<j#?;FqgA~K<@OeWU~$q9+go;y$c+_*Iz>lIK-5*O3Da$l;JUEh5idg9`KA~)Z(9c*aW#qAq{WSVsbs0&SKgNEbLCt$h+`sB8c%G)FjCqgfl9ohyNbPp;UwjKnXd5MnoSnK(q(~B-8xuas8XX`WJ2*$0_as7<YOhvI5SKgT8s3CMA>*q)Yukp|VjSxR?XbX>eePsuzq5I%$)27Kz18fY)jLZN*x<rCqQj;sDxgj0j7os7#jlKtKvJ%xI7~0MwGG8B!TrSGIN9M1ogZqQbd7uqv&VclsMrChD%i(JAGO^KiVNP0$Dl$B<kdu{3(+2*(FgLalMuWg+2v5e9F<^NY7}c&)y--_NIm4YBKeVtSicHhaXZ+ga4KHwfu~oTNZ3j7JdznW4^86IjM!p%vg!u$<OKjZl}RSRa=K`7k**fW(W3Y3%EeVKPSv1A3O2a)7g@O>upv9!X+BE3)Q(l!`1oMGfN`RE!EMP|>Js9(^2+_U!g{=Wdg69JGq645y>WC(colEwR=l?bckK(_}qS9*#(@&W<2r1jvU2;Y!U)5wG@C3V(mG3y8}G<Q~<>C0N2DFIWU9L)L}CDT7|UR_p?(lt4{Qnyte+rDQU3-<rn)$iDNxAMQN=s9_DZu0AYU&4Q5V{FoOCd5qa8m9v&B@LwyE<|qonXlcNK!AxPl4Iuq}KrVLyp^>2+q9mz=$YQAD3A7sVmcYA^Wu*cUMTFvW(SY57+awoV%9iG!T$6pzAFf{-E%Gyp(TD3-5rk3|X2`)Ui-aG<cOk7$@LFYJKS=Mw-0oL<QZ9R!O8S-Vfx+LUUVhyZiZk^t_3>-i14Ey(4o-&iiJLz>yuwe{%f)ay_<$nw#wg&of1dyS%jX^^ggqp;C!rg+UkJT7vxU&*ZH3Uo1N>5GRUu=A<%P^B%qq}X!b_n^8rBJ^hR|i55PFC|{|md@KxF"""
+PLAY_CONSTRAINTS_B85 = r"""c-rM$TW?!868<lK?l$D`uD7&EgGIY3;O=g*PXe#9tg9v2vQzZG@5u3mN0xj@9Z6eY6Cg$q4d>%<F5e8P{BhxD<JscF55M<G|KoUmW$~x!e;E$0R{ej>LcHkxaS>v&x8v2n?f4e|elZ@d;=+!5KmPj5ub2Igm!E&oJ;s?~U_hCRKfl|(=I>W1cjPsvk2oit*QA8BF7PPN!EhrL7;*94#iRD;4=-Yhi#YYMclqh3PnVy*{P?N&xPEWvGRkPi4H3P+HGr^ecZFM`j3~~uP;490PQ{uacrIi^tro@G2f;QAl<A_3Ysz^;mnk<j10khShno7EeE>0NN`P&d+K~Rw)kqo(uyS#w83EeaXBg2!((R3~nt0uY)L2QCM*-)=h^{+&cE+t8{qXsqh}>Snl&<g`jN2<fF$PU>8v@w&3aoquMh!t%Eek9zhy<dy)tOy!TzMwXp3ytpJ5S=~o9*c%Z12f)dxyK~34DHGr=i$ewM2hqa!b4@WInd9(f{$|<)?~;z!23|4_ehiIdn}81w~k?Mj;ePvO{CtMvtUcm2cD#!WGp}suAr<K=064x6$LM)iu8OWUC^DFX!+^VXfmHL#wF@IZSOJ3l$Q^G-&-+VeK}Lp|!9ezb<360%mqEQyF*ftVJsz0T`pCD7AwW+;Fm6Y2^lvrkPc2S5N?IijSS*he7XFTDje0X*M<f_GGj&ozDldOJ}Wf9z*fZhgbezHd;R~Vw@K9Of<RRZSJ@i@vFkRj8LTYW1-s0L+Y%1Ix1)JhHhHqGV4l?Wreb)s-K3_5Eqqfjv8ZVp&M?dAKECfPi<|1>8`uZm5NOK@m(7q;6xp@UdB+~&kDoQNDbjC6YXB1BB7d1i^4fAJXBPN6hm&StK^*>b^hy1|Jx+*WrC(V3<bZfcEE_|WrhF5@p!hbrA~%vOh2lyd}8axxlnSC*2)9usM?a79lFwR9I@A4en=mz`~H41&IIV7s-Hh>?#IdQf2NWn{nxTF7qoO<(GhAiK~9z}y)Tt!5{QyCHy`lo>02f&4j-3U(1%aTEL04tu^9o)RW98xwU_{-xn_+`4+@1}4?CBhcb)kc4%jU$3UMNvWR!Afz+9H6F-0Z%g~_GYT}Qfm=AB#_#YnE{{zRJIL>YsMgTopjAs3d#TuvE=2iXv|$KB)8!3khM1<Rv~lZxVn4hIdK{H{=13n3Zu<J?>M*YaM1fufMz?^s!Wg+Ng+Z$zZ@<=0R~AS26RE82ZH{M=x5pJ5{_CPb4)ZBeO1bx_5*?xpT!(t1^#DY?QdD|sGpx*~~CN{!Be8{Xkuo_t&*oz}o5@0Id5+xHy`Vt>%ZT>Wu}Lf&6@V6E2jzr+Pl2FO*r&S5vp)`qibx~brZ+xLRjE{fADx&~u9r%R4@a4k0|){J>sDU*k>yDPs7l}b^PyJaxN@x+KClC!*;g~j1rm`!l_9j;B~WPu>n(2WwF`bRBD*}~~uEM#!q($U>)b##My=VYHHpgj|(r#w^0#)ZJHBTvtRo9-B&3-tRhP7X~lSLyJFDfVjA^?gk#%<HR@wC`JGxp(l(s@@UaWZCP<31<{c3$28anzRs`2Bguv1GO2gIwaH4x<mPyEGh<=Z*Wg}sWb*AHu}6#H)o}+iYf#xfzrGH&Dm*M+fDpYp4(_%I<usk{)uDrmP_Brznrfw=O<xhJLXWU(f>g<T0N9UFGEMn@3HLd<TMQVZHZmGico*kF|OyQsbFt$-d}YX%srI$)Ea;wHPo4~`(O0Lj;;S{`N8$eC(lo;?^V_vKD7>|qZnkxAdwhD(R(OnlokYiI;%ayiVK+C&xBiO@QbGF^J%*4?!UP|l$dshLtn4oZ%<~;?&SLG;p}Bpk<iL}uEz&35?lOiRySg$If*I3c;glDh!@ibC5XfnlI7izDxW-ICm;wZdQ$P)4ZUhgC(J`H%m{k#-$LbiXf)_>i8Z<^f4~D2@JA+lUGW6r>4o^Ka7`mXl{8uRHa?p}PwHuZVOrYG>XY^17emvtp`4P#r|DCAc+H!N+TJ2JPsJ6nAjp=oG(GK?Ptl|{Kr`o=y6P`byvh#C4UJ@(<z#s}tGJ2+rSg7pdUJS-Jv&)gZr@7JZi{EKn7*0L>&)!#Ot;GOvzeo^cYeP~{M!k>vUc-uc-px6dbsSOzCaZ|wB!WaqAYHf=hH+hFH<w}vK(|6V=c?euEy+5O#Z@cS$=b*C{vAR)vFVgH#80cRhey9_6S!1&(AG;E$=G}Uyx8ib4IdSRfL1WUs*9*-BqW}0z>X9xvTYw#vt3N?^YgR8u8NnXDRE}ooM*C-H+bRPxqbTliUpT3h!9%isuvxxWJ&up8?%X4*z1o-K^`En+wzFy)B)hNiNXKWM-Xvcf^~#O1bCfh`GPtk2}2GxL;H>FM{&i|L@m_Ul`s$96oQj|JvbE(nE*03=hynF|TKpufn0_N?bk<ox;MdtsBQZZw_B%h97Rkqs(^~_~&m|b{_E$JSO}QBf?W=0fe<m$HY95mUBkAl_GG(z4gk;h=HG?<3V!Ah48?^%cx~);^31O9P9Jo5bS*%3%(DBcEN5mvJfLnLE+&fKsA&oVo6L=#F#`dPD8XrC*zUKBxN}9DSAz}aPSr!d(Xw`L{V*`G$aR(8mqnY%yQI<mI}CiENB+AK^6wq5oIG$-eaz@S_Id`p_cFCSWfogP)Qm`V<Zl#MsipIl8P<>bsUiN;0}{uHd;-X^3fQ{4MeV^2tolk(Zr!!{9~o}`iEefb(x2NDkEkJVS@;mX@Udb#w%o%5Qt(y5FR}h9BqN02$6Zm*%ppj3l6gnhbIONjTWZFdSJ}!NRtc{O@t6UCtP~)=$L3WBVyo!(u73Q2Zgq?(7@p)E&gE_t9?L1q6A&QbFNZy7%$pzrL>b;CvH>nmRa;kBZ&~`KME0gY<-!P3Mqh$O(1L40_0(^4~X<JM8V{yBS=vu9b5tyFg85aJ@n9o(d(F?z#;;a2!N23l=8t#PgMg5+OF@f>?$p0ll~%3hO3puirJ6%^Wh?f{>~R>8P3_>fHHw`CuCH_Q6jJ=W8^}_!tBs@Q~)h31{x?Sta5-E1SFuxMeRvo){>ntSF?ja?)9!{lJXWkDq#(E)-(LQ`5KbPLyRfOC^biq(kz4|vH!v%kMOhwYVe<#-v+seJ`V5VVzL}eXCbx%^LyQ%=^)Xs2`Ab)q$W`$&#jg*KK}PWHbv?K0*aU;Xu#;h3=j+k0VdP*?Q#9P!1`Bq8pbiS01SJ*5VHcFAw&A+@H8o*gkZW<j}$6t>AelfBRYi~Sg>Th7G6cAlS({7*ao<an{O+Y+AZ#bB`^+9n+XBK(n>0#A<h#dg$d25F>@eLLxKWKWguB%o3x1uUMfK_y|%zAv|8HhZ<sQ<4;qh7N~^6y$MZ^ig&|=9ldC0$1}80H_`w*l)>vZ`7wCHd4c>(37VqP5N`7y?pHBx{V#_u$wM#7N7BOS@7B%HGhP20=Bpo&;4vUz^6lopR9ugiFwgN10NO4ot2(?M@&2gC^u?jZHM!0&M#=Z?15Ge>Wpo0j~A{^sM44XUkKq7c0$%gw;$`f}KYZz0Od&&*Ribieo=)-W-vfI18yN%j1ZLkAL=yVkGiM5m@LyXZ;*$r1`G#W>wLr0`WB}*`3IFb*`sE^G`5pG&4g?qT#2gD|g<Q}V!jc5rZa@t^k0%lz_I0e+JHj1rBD#fv;Mg^O&jxp*)?6>AI1JZW>55v9Z9~4>xHq{4$QQ(nEYOIo6Vjcq%gtW#m=~6U2DuzXYYb7+paz-iIZwpAj4aoIAAT$7$Lo7)$Vq^i<@t6YEa2t_#VU`sVi6}-WelBQacgSs`4K^l2lSh8s05X5PerdGGFDOPImTw{mOO>Bt4z4T`ZV=8wTA$%nWnwpoXJKv+>z0%YXQ`xLX$uT?mU{WMB@}1!EcNlLZ-JpsSqCS>`NYm2A70_#maD~ZI{1J^=ABW%Z~wgf`<Kr>MhHA6w`ZYS+b%>E2a^e1-xUZwKETg~)&(+#8<xq8{Hy?-AuJb~#9^6`YzSSK31JWM=YIh$?La3"""
 
 RESOURCE_RE = re.compile(r"^    resource 0x[0-9a-f]+ ([^/\s]+)/([^\s]+)")
 VALUE_RE = re.compile(r"^      \(([^)]*)\) (.+)$")
@@ -489,11 +493,9 @@ def write_normalized_apk(path: Path, entries: dict[str, tuple[bytes, int]]) -> N
             info.create_system = 3
             info.external_attr = 0o100644 << 16
             info.flag_bits = 0x800
-            compression = entries[name][1]
-            if compression not in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED):
-                compression = zipfile.ZIP_DEFLATED
-            info.compress_type = compression
-            archive.writestr(info, entries[name][0], compress_type=compression, compresslevel=9)
+            # Stored entries make normalized bytes independent of the host Python/zlib build.
+            info.compress_type = zipfile.ZIP_STORED
+            archive.writestr(info, entries[name][0], compress_type=zipfile.ZIP_STORED)
 
 
 def validate_no_dangling_files(aapt2: Path, apk: Path) -> None:
@@ -616,6 +618,62 @@ def write_json(path: Path, value: object) -> None:
         json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def remove_output_path(path: Path) -> None:
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path)
+    elif path.exists() or path.is_symlink():
+        path.unlink()
+
+
+def validate_generated_output(generated: Path) -> None:
+    templates = generated / "templates"
+    actual_templates = tuple(sorted(path.name for path in templates.iterdir() if path.is_file()))
+    if actual_templates != tuple(sorted(EXPECTED_TEMPLATE_NAMES)):
+        raise ValueError(f"generated template inventory drift: {actual_templates}")
+    missing = [name for name in MANAGED_OUTPUT_FILES if not (generated / name).is_file()]
+    if missing:
+        raise ValueError(f"generated managed output is incomplete: {missing}")
+
+
+def publish_generated(generated: Path, output: Path) -> None:
+    """Publish one coherent payload root while retaining non-managed module files."""
+    validate_generated_output(generated)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    candidate = Path(tempfile.mkdtemp(prefix=f".{output.name}.publish-", dir=output.parent))
+    backup = None
+    try:
+        if output.exists():
+            if not output.is_dir() or output.is_symlink():
+                raise ValueError(f"payload output is not a real directory: {output}")
+            shutil.copytree(output, candidate, dirs_exist_ok=True, symlinks=True)
+        for name in ("templates", *MANAGED_OUTPUT_FILES, *LEGACY_OUTPUT_NAMES):
+            remove_output_path(candidate / name)
+        shutil.copytree(generated / "templates", candidate / "templates")
+        for name in MANAGED_OUTPUT_FILES:
+            shutil.copyfile(generated / name, candidate / name)
+        validate_generated_output(candidate)
+
+        if output.exists():
+            backup = Path(tempfile.mkdtemp(prefix=f".{output.name}.backup-", dir=output.parent))
+            backup.rmdir()
+            os.replace(output, backup)
+            try:
+                os.replace(candidate, output)
+            except Exception:
+                os.replace(backup, output)
+                backup = None
+                raise
+            shutil.rmtree(backup)
+            backup = None
+        else:
+            os.replace(candidate, output)
+    finally:
+        if candidate.exists():
+            shutil.rmtree(candidate)
+        if backup is not None and backup.exists():
+            shutil.rmtree(backup)
 
 
 def build_catalog(
@@ -852,13 +910,7 @@ def sync(module_zip: Path, play_apks: Path, output: Path) -> None:
             encoding="utf-8",
         )
 
-        output.mkdir(parents=True, exist_ok=True)
-        destination_templates = output / "templates"
-        if destination_templates.exists():
-            shutil.rmtree(destination_templates)
-        shutil.copytree(templates, destination_templates)
-        for name in ("monet_roles.json", "monet_profiles.json", "upstream.txt"):
-            shutil.copyfile(generated / name, output / name)
+        publish_generated(generated, output)
 
     print(f"generated 7 templates and {len(role_ids)} semantic roles in {output}")
     print(f"verified Play 3084 graph digest: {PLAY_GRAPH_DIGEST}")

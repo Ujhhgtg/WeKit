@@ -13,7 +13,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -155,10 +157,25 @@ def import_version(
 
 
 def write_json(path: Path, value: object) -> None:
-    path.write_text(
-        json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def validate_output_path(output: Path, roles: Path, profiles: Path, evidence: Path) -> None:
+    resolved_output = output.resolve()
+    aliases = {roles.resolve(), profiles.resolve(), evidence.resolve()}
+    if resolved_output in aliases:
+        raise ValueError("import output must not alias roles, profiles, or embedded evidence")
 
 
 def main() -> None:
@@ -169,6 +186,9 @@ def main() -> None:
     parser.add_argument("--wechat-root", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     arguments = parser.parse_args()
+
+    evidence = payload / "tools/domestic_structural_profiles.b85"
+    validate_output_path(arguments.output, arguments.roles, arguments.profiles, evidence)
 
     catalog = json.loads(arguments.roles.read_text(encoding="utf-8"))
     profiles = json.loads(arguments.profiles.read_text(encoding="utf-8"))
@@ -183,12 +203,16 @@ def main() -> None:
         for profile in profiles.get("structuralOnlyProfiles", [])
         if profile.get("channel") != "domestic"
     ]
-    expected_domestic = {
-        profile["versionName"]: profile
+    domestic_profiles = [
+        profile
         for profile in profiles.get("structuralOnlyProfiles", [])
         if profile.get("channel") == "domestic"
+    ]
+    expected_domestic = {
+        profile["versionName"]: profile
+        for profile in domestic_profiles
     }
-    if set(expected_domestic) != set(DOMESTIC_SOURCES):
+    if len(domestic_profiles) != 5 or len(expected_domestic) != 5 or set(expected_domestic) != set(DOMESTIC_SOURCES):
         raise ValueError("checked profile does not contain the five audited domestic versions")
 
     imported = []

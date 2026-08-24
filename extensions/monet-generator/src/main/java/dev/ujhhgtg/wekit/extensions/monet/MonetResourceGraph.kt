@@ -42,17 +42,16 @@ internal data class MonetReferenceSignature(
 
 internal class MonetResourceGraph private constructor(
     private val nodesById: Map<Int, MonetResourceNode>,
+    private val nodesByKey: Map<MonetResourceKey, MonetResourceNode>,
     private val xmlDataBySource: Map<Int, MonetXmlData>,
 ) {
-    constructor(nodes: List<MonetResourceNode>) : this(
-        nodes.associate { node -> node.id to node.snapshot() },
-        emptyMap(),
-    )
+    private constructor(index: MonetResourceIndex) : this(index.byId, index.byKey, emptyMap())
+
+    constructor(nodes: List<MonetResourceNode>) : this(indexNodes(nodes))
 
     fun node(resourceId: Int): MonetResourceNode? = nodesById[resourceId]?.snapshot()
 
-    fun node(key: MonetResourceKey): MonetResourceNode? =
-        nodesById.values.firstOrNull { it.key == key }?.snapshot()
+    fun node(key: MonetResourceKey): MonetResourceNode? = nodesByKey[key]?.snapshot()
 
     fun nodes(type: String): List<MonetResourceNode> =
         nodesById.values.filter { it.key.type == type }.sortedBy(MonetResourceNode::id).map { it.snapshot() }
@@ -66,6 +65,7 @@ internal class MonetResourceGraph private constructor(
         val existing = xmlDataBySource[sourceId] ?: MonetXmlData()
         return MonetResourceGraph(
             nodesById,
+            nodesByKey,
             xmlDataBySource + (sourceId to existing.copy(referenceIds = referenceIds.toSet())),
         )
     }
@@ -76,6 +76,7 @@ internal class MonetResourceGraph private constructor(
         shapes: Set<MonetXmlShape>,
     ): MonetResourceGraph = MonetResourceGraph(
         nodesById,
+        nodesByKey,
         xmlDataBySource + (sourceId to MonetXmlData(referenceIds.toSet(), shapes.toSet())),
     )
 
@@ -218,6 +219,25 @@ internal class MonetResourceGraph private constructor(
     private data class MonetXmlData(
         val referenceIds: Set<Int> = emptySet(),
         val shapes: Set<MonetXmlShape> = emptySet(),
+    )
+}
+
+private data class MonetResourceIndex(
+    val byId: Map<Int, MonetResourceNode>,
+    val byKey: Map<MonetResourceKey, MonetResourceNode>,
+)
+
+private fun indexNodes(nodes: List<MonetResourceNode>): MonetResourceIndex {
+    val snapshots = nodes.map(MonetResourceNode::snapshot)
+    require(snapshots.map(MonetResourceNode::id).toSet().size == snapshots.size) {
+        "Monet resource graph contains duplicate resource IDs"
+    }
+    require(snapshots.map(MonetResourceNode::key).toSet().size == snapshots.size) {
+        "Monet resource graph contains one resource key assigned to multiple IDs"
+    }
+    return MonetResourceIndex(
+        byId = snapshots.associateBy(MonetResourceNode::id),
+        byKey = snapshots.associateBy(MonetResourceNode::key),
     )
 }
 

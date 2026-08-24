@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetDexEvidenceProvider
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -42,6 +43,63 @@ class MonetPlay3084ApksIntegrationTest {
             val graph = MonetApkResourceGraphLoader.load(resourceApks, TARGET_PACKAGE)
 
             assertEquals(PLAY_RESOURCE_GRAPH_DIGEST, graph.resourceDigest())
+            val payload = File("../../app/embedded/monet")
+            val catalog = MonetRoleCatalog.load(payload)
+            val profiles = MonetProfileCatalog.load(payload)
+            val profile = profiles.verifiedProfiles.single()
+            assertEquals(PLAY_RESOURCE_GRAPH_DIGEST, profile.resourceDigest)
+            assertEquals(231, profile.roles.size)
+            assertEquals(profile.roles.size, profile.roles.values.toSet().size)
+            assertEquals(catalog.roles.map(MonetRoleDefinition::id).toSet(), profile.roles.keys)
+            profile.roles.forEach { (roleId, key) ->
+                assertEquals(catalog.roles.single { it.id == roleId }.type, key.type, roleId)
+                val node = requireNotNull(graph.node(key)) { "$roleId -> $key is absent" }
+                assertEquals(key, graph.node(node.id)?.key, "$roleId ID/key drift")
+            }
+            val violations = mutableListOf<String>()
+            catalog.roles.forEach { role ->
+                val target = requireNotNull(graph.node(profile.roles.getValue(role.id)))
+                val signature = graph.referenceSignature(target.id)
+                val structure = graph.referenceStructureSignature(target.id)
+                if (role.defaultValue != null && signature?.defaultValue != role.defaultValue) {
+                    violations += "${role.id}: default value"
+                }
+                if (role.nightValue != null && signature?.nightValue != role.nightValue) {
+                    violations += "${role.id}: night value"
+                }
+                if (role.defaultValueStructure != null && structure?.defaultValue != role.defaultValueStructure) {
+                    violations += "${role.id}: default value structure"
+                }
+                if (role.nightValueStructure != null && structure?.nightValue != role.nightValueStructure) {
+                    violations += "${role.id}: night value structure"
+                }
+                if (role.xmlShapeSha256 != null && graph.xmlShapes(target.id).none {
+                        it.sha256 == role.xmlShapeSha256
+                    }
+                ) {
+                    violations += "${role.id}: XML shape expected=${role.xmlShapeSha256} " +
+                        "actual=${graph.xmlShapes(target.id).map(MonetXmlShape::sha256).sorted()}"
+                }
+                val expectedIncomingIds = role.requiredIncomingRoleIds.map { incomingRoleId ->
+                    requireNotNull(graph.node(profile.roles.getValue(incomingRoleId))).id
+                }
+                if (!graph.incoming(target.id).containsAll(expectedIncomingIds)) {
+                    violations += "${role.id}: incoming roles ${role.requiredIncomingRoleIds}"
+                }
+            }
+            assertTrue(violations.isEmpty(), violations.joinToString("\n"))
+            val resolved = MonetResourceResolver.resolve(
+                graph = graph,
+                catalog = catalog,
+                profiles = listOf(profile.toResolutionProfile()),
+                sdkInt = 36,
+                provider = object : MonetDexEvidenceProvider {
+                    override fun query(candidates: List<dev.ujhhgtg.wekit.extensions.monet.api.MonetDexCandidate>) =
+                        error("audited catalog unexpectedly requested Dex evidence: $candidates")
+                },
+            )
+            assertEquals(profile.roles, resolved.resolved.mapValues { it.value.key })
+
             val inputLayout = requireNotNull(graph.node(MonetResourceKey("layout", "v0")))
             val inputBackground = requireNotNull(graph.node(MonetResourceKey("drawable", "bw7")))
             val quoteBackground = requireNotNull(graph.node(MonetResourceKey("drawable", "cf8")))
@@ -51,8 +109,7 @@ class MonetPlay3084ApksIntegrationTest {
             assertTrue(inputLayout.id in graph.incoming(quoteBackground.id))
             assertTrue(keyboardStyle.id in graph.incoming(pressedKey.id))
 
-            val styleRole = MonetRoleCatalog.load(File("../../app/embedded/monet"))
-                .roles.single { it.id == "payment.keyboard.key.style" }
+            val styleRole = catalog.roles.single { it.id == "payment.keyboard.key.style" }
             assertEquals(
                 styleRole.defaultValueStructure,
                 graph.referenceStructureSignature(keyboardStyle.id)?.defaultValue,

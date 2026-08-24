@@ -126,6 +126,30 @@ class MonetResourceGraphTest {
     }
 
     @Test
+    fun `graph rejects one resource key assigned to different IDs regardless of input order`() {
+        val first = MonetResourceNode(0x7f060111, MonetResourceKey("color", "duplicate"), emptyList())
+        val second = MonetResourceNode(0x7f060222, MonetResourceKey("color", "duplicate"), emptyList())
+
+        listOf(listOf(first, second), listOf(second, first)).forEach { nodes ->
+            assertThrows(IllegalArgumentException::class.java) {
+                MonetResourceGraph(nodes)
+            }
+        }
+    }
+
+    @Test
+    fun `graph rejects one resource ID assigned to different keys`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetResourceGraph(
+                listOf(
+                    MonetResourceNode(0x7f060111, MonetResourceKey("color", "first"), emptyList()),
+                    MonetResourceNode(0x7f060111, MonetResourceKey("color", "second"), emptyList()),
+                ),
+            )
+        }
+    }
+
+    @Test
     fun `xml reference update replaces edges without changing previous graph`() {
         val colorId = 0x7f060111
         val drawableId = 0x7f080222

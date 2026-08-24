@@ -10,11 +10,13 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
 import java.security.MessageDigest
+import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 
 class MonetS4PayloadTest {
@@ -90,11 +92,42 @@ class MonetS4PayloadTest {
     }
 
     @Test
+    fun `every overlay binding is present in its declared template with audited inventory`() {
+        val payload = File("../../app/embedded/monet")
+        val catalog = MonetRoleCatalog.load(payload)
+        val roles = catalog.roles.associateBy(MonetRoleDefinition::id)
+
+        assertEquals(EXPECTED_OVERLAY_BINDING_INVENTORIES.keys, catalog.overlays.map { it.id }.toSet())
+        catalog.overlays.forEach { overlay ->
+            val expected = EXPECTED_OVERLAY_BINDING_INVENTORIES.getValue(overlay.id)
+            assertEquals(expected.first, overlay.templateResources.size, overlay.id)
+            assertEquals(expected.second, bindingDigest(overlay.templateResources), overlay.id)
+            val template = payload.resolve(overlay.templateFile)
+            assertTrue(template.isFile, "missing declared template ${overlay.templateFile}")
+            val graph = MonetApkResourceGraphLoader.load(listOf(template), overlay.packageName)
+            overlay.templateResources.forEach { (roleId, key) ->
+                assertEquals(key.type, roles.getValue(roleId).type, "$roleId type drift in ${overlay.id}")
+                val node = requireNotNull(graph.node(key)) {
+                    "$roleId -> ${key.type}/${key.name} is absent from ${overlay.templateFile}"
+                }
+                assertEquals(key, graph.node(node.id)?.key, "$roleId ID/key drift in ${overlay.id}")
+            }
+        }
+        assertEquals(469, catalog.overlays.sumOf { it.templateResources.size })
+    }
+
+    @Test
     fun `only verified digest keyed profiles are exact selectable profiles`() {
         val payload = File("../../app/embedded/monet")
         val catalog = MonetRoleCatalog.load(payload)
+        val parsedProfiles = MonetProfileCatalog.load(payload)
         val profiles = Json.parseToJsonElement(payload.resolve("monet_profiles.json").readText()).jsonObject
 
+        assertEquals(1, parsedProfiles.verifiedProfiles.size)
+        assertEquals(MonetProfileCatalog.DOMESTIC_VERSIONS, parsedProfiles.structuralOnlyProfiles
+            .filter { it.channel == "domestic" }
+            .map { it.versionName }
+            .toSet())
         assertEquals("monet-resource-graph-v1", profiles.getValue("digestAlgorithm").jsonPrimitive.content)
         val verified = profiles.getValue("verifiedProfiles").jsonArray
         assertEquals(1, verified.size)
@@ -136,6 +169,12 @@ class MonetS4PayloadTest {
         TEMPLATE_METADATA.keys.forEach { name ->
             ZipFile(templates.resolve(name)).use { archive ->
                 assertTrue(archive.entries().asSequence().none { it.name.startsWith("META-INF/") })
+                assertTrue(
+                    archive.entries().asSequence()
+                        .filterNot(ZipEntry::isDirectory)
+                        .all { it.method == ZipEntry.STORED },
+                    "$name contains a compressed entry",
+                )
             }
         }
         ZipFile(templates.resolve("template_classic.apk")).use { archive ->
@@ -143,6 +182,34 @@ class MonetS4PayloadTest {
                 archive.getEntry("res/drawable/chat_voice_to_text.xml"),
             ).readBytes()
             assertEquals(CLASSIC_REPAIR_SHA256, sha256(repair))
+        }
+    }
+
+    @Test
+    fun `catalog and profile schemas reject unsupported versions`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetRoleCatalog(2, emptyList(), emptyList())
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetProfileCatalog(2, "monet-resource-graph-v1", emptyList(), emptyList())
+        }
+    }
+
+    @Test
+    fun `profile catalog requires exactly five unique domestic structural versions`() {
+        val domestic = MonetProfileCatalog.DOMESTIC_VERSIONS.map { version ->
+            MonetStructuralProfile(version, channel = "domestic", selectable = false, reason = "fixture")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetProfileCatalog(1, "monet-resource-graph-v1", emptyList(), domestic.dropLast(1))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetProfileCatalog(
+                1,
+                "monet-resource-graph-v1",
+                emptyList(),
+                domestic.dropLast(1) + domestic.first(),
+            )
         }
     }
 
@@ -180,6 +247,21 @@ class MonetS4PayloadTest {
             "template_corners.apk" to ("monet.multiscenecorners.com.tencent.mm" to 31),
             "template_solid_tab.apk" to ("monet.solidtab.com.tencent.mm" to 31),
             "template_blur_tab.apk" to ("monet.blurtab.com.tencent.mm" to 31),
+        )
+        val EXPECTED_OVERLAY_BINDING_INVENTORIES = mapOf(
+            "base-api31" to (221 to "63088d32152456c250b1e97ca6a2eabd6fb8a0ea9bf8e65ad97f645c99c60476"),
+            "base-api34" to (221 to "63088d32152456c250b1e97ca6a2eabd6fb8a0ea9bf8e65ad97f645c99c60476"),
+            "classic-bubble" to (12 to "fbc7dba541f52a1126c6f31540c83a84d345cff46a019818cb0ef69d70733ce3"),
+            "pro-bubble" to (10 to "9915ffce7a4c831fb32d79c1607229f16ce7e2db7431dbda69a450740582f151"),
+            "multi-scene-corners" to (3 to "11f2a2926ee448b476c2301340e0a40adba5873a139018e397e0ccce306b953b"),
+            "solid-tab" to (1 to "0fafae5c44dd510740c5cac056b2f9e1fb46ac5a7b2b3eb26ebe7dd17afa9b80"),
+            "blur-tab" to (1 to "0fafae5c44dd510740c5cac056b2f9e1fb46ac5a7b2b3eb26ebe7dd17afa9b80"),
+        )
+
+        fun bindingDigest(bindings: Map<String, MonetResourceKey>): String = sha256(
+            bindings.entries.sortedBy(Map.Entry<String, MonetResourceKey>::key)
+                .joinToString("") { (roleId, key) -> "$roleId\t${key.type}/${key.name}\n" }
+                .toByteArray(),
         )
 
         fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")
