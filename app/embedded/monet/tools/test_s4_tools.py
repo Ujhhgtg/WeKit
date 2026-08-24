@@ -28,11 +28,8 @@ class S4ToolTest(unittest.TestCase):
             output = root / "payload"
             generated = root / "generated"
             output.mkdir()
-            for relative in sync.PRESERVED_OUTPUT_FILES:
-                path = output / relative
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(f"preserved:{relative}", encoding="utf-8")
-                path.chmod(0o755 if relative.endswith(("gen_monet_tables.py", "sync_s4_payload.py")) else 0o644)
+            output.chmod(0o751)
+            self._write_preserved(output)
             (output / "stale.txt").write_text("stale", encoding="utf-8")
             (output / "__pycache__").mkdir()
             (output / "__pycache__/stale.pyc").write_bytes(b"stale")
@@ -58,6 +55,54 @@ class S4ToolTest(unittest.TestCase):
             self.assertFalse((output / "stale-dir").exists())
             self.assertFalse((output / "stale-link").exists())
             self.assertFalse((output / "__pycache__").exists())
+            self.assertEqual(0o751, output.stat().st_mode & 0o777)
+
+    def test_publish_rejects_missing_required_asset_without_moving_old_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "payload"
+            generated = root / "generated"
+            output.mkdir()
+            self._write_preserved(output)
+            (output / "customize.sh").unlink()
+            (output / "monet_roles.json").write_text("old", encoding="utf-8")
+            self._write_generated(generated, "new")
+
+            with self.assertRaisesRegex(ValueError, "required preserved payload asset"):
+                sync.publish_generated(generated, output)
+
+            self.assertEqual("old", (output / "monet_roles.json").read_text(encoding="utf-8"))
+
+    def test_publish_rejects_symlinked_required_asset_without_moving_old_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "payload"
+            generated = root / "generated"
+            output.mkdir()
+            self._write_preserved(output)
+            (output / "customize.sh").unlink()
+            external = root / "external"
+            external.write_text("external", encoding="utf-8")
+            (output / "customize.sh").symlink_to(external)
+            (output / "monet_roles.json").write_text("old", encoding="utf-8")
+            self._write_generated(generated, "new")
+
+            with self.assertRaisesRegex(ValueError, "required preserved payload asset"):
+                sync.publish_generated(generated, output)
+
+            self.assertEqual("old", (output / "monet_roles.json").read_text(encoding="utf-8"))
+            self.assertTrue((output / "customize.sh").is_symlink())
+
+    def test_publish_fresh_output_has_deterministic_directory_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "payload"
+            generated = root / "generated"
+            self._write_generated(generated, "new")
+
+            sync.publish_generated(generated, output)
+
+            self.assertEqual(0o755, output.stat().st_mode & 0o777)
 
     def test_publish_rejects_unexpected_generated_content(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -65,6 +110,7 @@ class S4ToolTest(unittest.TestCase):
             output = root / "payload"
             generated = root / "generated"
             output.mkdir()
+            self._write_preserved(output)
             (output / "monet_roles.json").write_text("old", encoding="utf-8")
             self._write_generated(generated, "new")
             (generated / "unexpected").write_text("stale", encoding="utf-8")
@@ -80,6 +126,7 @@ class S4ToolTest(unittest.TestCase):
             output = root / "payload"
             generated = root / "generated"
             output.mkdir()
+            self._write_preserved(output)
             (output / "monet_roles.json").write_text("old", encoding="utf-8")
             self._write_generated(generated, "new")
 
@@ -95,6 +142,7 @@ class S4ToolTest(unittest.TestCase):
             output = root / "payload"
             generated = root / "generated"
             output.mkdir()
+            self._write_preserved(output)
             (output / "monet_roles.json").write_text("old", encoding="utf-8")
             self._write_generated(generated, "new")
             real_replace = sync.os.replace
@@ -155,6 +203,15 @@ class S4ToolTest(unittest.TestCase):
             (generated / "templates" / name).write_text(marker, encoding="utf-8")
         for name in sync.MANAGED_OUTPUT_FILES:
             (generated / name).write_text(marker, encoding="utf-8")
+
+    @staticmethod
+    def _write_preserved(output: Path):
+        for relative in sync.PRESERVED_OUTPUT_FILES:
+            path = output / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(f"preserved:{relative}", encoding="utf-8")
+            mode = 0o755 if relative.endswith(("gen_monet_tables.py", "sync_s4_payload.py")) else 0o644
+            path.chmod(mode)
 
 
 if __name__ == "__main__":

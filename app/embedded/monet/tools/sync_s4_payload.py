@@ -660,23 +660,18 @@ def validate_output_tree(root: Path, expected_files: set[str] | frozenset[str]) 
         )
 
 
-def copy_preserved_output_files(output: Path, candidate: Path) -> set[str]:
-    copied = set()
+def copy_preserved_output_files(output: Path, candidate: Path) -> None:
     for relative in PRESERVED_OUTPUT_FILES:
         source = output
-        safe = True
         for component in PurePosixPath(relative).parts:
             source = source / component
             if source.is_symlink():
-                safe = False
-                break
-        if not safe or not source.is_file():
-            continue
+                raise ValueError(f"required preserved payload asset is a symlink: {relative}")
+        if not source.is_file():
+            raise ValueError(f"required preserved payload asset is missing or non-regular: {relative}")
         destination = candidate / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
-        copied.add(relative)
-    return copied
 
 
 def validate_generated_output(generated: Path) -> None:
@@ -689,15 +684,20 @@ def publish_generated(generated: Path, output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     candidate = Path(tempfile.mkdtemp(prefix=f".{output.name}.publish-", dir=output.parent))
     try:
-        preserved = set()
+        candidate_mode = 0o755
         if output.exists():
             if not output.is_dir() or output.is_symlink():
                 raise ValueError(f"payload output is not a real directory: {output}")
-            preserved = copy_preserved_output_files(output, candidate)
+            candidate_mode = output.stat().st_mode & 0o777
+            copy_preserved_output_files(output, candidate)
+        candidate.chmod(candidate_mode)
         shutil.copytree(generated / "templates", candidate / "templates")
         for name in MANAGED_OUTPUT_FILES:
             shutil.copyfile(generated / name, candidate / name)
-        validate_output_tree(candidate, MANAGED_OUTPUT_PATHS | preserved)
+        expected_files = MANAGED_OUTPUT_PATHS
+        if output.exists():
+            expected_files = expected_files | set(PRESERVED_OUTPUT_FILES)
+        validate_output_tree(candidate, expected_files)
 
         if output.exists():
             backup = Path(tempfile.mkdtemp(prefix=f".{output.name}.backup-", dir=output.parent))
