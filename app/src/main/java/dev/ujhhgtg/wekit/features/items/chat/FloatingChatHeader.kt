@@ -130,6 +130,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private const val CHATTING_CONTENT_CLASS = "com.tencent.mm.pluginsdk.ui.chat.ChattingContent"
 
     private const val TOOLBAR_CLASS = "androidx.appcompat.widget.Toolbar"
+    private const val ACTION_MENU_VIEW_CLASS = "com.tencent.mm.ui.widget.WXActionMenuView"
 
     /** 内容宿主里这些子 View 不是"标题下挂件", 排除在悬浮卡之外。 */
     private const val ME_HOLDER_VIEW_CLASS = "com.tencent.mm.magicbrush.plugin.emoji.ui.MEHolderView"
@@ -457,8 +458,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val clipStates: List<HeaderClipState>,
     ) {
         val layoutListeners = HashMap<View, View.OnLayoutChangeListener>()
+        val menuActionViews = HashSet<View>()
         lateinit var attachListener: View.OnAttachStateChangeListener
         lateinit var menuAttachListener: View.OnAttachStateChangeListener
+        lateinit var menuActionAttachListener: View.OnAttachStateChangeListener
         var menuRetryObserver: ViewTreeObserver? = null
         var menuRetryListener: ViewTreeObserver.OnGlobalLayoutListener? = null
         var updatePosted = false
@@ -1149,6 +1152,15 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                 postSeparatedHeaderUpdate(state)
             }
         }
+        state.menuActionAttachListener = object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                postSeparatedHeaderUpdate(state)
+            }
+
+            override fun onViewDetachedFromWindow(v: View) {
+                postSeparatedHeaderUpdate(state)
+            }
+        }
         if (menuHost != null) {
             menuHost.addOnAttachStateChangeListener(state.menuAttachListener)
         } else {
@@ -1188,6 +1200,19 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             .map(group::getChildAt)
             .filterIsInstance<ViewGroup>()
             .firstOrNull()
+    }
+
+    private fun isVisibleMenuAction(view: View): Boolean {
+        if (!view.isVisible || view.width <= 0 || view.height <= 0) return false
+        if (view.javaClass.name != ACTION_MENU_VIEW_CLASS) return true
+        // 半屏切全屏时微信会保留一个外层可见、但内部图标和文字均为空的 action 槽位。
+        return view.allViews.drop(1).any { content ->
+            content.isShown && when (content) {
+                is ImageView -> content.drawable != null
+                is TextView -> content.text.isNotEmpty()
+                else -> false
+            }
+        }
     }
 
     private fun syncMenuHost(state: SeparatedHeaderState) {
@@ -1307,7 +1332,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         state.menuHost?.let { menuHost ->
             for (index in 0 until menuHost.childCount) {
                 val child = menuHost.getChildAt(index)
-                if (!child.isVisible || child.width <= 0 || child.height <= 0) continue
+                if (!isVisibleMenuAction(child)) continue
                 val bounds = RectF()
                 boundsInHeaderRoot(child, state.root, bounds)
                 val actionCard = RectF(
@@ -1353,6 +1378,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     private fun syncSeparatedHeaderObservers(state: SeparatedHeaderState) {
         val observed = LinkedHashSet<View>()
+        val menuActions = LinkedHashSet<View>()
         observed += state.root
         observed += state.left
         observed += state.title
@@ -1361,8 +1387,19 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         state.left.allViews.firstOrNull { it is ImageView && it.isVisible }?.let(observed::add)
         state.menuHost?.let { menuHost ->
             for (index in 0 until menuHost.childCount) {
-                observed += menuHost.getChildAt(index)
+                val action = menuHost.getChildAt(index)
+                menuActions += action
+                observed += action
+                action.allViews.drop(1).forEach(observed::add)
             }
+        }
+        state.menuActionViews.filterNot(menuActions::contains).forEach { action ->
+            action.removeOnAttachStateChangeListener(state.menuActionAttachListener)
+            state.menuActionViews.remove(action)
+        }
+        menuActions.filterNot(state.menuActionViews::contains).forEach { action ->
+            action.addOnAttachStateChangeListener(state.menuActionAttachListener)
+            state.menuActionViews += action
         }
         state.layoutListeners.keys.toList().filterNot(observed::contains).forEach { view ->
             view.removeOnLayoutChangeListener(state.layoutListeners.remove(view))
@@ -1426,6 +1463,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             view.removeOnLayoutChangeListener(listener)
         }
         state.layoutListeners.clear()
+        state.menuActionViews.forEach { action ->
+            action.removeOnAttachStateChangeListener(state.menuActionAttachListener)
+        }
+        state.menuActionViews.clear()
         state.root.removeOnAttachStateChangeListener(state.attachListener)
         state.menuHost?.removeOnAttachStateChangeListener(state.menuAttachListener)
         stopMenuHostRetry(state)
