@@ -70,6 +70,7 @@ include(
     ":libs:common:stubs",
     ":libs:common:bsh",
     ":libs:common:reflekt",
+    ":libs:monet-dex-evidence",
     ":libs:monet-generator-api",
     ":extensions:monet-generator"
 )

@@ -1,0 +1,44 @@
+import com.android.build.api.dsl.LibraryExtension
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+plugins {
+    id("com.android.base")
+    id("com.android.library")
+}
+
+java {
+    sourceCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
+    targetCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.fromTarget(libs.versions.jdk.get()))
+    }
+    jvmToolchain(libs.versions.jdk.get().toInt())
+}
+
+configure<LibraryExtension> {
+    namespace = "dev.ujhhgtg.wekit.monet.evidence"
+    defaultConfig {
+        minSdk = libs.versions.minSdk.get().toInt()
+        compileSdk = libs.versions.compileSdk.get().toInt()
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
+        targetCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
+    }
+
+    testOptions {
+        unitTests.all { it.useJUnitPlatform() }
+    }
+}
+
+dependencies {
+    implementation(project(":libs:monet-generator-api"))
+    compileOnly(libs.dexkit)
+    testImplementation(libs.dexkit)
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}
