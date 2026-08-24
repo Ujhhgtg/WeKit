@@ -22,22 +22,57 @@ importer = load_module("gen_monet_tables")
 
 
 class S4ToolTest(unittest.TestCase):
-    def test_publish_retires_legacy_files_and_preserves_nonmanaged_files(self):
+    def test_publish_uses_allowlist_and_preserves_required_repository_assets(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             output = root / "payload"
             generated = root / "generated"
-            (output / "tools").mkdir(parents=True)
-            (output / "tools/keep.py").write_text("keep", encoding="utf-8")
+            output.mkdir()
+            for relative in sync.PRESERVED_OUTPUT_FILES:
+                path = output / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(f"preserved:{relative}", encoding="utf-8")
+                path.chmod(0o755 if relative.endswith(("gen_monet_tables.py", "sync_s4_payload.py")) else 0o644)
+            (output / "stale.txt").write_text("stale", encoding="utf-8")
+            (output / "__pycache__").mkdir()
+            (output / "__pycache__/stale.pyc").write_bytes(b"stale")
+            (output / "stale-dir").mkdir()
+            (output / "stale-dir/file").write_text("stale", encoding="utf-8")
+            (output / "stale-link").symlink_to(output / "stale.txt")
             for legacy in ("template_api31.apk", "template_api34.apk", "monet_tables.json"):
                 (output / legacy).write_text("old", encoding="utf-8")
             self._write_generated(generated, "new")
 
             sync.publish_generated(generated, output)
 
-            self.assertEqual("keep", (output / "tools/keep.py").read_text(encoding="utf-8"))
+            for relative in sync.PRESERVED_OUTPUT_FILES:
+                self.assertEqual(
+                    f"preserved:{relative}",
+                    (output / relative).read_text(encoding="utf-8"),
+                )
+                expected_mode = 0o755 if relative.endswith(("gen_monet_tables.py", "sync_s4_payload.py")) else 0o644
+                self.assertEqual(expected_mode, (output / relative).stat().st_mode & 0o777)
             self.assertEqual("new", (output / "monet_roles.json").read_text(encoding="utf-8"))
             self.assertFalse(any((output / name).exists() for name in sync.LEGACY_OUTPUT_NAMES))
+            self.assertFalse((output / "stale.txt").exists())
+            self.assertFalse((output / "stale-dir").exists())
+            self.assertFalse((output / "stale-link").exists())
+            self.assertFalse((output / "__pycache__").exists())
+
+    def test_publish_rejects_unexpected_generated_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "payload"
+            generated = root / "generated"
+            output.mkdir()
+            (output / "monet_roles.json").write_text("old", encoding="utf-8")
+            self._write_generated(generated, "new")
+            (generated / "unexpected").write_text("stale", encoding="utf-8")
+
+            with self.assertRaises(ValueError):
+                sync.publish_generated(generated, output)
+
+            self.assertEqual("old", (output / "monet_roles.json").read_text(encoding="utf-8"))
 
     def test_publish_failure_before_swap_preserves_old_output(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -53,6 +88,32 @@ class S4ToolTest(unittest.TestCase):
                     sync.publish_generated(generated, output)
 
             self.assertEqual("old", (output / "monet_roles.json").read_text(encoding="utf-8"))
+
+    def test_failed_install_and_failed_rollback_leave_recoverable_backup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "payload"
+            generated = root / "generated"
+            output.mkdir()
+            (output / "monet_roles.json").write_text("old", encoding="utf-8")
+            self._write_generated(generated, "new")
+            real_replace = sync.os.replace
+            replace_count = 0
+
+            def fail_install_and_rollback(source, destination):
+                nonlocal replace_count
+                replace_count += 1
+                if replace_count in (2, 3):
+                    raise OSError(f"injected replace failure {replace_count}")
+                return real_replace(source, destination)
+
+            with mock.patch.object(sync.os, "replace", side_effect=fail_install_and_rollback):
+                with self.assertRaisesRegex(RuntimeError, r"backup remains at .*\.payload\.backup-"):
+                    sync.publish_generated(generated, output)
+
+            backups = list(root.glob(".payload.backup-*"))
+            self.assertEqual(1, len(backups))
+            self.assertEqual("old", (backups[0] / "monet_roles.json").read_text(encoding="utf-8"))
 
     def test_importer_rejects_input_alias_without_mutation(self):
         with tempfile.TemporaryDirectory() as directory:

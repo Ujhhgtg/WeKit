@@ -106,6 +106,18 @@ TEMPLATE_SPECS = (
 EXPECTED_TEMPLATE_NAMES = tuple(spec[0] for spec in TEMPLATE_SPECS)
 MANAGED_OUTPUT_FILES = ("monet_roles.json", "monet_profiles.json", "upstream.txt")
 LEGACY_OUTPUT_NAMES = ("template_api31.apk", "template_api34.apk", "monet_tables.json")
+PRESERVED_OUTPUT_FILES = (
+    "customize.sh",
+    "update-binary",
+    "updater-script",
+    "tools/domestic_structural_profiles.b85",
+    "tools/gen_monet_tables.py",
+    "tools/sync_s4_payload.py",
+    "tools/test_s4_tools.py",
+)
+MANAGED_OUTPUT_PATHS = frozenset(MANAGED_OUTPUT_FILES) | {
+    f"templates/{name}" for name in EXPECTED_TEMPLATE_NAMES
+}
 
 EXPECTED_TARGET_COUNTS = {"color": 191, "drawable": 30, "mipmap": 1, "string": 7}
 
@@ -620,21 +632,55 @@ def write_json(path: Path, value: object) -> None:
     )
 
 
-def remove_output_path(path: Path) -> None:
-    if path.is_dir() and not path.is_symlink():
-        shutil.rmtree(path)
-    elif path.exists() or path.is_symlink():
-        path.unlink()
+def validate_output_tree(root: Path, expected_files: set[str] | frozenset[str]) -> None:
+    actual_files = set()
+    actual_directories = set()
+    for directory, directory_names, file_names in os.walk(root, followlinks=False):
+        directory_path = Path(directory)
+        for name in directory_names:
+            path = directory_path / name
+            if path.is_symlink():
+                raise ValueError(f"payload output contains a symlink: {path.relative_to(root)}")
+            actual_directories.add(path.relative_to(root).as_posix())
+        for name in file_names:
+            path = directory_path / name
+            if path.is_symlink() or not path.is_file():
+                raise ValueError(f"payload output contains a non-regular file: {path.relative_to(root)}")
+            actual_files.add(path.relative_to(root).as_posix())
+    expected_directories = {
+        parent.as_posix()
+        for name in expected_files
+        for parent in PurePosixPath(name).parents
+        if parent.as_posix() != "."
+    }
+    if actual_files != set(expected_files) or actual_directories != expected_directories:
+        raise ValueError(
+            "payload output inventory drift: "
+            f"files={sorted(actual_files)}, directories={sorted(actual_directories)}"
+        )
+
+
+def copy_preserved_output_files(output: Path, candidate: Path) -> set[str]:
+    copied = set()
+    for relative in PRESERVED_OUTPUT_FILES:
+        source = output
+        safe = True
+        for component in PurePosixPath(relative).parts:
+            source = source / component
+            if source.is_symlink():
+                safe = False
+                break
+        if not safe or not source.is_file():
+            continue
+        destination = candidate / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+        copied.add(relative)
+    return copied
 
 
 def validate_generated_output(generated: Path) -> None:
-    templates = generated / "templates"
-    actual_templates = tuple(sorted(path.name for path in templates.iterdir() if path.is_file()))
-    if actual_templates != tuple(sorted(EXPECTED_TEMPLATE_NAMES)):
-        raise ValueError(f"generated template inventory drift: {actual_templates}")
-    missing = [name for name in MANAGED_OUTPUT_FILES if not (generated / name).is_file()]
-    if missing:
-        raise ValueError(f"generated managed output is incomplete: {missing}")
+    validate_output_tree(generated, MANAGED_OUTPUT_PATHS)
 
 
 def publish_generated(generated: Path, output: Path) -> None:
@@ -642,18 +688,16 @@ def publish_generated(generated: Path, output: Path) -> None:
     validate_generated_output(generated)
     output.parent.mkdir(parents=True, exist_ok=True)
     candidate = Path(tempfile.mkdtemp(prefix=f".{output.name}.publish-", dir=output.parent))
-    backup = None
     try:
+        preserved = set()
         if output.exists():
             if not output.is_dir() or output.is_symlink():
                 raise ValueError(f"payload output is not a real directory: {output}")
-            shutil.copytree(output, candidate, dirs_exist_ok=True, symlinks=True)
-        for name in ("templates", *MANAGED_OUTPUT_FILES, *LEGACY_OUTPUT_NAMES):
-            remove_output_path(candidate / name)
+            preserved = copy_preserved_output_files(output, candidate)
         shutil.copytree(generated / "templates", candidate / "templates")
         for name in MANAGED_OUTPUT_FILES:
             shutil.copyfile(generated / name, candidate / name)
-        validate_generated_output(candidate)
+        validate_output_tree(candidate, MANAGED_OUTPUT_PATHS | preserved)
 
         if output.exists():
             backup = Path(tempfile.mkdtemp(prefix=f".{output.name}.backup-", dir=output.parent))
@@ -661,19 +705,25 @@ def publish_generated(generated: Path, output: Path) -> None:
             os.replace(output, backup)
             try:
                 os.replace(candidate, output)
-            except Exception:
-                os.replace(backup, output)
-                backup = None
-                raise
-            shutil.rmtree(backup)
-            backup = None
+            except Exception as install_error:
+                try:
+                    os.replace(backup, output)
+                except Exception as rollback_error:
+                    raise RuntimeError(
+                        f"payload install and rollback failed; intact backup remains at {backup}"
+                    ) from rollback_error
+                raise install_error
+            try:
+                shutil.rmtree(backup)
+            except Exception as cleanup_error:
+                raise RuntimeError(
+                    f"payload installed but old backup cleanup failed; backup remains at {backup}"
+                ) from cleanup_error
         else:
             os.replace(candidate, output)
     finally:
         if candidate.exists():
             shutil.rmtree(candidate)
-        if backup is not None and backup.exists():
-            shutil.rmtree(backup)
 
 
 def build_catalog(
