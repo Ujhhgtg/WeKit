@@ -179,8 +179,8 @@ androidComponents {
         val kotlinSources = variant.sources.kotlin ?: return@onVariants
 
         kotlinSources.addGeneratedSourceDirectory(
-            generateMethodHashes,
-            GenerateMethodHashesTask::outputDir
+            generateDexResolutionMetadata,
+            GenerateDexResolutionMetadataTask::outputDir
         )
 
         kotlinSources.addGeneratedSourceDirectory(
@@ -192,11 +192,11 @@ androidComponents {
 
 // --- tasks ---
 
-val generateMethodHashes = tasks.register<GenerateMethodHashesTask>("generateMethodHashes") {
-    description = "Generate resolveDex() method hashes"
+val generateDexResolutionMetadata = tasks.register<GenerateDexResolutionMetadataTask>("generateDexResolutionMetadata") {
+    description = "Generate Dex resolution producer metadata"
     group = "wekit"
     sourceDir.set(file("src/main/java"))
-    outputDir.set(layout.buildDirectory.dir("generated/source/methodhashes"))
+    outputDir.set(layout.buildDirectory.dir("generated/source/dex-resolution-metadata"))
     namespace.set(libs.versions.namespace.get())
 }
 

@@ -1,5 +1,8 @@
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 class DexResolverSourceScannerTest {
     @Test
@@ -132,6 +135,252 @@ class DexResolverSourceScannerTest {
         assertEquals(6, findDesktopIncompatibleAccesses(source).single().line)
         val block = source.blocks.single()
         assertEquals(6, source.sourceLinesByBlock[block]!![block.text.indexOf("classOwner.clazz")])
+    }
+
+    @Test
+    fun extractsStableInlineProducerMetadataIncludingFactoryArguments() {
+        val source = scanDexResolverSource(
+            "src/main/java/dev/example/SomeFeature.kt",
+            """
+                package dev.example
+                object SomeFeature : BaseFeature(), IResolveDex {
+                    internal val methodTarget by dexMethod(allowFailure = true, resultIndex = 1) {
+                        matcher { usingEqStrings("anchor") }
+                    }
+                }
+            """.trimIndent(),
+        )!!
+
+        val producer = source.producers.single()
+        assertEquals("dev.example.SomeFeature#methodTarget", producer.stableId)
+        assertEquals("methodTarget", producer.propertyName)
+        assertEquals(ResolveBlockKind.INLINE_METHOD, producer.kind)
+        assertTrue(producer.fingerprintSource.contains("allowFailure = true"))
+        assertTrue(producer.fingerprintSource.contains("resultIndex = 1"))
+        assertTrue(producer.fingerprintSource.contains("usingEqStrings(\"anchor\")"))
+    }
+
+    @Test
+    fun fullyQualifiedOwnerNamesKeepSameSimpleNameProducerIdsDistinct() {
+        fun scan(packageName: String) = scanDexResolverSource(
+            "src/main/java/${packageName.replace('.', '/')}/SameName.kt",
+            """
+                package $packageName
+                object SameName : IResolveDex {
+                    val target by dexClass { matcher { name = "Target" } }
+                }
+            """.trimIndent(),
+        )!!.producers.single().stableId
+
+        assertEquals("dev.example.first.SameName#target", scan("dev.example.first"))
+        assertEquals("dev.example.second.SameName#target", scan("dev.example.second"))
+        assertNotEquals(scan("dev.example.first"), scan("dev.example.second"))
+    }
+
+    @Test
+    fun mapsMultipleNonInlineOutputsToOneCustomResolveDexProducer() {
+        val source = scanDexResolverSource(
+            "Custom.kt",
+            """
+                package sample
+                object Custom : IResolveDex {
+                    val targetClass by dexClass()
+                    val targetMethod by dexMethod()
+
+                    override fun resolveDex(dexKit: DexKitBridge) {
+                        targetClass.find(dexKit) { matcher { name = "Target" } }
+                        targetMethod.find(dexKit) { matcher { name = "run" } }
+                    }
+                }
+            """.trimIndent(),
+        )!!
+
+        val producer = source.producers.single()
+        assertEquals("sample.Custom#resolveDex", producer.stableId)
+        assertEquals(null, producer.propertyName)
+        assertEquals(ResolveBlockKind.CUSTOM, producer.kind)
+        assertEquals(setOf("targetClass", "targetMethod"), source.customOutputPropertyNames)
+        assertTrue(producer.fingerprintSource.contains("targetClass.find"))
+        assertTrue(producer.fingerprintSource.contains("targetMethod.find"))
+    }
+
+    @Test
+    fun factoryArgumentChangesProduceDistinctFingerprintInputs() {
+        fun producerSource(allowFailure: Boolean) = scanDexResolverSource(
+            "Sample.kt",
+            """
+                object Sample : IResolveDex {
+                    val target by dexMethod(allowFailure = $allowFailure, resultIndex = 1) {
+                        matcher { name = "run" }
+                    }
+                }
+            """.trimIndent(),
+        )!!.producers.single().fingerprintSource
+
+        assertNotEquals(producerSource(false), producerSource(true))
+    }
+
+    @Test
+    fun directPrivateHelperIsIncludedInProducerFingerprintSource() {
+        val source = scanDexResolverSource(
+            "Sample.kt",
+            """
+                object Sample : IResolveDex {
+                    val target by dexMethod {
+                        matcher { helper() }
+                    }
+
+                    private fun helper() {
+                        transitiveHelper()
+                    }
+
+                    private fun transitiveHelper() {
+                        usingEqStrings("helper anchor")
+                    }
+
+                    private fun unrelated() {
+                        error("not part of resolution")
+                    }
+                }
+            """.trimIndent(),
+        )!!
+
+        val producer = source.producers.single()
+        assertTrue(producer.fingerprintSource.contains("helper anchor"))
+        assertFalse(producer.fingerprintSource.contains("not part of resolution"))
+        assertFalse(producer.usesOwnerSafetyFingerprint)
+    }
+
+    @Test
+    fun unresolvedOrIndirectHelperUsesOwnerSafetyFingerprint() {
+        val source = scanDexResolverSource(
+            "Sample.kt",
+            """
+                object Sample : IResolveDex {
+                    private val helperReference = ::helper
+
+                    val target by dexMethod {
+                        matcher { helperReference() }
+                    }
+
+                    private fun helper() {
+                        usingEqStrings("helper anchor")
+                    }
+                }
+            """.trimIndent(),
+        )!!
+
+        val producer = source.producers.single()
+        assertTrue(producer.usesOwnerSafetyFingerprint)
+        assertEquals(source.ownerSafetySource, producer.fingerprintSource)
+    }
+
+    @Test
+    fun recursiveHelperUsesOwnerSafetyFingerprint() {
+        val source = scanDexResolverSource(
+            "Sample.kt",
+            """
+                object Sample : IResolveDex {
+                    val target by dexMethod {
+                        matcher { firstHelper() }
+                    }
+
+                    private fun firstHelper() {
+                        secondHelper()
+                    }
+
+                    private fun secondHelper() {
+                        firstHelper()
+                    }
+                }
+            """.trimIndent(),
+        )!!
+
+        assertTrue(source.producers.single().usesOwnerSafetyFingerprint)
+    }
+
+    @Test
+    fun overloadedHelperUsesOwnerSafetyFingerprint() {
+        val source = scanDexResolverSource(
+            "Sample.kt",
+            """
+                object Sample : IResolveDex {
+                    val target by dexMethod {
+                        matcher { helper("anchor") }
+                    }
+
+                    private fun helper(value: String) {
+                        usingEqStrings(value)
+                    }
+
+                    private fun helper(value: Int) {
+                        paramCount = value
+                    }
+                }
+            """.trimIndent(),
+        )!!
+
+        assertTrue(source.producers.single().usesOwnerSafetyFingerprint)
+    }
+
+    @Test
+    fun expressionBodyHelperUsesOwnerSafetyFingerprint() {
+        val source = scanDexResolverSource(
+            "Sample.kt",
+            """
+                object Sample : IResolveDex {
+                    val target by dexMethod {
+                        matcher { helper() }
+                    }
+
+                    private fun helper() = usingEqStrings("helper anchor")
+                }
+            """.trimIndent(),
+        )!!
+
+        assertTrue(source.producers.single().usesOwnerSafetyFingerprint)
+    }
+
+    @Test
+    fun dynamicDispatchHelperUsesOwnerSafetyFingerprint() {
+        val source = scanDexResolverSource(
+            "Sample.kt",
+            """
+                object Sample : IResolveDex {
+                    private val helperProvider = HelperProvider()
+
+                    val target by dexMethod {
+                        matcher { helperProvider.addAnchor() }
+                    }
+                }
+            """.trimIndent(),
+        )!!
+
+        assertTrue(source.producers.single().usesOwnerSafetyFingerprint)
+    }
+
+    @Test
+    fun unrelatedMemberDoesNotAffectProvenProducerSource() {
+        fun producerSource(unrelatedAnchor: String) = scanDexResolverSource(
+            "Sample.kt",
+            """
+                object Sample : IResolveDex {
+                    val target by dexMethod {
+                        matcher { helper() }
+                    }
+
+                    private fun helper() {
+                        usingEqStrings("target anchor")
+                    }
+
+                    private fun unrelated() {
+                        usingEqStrings("$unrelatedAnchor")
+                    }
+                }
+            """.trimIndent(),
+        )!!.producers.single().fingerprintSource
+
+        assertEquals(producerSource("first"), producerSource("second"))
     }
 
     private companion object {
