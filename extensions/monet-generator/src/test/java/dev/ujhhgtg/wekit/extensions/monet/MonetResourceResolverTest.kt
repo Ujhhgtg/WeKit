@@ -90,6 +90,94 @@ class MonetResourceResolverTest {
     }
 
     @Test
+    fun `verified profile disambiguates auxiliary role before incoming relationship filter`() {
+        val report = resolveFixture(
+            twoEqualDrawables = true,
+            matchingLayoutIncoming = true,
+            twoEqualLayouts = true,
+            profileLayoutTarget = LAYOUT_ID,
+        )
+
+        assertEquals(LAYOUT_ID, report.resolved.getValue(LAYOUT_ROLE_ID).resourceId)
+        assertEquals(AMBIGUOUS_ID, report.resolved.getValue(ROLE_ID).resourceId)
+        assertEquals(
+            listOf(AMBIGUOUS_ID),
+            report.diagnostics.getValue(ROLE_ID)
+                .stages.single { it.stage == MonetResolutionStage.INCOMING_RELATIONSHIPS }
+                .afterCandidateIds,
+        )
+    }
+
+    @Test
+    fun `profile selected style disambiguates incoming drawable across obfuscated file paths`() {
+        fun styleNode(id: Int, name: String, drawableId: Int) = MonetResourceNode(
+            id = id,
+            key = MonetResourceKey("style", name),
+            values = listOf(
+                MonetConfiguredValue(
+                    "",
+                    MonetResourceValue.Complex(
+                        parentId = 0,
+                        items = listOf(
+                            MonetComplexValue(16842964, MonetResourceValue.Reference(drawableId)),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val graph = MonetResourceGraph(
+            listOf(
+                MonetResourceNode(
+                    FIRST_ID,
+                    MonetResourceKey("drawable", "pressed_a"),
+                    listOf(MonetConfiguredValue("", MonetResourceValue.File("res/i/a.xml"))),
+                ),
+                MonetResourceNode(
+                    AMBIGUOUS_ID,
+                    MonetResourceKey("drawable", "pressed_b"),
+                    listOf(MonetConfiguredValue("", MonetResourceValue.File("res/j/b.xml"))),
+                ),
+                styleNode(STYLE_ID, "key_style_a", FIRST_ID),
+                styleNode(SECOND_STYLE_ID, "key_style_b", AMBIGUOUS_ID),
+            ),
+        ).withXmlData(FIRST_ID, emptySet(), setOf(MonetXmlShape(TARGET_SHAPE)))
+            .withXmlData(AMBIGUOUS_ID, emptySet(), setOf(MonetXmlShape(TARGET_SHAPE)))
+        val styleRole = MonetRoleDefinition(
+            id = STYLE_ROLE_ID,
+            type = "style",
+            core = true,
+            defaultValueStructure = "complex:parent:-:item:16842964=reference:REFERENCE:drawable:file:-",
+        )
+        val drawableRole = MonetRoleDefinition(
+            id = ROLE_ID,
+            type = "drawable",
+            core = true,
+            xmlShapeSha256 = TARGET_SHAPE,
+            requiredIncomingRoleIds = listOf(STYLE_ROLE_ID),
+        )
+        val report = MonetResourceResolver.resolve(
+            graph = graph,
+            catalog = MonetRoleCatalog(1, listOf(styleRole, drawableRole), emptyList()),
+            profiles = listOf(
+                MonetProfile(
+                    resourceDigest = "fixture",
+                    versionName = "8.0.test",
+                    channel = "google-play",
+                    roles = mapOf(STYLE_ROLE_ID to requireNotNull(graph.node(STYLE_ID)).key),
+                ),
+            ),
+            sdkInt = 31,
+            provider = RecordingEvidenceProvider(),
+        )
+
+        assertEquals(FIRST_ID, report.resolved.getValue(ROLE_ID).resourceId)
+        assertEquals(
+            setOf(STYLE_ID, SECOND_STYLE_ID),
+            report.diagnostics.getValue(STYLE_ROLE_ID).candidateIds.toSet(),
+        )
+    }
+
+    @Test
     fun `dex evidence is requested only after resource constraints remain ambiguous`() {
         val provider = RecordingEvidenceProvider(
             evidenceFor = mapOf(AMBIGUOUS_ID to matchingDexEvidence),
@@ -253,35 +341,43 @@ class MonetResourceResolverTest {
         dexAnchored: Boolean = false,
         neighboringDexAnchor: Boolean = false,
         profileTarget: Int? = null,
+        twoEqualLayouts: Boolean = false,
+        profileLayoutTarget: Int? = null,
         graphTarget: Int? = null,
     ): MonetResolutionReport {
         val firstValue = if (graphTarget == FIRST_ID) TARGET_VALUE else OTHER_VALUE
         val ambiguousValue = if (graphTarget == AMBIGUOUS_ID) TARGET_VALUE else OTHER_VALUE
         val targetShape = MonetXmlShape(TARGET_SHAPE)
         val otherShape = MonetXmlShape(OTHER_SHAPE)
-        val graph = MonetResourceGraph(
-            listOf(
-                MonetResourceNode(
-                    id = LAYOUT_ID,
-                    key = MonetResourceKey("layout", "chat_row"),
-                    values = emptyList(),
-                ),
-                MonetResourceNode(
-                    id = FIRST_ID,
-                    key = MonetResourceKey("drawable", "a53"),
-                    values = listOf(
-                        MonetConfiguredValue("", MonetResourceValue.Literal("INT_COLOR_ARGB8", firstValue)),
-                    ),
-                ),
-                MonetResourceNode(
-                    id = AMBIGUOUS_ID,
-                    key = MonetResourceKey("drawable", "bubble_in"),
-                    values = listOf(
-                        MonetConfiguredValue("", MonetResourceValue.Literal("INT_COLOR_ARGB8", ambiguousValue)),
-                    ),
+        val nodes = mutableListOf(
+            MonetResourceNode(
+                id = LAYOUT_ID,
+                key = MonetResourceKey("layout", "chat_row"),
+                values = emptyList(),
+            ),
+            MonetResourceNode(
+                id = FIRST_ID,
+                key = MonetResourceKey("drawable", "a53"),
+                values = listOf(
+                    MonetConfiguredValue("", MonetResourceValue.Literal("INT_COLOR_ARGB8", firstValue)),
                 ),
             ),
-        ).withXmlData(
+            MonetResourceNode(
+                id = AMBIGUOUS_ID,
+                key = MonetResourceKey("drawable", "bubble_in"),
+                values = listOf(
+                    MonetConfiguredValue("", MonetResourceValue.Literal("INT_COLOR_ARGB8", ambiguousValue)),
+                ),
+            ),
+        )
+        if (twoEqualLayouts) {
+            nodes += MonetResourceNode(
+                id = SECOND_LAYOUT_ID,
+                key = MonetResourceKey("layout", "chat_row_alternate"),
+                values = emptyList(),
+            )
+        }
+        var graph = MonetResourceGraph(nodes).withXmlData(
             sourceId = FIRST_ID,
             referenceIds = emptySet(),
             shapes = setOf(if (twoEqualDrawables) targetShape else otherShape),
@@ -294,6 +390,13 @@ class MonetResourceResolverTest {
             referenceIds = if (matchingLayoutIncoming) setOf(AMBIGUOUS_ID) else emptySet(),
             shapes = setOf(MonetXmlShape(LAYOUT_SHAPE)),
         )
+        if (twoEqualLayouts) {
+            graph = graph.withXmlData(
+                sourceId = SECOND_LAYOUT_ID,
+                referenceIds = if (matchingLayoutIncoming) setOf(FIRST_ID) else emptySet(),
+                shapes = setOf(MonetXmlShape(LAYOUT_SHAPE)),
+            )
+        }
         val role = MonetRoleDefinition(
             id = ROLE_ID,
             type = "drawable",
@@ -322,13 +425,20 @@ class MonetResourceResolverTest {
             core = true,
             xmlShapeSha256 = LAYOUT_SHAPE,
         )
-        val profile = profileTarget?.let { target ->
-            val key = requireNotNull(graph.node(target)).key
+        val profileRoles = buildMap {
+            profileTarget?.let { target ->
+                put(ROLE_ID, requireNotNull(graph.node(target)).key)
+            }
+            profileLayoutTarget?.let { target ->
+                put(LAYOUT_ROLE_ID, requireNotNull(graph.node(target)).key)
+            }
+        }
+        val profile = profileRoles.takeIf { it.isNotEmpty() }?.let { roles ->
             MonetProfile(
                 resourceDigest = "fixture",
                 versionName = "8.0.test",
                 channel = "domestic",
-                roles = mapOf(ROLE_ID to key),
+                roles = roles,
             )
         }
         return MonetResourceResolver.resolve(
@@ -358,9 +468,13 @@ class MonetResourceResolverTest {
     private companion object {
         const val ROLE_ID = "chat.bubble.incoming.normal"
         const val LAYOUT_ROLE_ID = "chat.message.row"
+        const val STYLE_ROLE_ID = "payment.keyboard.key.style"
         const val FIRST_ID = 0x7f080111
         const val AMBIGUOUS_ID = 0x7f080222
         const val LAYOUT_ID = 0x7f0d0333
+        const val SECOND_LAYOUT_ID = 0x7f0d0444
+        const val STYLE_ID = 0x7f130555
+        const val SECOND_STYLE_ID = 0x7f130666
         const val TARGET_VALUE = 0x11223344L
         const val OTHER_VALUE = 0x55667788L
         val TARGET_SHAPE = "a".repeat(64)

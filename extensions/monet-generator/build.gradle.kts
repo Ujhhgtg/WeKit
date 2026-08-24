@@ -1,6 +1,9 @@
 import com.android.build.api.dsl.LibraryExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+val play3084ApksProperty = "wekit.monet.play3084Apks"
+val play3084Apks = providers.systemProperty(play3084ApksProperty)
+
 plugins {
     id("com.android.base")
     id("com.android.library")
@@ -33,7 +36,12 @@ configure<LibraryExtension> {
     }
 
     testOptions {
-        unitTests.all { it.useJUnitPlatform() }
+        unitTests.all { test ->
+            test.useJUnitPlatform()
+            play3084Apks.orNull?.let { path ->
+                test.systemProperty(play3084ApksProperty, path)
+            }
+        }
     }
 }
 

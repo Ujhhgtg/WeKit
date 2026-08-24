@@ -58,6 +58,8 @@ internal data class MonetRoleDefinition(
     val maxSdk: Int? = null,
     val defaultValue: String? = null,
     val nightValue: String? = null,
+    val defaultValueStructure: String? = null,
+    val nightValueStructure: String? = null,
     val xmlShapeSha256: String? = null,
     val requiredIncomingRoleIds: List<String> = emptyList(),
     val dexAnchors: List<MonetDexAnchor> = emptyList(),

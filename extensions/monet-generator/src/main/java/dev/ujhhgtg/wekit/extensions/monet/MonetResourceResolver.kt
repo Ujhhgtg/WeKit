@@ -47,8 +47,23 @@ internal object MonetResourceResolver {
             state.filter(MonetResolutionStage.SDK_AND_TYPE, graph.nodes(role.type).map(MonetResourceNode::id))
             state.filter(MonetResolutionStage.CONFIG_VALUES) { candidateId ->
                 val signature = graph.referenceSignature(candidateId)
+                val structure = if (
+                    role.defaultValueStructure != null || role.nightValueStructure != null
+                ) {
+                    graph.referenceStructureSignature(candidateId)
+                } else {
+                    null
+                }
                 (role.defaultValue == null || signature?.defaultValue == role.defaultValue) &&
-                    (role.nightValue == null || signature?.nightValue == role.nightValue)
+                    (role.nightValue == null || signature?.nightValue == role.nightValue) &&
+                    (
+                        role.defaultValueStructure == null ||
+                            structure?.defaultValue == role.defaultValueStructure
+                    ) &&
+                    (
+                        role.nightValueStructure == null ||
+                            structure?.nightValue == role.nightValueStructure
+                    )
             }
             state.filter(MonetResolutionStage.XML_SHAPE_AND_REFERENCES) { candidateId ->
                 role.xmlShapeSha256 == null || graph.xmlShapes(candidateId).any {
@@ -85,15 +100,26 @@ internal object MonetResourceResolver {
                         )
                     }
                     applyIncomingRelationships(requiredState)
-                    if (requiredState.candidateIds.size != 1) {
+                    val profileCandidate = validatedProfileCandidate(
+                        roleId = requiredRoleId,
+                        graph = graph,
+                        profiles = profiles,
+                        state = requiredState,
+                    )
+                    val requiredResourceId = when (requiredState.candidateIds.size) {
+                        1 -> requiredState.candidateIds.single()
+                        else -> profileCandidate
+                    }
+                    if (requiredResourceId == null) {
                         throw MonetResolutionException(
                             state.diagnostic(
                                 failure = MonetResolutionFailure.DEPENDENCY_UNRESOLVED,
-                                message = "incoming role $requiredRoleId is not uniquely resolved before Dex evidence",
+                                message = "incoming role $requiredRoleId is ambiguous " +
+                                    "and has no verified exact profile",
                             ),
                         )
                     }
-                    requiredState.candidateIds.single()
+                    requiredResourceId
                 }
                 state.filter(MonetResolutionStage.INCOMING_RELATIONSHIPS) { candidateId ->
                     graph.incoming(candidateId).containsAll(requiredResourceIds)
@@ -172,16 +198,7 @@ internal object MonetResourceResolver {
         val resolved = linkedMapOf<String, MonetResolvedRole>()
         catalog.roles.forEach { role ->
             val state = states[role.id] ?: return@forEach
-            val profileCandidate = profileCandidate(role.id, graph, profiles, state)
-            if (profileCandidate != null && profileCandidate !in state.candidateIds) {
-                throw MonetResolutionException(
-                    state.diagnostic(
-                        failure = MonetResolutionFailure.PROFILE_DRIFT,
-                        profileCandidateId = profileCandidate,
-                        message = "profile target failed one or more live resource constraints",
-                    ),
-                )
-            }
+            val profileCandidate = validatedProfileCandidate(role.id, graph, profiles, state)
             val selectedId = when (state.candidateIds.size) {
                 0 -> null
                 1 -> state.candidateIds.single()
@@ -239,6 +256,25 @@ internal object MonetResourceResolver {
             )
         }
         return candidateIds.single()
+    }
+
+    private fun validatedProfileCandidate(
+        roleId: String,
+        graph: MonetResourceGraph,
+        profiles: List<MonetProfile>,
+        state: ResolutionState,
+    ): Int? {
+        val candidate = profileCandidate(roleId, graph, profiles, state)
+        if (candidate != null && candidate !in state.candidateIds) {
+            throw MonetResolutionException(
+                state.diagnostic(
+                    failure = MonetResolutionFailure.PROFILE_DRIFT,
+                    profileCandidateId = candidate,
+                    message = "profile target failed one or more live resource constraints",
+                ),
+            )
+        }
+        return candidate
     }
 
     private fun MonetMethodDexEvidence.matches(

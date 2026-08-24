@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Import conservative decoded domestic color evidence into the V2 role/profile schema.
 
-This is a compatibility evidence importer, not the final payload generator. It never emits
-the retired ``monet_tables.json`` and never marks decoded resources as exact/selectable:
-only a runtime ``monet-resource-graph-v1`` digest can select an exact profile. The importer
-records unique, live-value-compatible domestic color candidates under
-``structuralOnlyProfiles`` for later review and exact-APK promotion.
+This is an explicit verification/import utility, not the final payload generator. It never
+emits the retired ``monet_tables.json``, mutates the checked-in role/profile inputs, or marks
+decoded resources as exact/selectable. Only a runtime ``monet-resource-graph-v1`` digest can
+select an exact profile. The normal S4 sync does not invoke this tool; its output therefore
+cannot vary with ambient decoded trees.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import xml.etree.ElementTree as ET
@@ -37,6 +38,35 @@ def load_color_file(path: Path) -> dict[str, str]:
         for element in root.findall("color")
         if "name" in element.attrib
     }
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def resource_snapshot(source: Path) -> tuple[int, str]:
+    resource_root = source / "app/src/main/res"
+    paths = []
+    for path in resource_root.rglob("*.xml"):
+        if not path.is_file() or path.is_symlink():
+            continue
+        relative = path.relative_to(resource_root)
+        directory = relative.parts[0]
+        if (
+            directory.startswith("drawable")
+            or directory.startswith("layout")
+            or (directory.startswith("values") and relative.name == "colors.xml")
+        ):
+            paths.append((relative.as_posix(), path))
+    manifest = "".join(
+        f"{relative}\t{sha256_file(path)}\n"
+        for relative, path in sorted(paths)
+    ).encode("utf-8")
+    return len(paths), hashlib.sha256(manifest).hexdigest()
 
 
 def normalize_literal(value: str | None) -> int | None:
@@ -136,7 +166,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--roles", type=Path, default=payload / "monet_roles.json")
     parser.add_argument("--profiles", type=Path, default=payload / "monet_profiles.json")
-    parser.add_argument("--wechat-root", type=Path, default=Path.home() / "coding")
+    parser.add_argument("--wechat-root", required=True, type=Path)
+    parser.add_argument("--output", required=True, type=Path)
     arguments = parser.parse_args()
 
     catalog = json.loads(arguments.roles.read_text(encoding="utf-8"))
@@ -152,21 +183,43 @@ def main() -> None:
         for profile in profiles.get("structuralOnlyProfiles", [])
         if profile.get("channel") != "domestic"
     ]
-    imported = [
-        import_version(
+    expected_domestic = {
+        profile["versionName"]: profile
+        for profile in profiles.get("structuralOnlyProfiles", [])
+        if profile.get("channel") == "domestic"
+    }
+    if set(expected_domestic) != set(DOMESTIC_SOURCES):
+        raise ValueError("checked profile does not contain the five audited domestic versions")
+
+    imported = []
+    for version_name, directory in DOMESTIC_SOURCES.items():
+        expected = expected_domestic[version_name]
+        source = arguments.wechat_root / directory
+        file_count, snapshot_sha256 = resource_snapshot(source)
+        expected_source = expected.get("sourceEvidence")
+        if expected_source != {
+            "resourceFileCount": file_count,
+            "resourceSnapshotSha256": snapshot_sha256,
+        }:
+            raise ValueError(
+                f"{version_name} decoded resource snapshot drift: "
+                f"{file_count} files, SHA-256 {snapshot_sha256}"
+            )
+        profile = import_version(
             version_name,
-            arguments.wechat_root / directory,
+            source,
             roles_by_id,
             exact_keys,
         )
-        for version_name, directory in DOMESTIC_SOURCES.items()
-    ]
+        profile["sourceEvidence"] = expected_source
+        if profile != expected:
+            raise ValueError(f"{version_name} regenerated structural role map drift")
+        imported.append(profile)
     profiles["structuralOnlyProfiles"] = retained + imported
 
-    # Re-emit both schema files canonically. Role constraints remain the audited Play graph
-    # constraints; decoded domestic mappings are evidence and cannot weaken those live checks.
-    write_json(arguments.roles, catalog)
-    write_json(arguments.profiles, profiles)
+    # Emit only after the decoded snapshots and regenerated role maps exactly match the
+    # checked evidence. This cannot promote structural-only data into an exact profile.
+    write_json(arguments.output, profiles)
     for profile in imported:
         print(f"{profile['versionName']}: {len(profile['roles'])} conservative color candidates")
 

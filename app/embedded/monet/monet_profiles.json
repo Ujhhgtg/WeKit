@@ -331,6 +331,10 @@
         }
       },
       "selectable": false,
+      "sourceEvidence": {
+        "resourceFileCount": 10453,
+        "resourceSnapshotSha256": "fd647afef73bdb0e029db61654c629e048df296a7fee46691ea0751a73ece47c"
+      },
       "sourceKind": "decoded-resources",
       "versionName": "8.0.65"
     },
@@ -656,6 +660,10 @@
         }
       },
       "selectable": false,
+      "sourceEvidence": {
+        "resourceFileCount": 10589,
+        "resourceSnapshotSha256": "17dca358cbe119747319fe5a76a01beb91130735c66f2c9f03e3d00deac2e3cc"
+      },
       "sourceKind": "decoded-resources",
       "versionName": "8.0.67"
     },
@@ -977,6 +985,10 @@
         }
       },
       "selectable": false,
+      "sourceEvidence": {
+        "resourceFileCount": 10709,
+        "resourceSnapshotSha256": "c627fe9ed6afc27d9402b69e9918ab18697623985cfc7a031eac47b99d9393e4"
+      },
       "sourceKind": "decoded-resources",
       "versionName": "8.0.69"
     },
@@ -1290,6 +1302,10 @@
         }
       },
       "selectable": false,
+      "sourceEvidence": {
+        "resourceFileCount": 10895,
+        "resourceSnapshotSha256": "6e5195f4f23a5e7f477938be5b0023fe9e41c474d077a936443b1e7d4a2cf00c"
+      },
       "sourceKind": "decoded-resources",
       "versionName": "8.0.74"
     },
@@ -1603,6 +1619,10 @@
         }
       },
       "selectable": false,
+      "sourceEvidence": {
+        "resourceFileCount": 10931,
+        "resourceSnapshotSha256": "ef8489e7c1e8c8a40d1ee077130eaf361d44a95af5e7cb7c6ffad3ea28ce17fd"
+      },
       "sourceKind": "decoded-resources",
       "versionName": "8.0.76"
     }
@@ -1692,6 +1712,10 @@
           "name": "bw7",
           "type": "drawable"
         },
+        "chat.input.container": {
+          "name": "v0",
+          "type": "layout"
+        },
         "chat.input.transparent-layer": {
           "name": "p5",
           "type": "drawable"
@@ -1767,6 +1791,10 @@
         "payment.key.secondary": {
           "name": "dq8",
           "type": "drawable"
+        },
+        "payment.keyboard.key.style": {
+          "name": "a56",
+          "type": "style"
         },
         "theme.color.10000000--10ffffff.slot-01": {
           "name": "ahf",

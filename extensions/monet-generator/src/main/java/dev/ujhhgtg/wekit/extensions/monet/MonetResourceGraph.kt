@@ -96,7 +96,10 @@ internal class MonetResourceGraph private constructor(
     }
 
     fun referenceSignature(resourceId: Int): MonetReferenceSignature? =
-        referenceSignature(resourceId, linkedSetOf())
+        referenceSignature(resourceId, linkedSetOf(), normalizeFilePaths = false)
+
+    fun referenceStructureSignature(resourceId: Int): MonetReferenceSignature? =
+        referenceSignature(resourceId, linkedSetOf(), normalizeFilePaths = true)
 
     /**
      * Canonical digest for exact Monet profiles. The serialization is deliberately independent
@@ -144,6 +147,7 @@ internal class MonetResourceGraph private constructor(
     private fun referenceSignature(
         resourceId: Int,
         expanding: Set<Int>,
+        normalizeFilePaths: Boolean,
     ): MonetReferenceSignature? {
         val node = nodesById[resourceId] ?: return null
         if (resourceId in expanding) {
@@ -153,20 +157,28 @@ internal class MonetResourceGraph private constructor(
         val defaultValue = node.values
             .filter { it.qualifiers.isEmpty() }
             .sortedBy(MonetConfiguredValue::qualifiers)
-            .joinToString("|") { valueSignature(it.value, nextExpanding) }
+            .joinToString("|") { valueSignature(it.value, nextExpanding, normalizeFilePaths) }
             .ifEmpty { null }
         val nightValue = node.values
             .filter { it.qualifiers.split('-').any { qualifier -> qualifier == "night" } }
             .sortedBy(MonetConfiguredValue::qualifiers)
-            .joinToString("|") { valueSignature(it.value, nextExpanding) }
+            .joinToString("|") { valueSignature(it.value, nextExpanding, normalizeFilePaths) }
             .ifEmpty { null }
         return MonetReferenceSignature(node.key.type, defaultValue, nightValue)
     }
 
-    private fun valueSignature(value: MonetResourceValue, expanding: Set<Int>): String = when (value) {
+    private fun valueSignature(
+        value: MonetResourceValue,
+        expanding: Set<Int>,
+        normalizeFilePaths: Boolean,
+    ): String = when (value) {
         is MonetResourceValue.Literal -> "literal:${value.valueType}:${value.data}"
-        is MonetResourceValue.File -> "file:${value.path}"
-        is MonetResourceValue.Reference -> referenceSignature(value.resourceId, expanding)?.let {
+        is MonetResourceValue.File -> if (normalizeFilePaths) "file" else "file:${value.path}"
+        is MonetResourceValue.Reference -> referenceSignature(
+            value.resourceId,
+            expanding,
+            normalizeFilePaths,
+        )?.let {
             "reference:${value.valueType}:${it.type}:${it.defaultValue ?: "-"}:${it.nightValue ?: "-"}"
         } ?: "reference:${value.valueType}:${value.resourceId}"
         is MonetResourceValue.Complex -> buildString {
@@ -175,12 +187,16 @@ internal class MonetResourceGraph private constructor(
                 if (value.parentId == 0) {
                     "-"
                 } else {
-                    valueSignature(MonetResourceValue.Reference(value.parentId), expanding)
+                    valueSignature(
+                        MonetResourceValue.Reference(value.parentId),
+                        expanding,
+                        normalizeFilePaths,
+                    )
                 },
             )
             value.items.forEach { item ->
                 append(":item:").append(item.nameId).append('=')
-                append(valueSignature(item.value, expanding))
+                append(valueSignature(item.value, expanding, normalizeFilePaths))
             }
         }
     }

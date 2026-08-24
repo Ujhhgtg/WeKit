@@ -48,7 +48,7 @@ class MonetS4PayloadTest {
     fun `catalog has unique roles and every template binding exists`() {
         val catalog = MonetRoleCatalog.load(File("../../app/embedded/monet"))
 
-        assertEquals(229, catalog.roles.size)
+        assertEquals(231, catalog.roles.size)
         assertEquals(7, catalog.overlays.size)
         assertEquals(catalog.roles.size, catalog.roles.map { it.id }.toSet().size)
         assertTrue(
@@ -57,13 +57,36 @@ class MonetS4PayloadTest {
             },
         )
         assertEquals(
-            catalog.roles.map { it.id }.toSet(),
+            catalog.roles.map { it.id }.toSet() - AUXILIARY_ROLE_IDS,
             catalog.overlays.flatMap { it.templateResources.keys }.toSet(),
         )
         assertEquals(
-            mapOf("color" to 191, "drawable" to 30, "mipmap" to 1, "string" to 7),
+            mapOf(
+                "color" to 191,
+                "drawable" to 30,
+                "layout" to 1,
+                "mipmap" to 1,
+                "string" to 7,
+                "style" to 1,
+            ),
             catalog.roles.groupingBy { it.type }.eachCount(),
         )
+        val roles = catalog.roles.associateBy { it.id }
+        assertEquals(
+            listOf("chat.input.container"),
+            roles.getValue("chat.input.background").requiredIncomingRoleIds,
+        )
+        assertEquals(
+            listOf("chat.input.container"),
+            roles.getValue("chat.quote.background").requiredIncomingRoleIds,
+        )
+        assertEquals(
+            listOf("payment.keyboard.key.style"),
+            roles.getValue("payment.key.pressed").requiredIncomingRoleIds,
+        )
+        val keyboardStyle = roles.getValue("payment.keyboard.key.style")
+        assertEquals(null, keyboardStyle.defaultValue)
+        assertFalse(keyboardStyle.defaultValueStructure.orEmpty().contains("res/"))
     }
 
     @Test
@@ -98,7 +121,12 @@ class MonetS4PayloadTest {
         assertEquals(5, domestic.size)
         assertTrue(domestic.all { profile ->
             val value = profile.jsonObject
-            value.getValue("selectable").jsonPrimitive.boolean.not() && "resourceDigest" !in value
+            val sourceEvidence = value.getValue("sourceEvidence").jsonObject
+            val expected = DOMESTIC_PROVENANCE.getValue(value.getValue("versionName").jsonPrimitive.content)
+            value.getValue("selectable").jsonPrimitive.boolean.not() &&
+                "resourceDigest" !in value &&
+                sourceEvidence.getValue("resourceFileCount").jsonPrimitive.int == expected.first &&
+                sourceEvidence.getValue("resourceSnapshotSha256").jsonPrimitive.content == expected.second
         })
     }
 
@@ -123,6 +151,27 @@ class MonetS4PayloadTest {
             "0235e64f66ad276867de2482c2a3fd62daef0202b3061330ef0f6cf8db434ed9"
         const val CLASSIC_REPAIR_SHA256 =
             "c172c38d941bc89dba127fc1df5b3015dbc591cabc779639fc7b5fae5d787ed8"
+        val AUXILIARY_ROLE_IDS = setOf(
+            "chat.input.container",
+            "payment.keyboard.key.style",
+        )
+        val DOMESTIC_PROVENANCE = mapOf(
+            "8.0.65" to (
+                10453 to "fd647afef73bdb0e029db61654c629e048df296a7fee46691ea0751a73ece47c"
+            ),
+            "8.0.67" to (
+                10589 to "17dca358cbe119747319fe5a76a01beb91130735c66f2c9f03e3d00deac2e3cc"
+            ),
+            "8.0.69" to (
+                10709 to "c627fe9ed6afc27d9402b69e9918ab18697623985cfc7a031eac47b99d9393e4"
+            ),
+            "8.0.74" to (
+                10895 to "6e5195f4f23a5e7f477938be5b0023fe9e41c474d077a936443b1e7d4a2cf00c"
+            ),
+            "8.0.76" to (
+                10931 to "ef8489e7c1e8c8a40d1ee077130eaf361d44a95af5e7cb7c6ffad3ea28ce17fd"
+            ),
+        )
         val TEMPLATE_METADATA = mapOf(
             "template_base_api31.apk" to ("monet.com.tencent.mm" to 31),
             "template_base_api34.apk" to ("monet.com.tencent.mm" to 34),

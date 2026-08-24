@@ -3419,6 +3419,9 @@
       "core": true,
       "id": "chat.input.background",
       "minSdk": 31,
+      "requiredIncomingRoleIds": [
+        "chat.input.container"
+      ],
       "type": "drawable",
       "xmlShapeSha256": "6cede5367137fe6f8dbf23d08fc076a28f474b35123e7786a6700ff77cdc6c17"
     },
@@ -3480,6 +3483,9 @@
       "core": true,
       "id": "chat.quote.background",
       "minSdk": 31,
+      "requiredIncomingRoleIds": [
+        "chat.input.container"
+      ],
       "type": "drawable",
       "xmlShapeSha256": "77b8aa0c5126b698b4f58171ab18c2fdd86453d42fe7ce901af54b58f9d638ff"
     },
@@ -3515,6 +3521,9 @@
       "core": true,
       "id": "payment.key.pressed",
       "minSdk": 31,
+      "requiredIncomingRoleIds": [
+        "payment.keyboard.key.style"
+      ],
       "type": "drawable",
       "xmlShapeSha256": "1d2a6770b6e28a2fbfefd8b6ae7f652956d3dd4c1d2d87ccd50eadaef91fc6a4"
     },
@@ -3613,6 +3622,20 @@
       "id": "about.authors.prefix",
       "minSdk": 31,
       "type": "string"
+    },
+    {
+      "core": true,
+      "id": "chat.input.container",
+      "minSdk": 31,
+      "type": "layout",
+      "xmlShapeSha256": "7d950b91ad7599fb86ade3c0f470f19853f300990a889059c519fc9468c319d4"
+    },
+    {
+      "core": true,
+      "defaultValueStructure": "complex:parent:-:item:16842901=literal:DIMENSION:5633:item:16842904=reference:REFERENCE:color:reference:REFERENCE:color:literal:COLOR_ARGB8:3858759680:literal:COLOR_ARGB8:3439329279:-:item:16842927=literal:HEX:17:item:16842964=reference:REFERENCE:drawable:file:-:item:16842981=literal:BOOLEAN:4294967295:item:16842996=literal:DIMENSION:1:item:16842997=literal:DIMENSION:12289:item:16843000=literal:DIMENSION:2049:item:16843001=literal:DIMENSION:2049",
+      "id": "payment.keyboard.key.style",
+      "minSdk": 31,
+      "type": "style"
     }
   ],
   "schemaVersion": 1

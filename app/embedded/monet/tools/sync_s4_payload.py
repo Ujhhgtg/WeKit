@@ -17,7 +17,6 @@ import re
 import shutil
 import struct
 import subprocess
-import sys
 import tempfile
 import zlib
 import zipfile
@@ -31,6 +30,35 @@ PLAY_BASE_SHA256 = "c2c21dd4616f9ed939c03826ccc930fd9636f388984596e9510f05ee0cf7
 PLAY_RESOURCES_SHA256 = "fc84586cb214cbf86a0fdb5f9035a1289d665eccd50f56b980bcc061a42ca82a"
 PLAY_GRAPH_DIGEST = "0235e64f66ad276867de2482c2a3fd62daef0202b3061330ef0f6cf8db434ed9"
 CLASSIC_REPAIR_SHA256 = "c172c38d941bc89dba127fc1df5b3015dbc591cabc779639fc7b5fae5d787ed8"
+AAPT2_VERSION = "36.1.0"
+AAPT2_SHA256 = "012764928a2e5ad747531f669fcda1cf2ccd2d0b6eb8bdb728807c17e3cf16d0"
+AAPT2_VERSION_OUTPUT = "Android Asset Packaging Tool (aapt) 2.20-14042983"
+DOMESTIC_PROFILES_SHA256 = "37773198690cbc6969bbbb30fc59766a08c42b8e0f196c99294ce7c4e08973bd"
+
+# SHA-256 over each audited decoded tree's sorted relevant resource path + file-hash
+# manifest (values*/colors.xml plus drawable/layout XML), not an exact APK graph digest.
+DOMESTIC_SOURCE_PROVENANCE = {
+    "8.0.65": {
+        "resourceFileCount": 10453,
+        "resourceSnapshotSha256": "fd647afef73bdb0e029db61654c629e048df296a7fee46691ea0751a73ece47c",
+    },
+    "8.0.67": {
+        "resourceFileCount": 10589,
+        "resourceSnapshotSha256": "17dca358cbe119747319fe5a76a01beb91130735c66f2c9f03e3d00deac2e3cc",
+    },
+    "8.0.69": {
+        "resourceFileCount": 10709,
+        "resourceSnapshotSha256": "c627fe9ed6afc27d9402b69e9918ab18697623985cfc7a031eac47b99d9393e4",
+    },
+    "8.0.74": {
+        "resourceFileCount": 10895,
+        "resourceSnapshotSha256": "6e5195f4f23a5e7f477938be5b0023fe9e41c474d077a936443b1e7d4a2cf00c",
+    },
+    "8.0.76": {
+        "resourceFileCount": 10931,
+        "resourceSnapshotSha256": "ef8489e7c1e8c8a40d1ee077130eaf361d44a95af5e7cb7c6ffad3ea28ce17fd",
+    },
+}
 
 OVERLAYS = {
     "MonetWeChat.apk": {
@@ -76,6 +104,56 @@ TEMPLATE_SPECS = (
 )
 
 EXPECTED_TARGET_COUNTS = {"color": 191, "drawable": 30, "mipmap": 1, "string": 7}
+
+# Framework colors referenced by the exact S4 base table. Keeping this audited subset here
+# avoids selecting an ambient android.jar while still retaining semantic color role names.
+FRAMEWORK_COLORS = {
+    "0x01060033": "system_neutral2_700",
+    "0x0106003a": "system_accent1_100",
+    "0x0106003c": "system_accent1_300",
+    "0x0106003d": "system_accent1_400",
+    "0x01060040": "system_accent1_700",
+    "0x01060041": "system_accent1_800",
+    "0x01060047": "system_accent2_100",
+    "0x0106004c": "system_accent2_600",
+    "0x01060060": "system_primary_light",
+    "0x0106006c": "system_surface_light",
+    "0x01060070": "system_surface_container_light",
+    "0x0106008b": "system_primary_dark",
+    "0x01060097": "system_surface_dark",
+    "0x0106009b": "system_surface_container_dark",
+}
+
+AUXILIARY_ROLES = {
+    "layout/v0": {
+        "id": "chat.input.container",
+        "type": "layout",
+        "core": True,
+        "minSdk": 31,
+        "xmlShapeSha256": "7d950b91ad7599fb86ade3c0f470f19853f300990a889059c519fc9468c319d4",
+    },
+    "style/a56": {
+        "id": "payment.keyboard.key.style",
+        "type": "style",
+        "core": True,
+        "minSdk": 31,
+        "defaultValueStructure": (
+            "complex:parent:-:item:16842901=literal:DIMENSION:5633:"
+            "item:16842904=reference:REFERENCE:color:reference:REFERENCE:color:"
+            "literal:COLOR_ARGB8:3858759680:literal:COLOR_ARGB8:3439329279:-:"
+            "item:16842927=literal:HEX:17:item:16842964=reference:REFERENCE:drawable:"
+            "file:-:item:16842981=literal:BOOLEAN:4294967295:"
+            "item:16842996=literal:DIMENSION:1:item:16842997=literal:DIMENSION:12289:"
+            "item:16843000=literal:DIMENSION:2049:item:16843001=literal:DIMENSION:2049"
+        ),
+    },
+}
+
+INCOMING_ROLE_IDS = {
+    "drawable/bw7": ["chat.input.container"],
+    "drawable/cf8": ["chat.input.container"],
+    "drawable/dq_": ["payment.keyboard.key.style"],
+}
 
 KNOWN_ROLE_IDS = {
     "drawable/a36": "chat.bubble.incoming.link.mask",
@@ -125,7 +203,6 @@ KNOWN_ROLE_IDS = {
 PLAY_CONSTRAINTS_B85 = r"""c-rM$*=}1$68#rFXX4%$zBz$o43cpGWoCkTB6_7LuA(SWa*%(YLs?5-iWK|ul9~Wx12zP+x=vTua;m!NKhDBzJX?JD;rBl2e;m&*9R9ZbFT=sbvj2}+OlQ46&SJ{$X1x5j8{gpPv+;157H-`8@z-B|J@0=!|NMjLaltKTmT7zT=XcxJ{QUxQM_zOKfOFD$O-jh#1s>!Dv%)IPtUUYf>_Pj}hZiZQMVf}xJOA|4r}Ix=e*DyXSiiS*8Ep+0mdM`U8bEllyUHz5PPE`gYQ70+t71a{UP#qYYh?BIndIvQ>U2>q3>BiG%hsEkGpUr;hno7EeHbtpN*LcTwI%(ZTO(;K!0W}e;e^r7KEsKTif(R%w~5zHNR5?reG~{mtn9j@CuiK)(GQ;wipb3+Z0!n9!MM2stHxj`wjmkcT!GiGz^Ns0)w;kEk|;*ZraHSVj$59|lV|h}_s)~J`FeZi2-|z~+}`1?dIFzcxM{5RR-@prTy2O~h0MqOYxIBoc>bxyLd+7quO94G%j%&UYAMr%*J_kfGex#&Y`4)PsnzuxwS)*w4Xf1%yAo!$Xl%F9<ES-leDTp%RSKWa;g!O+j(ZHPwpGX>wJ}wxkZ^98F|QT2-R3d0Ru<%!WvtPR+wIG=jJr41qAegXX02AT)(%PvE68@GEjMs9&Ai2SC1s4->SL$)Ff-egw%qQqG}|`*_Gq*^olgg{O=nx@Jci<*53l^cthIh#q%^JOnJ~E&``mFS;unSOGD4NskCkd$9#UuB(@{N(w{+bi*I8EyloiUGs(u<yV_LLibJSW(E8TEC{V-O`U25AFnC`mUxl)yhKfY<>1DvR%*7FqW`&nrPjMNZrWuomXv`DCS-J%FVD-RXwKrz&&x|Y1Nqt1VQ>3^H#Jx|a~hoRuN)eac(Jg@MdG#<}ZZK;#x2I)svmQS=^LP)K4Xl;1_9aTGWwMADRjuU$A>ks*Z^WWc1#)SYKwCd*%oBIi}{hz54p#MfS=7NsSTXcj5CMe0Wqj$B^Trr{*EzQS7>*-q|EDs--Ic5%@lsVR7P>p7U8KFz*eyznMvql)+*z}-M_~o!m>3P?gf8~JPu|*|Lut`p-U=5hp^=V8~1;4PR^s4JfcgMU_XsbCXHQk*^)2k@sti{2hMkrPat7<N%EyqDNgxzuX_;_%VaYiLCqe_q##S0F{8aTymrL>V!aq#2PTgBJ<UV<}CS#iJPRQ(kKg<jE!NEPa@p{xWWD`9KeeK`EoV0E8igB25ENTass+@U(?>Rk6+_X=sVtj?4|Bg-mL2ApY;L@1@!l)$a%a4wHNZa}9E6H4@I`J3y94h6A4=whz^xI-cDuR5?+=fq#)0;mAwTf5F-H_Oh&chhv$f+KF;3p%%`POoqc&P_>|Jni6Geo(C$d0A^)hOxh`zYA4bQ&PHRwAJy%i6%<$vYN%k;a!-^?C?8Wm+Q#_0o5>#5}x}<El9<}`Mp@k;Brq#ceT;c4d$JbeUX56Oq?F`OeGta5?x1`o(EUmF+LUOw_ltbnqV&S;SW>X#i;B1np&8b7bj`oH_CGF;FndsBfQCSmy;9DD7cYEOREgoLu?w5M)MBTX0+^(Oh>B@<!7>JF~EF<dn#(B5twN7MWb%cYFQQ40Ie9MWdWM=)3mnh_@kn<(Y$tMN!R_8K=W2gU#Y*GuU^kj!pgSHp_ZfngKV_Cua901M=bBL+|A@P4Ec45UHKNF{;FeK%}-OoUgNyG=rEYOukEP~V+7RD6vF<0(Gz>V`m5y!->;uMKeE0TS%3J{I@XS2z>1jyF=kcop}5sX68LmcdxkA8V75OK-a~_*HC?`+rrYlRTlzzdX}37^<?8MBWY+9XF25emUPdhvT7A#;@Bl`k#V=-cBVL=6xRzWrUIC9pHGR;MD5Q`g?~Zi+<O!XCB&6y|#Y;EzqA8y+4?Qy@)_eOFs?0;9L5EAM(MA0O9!44dDr7HPJVAJTA^sxVrV*f8*`j+Jzneo(+SC5Zw6vMkC#%CRhNka^a!L-LrcdeNHE$~0_7<giT3iuJ0=877>1n@yil&TZv~ZrOZ~X;|7ujLGp+S~;NtUOx7FSVB>#|>*ULD?I&rTMWo43-lo9dY?(l<9{otfRf)2;IS-OSOlcYeD`{M!k>vUYWUc-px7dbsSOeSxZcXekKVq9Sgt-%k^5d6`;}m+L`?G1hf`*)_=C#Fj7IuIq1(H08SSta^E(@&@Aos4i@~bVs-XczSNx+w;D%@&yT%v}7d9Ws7jo_*E3M<!$S<Sz*X+C3m?x(HLYi_1&l=Oe3C~{~~4G_!ABPHv7?=`RTq>e3F}?UgaIjZS|Z&Ga(Ta<ujn$$>CotxSe(Va&u)my>qowG$kawOcmC-^GCeNYbp2i9I^EGyK#rN8+VHq&5NX>^#8ln;TMK?_lM6L?!I<-lyu+WEyF$QqFA(Nl`q0^&y~1(8al;=TRA^YJKh{V%M3qU$p@M5&hY1N7jB;L2aX9J;@OE1qA-$VFO5@9#}t&cB1E4PHN?l@)-OMmGE|Fbq=+_<6mneu+{7U!dvL6F;RqZG(b*Xg66=twne;l-n6uMf#_W~llG7keR6KJfh@^oha5M&FSvGM<{x*(<*oDLR=$w*~$CP-E8i$ivV1g1&97$Qpl(LN08<rd~*#?lAtgRp+r(oy?4zUNv&U5i5Q>e`pCh*Kt>rC*0I{~dS&?x-6pgCqNSQvAjXqSi%0lCH*8GRFnzJ43W^<)<got5=8CE`If;30x$oqS}}3kK4I9cIa0a)xjnlC?@$mV`+%O3j$xI2W_WKbB^vpGv-7mj@Q1G9gn)7iC1IiJmcGg9fW)k!T(z5h+k9U<-UACLX-t8#rcraM+!GN-PWw3sd3(<2;x|vx*cZ0)!xlP=N&*7|dp6ib7JFK{Vmqu$^NK9DcILKip!u3rNhAzy*R3I%l5&#0ssASH@)Faz@ZP_@q@tO8Ack!hqJ7JEcJZRB8fQ={-R12fKi%kYbWttviC8R5r*Pj7P*qK;46fW}$`Wk}{qEPyqlTIcptaP=V?O5ZJCCF5EINW|RIRO@_;*L&fZ;yZLaDVt?xkvjXRAXF%D=g_kO6;wh1+$%tH*P?$Y@M@MF)L!cp<NF*GF48jzH$0ZX;<j#?;FqgA~K<@OeWU~$q9+go;y$c+_*Iz>lIK-5*O3Da$l;JUEh5idg9`KA~)Z(9c*aW#qAq{WSVsbs0&SKgNEbLCt$h+`sB8c%G)FjCqgfl9ohyNbPp;UwjKnXd5MnoSnK(q(~B-8xuas8XX`WJ2*$0_as7<YOhvI5SKgT8s3CMA>*q)Yukp|VjSxR?XbX>eePsuzq5I%$)27Kz18fY)jLZN*x<rCqQj;sDxgj0j7os7#jlKtKvJ%xI7~0MwGG8B!TrSGIN9M1ogZqQbd7uqv&VclsMrChD%i(JAGO^KiVNP0$Dl$B<kdu{3(+2*(FgLalMuWg+2v5e9F<^NY7}c&)y--_NIm4YBKeVtSicHhaXZ+ga4KHwfu~oTNZ3j7JdznW4^86IjM!p%vg!u$<OKjZl}RSRa=K`7k**fW(W3Y3%EeVKPSv1A3O2a)7g@O>upv9!X+BE3)Q(l!`1oMGfN`RE!EMP|>Js9(^2+_U!g{=Wdg69JGq645y>WC(colEwR=l?bckK(_}qS9*#(@&W<2r1jvU2;Y!U)5wG@C3V(mG3y8}G<Q~<>C0N2DFIWU9L)L}CDT7|UR_p?(lt4{Qnyte+rDQU3-<rn)$iDNxAMQN=s9_DZu0AYU&4Q5V{FoOCd5qa8m9v&B@LwyE<|qonXlcNK!AxPl4Iuq}KrVLyp^>2+q9mz=$YQAD3A7sVmcYA^Wu*cUMTFvW(SY57+awoV%9iG!T$6pzAFf{-E%Gyp(TD3-5rk3|X2`)Ui-aG<cOk7$@LFYJKS=Mw-0oL<QZ9R!O8S-Vfx+LUUVhyZiZk^t_3>-i14Ey(4o-&iiJLz>yuwe{%f)ay_<$nw#wg&of1dyS%jX^^ggqp;C!rg+UkJT7vxU&*ZH3Uo1N>5GRUu=A<%P^B%qq}X!b_n^8rBJ^hR|i55PFC|{|md@KxF"""
 
 RESOURCE_RE = re.compile(r"^    resource 0x[0-9a-f]+ ([^/\s]+)/([^\s]+)")
-RESOURCE_WITH_ID_RE = re.compile(r"^    resource (0x[0-9a-f]+) ([^/\s]+)/([^\s]+)")
 VALUE_RE = re.compile(r"^      \(([^)]*)\) (.+)$")
 FILE_RE = re.compile(r"\(file\) ([^\s]+)")
 BADGING_PACKAGE_RE = re.compile(r"package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'")
@@ -161,28 +238,28 @@ def validate_archive(archive: zipfile.ZipFile, label: str) -> list[str]:
 def find_aapt2() -> Path:
     roots = [os.environ.get("ANDROID_HOME"), os.environ.get("ANDROID_SDK_ROOT")]
     roots.extend([str(Path.home() / "android-sdk"), str(Path.home() / "Android/Sdk")])
-    candidates: list[Path] = []
-    for root in filter(None, roots):
-        candidates.extend(Path(root).glob("build-tools/*/aapt2"))
-    candidates = [candidate for candidate in candidates if candidate.is_file()]
-    if not candidates:
-        raise FileNotFoundError("aapt2 not found under ANDROID_HOME/ANDROID_SDK_ROOT")
-
-    def version_key(path: Path) -> tuple[int, ...]:
-        return tuple(int(part) for part in re.findall(r"\d+", path.parent.name))
-
-    return max(candidates, key=version_key)
-
-
-def find_android_jar(aapt2: Path) -> Path:
-    candidates = list(aapt2.parent.parent.parent.glob("platforms/*/android.jar"))
-    if not candidates:
-        raise FileNotFoundError("android.jar not found next to the selected aapt2 SDK")
-
-    def version_key(path: Path) -> tuple[int, ...]:
-        return tuple(int(part) for part in re.findall(r"\d+", path.parent.name))
-
-    return max(candidates, key=version_key)
+    candidates = {
+        Path(root).resolve() / "build-tools" / AAPT2_VERSION / "aapt2"
+        for root in filter(None, roots)
+    }
+    for candidate in sorted(candidates):
+        if not candidate.is_file():
+            continue
+        if sha256_file(candidate) != AAPT2_SHA256:
+            raise ValueError(f"pinned aapt2 hash mismatch: {candidate}")
+        version = subprocess.run(
+            [str(candidate), "version"],
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        ).stdout.strip()
+        if version != AAPT2_VERSION_OUTPUT:
+            raise ValueError(f"pinned aapt2 version drift: {version!r}")
+        return candidate
+    raise FileNotFoundError(
+        f"pinned aapt2 {AAPT2_VERSION} not found under ANDROID_HOME/ANDROID_SDK_ROOT"
+    )
 
 
 def aapt2_output(aapt2: Path, *args: str | Path) -> str:
@@ -206,17 +283,6 @@ def parse_resources(text: str) -> dict[str, dict[str, str]]:
         if match and current is not None:
             resources[current][match.group(1)] = match.group(2)
     return resources
-
-
-def parse_framework_color_names(text: str) -> dict[str, str]:
-    result = {}
-    for line in text.splitlines():
-        match = RESOURCE_WITH_ID_RE.match(line)
-        if match and match.group(2) == "color":
-            result[match.group(1).lower()] = match.group(3)
-    if not result:
-        raise ValueError("android.jar did not expose framework color resource names")
-    return result
 
 
 def parse_badging(aapt2: Path, apk: Path) -> dict[str, object]:
@@ -469,6 +535,32 @@ def load_constraints() -> dict[str, dict[str, str]]:
     return json.loads(raw.decode("utf-8"))
 
 
+def load_domestic_profiles() -> list[dict[str, object]]:
+    encoded = Path(__file__).with_name("domestic_structural_profiles.b85").read_text(
+        encoding="ascii"
+    ).strip()
+    raw = zlib.decompress(base64.b85decode(encoded.encode("ascii")))
+    if sha256_bytes(raw) != DOMESTIC_PROFILES_SHA256:
+        raise ValueError("repo-owned domestic structural profile evidence hash mismatch")
+    profiles = json.loads(raw.decode("utf-8"))
+    version_names = {profile.get("versionName") for profile in profiles}
+    if (
+        len(profiles) != 5
+        or version_names != set(DOMESTIC_SOURCE_PROVENANCE)
+        or any(profile.get("channel") != "domestic" for profile in profiles)
+        or any(profile.get("selectable") is not False for profile in profiles)
+        or any("resourceDigest" in profile for profile in profiles)
+    ):
+        raise ValueError("domestic structural evidence must remain non-selectable and digestless")
+    return [
+        {
+            **profile,
+            "sourceEvidence": DOMESTIC_SOURCE_PROVENANCE[profile["versionName"]],
+        }
+        for profile in profiles
+    ]
+
+
 def slug(value: str) -> str:
     value = value.lower().replace("@", "").replace("0x", "")
     value = re.sub(r"[^a-z0-9]+", "-", value).strip("-")
@@ -541,17 +633,23 @@ def build_catalog(
     if set(constraints) != set(target_keys):
         raise ValueError("embedded Play constraint inventory does not match the live exact APKS")
 
-    role_ids = dict(KNOWN_ROLE_IDS)
-    role_ids.update(
+    target_role_ids = dict(KNOWN_ROLE_IDS)
+    target_role_ids.update(
         color_role_ids(
             [key for key in target_keys if key.startswith("color/")],
             source_resources["MonetWeChat.apk"],
             framework_colors,
         )
     )
-    if set(role_ids) != set(target_keys):
-        missing = sorted(set(target_keys) - set(role_ids))
+    if set(target_role_ids) != set(target_keys):
+        missing = sorted(set(target_keys) - set(target_role_ids))
         raise ValueError(f"missing semantic roles: {missing}")
+    if not set(AUXILIARY_ROLES).issubset(play_keys):
+        raise ValueError("audited auxiliary layout/style resources are absent from Play 3084")
+    role_ids = {
+        **target_role_ids,
+        **{key: definition["id"] for key, definition in AUXILIARY_ROLES.items()},
+    }
     if len(set(role_ids.values())) != len(role_ids):
         raise ValueError("semantic role IDs are not unique")
 
@@ -564,17 +662,20 @@ def build_catalog(
             constraint.pop("defaultValue", None)
             constraint.pop("nightValue", None)
         role = {
-            "id": role_ids[key],
+            "id": target_role_ids[key],
             "type": resource_type,
             "core": resource_type not in {"string", "mipmap"},
             "minSdk": 33 if resource_type == "mipmap" else 31,
             **constraint,
         }
+        if key in INCOMING_ROLE_IDS:
+            role["requiredIncomingRoleIds"] = INCOMING_ROLE_IDS[key]
         roles.append(role)
+    roles.extend(dict(AUXILIARY_ROLES[key]) for key in sorted(AUXILIARY_ROLES))
 
     def bindings(source_name: str) -> dict[str, dict[str, str]]:
         return {
-            role_ids[key]: json_resource(key)
+            target_role_ids[key]: json_resource(key)
             for key in binding_keys[source_name]
         }
 
@@ -659,7 +760,8 @@ def build_profiles(role_ids: dict[str, str]) -> dict[str, object]:
                 "channel": "google-play",
                 "selectable": False,
                 "reason": "S4 declares structural compatibility, but no 3085 APK was supplied for digest verification.",
-            }
+            },
+            *load_domestic_profiles(),
         ],
     }
 
@@ -713,10 +815,7 @@ def sync(module_zip: Path, play_apks: Path, output: Path) -> None:
             validate_metadata(metadata, expected, name)
             source_resources[name] = parse_resources(aapt2_output(aapt2, "dump", "resources", source))
         play_resources = parse_resources(aapt2_output(aapt2, "dump", "resources", play_base))
-        framework_colors = parse_framework_color_names(
-            aapt2_output(aapt2, "dump", "resources", find_android_jar(aapt2))
-        )
-        catalog, role_ids = build_catalog(source_resources, play_resources, framework_colors)
+        catalog, role_ids = build_catalog(source_resources, play_resources, FRAMEWORK_COLORS)
 
         base_entries = read_apk_entries(sources / "MonetWeChat.apk")
         repair = base_entries.get("res/drawable/chat_voice_to_text.xml")
@@ -745,20 +844,6 @@ def sync(module_zip: Path, play_apks: Path, output: Path) -> None:
 
         write_json(generated / "monet_roles.json", catalog)
         write_json(generated / "monet_profiles.json", build_profiles(role_ids))
-        importer = Path(__file__).with_name("gen_monet_tables.py")
-        subprocess.run(
-            [
-                sys.executable,
-                str(importer),
-                "--roles",
-                str(generated / "monet_roles.json"),
-                "--profiles",
-                str(generated / "monet_profiles.json"),
-                "--wechat-root",
-                str(Path.home() / "coding"),
-            ],
-            check=True,
-        )
         (generated / "upstream.txt").write_text(
             "微信莫奈取色 Pro v26S4\n"
             "Common upstream authors: 枯れ木, H_1e93d, HSSkyBoy\n"

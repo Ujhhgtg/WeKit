@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
@@ -65,6 +66,40 @@ class MonetResourceGraphTest {
                 null,
             ),
             graph.referenceSignature(colorId),
+        )
+    }
+
+    @Test
+    fun `reference structure signature ignores obfuscated file path`() {
+        val firstDrawable = 0x7f080111
+        val secondDrawable = 0x7f080222
+        val firstStyle = 0x7f130333
+        val secondStyle = 0x7f130444
+        val graph = MonetResourceGraph(
+            listOf(
+                MonetResourceNode(
+                    firstDrawable,
+                    MonetResourceKey("drawable", "pressed_a"),
+                    listOf(MonetConfiguredValue("", MonetResourceValue.File("res/i/a.xml"))),
+                ),
+                MonetResourceNode(
+                    secondDrawable,
+                    MonetResourceKey("drawable", "pressed_b"),
+                    listOf(MonetConfiguredValue("", MonetResourceValue.File("res/j/b.xml"))),
+                ),
+                styleNode(firstStyle, "style_a", firstDrawable),
+                styleNode(secondStyle, "style_b", secondDrawable),
+            ),
+        )
+
+        assertNotEquals(graph.referenceSignature(firstStyle), graph.referenceSignature(secondStyle))
+        assertEquals(
+            graph.referenceStructureSignature(firstStyle),
+            graph.referenceStructureSignature(secondStyle),
+        )
+        assertEquals(
+            "complex:parent:-:item:16842964=reference:REFERENCE:drawable:file:-",
+            graph.referenceStructureSignature(firstStyle)?.defaultValue,
         )
     }
 
@@ -194,4 +229,20 @@ class MonetResourceGraphTest {
             forward.resourceDigest(),
         )
     }
+
+    private fun styleNode(id: Int, name: String, drawableId: Int) = MonetResourceNode(
+        id = id,
+        key = MonetResourceKey("style", name),
+        values = listOf(
+            MonetConfiguredValue(
+                "",
+                MonetResourceValue.Complex(
+                    parentId = 0,
+                    items = listOf(
+                        MonetComplexValue(16842964, MonetResourceValue.Reference(drawableId)),
+                    ),
+                ),
+            ),
+        ),
+    )
 }
