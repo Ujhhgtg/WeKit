@@ -37,36 +37,90 @@ internal data class DesktopResolverViolation(
 }
 
 internal fun scanDexResolverSource(file: File): DexResolverSource? =
-    scanDexResolverSource(file.readText(), file)
+    scanDexResolverSources(file).firstOrNull()
 
 internal fun scanDexResolverSource(path: String, sourceText: String): DexResolverSource? =
-    scanDexResolverSource(sourceText, File(path))
+    scanDexResolverSources(path, sourceText).firstOrNull()
 
-private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSource? {
+internal fun scanDexResolverSources(file: File): List<DexResolverSource> =
+    scanDexResolverSources(file.readText(), file)
+
+internal fun scanDexResolverSources(path: String, sourceText: String): List<DexResolverSource> =
+    scanDexResolverSources(sourceText, File(path))
+
+private data class SourceClassDeclaration(
+    val match: MatchResult,
+    val name: String,
+    val bodyStart: Int,
+    val bodyEnd: Int,
+)
+
+private data class QualifiedSourceClassDeclaration(
+    val declaration: SourceClassDeclaration,
+    val qualifiedName: String,
+)
+
+private data class ParsedDexResolverSourceFile(
+    val clean: ScannedSource,
+    val declarations: List<QualifiedSourceClassDeclaration>,
+)
+
+internal fun discoverDexResolverOwnerClassNames(file: File): List<String> =
+    parseDexResolverSourceFile(file.readText()).declarations.map { it.qualifiedName }
+
+private fun scanDexResolverSources(sourceText: String, file: File): List<DexResolverSource> {
+    val parsed = parseDexResolverSourceFile(sourceText)
+    return parsed.declarations.map { declaration ->
+        scanDexResolverDeclaration(
+            clean = parsed.clean,
+            file = file,
+            declaration = declaration.declaration,
+            fullClassName = declaration.qualifiedName,
+        )
+    }
+}
+
+private fun parseDexResolverSourceFile(sourceText: String): ParsedDexResolverSourceFile {
     val clean = stripCommentsPreservingStrings(sourceText)
     val packageName = clean.findCode(Regex("""package\s+([\w.]+)"""))?.groupValues?.get(1)
-    val classRegex = Regex("""\b(?:class|object)\s+(\w+)\b""")
-    val declarations = clean.findAllCode(classRegex)
-    val resolveDexDeclaration = declarations.withIndex().firstNotNullOfOrNull { (index, match) ->
-        val braceIndex = clean.indexOfCode('{', match.range.first)
-        val closingBraceIndex = clean.indexOfCode('}', match.range.first)
-        val nextDeclarationIndex = declarations.getOrNull(index + 1)?.range?.first ?: clean.length
-        if (
-            braceIndex == -1 ||
-            braceIndex >= nextDeclarationIndex ||
-            (closingBraceIndex != -1 && braceIndex >= closingBraceIndex)
-        ) {
-            return@firstNotNullOfOrNull null
+    val declarationMatches = clean.findAllCode(CLASS_DECLARATION)
+    val declarations = declarationMatches.mapIndexedNotNull { index, match ->
+        val bodyStart = clean.indexOfCode('{', match.range.last + 1)
+        val nextDeclarationStart = declarationMatches.getOrNull(index + 1)?.range?.first ?: clean.length
+        if (bodyStart == -1 || bodyStart >= nextDeclarationStart) return@mapIndexedNotNull null
+        val bodyEnd = clean.findBlockEnd(bodyStart)
+        if (bodyEnd == -1) return@mapIndexedNotNull null
+        SourceClassDeclaration(match, match.groupValues[1], bodyStart, bodyEnd)
+    }
+    fun qualifiedName(declaration: SourceClassDeclaration): String {
+        val parents = declarations.filter { candidate ->
+            candidate !== declaration &&
+                declaration.match.range.first > candidate.bodyStart &&
+                declaration.match.range.first < candidate.bodyEnd
         }
+        val parent = parents.minByOrNull { it.bodyEnd - it.bodyStart }
+        val localName = if (parent == null) declaration.name else "${qualifiedName(parent)}.${declaration.name}"
+        return if (parent == null && packageName != null) "$packageName.$localName" else localName
+    }
 
-        val signature = clean.substring(match.range.first, braceIndex)
-        if (signature.contains(":") && Regex("""\bIResolveDex\b""").containsMatchIn(signature)) match else null
-    } ?: return null
+    val resolverDeclarations = declarations.filter { declaration ->
+        val signature = clean.substring(declaration.match.range.first, declaration.bodyStart)
+        signature.contains(":") && Regex("""\bIResolveDex\b""").containsMatchIn(signature)
+    }.map { declaration ->
+        QualifiedSourceClassDeclaration(declaration, qualifiedName(declaration))
+    }
+    return ParsedDexResolverSourceFile(clean, resolverDeclarations)
+}
 
-    val className = resolveDexDeclaration.groupValues[1]
-    val fullClassName = if (packageName != null) "$packageName.$className" else className
-    val classBodyStart = clean.indexOfCode('{', resolveDexDeclaration.range.last)
-    val classBodyEnd = if (classBodyStart == -1) -1 else clean.findBlockEnd(classBodyStart)
+private fun scanDexResolverDeclaration(
+    clean: ScannedSource,
+    file: File,
+    declaration: SourceClassDeclaration,
+    fullClassName: String,
+): DexResolverSource {
+    val resolveDexDeclaration = declaration.match
+    val classBodyStart = declaration.bodyStart
+    val classBodyEnd = declaration.bodyEnd
     val classBodyDepth = if (classBodyStart == -1) -1 else clean.braceDepthAt(classBodyStart + 1)
     fun isDirectMember(match: MatchResult): Boolean =
         match.range.first > classBodyStart &&
@@ -211,6 +265,11 @@ private data class HelperFunctionSource(
     val isComplete: Boolean,
 )
 
+private data class CodeCall(
+    val name: String,
+    val isQualified: Boolean,
+)
+
 private data class HelperClosure(
     val isProven: Boolean,
     val helperSources: List<String>,
@@ -230,6 +289,8 @@ private fun scanDirectHelperFunctions(
                 match.groupValues[1] != "resolveDex"
         }
         .map { match ->
+            val declarationPrefix = match.value.substringAfter("fun").substringBeforeLast(match.groupValues[1])
+            val isSimpleDeclaration = '<' !in declarationPrefix && '.' !in declarationPrefix
             val openParenthesis = clean.indexOfCode('(', match.range.first)
             val closeParenthesis = clean.findDelimitedEnd(openParenthesis, '(', ')')
             if (closeParenthesis == -1) {
@@ -251,7 +312,7 @@ private fun scanDirectHelperFunctions(
                 name = match.groupValues[1],
                 source = clean.substring(match.range.first, bodyEnd + 1),
                 bodySource = clean.substring(bodyStart, bodyEnd + 1),
-                isComplete = true,
+                isComplete = isSimpleDeclaration,
             )
         }
         .groupBy { it.name }
@@ -266,18 +327,19 @@ private fun buildHelperClosure(
     var proven = true
 
     fun visit(source: String) {
-        if (stripCommentsPreservingStrings(source).findCode(FUNCTION_REFERENCE) != null) {
+        val scannedSource = stripCommentsPreservingStrings(source)
+        if (scannedSource.findCode(FUNCTION_REFERENCE) != null) {
             proven = false
         }
 
         helperPropertyNames.forEach { propertyName ->
-            if (stripCommentsPreservingStrings(source).containsCodeIdentifier(propertyName)) {
+            if (scannedSource.containsCodeIdentifier(propertyName)) {
                 proven = false
             }
         }
 
         helperFunctions.forEach { (name, candidates) ->
-            if (!stripCommentsPreservingStrings(source).containsDirectCodeCall(name)) return@forEach
+            if (!scannedSource.containsDirectCodeCall(name)) return@forEach
             if (candidates.size != 1 || name in visiting || !candidates.single().isComplete) {
                 proven = false
                 return@forEach
@@ -289,6 +351,14 @@ private fun buildHelperClosure(
             included[name] = helper
             visit(helper.bodySource)
             visiting -= name
+        }
+
+        scannedSource.codeCalls().forEach { call ->
+            when {
+                call.name in SAFE_RESOLUTION_CALL_NAMES && !call.isQualified -> Unit
+                call.name in helperFunctions && !call.isQualified -> Unit
+                else -> proven = false
+            }
         }
     }
 
@@ -322,10 +392,30 @@ private fun String.toResolveBlockKind(): ResolveBlockKind = when (this) {
 
 private val DEX_DELEGATE_DECLARATION =
     Regex("""\b(?:val|var)\s+(\w+)(?:\s*:[^=\n]+)?\s+by\s+dex(Class|Field|Method|Constructor)\b""")
+private val CLASS_DECLARATION = Regex("""\b(?:class|object|interface)\s+(\w+)\b""")
 private val MEMBER_PROPERTY_DECLARATION = Regex("""\b(?:val|var)\s+(\w+)\b""")
-private val MEMBER_FUNCTION_DECLARATION = Regex("""\bfun\s+(\w+)\s*\(""")
+private val MEMBER_FUNCTION_DECLARATION =
+    Regex("""\bfun\s+(?:<[^>{}\n]+>\s*)?(?:[\w?.<>, ]+\s*\.\s*)?(\w+)\s*\(""")
 private val MEMBER_SEPARATOR = Regex("""\b(?:val|var|fun|class|object|override)\b""")
 private val FUNCTION_REFERENCE = Regex("""::\s*\w+""")
+private val CALL_EXPRESSION = Regex("""\b([A-Za-z_]\w*)\s*\(""")
+private val SAFE_RESOLUTION_CALL_NAMES = setOf(
+    "catch",
+    "declaredClass",
+    "dexClass",
+    "dexConstructor",
+    "dexField",
+    "dexMethod",
+    "for",
+    "if",
+    "matcher",
+    "paramTypes",
+    "returnType",
+    "usingEqStrings",
+    "usingStrings",
+    "when",
+    "while",
+)
 private val LIVE_HOST_ACCESS = Regex("""\b(?:class|method|field|ctor)[A-Za-z0-9_]*\.(clazz|method|field|constructor)\b""")
 private val HOST_VERSION_ACCESS = Regex("""\bHostInfo\.(versionCode|versionName|isHostGooglePlay)\b""")
 
@@ -405,6 +495,12 @@ private class ScannedSource(
     fun containsDirectCodeCall(name: String): Boolean =
         findAllCode(Regex("""(?<![.\w])${Regex.escape(name)}\s*\(""")).isNotEmpty() ||
             findAllCode(Regex("""\bthis\s*\.\s*${Regex.escape(name)}\s*\(""")).isNotEmpty()
+
+    fun codeCalls(): List<CodeCall> = findAllCode(CALL_EXPRESSION).map { match ->
+        val previousCodeIndex = (match.range.first - 1 downTo 0)
+            .firstOrNull { codeMask[it] && !text[it].isWhitespace() }
+        CodeCall(match.groupValues[1], previousCodeIndex != null && text[previousCodeIndex] == '.')
+    }
 }
 
 private sealed class LexContext {

@@ -1,5 +1,9 @@
 package dev.ujhhgtg.wekit.dexkit.resolution
 
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.SOURCE)
+internal annotation class DexResolutionMetadataOwners(vararg val value: String)
+
 enum class DexProducerKind { INLINE_CLASS, INLINE_FIELD, INLINE_METHOD, INLINE_CONSTRUCTOR, CUSTOM }
 
 data class DexProducerMetadata(

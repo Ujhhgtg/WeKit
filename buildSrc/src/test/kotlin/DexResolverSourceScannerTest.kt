@@ -1,6 +1,7 @@
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
@@ -357,6 +358,94 @@ class DexResolverSourceScannerTest {
         )!!
 
         assertTrue(source.producers.single().usesOwnerSafetyFingerprint)
+    }
+
+    @Test
+    fun uncertainHelperCallFormsUseOwnerSafetyFingerprint() {
+        val helperForms = listOf(
+            """
+                object Sample : IResolveDex {
+                    val target by dexMethod { matcher { extensionHelper() } }
+                    private fun FindMethod.extensionHelper() { usingEqStrings("anchor") }
+                }
+            """.trimIndent(),
+            """
+                object Sample : IResolveDex {
+                    val target by dexMethod { matcher { genericHelper("anchor") } }
+                    private fun <T> genericHelper(value: T) { usingEqStrings(value.toString()) }
+                }
+            """.trimIndent(),
+            """
+                object Sample : IResolveDex {
+                    val target by dexMethod { matcher { Sample.qualifiedHelper() } }
+                    private fun qualifiedHelper() { usingEqStrings("anchor") }
+                }
+            """.trimIndent(),
+            """
+                object Sample : ParentFeature(), IResolveDex {
+                    val target by dexMethod { matcher { inheritedHelper() } }
+                }
+            """.trimIndent(),
+            """
+                fun externalHelper() = Unit
+                object Sample : IResolveDex {
+                    val target by dexMethod { matcher { externalHelper() } }
+                }
+            """.trimIndent(),
+        )
+
+        helperForms.forEachIndexed { index, sourceText ->
+            val source = scanDexResolverSource("Sample$index.kt", sourceText)!!
+            val producer = source.producers.single()
+            assertTrue(
+                producer.usesOwnerSafetyFingerprint,
+                "helper form $index must use the owner safety fingerprint",
+            )
+            assertEquals(source.ownerSafetySource, producer.fingerprintSource)
+        }
+    }
+
+    @Test
+    fun discoversEveryResolverAndUsesNestedQualifiedOwnerNames() {
+        val sources = scanDexResolverSources(
+            "Nested.kt",
+            """
+                package sample
+
+                object First : IResolveDex {
+                    val firstTarget by dexClass { matcher { name = "First" } }
+                }
+
+                object Outer {
+                    object Nested : IResolveDex {
+                        val nestedTarget by dexClass { matcher { name = "Nested" } }
+                    }
+                }
+            """.trimIndent(),
+        )
+
+        assertEquals(listOf("sample.First", "sample.Outer.Nested"), sources.map { it.qualifiedClassName })
+        assertEquals(
+            "sample.Outer.Nested#nestedTarget",
+            sources.single { it.qualifiedClassName.endsWith(".Nested") }.producers.single().stableId,
+        )
+    }
+
+    @Test
+    fun rejectsMetadataThatDoesNotCoverEveryDiscoveredResolverOwner() {
+        val source = scanDexResolverSource(
+            "One.kt",
+            "object One : IResolveDex { val target by dexClass { matcher { name = \"One\" } } }",
+        )!!
+
+        val error = assertFailsWith<IllegalArgumentException> {
+            requireCompleteDexResolverMetadata(
+                discoveredOwnerClassNames = setOf("One", "Missing"),
+                metadataOwners = listOf(source),
+            )
+        }
+
+        assertTrue(error.message!!.contains("Missing"))
     }
 
     @Test

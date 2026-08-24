@@ -19,11 +19,21 @@ abstract class GenerateDexResolutionMetadataTask : DefaultTask() {
 
     @TaskAction
     fun generate() {
-        val owners = sourceDir.get().asFile.walkTopDown()
+        val sourceFiles = sourceDir.get().asFile.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
-            .mapNotNull(::scanDexResolverSource)
+            .toList()
+        val discoveredOwnerClassNames = sourceFiles
+            .flatMap(::discoverDexResolverOwnerClassNames)
+            .toSet()
+        val owners = sourceFiles.asSequence()
+            .flatMap(::scanDexResolverSources)
             .sortedBy { it.qualifiedClassName }
             .toList()
+
+        requireCompleteDexResolverMetadata(
+            discoveredOwnerClassNames = discoveredOwnerClassNames,
+            metadataOwners = owners,
+        )
 
         val duplicateOwners = owners.groupingBy { it.qualifiedClassName }.eachCount().filterValues { it > 1 }.keys
         require(duplicateOwners.isEmpty()) {
@@ -64,9 +74,26 @@ abstract class GenerateDexResolutionMetadataTask : DefaultTask() {
     }
 }
 
+internal fun requireCompleteDexResolverMetadata(
+    discoveredOwnerClassNames: Set<String>,
+    metadataOwners: List<DexResolverSource>,
+) {
+    val metadataOwnerClassNames = metadataOwners.mapTo(linkedSetOf()) { it.qualifiedClassName }
+    val missing = discoveredOwnerClassNames - metadataOwnerClassNames
+    val unexpected = metadataOwnerClassNames - discoveredOwnerClassNames
+    require(missing.isEmpty() && unexpected.isEmpty()) {
+        buildString {
+            append("Dex resolution metadata owner coverage mismatch.")
+            if (missing.isNotEmpty()) append(" Missing: ${missing.sorted()}.")
+            if (unexpected.isNotEmpty()) append(" Unexpected: ${unexpected.sorted()}.")
+        }
+    }
+}
+
 private const val FINGERPRINT_SCHEMA_SALT = "wekit-dex-resolution-metadata-v2"
 
 private fun renderMetadataSource(namespace: String, owners: List<DexResolverSource>): String {
+    val ownerAnnotations = owners.joinToString(",\n") { "            ${it.qualifiedClassName.asKotlinString()}" }
     val ownerEntries = owners.joinToString(",\n") { owner ->
         val ownerSafetyFingerprint = fingerprint(
             stableId = owner.qualifiedClassName,
@@ -109,6 +136,9 @@ private fun renderMetadataSource(namespace: String, owners: List<DexResolverSour
     return """
         package $namespace.dexkit.resolution
 
+        @DexResolutionMetadataOwners(
+$ownerAnnotations,
+        )
         object GeneratedDexResolutionMetadata {
             val OWNERS: Map<String, DexOwnerMetadata> = $ownersMap
 
