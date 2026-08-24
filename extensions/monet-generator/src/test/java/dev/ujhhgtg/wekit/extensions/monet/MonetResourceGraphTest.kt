@@ -59,7 +59,11 @@ class MonetResourceGraphTest {
         )
 
         assertEquals(
-            MonetReferenceSignature("color", "reference:drawable:reference:color:cycle:color:-:-", null),
+            MonetReferenceSignature(
+                "color",
+                "reference:REFERENCE:drawable:reference:REFERENCE:color:cycle:color:-:-",
+                null,
+            ),
             graph.referenceSignature(colorId),
         )
     }
@@ -105,5 +109,53 @@ class MonetResourceGraphTest {
         assertEquals(emptySet<Int>(), updated.incoming(colorId))
         assertEquals(setOf(drawableId), updated.incoming(layoutId))
         assertEquals(setOf(layoutId), updated.outgoing(drawableId))
+    }
+
+    @Test
+    fun `graph snapshots xml owners and persists normalized shapes`() {
+        val drawableId = 0x7f080222
+        val layoutId = 0x7f0d0333
+        val drawableShape = MonetXmlShape("a".repeat(64))
+        val layoutShape = MonetXmlShape("b".repeat(64))
+        val graph = MonetResourceGraph(
+            listOf(
+                MonetResourceNode(drawableId, MonetResourceKey("drawable", "a"), emptyList()),
+                MonetResourceNode(layoutId, MonetResourceKey("layout", "b"), emptyList()),
+            ),
+        ).withXmlData(drawableId, emptySet(), setOf(drawableShape))
+            .withXmlData(layoutId, setOf(drawableId), setOf(layoutShape))
+
+        val exposedOwners = graph.xmlOwners()
+        runCatching { (exposedOwners as MutableSet<Int>).clear() }
+
+        assertEquals(setOf(drawableId, layoutId), graph.xmlOwners())
+        assertEquals(setOf(drawableShape), graph.xmlShapes(drawableId))
+        assertEquals(setOf(layoutShape), graph.xmlShapes(layoutId))
+    }
+
+    @Test
+    fun `complex value keeps parent map keys and reference edges`() {
+        val complexId = 0x7f030001
+        val parentId = 0x7f030002
+        val referencedId = 0x7f060003
+        val complex = MonetResourceValue.Complex(
+            parentId = parentId,
+            items = listOf(
+                MonetComplexValue(0x01010000, MonetResourceValue.Literal("integer", 7)),
+                MonetComplexValue(0x01010001, MonetResourceValue.Reference(referencedId)),
+            ),
+        )
+        val graph = MonetResourceGraph(
+            listOf(
+                MonetResourceNode(
+                    complexId,
+                    MonetResourceKey("style", "complex"),
+                    listOf(MonetConfiguredValue("", complex)),
+                ),
+            ),
+        )
+
+        assertEquals(complex, graph.node(complexId)!!.values.single().value)
+        assertEquals(setOf(parentId, referencedId), graph.outgoing(complexId))
     }
 }

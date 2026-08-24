@@ -32,12 +32,12 @@ internal object MonetBinaryXmlReader {
                     "binary XML attribute ${attribute.name} has no value type"
                 }
                 val value = if (valueType.isReference) {
-                    MonetResourceValue.Reference(attribute.data).also {
+                    MonetResourceValue.Reference(attribute.data, valueType.name).also {
                         referenceIds += attribute.data
                     }
                 } else {
                     MonetResourceValue.Literal(
-                        valueType = valueType.typeName,
+                        valueType = valueType.name,
                         data = Integer.toUnsignedLong(attribute.data),
                     )
                 }
@@ -45,7 +45,7 @@ internal object MonetBinaryXmlReader {
                     namespace = attribute.uri,
                     name = attribute.name,
                     nameId = attribute.nameId.takeIf { it != 0 },
-                    valueType = valueType.typeName,
+                    valueType = valueType.name,
                     value = value,
                 )
             }.toList(),

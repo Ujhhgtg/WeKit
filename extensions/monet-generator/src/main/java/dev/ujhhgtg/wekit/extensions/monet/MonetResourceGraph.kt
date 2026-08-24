@@ -1,12 +1,26 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
+import java.util.Collections
+
 internal data class MonetResourceKey(val type: String, val name: String)
 
 internal sealed interface MonetResourceValue {
     data class Literal(val valueType: String, val data: Long) : MonetResourceValue
-    data class Reference(val resourceId: Int) : MonetResourceValue
+    data class Reference(
+        val resourceId: Int,
+        val valueType: String = "REFERENCE",
+    ) : MonetResourceValue
     data class File(val path: String) : MonetResourceValue
+    data class Complex(
+        val parentId: Int,
+        val items: List<MonetComplexValue>,
+    ) : MonetResourceValue
 }
+
+internal data class MonetComplexValue(
+    val nameId: Int,
+    val value: MonetResourceValue,
+)
 
 internal data class MonetConfiguredValue(
     val qualifiers: String,
@@ -27,10 +41,10 @@ internal data class MonetReferenceSignature(
 
 internal class MonetResourceGraph private constructor(
     private val nodesById: Map<Int, MonetResourceNode>,
-    private val xmlReferencesBySource: Map<Int, Set<Int>>,
+    private val xmlDataBySource: Map<Int, MonetXmlData>,
 ) {
     constructor(nodes: List<MonetResourceNode>) : this(
-        nodes.associate { node -> node.id to node.copy(values = node.values.toList()) },
+        nodes.associate { node -> node.id to node.snapshot() },
         emptyMap(),
     )
 
@@ -42,25 +56,42 @@ internal class MonetResourceGraph private constructor(
     fun nodes(type: String): List<MonetResourceNode> =
         nodesById.values.filter { it.key.type == type }.sortedBy(MonetResourceNode::id).map { it.snapshot() }
 
-    fun xmlOwners(): Set<Int> = xmlReferencesBySource.keys
+    fun xmlOwners(): Set<Int> = xmlDataBySource.keys.toSet()
 
-    fun withXmlReferences(sourceId: Int, referenceIds: Set<Int>): MonetResourceGraph =
-        MonetResourceGraph(nodesById, xmlReferencesBySource + (sourceId to referenceIds.toSet()))
+    fun xmlShapes(sourceId: Int): Set<MonetXmlShape> =
+        xmlDataBySource[sourceId]?.shapes.orEmpty().toSet()
+
+    fun withXmlReferences(sourceId: Int, referenceIds: Set<Int>): MonetResourceGraph {
+        val existing = xmlDataBySource[sourceId] ?: MonetXmlData()
+        return MonetResourceGraph(
+            nodesById,
+            xmlDataBySource + (sourceId to existing.copy(referenceIds = referenceIds.toSet())),
+        )
+    }
+
+    fun withXmlData(
+        sourceId: Int,
+        referenceIds: Set<Int>,
+        shapes: Set<MonetXmlShape>,
+    ): MonetResourceGraph = MonetResourceGraph(
+        nodesById,
+        xmlDataBySource + (sourceId to MonetXmlData(referenceIds.toSet(), shapes.toSet())),
+    )
 
     fun incoming(resourceId: Int): Set<Int> = buildSet {
         nodesById.forEach { (sourceId, node) ->
             if (node.values.any { it.value.references(resourceId) }) add(sourceId)
         }
-        xmlReferencesBySource.forEach { (sourceId, references) ->
-            if (resourceId in references) add(sourceId)
+        xmlDataBySource.forEach { (sourceId, xmlData) ->
+            if (resourceId in xmlData.referenceIds) add(sourceId)
         }
     }
 
     fun outgoing(resourceId: Int): Set<Int> = buildSet {
         nodesById[resourceId]?.values?.forEach { configured ->
-            configured.value.referenceId()?.let(::add)
+            addAll(configured.value.referenceIds())
         }
-        addAll(xmlReferencesBySource[resourceId].orEmpty())
+        addAll(xmlDataBySource[resourceId]?.referenceIds.orEmpty())
     }
 
     fun referenceSignature(resourceId: Int): MonetReferenceSignature? =
@@ -92,19 +123,58 @@ internal class MonetResourceGraph private constructor(
         is MonetResourceValue.Literal -> "literal:${value.valueType}:${value.data}"
         is MonetResourceValue.File -> "file:${value.path}"
         is MonetResourceValue.Reference -> referenceSignature(value.resourceId, expanding)?.let {
-            "reference:${it.type}:${it.defaultValue ?: "-"}:${it.nightValue ?: "-"}"
-        } ?: "reference:${value.resourceId}"
+            "reference:${value.valueType}:${it.type}:${it.defaultValue ?: "-"}:${it.nightValue ?: "-"}"
+        } ?: "reference:${value.valueType}:${value.resourceId}"
+        is MonetResourceValue.Complex -> buildString {
+            append("complex:parent:")
+            append(
+                if (value.parentId == 0) {
+                    "-"
+                } else {
+                    valueSignature(MonetResourceValue.Reference(value.parentId), expanding)
+                },
+            )
+            value.items.forEach { item ->
+                append(":item:").append(item.nameId).append('=')
+                append(valueSignature(item.value, expanding))
+            }
+        }
     }
 
     private fun MonetResourceValue.references(resourceId: Int): Boolean =
-        referenceId() == resourceId
+        resourceId in referenceIds()
 
-    private fun MonetResourceValue.referenceId(): Int? = when (this) {
-        is MonetResourceValue.Reference -> resourceId
+    private fun MonetResourceValue.referenceIds(): Set<Int> = when (this) {
+        is MonetResourceValue.Reference -> setOf(resourceId)
+        is MonetResourceValue.Complex -> buildSet {
+            if (parentId != 0) add(parentId)
+            items.forEach { item -> addAll(item.value.referenceIds()) }
+        }
         is MonetResourceValue.Literal,
         is MonetResourceValue.File,
-        -> null
+        -> emptySet()
     }
 
-    private fun MonetResourceNode.snapshot(): MonetResourceNode = copy(values = values.toList())
+    private data class MonetXmlData(
+        val referenceIds: Set<Int> = emptySet(),
+        val shapes: Set<MonetXmlShape> = emptySet(),
+    )
+}
+
+private fun MonetResourceNode.snapshot(): MonetResourceNode = copy(
+    values = Collections.unmodifiableList(
+        values.map { configured -> configured.copy(value = configured.value.snapshot()) },
+    ),
+)
+
+private fun MonetResourceValue.snapshot(): MonetResourceValue = when (this) {
+    is MonetResourceValue.Complex -> copy(
+        items = Collections.unmodifiableList(
+            items.map { item -> item.copy(value = item.value.snapshot()) },
+        ),
+    )
+    is MonetResourceValue.File,
+    is MonetResourceValue.Literal,
+    is MonetResourceValue.Reference,
+    -> this
 }

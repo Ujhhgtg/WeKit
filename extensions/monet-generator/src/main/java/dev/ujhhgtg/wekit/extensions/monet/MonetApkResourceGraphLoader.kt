@@ -25,32 +25,47 @@ internal object MonetApkResourceGraphLoader {
                     .asSequence()
                     .filter { it.filePath.isMonetXmlPath() && it.isBinaryXml }
                     .forEach { resFile ->
-                        val ownerIds = resFile.asSequence()
+                        val owners = resFile.asSequence()
                             .filter { it.packageBlock.name == targetPackage }
-                            .map { it.resourceId }
-                            .toSet()
-                        if (ownerIds.isNotEmpty()) {
-                            xmlDocuments += OwnedXml(
-                                ownerIds = ownerIds,
-                                xml = MonetBinaryXmlReader.read(
-                                    module.loadResXmlDocument(resFile.inputSource),
-                                ),
+                            .map { entry ->
+                                XmlIdentity(entry.resourceId, entry.resConfig.qualifiers, resFile.filePath)
+                            }
+                            .toList()
+                        if (owners.isNotEmpty()) {
+                            val xml = MonetBinaryXmlReader.read(
+                                module.loadResXmlDocument(resFile.inputSource),
                             )
+                            owners.forEach { identity -> xmlDocuments += OwnedXml(identity, xml) }
                         }
                     }
             }
         }
 
         var graph = MonetResourceGraph(resources.values.map(MutableResource::toNode))
-        val xmlReferences = linkedMapOf<Int, MutableSet<Int>>()
+        val definitions = linkedMapOf<XmlIdentity, XmlDefinition>()
         xmlDocuments.forEach { ownedXml ->
-            ownedXml.xml.shape(graph::referenceSignature)
-            ownedXml.ownerIds.forEach { ownerId ->
-                xmlReferences.getOrPut(ownerId, ::linkedSetOf).addAll(ownedXml.xml.referenceIds)
+            val definition = XmlDefinition(
+                shape = ownedXml.xml.shape(graph::referenceSignature),
+                referenceIds = ownedXml.xml.referenceIds,
+            )
+            val existing = definitions[ownedXml.identity]
+            require(existing == null || existing == definition) {
+                "conflicting binary XML for ${ownedXml.identity}"
             }
+            if (existing == null) definitions[ownedXml.identity] = definition
         }
-        xmlReferences.forEach { (sourceId, referenceIds) ->
-            graph = graph.withXmlReferences(sourceId, referenceIds)
+        val xmlReferences = linkedMapOf<Int, MutableSet<Int>>()
+        val xmlShapes = linkedMapOf<Int, MutableSet<MonetXmlShape>>()
+        definitions.forEach { (identity, definition) ->
+            xmlReferences.getOrPut(identity.ownerId, ::linkedSetOf).addAll(definition.referenceIds)
+            xmlShapes.getOrPut(identity.ownerId, ::linkedSetOf).add(definition.shape)
+        }
+        (xmlReferences.keys + xmlShapes.keys).forEach { sourceId ->
+            graph = graph.withXmlData(
+                sourceId,
+                xmlReferences[sourceId].orEmpty(),
+                xmlShapes[sourceId].orEmpty(),
+            )
         }
         return graph
     }
@@ -68,18 +83,32 @@ internal object MonetApkResourceGraphLoader {
         }
         resource.asSequence().forEach { entry ->
             val qualifiers = entry.resConfig.qualifiers
-            val values = entry.allValues().asSequence().map { it.toMonetValue() }.toList()
+            val value = if (entry.isComplex) {
+                val complex = requireNotNull(entry.resTableMapEntry) {
+                    "complex ARSC entry 0x${id.toUInt().toString(16)} has no map entry"
+                }
+                MonetResourceValue.Complex(
+                    parentId = complex.parentId,
+                    items = complex.iterator().asSequence().map { item ->
+                        MonetComplexValue(item.nameId, item.toMonetValue())
+                    }.toList(),
+                )
+            } else {
+                requireNotNull(entry.resValue) {
+                    "scalar ARSC entry 0x${id.toUInt().toString(16)} has no value"
+                }.toMonetValue()
+            }
             val existing = merged.valuesByQualifiers[qualifiers]
-            require(existing == null || existing == values) {
+            require(existing == null || existing == value) {
                 "conflicting values for 0x${id.toUInt().toString(16)} ($key) qualifiers '$qualifiers' in $apk"
             }
-            if (existing == null) merged.valuesByQualifiers[qualifiers] = values
+            if (existing == null) merged.valuesByQualifiers[qualifiers] = value
         }
     }
 
     private fun ValueItem.toMonetValue(): MonetResourceValue {
         val valueType = requireNotNull(valueType) { "ARSC value has no value type" }
-        if (valueType.isReference) return MonetResourceValue.Reference(data)
+        if (valueType.isReference) return MonetResourceValue.Reference(data, valueType.name)
         if (valueType == ValueType.STRING) {
             val stringValue = valueAsString
             if (stringValue != null && stringValue.startsWith("res/")) {
@@ -87,7 +116,7 @@ internal object MonetApkResourceGraphLoader {
             }
         }
         return MonetResourceValue.Literal(
-            valueType = valueType.typeName,
+            valueType = valueType.name,
             data = Integer.toUnsignedLong(data),
         )
     }
@@ -98,19 +127,30 @@ internal object MonetApkResourceGraphLoader {
     private data class MutableResource(
         val id: Int,
         val key: MonetResourceKey,
-        val valuesByQualifiers: MutableMap<String, List<MonetResourceValue>> = linkedMapOf(),
+        val valuesByQualifiers: MutableMap<String, MonetResourceValue> = linkedMapOf(),
     ) {
         fun toNode() = MonetResourceNode(
             id = id,
             key = key,
-            values = valuesByQualifiers.toSortedMap().flatMap { (qualifiers, values) ->
-                values.map { value -> MonetConfiguredValue(qualifiers, value) }
+            values = valuesByQualifiers.toSortedMap().map { (qualifiers, value) ->
+                MonetConfiguredValue(qualifiers, value)
             },
         )
     }
 
+    private data class XmlIdentity(
+        val ownerId: Int,
+        val qualifiers: String,
+        val path: String,
+    )
+
+    private data class XmlDefinition(
+        val shape: MonetXmlShape,
+        val referenceIds: Set<Int>,
+    )
+
     private data class OwnedXml(
-        val ownerIds: Set<Int>,
+        val identity: XmlIdentity,
         val xml: MonetBinaryXml,
     )
 }

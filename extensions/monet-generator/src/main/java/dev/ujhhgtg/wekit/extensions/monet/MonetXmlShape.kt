@@ -74,11 +74,25 @@ private fun MonetResourceValue.normalized(
     is MonetResourceValue.Literal -> "literal:$valueType:$data"
     is MonetResourceValue.File -> "file:$path"
     is MonetResourceValue.Reference -> referenceSignature(resourceId)?.let {
-        "reference:${it.type}:${it.defaultValue ?: "-"}:${it.nightValue ?: "-"}"
+        "reference:$valueType:${it.type}:${it.defaultValue ?: "-"}:${it.nightValue ?: "-"}"
     } ?: if (resourceId.ushr(24) == 0x01) {
-        "framework:$resourceId"
+        "framework:$valueType:$resourceId"
     } else {
-        "reference:$resourceId"
+        "reference:$valueType:$resourceId"
+    }
+    is MonetResourceValue.Complex -> buildString {
+        append("complex:parent:")
+        append(
+            if (parentId == 0) {
+                "-"
+            } else {
+                MonetResourceValue.Reference(parentId).normalized(referenceSignature)
+            },
+        )
+        items.forEach { item ->
+            append(":item:").append(item.nameId).append('=')
+            append(item.value.normalized(referenceSignature))
+        }
     }
 }
 
