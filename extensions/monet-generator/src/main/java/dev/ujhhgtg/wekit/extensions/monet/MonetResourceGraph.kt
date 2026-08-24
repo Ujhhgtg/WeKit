@@ -29,15 +29,18 @@ internal class MonetResourceGraph private constructor(
     private val nodesById: Map<Int, MonetResourceNode>,
     private val xmlReferencesBySource: Map<Int, Set<Int>>,
 ) {
-    constructor(nodes: List<MonetResourceNode>) : this(nodes.associateBy(MonetResourceNode::id), emptyMap())
+    constructor(nodes: List<MonetResourceNode>) : this(
+        nodes.associate { node -> node.id to node.copy(values = node.values.toList()) },
+        emptyMap(),
+    )
 
-    fun node(resourceId: Int): MonetResourceNode? = nodesById[resourceId]
+    fun node(resourceId: Int): MonetResourceNode? = nodesById[resourceId]?.snapshot()
 
     fun node(key: MonetResourceKey): MonetResourceNode? =
-        nodesById.values.firstOrNull { it.key == key }
+        nodesById.values.firstOrNull { it.key == key }?.snapshot()
 
     fun nodes(type: String): List<MonetResourceNode> =
-        nodesById.values.filter { it.key.type == type }.sortedBy(MonetResourceNode::id)
+        nodesById.values.filter { it.key.type == type }.sortedBy(MonetResourceNode::id).map { it.snapshot() }
 
     fun xmlOwners(): Set<Int> = xmlReferencesBySource.keys
 
@@ -102,4 +105,6 @@ internal class MonetResourceGraph private constructor(
         is MonetResourceValue.File,
         -> null
     }
+
+    private fun MonetResourceNode.snapshot(): MonetResourceNode = copy(values = values.toList())
 }

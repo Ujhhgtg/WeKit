@@ -4,6 +4,7 @@ import java.security.MessageDigest
 
 internal data class MonetRawXmlElement(
     val name: String,
+    val namespace: String? = null,
     val attributes: List<MonetRawXmlAttribute> = emptyList(),
     val children: List<MonetRawXmlChild> = emptyList(),
 )
@@ -37,6 +38,7 @@ private fun StringBuilder.appendElement(
     referenceSignature: (Int) -> MonetReferenceSignature?,
 ) {
     appendToken("element")
+    appendToken(element.namespace.orEmpty())
     appendToken(element.name)
     element.attributes
         .sortedWith(compareBy<MonetRawXmlAttribute>(

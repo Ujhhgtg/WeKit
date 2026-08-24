@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Test
 
 class MonetXmlShapeTest {
@@ -37,6 +38,45 @@ class MonetXmlShapeTest {
         )
 
         assertEquals(false, normalizeMonetXml(first) == normalizeMonetXml(second))
+    }
+
+    @Test
+    fun `xml shape distinguishes equal local element names in different namespaces`() {
+        val first = MonetRawXmlElement(name = "item", namespace = "urn:first")
+        val second = MonetRawXmlElement(name = "item", namespace = "urn:second")
+
+        assertNotEquals(normalizeMonetXml(first), normalizeMonetXml(second))
+    }
+
+    @Test
+    fun `xml shape sorts attributes but preserves interleaved child order`() {
+        val firstAttribute = MonetRawXmlAttribute(
+            namespace = null,
+            name = "alpha",
+            nameId = null,
+            valueType = "int",
+            value = MonetResourceValue.Literal("int", 1),
+        )
+        val secondAttribute = MonetRawXmlAttribute(
+            namespace = null,
+            name = "beta",
+            nameId = null,
+            valueType = "int",
+            value = MonetResourceValue.Literal("int", 2),
+        )
+        val child = MonetRawXmlChild.Element(MonetRawXmlElement("child"))
+        val ordered = MonetRawXmlElement(
+            name = "root",
+            attributes = listOf(firstAttribute, secondAttribute),
+            children = listOf(MonetRawXmlChild.Text("before"), child, MonetRawXmlChild.Text("after")),
+        )
+        val reorderedAttributes = ordered.copy(attributes = ordered.attributes.reversed())
+        val reorderedChildren = ordered.copy(
+            children = listOf(MonetRawXmlChild.Text("before"), MonetRawXmlChild.Text("after"), child),
+        )
+
+        assertEquals(normalizeMonetXml(ordered), normalizeMonetXml(reorderedAttributes))
+        assertNotEquals(normalizeMonetXml(ordered), normalizeMonetXml(reorderedChildren))
     }
 
     private fun rawShape(root: String, colorId: Int, drawableId: Int) = MonetRawXmlElement(

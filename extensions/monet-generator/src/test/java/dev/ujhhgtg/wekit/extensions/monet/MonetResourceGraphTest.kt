@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class MonetResourceGraphTest {
@@ -61,5 +62,48 @@ class MonetResourceGraphTest {
             MonetReferenceSignature("color", "reference:drawable:reference:color:cycle:color:-:-", null),
             graph.referenceSignature(colorId),
         )
+    }
+
+    @Test
+    fun `graph snapshots supplied nodes and exposed nodes`() {
+        val values = mutableListOf(
+            MonetConfiguredValue("", MonetResourceValue.Literal("color", 7)),
+        )
+        val source = mutableListOf(
+            MonetResourceNode(0x7f060111, MonetResourceKey("color", "a"), values),
+        )
+        val graph = MonetResourceGraph(source)
+
+        values.clear()
+        source.clear()
+        assertThrows(UnsupportedOperationException::class.java) {
+            (graph.node(0x7f060111)!!.values as MutableList<MonetConfiguredValue>).clear()
+        }
+
+        assertEquals(
+            MonetReferenceSignature("color", "literal:color:7", null),
+            graph.referenceSignature(0x7f060111),
+        )
+    }
+
+    @Test
+    fun `xml reference update replaces edges without changing previous graph`() {
+        val colorId = 0x7f060111
+        val drawableId = 0x7f080222
+        val layoutId = 0x7f0d0333
+        val original = MonetResourceGraph(
+            listOf(
+                MonetResourceNode(colorId, MonetResourceKey("color", "a"), emptyList()),
+                MonetResourceNode(drawableId, MonetResourceKey("drawable", "b"), emptyList()),
+                MonetResourceNode(layoutId, MonetResourceKey("layout", "c"), emptyList()),
+            ),
+        ).withXmlReferences(drawableId, setOf(colorId))
+        val updated = original.withXmlReferences(drawableId, setOf(layoutId))
+
+        assertEquals(setOf(drawableId), original.incoming(colorId))
+        assertEquals(setOf(colorId), original.outgoing(drawableId))
+        assertEquals(emptySet<Int>(), updated.incoming(colorId))
+        assertEquals(setOf(drawableId), updated.incoming(layoutId))
+        assertEquals(setOf(layoutId), updated.outgoing(drawableId))
     }
 }
