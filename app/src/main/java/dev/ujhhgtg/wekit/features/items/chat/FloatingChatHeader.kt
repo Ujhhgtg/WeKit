@@ -277,25 +277,28 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** 每个提示条组取到的分割线颜色 (原生 ovu 的 ColorDrawable)。 */
     private val tipsBarDividerColors = WeakHashMap<View, Int>()
 
-    /** 已装过 adapter 数量 Hook 的置顶消息列表。 */
+    /** 已装过 adapter 数量 Hook 的提示条列表。 */
     private val tipsBarRowHooks = WeakHashMap<View, Boolean>()
 
-    /** 每个置顶消息行根对应的 ×N 角标。 */
-    private val tipsBarRowBadges = WeakHashMap<View, TextView>()
+    /** 每个提示条组折叠态首行右侧的“其余 +N 条”角标。 */
+    private val tipsBarBadges = WeakHashMap<View, TextView>()
 
-    /** 每个置顶消息行根对应的消息 TextView, 角标颜色随它走。 */
-    private val tipsBarRowTexts = WeakHashMap<View, TextView>()
+    /** 每个提示条组的角标当前挂在哪个首行 overlay。 */
+    private val tipsBarBadgeRows = WeakHashMap<View, ViewGroup>()
 
-    /** 每个置顶消息行根对应的横向 LinearLayout, 展开态上下边距靠它。 */
-    private val tipsBarRowLines = WeakHashMap<View, LinearLayout>()
+    /** 每个提示条组当前为角标让位的主要文本。 */
+    private val tipsBarBadgeTexts = WeakHashMap<View, TextView>()
+
+    /** 主要文本为角标让位前的原始相对 padding。 */
+    private val tipsBarBadgeTextPaddings = WeakHashMap<View, IntArray>()
 
     /** 每个注入行装饰所属的提示条 RecyclerView, 用于精确回收旧列表。 */
     private val tipsBarRowRecyclers = WeakHashMap<View, View>()
 
-    /** 每行横向内容布局被本特性调整前的原始上下边距。 */
+    /** 每个置顶消息行内横向布局被本特性调整前的原始上下边距。 */
     private val tipsBarRowOriginalLineMargins = WeakHashMap<View, IntArray>()
 
-    /** 每个置顶消息行根底部的横向分割线。 */
+    /** 每个提示条行底部的横向分割线，通过 overlay 绘制以兼容不同根布局。 */
     private val tipsBarRowDividers = WeakHashMap<View, View>()
 
     /** 每个提示条组的折叠动画占位层 (s3.xml 的 ovv)。 */
@@ -1157,15 +1160,13 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 置顶消息挂件 (ChatTipsBarGroup) 的完整重排, 只认置顶消息行 (s4.xml) 的结构:
+     * ChatTipsBarGroup 的完整重排:
      *
-     * - 行背景 (bce 圆角矩形) 去掉, 内容直接显示在悬浮卡片上; 列表边距归零, 行铺满整卡;
-     * - 微信的 item offset 装饰 (每行底部 8dp) 摘掉, 行距改到行内上下 4dp, 折叠/展开
-     *   行结构一致且内容居中;
-     * - 折叠态: 单条时整卡就是那一行, 点击走微信原生跳转; 多条时行右侧出现 ×N, 整卡
-     *   点击由微信原生 selfClickListener 展开;
-     * - 展开态: 每行底部画横向分割线 (消息间 + 最后一条后), ×N 消失, 下方保留微信原生
-     *   胶囊 handle; 点 handle 折叠、点行跳转都走微信自己的监听, 这里不碰。
+     * - 所有 Tips 统一使用展开态分割线；非置顶 Tips 保留微信自己的语义背景和内部行距，
+     *   只有置顶消息行去掉 bce 背景并补内部行距，直接融入悬浮卡片；
+     * - 微信的 item offset 装饰摘掉，列表边距归零，行铺满整卡；
+     * - 折叠态在当前首行右侧显示 +(总 Tips 数 - 1)，展开态隐藏；
+     * - 各类 Tips 原有的图标、按钮和点击行为均不修改。
      */
     private fun applyPinnedTipsBarLayout(group: View): Boolean {
         // 早退 1: 找不到卡片体 (s3.xml 的 hyi)。注意 s3 的根 FrameLayout 才是组的直接子
@@ -1183,18 +1184,6 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         FloatingChatCardVisuals.applyDarkSurface(body, cornerRadiusDp)
         // 早退 2: 找不到内容列表 (MaxHeightWxRecyclerView), 保留原生布局。
         val recycler = tipsBarRecycler(group) ?: return false
-        // 早退 3: 只对置顶消息行 (s4.xml 结构) 生效; 直播等其它提示条共用同一组件, 不碰。
-        if (tipsBarRowHooks[recycler] == null) {
-            val list = recycler as ViewGroup
-            var isPinnedBar = false
-            for (i in 0 until list.childCount) {
-                if (list.getChildAt(i).isPinnedTipsRow()) {
-                    isPinnedBar = true
-                    break
-                }
-            }
-            if (!isPinnedBar) return false
-        }
         val expanded = tipsBarHandle(group)?.isVisible == true
         // 折叠动画中: handle 已藏、微信的 ovv 占位层还撑着全高
         val collapsing = !expanded && tipsBarPlaceholder(group)?.height ?: 0 > 0
@@ -1211,7 +1200,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                 placeholder.requestLayout()
             }
         }
-        // 摘掉微信每行底部 8dp 的 item offset, 行距统一改由行内上下边距承担
+        // 摘掉微信每行底部 8dp 的 item offset；置顶消息行距继续由内部布局边距承担
         removePinnedItemOffsets(recycler)
         installPinnedAdapterHook(recycler)
         refreshPinnedRows(recycler, group, expanded || collapsing)
@@ -1355,7 +1344,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         if (tipsBarRowHooks[recycler] != null) return
         installTipsBarAdapterCountHook(recycler)
         tipsBarRowHooks[recycler] = true
-        WeLogger.d(TAG, "pinned tips bar adapter hook installed")
+        WeLogger.d(TAG, "tips bar adapter hook installed")
     }
 
     /**
@@ -1379,7 +1368,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             val hookAdapter = thisObject ?: return@hookBefore
             val group = tipsBarAdapterGroup(hookAdapter) ?: return@hookBefore
             if (tipsBarPlaceholder(group)?.height ?: 0 > 0) {
-                val count = pinnedMessageCount(group)
+                val count = tipsCount(group)
                 if (count > 1) result = count
             }
         }
@@ -1413,108 +1402,126 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         return field?.get(adapter) as? View
     }
 
-    /** 每帧把已挂载的置顶消息行刷成新布局: 去背景、补角标/分割线并更新可见性。
+    /** 每帧把已挂载的 Tips 行刷成统一布局。
      * [showExpandedStyle] 在折叠动画期间也保持 true, 行距/分割线不提前切换。 */
     @SuppressLint("SetTextI18n")
     private fun refreshPinnedRows(recycler: View, group: View, showExpandedStyle: Boolean) {
         val dividerColor = tipsBarDividerColor(group)
-        val count = if (showExpandedStyle) 0 else pinnedMessageCount(group)
+        val remainingCount = if (showExpandedStyle) 0 else tipsCount(group) - 1
         val list = recycler as ViewGroup
         for (i in 0 until list.childCount) {
             val row = list.getChildAt(i)
-            if (!row.isPinnedTipsRow()) continue
             tipsBarRowRecyclers[row] = recycler
-            row.background = null
-            val badge = tipsBarRowBadges[row] ?: ensurePinnedRowBadge(row) ?: continue
-            val rowDivider = tipsBarRowDividers[row] ?: ensurePinnedRowDivider(row) ?: continue
+            // 置顶消息的 bce 背景清掉后融入整卡；警告等其它 Tips 保留微信自己的语义背景。
+            if (row.isPinnedTipsRow()) row.background = null
+            val rowDivider = tipsBarRowDividers[row] ?: ensureTipsRowDivider(row)
             rowDivider.setBackgroundColor(dividerColor)
             rowDivider.visibility = if (showExpandedStyle) View.VISIBLE else View.GONE
-            // 行距放进行内: 展开态内容上下各 4dp, 行高一致且内容居中, 分割线贴行底
-            tipsBarRowLines[row]?.let { line ->
+            if (row.width > 0 && row.height > 0) {
+                rowDivider.layout(0, row.height - 1, row.width, row.height)
+            }
+            // 置顶消息继续用原先验证过的内部行距；其它 Tips 保留微信自己的内部 spacing，
+            // 不能给 item 根补 padding，否则警告的内层红色背景周围会露出卡片底色。
+            if (row.isPinnedTipsRow()) {
+                val line = (row as FrameLayout).getChildAt(0) as LinearLayout
+                val lineLp = line.layoutParams as ViewGroup.MarginLayoutParams
+                val original = tipsBarRowOriginalLineMargins.getOrPut(row) {
+                    intArrayOf(lineLp.topMargin, lineLp.bottomMargin)
+                }
                 val halfGapPx =
                     if (showExpandedStyle) (4 * row.resources.displayMetrics.density).toInt() else 0
-                val lineLp = line.layoutParams as? ViewGroup.MarginLayoutParams
-                if (lineLp != null && (lineLp.topMargin != halfGapPx || lineLp.bottomMargin != halfGapPx)) {
-                    tipsBarRowOriginalLineMargins.putIfAbsent(
-                        row,
-                        intArrayOf(lineLp.topMargin, lineLp.bottomMargin),
-                    )
-                    lineLp.topMargin = halfGapPx
-                    lineLp.bottomMargin = halfGapPx
+                val top = original[0] + halfGapPx
+                val bottom = original[1] + halfGapPx
+                if (lineLp.topMargin != top || lineLp.bottomMargin != bottom) {
+                    lineLp.topMargin = top
+                    lineLp.bottomMargin = bottom
                     line.requestLayout()
                 }
             }
-            if (showExpandedStyle || count < 2) {
-                badge.visibility = View.GONE
-            } else {
-                badge.text = "×$count"
-                badge.visibility = View.VISIBLE
-            }
-            tipsBarRowTexts[row]?.let { text ->
-                val color = text.currentTextColor
-                badge.setTextColor(color and 0x00FFFFFF or (0x99 shl 24))
-            }
         }
+        updateTipsBarBadge(group, recycler, remainingCount)
     }
 
-    /** 折叠态从微信的无障碍描述里拿置顶消息数量 (d() 每次刷新都会重设
-     *  "群通知栏，共N条通知消息，双击展开列表"), 描述为空时按 1 处理。 */
-    private fun pinnedMessageCount(group: View): Int {
-        val parsed = group.contentDescription
-            ?.let { Regex("\\d+").find(it)?.value?.toIntOrNull() }
-        return if (parsed != null && parsed >= 2) parsed else 1
+    /** ChatTipsBarGroup 唯一的 ArrayList 字段就是包含全部类型 Tips 的 dataList。 */
+    private fun tipsCount(group: View): Int {
+        return (group.reflekt().firstField { type = ArrayList::class }.get() as ArrayList<*>).size
     }
 
-    /** 给置顶消息行补 ×N 角标, 加在行内横向 LinearLayout 末尾 (消息文本 weight 之外)。 */
-    private fun ensurePinnedRowBadge(row: View): TextView? {
-        tipsBarRowBadges[row]?.let { return it }
-        val line = row.findViewWhich {
-            it is LinearLayout && it.orientation == LinearLayout.HORIZONTAL
-        } as? LinearLayout ?: return null
-        tipsBarRowLines[row] = line
-        val messageText = line.allViews.firstOrNull { view ->
-            view is TextView &&
-                (view.layoutParams as? LinearLayout.LayoutParams)?.weight?.let { it > 0f } == true
-        } as? TextView
-        if (messageText != null) tipsBarRowTexts[row] = messageText
-        val badge = TextView(row.context).apply {
-            text = "×"
+    /** 折叠态把 +(总数 - 1) 画在当前首行 overlay，背景仍由该 Tips 自己完整铺满。 */
+    private fun updateTipsBarBadge(group: View, recycler: View, remainingCount: Int) {
+        val badge = tipsBarBadges[group] ?: TextView(group.context).apply {
             visibility = View.GONE
             isClickable = false
             isFocusable = false
             id = View.generateViewId()
-            messageText?.let { text ->
-                setTextSize(TypedValue.COMPLEX_UNIT_PX, text.textSize)
-            }
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+        }.also { tipsBarBadges[group] = it }
+        val show = remainingCount > 0
+        if (!show) {
+            hideTipsBarBadge(group, badge)
+            return
         }
-        line.addView(
-            badge,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                marginStart = (8 * row.resources.displayMetrics.density).toInt()
-            }
+        val firstRow = (recycler as ViewGroup).getChildAt(0)
+        if (firstRow == null) {
+            // 退出聊天时微信会先 setAdapter(null)，此前排队的 pre-draw 仍可能到这里；
+            // dataList 尚未清空但 RecyclerView 已无 child，是合法的生命周期瞬时状态。
+            hideTipsBarBadge(group, badge)
+            return
+        }
+        val row = firstRow as ViewGroup
+        val previousRow = tipsBarBadgeRows[group]
+        if (previousRow !== row) {
+            previousRow?.overlay?.remove(badge)
+            row.overlay.add(badge)
+            tipsBarBadgeRows[group] = row
+        }
+        val text = row.allViews
+            .filterIsInstance<TextView>()
+            .maxBy { it.width }
+        tipsBarBadgeTexts[group]?.takeIf { it !== text }?.let(::restoreTipsBadgeTextPadding)
+        tipsBarBadgeTexts[group] = text
+        val original = tipsBarBadgeTextPaddings.getOrPut(text) {
+            intArrayOf(text.paddingStart, text.paddingTop, text.paddingEnd, text.paddingBottom)
+        }
+        val reservedEnd = original[2] + (56 * group.resources.displayMetrics.density).toInt()
+        if (text.paddingStart != original[0] || text.paddingTop != original[1] ||
+            text.paddingEnd != reservedEnd || text.paddingBottom != original[3]
+        ) {
+            text.setPaddingRelative(original[0], original[1], reservedEnd, original[3])
+        }
+        badge.text = "+$remainingCount"
+        val color = text.currentTextColor
+        badge.setTextColor(color and 0x00FFFFFF or (0x99 shl 24))
+        badge.visibility = View.VISIBLE
+        badge.measure(
+            View.MeasureSpec.makeMeasureSpec(row.width, View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(row.height, View.MeasureSpec.AT_MOST),
         )
-        tipsBarRowBadges[row] = badge
-        return badge
+        val marginEnd = (16 * group.resources.displayMetrics.density).toInt()
+        val left = row.width - marginEnd - badge.measuredWidth
+        val top = (row.height - badge.measuredHeight) / 2
+        badge.layout(left, top, left + badge.measuredWidth, top + badge.measuredHeight)
     }
 
-    /** 给置顶消息行底部加 1px 横向分割线 (展开态画在每行底部, 包括最后一行)。 */
-    private fun ensurePinnedRowDivider(row: View): View? {
-        tipsBarRowDividers[row]?.let { return it }
-        if (row !is FrameLayout) return null
+    private fun hideTipsBarBadge(group: View, badge: TextView) {
+        badge.visibility = View.GONE
+        tipsBarBadgeRows.remove(group)?.overlay?.remove(badge)
+        tipsBarBadgeTexts.remove(group)?.let(::restoreTipsBadgeTextPadding)
+    }
+
+    private fun restoreTipsBadgeTextPadding(text: TextView) {
+        tipsBarBadgeTextPaddings.remove(text)?.let { padding ->
+            text.setPaddingRelative(padding[0], padding[1], padding[2], padding[3])
+        }
+    }
+
+    /** 用 ViewOverlay 给任意根布局的 Tips 行补一条底部分割线。 */
+    private fun ensureTipsRowDivider(row: View): View {
+        val rowGroup = row as ViewGroup
         val divider = View(row.context).apply {
             visibility = View.GONE
         }
-        row.addView(
-            divider,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                1,
-                Gravity.BOTTOM
-            )
-        )
+        rowGroup.overlay.add(divider)
         tipsBarRowDividers[row] = divider
         return divider
     }
@@ -1584,8 +1591,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             tipsBarDividerColors[group] = color
             return color
         }
-        // 兜底: 用行内消息文本的前景色压 10% 透明度, 深浅色都能用
-        val text = tipsBarRowTexts.values.firstOrNull { it.isAttachedToWindow } ?: return 0
+        // 兜底: 用任一行内文本的前景色压 10% 透明度, 深浅色都能用
+        val text = group.allViews.firstOrNull { it is TextView && it.isAttachedToWindow }
+            as? TextView ?: return 0
         return text.currentTextColor and 0x00FFFFFF or (0x1A shl 24)
     }
 
@@ -1717,6 +1725,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         }
         runCatching { window.statusBarColor = Color.TRANSPARENT }
         zeroChatLayoutTopPadding(layout)
+        zeroStandaloneChatBodyTopPadding(layout)
         neutralizeStatusBarWrapper(layout)
     }
 
@@ -1735,9 +1744,17 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private fun trackStatusBarOffset(layout: View) {
         if (statusBarPreDraws[layout] != null) return
         val listener = ViewTreeObserver.OnPreDrawListener {
-            statusBarOffsets[layout] = currentStatusBarOffset(layout)
+            val offset = currentStatusBarOffset(layout)
+            val previous = statusBarOffsets.put(layout, offset)
             reassertEdgeToEdgeStatusBar(layout)
+            zeroStandaloneChatBodyTopPadding(layout)
             neutralizeStatusBarWrapper(layout)
+            // 通知入口的独立 ChattingUI 首次 pre-draw 时 insets 可能尚未就绪；
+            // 后续拿到有效状态栏高度后必须重跑完整布局，才能切换窗口标题栏 overlay，
+            // 并同步标题卡、提示卡和消息列表的位置与样式。
+            if (previous != null && previous != offset) {
+                scheduleReconcile(layout, RECONCILE_LAYOUT)
+            }
             true
         }
         statusBarPreDraws[layout] = listener
@@ -1755,16 +1772,44 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         }
     }
 
+    /**
+     * 独立 ChattingUI 的 FullScreenHelper 会给 Fragment body 写入一个 ActionBar 高度的
+     * paddingTop。标题栏已经切成 overlay 后，这份 173px 左右的补偿会让整个消息背景仍从
+     * 标题栏下方开始；清掉它后由标题卡和列表 padding 各自处理遮挡关系。
+     */
+    private fun zeroStandaloneChatBodyTopPadding(layout: View) {
+        if (!layout.isInStandaloneChattingUi()) return
+        val body = layout.parent as RelativeLayout
+        if (body.paddingTop != 0) {
+            body.setPadding(body.paddingLeft, 0, body.paddingRight, body.paddingBottom)
+        }
+    }
+
     /** 只处理 EdgeToEdgeWrapperLayout 的顶部，底部由 FloatingChatFooter 负责。 */
     private fun neutralizeStatusBarWrapper(layout: View) {
         val wrapper = layout.findEdgeToEdgeWrapper() ?: return
+        if (statusBarWrappersNeutralized[wrapper] != true) {
+            // 高版本 ChattingUI 的 wrapper 默认 ALWAYS_AVOID，ADB 显示它会把整个内容子树
+            // 下移一个状态栏高度。先把策略切到 ALWAYS_HIDE，使后续 insets 回调保持 top=0。
+            val strategySetter = wrapper.reflekt().firstMethod {
+                name = "setStatusBarStrategy"
+                parameterCount = 1
+            }
+            val strategyClass = strategySetter.parameterTypes.single()
+            val alwaysHide = strategyClass.enumConstants!!.single {
+                (it as Enum<*>).name == "ALWAYS_HIDE"
+            }
+            strategySetter.invoke(alwaysHide)
+            runCatching {
+                wrapper.javaClass.getMethod("setStatusBarColor", Int::class.javaPrimitiveType)
+                    .invoke(wrapper, Color.TRANSPARENT)
+            }
+            statusBarWrappersNeutralized[wrapper] = true
+            wrapper.requestApplyInsets()
+        }
+        // setter 只更新策略字段，不会同步重算已经收到的 inset；当前帧立即移除 160px。
         if (wrapper.paddingTop != 0) {
             wrapper.setPadding(wrapper.paddingLeft, 0, wrapper.paddingRight, wrapper.paddingBottom)
-        }
-        if (statusBarWrappersNeutralized.put(wrapper, true) != null) return
-        runCatching {
-            wrapper.javaClass.getMethod("setStatusBarColor", Int::class.javaPrimitiveType)
-                .invoke(wrapper, Color.TRANSPARENT)
         }
     }
 
@@ -2010,6 +2055,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private fun clearTipsGroupCaches(group: View, recycler: View?) {
         recycler?.let { retireTipsRecycler(group, it) }
         val body = tipsBarCardBodies.remove(group)
+        tipsBarBadges.remove(group)?.let { hideTipsBarBadge(group, it) }
         dimWarned.remove(group)
         tipsBarDims.remove(group)
         tipsBarStyles.remove(group)
@@ -2029,6 +2075,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     private fun retireTipsRecycler(group: View, recycler: View) {
         if (tipsBarRecyclers[group] === recycler) tipsBarRecyclers.remove(group)
+        tipsBarBadges[group]?.let { hideTipsBarBadge(group, it) }
         tipsBarGroupLayouts[group]?.let { layout ->
             layoutTrackers[layout]?.let { unobserveTrackedView(it, recycler) }
         }
@@ -2039,24 +2086,16 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             .filter { it.value === recycler }
             .forEach { rows.add(it.key) }
         rows.forEach { row ->
-            val line = tipsBarRowLines[row]
-            val badge = tipsBarRowBadges[row]
-            if (badge != null && badge.parent === line) line.removeView(badge)
-            val divider = tipsBarRowDividers[row]
-            if (divider != null && divider.parent === row && row is ViewGroup) row.removeView(divider)
-            val margins = tipsBarRowOriginalLineMargins.remove(row)
-            if (line != null && margins != null && line.parent != null) {
-                val lp = line.layoutParams as? ViewGroup.MarginLayoutParams
-                if (lp != null) {
+            tipsBarRowDividers.remove(row)?.let((row as ViewGroup).overlay::remove)
+            tipsBarRowOriginalLineMargins.remove(row)?.let { margins ->
+                if (row.parent != null && row.isPinnedTipsRow()) {
+                    val line = (row as FrameLayout).getChildAt(0) as LinearLayout
+                    val lp = line.layoutParams as ViewGroup.MarginLayoutParams
                     lp.topMargin = margins[0]
                     lp.bottomMargin = margins[1]
                     line.layoutParams = lp
                 }
             }
-            tipsBarRowBadges.remove(row)
-            tipsBarRowTexts.remove(row)
-            tipsBarRowLines.remove(row)
-            tipsBarRowDividers.remove(row)
             tipsBarRowRecyclers.remove(row)
         }
     }
@@ -2097,9 +2136,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         tipsBarHandles.clear()
         tipsBarDividerColors.clear()
         tipsBarRowHooks.clear()
-        tipsBarRowBadges.clear()
-        tipsBarRowTexts.clear()
-        tipsBarRowLines.clear()
+        tipsBarBadges.clear()
+        tipsBarBadgeRows.clear()
+        tipsBarBadgeTexts.clear()
+        tipsBarBadgeTextPaddings.clear()
         tipsBarRowDividers.clear()
         tipsBarRowRecyclers.clear()
         tipsBarRowOriginalLineMargins.clear()
