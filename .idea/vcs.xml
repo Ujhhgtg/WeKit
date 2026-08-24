@@ -8,6 +8,10 @@
     <mapping directory="$PROJECT_DIR$/third_party/SPIRV-Headers" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/third_party/Vulkan-Hpp" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/third_party/Vulkan-Hpp/Vulkan-Headers" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/third_party/Vulkan-Hpp/glfw" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/third_party/Vulkan-Hpp/glm" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/third_party/Vulkan-Hpp/glslang" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/third_party/Vulkan-Hpp/tinyxml2" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/third_party/cloudflared" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/third_party/proot-static" vcs="Git" />
   </component>
