@@ -406,6 +406,57 @@ class DexResolverSourceScannerTest {
     }
 
     @Test
+    fun directHelperCalledWithTrailingLambdaIsIncludedInProducerFingerprintSource() {
+        val source = scanDexResolverSource(
+            "TrailingLambdaHelper.kt",
+            """
+                object Sample : IResolveDex {
+                    val target by dexMethod {
+                        matcher { helper { usingEqStrings("inline") } }
+                    }
+
+                    private fun helper(block: () -> Unit) {
+                        usingEqStrings("helper-body")
+                    }
+                }
+            """.trimIndent(),
+        )!!
+
+        val producer = source.producers.single()
+        assertFalse(producer.usesOwnerSafetyFingerprint)
+        assertTrue(producer.fingerprintSource.contains("fun helper"))
+        assertTrue(producer.fingerprintSource.contains("helper-body"))
+    }
+
+    @Test
+    fun uncertainTrailingLambdaCallFormsUseOwnerSafetyFingerprint() {
+        val callForms = listOf(
+            "externalHelper { usingEqStrings(\"anchor\") }",
+            "externalHelper<String> { usingEqStrings(\"anchor\") }",
+            "Owner.externalHelper { usingEqStrings(\"anchor\") }",
+            "`external-helper` label@ { usingEqStrings(\"anchor\") }",
+            "外部辅助 { usingEqStrings(\"anchor\") }",
+        )
+
+        callForms.forEachIndexed { index, call ->
+            val source = scanDexResolverSource(
+                "TrailingLambda$index.kt",
+                """
+                    object Sample : IResolveDex {
+                        val target by dexMethod { matcher { $call } }
+                    }
+                """.trimIndent(),
+            )!!
+            val producer = source.producers.single()
+            assertTrue(
+                producer.usesOwnerSafetyFingerprint,
+                "trailing-lambda form $index must use the owner safety fingerprint",
+            )
+            assertEquals(source.ownerSafetySource, producer.fingerprintSource)
+        }
+    }
+
+    @Test
     fun discoversEveryResolverAndUsesNestedQualifiedOwnerNames() {
         val sources = scanDexResolverSources(
             "Nested.kt",

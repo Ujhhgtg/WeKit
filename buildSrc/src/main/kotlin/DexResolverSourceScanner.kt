@@ -398,7 +398,16 @@ private val MEMBER_FUNCTION_DECLARATION =
     Regex("""\bfun\s+(?:<[^>{}\n]+>\s*)?(?:[\w?.<>, ]+\s*\.\s*)?(\w+)\s*\(""")
 private val MEMBER_SEPARATOR = Regex("""\b(?:val|var|fun|class|object|override)\b""")
 private val FUNCTION_REFERENCE = Regex("""::\s*\w+""")
-private val CALL_EXPRESSION = Regex("""\b([A-Za-z_]\w*)\s*\(""")
+private const val SIMPLE_CALL_NAME_PATTERN = "[_\\p{L}][_\\p{L}\\p{M}\\p{N}]*"
+private const val CALL_NAME_PATTERN = "(?:$SIMPLE_CALL_NAME_PATTERN|`[^`\\r\\n]+`)"
+private const val EXPLICIT_TYPE_ARGUMENTS_PATTERN = "(?:<[^{};]+>\\s*)?"
+private val PARENTHESIZED_CALL_EXPRESSION =
+    Regex("""(?<![_\p{L}\p{M}\p{N}`])($CALL_NAME_PATTERN)\s*$EXPLICIT_TYPE_ARGUMENTS_PATTERN\(""")
+private val TRAILING_LAMBDA_CALL_EXPRESSION =
+    Regex(
+        """(?<![_\p{L}\p{M}\p{N}`])($CALL_NAME_PATTERN)\s*""" +
+            """$EXPLICIT_TYPE_ARGUMENTS_PATTERN(?:$CALL_NAME_PATTERN@\s*)?\{""",
+    )
 private val SAFE_RESOLUTION_CALL_NAMES = setOf(
     "catch",
     "declaredClass",
@@ -492,15 +501,23 @@ private class ScannedSource(
     fun containsCodeIdentifier(name: String): Boolean =
         findAllCode(Regex("""\b${Regex.escape(name)}\b""")).isNotEmpty()
 
-    fun containsDirectCodeCall(name: String): Boolean =
-        findAllCode(Regex("""(?<![.\w])${Regex.escape(name)}\s*\(""")).isNotEmpty() ||
-            findAllCode(Regex("""\bthis\s*\.\s*${Regex.escape(name)}\s*\(""")).isNotEmpty()
-
-    fun codeCalls(): List<CodeCall> = findAllCode(CALL_EXPRESSION).map { match ->
-        val previousCodeIndex = (match.range.first - 1 downTo 0)
-            .firstOrNull { codeMask[it] && !text[it].isWhitespace() }
-        CodeCall(match.groupValues[1], previousCodeIndex != null && text[previousCodeIndex] == '.')
+    fun containsDirectCodeCall(name: String): Boolean {
+        val suffix = """\s*$EXPLICIT_TYPE_ARGUMENTS_PATTERN(?:\(|(?:$CALL_NAME_PATTERN@\s*)?\{)"""
+        return findAllCode(Regex("""(?<![.\w])${Regex.escape(name)}$suffix""")).isNotEmpty() ||
+            findAllCode(Regex("""\bthis\s*\.\s*${Regex.escape(name)}$suffix""")).isNotEmpty()
     }
+
+    fun codeCalls(): List<CodeCall> =
+        (findAllCode(PARENTHESIZED_CALL_EXPRESSION) + findAllCode(TRAILING_LAMBDA_CALL_EXPRESSION))
+            .sortedBy { it.range.first }
+            .map { match ->
+                val previousCodeIndex = (match.range.first - 1 downTo 0)
+                    .firstOrNull { codeMask[it] && !text[it].isWhitespace() }
+                CodeCall(
+                    name = match.groupValues[1].removeSurrounding("`"),
+                    isQualified = previousCodeIndex != null && text[previousCodeIndex] == '.',
+                )
+            }
 }
 
 private sealed class LexContext {
