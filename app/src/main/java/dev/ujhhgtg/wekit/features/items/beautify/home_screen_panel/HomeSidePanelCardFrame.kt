@@ -52,6 +52,7 @@ internal fun HomeSidePanelCardFrame(
     onDelete: (() -> Unit)?,
     @StringRes editDescriptionRes: Int = R.string.home_side_panel_edit_card,
     @StringRes deleteDescriptionRes: Int = R.string.home_side_panel_delete_card,
+    badgeContent: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     key(cardId) {
@@ -68,13 +69,17 @@ internal fun HomeSidePanelCardFrame(
                     .align(Alignment.TopEnd)
                     .padding(6.dp),
             ) {
-                HomeSidePanelCardBadge(
-                    editMode = editMode,
-                    onEdit = onEdit,
-                    onDelete = onDelete,
-                    editDescriptionRes = editDescriptionRes,
-                    deleteDescriptionRes = deleteDescriptionRes,
-                )
+                if (badgeContent != null) {
+                    badgeContent()
+                } else {
+                    HomeSidePanelCardBadge(
+                        editMode = editMode,
+                        onEdit = onEdit,
+                        onDelete = onDelete,
+                        editDescriptionRes = editDescriptionRes,
+                        deleteDescriptionRes = deleteDescriptionRes,
+                    )
+                }
             }
         }
     }
@@ -132,7 +137,7 @@ internal fun HomeSidePanelCardBadge(
 }
 
 @Composable
-private fun HomeSidePanelBadgeButton(
+internal fun HomeSidePanelBadgeButton(
     onClick: (() -> Unit)?,
     contentDescription: String,
     icon: ImageVector,

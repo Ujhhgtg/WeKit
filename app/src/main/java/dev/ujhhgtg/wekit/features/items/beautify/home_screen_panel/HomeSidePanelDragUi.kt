@@ -460,6 +460,13 @@ private fun HomeSidePanelDraggedCard(
             )
         }
 
+        is ImageCardConfig -> HomeSidePanelImageCard(
+            card = card,
+            imageFile = panelState.imageFile(card.id),
+            editMode = false,
+            importing = false,
+        )
+
         is HorizontalActionsCardConfig -> HomeSidePanelHorizontalActionsCard(
             card = card,
             content = HomeSidePanelActionCardContent.Runtime,

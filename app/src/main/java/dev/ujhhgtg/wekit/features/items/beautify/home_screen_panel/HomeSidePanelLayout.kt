@@ -45,6 +45,7 @@ internal enum class HomeSidePanelCardType {
     WEATHER,
     WALLET,
     HITOKOTO,
+    IMAGE,
     HORIZONTAL_ACTIONS,
     VERTICAL_ACTIONS,
 }
@@ -104,6 +105,25 @@ internal data class HitokotoCardConfig(
 }
 
 @Serializable
+internal enum class HomeSidePanelImageScaleMode {
+    CROP,
+    FIT,
+    FILL_BOUNDS,
+}
+
+@Serializable
+@SerialName("image")
+internal data class ImageCardConfig(
+    override val id: String,
+    val imageAssetId: String? = null,
+    val heightDp: Int = 240,
+    val scaleMode: HomeSidePanelImageScaleMode = HomeSidePanelImageScaleMode.CROP,
+) : HomeSidePanelCardConfig() {
+    @Transient
+    override val type: HomeSidePanelCardType = HomeSidePanelCardType.IMAGE
+}
+
+@Serializable
 @SerialName("horizontal_actions")
 internal data class HorizontalActionsCardConfig(
     override val id: String,
@@ -144,12 +164,30 @@ internal fun validateHomeSidePanelLayout(layout: HomeSidePanelLayout) {
                 categories = card.settings.categories,
             )?.let { throw InvalidHomeSidePanelLayoutException("Invalid hitokoto settings: $it") }
 
+            is ImageCardConfig -> {
+                card.imageAssetId?.let { assetId ->
+                    val parsed = runCatching { UUID.fromString(assetId) }.getOrElse {
+                        throw InvalidHomeSidePanelLayoutException("Invalid image asset ID: $assetId")
+                    }
+                    if (parsed.toString() != assetId) {
+                        throw InvalidHomeSidePanelLayoutException("Invalid image asset ID: $assetId")
+                    }
+                }
+                if (card.heightDp !in 120..480 || card.heightDp % 8 != 0) {
+                    throw InvalidHomeSidePanelLayoutException("Invalid image card height: ${card.heightDp}")
+                }
+            }
+
             is HorizontalActionsCardConfig -> validateActionIds(card.actions)
             is VerticalActionsCardConfig -> validateActionIds(card.actions)
             else -> Unit
         }
     }
 }
+
+internal fun HomeSidePanelLayout.imageAssetIds(): Set<String> = cards
+    .filterIsInstance<ImageCardConfig>()
+    .mapNotNullTo(linkedSetOf(), ImageCardConfig::imageAssetId)
 
 private fun validateActionIds(actions: List<HomeSidePanelActionConfig>) {
     val actionIds = actions.map(HomeSidePanelActionConfig::id)

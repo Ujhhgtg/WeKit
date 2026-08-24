@@ -97,6 +97,14 @@ internal class HomeSidePanelEditSession(
         replaceCard(transform(card).copy(id = card.id))
     }
 
+    fun updateImage(cardId: String, transform: (ImageCardConfig) -> ImageCardConfig) {
+        val card = card(cardId)
+        require(card is ImageCardConfig) {
+            "Card '$cardId' is ${card.type}; expected Image card"
+        }
+        replaceCard(transform(card).copy(id = card.id))
+    }
+
     fun addAction(
         cardId: String,
         kind: HomeSidePanelActionKind,
@@ -157,6 +165,7 @@ internal class HomeSidePanelEditSession(
         HomeSidePanelCardType.WEATHER -> WeatherCardConfig(idGenerator.nextId(), DEFAULT_WEATHER_CITY)
         HomeSidePanelCardType.WALLET -> WalletCardConfig(idGenerator.nextId())
         HomeSidePanelCardType.HITOKOTO -> HitokotoCardConfig(idGenerator.nextId())
+        HomeSidePanelCardType.IMAGE -> ImageCardConfig(idGenerator.nextId())
         HomeSidePanelCardType.HORIZONTAL_ACTIONS -> HorizontalActionsCardConfig(idGenerator.nextId(), emptyList())
         HomeSidePanelCardType.VERTICAL_ACTIONS -> VerticalActionsCardConfig(idGenerator.nextId(), emptyList())
     }
