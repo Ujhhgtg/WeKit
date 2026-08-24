@@ -12,6 +12,59 @@ import org.junit.jupiter.api.Test
 class MonetResourceResolverTest {
 
     @Test
+    fun `catalog rejects dex anchor neighboring unknown role`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetRoleCatalog(
+                schemaVersion = 1,
+                roles = listOf(
+                    MonetRoleDefinition(
+                        id = ROLE_ID,
+                        type = "drawable",
+                        core = true,
+                        dexAnchors = listOf(
+                            MonetDexAnchor(neighboringRoleIds = listOf("unknown.role")),
+                        ),
+                    ),
+                ),
+                overlays = emptyList(),
+            )
+        }
+    }
+
+    @Test
+    fun `resolver rejects profile role absent from catalog`() {
+        val catalog = MonetRoleCatalog(
+            schemaVersion = 1,
+            roles = listOf(
+                MonetRoleDefinition(
+                    id = ROLE_ID,
+                    type = "drawable",
+                    core = false,
+                ),
+            ),
+            overlays = emptyList(),
+        )
+        val profile = MonetProfile(
+            resourceDigest = "fixture",
+            versionName = "8.0.test",
+            channel = "domestic",
+            roles = mapOf(
+                "unknown.role" to MonetResourceKey("drawable", "unknown"),
+            ),
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetResourceResolver.resolve(
+                graph = MonetResourceGraph(emptyList()),
+                catalog = catalog,
+                profiles = listOf(profile),
+                sdkInt = 31,
+                provider = RecordingEvidenceProvider(),
+            )
+        }
+    }
+
+    @Test
     fun `layout incoming edge disambiguates equal drawable shapes`() {
         val report = resolveFixture(
             twoEqualDrawables = true,

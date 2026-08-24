@@ -14,6 +14,9 @@ internal object MonetResourceResolver {
         provider: MonetDexEvidenceProvider,
     ): MonetResolutionReport {
         val roleDefinitions = catalog.roles.associateBy(MonetRoleDefinition::id)
+        require(profiles.all { profile -> profile.roles.keys.all(roleDefinitions::containsKey) }) {
+            "Monet profile references a role absent from the catalog"
+        }
         val states = linkedMapOf<String, ResolutionState>()
         val skipped = mutableListOf<MonetRoleDiagnostic>()
         val diagnostics = linkedMapOf<String, MonetRoleDiagnostic>()

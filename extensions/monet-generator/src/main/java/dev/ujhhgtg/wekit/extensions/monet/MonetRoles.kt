@@ -27,6 +27,9 @@ internal data class MonetRoleCatalog(
             require(role.requiredIncomingRoleIds.all(knownRoleIds::contains)) {
                 "Monet role ${role.id} references an unknown incoming role"
             }
+            require(role.dexAnchors.flatMap(MonetDexAnchor::neighboringRoleIds).all(knownRoleIds::contains)) {
+                "Monet role ${role.id} has a Dex anchor referencing an unknown neighboring role"
+            }
         }
         overlays.forEach { overlay ->
             require(overlay.templateResources.keys.all(knownRoleIds::contains)) {
