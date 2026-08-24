@@ -84,5 +84,6 @@ dependencies {
     implementation(libs.bouncycastle.pkix)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit.jupiter)
+    testImplementation(project(":libs:monet-generator-api"))
     testRuntimeOnly(libs.junit.platform.launcher)
 }
