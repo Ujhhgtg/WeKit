@@ -143,6 +143,18 @@ class CloudDexReportTest {
         }
     }
 
+    @Test
+    fun nestedDuplicateObjectKeysRejectWholeReport() {
+        val report = validReport().replace(
+            "\"id\":\"owner.Api#target\"",
+            "\"id\":\"owner.Api#target\",\"id\":\"owner.Api#target\"",
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            CloudDexReport.select(report, host, owners)
+        }
+    }
+
     private fun validReport() = """
         {"schemaVersion":2,"outcome":"PASS","versionCode":3040,"versionName":"8.0.69","isGooglePlay":false,"features":[
             ${feature("owner.Consumer", "consumer-local", listOf("owner.Api#target"), consumerEffective())},

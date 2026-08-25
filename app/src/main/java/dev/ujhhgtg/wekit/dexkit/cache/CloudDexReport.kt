@@ -49,6 +49,7 @@ internal object CloudDexReport {
         host: CloudDexHost,
         owners: List<CurrentDexOwner>,
     ): CloudDexSelection {
+        requireNoDuplicateJsonKeys(jsonText)
         val report = json.decodeFromString<Report>(jsonText)
         require(report.schemaVersion == SCHEMA_VERSION) { "unsupported cloud report schema: ${report.schemaVersion}" }
         require(report.outcome == APK_PASS) { "cloud report did not pass: ${report.outcome}" }

@@ -461,8 +461,8 @@ private fun moveReplacing(source: Path, destination: Path) {
     }
 }
 
-/** Minimal strict JSON scan used only to reject duplicate object keys before serialization. */
-private fun requireNoDuplicateJsonKeys(text: String) {
+/** Minimal strict JSON scan used to reject duplicate object keys before deserialization. */
+internal fun requireNoDuplicateJsonKeys(text: String) {
     class Parser {
         var index = 0
         fun whitespace() { while (index < text.length && text[index].isWhitespace()) index++ }

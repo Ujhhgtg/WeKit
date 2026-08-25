@@ -116,11 +116,12 @@
   below. Its generated generic expected-failure reason is acceptable; provide a more precise reason
   when it materially clarifies a structure-selected compatibility path. Do not convert exceptions
   or uncertain matches into placeholders just to obtain a green report.
-- Resolver source is part of the device cache key: even a mechanically equivalent rewrite from
-  reflection to `.data` changes the generated `methodHash` and invalidates that feature's old
-  cache. Expect one device re-resolution after such a change; never retain or hand-edit an old
-  hash to suppress it. Avoid unrelated formatting/refactors in resolver and inline matcher bodies
-  when a cache invalidation is not intended.
+- Resolver source is part of each producer's local fingerprint: even a mechanically equivalent
+  rewrite from reflection to `.data` changes that fingerprint and invalidates the producer plus
+  every direct or transitive Cache V2 consumer. Expect one device re-resolution for the affected
+  closure after such a change; never retain or hand-edit an old fingerprint to suppress it. Avoid
+  unrelated formatting/refactors in resolver and inline matcher bodies when a cache invalidation
+  is not intended.
 
 ### Host compatibility path selection
 

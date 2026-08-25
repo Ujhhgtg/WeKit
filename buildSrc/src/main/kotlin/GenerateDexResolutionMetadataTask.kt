@@ -39,20 +39,7 @@ abstract class GenerateDexResolutionMetadataTask : DefaultTask() {
             discoveredOwnerClassNames = discoveredOwnerClassNames,
             metadataOwners = owners,
         )
-
-        val duplicateOwners = owners.groupingBy { it.qualifiedClassName }.eachCount().filterValues { it > 1 }.keys
-        require(duplicateOwners.isEmpty()) {
-            "Duplicate IResolveDex owner class names: ${duplicateOwners.sorted()}"
-        }
-
-        val duplicateStableIds = owners.flatMap { it.producers }
-            .groupingBy { it.stableId }
-            .eachCount()
-            .filterValues { it > 1 }
-            .keys
-        require(duplicateStableIds.isEmpty()) {
-            "Duplicate Dex producer stable IDs: ${duplicateStableIds.sorted()}"
-        }
+        requireValidDexResolutionMetadata(owners)
 
         val outputRoot = outputDir.get().asFile
         val namespacePath = namespace.get().replace('.', '/')
@@ -70,6 +57,22 @@ abstract class GenerateDexResolutionMetadataTask : DefaultTask() {
         inventoryFile.writeText(
             owners.joinToString(separator = "\n", postfix = "\n") { it.qualifiedClassName }
         )
+    }
+}
+
+internal fun requireValidDexResolutionMetadata(owners: List<DexResolverSource>) {
+    val duplicateOwners = owners.groupingBy { it.qualifiedClassName }.eachCount().filterValues { it > 1 }.keys
+    require(duplicateOwners.isEmpty()) {
+        "Duplicate IResolveDex owner class names: ${duplicateOwners.sorted()}"
+    }
+
+    val duplicateStableIds = owners.flatMap { it.producers }
+        .groupingBy { it.stableId }
+        .eachCount()
+        .filterValues { it > 1 }
+        .keys
+    require(duplicateStableIds.isEmpty()) {
+        "Duplicate Dex producer stable IDs: ${duplicateStableIds.sorted()}"
     }
 }
 
@@ -91,7 +94,7 @@ internal fun requireCompleteDexResolverMetadata(
 
 private const val FINGERPRINT_SCHEMA_SALT = "wekit-dex-resolution-metadata-v2"
 
-private fun renderMetadataSource(namespace: String, owners: List<DexResolverSource>): String {
+internal fun renderMetadataSource(namespace: String, owners: List<DexResolverSource>): String {
     val ownerAnnotations = owners.joinToString(",\n") { "            ${it.qualifiedClassName.asKotlinString()}" }
     val ownerEntries = owners.joinToString(",\n") { owner ->
         val ownerSafetyFingerprint = fingerprint(
