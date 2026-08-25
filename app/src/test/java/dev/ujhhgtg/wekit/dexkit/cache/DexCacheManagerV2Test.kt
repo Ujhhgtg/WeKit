@@ -316,6 +316,6 @@ private fun entry(
 
 private fun effective(id: String, local: String, dependencies: Map<String, String> = emptyMap()): String =
     effectiveFingerprint(
-        DexProducerMetadata(id, "owner", null, DexProducerKind.INLINE_METHOD, local, false),
+        DexProducerMetadata(id, "owner", null, DexProducerKind.INLINE_METHOD, local),
         dependencies,
     )

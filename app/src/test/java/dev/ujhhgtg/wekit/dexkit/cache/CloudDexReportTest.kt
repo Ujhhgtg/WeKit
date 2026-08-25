@@ -219,7 +219,7 @@ class CloudDexReportTest {
     private fun independentEffective() = fingerprint("owner.Independent#target", "independent-local")
 
     private fun fingerprint(id: String, local: String, dependencies: Map<String, String> = emptyMap()) =
-        effectiveFingerprint(DexProducerMetadata(id, id.substringBefore('#'), null, DexProducerKind.CUSTOM, local, false), dependencies)
+        effectiveFingerprint(DexProducerMetadata(id, id.substringBefore('#'), null, DexProducerKind.CUSTOM, local), dependencies)
 
     private companion object {
         const val METHOD_PLACEHOLDER =

@@ -122,12 +122,10 @@
   closure after such a change; never retain or hand-edit an old fingerprint to suppress it. Avoid
   unrelated formatting/refactors in resolver and inline matcher bodies when a cache invalidation
   is not intended.
-- Fine-grained producer fingerprints are used only when buildSrc proves the complete direct
-  owner-local helper/value closure. Any unresolved free value, top-level/imported helper, overload,
-  recursion, dynamic dispatch, function reference, or other uncertain closure selects the
-  source-directory safety fingerprint instead. That fallback digests the stable relative paths and
-  normalized contents of every Kotlin file under `app/src/main/java`, so any such source change
-  invalidates every conservative producer while proven producers retain fine-grained invalidation.
+- Producer fingerprints cover the declared inline Dex resolver source or `resolveDex()` source.
+  Changes in helper functions or values outside that declared source retain the historical cache
+  behavior and are not tracked separately. Cross-owner changes propagate through Cache V2's
+  recorded dependency effective fingerprints.
 
 ### Host compatibility path selection
 

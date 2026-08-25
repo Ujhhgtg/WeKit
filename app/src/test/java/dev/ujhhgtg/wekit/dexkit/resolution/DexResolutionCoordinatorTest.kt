@@ -799,7 +799,6 @@ class DexResolutionCoordinatorTest {
             propertyName = "property",
             kind = DexProducerKind.INLINE_METHOD,
             localFingerprint = "l",
-            usesSourceDirSafetyFingerprint = false,
         )
 
         val fingerprint = effectiveFingerprint(
@@ -935,7 +934,6 @@ class DexResolutionCoordinatorTest {
                 propertyName = delegate.propertyName,
                 kind = DexProducerKind.INLINE_METHOD,
                 localFingerprint = localFingerprints[delegate.stableId] ?: "inline-${delegate.propertyName}",
-                usesSourceDirSafetyFingerprint = false,
             )
         }
         val customProducer = if (custom.isEmpty()) {
@@ -949,7 +947,6 @@ class DexResolutionCoordinatorTest {
                     propertyName = null,
                     kind = DexProducerKind.CUSTOM,
                     localFingerprint = "custom",
-                    usesSourceDirSafetyFingerprint = false,
                 )
             )
         }

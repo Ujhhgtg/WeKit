@@ -321,7 +321,6 @@ private class WorkerGraphFixture {
                         propertyName = delegate.propertyName,
                         kind = DexProducerKind.INLINE_METHOD,
                         localFingerprint = "producer-${delegate.propertyName}",
-                        usesSourceDirSafetyFingerprint = false,
                     )
                 },
                 customOutputPropertyNames = emptySet(),

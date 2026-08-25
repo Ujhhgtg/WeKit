@@ -184,7 +184,6 @@ internal fun restoreValidOwners(
                 propertyName = null,
                 kind = dev.ujhhgtg.wekit.dexkit.resolution.DexProducerKind.CUSTOM,
                 localFingerprint = currentOutputs.first().producerFingerprint,
-                usesSourceDirSafetyFingerprint = false,
             ),
             dependencyFingerprints,
         )
