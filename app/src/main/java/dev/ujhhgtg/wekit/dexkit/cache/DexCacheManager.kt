@@ -2,34 +2,34 @@ package dev.ujhhgtg.wekit.dexkit.cache
 
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionCoordinator
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionRegistry
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
+import dev.ujhhgtg.wekit.dexkit.resolution.effectiveFingerprint
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
-import dev.ujhhgtg.wekit.utils.unreachable
-import org.json.JSONObject
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
+import java.util.TreeMap
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.io.path.exists
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
-/**
- * Dex 缓存管理器
- * 负责管理 Dex 查找结果的缓存，支持版本控制和增量更新。
- *
- * 缓存的 key → value 由各 [dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate] 直接提供
- */
 object DexCacheManager {
-
     private const val TAG = "DexCacheManager"
-
     private const val CACHE_DIR_NAME = "dex_cache"
     private const val CACHE_FILE_SUFFIX = ".json"
     private const val KEY_HOST_VERSION = "host_version"
@@ -46,144 +46,262 @@ object DexCacheManager {
             Preferences.noDexResolve = false
             WeLogger.i(TAG, "disabling NO_DEX_RESOLVE due to host version change")
         }
-
         WePrefs.putString(KEY_HOST_VERSION, currentVer)
     }
 
-    /**
-     * 检查 Feature 的缓存是否完整有效。
-     *
-     * 有效条件：
-     * 1. 缓存文件存在
-     * 2. methodHash 匹配（检测代码变化）
-     * 3. [item] 的每个委托 key 都有非空值
-     */
-    fun isItemCacheValid(item: IResolveDex): Boolean {
-        if (item !is BaseFeature) unreachable()
+    fun restoreValidOwners(registry: DexResolutionRegistry): DexCacheRestoreResult =
+        restoreValidOwners(cacheDir, registry.currentCacheOwners())
 
-        val cacheFile = getCacheFile(item.technicalId)
-        if (!cacheFile.exists()) {
-            WeLogger.d(TAG, "cache not found for ${item.technicalId}")
-            return false
-        }
-
-        return try {
-            val json = JSONObject(cacheFile.readText())
-
-            val cachedHash = json.optString("methodHash", "")
-            val currentHash = methodHash(item)
-            if (cachedHash != currentHash) {
-                WeLogger.d(TAG, "resolveDex of ${item.technicalPath} changed: cached=$cachedHash, current=$currentHash")
-                return false
+    fun saveResolvedOwners(
+        registry: DexResolutionRegistry,
+        coordinator: DexResolutionCoordinator,
+        owners: Collection<IResolveDex>,
+    ) {
+        val requestedOwnerIds = owners.mapTo(linkedSetOf()) { it.javaClass.name }
+        val resolvedProducerIds = coordinator.effectiveFingerprintByProducer.keys
+        val manifests = registry.currentCacheOwners()
+            .filter { current ->
+                current.ownerId in requestedOwnerIds || current.delegates.values.any { it.producerId in resolvedProducerIds }
             }
-
-            // 每个委托对应一个 key，全部必须存在且非空
-            val missingOrEmpty = item.dexDelegates.filter { delegate ->
-                val v = json.optString(delegate.key, "")
-                v.isEmpty() || v == "null"
+            .mapNotNull { current ->
+                val owner = registry.ownersById.getValue(current.ownerId)
+                buildResolvedManifest(owner, registry, coordinator)
             }
-
-            if (missingOrEmpty.isNotEmpty()) {
-                WeLogger.d(TAG, "cache incomplete for ${item.technicalPath}, missing keys: ${missingOrEmpty.map { it.key }}")
-                return false
-            }
-
-            true
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to read cache for: ${item.technicalPath}", e)
-            false
-        }
+        writeDexCacheManifests(cacheDir, manifests, registry.technicalIdsByOwner())
     }
-
-    /**
-     * 将 [item] 所有委托的当前描述符持久化到缓存文件。
-     * 数据来自 [IResolveDex.collectDescriptors]。
-     */
-    fun saveItemCache(item: IResolveDex) {
-        if (item !is BaseFeature) {
-            error("item is not BaseFeature")
-        }
-
-        val cacheFile = getCacheFile(item.technicalId)
-        try {
-            val json = JSONObject()
-            json.put("methodHash", methodHash(item))
-            json.put("timestamp", System.currentTimeMillis())
-
-            item.collectDescriptors().forEach { (key, value) ->
-                json.put(key, value)
-            }
-
-            cacheFile.writeText(json.toString(2))
-            WeLogger.d(TAG, "cache saved for: ${item.technicalPath}")
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to save cache for: ${item.technicalPath}", e)
-        }
-    }
-
-    /**
-     * 从缓存文件加载原始 Map（不包含元数据 key）。
-     * 由 [IResolveDex.loadFromCache] 消费，后者负责逐委托分发。
-     */
-    fun loadItemCache(item: IResolveDex): Map<String, Any>? {
-        if (item !is BaseFeature) {
-            error("item is not BaseFeature")
-        }
-
-        val cacheFile = getCacheFile(item.technicalId)
-        if (!cacheFile.exists()) return null
-
-        return try {
-            val json = JSONObject(cacheFile.readText())
-            buildMap {
-                for (key in json.keys()) {
-                    if (key !in META_KEYS) put(key, json.get(key))
-                }
-            }
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to load cache for: ${item.technicalPath}", e)
-            null
-        }
-    }
-
-    fun deleteCache(path: String) {
-        getCacheFile(path).deleteIfExists()
-    }
-
-    fun clearAllCache() {
-        cacheDir.listDirectoryEntries().forEach { path ->
-            path.deleteIfExists()
-        }
-        WeLogger.i(TAG, "all cache cleared")
-    }
-
-    fun getOutdatedItems(items: List<IResolveDex>): List<IResolveDex> =
-        items.filter { !isItemCacheValid(it) }
 
     internal fun importCloudCaches(entries: List<CloudDexCacheEntry>) {
         writeCloudCacheFiles(cacheDir, entries, System.currentTimeMillis())
     }
 
-    // ---------------------------------------------------------------------------
-
-    private val META_KEYS = setOf("methodHash", "timestamp")
+    fun clearAllCache() {
+        cacheDir.listDirectoryEntries().forEach { it.deleteIfExists() }
+        WeLogger.i(TAG, "all cache cleared")
+    }
 
     internal fun cacheFileName(technicalId: String): String =
         technicalId.replace("/", "_") + CACHE_FILE_SUFFIX
+}
 
-    private fun getCacheFile(technicalId: String): Path =
-        cacheDir / cacheFileName(technicalId)
+private val cacheJson = Json {
+    encodeDefaults = true
+    prettyPrint = true
+}
 
-    /**
-     * 获取 resolveDex 方法编译时生成的哈希，用于检测实现变化。
-     */
-    internal fun methodHash(item: IResolveDex): String {
-        val className = item.javaClass.name
-        val hash = GeneratedMethodHashes.HASHES[className]
-        if (hash.isNullOrBlank())
-            error("failed to retrieve method hash for item $className; this shouldn't happen")
-        return hash
+internal fun restoreValidOwners(
+    cacheDir: Path,
+    owners: List<DexCacheCurrentOwner>,
+): DexCacheRestoreResult {
+    val ownersById = owners.associateByTo(TreeMap()) { it.ownerId }
+    val delegatesById = owners.flatMap { it.delegates.values }.associateByTo(TreeMap()) { it.id }
+    val producerOwner = owners.flatMap { owner ->
+        owner.delegates.values.map { it.producerId to owner.ownerId }
+    }.toMap()
+    val manifests = mutableMapOf<String, DexCacheManifest>()
+    val invalid = TreeMap<String, DexCacheValidation.Invalid>()
+
+    owners.forEach { owner ->
+        val file = cacheDir.resolve(DexCacheManager.cacheFileName(owner.technicalId))
+        when (val parsed = parseManifest(file, owner.ownerId)) {
+            is ParsedManifest.Success -> manifests[owner.ownerId] = parsed.manifest
+            is ParsedManifest.Failure -> invalid[owner.ownerId] = parsed.invalid
+        }
     }
+
+    owners.forEach ownerLoop@{ owner ->
+        if (owner.ownerId in invalid) return@ownerLoop
+        val manifest = manifests.getValue(owner.ownerId)
+        val missing = owner.delegates.keys - manifest.delegates.keys
+        if (missing.isNotEmpty()) {
+            invalid[owner.ownerId] = invalid(
+                DexCacheInvalidReason.MISSING_CURRENT_DELEGATE,
+                "missing current delegates: ${missing.sorted()}",
+            )
+            return@ownerLoop
+        }
+        val extra = manifest.delegates.keys - owner.delegates.keys
+        if (extra.isNotEmpty()) {
+            invalid[owner.ownerId] = invalid(
+                DexCacheInvalidReason.EXTRA_CURRENT_DELEGATE,
+                "extra cached delegates: ${extra.sorted()}",
+            )
+            return@ownerLoop
+        }
+        for ((delegateId, current) in owner.delegates.toSortedMap()) {
+            val entry = manifest.delegates.getValue(delegateId)
+            val entryError = validateEntry(current, entry, delegatesById)
+            if (entryError != null) {
+                invalid[owner.ownerId] = entryError
+                return@ownerLoop
+            }
+        }
+        owner.delegates.values.groupBy { it.producerId }.forEach { (producerId, delegates) ->
+            val snapshots = delegates.map { manifest.delegates.getValue(it.id).producerSnapshot() }.distinct()
+            if (snapshots.size != 1) {
+                invalid[owner.ownerId] = invalid(
+                    DexCacheInvalidReason.MALFORMED_CACHE,
+                    "inconsistent cached producer metadata: $producerId",
+                )
+                return@ownerLoop
+            }
+        }
+    }
+
+    val producerState = mutableMapOf<String, VisitState>()
+    val computed = mutableMapOf<String, String>()
+    fun compute(producerId: String, path: List<String>): DexCacheValidation.Invalid? {
+        val ownerId = producerOwner[producerId]
+            ?: return invalid(DexCacheInvalidReason.MISSING_DEPENDENCY, "unknown dependency: $producerId")
+        invalid[ownerId]?.let { return invalid(DexCacheInvalidReason.MISSING_DEPENDENCY, "$producerId belongs to invalid owner $ownerId") }
+        when (producerState[producerId]) {
+            VisitState.VALIDATED -> return null
+            VisitState.VISITING -> return invalid(
+                DexCacheInvalidReason.DEPENDENCY_CYCLE,
+                "cache dependency cycle: ${(path + producerId).joinToString(" -> ")}",
+            )
+            null -> Unit
+        }
+        producerState[producerId] = VisitState.VISITING
+        val owner = ownersById.getValue(ownerId)
+        val currentOutputs = owner.delegates.values.filter { it.producerId == producerId }
+        val entry = manifests.getValue(ownerId).delegates.getValue(currentOutputs.first().id)
+        val dependencyFingerprints = TreeMap<String, String>()
+        entry.dependencies.sorted().forEach { dependencyId ->
+            compute(dependencyId, path + producerId)?.let { return it }
+            dependencyFingerprints[dependencyId] = computed.getValue(dependencyId)
+        }
+        val expected = effectiveFingerprint(
+            dev.ujhhgtg.wekit.dexkit.resolution.DexProducerMetadata(
+                stableId = producerId,
+                ownerClassName = ownerId,
+                propertyName = null,
+                kind = dev.ujhhgtg.wekit.dexkit.resolution.DexProducerKind.CUSTOM,
+                localFingerprint = currentOutputs.first().producerFingerprint,
+                usesOwnerSafetyFingerprint = false,
+            ),
+            dependencyFingerprints,
+        )
+        if (entry.effectiveFingerprint != expected) {
+            return invalid(
+                DexCacheInvalidReason.EFFECTIVE_FINGERPRINT_MISMATCH,
+                "$producerId cached=${entry.effectiveFingerprint} current=$expected",
+            )
+        }
+        computed[producerId] = expected
+        producerState[producerId] = VisitState.VALIDATED
+        return null
+    }
+
+    owners.forEach ownerLoop@{ owner ->
+        if (owner.ownerId in invalid) return@ownerLoop
+        owner.delegates.values.map { it.producerId }.distinct().sorted().forEach { producerId ->
+            val failure = compute(producerId, emptyList())
+            if (failure != null) {
+                invalid[owner.ownerId] = failure
+                return@ownerLoop
+            }
+        }
+    }
+
+    var changed: Boolean
+    do {
+        changed = false
+        owners.forEach ownerLoop@{ owner ->
+            if (owner.ownerId in invalid) return@ownerLoop
+            val badDependency = manifests.getValue(owner.ownerId).delegates.values
+                .flatMap { it.dependencies }
+                .firstOrNull { dependency -> producerOwner[dependency] in invalid }
+            if (badDependency != null) {
+                invalid[owner.ownerId] = invalid(
+                    DexCacheInvalidReason.MISSING_DEPENDENCY,
+                    "dependency owner is invalid: $badDependency",
+                )
+                changed = true
+            }
+        }
+    } while (changed)
+
+    val validOwners = (ownersById.keys - invalid.keys).toSortedSet()
+    validOwners.forEach { ownerId ->
+        val current = ownersById.getValue(ownerId)
+        val manifest = manifests.getValue(ownerId)
+        current.delegates.toSortedMap().forEach { (delegateId, delegate) ->
+            val entry = manifest.delegates.getValue(delegateId)
+            delegate.loadDescriptor(entry.descriptor, entry.status)
+        }
+    }
+    return DexCacheRestoreResult(validOwners, invalid)
+}
+
+private fun validateEntry(
+    current: DexCacheCurrentDelegate,
+    entry: DexCacheDelegateEntry,
+    delegatesById: Map<String, DexCacheCurrentDelegate>,
+): DexCacheValidation.Invalid? {
+    if (entry.descriptor.isBlank() || entry.descriptor == "null") {
+        return invalid(DexCacheInvalidReason.INVALID_DESCRIPTOR, "empty descriptor: ${current.id}")
+    }
+    val descriptorIsPlaceholder = current.isPlaceholderDescriptor(entry.descriptor)
+    val validStatus = entry.status == DexResolutionStatus.SUCCESS ||
+        entry.status == DexResolutionStatus.EXPECTED_FAILURE
+    val validPlaceholder = when (entry.status) {
+        DexResolutionStatus.SUCCESS -> !entry.isPlaceholder && !descriptorIsPlaceholder
+        DexResolutionStatus.EXPECTED_FAILURE -> entry.isPlaceholder && descriptorIsPlaceholder
+        else -> false
+    }
+    if (!validStatus || !validPlaceholder) {
+        return invalid(
+            DexCacheInvalidReason.INVALID_PLACEHOLDER_CLASSIFICATION,
+            "invalid status/placeholder classification: ${current.id}",
+        )
+    }
+    if (entry.producerFingerprint != current.producerFingerprint) {
+        return invalid(
+            DexCacheInvalidReason.LOCAL_FINGERPRINT_MISMATCH,
+            "${current.producerId} cached=${entry.producerFingerprint} current=${current.producerFingerprint}",
+        )
+    }
+    if (entry.dependencies.size != entry.dependencies.distinct().size ||
+        entry.dependencies.any { it !in delegatesById.values.map(DexCacheCurrentDelegate::producerId) }
+    ) {
+        return invalid(
+            DexCacheInvalidReason.MISSING_DEPENDENCY,
+            "invalid dependencies for ${current.producerId}: ${entry.dependencies}",
+        )
+    }
+    return null
+}
+
+private fun buildResolvedManifest(
+    owner: BaseFeature,
+    registry: DexResolutionRegistry,
+    coordinator: DexResolutionCoordinator,
+): DexCacheManifest? {
+    val delegates = TreeMap<String, DexCacheDelegateEntry>()
+    for (delegate in owner.dexDelegates.sortedBy { it.stableId }) {
+        val status = delegate.diagnostic.status
+        val descriptor = delegate.getDescriptorString()
+        val producer = registry.producerOf(delegate)
+        val effective = coordinator.effectiveFingerprintByProducer[producer.stableId]
+        val valid = descriptor != null && descriptor.isNotBlank() &&
+            effective != null &&
+            (status == DexResolutionStatus.SUCCESS && !delegate.isPlaceholder ||
+                status == DexResolutionStatus.EXPECTED_FAILURE && delegate.isPlaceholder)
+        if (!valid) return null
+        delegates[delegate.stableId] = DexCacheDelegateEntry(
+            descriptor = descriptor,
+            status = status,
+            isPlaceholder = delegate.isPlaceholder,
+            producerFingerprint = producer.metadata.localFingerprint,
+            effectiveFingerprint = effective,
+            dependencies = coordinator.dependenciesOf(producer.stableId).sorted(),
+        )
+    }
+    return DexCacheManifest(
+        owner = owner.javaClass.name,
+        timestamp = System.currentTimeMillis(),
+        delegates = delegates,
+    )
 }
 
 internal fun writeCloudCacheFiles(
@@ -191,84 +309,196 @@ internal fun writeCloudCacheFiles(
     entries: List<CloudDexCacheEntry>,
     timestamp: Long,
 ) {
-    if (entries.isEmpty()) return
-    require(entries.map(CloudDexCacheEntry::technicalId).distinct().size == entries.size) {
-        "duplicate cloud cache technical ID"
-    }
+    val manifests = entries.map { it.manifest.copy(timestamp = timestamp) }
+    writeDexCacheManifests(cacheDir, manifests, entries.associate { it.manifest.owner to it.technicalId })
+}
 
+internal fun writeDexCacheManifests(
+    cacheDir: Path,
+    manifests: List<DexCacheManifest>,
+    technicalIdsByOwner: Map<String, String>,
+    move: (Path, Path) -> Unit = ::moveReplacing,
+) {
+    if (manifests.isEmpty()) return
+    require(manifests.map(DexCacheManifest::owner).distinct().size == manifests.size) {
+        "duplicate cache owner ID"
+    }
     Files.createDirectories(cacheDir)
     val transactionId = "${System.currentTimeMillis()}-${System.nanoTime()}"
-    val staged = mutableListOf<CloudCacheStagedFile>()
+    val staged = mutableListOf<CacheStagedFile>()
     val committed = mutableSetOf<Path>()
     try {
-        for (entry in entries) {
-            val destination = cacheDir.resolve(DexCacheManager.cacheFileName(entry.technicalId))
+        manifests.sortedBy { it.owner }.forEach { manifest ->
+            val technicalId = requireNotNull(technicalIdsByOwner[manifest.owner])
+            val destination = cacheDir.resolve(DexCacheManager.cacheFileName(technicalId))
             val temp = destination.resolveSibling(".${destination.fileName}.$transactionId.tmp")
             val backup = destination.resolveSibling(".${destination.fileName}.$transactionId.bak")
-            staged += CloudCacheStagedFile(destination, temp, backup)
-            val json = buildString {
-                append("{\n")
-                append("  \"methodHash\": ").appendJsonString(entry.methodHash).append(",\n")
-                append("  \"timestamp\": ").append(timestamp)
-                entry.descriptors.forEach { (key, value) ->
-                    append(",\n  ").appendJsonString(key).append(": ").appendJsonString(value)
-                }
-                append("\n}")
-            }
-            temp.writeText(json)
+            staged += CacheStagedFile(destination, temp, backup)
+            temp.writeText(cacheJson.encodeToString(manifest.stable()))
         }
-
-        for (file in staged) {
-            if (Files.exists(file.destination)) {
-                moveReplacing(file.destination, file.backup)
-            }
-            moveReplacing(file.temp, file.destination)
+        staged.forEach { file ->
+            if (file.destination.exists()) move(file.destination, file.backup)
+            move(file.temp, file.destination)
             committed.add(file.destination)
         }
     } catch (error: Exception) {
-        for (file in staged.asReversed()) {
-            if (Files.exists(file.backup)) {
-                runCatching { moveReplacing(file.backup, file.destination) }
+        staged.asReversed().forEach { file ->
+            if (file.backup.exists()) {
+                runCatching { move(file.backup, file.destination) }
             } else if (file.destination in committed) {
-                runCatching { Files.deleteIfExists(file.destination) }
+                runCatching { file.destination.deleteIfExists() }
             }
         }
         throw error
     } finally {
         staged.forEach { file ->
-            runCatching { Files.deleteIfExists(file.temp) }
-            runCatching { Files.deleteIfExists(file.backup) }
+            runCatching { file.temp.deleteIfExists() }
+            runCatching { file.backup.deleteIfExists() }
         }
     }
 }
 
-private data class CloudCacheStagedFile(
-    val destination: Path,
-    val temp: Path,
-    val backup: Path,
+private fun DexCacheManifest.stable() = copy(
+    delegates = delegates.toSortedMap().mapValues { (_, entry) ->
+        entry.copy(dependencies = entry.dependencies.sorted())
+    },
 )
+
+private fun DexCacheDelegateEntry.producerSnapshot() =
+    Triple(producerFingerprint, effectiveFingerprint, dependencies.sorted())
+
+private sealed interface ParsedManifest {
+    data class Success(val manifest: DexCacheManifest) : ParsedManifest
+    data class Failure(val invalid: DexCacheValidation.Invalid) : ParsedManifest
+}
+
+private fun parseManifest(file: Path, expectedOwner: String): ParsedManifest {
+    if (!file.exists()) return ParsedManifest.Failure(
+        invalid(DexCacheInvalidReason.MISSING_FILE, "cache file is missing: ${file.fileName}"),
+    )
+    val text = try {
+        file.readText()
+    } catch (error: Exception) {
+        return ParsedManifest.Failure(invalid(DexCacheInvalidReason.MALFORMED_CACHE, error.message.orEmpty()))
+    }
+    try {
+        requireNoDuplicateJsonKeys(text)
+        val root = Json.parseToJsonElement(text).jsonObject
+        val schema = root["schema"]?.jsonPrimitive?.content?.toIntOrNull()
+        if (schema != 2) {
+            return ParsedManifest.Failure(invalid(DexCacheInvalidReason.STALE_SCHEMA, "schema=$schema"))
+        }
+        val manifest = cacheJson.decodeFromString<DexCacheManifest>(text)
+        if (manifest.owner != expectedOwner) {
+            return ParsedManifest.Failure(
+                invalid(DexCacheInvalidReason.OWNER_MISMATCH, "cached=${manifest.owner} current=$expectedOwner"),
+            )
+        }
+        return ParsedManifest.Success(manifest)
+    } catch (error: Exception) {
+        return ParsedManifest.Failure(invalid(DexCacheInvalidReason.MALFORMED_CACHE, error.message.orEmpty()))
+    }
+}
+
+private fun DexResolutionRegistry.currentCacheOwners(): List<DexCacheCurrentOwner> =
+    ownersById.values.sortedBy { it.javaClass.name }.map { owner ->
+        DexCacheCurrentOwner(
+            ownerId = owner.javaClass.name,
+            technicalId = owner.technicalId,
+            delegates = owner.dexDelegates.associate { delegate ->
+                val producer = producerOf(delegate)
+                delegate.stableId to DexCacheCurrentDelegate(
+                    id = delegate.stableId,
+                    producerId = producer.stableId,
+                    producerFingerprint = producer.metadata.localFingerprint,
+                    isPlaceholderDescriptor = delegate::isPlaceholderDescriptor,
+                    loadDescriptor = delegate::loadCachedDescriptor,
+                )
+            },
+        )
+    }
+
+private fun DexResolutionRegistry.technicalIdsByOwner(): Map<String, String> =
+    ownersById.mapValues { (_, owner) -> owner.technicalId }
+
+private data class CacheStagedFile(val destination: Path, val temp: Path, val backup: Path)
+private enum class VisitState { VISITING, VALIDATED }
+
+private fun invalid(reason: DexCacheInvalidReason, detail: String) =
+    DexCacheValidation.Invalid(reason, detail)
 
 private fun moveReplacing(source: Path, destination: Path) {
     try {
         Files.move(source, destination, ATOMIC_MOVE, REPLACE_EXISTING)
-    } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+    } catch (_: AtomicMoveNotSupportedException) {
         Files.move(source, destination, REPLACE_EXISTING)
     }
 }
 
-private fun StringBuilder.appendJsonString(value: String): StringBuilder {
-    append('"')
-    value.forEach { character ->
-        when (character) {
-            '"' -> append("\\\"")
-            '\\' -> append("\\\\")
-            '\b' -> append("\\b")
-            '\u000C' -> append("\\f")
-            '\n' -> append("\\n")
-            '\r' -> append("\\r")
-            '\t' -> append("\\t")
-            else -> if (character.code < 0x20) append("\\u%04x".format(character.code)) else append(character)
+/** Minimal strict JSON scan used only to reject duplicate object keys before serialization. */
+private fun requireNoDuplicateJsonKeys(text: String) {
+    class Parser {
+        var index = 0
+        fun whitespace() { while (index < text.length && text[index].isWhitespace()) index++ }
+        fun string(): String {
+            require(text[index++] == '"')
+            val result = StringBuilder()
+            while (index < text.length) {
+                val char = text[index++]
+                if (char == '"') return result.toString()
+                if (char == '\\') {
+                    require(index < text.length)
+                    val escaped = text[index++]
+                    if (escaped == 'u') {
+                        require(index + 4 <= text.length)
+                        result.append(text.substring(index, index + 4).toInt(16).toChar())
+                        index += 4
+                    } else result.append(escaped)
+                } else result.append(char)
+            }
+            error("unterminated JSON string")
+        }
+        fun value() {
+            whitespace()
+            when (text.getOrNull(index)) {
+                '{' -> objectValue()
+                '[' -> arrayValue()
+                '"' -> string()
+                null -> error("missing JSON value")
+                else -> while (index < text.length && text[index] !in charArrayOf(',', '}', ']')) index++
+            }
+            whitespace()
+        }
+        fun objectValue() {
+            index++
+            val keys = mutableSetOf<String>()
+            whitespace()
+            if (text.getOrNull(index) == '}') { index++; return }
+            while (true) {
+                whitespace()
+                val key = string()
+                require(keys.add(key)) { "duplicate JSON key: $key" }
+                whitespace(); require(text[index++] == ':'); value(); whitespace()
+                when (text[index++]) {
+                    '}' -> return
+                    ',' -> Unit
+                    else -> error("invalid JSON object")
+                }
+            }
+        }
+        fun arrayValue() {
+            index++
+            whitespace()
+            if (text.getOrNull(index) == ']') { index++; return }
+            while (true) {
+                value(); whitespace()
+                when (text[index++]) {
+                    ']' -> return
+                    ',' -> Unit
+                    else -> error("invalid JSON array")
+                }
+            }
         }
     }
-    return append('"')
+    Parser().apply { value(); whitespace(); require(index == text.length) { "trailing JSON data" } }
 }

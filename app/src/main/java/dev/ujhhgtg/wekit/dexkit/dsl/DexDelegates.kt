@@ -53,6 +53,11 @@ sealed class BaseDexDelegate(
         diagnostic = DexResolutionDiagnostic(DexResolutionStatus.PENDING)
     }
 
+    internal fun loadCachedDescriptor(value: String, status: DexResolutionStatus) {
+        loadDescriptor(value)
+        diagnostic = DexResolutionDiagnostic(status = status, descriptor = value)
+    }
+
     protected fun recordSuccess(descriptor: String) {
         diagnostic = DexResolutionDiagnostic(
             status = DexResolutionStatus.SUCCESS,
@@ -113,6 +118,8 @@ sealed class BaseDexDelegate(
     protected abstract fun clearResolvedValue()
     abstract fun getDescriptorString(): String?
     abstract val isPlaceholder: Boolean
+
+    abstract fun isPlaceholderDescriptor(value: String): Boolean
 
     /** 从缓存字符串恢复状态 */
     abstract fun loadDescriptor(value: String)
@@ -177,6 +184,8 @@ class DexClassDelegate internal constructor(
 
     override val isPlaceholder
         get() = descriptorString == "com.tencent.mm.ui.LauncherUI"
+
+    override fun isPlaceholderDescriptor(value: String) = value == "com.tencent.mm.ui.LauncherUI"
 
     override fun getDescriptorString(): String? = descriptorString
     override fun loadDescriptor(value: String) = setDescriptor(value)
@@ -282,6 +291,8 @@ class DexFieldDelegate internal constructor(
 
     override val isPlaceholder
         get() = descriptorString == PLACEHOLDER_FIELD_DESCRIPTOR
+
+    override fun isPlaceholderDescriptor(value: String) = value == PLACEHOLDER_FIELD_DESCRIPTOR
 
     override fun getDescriptorString(): String? = descriptorString
     override fun loadDescriptor(value: String) = setDescriptor(value)
@@ -393,6 +404,8 @@ class DexMethodDelegate internal constructor(
     override val isPlaceholder
         get() = descriptor?.descriptor == PLACEHOLDER_DESCRIPTOR
 
+    override fun isPlaceholderDescriptor(value: String) = value == PLACEHOLDER_DESCRIPTOR
+
     fun setDescriptor(className: String, methodName: String, methodSign: String) =
         setDescriptor(DexMethodDescriptor(className, methodName, methodSign))
 
@@ -495,6 +508,8 @@ class DexConstructorDelegate internal constructor(
 
     override val isPlaceholder
         get() = descriptor?.descriptor == PLACEHOLDER_DESCRIPTOR
+
+    override fun isPlaceholderDescriptor(value: String) = value == PLACEHOLDER_DESCRIPTOR
 
     @Deprecated("You shouldn't call .reflekt() on a Constructor", level = DeprecationLevel.ERROR)
     fun reflekt(): Nothing = error("You shouldn't call .reflekt() on a Constructor")

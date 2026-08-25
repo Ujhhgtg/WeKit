@@ -17,7 +17,7 @@ class DexTestReportTest {
     fun reportRoundTripsAndKeepsStackTrace() {
         val report = sampleReport(
             delegate = DexTestDelegateReport(
-                key = "Fixture:method",
+                id = "Fixture:method",
                 status = DexResolutionStatus.UNEXPECTED_FAILURE,
                 exceptionType = "java.lang.IllegalStateException",
                 stackTrace = "boom\n at test",

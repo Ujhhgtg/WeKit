@@ -10,7 +10,7 @@ import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-internal const val DEX_TEST_SCHEMA_VERSION = 1
+internal const val DEX_TEST_SCHEMA_VERSION = 2
 
 internal val DexTestJson = Json {
     encodeDefaults = true
@@ -27,7 +27,7 @@ internal data class DexTestError(
 
 @Serializable
 internal data class DexTestDelegateReport(
-    val key: String,
+    val id: String,
     val status: DexResolutionStatus,
     val descriptor: String? = null,
     val isPlaceholder: Boolean = false,
@@ -35,13 +35,15 @@ internal data class DexTestDelegateReport(
     val exceptionType: String? = null,
     val stackTrace: String? = null,
     val blockedBy: String? = null,
+    val producerFingerprint: String = "",
+    val effectiveFingerprint: String = "",
+    val dependencies: List<String> = emptyList(),
 )
 
 @Serializable
 internal data class DexTestFeatureReport(
     val className: String,
     val displayName: String,
-    val methodHash: String = "",
     val outcome: DexTestFeatureOutcome,
     val elapsedMillis: Long,
     val delegates: List<DexTestDelegateReport> = emptyList(),
@@ -115,5 +117,5 @@ internal fun DexTestApkReport.writeAtomically(path: Path) {
     }
 }
 
-internal fun DexResolutionStatus.toDexTestReport(key: String): DexTestDelegateReport =
-    DexTestDelegateReport(key = key, status = this)
+internal fun DexResolutionStatus.toDexTestReport(id: String): DexTestDelegateReport =
+    DexTestDelegateReport(id = id, status = this)

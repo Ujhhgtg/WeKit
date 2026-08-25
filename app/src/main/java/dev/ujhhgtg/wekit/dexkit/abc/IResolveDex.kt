@@ -19,33 +19,8 @@ interface IResolveDex {
 
     /**
      * 执行 DexKit 查找，将结果写入各委托自身。
-     * 调用方通过 [collectDescriptors] 读取结果后持久化。
+     * 解析结果由图协调器收集诊断、依赖和有效指纹后统一持久化。
      */
     fun resolveDex(dexKit: DexKitBridge) {}
 
-    /**
-     * 将所有委托的当前状态收集为稳定 ID → descriptor 字符串映射，
-     * 供 [dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager] 持久化。
-     */
-    fun collectDescriptors(): Map<String, String> =
-        dexDelegates.associate { it.key to (it.getDescriptorString() ?: "") }
-
-    /**
-     * 从缓存 Map 中逐个恢复委托状态。
-     * 每个委托独立加载，某个稳定 ID 缺失不会影响其他委托。
-     *
-     * @return 缓存中不存在或值为空的稳定 ID 集合（需要重新 DexKit 扫描的委托）
-     */
-    fun loadFromCache(cache: Map<String, Any>): Set<String> {
-        val missingKeys = mutableSetOf<String>()
-        for (delegate in dexDelegates) {
-            val value = cache[delegate.key] as? String
-            if (!value.isNullOrEmpty()) {
-                delegate.loadDescriptor(value)
-            } else {
-                missingKeys += delegate.key
-            }
-        }
-        return missingKeys
-    }
 }

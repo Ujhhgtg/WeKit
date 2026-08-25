@@ -1,11 +1,12 @@
 package dev.ujhhgtg.wekit.dextest
 
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.cache.GeneratedMethodHashes
 import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
 import dev.ujhhgtg.wekit.dexkit.resolution.DexHostMetadata
+import dev.ujhhgtg.wekit.dexkit.resolution.DexNodeResult
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionCoordinator
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionRegistry
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
-import dev.ujhhgtg.wekit.dexkit.resolution.resolveAllDex
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestEntry
 import org.luckypray.dexkit.DexKitBridge
@@ -26,7 +27,6 @@ internal fun runDexFeature(
         return DexTestFeatureReport(
             className = entry.className,
             displayName = entry.className,
-            methodHash = GeneratedMethodHashes.HASHES[entry.className].orEmpty(),
             outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
             elapsedMillis = started.elapsedNow().inWholeMilliseconds,
             featureError = error.toDexTestError(),
@@ -46,7 +46,6 @@ internal fun runDexFeature(
         ?: return DexTestFeatureReport(
             className = entry.className,
             displayName = displayName(feature),
-            methodHash = GeneratedMethodHashes.HASHES[entry.className].orEmpty(),
             outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
             elapsedMillis = started.elapsedNow().inWholeMilliseconds,
             featureError = DexTestError(message = "${entry.className} does not implement IResolveDex"),
@@ -54,9 +53,11 @@ internal fun runDexFeature(
 
     feature.dexDelegates.forEach(BaseDexDelegate::resetForDexTest)
 
-    val error = runCatching {
-        resolver.resolveAllDex(dexKit, host)
-    }.exceptionOrNull()
+    val registry = DexResolutionRegistry.create(listOf(resolver))
+    val coordinator = DexResolutionCoordinator(registry, dexKit, host)
+    val batch = coordinator.resolveOwners(listOf(resolver))
+    val error = batch.resultsByProducer.values.filterIsInstance<DexNodeResult.Failed>()
+        .firstOrNull()?.error
     error?.rethrowIfFatal()
 
     val pending = feature.dexDelegates.filter { it.diagnostic.status == DexResolutionStatus.PENDING }
@@ -73,7 +74,7 @@ internal fun runDexFeature(
     val delegates = feature.dexDelegates.map { delegate ->
         val diagnostic = delegate.diagnostic
         DexTestDelegateReport(
-            key = delegate.key,
+            id = delegate.stableId,
             status = diagnostic.status,
             descriptor = diagnostic.descriptor ?: delegate.getDescriptorString(),
             isPlaceholder = delegate.isPlaceholder,
@@ -81,12 +82,14 @@ internal fun runDexFeature(
             exceptionType = diagnostic.exceptionType,
             stackTrace = diagnostic.stackTrace,
             blockedBy = diagnostic.blockedBy,
+            producerFingerprint = registry.producerOf(delegate).metadata.localFingerprint,
+            effectiveFingerprint = coordinator.effectiveFingerprintByProducer[registry.producerOf(delegate).stableId].orEmpty(),
+            dependencies = coordinator.dependenciesOf(registry.producerOf(delegate).stableId).sorted(),
         )
     }
     return DexTestFeatureReport(
         className = entry.className,
         displayName = displayName(feature),
-        methodHash = GeneratedMethodHashes.HASHES[entry.className].orEmpty(),
         outcome = featureOutcome(delegates, error),
         elapsedMillis = started.elapsedNow().inWholeMilliseconds,
         delegates = delegates,

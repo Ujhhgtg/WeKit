@@ -59,23 +59,11 @@ abstract class GenerateDexResolutionMetadataTask : DefaultTask() {
         val metadataFile = outputRoot.resolve(
             "$namespacePath/dexkit/resolution/GeneratedDexResolutionMetadata.kt"
         )
-        val compatibilityFile = outputRoot.resolve("$namespacePath/dexkit/cache/GeneratedMethodHashes.kt")
 
         metadataFile.parentFile.mkdirs()
         metadataFile.writeText(renderMetadataSource(namespace.get(), owners))
 
-        compatibilityFile.parentFile.mkdirs()
-        compatibilityFile.writeText(
-            """
-            package ${namespace.get()}.dexkit.cache
-
-            import ${namespace.get()}.dexkit.resolution.GeneratedDexResolutionMetadata
-
-            object GeneratedMethodHashes {
-                val HASHES: Map<String, String> = GeneratedDexResolutionMetadata.LEGACY_OWNER_HASHES
-            }
-            """.trimIndent() + "\n",
-        )
+        outputRoot.resolve("$namespacePath/dexkit/cache/GeneratedMethodHashes.kt").delete()
 
         val inventoryFile = ownerInventoryFile.get().asFile
         inventoryFile.parentFile.mkdirs()
@@ -152,10 +140,6 @@ $ownerAnnotations,
         )
         object GeneratedDexResolutionMetadata {
             val OWNERS: Map<String, DexOwnerMetadata> = $ownersMap
-
-            val LEGACY_OWNER_HASHES: Map<String, String> = OWNERS.mapValues { (_, owner) ->
-                owner.ownerSafetyFingerprint
-            }
         }
     """.trimIndent() + "\n"
 }
