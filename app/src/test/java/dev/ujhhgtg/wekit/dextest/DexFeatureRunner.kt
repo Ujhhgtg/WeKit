@@ -9,92 +9,180 @@ import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionRegistry
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestEntry
+import java.util.TreeSet
 import org.luckypray.dexkit.DexKitBridge
-import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 
-internal fun runDexFeature(
-    entry: DexResolutionTestEntry,
-    dexKit: DexKitBridge,
-    host: DexHostMetadata,
-    classLoader: ClassLoader,
-): DexTestFeatureReport {
-    val started = TimeSource.Monotonic.markNow()
-    val feature = try {
-        loadFeature(entry, classLoader)
-    } catch (error: Throwable) {
-        error.rethrowIfFatal()
-        return DexTestFeatureReport(
-            className = entry.className,
-            displayName = entry.className,
-            outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
-            elapsedMillis = started.elapsedNow().inWholeMilliseconds,
-            featureError = error.toDexTestError(),
-        )
+internal sealed class LoadedDexOwner {
+    abstract val entry: DexResolutionTestEntry
+    abstract val elapsedMillis: Long
+
+    data class Ready(
+        override val entry: DexResolutionTestEntry,
+        val owner: BaseFeature,
+        override val elapsedMillis: Long,
+    ) : LoadedDexOwner() {
+        val resolver: IResolveDex = owner as IResolveDex
     }
-    return runDexFeature(feature, entry, dexKit, host, started)
+
+    data class Failed(
+        override val entry: DexResolutionTestEntry,
+        val error: DexTestError,
+        override val elapsedMillis: Long,
+    ) : LoadedDexOwner()
 }
 
-internal fun runDexFeature(
-    feature: BaseFeature,
-    entry: DexResolutionTestEntry,
+internal fun loadDexOwners(
+    entries: List<DexResolutionTestEntry>,
+    classLoader: ClassLoader,
+): List<LoadedDexOwner> = entries.map { entry ->
+    val started = TimeSource.Monotonic.markNow()
+    try {
+        val owner = loadFeature(entry, classLoader)
+        require(owner is IResolveDex) { "${entry.className} does not implement IResolveDex" }
+        LoadedDexOwner.Ready(
+            entry = entry,
+            owner = owner,
+            elapsedMillis = started.elapsedNow().inWholeMilliseconds,
+        )
+    } catch (error: Throwable) {
+        error.rethrowIfFatal()
+        LoadedDexOwner.Failed(
+            entry = entry,
+            error = error.toDexTestError(),
+            elapsedMillis = started.elapsedNow().inWholeMilliseconds,
+        )
+    }
+}
+
+internal fun resolveDexFeatureReports(
+    loadedOwners: List<LoadedDexOwner>,
+    selectedEntries: List<DexResolutionTestEntry>,
     dexKit: DexKitBridge,
     host: DexHostMetadata,
-    started: TimeMark = TimeSource.Monotonic.markNow(),
-): DexTestFeatureReport {
-    val resolver = feature as? IResolveDex
-        ?: return DexTestFeatureReport(
-            className = entry.className,
-            displayName = displayName(feature),
-            outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
-            elapsedMillis = started.elapsedNow().inWholeMilliseconds,
-            featureError = DexTestError(message = "${entry.className} does not implement IResolveDex"),
-        )
+    registryFactory: (List<IResolveDex>) -> DexResolutionRegistry = DexResolutionRegistry::create,
+    coordinatorFactory: (DexResolutionRegistry, DexKitBridge, DexHostMetadata) -> DexResolutionCoordinator =
+        ::DexResolutionCoordinator,
+): List<DexTestFeatureReport> {
+    val loadedById = loadedOwners.associateBy { it.entry.className }
+    val selected = selectedEntries.map { entry ->
+        requireNotNull(loadedById[entry.className]) {
+            "Selected Dex owner was not loaded: ${entry.className}"
+        }
+    }
+    val readyOwners = loadedOwners.filterIsInstance<LoadedDexOwner.Ready>()
+    readyOwners.flatMap { it.owner.dexDelegates }.forEach(BaseDexDelegate::resetForDexTest)
 
-    feature.dexDelegates.forEach(BaseDexDelegate::resetForDexTest)
+    val registry = registryFactory(readyOwners.map(LoadedDexOwner.Ready::resolver))
+    val coordinator = coordinatorFactory(registry, dexKit, host)
+    val selectedReady = selected.filterIsInstance<LoadedDexOwner.Ready>()
+    val reportedOwnerIds = selected.mapTo(sortedSetOf()) { it.entry.className }
+    val completedOwnerIds = mutableSetOf<String>()
 
-    val registry = DexResolutionRegistry.create(listOf(resolver))
-    val coordinator = DexResolutionCoordinator(registry, dexKit, host)
-    val batch = coordinator.resolveOwners(listOf(resolver))
-    val error = batch.resultsByProducer.values.filterIsInstance<DexNodeResult.Failed>()
-        .firstOrNull()?.error
-    error?.rethrowIfFatal()
-
-    val pending = feature.dexDelegates.filter { it.diagnostic.status == DexResolutionStatus.PENDING }
-    if (error == null) {
-        pending.forEach(BaseDexDelegate::markIncomplete)
-    } else {
-        val failingKey = feature.dexDelegates
-            .firstOrNull { it.diagnostic.status == DexResolutionStatus.UNEXPECTED_FAILURE }
-            ?.key
-            ?: "${entry.className}#resolveDex"
-        pending.forEach { it.markBlocked(failingKey) }
+    if (selectedReady.isNotEmpty()) {
+        coordinator.resolveOwners(selectedReady.map(LoadedDexOwner.Ready::resolver))
+        completedOwnerIds += selectedReady.map { it.entry.className }
     }
 
-    val delegates = feature.dexDelegates.map { delegate ->
+    while (true) {
+        val dependencyOwnerIds = dependencyOwnerClosure(registry, coordinator, reportedOwnerIds)
+        val added = reportedOwnerIds.addAll(dependencyOwnerIds)
+        val pendingOwners = reportedOwnerIds
+            .asSequence()
+            .filterNot(completedOwnerIds::contains)
+            .mapNotNull { ownerId -> loadedById[ownerId] as? LoadedDexOwner.Ready }
+            .sortedBy { it.entry.className }
+            .toList()
+        if (pendingOwners.isEmpty()) {
+            if (!added) break
+            continue
+        }
+        coordinator.resolveOwners(pendingOwners.map(LoadedDexOwner.Ready::resolver))
+        completedOwnerIds += pendingOwners.map { it.entry.className }
+    }
+
+    return reportedOwnerIds.map { ownerId ->
+        when (val loaded = loadedById.getValue(ownerId)) {
+            is LoadedDexOwner.Ready -> buildDexFeatureReport(
+                owner = loaded,
+                coordinator = coordinator,
+                elapsedMillis = loaded.elapsedMillis,
+            )
+            is LoadedDexOwner.Failed -> DexTestFeatureReport(
+                className = loaded.entry.className,
+                displayName = loaded.entry.className,
+                outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
+                elapsedMillis = loaded.elapsedMillis,
+                featureError = loaded.error,
+            )
+        }
+    }
+}
+
+internal fun buildDexFeatureReport(
+    owner: LoadedDexOwner.Ready,
+    coordinator: DexResolutionCoordinator,
+    elapsedMillis: Long,
+): DexTestFeatureReport {
+    val registry = coordinator.registry
+    val results = owner.owner.dexDelegates
+        .map(registry::producerOf)
+        .distinctBy { it.stableId }
+        .associate { producer ->
+            require(producer.outputs.none { it.diagnostic.status == DexResolutionStatus.PENDING }) {
+                "Dex producer was not settled before report assembly: ${producer.stableId}"
+            }
+            producer.stableId to coordinator.resolveDelegate(producer.outputs.first())
+        }
+    val error = results.values.filterIsInstance<DexNodeResult.Failed>().firstOrNull()?.error
+    error?.rethrowIfFatal()
+    val delegates = owner.owner.dexDelegates.sortedBy { it.stableId }.map { delegate ->
         val diagnostic = delegate.diagnostic
+        val producer = registry.producerOf(delegate)
         DexTestDelegateReport(
             id = delegate.stableId,
             status = diagnostic.status,
             descriptor = diagnostic.descriptor ?: delegate.getDescriptorString(),
             isPlaceholder = delegate.isPlaceholder,
+            producerFingerprint = producer.metadata.localFingerprint,
+            effectiveFingerprint = coordinator.effectiveFingerprintByProducer[producer.stableId],
+            dependencies = coordinator.dependenciesOf(producer.stableId).sorted(),
             message = diagnostic.message,
             exceptionType = diagnostic.exceptionType,
             stackTrace = diagnostic.stackTrace,
             blockedBy = diagnostic.blockedBy,
-            producerFingerprint = registry.producerOf(delegate).metadata.localFingerprint,
-            effectiveFingerprint = coordinator.effectiveFingerprintByProducer[registry.producerOf(delegate).stableId].orEmpty(),
-            dependencies = coordinator.dependenciesOf(registry.producerOf(delegate).stableId).sorted(),
         )
     }
     return DexTestFeatureReport(
-        className = entry.className,
-        displayName = displayName(feature),
+        className = owner.entry.className,
+        displayName = displayName(owner.owner),
         outcome = featureOutcome(delegates, error),
-        elapsedMillis = started.elapsedNow().inWholeMilliseconds,
+        elapsedMillis = elapsedMillis,
         delegates = delegates,
         featureError = error?.toDexTestError(),
     )
+}
+
+private fun dependencyOwnerClosure(
+    registry: DexResolutionRegistry,
+    coordinator: DexResolutionCoordinator,
+    ownerIds: Set<String>,
+): Set<String> {
+    val pending = TreeSet<String>()
+    ownerIds.forEach { ownerId ->
+        registry.producersById.values
+            .filter { it.metadata.ownerClassName == ownerId }
+            .mapTo(pending) { it.stableId }
+    }
+    val visited = mutableSetOf<String>()
+    while (pending.isNotEmpty()) {
+        val producerId = pending.first().also(pending::remove)
+        if (!visited.add(producerId)) continue
+        coordinator.dependenciesOf(producerId).forEach(pending::add)
+    }
+    return visited.mapTo(sortedSetOf()) { producerId ->
+        registry.producersById.getValue(producerId).metadata.ownerClassName
+    }
 }
 
 private fun loadFeature(entry: DexResolutionTestEntry, classLoader: ClassLoader): BaseFeature {
@@ -112,7 +200,8 @@ private fun featureOutcome(
     delegates.any {
         it.status == DexResolutionStatus.UNEXPECTED_FAILURE ||
             it.status == DexResolutionStatus.BLOCKED ||
-            it.status == DexResolutionStatus.INCOMPLETE
+            it.status == DexResolutionStatus.INCOMPLETE ||
+            it.status == DexResolutionStatus.PENDING
     } -> DexTestFeatureOutcome.FAIL
     delegates.any { it.status == DexResolutionStatus.EXPECTED_FAILURE } -> DexTestFeatureOutcome.PASS_WITH_EXPECTED_FAILURES
     else -> DexTestFeatureOutcome.PASS

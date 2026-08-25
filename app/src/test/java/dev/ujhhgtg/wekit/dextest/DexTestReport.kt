@@ -31,13 +31,13 @@ internal data class DexTestDelegateReport(
     val status: DexResolutionStatus,
     val descriptor: String? = null,
     val isPlaceholder: Boolean = false,
+    val producerFingerprint: String,
+    val effectiveFingerprint: String? = null,
+    val dependencies: List<String> = emptyList(),
     val message: String? = null,
     val exceptionType: String? = null,
     val stackTrace: String? = null,
     val blockedBy: String? = null,
-    val producerFingerprint: String = "",
-    val effectiveFingerprint: String = "",
-    val dependencies: List<String> = emptyList(),
 )
 
 @Serializable
@@ -116,6 +116,3 @@ internal fun DexTestApkReport.writeAtomically(path: Path) {
         Files.move(temp, path, REPLACE_EXISTING)
     }
 }
-
-internal fun DexResolutionStatus.toDexTestReport(id: String): DexTestDelegateReport =
-    DexTestDelegateReport(id = id, status = this)

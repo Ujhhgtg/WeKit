@@ -14,16 +14,30 @@ class DexTestReportTest {
     lateinit var tempDir: Path
 
     @Test
-    fun reportRoundTripsAndKeepsStackTrace() {
+    fun schemaTwoReportRoundTripsGraphMetadataAndDiagnostics() {
+        val dependencyA = "dev.example.Api#first"
+        val dependencyB = "dev.example.Api#second"
         val report = sampleReport(
             delegate = DexTestDelegateReport(
-                id = "Fixture:method",
+                id = "dev.example.Fixture#method",
                 status = DexResolutionStatus.UNEXPECTED_FAILURE,
+                producerFingerprint = "producer-fingerprint",
+                effectiveFingerprint = null,
+                dependencies = listOf(dependencyA, dependencyB),
+                message = "boom",
                 exceptionType = "java.lang.IllegalStateException",
                 stackTrace = "boom\n at test",
+                blockedBy = dependencyA,
             )
         )
         val json = DexTestJson.encodeToString(report)
+
+        assertEquals(2, report.schemaVersion)
+        assertTrue(json.contains("\"id\": \"dev.example.Fixture#method\""))
+        assertTrue(json.contains("\"producerFingerprint\": \"producer-fingerprint\""))
+        assertTrue(json.contains("\"effectiveFingerprint\": null"))
+        assertTrue(json.indexOf(dependencyA) < json.indexOf(dependencyB))
+        assertFalse(json.contains("methodHash"))
         assertEquals(report, DexTestJson.decodeFromString<DexTestApkReport>(json))
     }
 
@@ -35,7 +49,14 @@ class DexTestReportTest {
         assertFalse(Files.exists(tempDir.resolve(".wechat_8069.json.tmp")))
     }
 
-    private fun sampleReport(delegate: DexTestDelegateReport = DexTestDelegateReport("Fixture:method", DexResolutionStatus.SUCCESS)) =
+    private fun sampleReport(
+        delegate: DexTestDelegateReport = DexTestDelegateReport(
+            id = "dev.example.Fixture#method",
+            status = DexResolutionStatus.SUCCESS,
+            producerFingerprint = "producer-fingerprint",
+            effectiveFingerprint = "effective-fingerprint",
+        ),
+    ) =
         DexTestApkReport(
             apkPath = "/tmp/wechat_8069.apk",
             fileName = "wechat_8069.apk",
