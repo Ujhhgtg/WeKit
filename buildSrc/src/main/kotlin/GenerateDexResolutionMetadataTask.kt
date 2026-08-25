@@ -1,9 +1,11 @@
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import java.security.MessageDigest
 
@@ -13,6 +15,9 @@ abstract class GenerateDexResolutionMetadataTask : DefaultTask() {
 
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
+
+    @get:OutputFile
+    abstract val ownerInventoryFile: RegularFileProperty
 
     @get:Input
     abstract val namespace: Property<String>
@@ -70,6 +75,12 @@ abstract class GenerateDexResolutionMetadataTask : DefaultTask() {
                 val HASHES: Map<String, String> = GeneratedDexResolutionMetadata.LEGACY_OWNER_HASHES
             }
             """.trimIndent() + "\n",
+        )
+
+        val inventoryFile = ownerInventoryFile.get().asFile
+        inventoryFile.parentFile.mkdirs()
+        inventoryFile.writeText(
+            owners.joinToString(separator = "\n", postfix = "\n") { it.qualifiedClassName }
         )
     }
 }

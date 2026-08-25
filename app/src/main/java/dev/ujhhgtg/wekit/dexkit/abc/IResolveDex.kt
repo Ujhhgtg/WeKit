@@ -24,7 +24,7 @@ interface IResolveDex {
     fun resolveDex(dexKit: DexKitBridge) {}
 
     /**
-     * 将所有委托的当前状态收集为 key → descriptor 字符串映射，
+     * 将所有委托的当前状态收集为稳定 ID → descriptor 字符串映射，
      * 供 [dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager] 持久化。
      */
     fun collectDescriptors(): Map<String, String> =
@@ -32,9 +32,9 @@ interface IResolveDex {
 
     /**
      * 从缓存 Map 中逐个恢复委托状态。
-     * 每个委托独立加载，某个 key 缺失不会影响其他委托。
+     * 每个委托独立加载，某个稳定 ID 缺失不会影响其他委托。
      *
-     * @return 缓存中不存在或值为空的 key 集合（需要重新 DexKit 扫描的委托）
+     * @return 缓存中不存在或值为空的稳定 ID 集合（需要重新 DexKit 扫描的委托）
      */
     fun loadFromCache(cache: Map<String, Any>): Set<String> {
         val missingKeys = mutableSetOf<String>()

@@ -16,7 +16,6 @@ import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
-import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Executable
 import kotlin.reflect.KClass
 
@@ -83,10 +82,6 @@ abstract class BaseFeature {
     val dexDelegates: List<BaseDexDelegate> get() = _dexDelegates
     internal fun registerDexDelegate(d: BaseDexDelegate) {
         _dexDelegates += d
-    }
-
-    internal fun resolveInlineDex(dexKit: DexKitBridge) {
-        dexDelegates.forEach { it.findInline(dexKit) }
     }
 
     internal val unhooks = mutableListOf<HookHandle>()

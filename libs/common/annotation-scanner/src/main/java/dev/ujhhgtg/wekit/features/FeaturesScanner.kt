@@ -29,20 +29,22 @@ private const val EXTENSIONS_PACKAGE = "$PACKAGE_NAME.extensions"
 private const val BASE_FEATURE = "$FEATURES_CORE_PACKAGE.BaseFeature"
 private const val EXTENSION_PACK = "$EXTENSIONS_PACKAGE.ExtensionPack"
 private const val RESOLVER_INTERFACE = "$PACKAGE_NAME.dexkit.abc.IResolveDex"
-private const val METADATA_OWNERS_ANNOTATION =
-    "$PACKAGE_NAME.dexkit.resolution.DexResolutionMetadataOwners"
-private const val GENERATED_METADATA_OBJECT =
-    "$PACKAGE_NAME.dexkit.resolution.GeneratedDexResolutionMetadata"
+private const val METADATA_OWNERS_OPTION = "wekit.dexResolutionOwnerInventory"
 
 class FeaturesKspProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =
-        FeaturesScanner(environment.codeGenerator, environment.logger)
+        FeaturesScanner(
+            environment.codeGenerator,
+            environment.logger,
+            environment.options[METADATA_OWNERS_OPTION],
+        )
 }
 
 /** Generates runtime registries for source Feature and ExtensionPack objects. */
 class FeaturesScanner(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
+    private val generatedDexResolutionOwnerInventory: String?,
 ) : SymbolProcessor {
     private var generated = false
 
@@ -71,7 +73,7 @@ class FeaturesScanner(
             logger.error("No ExtensionPack objects were discovered in app sources")
             return emptyList()
         }
-        if (!validateDexResolutionMetadataOwners(objects, dexResolvers)) return emptyList()
+        if (!validateDexResolutionMetadataOwners(dexResolvers)) return emptyList()
 
         features.groupBy { it.containingFile!! }
             .filterValues { it.size > 1 }
@@ -92,35 +94,14 @@ class FeaturesScanner(
     }
 
     private fun validateDexResolutionMetadataOwners(
-        objects: List<KSClassDeclaration>,
         symbols: List<KSClassDeclaration>,
     ): Boolean {
-        val metadataDeclarations = objects.filter {
-            it.qualifiedName?.asString() == GENERATED_METADATA_OBJECT
-        }
-        if (metadataDeclarations.size != 1) {
-            logger.error(
-                "Expected exactly one generated Dex metadata owner inventory, found " +
-                    metadataDeclarations.size
-            )
+        val inventory = generatedDexResolutionOwnerInventory
+        if (inventory == null) {
+            logger.error("Missing generated Dex metadata owner inventory processor option")
             return false
         }
-
-        val metadataDeclaration = metadataDeclarations.single()
-        val annotation = metadataDeclaration.annotations.single { annotation ->
-            annotation.annotationType.resolve().declaration.qualifiedName?.asString() ==
-                METADATA_OWNERS_ANNOTATION
-        }
-        val generatedOwnerNames = annotation.arguments
-            .single { it.name?.asString() == "value" }
-            .value
-            .let { value ->
-                require(value is List<*>) { "Generated Dex metadata owner inventory is not a string list" }
-                value.map { entry ->
-                    require(entry is String) { "Generated Dex metadata owner inventory contains a non-string" }
-                    entry
-                }
-            }
+        val generatedOwnerNames = inventory.lineSequence().filter(String::isNotBlank).toList()
         val discoveredOwnerNames = symbols.map { it.qualifiedName!!.asString() }
         val duplicateGeneratedNames = generatedOwnerNames.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
         val missing = discoveredOwnerNames.toSet() - generatedOwnerNames.toSet()
@@ -135,8 +116,7 @@ class FeaturesScanner(
                 if (duplicateGeneratedNames.isNotEmpty()) {
                     append(" Duplicates: ${duplicateGeneratedNames.sorted()}.")
                 }
-            },
-            metadataDeclaration,
+            }
         )
         return false
     }

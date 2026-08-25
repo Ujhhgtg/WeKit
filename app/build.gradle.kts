@@ -197,6 +197,7 @@ val generateDexResolutionMetadata = tasks.register<GenerateDexResolutionMetadata
     group = "wekit"
     sourceDir.set(file("src/main/java"))
     outputDir.set(layout.buildDirectory.dir("generated/source/dex-resolution-metadata"))
+    ownerInventoryFile.set(layout.buildDirectory.file("generated/dex-resolution-owner-inventory.txt"))
     namespace.set(libs.versions.namespace.get())
 }
 
@@ -252,6 +253,11 @@ val generateScriptDepsDex = tasks.register<GenerateScriptDepsDexTask>("generateS
 // --- end tasks ---
 
 ksp {
+    arg(
+        "wekit.dexResolutionOwnerInventory",
+        generateDexResolutionMetadata.flatMap(GenerateDexResolutionMetadataTask::ownerInventoryFile)
+            .map { inventory -> inventory.asFile.readText() },
+    )
     // Room schema export for migration diffing
     arg("room.schemaLocation", "$projectDir/schemas")
     arg("room.generateKotlin", "true")
