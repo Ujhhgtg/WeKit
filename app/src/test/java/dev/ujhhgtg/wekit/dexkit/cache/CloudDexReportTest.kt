@@ -64,10 +64,53 @@ class CloudDexReportTest {
     }
 
     @Test
+    fun delegatesMustBelongToTheirUniqueOwnerFeature() {
+        val consumer = feature("owner.Consumer", "consumer-local", listOf("owner.Api#target"), consumerEffective())
+        val api = feature("owner.Api", "api-local", listOf("owner.Core#target"), apiEffective())
+        val swapped = validReport()
+            .replace(consumer, consumer.replace(delegate("owner.Consumer", "consumer-local", listOf("owner.Api#target"), consumerEffective()), delegate("owner.Api", "api-local", listOf("owner.Core#target"), apiEffective())))
+            .replace(api, api.replace(delegate("owner.Api", "api-local", listOf("owner.Core#target"), apiEffective()), delegate("owner.Consumer", "consumer-local", listOf("owner.Api#target"), consumerEffective())))
+
+        val selection = CloudDexReport.select(swapped, host, owners)
+
+        assertEquals(listOf("Core", "Independent"), selection.entries.map { it.technicalId })
+    }
+
+    @Test
+    fun delegatePlacedOnlyUnderFailedUnrelatedFeatureIsNotAccepted() {
+        val consumer = feature("owner.Consumer", "consumer-local", listOf("owner.Api#target"), consumerEffective())
+        val consumerDelegate = delegate("owner.Consumer", "consumer-local", listOf("owner.Api#target"), consumerEffective())
+        val misplaced = validReport().replace(
+            consumer,
+            """{"className":"owner.Consumer","outcome":"PASS","delegates":[]},""" +
+                """{"className":"owner.Unrelated","outcome":"FAIL","delegates":[$consumerDelegate]}""",
+        )
+
+        val selection = CloudDexReport.select(misplaced, host, owners)
+
+        assertEquals(listOf("Api", "Core", "Independent"), selection.entries.map { it.technicalId })
+    }
+
+    @Test
+    fun malformedOrCrossKindCloudDescriptorRejectsItsClosure() {
+        val malformed = validReport().replace(
+            "Lowner/Api;->target()V",
+            "owner.Api",
+        )
+
+        val selection = CloudDexReport.select(malformed, host, owners)
+
+        assertEquals(listOf("Core", "Independent"), selection.entries.map { it.technicalId })
+    }
+
+    @Test
     fun expectedPlaceholderRequiresExpectedFailurePairing() {
         val expected = validReport()
             .replace("\"id\":\"owner.Core#target\",\"status\":\"SUCCESS\"", "\"id\":\"owner.Core#target\",\"status\":\"EXPECTED_FAILURE\"")
-            .replace("\"descriptor\":\"Core-descriptor\",\"isPlaceholder\":false", "\"descriptor\":\"PLACEHOLDER\",\"isPlaceholder\":true")
+            .replace(
+                "\"descriptor\":\"Lowner/Core;->target()V\",\"isPlaceholder\":false",
+                "\"descriptor\":\"Lcom/tencent/mm/ui/LauncherUI;->getInstance()Lcom/tencent/mm/ui/LauncherUI;\",\"isPlaceholder\":true",
+            )
         assertEquals(4, CloudDexReport.select(expected, host, owners).entries.size)
 
         val unexpected = expected.replace("\"status\":\"EXPECTED_FAILURE\"", "\"status\":\"SUCCESS\"")
@@ -100,12 +143,19 @@ class CloudDexReportTest {
         """{"className":"$owner","outcome":"PASS","delegates":[${delegate(owner, local, dependencies, effective)}]}"""
 
     private fun delegate(owner: String, local: String, dependencies: List<String>, effective: String) =
-        """{"id":"$owner#target","status":"SUCCESS","descriptor":"${owner.substringAfterLast('.')}-descriptor","isPlaceholder":false,"producerFingerprint":"$local","effectiveFingerprint":"$effective","dependencies":[${dependencies.joinToString(",") { "\"$it\"" }}]}"""
+        """{"id":"$owner#target","status":"SUCCESS","descriptor":"L${owner.replace('.', '/')};->target()V","isPlaceholder":false,"producerFingerprint":"$local","effectiveFingerprint":"$effective","dependencies":[${dependencies.joinToString(",") { "\"$it\"" }}]}"""
 
     private fun owner(id: String, technicalId: String, local: String) = CurrentDexOwner(
         ownerId = id,
         technicalId = technicalId,
-        delegates = mapOf("$id#target" to CurrentDexDelegate("$id#target", "$id#target", local)),
+        delegates = mapOf(
+            "$id#target" to CurrentDexDelegate(
+                "$id#target",
+                "$id#target",
+                local,
+                ::isValidDexMethodDescriptor,
+            ),
+        ),
     )
 
     private fun coreEffective() = fingerprint("owner.Core#target", "core-local")

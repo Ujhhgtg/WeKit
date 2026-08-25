@@ -18,6 +18,7 @@ internal data class CurrentDexDelegate(
     val id: String,
     val producerId: String,
     val producerFingerprint: String,
+    val isValidDescriptor: (String) -> Boolean,
 )
 
 internal data class CurrentDexOwner(
@@ -70,15 +71,16 @@ internal object CloudDexReport {
                 invalidOwners += owner.ownerId
                 return@ownerLoop
             }
+            val featureDelegatesById = feature.delegates.groupBy(Delegate::id)
             val selected = TreeMap<String, Delegate>()
             for (delegateId in owner.delegates.keys.sorted()) {
-                val candidates = reportDelegatesById[delegateId]
-                val reportDelegate = candidates?.singleOrNull()
+                val reportDelegate = featureDelegatesById[delegateId]?.singleOrNull()
                 val current = owner.delegates.getValue(delegateId)
-                if (reportDelegate == null ||
+                if (reportDelegate == null || reportDelegatesById[delegateId]?.size != 1 ||
                     reportDelegate.producerFingerprint != current.producerFingerprint ||
                     !reportDelegate.isValidOutcome() ||
                     reportDelegate.descriptor.isNullOrBlank() ||
+                    !current.isValidDescriptor(reportDelegate.descriptor) ||
                     reportDelegate.dependencies.size != reportDelegate.dependencies.distinct().size
                 ) {
                     invalidOwners += owner.ownerId

@@ -57,6 +57,37 @@ class CloudDexCacheWriterTest {
         assertEquals(listOf("First.json", "Second.json"), tempDir.listDirectoryEntries().map { it.fileName.toString() }.sorted())
     }
 
+    @Test
+    fun rollbackFailurePreservesRecoverableBackupAndIsSuppressed() {
+        val first = tempDir.resolve("First.json")
+        val second = tempDir.resolve("Second.json")
+        first.writeText("old-first")
+        second.writeText("old-second")
+        var moves = 0
+
+        val error = assertThrows(IOException::class.java) {
+            writeDexCacheManifests(
+                tempDir,
+                listOf(manifest("owner.First"), manifest("owner.Second")),
+                mapOf("owner.First" to "First", "owner.Second" to "Second"),
+            ) { source, destination ->
+                moves++
+                when (moves) {
+                    4 -> throw IOException("commit failed")
+                    6 -> throw IOException("first restore failed")
+                    else -> Files.move(source, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                }
+            }
+        }
+
+        assertEquals("commit failed", error.message)
+        assertEquals(listOf("first restore failed"), error.suppressed.map { it.message })
+        val backup = tempDir.listDirectoryEntries().single { it.fileName.toString().endsWith(".bak") }
+        assertEquals("old-first", backup.readText())
+        assertEquals("old-second", second.readText())
+        assertTrue(tempDir.listDirectoryEntries().none { it.fileName.toString().endsWith(".tmp") })
+    }
+
     private fun manifest(owner: String, dependencies: List<String> = emptyList()) = DexCacheManifest(
         owner = owner,
         timestamp = 0,

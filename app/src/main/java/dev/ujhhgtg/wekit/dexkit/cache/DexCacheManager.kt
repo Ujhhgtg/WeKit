@@ -56,19 +56,7 @@ object DexCacheManager {
         registry: DexResolutionRegistry,
         coordinator: DexResolutionCoordinator,
         owners: Collection<IResolveDex>,
-    ) {
-        val requestedOwnerIds = owners.mapTo(linkedSetOf()) { it.javaClass.name }
-        val resolvedProducerIds = coordinator.effectiveFingerprintByProducer.keys
-        val manifests = registry.currentCacheOwners()
-            .filter { current ->
-                current.ownerId in requestedOwnerIds || current.delegates.values.any { it.producerId in resolvedProducerIds }
-            }
-            .mapNotNull { current ->
-                val owner = registry.ownersById.getValue(current.ownerId)
-                buildResolvedManifest(owner, registry, coordinator)
-            }
-        writeDexCacheManifests(cacheDir, manifests, registry.technicalIdsByOwner())
-    }
+    ) = saveResolvedOwners(cacheDir, registry, coordinator, owners)
 
     internal fun importCloudCaches(entries: List<CloudDexCacheEntry>) {
         writeCloudCacheFiles(cacheDir, entries, System.currentTimeMillis())
@@ -81,6 +69,25 @@ object DexCacheManager {
 
     internal fun cacheFileName(technicalId: String): String =
         technicalId.replace("/", "_") + CACHE_FILE_SUFFIX
+}
+
+internal fun saveResolvedOwners(
+    cacheDir: Path,
+    registry: DexResolutionRegistry,
+    coordinator: DexResolutionCoordinator,
+    owners: Collection<IResolveDex>,
+) {
+    val requestedOwnerIds = owners.mapTo(linkedSetOf()) { it.javaClass.name }
+    val resolvedProducerIds = coordinator.effectiveFingerprintByProducer.keys
+    val manifests = registry.currentCacheOwners()
+        .filter { current ->
+            current.ownerId in requestedOwnerIds || current.delegates.values.any { it.producerId in resolvedProducerIds }
+        }
+        .mapNotNull { current ->
+            val owner = registry.ownersById.getValue(current.ownerId)
+            buildResolvedManifest(owner, registry, coordinator)
+        }
+    writeDexCacheManifests(cacheDir, manifests, registry.technicalIdsByOwner())
 }
 
 private val cacheJson = Json {
@@ -238,8 +245,8 @@ private fun validateEntry(
     entry: DexCacheDelegateEntry,
     delegatesById: Map<String, DexCacheCurrentDelegate>,
 ): DexCacheValidation.Invalid? {
-    if (entry.descriptor.isBlank() || entry.descriptor == "null") {
-        return invalid(DexCacheInvalidReason.INVALID_DESCRIPTOR, "empty descriptor: ${current.id}")
+    if (entry.descriptor.isBlank() || entry.descriptor == "null" || !current.isValidDescriptor(entry.descriptor)) {
+        return invalid(DexCacheInvalidReason.INVALID_DESCRIPTOR, "invalid descriptor: ${current.id}")
     }
     val descriptorIsPlaceholder = current.isPlaceholderDescriptor(entry.descriptor)
     val validStatus = entry.status == DexResolutionStatus.SUCCESS ||
@@ -283,7 +290,7 @@ private fun buildResolvedManifest(
         val descriptor = delegate.getDescriptorString()
         val producer = registry.producerOf(delegate)
         val effective = coordinator.effectiveFingerprintByProducer[producer.stableId]
-        val valid = descriptor != null && descriptor.isNotBlank() &&
+        val valid = descriptor != null && delegate.isValidDescriptor(descriptor) &&
             effective != null &&
             (status == DexResolutionStatus.SUCCESS && !delegate.isPlaceholder ||
                 status == DexResolutionStatus.EXPECTED_FAILURE && delegate.isPlaceholder)
@@ -327,6 +334,8 @@ internal fun writeDexCacheManifests(
     val transactionId = "${System.currentTimeMillis()}-${System.nanoTime()}"
     val staged = mutableListOf<CacheStagedFile>()
     val committed = mutableSetOf<Path>()
+    val preservedBackups = mutableSetOf<Path>()
+    var primaryFailure: Exception? = null
     try {
         manifests.sortedBy { it.owner }.forEach { manifest ->
             val technicalId = requireNotNull(technicalIdsByOwner[manifest.owner])
@@ -342,18 +351,34 @@ internal fun writeDexCacheManifests(
             committed.add(file.destination)
         }
     } catch (error: Exception) {
+        primaryFailure = error
         staged.asReversed().forEach { file ->
             if (file.backup.exists()) {
-                runCatching { move(file.backup, file.destination) }
+                try {
+                    move(file.backup, file.destination)
+                } catch (rollbackError: Exception) {
+                    preservedBackups.add(file.backup)
+                    error.addSuppressed(rollbackError)
+                }
             } else if (file.destination in committed) {
-                runCatching { file.destination.deleteIfExists() }
+                try {
+                    file.destination.deleteIfExists()
+                } catch (rollbackError: Exception) {
+                    error.addSuppressed(rollbackError)
+                }
             }
         }
         throw error
     } finally {
         staged.forEach { file ->
             runCatching { file.temp.deleteIfExists() }
-            runCatching { file.backup.deleteIfExists() }
+                .exceptionOrNull()
+                ?.let { primaryFailure?.addSuppressed(it) }
+            if (file.backup !in preservedBackups) {
+                runCatching { file.backup.deleteIfExists() }
+                    .exceptionOrNull()
+                    ?.let { primaryFailure?.addSuppressed(it) }
+            }
         }
     }
 }
@@ -411,6 +436,7 @@ private fun DexResolutionRegistry.currentCacheOwners(): List<DexCacheCurrentOwne
                     id = delegate.stableId,
                     producerId = producer.stableId,
                     producerFingerprint = producer.metadata.localFingerprint,
+                    isValidDescriptor = delegate::isValidDescriptor,
                     isPlaceholderDescriptor = delegate::isPlaceholderDescriptor,
                     loadDescriptor = delegate::loadCachedDescriptor,
                 )

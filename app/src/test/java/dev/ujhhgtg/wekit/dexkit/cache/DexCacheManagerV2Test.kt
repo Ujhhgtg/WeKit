@@ -9,6 +9,7 @@ import kotlin.io.path.writeText
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -19,6 +20,21 @@ class DexCacheManagerV2Test {
     lateinit var tempDir: Path
 
     private val json = Json { encodeDefaults = true; prettyPrint = true }
+
+    @Test
+    fun descriptorValidationIsKindSpecificAndStructural() {
+        assertTrue(isValidDexClassDescriptor("com.tencent.mm.Foo\$Inner"))
+        assertTrue(isValidDexFieldDescriptor("Lcom/tencent/mm/Foo;->count:I"))
+        assertTrue(isValidDexMethodDescriptor("Lcom/tencent/mm/Foo;->run([Ljava/lang/String;)V"))
+        assertTrue(isValidDexConstructorDescriptor("Lcom/tencent/mm/Foo;-><init>(I)V"))
+
+        assertFalse(isValidDexClassDescriptor("Lcom/tencent/mm/Foo;->run()V"))
+        assertFalse(isValidDexFieldDescriptor("Lcom/tencent/mm/Foo;->run()V"))
+        assertFalse(isValidDexMethodDescriptor("Lcom/tencent/mm/Foo;-><init>()V"))
+        assertFalse(isValidDexConstructorDescriptor("Lcom/tencent/mm/Foo;->run()V"))
+        assertFalse(isValidDexMethodDescriptor("Lcom/tencent/mm/Foo;->run(Q)V"))
+        assertFalse(isValidDexFieldDescriptor("Lcom/tencent/mm/Foo;->count:V"))
+    }
 
     @Test
     fun unchangedTransitiveGraphRestoresEveryOwner() {
@@ -133,6 +149,53 @@ class DexCacheManagerV2Test {
     }
 
     @Test
+    fun malformedOrCrossKindDescriptorPreventsEveryOwnerLoadCallback() {
+        val restored = mutableListOf<String>()
+        val owner = DexCacheCurrentOwner(
+            ownerId = "owner.Kinds",
+            technicalId = "Kinds",
+            delegates = mapOf(
+                "owner.Kinds#method" to currentDelegate(
+                    "owner.Kinds#method",
+                    "method-local",
+                    restored,
+                    "method",
+                    ::isValidDexMethodDescriptor,
+                ),
+                "owner.Kinds#class" to currentDelegate(
+                    "owner.Kinds#class",
+                    "class-local",
+                    restored,
+                    "class",
+                    ::isValidDexClassDescriptor,
+                ),
+            ),
+        )
+        val methodId = "owner.Kinds#method"
+        val classId = "owner.Kinds#class"
+        write(
+            owner,
+            mapOf(
+                methodId to entry(
+                    "Lowner/Kinds;->run()V",
+                    "method-local",
+                    effective = effective(methodId, "method-local"),
+                ),
+                classId to entry(
+                    "Lowner/Kinds;->wrong()V",
+                    "class-local",
+                    effective = effective(classId, "class-local"),
+                ),
+            ),
+        )
+
+        val result = restoreValidOwners(tempDir, listOf(owner))
+
+        assertEquals(DexCacheInvalidReason.INVALID_DESCRIPTOR, result.invalidOwners.getValue(owner.ownerId).reason)
+        assertTrue(restored.isEmpty())
+    }
+
+    @Test
     fun duplicateJsonKeysAreMalformed() {
         val restored = mutableListOf<String>()
         val owner = currentOwner("owner.Duplicate", "Duplicate", "owner.Duplicate#target", restored)
@@ -227,10 +290,12 @@ private fun currentDelegate(
     fingerprint: String,
     restored: MutableList<String>,
     restoredValue: String,
+    isValidDescriptor: (String) -> Boolean = { true },
 ) = DexCacheCurrentDelegate(
     id = id,
     producerId = id,
     producerFingerprint = fingerprint,
+    isValidDescriptor = isValidDescriptor,
     isPlaceholderDescriptor = { it == "PLACEHOLDER" },
     loadDescriptor = { _, _ -> restored += restoredValue },
 )

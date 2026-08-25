@@ -59,6 +59,7 @@ internal data class DexCacheCurrentDelegate(
     val id: String,
     val producerId: String,
     val producerFingerprint: String,
+    val isValidDescriptor: (String) -> Boolean,
     val isPlaceholderDescriptor: (String) -> Boolean,
     val loadDescriptor: (String, DexResolutionStatus) -> Unit,
 )

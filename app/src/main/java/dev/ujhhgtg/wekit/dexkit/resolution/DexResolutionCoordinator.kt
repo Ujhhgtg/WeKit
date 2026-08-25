@@ -59,16 +59,28 @@ class DexResolutionCoordinator(
         mutableDependencies[producerId].orEmpty().toSortedSet()
     }
 
-    fun resolveOwners(owners: Collection<IResolveDex>): DexResolutionBatchResult {
+    fun resolveOwners(
+        owners: Collection<IResolveDex>,
+        onRootStart: (IResolveDex) -> Unit = {},
+        onRootFinish: (IResolveDex, DexResolutionBatchResult) -> Unit = { _, _ -> },
+    ): DexResolutionBatchResult {
         val results = TreeMap<String, DexNodeResult>()
         owners.forEach { owner ->
             val ownerId = owner.javaClass.name
             require(registry.ownersById[ownerId] === owner) {
                 "Dex resolution owner is not registered: $ownerId"
             }
-            owner.dexDelegates.sortedBy { it.stableId }.forEach { delegate ->
-                val producer = registry.producerOf(delegate)
-                results[producer.stableId] = resolveProducer(producer)
+            val rootResults = TreeMap<String, DexNodeResult>()
+            onRootStart(owner)
+            try {
+                owner.dexDelegates.sortedBy { it.stableId }.forEach { delegate ->
+                    val producer = registry.producerOf(delegate)
+                    val result = resolveProducer(producer)
+                    results[producer.stableId] = result
+                    rootResults[producer.stableId] = result
+                }
+            } finally {
+                onRootFinish(owner, DexResolutionBatchResult(rootResults))
             }
         }
         return DexResolutionBatchResult(results)

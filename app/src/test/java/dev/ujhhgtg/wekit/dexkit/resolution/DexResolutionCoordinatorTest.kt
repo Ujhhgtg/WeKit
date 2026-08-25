@@ -153,6 +153,50 @@ class DexResolutionCoordinatorTest {
     }
 
     @Test
+    fun rootCallbacksBracketActualRootOrderWithoutPromotingDependencies() {
+        val events = mutableListOf<String>()
+        val prerequisiteOwner = object : TestOwner() {}
+        val prerequisite = prerequisiteOwner.inlineMethod("prerequisite") { delegate ->
+            events += "dependency"
+            delegate.setDescriptor("callback.Dependency", "run", "()V")
+            true
+        }
+        val first = object : TestOwner() {}
+        first.inlineMethod("first") { delegate ->
+            DexResolutionContext.requireData(prerequisite)
+            events += "first"
+            delegate.setDescriptor("callback.First", "run", "()V")
+            true
+        }
+        val second = object : TestOwner() {}
+        second.inlineMethod("second") { delegate ->
+            events += "second"
+            delegate.setDescriptor("callback.Second", "run", "()V")
+            true
+        }
+        val coordinator = coordinator(prerequisiteOwner, first, second)
+
+        coordinator.resolveOwners(
+            listOf(first, second),
+            onRootStart = { events += "start:${it.javaClass.name}" },
+            onRootFinish = { owner, _ -> events += "finish:${owner.javaClass.name}" },
+        )
+
+        assertEquals(
+            listOf(
+                "start:${first.javaClass.name}",
+                "dependency",
+                "first",
+                "finish:${first.javaClass.name}",
+                "start:${second.javaClass.name}",
+                "second",
+                "finish:${second.javaClass.name}",
+            ),
+            events,
+        )
+    }
+
+    @Test
     fun dependencyResolutionIsIndependentOfPropertyRegistrationOrder() {
         val events = mutableListOf<String>()
         val owner = object : TestOwner() {}

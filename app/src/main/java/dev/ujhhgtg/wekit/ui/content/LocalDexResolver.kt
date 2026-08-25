@@ -10,6 +10,9 @@ import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.withDexKitSuspending
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 internal sealed interface LocalDexProgress {
@@ -29,43 +32,55 @@ internal object LocalDexResolver {
         registry: DexResolutionRegistry,
         items: List<IResolveDex>,
         onProgress: suspend (LocalDexProgress) -> Unit,
-    ): LocalDexResolutionResult {
-        items.forEach { onProgress(LocalDexProgress.Start((it as BaseFeature).technicalPath)) }
-        return withDexKitSuspending { dexKit ->
-            withContext(Dispatchers.IO) {
-                val coordinator = DexResolutionCoordinator(registry, dexKit)
-                val batch = coordinator.resolveOwners(items)
-                DexCacheManager.saveResolvedOwners(registry, coordinator, items)
-                val failures = mutableListOf<LocalDexFailure>()
-                items.forEach { item ->
-                    val displayName = (item as BaseFeature).technicalPath
-                    val producerIds = item.dexDelegates.map { registry.producerOf(it).stableId }.toSet()
-                    val failureResult = producerIds.asSequence()
-                        .mapNotNull(batch.resultsByProducer::get)
-                        .firstOrNull { result ->
-                            result is DexNodeResult.Failed ||
-                                result is DexNodeResult.Resolved && result.diagnostic.status !in setOf(
-                                    DexResolutionStatus.SUCCESS,
-                                    DexResolutionStatus.EXPECTED_FAILURE,
-                                )
-                        }
-                    if (failureResult == null) {
-                        onProgress(LocalDexProgress.Complete(displayName))
-                    } else {
-                        val error = when (failureResult) {
-                            is DexNodeResult.Failed -> failureResult.error as? Exception
-                                ?: IllegalStateException(failureResult.error)
-                            is DexNodeResult.Resolved -> IllegalStateException(
-                                "Dex resolution completed with ${failureResult.diagnostic.status}",
-                            )
-                        }
-                        WeLogger.e(TAG, "failed to resolve: $displayName", error)
-                        onProgress(LocalDexProgress.Failed(displayName, error))
-                        failures += LocalDexFailure(displayName, error)
-                    }
+    ): LocalDexResolutionResult = coroutineScope {
+        val progressEvents = Channel<LocalDexProgress>(Channel.UNLIMITED)
+        val reporter = launch {
+            for (progress in progressEvents) onProgress(progress)
+        }
+        try {
+            withDexKitSuspending { dexKit ->
+                withContext(Dispatchers.IO) {
+                    val coordinator = DexResolutionCoordinator(registry, dexKit)
+                    val failures = mutableListOf<LocalDexFailure>()
+                    coordinator.resolveOwners(
+                        items,
+                        onRootStart = { item ->
+                            progressEvents.trySend(
+                                LocalDexProgress.Start((item as BaseFeature).technicalPath),
+                            ).getOrThrow()
+                        },
+                        onRootFinish = { item, rootResult ->
+                            val displayName = (item as BaseFeature).technicalPath
+                            val failureResult = rootResult.resultsByProducer.values.firstOrNull { result ->
+                                result is DexNodeResult.Failed ||
+                                    result is DexNodeResult.Resolved && result.diagnostic.status !in setOf(
+                                        DexResolutionStatus.SUCCESS,
+                                        DexResolutionStatus.EXPECTED_FAILURE,
+                                    )
+                            }
+                            if (failureResult == null) {
+                                progressEvents.trySend(LocalDexProgress.Complete(displayName)).getOrThrow()
+                            } else {
+                                val error = when (failureResult) {
+                                    is DexNodeResult.Failed -> failureResult.error as? Exception
+                                        ?: IllegalStateException(failureResult.error)
+                                    is DexNodeResult.Resolved -> IllegalStateException(
+                                        "Dex resolution completed with ${failureResult.diagnostic.status}",
+                                    )
+                                }
+                                WeLogger.e(TAG, "failed to resolve: $displayName", error)
+                                progressEvents.trySend(LocalDexProgress.Failed(displayName, error)).getOrThrow()
+                                failures += LocalDexFailure(displayName, error)
+                            }
+                        },
+                    )
+                    DexCacheManager.saveResolvedOwners(registry, coordinator, items)
+                    LocalDexResolutionResult(failures)
                 }
-                LocalDexResolutionResult(failures)
             }
+        } finally {
+            progressEvents.close()
+            reporter.join()
         }
     }
 }

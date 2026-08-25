@@ -5,6 +5,10 @@ package dev.ujhhgtg.wekit.dexkit.dsl
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.dexkit.DexMethodDescriptor
+import dev.ujhhgtg.wekit.dexkit.cache.isValidDexClassDescriptor
+import dev.ujhhgtg.wekit.dexkit.cache.isValidDexConstructorDescriptor
+import dev.ujhhgtg.wekit.dexkit.cache.isValidDexFieldDescriptor
+import dev.ujhhgtg.wekit.dexkit.cache.isValidDexMethodDescriptor
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionCoordinator
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionDiagnostic
@@ -119,6 +123,7 @@ sealed class BaseDexDelegate(
     abstract fun getDescriptorString(): String?
     abstract val isPlaceholder: Boolean
 
+    abstract fun isValidDescriptor(value: String): Boolean
     abstract fun isPlaceholderDescriptor(value: String): Boolean
 
     /** 从缓存字符串恢复状态 */
@@ -186,6 +191,7 @@ class DexClassDelegate internal constructor(
         get() = descriptorString == "com.tencent.mm.ui.LauncherUI"
 
     override fun isPlaceholderDescriptor(value: String) = value == "com.tencent.mm.ui.LauncherUI"
+    override fun isValidDescriptor(value: String) = isValidDexClassDescriptor(value)
 
     override fun getDescriptorString(): String? = descriptorString
     override fun loadDescriptor(value: String) = setDescriptor(value)
@@ -293,6 +299,7 @@ class DexFieldDelegate internal constructor(
         get() = descriptorString == PLACEHOLDER_FIELD_DESCRIPTOR
 
     override fun isPlaceholderDescriptor(value: String) = value == PLACEHOLDER_FIELD_DESCRIPTOR
+    override fun isValidDescriptor(value: String) = isValidDexFieldDescriptor(value)
 
     override fun getDescriptorString(): String? = descriptorString
     override fun loadDescriptor(value: String) = setDescriptor(value)
@@ -405,6 +412,7 @@ class DexMethodDelegate internal constructor(
         get() = descriptor?.descriptor == PLACEHOLDER_DESCRIPTOR
 
     override fun isPlaceholderDescriptor(value: String) = value == PLACEHOLDER_DESCRIPTOR
+    override fun isValidDescriptor(value: String) = isValidDexMethodDescriptor(value)
 
     fun setDescriptor(className: String, methodName: String, methodSign: String) =
         setDescriptor(DexMethodDescriptor(className, methodName, methodSign))
@@ -510,6 +518,8 @@ class DexConstructorDelegate internal constructor(
         get() = descriptor?.descriptor == PLACEHOLDER_DESCRIPTOR
 
     override fun isPlaceholderDescriptor(value: String) = value == PLACEHOLDER_DESCRIPTOR
+    override fun isValidDescriptor(value: String) =
+        isPlaceholderDescriptor(value) || isValidDexConstructorDescriptor(value)
 
     @Deprecated("You shouldn't call .reflekt() on a Constructor", level = DeprecationLevel.ERROR)
     fun reflekt(): Nothing = error("You shouldn't call .reflekt() on a Constructor")

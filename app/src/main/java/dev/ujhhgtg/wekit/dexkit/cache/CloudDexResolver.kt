@@ -79,6 +79,7 @@ internal object CloudDexResolver {
                                 id = delegate.stableId,
                                 producerId = producer.stableId,
                                 producerFingerprint = producer.metadata.localFingerprint,
+                                isValidDescriptor = delegate::isValidDescriptor,
                             )
                         },
                     )
