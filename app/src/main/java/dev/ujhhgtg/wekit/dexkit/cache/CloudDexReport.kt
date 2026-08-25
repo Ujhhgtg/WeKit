@@ -19,6 +19,7 @@ internal data class CurrentDexDelegate(
     val producerId: String,
     val producerFingerprint: String,
     val isValidDescriptor: (String) -> Boolean,
+    val isPlaceholderDescriptor: (String) -> Boolean,
 )
 
 internal data class CurrentDexOwner(
@@ -76,11 +77,12 @@ internal object CloudDexReport {
             for (delegateId in owner.delegates.keys.sorted()) {
                 val reportDelegate = featureDelegatesById[delegateId]?.singleOrNull()
                 val current = owner.delegates.getValue(delegateId)
+                val descriptor = reportDelegate?.descriptor
                 if (reportDelegate == null || reportDelegatesById[delegateId]?.size != 1 ||
                     reportDelegate.producerFingerprint != current.producerFingerprint ||
-                    !reportDelegate.isValidOutcome() ||
-                    reportDelegate.descriptor.isNullOrBlank() ||
-                    !current.isValidDescriptor(reportDelegate.descriptor) ||
+                    descriptor.isNullOrBlank() ||
+                    !current.isValidDescriptor(descriptor) ||
+                    !reportDelegate.hasValidClassification(current.isPlaceholderDescriptor(descriptor)) ||
                     reportDelegate.dependencies.size != reportDelegate.dependencies.distinct().size
                 ) {
                     invalidOwners += owner.ownerId
@@ -175,9 +177,9 @@ internal object CloudDexReport {
     private const val APK_PASS = "PASS"
     private val FEATURE_PASS_OUTCOMES = setOf("PASS", "PASS_WITH_EXPECTED_FAILURES")
 
-    private fun Delegate.isValidOutcome(): Boolean = when (status) {
-        DexResolutionStatus.SUCCESS -> !isPlaceholder
-        DexResolutionStatus.EXPECTED_FAILURE -> isPlaceholder
+    private fun Delegate.hasValidClassification(localIsPlaceholder: Boolean): Boolean = when (status) {
+        DexResolutionStatus.SUCCESS -> !isPlaceholder && !localIsPlaceholder
+        DexResolutionStatus.EXPECTED_FAILURE -> isPlaceholder && localIsPlaceholder
         else -> false
     }
 }

@@ -109,12 +109,25 @@ class CloudDexReportTest {
             .replace("\"id\":\"owner.Core#target\",\"status\":\"SUCCESS\"", "\"id\":\"owner.Core#target\",\"status\":\"EXPECTED_FAILURE\"")
             .replace(
                 "\"descriptor\":\"Lowner/Core;->target()V\",\"isPlaceholder\":false",
-                "\"descriptor\":\"Lcom/tencent/mm/ui/LauncherUI;->getInstance()Lcom/tencent/mm/ui/LauncherUI;\",\"isPlaceholder\":true",
+                "\"descriptor\":\"$METHOD_PLACEHOLDER\",\"isPlaceholder\":true",
             )
         assertEquals(4, CloudDexReport.select(expected, host, owners).entries.size)
 
-        val unexpected = expected.replace("\"status\":\"EXPECTED_FAILURE\"", "\"status\":\"SUCCESS\"")
-        assertEquals(listOf("Independent"), CloudDexReport.select(unexpected, host, owners).entries.map { it.technicalId })
+        val ordinaryClaimedPlaceholder = validReport()
+            .replace("\"id\":\"owner.Core#target\",\"status\":\"SUCCESS\"", "\"id\":\"owner.Core#target\",\"status\":\"EXPECTED_FAILURE\"")
+            .replace("\"descriptor\":\"Lowner/Core;->target()V\",\"isPlaceholder\":false", "\"descriptor\":\"Lowner/Core;->target()V\",\"isPlaceholder\":true")
+        assertEquals(
+            listOf("Independent"),
+            CloudDexReport.select(ordinaryClaimedPlaceholder, host, owners).entries.map { it.technicalId },
+        )
+
+        val sentinelClaimedSuccess = expected
+            .replace("\"status\":\"EXPECTED_FAILURE\"", "\"status\":\"SUCCESS\"")
+            .replace("\"isPlaceholder\":true", "\"isPlaceholder\":false")
+        assertEquals(
+            listOf("Independent"),
+            CloudDexReport.select(sentinelClaimedSuccess, host, owners).entries.map { it.technicalId },
+        )
     }
 
     @Test
@@ -154,6 +167,7 @@ class CloudDexReportTest {
                 "$id#target",
                 local,
                 ::isValidDexMethodDescriptor,
+                { it == METHOD_PLACEHOLDER },
             ),
         ),
     )
@@ -165,4 +179,9 @@ class CloudDexReportTest {
 
     private fun fingerprint(id: String, local: String, dependencies: Map<String, String> = emptyMap()) =
         effectiveFingerprint(DexProducerMetadata(id, id.substringBefore('#'), null, DexProducerKind.CUSTOM, local, false), dependencies)
+
+    private companion object {
+        const val METHOD_PLACEHOLDER =
+            "Lcom/tencent/mm/ui/LauncherUI;->getInstance()Lcom/tencent/mm/ui/LauncherUI;"
+    }
 }
