@@ -48,19 +48,19 @@ pub struct ApkIdentity {
 }
 
 #[derive(Clone, Debug)]
-pub struct DexKitNative {
-    pub version: String,
-    pub revision: String,
-    pub library_path: PathBuf,
-    pub architecture: String,
+pub(crate) struct DexKitNative {
+    pub(crate) version: String,
+    pub(crate) revision: String,
+    pub(crate) library_path: PathBuf,
+    pub(crate) architecture: String,
 }
 
 #[derive(Clone, Debug)]
-pub struct ApkMetadata {
-    pub version_code: i64,
-    pub version_name: String,
-    pub build_tag: String,
-    pub is_google_play: bool,
+pub(crate) struct ApkMetadata {
+    pub(crate) version_code: i64,
+    pub(crate) version_name: String,
+    pub(crate) build_tag: String,
+    pub(crate) is_google_play: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -414,7 +414,7 @@ pub fn report_file_names(identities: &[ApkIdentity]) -> Vec<String> {
         .collect()
 }
 
-fn ensure_linux_dexkit(root: &Path) -> Result<DexKitNative> {
+pub(crate) fn ensure_linux_dexkit(root: &Path) -> Result<DexKitNative> {
     if env::consts::OS != "linux" {
         bail!(
             "dex-test currently supports Linux only (detected {})",
@@ -543,7 +543,7 @@ fn find_named_file(root: &Path, name: &str) -> Option<PathBuf> {
         .and_then(|path| fs::canonicalize(path).ok())
 }
 
-fn read_apk_metadata(_root: &Path, apk: &Path) -> Result<ApkMetadata> {
+pub(crate) fn read_apk_metadata(_root: &Path, apk: &Path) -> Result<ApkMetadata> {
     let analyzer = find_apkanalyzer()
         .context("cannot find apkanalyzer under ANDROID_HOME/ANDROID_SDK_ROOT")?;
     let application_id = command_output(

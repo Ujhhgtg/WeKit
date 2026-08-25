@@ -45,6 +45,37 @@ configure<LibraryExtension> {
     }
 }
 
+val monetTestWorkerProperties = listOf(
+    "wekit.monetTest.inputKind",
+    "wekit.monetTest.inputPath",
+    "wekit.monetTest.nativeLibrary",
+    "wekit.monetTest.report",
+    "wekit.monetTest.dexKitVersion",
+    "wekit.monetTest.dexKitRevision",
+    "wekit.monetTest.versionCode",
+    "wekit.monetTest.versionName",
+    "wekit.monetTest.isGooglePlay",
+)
+val monetTestWorker = providers.gradleProperty("monetTestWorker").map(String::toBoolean).orElse(false)
+
+tasks.withType<Test>().configureEach {
+    if (monetTestWorker.get()) {
+        filter {
+            includeTestsMatching("dev.ujhhgtg.wekit.extensions.monettest.MonetTestWorkerTest")
+        }
+        monetTestWorkerProperties.forEach { propertyName ->
+            systemProperty(propertyName, providers.gradleProperty(propertyName).orNull.orEmpty())
+        }
+        maxHeapSize = "3g"
+        maxParallelForks = 1
+        outputs.upToDateWhen { false }
+    } else {
+        filter {
+            excludeTestsMatching("dev.ujhhgtg.wekit.extensions.monettest.MonetTestWorkerTest")
+        }
+    }
+}
+
 val r8Tool = configurations.detachedConfiguration(
     dependencies.create("com.android.tools:r8:8.7.18"),
 )
@@ -93,5 +124,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit.jupiter)
     testImplementation(project(":libs:monet-generator-api"))
+    testImplementation(project(":libs:monet-dex-evidence"))
+    testImplementation(libs.dexkit)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
