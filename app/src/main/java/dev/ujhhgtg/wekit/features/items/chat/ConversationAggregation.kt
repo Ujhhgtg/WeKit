@@ -119,14 +119,6 @@ object ConversationAggregation : ClickableFeature(),
     private val foldersFile by lazy { KnownPaths.moduleData / "chat_folders.json" }
 
     private const val CONTAINER_UI_NAME = "com.tencent.mm.ui.conversation.ConvBoxServiceConversationUI"
-    private val methodSqliteWrapperRawQuery by dexMethod(allowFailure = true) {
-        matcher {
-            modifiers = JavaModifier.PUBLIC
-            usingEqStrings("sql is null ", "DB IS CLOSED ! {%s}")
-            paramTypes("java.lang.String", "java.lang.String[]", "int")
-            returnType("android.database.Cursor")
-        }
-    }
     private val methodConversationStorageQueryByParent by dexMethod(allowFailure = true) {
         matcher {
             usingStrings(
@@ -177,14 +169,6 @@ object ConversationAggregation : ClickableFeature(),
     // attrflag bit on that exact row — wiping our folder's badge just for opening and leaving the
     // folder without touching any member. We no-op it for folder ids so the aggregate row keeps
     // reflecting its members' (still-unread) state.
-    private val methodConversationStorageUpdateUnreadByTalker by dexMethod(allowFailure = true) {
-        matcher {
-            usingStrings("MicroMsg.ConversationStorage", "updateUnreadByTalker %s", "update conversation failed")
-            paramTypes("java.lang.String")
-            returnType("boolean")
-        }
-    }
-
     // com.tencent.mm.ui.widget.menu.MMPopupMenu#showMenu(view, pos, id, onCreateListener, selectCb, x, y)
     // The shared long-press popup used by both the homepage list and the folder container. We hook
     // it (gated on activeFolderId) to inject a "remove from folder" item only inside our folders.
@@ -815,8 +799,8 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     private fun hookSqliteWrapperQuery() {
-        if (methodSqliteWrapperRawQuery.isPlaceholder) return
-        methodSqliteWrapperRawQuery.hookBefore {
+        if (WeDatabaseApi.methodSqliteWrapperRawQuery.isPlaceholder) return
+        WeDatabaseApi.methodSqliteWrapperRawQuery.hookBefore {
             if (suppressQueryRewrite.get()!!) return@hookBefore
             val sql = args.firstOrNull() as? String ?: return@hookBefore
             onQuery(sql)?.let { args[0] = it }
@@ -840,8 +824,7 @@ object ConversationAggregation : ClickableFeature(),
     // WeChat's folder container fires against our folder id, so exiting a folder without opening any
     // member never clears the aggregate row's unread badge.
     private fun hookConversationStorageUpdateUnread() {
-        if (methodConversationStorageUpdateUnreadByTalker.isPlaceholder) return
-        methodConversationStorageUpdateUnreadByTalker.hookBefore {
+        WeConversationApi.methodUpdateUnreadByTalker.hookBefore {
             val username = args.firstOrNull() as? String ?: return@hookBefore
             if (isFolderId(username)) result = true
         }

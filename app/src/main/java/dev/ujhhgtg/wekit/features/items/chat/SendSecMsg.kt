@@ -16,6 +16,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -82,16 +83,6 @@ object SendSecMsg : ClickableFeature(), IResolveDex {
     @Volatile
     private var pendingSecSend = false
 
-    // 消息入库方法 (文本发送 NetSceneSendMsg 构造时调用), (msgInfo, boolean) -> long
-    private val methodInsertMessage by dexMethod {
-        searchPackages("com.tencent.mm.storage")
-        matcher {
-            usingEqStrings("Error insert message msg:%s talker:%s")
-            paramCount(2)
-            returnType("long")
-        }
-    }
-
     // MsgSourceHelper 合并方法: static (msgInfo, String secXml, boolean) -> void
     private val methodMergeSecNode by dexMethod {
         matcher {
@@ -125,7 +116,7 @@ object SendSecMsg : ClickableFeature(), IResolveDex {
     }
 
     override fun onEnable() {
-        methodInsertMessage.hookBefore {
+        WeMessageApi.methodMsgInfoHandleApiInsertMessage.hookBefore {
             val msgInfo = MessageInfo(args[0]!!)
 
             // 只处理自己发送的文本消息 (isSend=1, type=1)

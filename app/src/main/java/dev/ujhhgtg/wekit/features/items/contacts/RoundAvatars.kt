@@ -35,17 +35,6 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
 
     private const val KEY_ROUND_AVATAR = "round_avatar_radius_factor"
 
-    private val methodLoadAvatar by dexMethod {
-        matcher {
-            paramTypes(
-                "android.widget.ImageView",
-                "java.lang.String",
-                "float",
-                "boolean"
-            )
-            usingEqStrings("MicroMsg.AvatarDrawable")
-        }
-    }
     private val ctorAvatarCreate by dexConstructor {
         matcher {
             usingEqStrings("workerScope", "username")
@@ -57,7 +46,7 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
         get() = WePrefs.getFloatOrDef(KEY_ROUND_AVATAR, 0.5f).coerceIn(0.1f, 0.5f)
 
     override fun onEnable() {
-        methodLoadAvatar.hookBefore {
+        CustomLocalFriendAvatars.methodConversationAvatar.hookBefore {
             setFloatArg(2, radiusFactor)
         }
 

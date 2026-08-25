@@ -17,9 +17,8 @@ import com.tencent.mm.ui.widget.imageview.WeImageView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.data
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
@@ -82,13 +81,6 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
     @Volatile
     private var suppressHistoryMsgTipUntil = 0L
 
-    /** ChattingContext (8.0.65 是 az4.c, 8.0.76 是 fd5.d)。 */
-    private val classChattingContext by dexClass {
-        matcher {
-            usingEqStrings("MicroMsg.ChattingContext", "[notifyDataSetChange]")
-        }
-    }
-
     /**
      * HistoryMsgTongueComponent 的初始化方法 (8.0.65 叫 a(), 8.0.76 叫 b()):
      * 在这里把组件实例与它的气泡 View 关联起来, 用稳定日志/追踪字符串锚定。
@@ -108,14 +100,6 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
     private val methodGetMsgCount by dexMethod {
         matcher {
             usingEqStrings("MicroMsg.MsgInfoStorage", "getMsgCount conversationStorage.getMsgCountByUsername count:%d")
-        }
-    }
-
-    /** ChattingContext.getTalker()。 */
-    private val methodChattingContextGetTalker by dexMethod {
-        matcher {
-            declaredClass(classChattingContext.data.name)
-            usingEqStrings("getTalker returns null.")
         }
     }
 
@@ -157,7 +141,7 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
                 .firstOrNull { it.isNewMessageBubble() } ?: return@hookAfter
             components[bubble] = component
             contexts[bubble] = fieldValues.firstOrNull {
-                classChattingContext.clazz.isInstance(it)
+                WeMessageApi.classChattingContext.clazz.isInstance(it)
             } ?: return@hookAfter
         }
         ChatFooter::class.reflekt().firstMethod { name = "onAttachedToWindow" }.hookAfter {
@@ -250,7 +234,7 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
             WeLogger.w(TAG, "component/context not captured, click ignored")
             return
         }
-        val talker = methodChattingContextGetTalker.method.invoke(context) as String
+        val talker = WeMessageApi.methodChattingContextGetTalker.method.invoke(context) as String
         val totalCount = msgCounts[talker] ?: run {
             WeLogger.w(TAG, "total message count not captured, click ignored")
             return

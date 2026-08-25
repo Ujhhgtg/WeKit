@@ -269,11 +269,11 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
     // own SQLite wrapper (n3 -> i0.a(sql, args, int)). We hook that wrapper directly, the same
     // chokepoint AggregateChats uses, and append our tab predicate to the SQL before it runs.
     private fun hookConversationListQuery() {
-        if (methodSqliteWrapperRawQuery.isPlaceholder) {
+        if (WeDatabaseApi.methodSqliteWrapperRawQuery.isPlaceholder) {
             WeLogger.w(TAG, "SQLite wrapper query method not resolved; tab filtering disabled")
             return
         }
-        methodSqliteWrapperRawQuery.hookBefore {
+        WeDatabaseApi.methodSqliteWrapperRawQuery.hookBefore {
             val sql = args.firstOrNull() as? String ?: return@hookBefore
             rewriteConversationListSql(sql)?.let { args[0] = it }
         }
@@ -333,15 +333,6 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
 
     // WeChat's SQLite wrapper query: i0.a(String sql, String[] args, int) -> Cursor. Same anchor
     // AggregateChats uses to intercept the homepage/folder list queries.
-    private val methodSqliteWrapperRawQuery by dexMethod(allowFailure = true) {
-        matcher {
-            modifiers = JavaModifier.PUBLIC
-            usingEqStrings("sql is null ", "DB IS CLOSED ! {%s}")
-            paramTypes("java.lang.String", "java.lang.String[]", "int")
-            returnType("android.database.Cursor")
-        }
-    }
-
     // ----------------------------------------------------------------------------------------------
     // Tab bar UI
     // ----------------------------------------------------------------------------------------------

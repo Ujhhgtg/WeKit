@@ -2,7 +2,10 @@ package dev.ujhhgtg.wekit.features.api.core
 
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -24,6 +27,40 @@ object WePaymentApi : ApiFeature(), IResolveDex {
                 usingEqStrings("Micromsg.NetSceneTenpayRemittanceConfirm", "/cgi-bin/mmpay-bin/transferoperation")
             }
             usingEqStrings("account click info , key is %s, value is %s")
+        }
+    }
+    internal val classReceiveLuckyMoney by dexClass {
+        matcher {
+            methods {
+                add {
+                    name = "<init>"
+                    usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoney")
+                }
+            }
+        }
+    }
+    internal val classOpenLuckyMoney by dexClass {
+        matcher {
+            methods {
+                add {
+                    name = "<init>"
+                    usingEqStrings("MicroMsg.NetSceneOpenLuckyMoney")
+                }
+            }
+        }
+    }
+    internal val methodReceiveLuckyMoneyOnGYNetEnd by dexMethod {
+        matcher {
+            declaredClass(classReceiveLuckyMoney.data.name)
+            name = "onGYNetEnd"
+            paramCount = 3
+        }
+    }
+    internal val methodOpenLuckyMoneyOnGYNetEnd by dexMethod {
+        matcher {
+            declaredClass(classOpenLuckyMoney.data.name)
+            name = "onGYNetEnd"
+            paramCount = 3
         }
     }
 

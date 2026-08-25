@@ -105,7 +105,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
     private fun currentMenuItems(): List<MenuItem> =
         providers.flatMap(IMenuItemsProvider::getMenuItems)
 
-    private val methodCreateMenu by dexMethod {
+    internal val methodCreateMenu by dexMethod {
         searchPackages("com.tencent.mm.ui.chatting.viewitems")
         matcher {
             usingEqStrings("MicroMsg.ChattingItem", "msg is null!")

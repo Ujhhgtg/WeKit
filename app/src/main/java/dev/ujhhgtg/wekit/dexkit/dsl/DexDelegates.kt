@@ -37,6 +37,8 @@ private const val PLACEHOLDER_DESCRIPTOR =
  * 每个委托负责自己的序列化/反序列化。
  */
 sealed class BaseDexDelegate(val key: String) {
+    internal lateinit var owner: BaseFeature
+
     var diagnostic = DexResolutionDiagnostic(DexResolutionStatus.PENDING)
         private set
 
@@ -608,16 +610,28 @@ inline fun DexKitBridge.findClassData(clazz: String): ClassData? =
     getClassData(clazz)
 
 val DexClassDelegate.data: ClassData
-    get() = DexResolutionContext.dexKit.getClassData(getDescriptorString()!!)!!
+    get() {
+        DexResolutionContext.ensureResolved(this)
+        return DexResolutionContext.dexKit.getClassData(getDescriptorString()!!)!!
+    }
 
 val DexMethodDelegate.data: MethodData
-    get() = DexResolutionContext.dexKit.getMethodData(getDescriptorString()!!)!!
+    get() {
+        DexResolutionContext.ensureResolved(this)
+        return DexResolutionContext.dexKit.getMethodData(getDescriptorString()!!)!!
+    }
 
 val DexConstructorDelegate.data: MethodData
-    get() = DexResolutionContext.dexKit.getMethodData(getDescriptorString()!!)!!
+    get() {
+        DexResolutionContext.ensureResolved(this)
+        return DexResolutionContext.dexKit.getMethodData(getDescriptorString()!!)!!
+    }
 
 val DexFieldDelegate.data: FieldData
-    get() = DexResolutionContext.dexKit.getFieldData(getDescriptorString()!!)!!
+    get() {
+        DexResolutionContext.ensureResolved(this)
+        return DexResolutionContext.dexKit.getFieldData(getDescriptorString()!!)!!
+    }
 
 // ---------------------------------------------------------------------------
 // 内联查找委托工厂函数

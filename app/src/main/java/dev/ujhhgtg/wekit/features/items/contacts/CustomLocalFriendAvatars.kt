@@ -209,7 +209,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
     }
 
     // com.tencent.mm.pluginsdk.ui.u.b
-    private val methodConversationAvatar by dexMethod {
+    internal val methodConversationAvatar by dexMethod {
         searchPackages("com.tencent.mm.pluginsdk.ui")
         matcher {
             usingEqStrings("MicroMsg.AvatarDrawable", "imageView is null")

@@ -83,7 +83,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
 
     // com.tencent.mm.booter.notification.x.d(x, String talker, String content, int, int, boolean)
     // args[1] is the talker wxid. Anchored on a log string unique to that method.
-    private val methodDealNotify by dexMethod {
+    internal val methodDealNotify by dexMethod {
         searchPackages("com.tencent.mm.booter.notification")
         matcher {
             paramCount(6)
@@ -95,14 +95,6 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     // as ConversationAggregation.methodConversationStorageUpdateUnreadByTalker. WeChat calls it
     // whenever a conversation's unread state is cleared (chat opened / marked read elsewhere), so
     // the accumulated MessagingStyle history for that talker is stale and should be dropped.
-    private val methodConversationStorageUpdateUnreadByTalker by dexMethod(allowFailure = true) {
-        matcher {
-            usingStrings("MicroMsg.ConversationStorage", "updateUnreadByTalker %s", "update conversation failed")
-            paramTypes("java.lang.String")
-            returnType("boolean")
-        }
-    }
-
     // WeChat's notification avatar loader. The declaring class is obfuscated and changes between
     // host versions, so it is resolved by the stable NotificationAvatar implementation markers.
     private val methodLoadNotificationAvatar by dexMethod {
@@ -729,10 +721,8 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         // WeChat calls ConversationStorage.updateUnreadByTalker(talker) when a conversation's
         // unread state is cleared outside our receiver (chat opened, read elsewhere, ...). Drop
         // that talker's accumulated history so the next notification doesn't replay stale messages.
-        if (!methodConversationStorageUpdateUnreadByTalker.isPlaceholder) {
-            methodConversationStorageUpdateUnreadByTalker.hookBefore {
-                clearConversationState(args[0] as String)
-            }
+        WeConversationApi.methodUpdateUnreadByTalker.hookBefore {
+            clearConversationState(args[0] as String)
         }
 
         Notification.Builder::class.reflekt()

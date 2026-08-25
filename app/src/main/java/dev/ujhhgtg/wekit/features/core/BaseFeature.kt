@@ -82,6 +82,7 @@ abstract class BaseFeature {
     private val _dexDelegates = mutableListOf<BaseDexDelegate>()
     val dexDelegates: List<BaseDexDelegate> get() = _dexDelegates
     internal fun registerDexDelegate(d: BaseDexDelegate) {
+        d.owner = this
         _dexDelegates += d
     }
 
