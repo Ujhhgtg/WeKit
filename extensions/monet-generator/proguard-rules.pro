@@ -1,10 +1,8 @@
--keep class dev.ujhhgtg.wekit.extensions.monet.api.** { *; }
-
--keep public class dev.ujhhgtg.wekit.extensions.monet.MonetGeneratorEntrypointV2 {
+-keep public class dev.ujhhgtg.wekit.extensions.monet.MonetGeneratorEntrypointV1 {
     public <init>();
-    public dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResultV2 generate(
-        dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequestV2,
-        dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationListenerV2
+    public dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResult generate(
+        dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequest,
+        dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationListener
     );
 }
 

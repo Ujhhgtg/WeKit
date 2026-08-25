@@ -5,9 +5,9 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Extension
 import dalvik.system.DelegateLastClassLoader
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_API_VERSION_V2
-import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_ENTRYPOINT_V2
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGeneratorApiV2
+import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_API_VERSION
+import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_ENTRYPOINT_V1
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGeneratorApiV1
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import java.io.File
@@ -40,8 +40,8 @@ object MonetGeneratorPack : ExtensionPack {
         val paths = MonetInstallPaths.resolve(installDir(), manifest.version)
         val metadata = MonetExtensionArchive.verifyInstalled(
             paths.destination,
-            MONET_GENERATOR_API_VERSION_V2,
-            MONET_GENERATOR_ENTRYPOINT_V2,
+            MONET_GENERATOR_API_VERSION,
+            MONET_GENERATOR_ENTRYPOINT_V1,
         )
         val installedDex = paths.destination.resolve("classes.dex")
         val payloadDir = paths.destination.resolve("payload")
@@ -58,10 +58,10 @@ object MonetGeneratorPack : ExtensionPack {
             dex.absolutePath,
             MonetGeneratorPack::class.java.classLoader,
         )
-        val instance = loader.loadClass(MONET_GENERATOR_ENTRYPOINT_V2)
+        val instance = loader.loadClass(MONET_GENERATOR_ENTRYPOINT_V1)
             .getDeclaredConstructor()
             .newInstance()
-        require(instance is MonetGeneratorApiV2) { "incompatible Monet generator entrypoint" }
+        require(instance is MonetGeneratorApiV1) { "incompatible Monet generator entrypoint" }
         cachedLoader = loader
         return Resolved(instance, payloadDir).also { cachedResolution = it }
     }
@@ -85,8 +85,8 @@ object MonetGeneratorPack : ExtensionPack {
             MonetExtensionArchive.extractAndVerify(
                 verifiedTmp,
                 staging,
-                MONET_GENERATOR_API_VERSION_V2,
-                MONET_GENERATOR_ENTRYPOINT_V2,
+                MONET_GENERATOR_API_VERSION,
+                MONET_GENERATOR_ENTRYPOINT_V1,
             )
             PackFs.writeManifest(
                 staging,
@@ -115,7 +115,7 @@ object MonetGeneratorPack : ExtensionPack {
     }
 
     internal class Resolved(
-        val generator: MonetGeneratorApiV2,
+        val generator: MonetGeneratorApiV1,
         val payloadDir: File,
     )
 }

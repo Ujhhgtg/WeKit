@@ -1,4 +1,0 @@
-微信莫奈取色 Pro v26S4
-Common upstream authors: 枯れ木, H_1e93d, HSSkyBoy
-Source ZIP SHA-256: 87a7e6ae6ad3cccf55071a8bf77de94301ff5ce99d060c446e2932f6c4d46447
-WeKit performs deterministic template normalization and runtime resource adaptation.

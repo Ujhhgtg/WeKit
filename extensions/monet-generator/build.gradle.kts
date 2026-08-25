@@ -1,9 +1,6 @@
 import com.android.build.api.dsl.LibraryExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-val play3084ApksProperty = "wekit.monet.play3084Apks"
-val play3084Apks = providers.systemProperty(play3084ApksProperty)
-
 plugins {
     id("com.android.base")
     id("com.android.library")
@@ -36,45 +33,7 @@ configure<LibraryExtension> {
     }
 
     testOptions {
-        unitTests.all { test ->
-            test.useJUnitPlatform()
-            play3084Apks.orNull?.let { path ->
-                test.systemProperty(play3084ApksProperty, path)
-            }
-        }
-    }
-}
-
-val monetTestWorkerProperties = listOf(
-    "wekit.monetTest.inputKind",
-    "wekit.monetTest.inputPath",
-    "wekit.monetTest.nativeLibrary",
-    "wekit.monetTest.report",
-    "wekit.monetTest.dexKitVersion",
-    "wekit.monetTest.dexKitRevision",
-    "wekit.monetTest.versionCode",
-    "wekit.monetTest.versionName",
-    "wekit.monetTest.isGooglePlay",
-)
-val monetTestWorker = providers.gradleProperty("monetTestWorker").map(String::toBoolean).orElse(false)
-
-tasks.withType<Test>().configureEach {
-    if (monetTestWorker.get()) {
-        filter {
-            includeTestsMatching("dev.ujhhgtg.wekit.extensions.monettest.MonetTestWorkerTest")
-        }
-        monetTestWorkerProperties.forEach { propertyName ->
-            providers.gradleProperty(propertyName).orNull
-                ?.takeIf(String::isNotBlank)
-                ?.let { value -> systemProperty(propertyName, value) }
-        }
-        maxHeapSize = "3g"
-        maxParallelForks = 1
-        outputs.upToDateWhen { false }
-    } else {
-        filter {
-            excludeTestsMatching("dev.ujhhgtg.wekit.extensions.monettest.MonetTestWorkerTest")
-        }
+        unitTests.all { it.useJUnitPlatform() }
     }
 }
 
@@ -125,8 +84,5 @@ dependencies {
     implementation(libs.bouncycastle.pkix)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit.jupiter)
-    testImplementation(project(":libs:monet-generator-api"))
-    testImplementation(project(":libs:monet-dex-evidence"))
-    testImplementation(libs.dexkit)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

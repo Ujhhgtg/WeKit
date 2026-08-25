@@ -54,36 +54,25 @@ internal object MonetExtensionArchive {
     private const val METADATA_NAME = "extension.json"
     private const val PACK_MANIFEST_NAME = "manifest.json"
     private const val PAYLOAD_DIR_NAME = "payload"
-    private const val TEMPLATES_DIR_NAME = "payload/templates"
     private const val KIB = 1024L
     private const val MIB = 1024L * KIB
     private const val METADATA_MAX_BYTES = 16L * KIB
+    private const val AGGREGATE_MAX_BYTES = 16L * MIB
 
     private val json = Json { ignoreUnknownKeys = true }
     private val sha256 = Regex("[0-9a-fA-F]{64}")
 
     private val runtimeLimits = linkedMapOf(
         "classes.dex" to 8L * MIB,
-        "payload/templates/template_base_api31.apk" to MIB,
-        "payload/templates/template_base_api34.apk" to MIB,
-        "payload/templates/template_blur_tab.apk" to MIB,
-        "payload/templates/template_classic.apk" to MIB,
-        "payload/templates/template_corners.apk" to MIB,
-        "payload/templates/template_pro.apk" to MIB,
-        "payload/templates/template_solid_tab.apk" to MIB,
-        "payload/monet_roles.json" to 2L * MIB,
-        "payload/monet_profiles.json" to 2L * MIB,
-        "payload/upstream.txt" to 64L * KIB,
         "payload/customize.sh" to 64L * KIB,
-        "payload/common.sh" to 64L * KIB,
-        "payload/service.sh" to 64L * KIB,
-        "payload/boot-completed.sh" to 64L * KIB,
+        "payload/monet_tables.json" to MIB,
+        "payload/template_api31.apk" to MIB,
+        "payload/template_api34.apk" to MIB,
         "payload/update-binary" to 64L * KIB,
         "payload/updater-script" to 64L * KIB,
     )
     private val requiredFiles = runtimeLimits.keys
     private val archiveLimits = runtimeLimits + (METADATA_NAME to METADATA_MAX_BYTES)
-    private val aggregateMaxBytes = runtimeLimits.values.sum() + METADATA_MAX_BYTES
 
     fun extractAndVerify(
         archive: File,
@@ -113,7 +102,7 @@ internal object MonetExtensionArchive {
                     require(entry.size <= limit) {
                         "Monet extension entry exceeds size limit: ${entry.name}"
                     }
-                    require(entry.size <= aggregateMaxBytes - declaredBytes) {
+                    require(entry.size <= AGGREGATE_MAX_BYTES - declaredBytes) {
                         "Monet extension exceeds aggregate size limit"
                     }
                     declaredBytes += entry.size
@@ -124,7 +113,7 @@ internal object MonetExtensionArchive {
                 "Monet extension archive entries do not match the fixed runtime layout"
             }
 
-            val limiter = MonetExtractionLimiter(aggregateMaxBytes)
+            val limiter = MonetExtractionLimiter(AGGREGATE_MAX_BYTES)
             val metadataEntry = entries.single { it.name == METADATA_NAME }
             val metadataBytes = ByteArrayOutputStream().use { output ->
                 zip.getInputStream(metadataEntry).use { input ->
@@ -231,24 +220,11 @@ internal object MonetExtensionArchive {
         }
         val expectedPayloadNames = requiredFiles
             .filter { it.startsWith("$PAYLOAD_DIR_NAME/") }
-            .mapTo(mutableSetOf()) { it.substringAfter('/').substringBefore('/') }
+            .mapTo(mutableSetOf()) { it.substringAfter('/') }
         val payloadEntries = payloadDir.listFiles()
             ?: throw IllegalArgumentException("cannot list Monet extension payload directory")
         require(payloadEntries.mapTo(mutableSetOf()) { it.name } == expectedPayloadNames) {
             "Monet extension payload layout mismatch"
-        }
-
-        val templatesDir = containedDestination(directory, canonical, TEMPLATES_DIR_NAME)
-        require(Files.isDirectory(templatesDir.toPath(), LinkOption.NOFOLLOW_LINKS)) {
-            "missing Monet extension templates directory"
-        }
-        val expectedTemplateNames = requiredFiles
-            .filter { it.startsWith("$TEMPLATES_DIR_NAME/") }
-            .mapTo(mutableSetOf()) { it.substringAfterLast('/') }
-        val templateEntries = templatesDir.listFiles()
-            ?: throw IllegalArgumentException("cannot list Monet extension templates directory")
-        require(templateEntries.mapTo(mutableSetOf()) { it.name } == expectedTemplateNames) {
-            "Monet extension templates layout mismatch"
         }
 
         var aggregateBytes = requireFileWithinLimit(
@@ -257,13 +233,11 @@ internal object MonetExtensionArchive {
             METADATA_MAX_BYTES,
         )
         val packManifest = containedDestination(directory, canonical, PACK_MANIFEST_NAME)
-        if (Files.exists(packManifest.toPath(), LinkOption.NOFOLLOW_LINKS)) {
-            requireRegularFile(packManifest, PACK_MANIFEST_NAME)
-        }
+        if (packManifest.exists()) requireRegularFile(packManifest, PACK_MANIFEST_NAME)
         for ((name, limit) in runtimeLimits) {
             val file = containedDestination(directory, canonical, name)
             aggregateBytes += requireFileWithinLimit(file, name, limit)
-            require(aggregateBytes <= aggregateMaxBytes) {
+            require(aggregateBytes <= AGGREGATE_MAX_BYTES) {
                 "Monet extension exceeds aggregate size limit"
             }
             require(PackFs.verify(file, metadata.files.getValue(name))) {

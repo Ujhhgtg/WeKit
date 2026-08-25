@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.extensions
 
-import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_API_VERSION_V2
-import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_ENTRYPOINT_V2
+import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_API_VERSION
+import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_ENTRYPOINT_V1
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -13,7 +13,6 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -29,8 +28,8 @@ class MonetExtensionArchiveTest {
 
         val metadata = extract(archive, staging)
 
-        assertEquals(MONET_GENERATOR_API_VERSION_V2, metadata.apiVersion)
-        assertEquals(MONET_GENERATOR_ENTRYPOINT_V2, metadata.entrypoint)
+        assertEquals(MONET_GENERATOR_API_VERSION, metadata.apiVersion)
+        assertEquals(MONET_GENERATOR_ENTRYPOINT_V1, metadata.entrypoint)
         assertEquals(FILE_CONTENTS.keys, metadata.files.keys)
         FILE_CONTENTS.forEach { (name, content) ->
             assertEquals(content, staging.resolve(name).readText())
@@ -94,28 +93,6 @@ class MonetExtensionArchiveTest {
     }
 
     @Test
-    fun `unexpected aapt2 is rejected`() {
-        val archive = writeArchive(extraEntries = mapOf("payload/aapt2" to "compiler"))
-
-        val error = assertThrows(IllegalArgumentException::class.java) {
-            extract(archive, temp.resolve("aapt2-staging"))
-        }
-
-        assertEquals("unexpected Monet extension entry: payload/aapt2", error.message)
-    }
-
-    @Test
-    fun `unexpected old service script is rejected`() {
-        val archive = writeArchive(extraEntries = mapOf("payload/service-old.sh" to "legacy"))
-
-        val error = assertThrows(IllegalArgumentException::class.java) {
-            extract(archive, temp.resolve("old-service-staging"))
-        }
-
-        assertEquals("unexpected Monet extension entry: payload/service-old.sh", error.message)
-    }
-
-    @Test
     fun `missing classes dex is rejected`() {
         val archive = writeArchive(actualFiles = FILE_CONTENTS - "classes.dex")
 
@@ -125,22 +102,8 @@ class MonetExtensionArchiveTest {
     }
 
     @Test
-    fun `missing boot completed script is rejected`() {
-        val archive = writeArchive(actualFiles = FILE_CONTENTS - "payload/boot-completed.sh")
-
-        val error = assertThrows(IllegalArgumentException::class.java) {
-            extract(archive, temp.resolve("missing-boot-staging"))
-        }
-
-        assertEquals(
-            "Monet extension archive entries do not match the fixed runtime layout",
-            error.message,
-        )
-    }
-
-    @Test
     fun `API version mismatch is rejected`() {
-        val archive = writeArchive(apiVersion = MONET_GENERATOR_API_VERSION_V2 + 1)
+        val archive = writeArchive(apiVersion = MONET_GENERATOR_API_VERSION + 1)
 
         assertThrows(IllegalArgumentException::class.java) { extract(archive, temp.resolve("api-staging")) }
     }
@@ -204,52 +167,16 @@ class MonetExtensionArchiveTest {
 
         MonetExtensionArchive.verifyInstalled(
             staging,
-            MONET_GENERATOR_API_VERSION_V2,
-            MONET_GENERATOR_ENTRYPOINT_V2,
+            MONET_GENERATOR_API_VERSION,
+            MONET_GENERATOR_ENTRYPOINT_V1,
         )
-        staging.resolve("payload/monet_roles.json").writeText("corrupted")
+        staging.resolve("payload/monet_tables.json").writeText("corrupted")
 
         assertThrows(IllegalArgumentException::class.java) {
             MonetExtensionArchive.verifyInstalled(
                 staging,
-                MONET_GENERATOR_API_VERSION_V2,
-                MONET_GENERATOR_ENTRYPOINT_V2,
-            )
-        }
-    }
-
-    @Test
-    fun `installed directory rejects dangling manifest symlink`() {
-        val staging = temp.resolve("installed-dangling-manifest-staging")
-        extract(writeArchive(), staging)
-        Files.createSymbolicLink(
-            staging.resolve("manifest.json").toPath(),
-            staging.resolve("missing-manifest-target").toPath(),
-        )
-
-        assertThrows(IllegalArgumentException::class.java) {
-            MonetExtensionArchive.verifyInstalled(
-                staging,
-                MONET_GENERATOR_API_VERSION_V2,
-                MONET_GENERATOR_ENTRYPOINT_V2,
-            )
-        }
-    }
-
-    @Test
-    fun `installed directory rejects manifest symlink to regular file`() {
-        val staging = temp.resolve("installed-manifest-link-staging")
-        extract(writeArchive(), staging)
-        Files.createSymbolicLink(
-            staging.resolve("manifest.json").toPath(),
-            File("extension.json").toPath(),
-        )
-
-        assertThrows(IllegalArgumentException::class.java) {
-            MonetExtensionArchive.verifyInstalled(
-                staging,
-                MONET_GENERATOR_API_VERSION_V2,
-                MONET_GENERATOR_ENTRYPOINT_V2,
+                MONET_GENERATOR_API_VERSION,
+                MONET_GENERATOR_ENTRYPOINT_V1,
             )
         }
     }
@@ -263,8 +190,8 @@ class MonetExtensionArchiveTest {
         assertThrows(IllegalArgumentException::class.java) {
             MonetExtensionArchive.verifyInstalled(
                 staging,
-                MONET_GENERATOR_API_VERSION_V2,
-                MONET_GENERATOR_ENTRYPOINT_V2,
+                MONET_GENERATOR_API_VERSION,
+                MONET_GENERATOR_ENTRYPOINT_V1,
             )
         }
     }
@@ -275,14 +202,14 @@ class MonetExtensionArchiveTest {
         extract(writeArchive(), staging)
         staging.resolve("extension.json").writeText(
             staging.resolve("extension.json").readText()
-                .replace("\"apiVersion\":2", "\"apiVersion\":3"),
+                .replace("\"apiVersion\":1", "\"apiVersion\":2"),
         )
 
         assertThrows(IllegalArgumentException::class.java) {
             MonetExtensionArchive.verifyInstalled(
                 staging,
-                MONET_GENERATOR_API_VERSION_V2,
-                MONET_GENERATOR_ENTRYPOINT_V2,
+                MONET_GENERATOR_API_VERSION,
+                MONET_GENERATOR_ENTRYPOINT_V1,
             )
         }
     }
@@ -301,20 +228,10 @@ class MonetExtensionArchiveTest {
     fun `each runtime entry enforces its declared size limit`() {
         val limits = linkedMapOf(
             "classes.dex" to 8 * 1024 * 1024,
-            "payload/templates/template_base_api31.apk" to 1024 * 1024,
-            "payload/templates/template_base_api34.apk" to 1024 * 1024,
-            "payload/templates/template_blur_tab.apk" to 1024 * 1024,
-            "payload/templates/template_classic.apk" to 1024 * 1024,
-            "payload/templates/template_corners.apk" to 1024 * 1024,
-            "payload/templates/template_pro.apk" to 1024 * 1024,
-            "payload/templates/template_solid_tab.apk" to 1024 * 1024,
-            "payload/monet_roles.json" to 2 * 1024 * 1024,
-            "payload/monet_profiles.json" to 2 * 1024 * 1024,
-            "payload/upstream.txt" to 64 * 1024,
+            "payload/template_api31.apk" to 1024 * 1024,
+            "payload/template_api34.apk" to 1024 * 1024,
+            "payload/monet_tables.json" to 1024 * 1024,
             "payload/customize.sh" to 64 * 1024,
-            "payload/common.sh" to 64 * 1024,
-            "payload/service.sh" to 64 * 1024,
-            "payload/boot-completed.sh" to 64 * 1024,
             "payload/update-binary" to 64 * 1024,
             "payload/updater-script" to 64 * 1024,
         )
@@ -332,25 +249,6 @@ class MonetExtensionArchiveTest {
                 name,
             )
         }
-    }
-
-    @Test
-    fun `oversized template is rejected`() {
-        val name = "payload/templates/template_blur_tab.apk"
-        val actualFiles = FILE_CONTENTS + (name to "x".repeat(1024 * 1024 + 1))
-        val archive = writeArchive(
-            actualFiles = actualFiles,
-            declaredHashes = hashes(actualFiles),
-        )
-
-        val error = assertThrows(IllegalArgumentException::class.java) {
-            extract(archive, temp.resolve("oversized-template-staging"))
-        }
-
-        assertEquals(
-            "Monet extension entry exceeds size limit: $name",
-            error.message,
-        )
     }
 
     @Test
@@ -394,15 +292,15 @@ class MonetExtensionArchiveTest {
         MonetExtensionArchive.extractAndVerify(
             archive,
             staging,
-            MONET_GENERATOR_API_VERSION_V2,
-            MONET_GENERATOR_ENTRYPOINT_V2,
+            MONET_GENERATOR_API_VERSION,
+            MONET_GENERATOR_ENTRYPOINT_V1,
         )
 
     private fun writeArchive(
         actualFiles: Map<String, String> = FILE_CONTENTS,
         declaredHashes: Map<String, String> = hashes(FILE_CONTENTS),
-        apiVersion: Int = MONET_GENERATOR_API_VERSION_V2,
-        entrypoint: String = MONET_GENERATOR_ENTRYPOINT_V2,
+        apiVersion: Int = MONET_GENERATOR_API_VERSION,
+        entrypoint: String = MONET_GENERATOR_ENTRYPOINT_V1,
         extraEntries: Map<String, String> = emptyMap(),
         metadataPaddingBytes: Int = 0,
     ): File {
@@ -459,20 +357,10 @@ class MonetExtensionArchiveTest {
     private companion object {
         val FILE_CONTENTS = linkedMapOf(
             "classes.dex" to "dex",
-            "payload/templates/template_base_api31.apk" to "base-api31",
-            "payload/templates/template_base_api34.apk" to "base-api34",
-            "payload/templates/template_blur_tab.apk" to "blur-tab",
-            "payload/templates/template_classic.apk" to "classic",
-            "payload/templates/template_corners.apk" to "corners",
-            "payload/templates/template_pro.apk" to "pro",
-            "payload/templates/template_solid_tab.apk" to "solid-tab",
-            "payload/monet_roles.json" to "roles",
-            "payload/monet_profiles.json" to "profiles",
-            "payload/upstream.txt" to "credits",
             "payload/customize.sh" to "customize",
-            "payload/common.sh" to "common",
-            "payload/service.sh" to "service",
-            "payload/boot-completed.sh" to "boot",
+            "payload/monet_tables.json" to "tables",
+            "payload/template_api31.apk" to "api31",
+            "payload/template_api34.apk" to "api34",
             "payload/update-binary" to "binary",
             "payload/updater-script" to "script",
         )

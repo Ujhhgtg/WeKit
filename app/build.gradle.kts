@@ -294,7 +294,6 @@ dependencies {
     implementation(libs.mmkv)
 
     implementation(project(":libs:common:bsh"))
-    implementation(project(":libs:monet-dex-evidence"))
     implementation(project(":libs:monet-generator-api"))
 
     compileOnly(libs.legacyxposed.api)

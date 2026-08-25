@@ -1,8 +1,6 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
-import com.android.apksig.ApkVerifier
 import com.android.apksig.KeyConfig
-import com.reandroid.archive.block.SignatureId
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder
 import org.bouncycastle.jce.provider.BouncyCastleProvider
@@ -23,15 +21,6 @@ internal object MonetApkSigner {
     }
 
     fun sign(unsignedApk: File, signedApk: File, minSdk: Int) {
-        require(unsignedApk.isFile) { "Unsigned Monet overlay does not exist: $unsignedApk" }
-        require(unsignedApk.canonicalFile != signedApk.canonicalFile) {
-            "Monet signer input and output must be different files"
-        }
-        loadMonetTemplate(unsignedApk).use { apk ->
-            require(apk.androidManifest.minSdkVersion == minSdk) {
-                "Monet signer minSdk $minSdk disagrees with manifest ${apk.androidManifest.minSdkVersion}"
-            }
-        }
         val kpg = KeyPairGenerator.getInstance("RSA")
         kpg.initialize(2048)
         val keyPair = kpg.generateKeyPair()
@@ -67,44 +56,5 @@ internal object MonetApkSigner {
             .setMinSdkVersion(minSdk)
             .build()
             .sign()
-
-        verifySignedApk(signedApk)
-    }
-
-    internal fun verifySignedApk(signedApk: File) {
-        val v3Verification = ApkVerifier.Builder(signedApk).build().verify()
-        require(v3Verification.isVerified && v3Verification.isVerifiedUsingV3Scheme) {
-            "Signed Monet overlay failed APK Signature Scheme v3 verification: " +
-                v3Verification.errors
-        }
-        val v2Verification = ApkVerifier.Builder(signedApk)
-            .setMinCheckedPlatformVersion(24)
-            .setMaxCheckedPlatformVersion(27)
-            .build()
-            .verify()
-        require(v2Verification.isVerified && v2Verification.isVerifiedUsingV2Scheme) {
-            "Signed Monet overlay failed APK Signature Scheme v2 verification: " +
-                v2Verification.errors
-        }
-        val v2Certificates = v2Verification.signerCertificates
-        val v3Certificates = v3Verification.signerCertificates
-        require(
-            v2Certificates.size == 1 &&
-                v3Certificates.size == 1 &&
-                v2Certificates.single().encoded.contentEquals(v3Certificates.single().encoded),
-        ) {
-            "Signed Monet overlay v2 and v3 signer identities differ"
-        }
-        loadMonetTemplate(signedApk).use { apk ->
-            val signatures = requireNotNull(apk.apkSignatureBlock) {
-                "Signed Monet overlay has no APK signing block"
-            }
-            require(signatures.getSignature(SignatureId.V2) != null) {
-                "Signed Monet overlay has no APK Signature Scheme v2 block"
-            }
-            require(signatures.getSignature(SignatureId.V3) != null) {
-                "Signed Monet overlay has no APK Signature Scheme v3 block"
-            }
-        }
     }
 }
