@@ -122,19 +122,6 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
             returnType("com.tencent.mm.plugin.sns.storage.SnsInfo")
         }
     }
-    private val methodGetSnsInfoStorage by dexMethod {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
-            modifiers = Modifier.STATIC
-            returnType(methodSnsInfoStorage.data.declaredClassName)
-            paramCount(0)
-            usingStrings(
-                "com.tencent.mm.plugin.sns.model.SnsCore",
-                "getSnsInfoStorage"
-            )
-        }
-    }
-
     override fun onEnable() {
         methodOnCreateMenu.method.hookAfter {
             handleCreateMenu(this)
@@ -268,7 +255,7 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
     private fun getSnsInfoByLocalId(localId: String): Any? {
         if (localId.isBlank()) return null
         return runCatching {
-            val storage = methodGetSnsInfoStorage.method.invoke(null)
+            val storage = WeMomentsApi.methodGetSnsInfoStorage.method.invoke(null)
             methodSnsInfoStorage.method.invoke(storage, localId)
         }.getOrElse { error ->
             WeLogger.e(TAG, "failed to get Moments snsInfo by localId=$localId", error)

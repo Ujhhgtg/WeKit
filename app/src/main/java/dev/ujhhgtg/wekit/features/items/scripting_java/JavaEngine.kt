@@ -844,7 +844,7 @@ object JavaEngine {
 //                        val sendMsgObject = WeMessageApi.methodGetSendMsgObject.method.invoke(null) ?: return@thread
                             val msgObj = WeMessageApi.classNetSceneSendMsg.clazz.createInstance(toUser, text, 1, 0, null)
 
-                            val queue = WeNetSceneApi.classMmKernel.clazz.reflekt()
+                            val queue = WeDatabaseApi.classMmKernel.clazz.reflekt()
                                 .firstMethod {
                                     returnType = WeNetSceneApi.methodAddNetSceneToQueue.method.declaringClass
                                 }.invokeStatic()!!

@@ -7,6 +7,7 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -103,9 +104,7 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
     }
 
     override fun resolveDex(dexKit: DexKitBridge) {
-        val latestStatusMethod = dexKit.getMethodData(
-            methodLatestStatusByUsername.getDescriptorString()!!,
-        )!!
+        val latestStatusMethod = methodLatestStatusByUsername.data
         val storageInterface = latestStatusMethod.declaredClass!!.interfaces.single { candidate ->
             candidate.methods.any { method ->
                 method.methodName == latestStatusMethod.methodName &&
@@ -125,12 +124,8 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
             }
         }
 
-        val topicInfoMethod = dexKit.getMethodData(
-            methodTextStatusTopicInfo.getDescriptorString()!!,
-        )!!
-        val setIconMethod = dexKit.getMethodData(
-            methodSetTextStatusIcon.getDescriptorString()!!,
-        )!!
+        val topicInfoMethod = methodTextStatusTopicInfo.data
+        val setIconMethod = methodSetTextStatusIcon.data
         val iconHelperType = setIconMethod.paramTypeNames.first()
         val iconHelperAccessor = dexKit.findMethod {
             matcher {

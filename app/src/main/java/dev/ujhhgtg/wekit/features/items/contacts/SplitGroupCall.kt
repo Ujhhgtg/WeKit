@@ -84,7 +84,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     private val classSubCoreMultiTalk by dexClass()
 
     /** com.tencent.mm.plugin.multitalk.model.v0 —— MultiTalkManager. */
-    private val methodExitMultiTalk by dexMethod()
+    internal val methodExitMultiTalk by dexMethod()
 
     /** com.tencent.mm.plugin.multitalk.ilinkservice.i4 —— ILinkService (enum, 单例 INSTANCE). */
     private val classILinkService by dexClass()
@@ -96,7 +96,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     private val classInviteTask by dexClass()
 
     /** e3.Ri() —— 获取 MultiTalkManager 单例. */
-    private val methodGetMultiTalkManager by dexMethod()
+    internal val methodGetMultiTalkManager by dexMethod()
 
     /** v0.D(e4) —— 设置通话状态 (onChangeMultiTalkStatus). */
     private val methodSetStatus by dexMethod()
@@ -232,7 +232,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
 
         methodGetMultiTalkManager.find(dexKit) {
             matcher {
-                declaredClass = classSubCoreMultiTalk.getDescriptorString()!!
+                declaredClass = classSubCoreMultiTalk.data.name
                 modifiers = ReflectModifier.STATIC or ReflectModifier.PUBLIC
                 returnType = methodExitMultiTalk.data.declaredClassName
             }
@@ -256,7 +256,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
 
         methodSetName.find(dexKit) {
             matcher {
-                declaredClass = classILinkService.getDescriptorString()!!
+                declaredClass = classILinkService.data.name
                 paramCount = 2
                 usingStrings("set name=%s, uin=%d")
             }
@@ -264,7 +264,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
 
         methodPostTask.find(dexKit) {
             matcher {
-                declaredClass = classILinkService.getDescriptorString()!!
+                declaredClass = classILinkService.data.name
                 paramCount = 1
                 paramTypes("java.lang.Runnable")
             }
@@ -272,10 +272,10 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
 
         ctorInviteTask.find(dexKit) {
             matcher {
-                declaredClass = classInviteTask.getDescriptorString()!!
+                declaredClass = classInviteTask.data.name
                 paramCount = 3
                 paramTypes(
-                    classILinkService.getDescriptorString()!!,
+                    classILinkService.data.name,
                     "java.util.ArrayList",
                     "java.lang.String",
                 )
@@ -288,14 +288,14 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                     usingStrings("Hangup ret:")
                 }
                 paramCount = 2
-                paramTypes(classILinkService.getDescriptorString()!!, "int")
+                paramTypes(classILinkService.data.name, "int")
             }
         }
 
         fieldILinkInstance.find(dexKit) {
             matcher {
-                declaredClass = classILinkService.getDescriptorString()!!
-                type = classILinkService.getDescriptorString()!!
+                declaredClass = classILinkService.data.name
+                type = classILinkService.data.name
                 modifiers = ReflectModifier.PUBLIC or ReflectModifier.STATIC or ReflectModifier.FINAL
             }
         }
@@ -303,7 +303,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
         val iLinkServiceName = classILinkService.data.name
         val readerMethod = dexKit.findMethod {
             matcher {
-                declaredClass = classILinkService.getDescriptorString()!!
+                declaredClass = classILinkService.data.name
                 usingStrings("start audio device failed")
             }
         }.single()
