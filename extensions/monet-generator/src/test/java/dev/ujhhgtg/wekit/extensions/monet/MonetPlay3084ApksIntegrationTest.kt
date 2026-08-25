@@ -1,6 +1,9 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetDexCandidate
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetDexEvidenceProvider
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetMethodDexEvidence
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetResourceDexEvidence
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -96,16 +99,15 @@ class MonetPlay3084ApksIntegrationTest {
                 }
             }
             assertTrue(violations.isEmpty(), violations.joinToString("\n"))
+            val fullGraphDexProvider = RecordingAuditedDexProvider()
             val resolved = MonetResourceResolver.resolve(
                 graph = graph,
                 catalog = catalog,
                 profiles = listOf(profile.toResolutionProfile()),
                 sdkInt = 36,
-                provider = object : MonetDexEvidenceProvider {
-                    override fun query(candidates: List<dev.ujhhgtg.wekit.extensions.monet.api.MonetDexCandidate>) =
-                        error("audited catalog unexpectedly requested Dex evidence: $candidates")
-                },
+                provider = fullGraphDexProvider,
             )
+            assertEquals(listOf(AUDITED_DEX_CANDIDATE_IDS), fullGraphDexProvider.requestedIdSets)
             assertEquals(profile.roles, resolved.resolved.mapValues { it.value.key })
 
             val representativeInstalledApks = extractedResourceApks.filter { extracted ->
@@ -118,16 +120,15 @@ class MonetPlay3084ApksIntegrationTest {
             )
             assertEquals(PLAY_BASE_RESOURCE_GRAPH_DIGEST, baseGraph.resourceDigest())
             assertFalse(profile.resourceDigest == representativeGraph.resourceDigest())
+            val representativeDexProvider = RecordingAuditedDexProvider()
             val representativeResolved = MonetResourceResolver.resolve(
                 graph = representativeGraph,
                 catalog = catalog,
                 profiles = listOf(profile.toResolutionProfile()),
                 sdkInt = 36,
-                provider = object : MonetDexEvidenceProvider {
-                    override fun query(candidates: List<dev.ujhhgtg.wekit.extensions.monet.api.MonetDexCandidate>) =
-                        error("representative installed graph unexpectedly requested Dex evidence: $candidates")
-                },
+                provider = representativeDexProvider,
             )
+            assertEquals(listOf(AUDITED_DEX_CANDIDATE_IDS), representativeDexProvider.requestedIdSets)
             assertEquals(profile.roles, representativeResolved.resolved.mapValues { it.value.key })
 
             val inputLayout = requireNotNull(graph.node(MonetResourceKey("layout", "v0")))
@@ -190,6 +191,21 @@ class MonetPlay3084ApksIntegrationTest {
 
     private data class ExtractedApk(val sourceName: String, val file: File)
 
+    private class RecordingAuditedDexProvider : MonetDexEvidenceProvider {
+        val requestedIdSets = mutableListOf<Set<Int>>()
+
+        override fun query(candidates: List<MonetDexCandidate>): List<MonetResourceDexEvidence> {
+            requestedIdSets += candidates.mapTo(linkedSetOf(), MonetDexCandidate::resourceId)
+            return candidates.map { candidate ->
+                if (candidate.resourceId == AUDITED_DEX_TARGET_ID) {
+                    AUDITED_DEX_TARGET_EVIDENCE
+                } else {
+                    MonetResourceDexEvidence(candidate.resourceId, emptyList())
+                }
+            }
+        }
+    }
+
     private fun validateNestedApkName(name: String) {
         require(name.isNotBlank() && !name.startsWith('/') && '\\' !in name) {
             "unsafe nested APK entry name: $name"
@@ -228,6 +244,28 @@ class MonetPlay3084ApksIntegrationTest {
         const val TARGET_PACKAGE = "com.tencent.mm"
         const val RESOURCE_TABLE_PATH = "resources.arsc"
         const val EXPECTED_RESOURCE_APK_COUNT = 32
+        const val AUDITED_DEX_TARGET_ID = 0x7f06009f
+        const val AUDITED_DEX_ALTERNATIVE_ID = 0x7f0600a0
+        val AUDITED_DEX_CANDIDATE_IDS = setOf(
+            AUDITED_DEX_TARGET_ID,
+            AUDITED_DEX_ALTERNATIVE_ID,
+        )
+        val AUDITED_DEX_TARGET_EVIDENCE = MonetResourceDexEvidence(
+            resourceId = AUDITED_DEX_TARGET_ID,
+            methods = listOf(
+                MonetMethodDexEvidence(
+                    descriptor = "Lcom/tencent/mm/plugin/setting/ui/setting/" +
+                        "SettingsHearingAidFinishUI;->onCreate(Landroid/os/Bundle;)V",
+                    stableStrings = listOf("audio_auto_play", "process_is_from_init"),
+                    invokedMethodShapes = listOf(
+                        "android.content.Intent#getBooleanExtra(java.lang.String,boolean):boolean",
+                        "android.content.res.Resources#getColor(int):int",
+                    ),
+                    neighboringResourceIds = emptyList(),
+                    fieldAccesses = emptyList(),
+                ),
+            ),
+        )
         val REPRESENTATIVE_INSTALLED_APKS = setOf(
             "base.apk",
             "split_config.zh.apk",

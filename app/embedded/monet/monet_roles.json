@@ -2180,6 +2180,18 @@
     {
       "core": true,
       "defaultValue": "literal:COLOR_ARGB8:4282299765",
+      "dexAnchors": [
+        {
+          "invokedMethodShapes": [
+            "android.content.Intent#getBooleanExtra(java.lang.String,boolean):boolean",
+            "android.content.res.Resources#getColor(int):int"
+          ],
+          "stableStrings": [
+            "audio_auto_play",
+            "process_is_from_init"
+          ]
+        }
+      ],
       "id": "theme.color.system-primary-light--system-primary-dark.slot-10",
       "minSdk": 31,
       "nightValue": "literal:COLOR_ARGB8:4280654940",

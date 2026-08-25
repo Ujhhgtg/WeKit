@@ -92,6 +92,26 @@ class MonetS4PayloadTest {
     }
 
     @Test
+    fun `catalog retains only the source audited production dex anchor`() {
+        val catalog = MonetRoleCatalog.load(File("../../app/embedded/monet"))
+        val anchoredRoles = catalog.roles.filter { role -> role.dexAnchors.isNotEmpty() }
+
+        assertEquals(listOf(AUDITED_DEX_ROLE_ID), anchoredRoles.map(MonetRoleDefinition::id))
+        assertEquals(
+            listOf(
+                MonetDexAnchor(
+                    stableStrings = listOf("audio_auto_play", "process_is_from_init"),
+                    invokedMethodShapes = listOf(
+                        "android.content.Intent#getBooleanExtra(java.lang.String,boolean):boolean",
+                        "android.content.res.Resources#getColor(int):int",
+                    ),
+                ),
+            ),
+            anchoredRoles.single().dexAnchors,
+        )
+    }
+
+    @Test
     fun `every overlay binding is present in its declared template with audited inventory`() {
         val payload = File("../../app/embedded/monet")
         val catalog = MonetRoleCatalog.load(payload)
@@ -218,6 +238,8 @@ class MonetS4PayloadTest {
             "1c2955c55a9029ccc0c918801dd31ea301eaa601a287c5bb0ed709fe4e3b31eb"
         const val CLASSIC_REPAIR_SHA256 =
             "c172c38d941bc89dba127fc1df5b3015dbc591cabc779639fc7b5fae5d787ed8"
+        const val AUDITED_DEX_ROLE_ID =
+            "theme.color.system-primary-light--system-primary-dark.slot-10"
         val AUXILIARY_ROLE_IDS = setOf(
             "chat.input.container",
             "payment.keyboard.key.style",

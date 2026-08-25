@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+import java.io.File
 
 class MonetResourceResolverTest {
 
@@ -192,6 +193,78 @@ class MonetResourceResolverTest {
 
         assertEquals(listOf(setOf(FIRST_ID, AMBIGUOUS_ID)), provider.requestedIdSets)
         assertEquals(AMBIGUOUS_ID, report.resolved.getValue(ROLE_ID).resourceId)
+    }
+
+    @Test
+    fun `verified profile does not bypass dex for an anchored ambiguous role`() {
+        val provider = RecordingEvidenceProvider(
+            evidenceFor = mapOf(AMBIGUOUS_ID to matchingDexEvidence),
+        )
+
+        val report = resolveFixture(
+            twoEqualDrawables = true,
+            provider = provider,
+            dexAnchored = true,
+            profileTarget = AMBIGUOUS_ID,
+        )
+
+        assertEquals(listOf(setOf(FIRST_ID, AMBIGUOUS_ID)), provider.requestedIdSets)
+        assertEquals(AMBIGUOUS_ID, report.resolved.getValue(ROLE_ID).resourceId)
+        assertTrue(report.resolved.getValue(ROLE_ID).profileMatched)
+    }
+
+    @Test
+    fun `source audited production anchor disambiguates its equal color pair`() {
+        val role = MonetRoleCatalog.load(File("../../app/embedded/monet"))
+            .roles
+            .single { definition -> definition.id == AUDITED_DEX_ROLE_ID }
+        val values = listOf(
+            MonetConfiguredValue(
+                "",
+                MonetResourceValue.Literal("COLOR_ARGB8", AUDITED_LIGHT_VALUE),
+            ),
+            MonetConfiguredValue(
+                "night",
+                MonetResourceValue.Literal("COLOR_ARGB8", AUDITED_NIGHT_VALUE),
+            ),
+        )
+        val graph = MonetResourceGraph(
+            listOf(
+                MonetResourceNode(
+                    AUDITED_TARGET_ID,
+                    MonetResourceKey("color", "Brand_BG_110"),
+                    values,
+                ),
+                MonetResourceNode(
+                    AUDITED_ALTERNATIVE_ID,
+                    MonetResourceKey("color", "Brand_BG_110_CARE"),
+                    values,
+                ),
+            ),
+        )
+        val provider = RecordingEvidenceProvider(
+            evidenceFor = mapOf(AUDITED_TARGET_ID to auditedTargetDexEvidence),
+        )
+
+        val report = MonetResourceResolver.resolve(
+            graph = graph,
+            catalog = MonetRoleCatalog(1, listOf(role), emptyList()),
+            profiles = emptyList(),
+            sdkInt = 31,
+            provider = provider,
+        )
+
+        assertEquals(
+            listOf(setOf(AUDITED_TARGET_ID, AUDITED_ALTERNATIVE_ID)),
+            provider.requestedIdSets,
+        )
+        assertEquals(AUDITED_TARGET_ID, report.resolved.getValue(AUDITED_DEX_ROLE_ID).resourceId)
+        assertEquals(
+            listOf(AUDITED_TARGET_ID),
+            report.diagnostics.getValue(AUDITED_DEX_ROLE_ID)
+                .stages.single { stage -> stage.stage == MonetResolutionStage.DEX_ANCHORS }
+                .afterCandidateIds,
+        )
     }
 
     @Test
@@ -526,6 +599,12 @@ class MonetResourceResolverTest {
         const val SECOND_LAYOUT_ID = 0x7f0d0444
         const val STYLE_ID = 0x7f130555
         const val SECOND_STYLE_ID = 0x7f130666
+        const val AUDITED_DEX_ROLE_ID =
+            "theme.color.system-primary-light--system-primary-dark.slot-10"
+        const val AUDITED_TARGET_ID = 0x7f06009f
+        const val AUDITED_ALTERNATIVE_ID = 0x7f0600a0
+        const val AUDITED_LIGHT_VALUE = 4282299765L
+        const val AUDITED_NIGHT_VALUE = 4280654940L
         const val TARGET_VALUE = 0x11223344L
         const val OTHER_VALUE = 0x55667788L
         val TARGET_SHAPE = "a".repeat(64)
@@ -547,6 +626,22 @@ class MonetResourceResolverTest {
             methods = matchingDexEvidence.methods.map { method ->
                 method.copy(neighboringResourceIds = listOf(LAYOUT_ID))
             },
+        )
+        val auditedTargetDexEvidence = MonetResourceDexEvidence(
+            resourceId = AUDITED_TARGET_ID,
+            methods = listOf(
+                MonetMethodDexEvidence(
+                    descriptor = "Lcom/tencent/mm/plugin/setting/ui/setting/" +
+                        "SettingsHearingAidFinishUI;->onCreate(Landroid/os/Bundle;)V",
+                    stableStrings = listOf("audio_auto_play", "process_is_from_init"),
+                    invokedMethodShapes = listOf(
+                        "android.content.Intent#getBooleanExtra(java.lang.String,boolean):boolean",
+                        "android.content.res.Resources#getColor(int):int",
+                    ),
+                    neighboringResourceIds = emptyList(),
+                    fieldAccesses = emptyList(),
+                ),
+            ),
         )
     }
 }

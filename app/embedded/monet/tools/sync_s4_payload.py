@@ -174,6 +174,22 @@ INCOMING_ROLE_IDS = {
     "drawable/dq_": ["payment.keyboard.key.style"],
 }
 
+# Audited against the actual Play 3084 collector and all five domestic source trees.
+# Brand_BG_110 and Brand_BG_110_CARE have identical resource constraints; only the
+# former is used by SettingsHearingAidFinishUI.onCreate. Keep this evidence free of
+# host class/method descriptors and obfuscated field/resource names.
+AUDITED_DEX_ANCHORS = {
+    "color/Brand_BG_110": [
+        {
+            "stableStrings": ["audio_auto_play", "process_is_from_init"],
+            "invokedMethodShapes": [
+                "android.content.Intent#getBooleanExtra(java.lang.String,boolean):boolean",
+                "android.content.res.Resources#getColor(int):int",
+            ],
+        }
+    ]
+}
+
 KNOWN_ROLE_IDS = {
     "drawable/a36": "chat.bubble.incoming.link.mask",
     "drawable/a4m": "chat.bubble.outgoing.link.mask",
@@ -757,6 +773,8 @@ def build_catalog(
         raise ValueError(f"missing semantic roles: {missing}")
     if not set(AUXILIARY_ROLES).issubset(play_keys):
         raise ValueError("audited auxiliary layout/style resources are absent from Play 3084")
+    if not set(AUDITED_DEX_ANCHORS).issubset(target_keys):
+        raise ValueError("audited Dex anchor resources are absent from Play 3084")
     role_ids = {
         **target_role_ids,
         **{key: definition["id"] for key, definition in AUXILIARY_ROLES.items()},
@@ -781,6 +799,8 @@ def build_catalog(
         }
         if key in INCOMING_ROLE_IDS:
             role["requiredIncomingRoleIds"] = INCOMING_ROLE_IDS[key]
+        if key in AUDITED_DEX_ANCHORS:
+            role["dexAnchors"] = AUDITED_DEX_ANCHORS[key]
         roles.append(role)
     roles.extend(dict(AUXILIARY_ROLES[key]) for key in sorted(AUXILIARY_ROLES))
 
