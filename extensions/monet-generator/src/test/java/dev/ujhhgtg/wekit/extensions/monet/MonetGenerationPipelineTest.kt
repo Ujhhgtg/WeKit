@@ -111,12 +111,10 @@ class MonetGenerationPipelineTest {
         assertEquals(listOf(matchingDigest), fixture.stages.resolverProfiles.map(MonetProfile::resourceDigest))
         assertTrue(fixture.stages.resolverGraph === fixture.stages.fullGraph)
         assertEquals(
-            listOf(
-                listOf(fixture.baseApk.canonicalFile),
-                listOf(fixture.baseApk.canonicalFile, resourceSplit.canonicalFile),
-            ),
+            listOf(listOf(fixture.baseApk.canonicalFile, resourceSplit.canonicalFile)),
             fixture.stages.loadedApkBatches,
         )
+        assertEquals(listOf("base-digest", "resolution-graph"), fixture.stages.graphLoadOperations)
         assertEquals(fixture.request().dexEvidenceProvider, fixture.stages.resolverProvider)
     }
 
@@ -241,6 +239,53 @@ class MonetGenerationPipelineTest {
         REQUIRED_PAYLOADS.forEach { name -> assertTrue(fixture.payloadDir.resolve(name).isFile) }
     }
 
+    @Test
+    fun `diagnostics scratch alias is rejected before output or diagnostics mutation`() {
+        val fixture = Fixture()
+        val aliasDir = fixture.output.parentFile!!.resolve("alias").apply { mkdir() }
+        val aliasedScratchOutput = aliasDir.resolve("../monet-resolution.json.tmp")
+        val canonicalScratchOutput = aliasedScratchOutput.canonicalFile.apply { writeText("prior output") }
+        fixture.diagnostics.writeText("prior diagnostics")
+
+        assertThrows(MonetGenerationException::class.java) {
+            fixture.pipeline.generate(
+                fixture.request(outputZip = aliasedScratchOutput),
+                fixture.listener,
+            )
+        }
+
+        assertEquals("prior output", canonicalScratchOutput.readText())
+        assertEquals("prior diagnostics", fixture.diagnostics.readText())
+        assertTrue(aliasDir.isDirectory)
+    }
+
+    @Test
+    fun `invalid source list preserves all caller paths before run ownership`() {
+        val fixture = Fixture()
+        fixture.workDir.mkdirs()
+        val workSentinel = fixture.workDir.resolve("caller-owned.txt").apply { writeText("work") }
+        val payloadSentinel = fixture.payloadDir.resolve("caller-owned.txt").apply { writeText("payload") }
+        fixture.output.writeText("prior output")
+        fixture.temporaryOutput.writeText("prior temporary")
+        fixture.diagnostics.writeText("prior diagnostics")
+        val missingSplit = fixture.output.parentFile!!.resolve("missing-split.apk")
+
+        assertThrows(MonetGenerationException::class.java) {
+            fixture.pipeline.generate(
+                fixture.request(
+                    sourceApkPaths = listOf(fixture.baseApk.path, missingSplit.path),
+                ),
+                fixture.listener,
+            )
+        }
+
+        assertEquals("work", workSentinel.readText())
+        assertEquals("payload", payloadSentinel.readText())
+        assertEquals("prior output", fixture.output.readText())
+        assertEquals("prior temporary", fixture.temporaryOutput.readText())
+        assertEquals("prior diagnostics", fixture.diagnostics.readText())
+    }
+
     private inner class Fixture(
         failOverlay: String? = null,
         resolutionFailure: MonetResolutionException? = null,
@@ -269,6 +314,7 @@ class MonetGenerationPipelineTest {
             bubbleStyle: MonetBubbleStyle = MonetBubbleStyle.MODERN,
             sourceApkPaths: List<String> = listOf(baseApk.absolutePath),
             workDir: File = this.workDir,
+            outputZip: File = output,
         ) = MonetGenerationRequestV2(
             resources = uninitializedResources(),
             packageName = "com.tencent.mm",
@@ -288,7 +334,7 @@ class MonetGenerationPipelineTest {
             dexEvidenceProvider = NO_DEX_EVIDENCE,
             payloadDir = payloadDir,
             workDir = workDir,
-            outputZip = output,
+            outputZip = outputZip,
         )
 
         fun apk(name: String, resourceBearing: Boolean): File = File(tempDir, name).also { file ->
@@ -336,8 +382,16 @@ class MonetGenerationPipelineTest {
         var resolverProfiles: List<MonetProfile> = emptyList()
         var resolverProvider: MonetDexEvidenceProvider? = null
         var resolverGraph: MonetResourceGraph? = null
+        val graphLoadOperations = mutableListOf<String>()
+
+        override fun loadBaseResourceDigest(baseApk: File, targetPackage: String): String {
+            graphLoadOperations += "base-digest"
+            assertEquals("com.tencent.mm", targetPackage)
+            return baseGraph.resourceDigest()
+        }
 
         override fun loadGraph(apkPaths: List<File>, targetPackage: String): MonetResourceGraph {
+            graphLoadOperations += "resolution-graph"
             loadedApks = apkPaths
             loadedApkBatches += apkPaths
             assertEquals("com.tencent.mm", targetPackage)

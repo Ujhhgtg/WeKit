@@ -23,6 +23,8 @@ internal class MonetGenerationException(
 ) : IllegalStateException(message, cause)
 
 internal interface MonetGenerationPipelineStages {
+    fun loadBaseResourceDigest(baseApk: File, targetPackage: String): String
+
     fun loadGraph(apkPaths: List<File>, targetPackage: String): MonetResourceGraph
 
     fun loadRoleCatalog(payloadDir: File): MonetRoleCatalog
@@ -69,21 +71,16 @@ internal class MonetGenerationPipeline(
         try {
             emitProgress(listener, currentStage)
             paths = validateRequest(request)
-            createOwnedRunDirectory(paths.runDir)
-            ownedRunDir = paths.runDir
-            deleteTemporaryFile(paths.temporaryOutput)
-            temporaryOutputOwned = true
 
             currentStage = MonetGenerationStageV2.SCANNING_RESOURCES
             emitProgress(listener, currentStage)
             val resourceApks = selectResourceBearingApks(request.sourceApkPaths)
-            val baseGraph = stages.loadGraph(listOf(resourceApks.first()), request.packageName)
-            val graph = if (resourceApks.size == 1) {
-                baseGraph
-            } else {
-                stages.loadGraph(resourceApks, request.packageName)
-            }
-            val resourceDigest = baseGraph.resourceDigest()
+            createOwnedRunDirectory(paths.runDir)
+            ownedRunDir = paths.runDir
+            deleteTemporaryFile(paths.temporaryOutput)
+            temporaryOutputOwned = true
+            val resourceDigest = stages.loadBaseResourceDigest(resourceApks.first(), request.packageName)
+            val graph = stages.loadGraph(resourceApks, request.packageName)
             val catalog = stages.loadRoleCatalog(request.payloadDir)
             val matchingProfiles = stages.loadProfileCatalog(request.payloadDir)
                 .verifiedProfiles
@@ -101,10 +98,10 @@ internal class MonetGenerationPipeline(
                     provider = request.dexEvidenceProvider,
                 )
             } catch (error: MonetResolutionException) {
-                publishDiagnostics(error.report, paths.diagnosticsFile)
+                publishDiagnostics(error.report, paths.diagnosticsFile, paths.diagnosticsTemporary)
                 throw error
             }
-            publishDiagnostics(resolution, paths.diagnosticsFile)
+            publishDiagnostics(resolution, paths.diagnosticsFile, paths.diagnosticsTemporary)
 
             currentStage = MonetGenerationStageV2.BUILDING_OVERLAYS
             emitProgress(listener, currentStage)
@@ -204,6 +201,7 @@ internal class MonetGenerationPipeline(
             outputZip = outputZip,
             temporaryOutput = File(outputParent, outputZip.name + ".tmp").canonicalFile,
             diagnosticsFile = File(outputParent, DIAGNOSTICS_NAME).canonicalFile,
+            diagnosticsTemporary = File(outputParent, "$DIAGNOSTICS_NAME.tmp").canonicalFile,
         )
         validateDisjointPaths(runPaths)
         REQUIRED_PAYLOADS.forEach { name ->
@@ -219,6 +217,7 @@ internal class MonetGenerationPipeline(
             "output" to paths.outputZip,
             "temporary output" to paths.temporaryOutput,
             "diagnostics" to paths.diagnosticsFile,
+            "diagnostics temporary" to paths.diagnosticsTemporary,
         )
         protected.forEachIndexed { index, (leftName, left) ->
             protected.drop(index + 1).forEach { (rightName, right) ->
@@ -275,8 +274,11 @@ internal class MonetGenerationPipeline(
         apk.getEntry(RESOURCE_TABLE_PATH)?.isDirectory == false
     }
 
-    private fun publishDiagnostics(report: MonetResolutionReport, output: File) {
-        val temporary = File(output.parentFile, output.name + ".tmp")
+    private fun publishDiagnostics(
+        report: MonetResolutionReport,
+        output: File,
+        temporary: File,
+    ) {
         try {
             output.parentFile?.let { parent ->
                 require(parent.mkdirs() || parent.isDirectory) {
@@ -359,6 +361,7 @@ internal class MonetGenerationPipeline(
         val outputZip: File,
         val temporaryOutput: File,
         val diagnosticsFile: File,
+        val diagnosticsTemporary: File,
     )
 
     private companion object {
@@ -401,6 +404,9 @@ internal class MonetGenerationPipeline(
 }
 
 private object ProductionMonetGenerationPipelineStages : MonetGenerationPipelineStages {
+    override fun loadBaseResourceDigest(baseApk: File, targetPackage: String): String =
+        MonetApkResourceGraphLoader.load(listOf(baseApk), targetPackage).resourceDigest()
+
     override fun loadGraph(apkPaths: List<File>, targetPackage: String): MonetResourceGraph =
         MonetApkResourceGraphLoader.load(apkPaths, targetPackage)
 
