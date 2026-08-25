@@ -24,6 +24,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
+import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -137,17 +138,6 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
      * 双参 (holder, int) + void 返回在所有目标版本唯一, 故用字符串锚点而非方法名。
      * 该结构在所有支持版本均存在, 按项目约定不加 allowFailure。
      */
-    private val methodChattingAdapterOnBindViewHolder by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.ChattingDataAdapterV3")
-            }
-            usingEqStrings("_onBindViewHolder[")
-            paramTypes(null, Int::class.java)
-            returnType("void")
-        }
-    }
-
     /**
      * ChattingDataAdapterV3.getItem(int) -> 消息存储对象 (f8/d8/f9/e9, 各版本不同),
      * 用于读取稳定的 `field_msgId` / `field_createTime` / `field_isSend` 字段。
@@ -164,7 +154,7 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
     }
 
     override fun onEnable() {
-        methodChattingAdapterOnBindViewHolder.hookAfter {
+        WeMessageApi.methodChattingDataAdapterOnBindViewHolder.hookAfter {
             val adapter = thisObject!!
             // 绑定方法参数在所有目标版本均为 (ViewHolder, int)
             val holder = args[0]!!

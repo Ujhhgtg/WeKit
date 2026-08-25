@@ -28,6 +28,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.features.items.contacts.SplitGroupCall
 import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -296,7 +297,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
             parameterCount = 1
         }.invoke(!micEnabled)
 
-        val manager = methodGetMultiTalkManager.method.invoke(null)
+        val manager = SplitGroupCall.methodGetMultiTalkManager.method.invoke(null)
         methodMultiTalkManagerMute.method.invoke(manager, micEnabled)
 
         val engine = methodGetMultiTalkEngine.method.invoke(null)
@@ -705,8 +706,6 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
     private val methodMultiTalkManagerMute by dexMethod()
 
-    private val methodGetMultiTalkManager by dexMethod()
-
     private val classMultiTalkEngine by dexClass()
 
     private val methodMultiTalkEngineMic by dexMethod()
@@ -747,7 +746,6 @@ object PipVoip : SwitchFeature(), IResolveDex {
                 methodMultiTalkCamera.setPlaceholderDescriptor(true, reason)
                 classMultiTalkManager.setPlaceholderDescriptor(true, reason)
                 methodMultiTalkManagerMute.setPlaceholderDescriptor(true, reason)
-                methodGetMultiTalkManager.setPlaceholderDescriptor(true, reason)
                 classMultiTalkEngine.setPlaceholderDescriptor(true, reason)
                 methodMultiTalkEngineMic.setPlaceholderDescriptor(true, reason)
                 methodGetMultiTalkEngine.setPlaceholderDescriptor(true, reason)
@@ -808,13 +806,9 @@ object PipVoip : SwitchFeature(), IResolveDex {
             }
         }
 
-        methodGetMultiTalkManager.find(dexKit) {
-            matcher {
-                modifiers(Modifier.PUBLIC or Modifier.STATIC)
-                paramCount = 0
-                returnType(classMultiTalkManager.data.name)
-            }
-        }
+        require(
+            SplitGroupCall.methodGetMultiTalkManager.data.returnTypeName == classMultiTalkManager.data.name
+        ) { "shared MultiTalk manager getter return type does not match the UI manager" }
 
         classMultiTalkEngine.find(dexKit) {
             matcher {

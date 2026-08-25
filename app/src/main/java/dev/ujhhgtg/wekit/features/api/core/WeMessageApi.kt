@@ -112,7 +112,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
         }
     }
-    private val classNetSceneQueue by dexClass {
+    internal val classNetSceneQueue by dexClass {
         searchPackages("com.tencent.mm.modelbase")
         matcher {
             methods {
@@ -143,15 +143,15 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     val methodGetSendMsgObject by dexMethod(allowMultiple = true) {
         matcher {
             paramCount = 0
-            returnType = classNetSceneObserverOwner.getDescriptorString() ?: ""
+            returnType = classNetSceneObserverOwner.data.name
             modifiers(AccessFlagsMatcher(Modifier.STATIC))
         }
     }
     private val methodPostToQueue by dexMethod {
         searchPackages("com.tencent.mm.modelbase")
         matcher {
-            declaredClass = classNetSceneQueue.getDescriptorString() ?: ""
-            paramTypes(classNetSceneBase.getDescriptorString() ?: "")
+            declaredClass = classNetSceneQueue.data.name
+            paramTypes(classNetSceneBase.data.name)
             returnType = "boolean"
             usingNumbers(0)
         }
@@ -237,6 +237,12 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.ChattingContext", "[notifyDataSetChange]")
         }
     }
+    internal val methodChattingContextGetTalker by dexMethod {
+        matcher {
+            declaredClass(classChattingContext.data.name)
+            usingEqStrings("getTalker returns null.")
+        }
+    }
     val classChattingDataAdapter by dexClass {
         matcher {
             usingEqStrings(
@@ -315,7 +321,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     private val classImageServiceImpl by dexClass(allowFailure = true) {
         matcher {
             usingStrings("MicroMsg.ImgUpload.MsgImgFeatureService")
-            superClass(classMvvmBase.getDescriptorString()!!)
+            superClass(classMvvmBase.data.name)
         }
     }
     private val methodImageSendEntry by dexMethod()
@@ -333,7 +339,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.VoiceLogic", "startRecord insert voicestg success")
         }
     }
-    private val classVfs by dexClass {
+    internal val classVfs by dexClass {
         matcher {
             usingStrings("MicroMsg.VFSFileOp", "Cannot resolve path or URI")
         }
@@ -356,17 +362,14 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
         }
     }
-    private val classMmKernel by dexClass {
+    internal val methodChattingDataAdapterOnBindViewHolder by dexMethod {
         matcher {
-            usingStrings("MicroMsg.MMKernel", "Initialize skeleton")
-        }
-    }
-    private val methodMmKernelGetStorage by dexMethod(allowMultiple = true) {
-        matcher {
-            declaredClass(classMmKernel.data.name)
-            modifiers = Modifier.PUBLIC or Modifier.STATIC
-            paramCount = 0
-            usingStrings("mCoreStorage not initialized!")
+            declaredClass {
+                usingEqStrings("MicroMsg.ChattingDataAdapterV3")
+            }
+            usingEqStrings("_onBindViewHolder[")
+            paramTypes(null, Int::class.java)
+            returnType("void")
         }
     }
     private val classVoiceLogic by dexClass {
@@ -1370,7 +1373,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
      * 动态解析 AccPath 获取方法
      */
     private fun getAccPath(): String {
-        val storageObj = methodMmKernelGetStorage.method.invoke(null)
+        val storageObj = WeDatabaseApi.methodGetStorage.method.invoke(null)
             ?: error("Kernel.getStorage() failed (returned null)")
 
         if (storageAccPathMethod != null) {
@@ -2024,7 +2027,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
-    private val methodLoadEmojiFile by dexMethod {
+    internal val methodLoadEmojiFile by dexMethod {
         matcher {
             usingEqStrings("MicroMsg.EmojiLoader", "load emoji file ")
             paramTypes("com.tencent.mm.storage.emotion.EmojiInfo", "boolean", null)
@@ -2412,7 +2415,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
-    private val methodToggleMessageSelection by dexMethod {
+    internal val methodToggleMessageSelection by dexMethod {
         matcher {
             declaredClass(classChattingDataAdapter.data.name)
             usingNumbers(100)

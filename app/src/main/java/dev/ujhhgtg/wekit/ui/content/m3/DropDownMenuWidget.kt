@@ -22,6 +22,32 @@ data class DropdownOption<T>(val value: T, val label: String)
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
+fun <T> ExpressiveOptionDropdown(
+    expanded: Boolean,
+    value: T,
+    options: List<DropdownOption<T>>,
+    onDismissRequest: () -> Unit,
+    onValueChange: (T) -> Unit,
+) {
+    DropdownMenuPopup(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+    ) {
+        DropdownMenuGroup(shapes = MenuDefaults.groupShapes()) {
+            options.forEachIndexed { index, option ->
+                DropdownMenuItem(
+                    selected = option.value == value,
+                    onClick = { onValueChange(option.value) },
+                    text = { Text(option.label) },
+                    shapes = MenuDefaults.itemShape(index, options.size),
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
 fun <T> DropDownMenuWidget(
     icon: ImageVector? = null,
     iconPlaceholder: Boolean = false,
@@ -44,24 +70,16 @@ fun <T> DropDownMenuWidget(
         onClick = if (enabled) ({ expanded = !expanded }) else null,
         foreContent = {
             Box(Modifier.align(Alignment.CenterStart)) {
-                DropdownMenuPopup(
+                ExpressiveOptionDropdown(
                     expanded = expanded,
+                    value = value,
+                    options = options,
                     onDismissRequest = { expanded = false },
-                ) {
-                    DropdownMenuGroup(shapes = MenuDefaults.groupShapes()) {
-                        options.forEachIndexed { index, option ->
-                            DropdownMenuItem(
-                                selected = option.value == value,
-                                onClick = {
-                                    onValueChange(option.value)
-                                    expanded = false
-                                },
-                                text = { Text(option.label) },
-                                shapes = MenuDefaults.itemShape(index, options.size),
-                            )
-                        }
-                    }
-                }
+                    onValueChange = {
+                        onValueChange(it)
+                        expanded = false
+                    },
+                )
             }
         },
     )

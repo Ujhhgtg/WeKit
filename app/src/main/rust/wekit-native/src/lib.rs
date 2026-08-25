@@ -448,7 +448,7 @@ pub unsafe extern "C" fn Java_dev_ujhhgtg_wekit_features_items_chat_MarkdownRend
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn Java_dev_ujhhgtg_wekit_utils_AudioUtils_anyToSilk(
+pub extern "C" fn Java_dev_ujhhgtg_wekit_utils_AudioUtils_nativeAnyToSilk(
     env: *mut RawJNIEnv,
     _thiz: jobject,
     any_path: jstring,
@@ -473,6 +473,47 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_utils_AudioUtils_anyToSilk(
     .flatten()
     .unwrap_or_else(|| {
         loge!("any_to_silk: missing or unreadable path argument");
+        JNI_FALSE
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_utils_AudioUtils_pcmToSilk(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    pcm_path: jstring,
+    silk_path: jstring,
+    sample_rate: jint,
+    channel_count: jint,
+) -> jboolean {
+    if sample_rate <= 0 || channel_count <= 0 {
+        loge!(
+            "pcm_to_silk: invalid format sample_rate={} channel_count={}",
+            sample_rate,
+            channel_count
+        );
+        return JNI_FALSE;
+    }
+
+    with_jstring(env, pcm_path, |pcm| {
+        with_jstring(env, silk_path, |silk| {
+            match audio_utils::pcm_file_to_silk(
+                pcm,
+                silk,
+                sample_rate as u32,
+                channel_count as usize,
+            ) {
+                Ok(()) => JNI_TRUE,
+                Err(error) => {
+                    loge!("pcm_to_silk failed: {error:?}");
+                    JNI_FALSE
+                }
+            }
+        })
+    })
+    .flatten()
+    .unwrap_or_else(|| {
+        loge!("pcm_to_silk: missing or unreadable path argument");
         JNI_FALSE
     })
 }

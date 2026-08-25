@@ -15,6 +15,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -67,18 +68,6 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
             usingEqStrings("QuoteLongClickFromQuoteView", "QuoteClickFromTextPreviewLocateView")
         }
     }
-    private val classChattingContext by dexClass {
-        matcher {
-            usingEqStrings("MicroMsg.ChattingContext", "[notifyDataSetChange]")
-        }
-    }
-    private val methodChattingContextGetTalker by dexMethod {
-        matcher {
-            declaredClass(classChattingContext.data.name)
-            usingEqStrings("getTalker returns null.")
-        }
-    }
-
     override fun onEnable() {
         methodClickEvent.hookBefore {
             val isInputBox = args[1] == null
@@ -99,7 +88,7 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
                 msgInfo = mGetQuoteMessageInfo.invoke(
                     null,
                     false /* isGroupChat: this arg is ignored */,
-                    methodChattingContextGetTalker.method.invoke(chattingContext),
+                    WeMessageApi.methodChattingContextGetTalker.method.invoke(chattingContext),
                     longValue,
                     stringValue,
                     msgQuoteItem,
@@ -109,7 +98,7 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
                 msgInfo = mGetQuoteMessageInfo.invoke(
                     null,
                     false /* isGroupChat: this arg is ignored */,
-                    methodChattingContextGetTalker.method.invoke(chattingContext),
+                    WeMessageApi.methodChattingContextGetTalker.method.invoke(chattingContext),
                     longValue,
                     msgQuoteItem,
                     "handleQuoteMsgClick" /* hardcoded in original code */

@@ -26,9 +26,12 @@ abstract class SwitchFeature : BaseFeature() {
     protected open val shouldEnableOnStartup: Boolean
         get() = _isEnabled
 
+    internal fun loadPersistedState() {
+        _isEnabled = WePrefs.getBoolOrDef(technicalId, defaultEnabled)
+    }
+
     final override fun startup() {
         if (!shouldLoadInCurrentProcess) return
-        _isEnabled = WePrefs.getBoolOrDef(technicalId, defaultEnabled)
         if (shouldEnableOnStartup) enable()
     }
 

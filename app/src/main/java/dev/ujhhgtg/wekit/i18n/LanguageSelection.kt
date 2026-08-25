@@ -10,6 +10,7 @@ enum class LanguageSelection(
     SYSTEM("system", R.string.language_follow_system),
     ENGLISH("en", R.string.language_english),
     SIMPLIFIED_CHINESE("zh-Hans", R.string.language_simplified_chinese),
+    MEOW_CHINESE("zh-Hans-x-meow", R.string.language_meow_chinese),
     TRADITIONAL_CHINESE("zh-Hant", R.string.language_traditional_chinese),
     ;
 

@@ -108,11 +108,13 @@ private val HOME_SIDE_PANEL_CARD_TYPES = listOf(
     HomeSidePanelCardType.WEATHER,
     HomeSidePanelCardType.WALLET,
     HomeSidePanelCardType.HITOKOTO,
+    HomeSidePanelCardType.IMAGE,
     HomeSidePanelCardType.HORIZONTAL_ACTIONS,
     HomeSidePanelCardType.VERTICAL_ACTIONS,
 )
 
 private val HOME_SIDE_PANEL_ACTION_KINDS = listOf(
+    HomeSidePanelActionKind.ADD_FRIEND,
     HomeSidePanelActionKind.SCAN,
     HomeSidePanelActionKind.MOMENTS,
     HomeSidePanelActionKind.WALLET,
@@ -214,6 +216,14 @@ internal fun HomeSidePanelCardCandidateVisual(
                 card = HitokotoCardConfig("preview-hitokoto"),
                 content = HitokotoCardContent.Preview(HOME_SIDE_PANEL_PREVIEW_HITOKOTO),
                 editMode = false,
+            )
+
+            HomeSidePanelCardType.IMAGE -> HomeSidePanelImageCard(
+                card = ImageCardConfig("preview-image"),
+                imageFile = null,
+                editMode = false,
+                importing = false,
+                preview = true,
             )
 
             HomeSidePanelCardType.HORIZONTAL_ACTIONS -> HomeSidePanelHorizontalActionsCard(
@@ -376,6 +386,7 @@ internal fun homeSidePanelCardNameRes(type: HomeSidePanelCardType): Int = when (
     HomeSidePanelCardType.WEATHER -> R.string.home_side_panel_card_weather
     HomeSidePanelCardType.WALLET -> R.string.home_side_panel_card_wallet
     HomeSidePanelCardType.HITOKOTO -> R.string.home_side_panel_card_hitokoto
+    HomeSidePanelCardType.IMAGE -> R.string.home_side_panel_card_image
     HomeSidePanelCardType.HORIZONTAL_ACTIONS -> R.string.home_side_panel_card_horizontal_actions
     HomeSidePanelCardType.VERTICAL_ACTIONS -> R.string.home_side_panel_card_vertical_actions
 }

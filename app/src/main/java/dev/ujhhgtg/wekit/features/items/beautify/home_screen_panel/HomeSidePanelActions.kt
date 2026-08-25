@@ -12,6 +12,7 @@ import com.composables.icons.materialsymbols.outlinedfilled.Extension
 import com.composables.icons.materialsymbols.outlinedfilled.Favorite
 import com.composables.icons.materialsymbols.outlinedfilled.Mark_chat_read
 import com.composables.icons.materialsymbols.outlinedfilled.Movie
+import com.composables.icons.materialsymbols.outlinedfilled.Person_add
 import com.composables.icons.materialsymbols.outlinedfilled.Qr_code_scanner
 import com.composables.icons.materialsymbols.outlinedfilled.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Update
@@ -34,6 +35,12 @@ internal data class HomeSidePanelActionSpec(
 )
 
 internal fun homeSidePanelActionSpec(kind: HomeSidePanelActionKind): HomeSidePanelActionSpec = when (kind) {
+    HomeSidePanelActionKind.ADD_FRIEND -> HomeSidePanelActionSpec(
+        kind,
+        R.string.home_side_panel_action_add_friend,
+        MaterialSymbols.OutlinedFilled.Person_add,
+    )
+
     HomeSidePanelActionKind.SCAN -> HomeSidePanelActionSpec(
         kind,
         R.string.fab_default_scan,
@@ -126,6 +133,10 @@ internal class HomeSidePanelActionExecutor(
 
     private fun executeAfterPanelClosed(kind: HomeSidePanelActionKind) {
         when (kind) {
+            HomeSidePanelActionKind.ADD_FRIEND -> {
+                startWeChatActivity("com.tencent.mm.plugin.subapp.ui.pluginapp.AddMoreFriendsUI")
+            }
+
             HomeSidePanelActionKind.SCAN -> {
                 startWeChatActivity("com.tencent.mm.plugin.scanner.ui.BaseScanUI")
             }

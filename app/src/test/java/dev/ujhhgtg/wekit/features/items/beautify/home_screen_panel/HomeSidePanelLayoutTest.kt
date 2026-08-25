@@ -35,7 +35,6 @@ class HomeSidePanelLayoutTest {
                 HomeSidePanelCardType.DATE_TIME,
                 HomeSidePanelCardType.WEATHER,
                 HomeSidePanelCardType.WALLET,
-                HomeSidePanelCardType.HORIZONTAL_ACTIONS,
                 HomeSidePanelCardType.VERTICAL_ACTIONS,
                 HomeSidePanelCardType.HITOKOTO,
             ),
@@ -45,20 +44,13 @@ class HomeSidePanelLayoutTest {
         assertTrue((layout.cards[2] as WalletCardConfig).hideBalanceByDefault)
         assertEquals(
             listOf(
-                HomeSidePanelActionKind.SCAN,
-                HomeSidePanelActionKind.WALLET,
-                HomeSidePanelActionKind.FAVORITES,
-            ),
-            (layout.cards[3] as HorizontalActionsCardConfig).actions.map { it.kind },
-        )
-        assertEquals(
-            listOf(
+                HomeSidePanelActionKind.ADD_FRIEND,
                 HomeSidePanelActionKind.MOMENTS,
                 HomeSidePanelActionKind.CHANNELS,
                 HomeSidePanelActionKind.MARK_ALL_READ,
                 HomeSidePanelActionKind.WEKIT_SETTINGS,
             ),
-            (layout.cards[4] as VerticalActionsCardConfig).actions.map { it.kind },
+            (layout.cards[3] as VerticalActionsCardConfig).actions.map { it.kind },
         )
     }
 

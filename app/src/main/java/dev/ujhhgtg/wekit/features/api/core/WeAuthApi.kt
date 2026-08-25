@@ -53,7 +53,7 @@ object WeAuthApi : ApiFeature(), IResolveDex {
                 null
             )
 
-            val queue = WeNetSceneApi.classMmKernel.clazz.reflekt()
+            val queue = WeDatabaseApi.classMmKernel.clazz.reflekt()
                 .firstMethod {
                     returnType = WeNetSceneApi.methodAddNetSceneToQueue.method.declaringClass
                 }.invokeStatic()!!

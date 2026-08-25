@@ -11,6 +11,7 @@
     <string name="language_follow_system">Follow system</string>
     <string name="language_english" translatable="false">English</string>
     <string name="language_simplified_chinese" translatable="false">简体中文</string>
+    <string name="language_meow_chinese" translatable="false">喵体中文</string>
     <string name="language_traditional_chinese" translatable="false">繁體中文</string>
 
     <!-- Shared module UI -->
@@ -336,7 +337,7 @@
     <string name="extensions_screen_title">Extension packs</string>
     <string name="extensions_pack_script_deps_name">Java script dependencies</string>
     <string name="extensions_pack_script_deps_desc">Unobfuscated fastjson2 and okhttp DEX for the Java script engine</string>
-    <string name="extensions_pack_monet_generator_name">Monet module generator</string>
+    <string name="extensions_pack_monet_generator_name">Monet engine module generator</string>
     <string name="extensions_pack_monet_generator_desc">RRO builder, signer, and resources for the zero-overhead WeChat Monet module</string>
     <string name="extensions_pack_cloudflared_name">Cloudflared</string>
     <string name="extensions_pack_cloudflared_desc">Cloudflare Tunnel bridge for the built-in read-receipts backend</string>
@@ -565,18 +566,18 @@
     <string name="feature_hide_other_devices_banner_description">Hide other devices logged in banner at top of homepage</string>
     <string name="feature_monet_engine_name">Monet engine</string>
     <string name="feature_monet_engine_description">Color WeChat native components according to the custom color matching set by the module</string>
-    <string name="feature_monet_module_generator_name">Monet engine (module)</string>
-    <string name="feature_monet_module_generator_description">Generate a root-installable WeChat Monet RRO with no runtime overhead. Requires Android 12+ and the Monet generator extension.</string>
+    <string name="feature_monet_module_generator_name">Monet engine module generator</string>
+    <string name="feature_monet_module_generator_description">Generate a root-installable WeChat Monet RRO with no runtime overhead. Requires Android 12+ and the Monet engine module generator extension.</string>
     <string name="monet_generator_unsupported">Android 12 or newer is required.</string>
     <string name="monet_generator_preparing">Preparing extension payload…</string>
     <string name="monet_generator_building">Building the overlay for this WeChat version…</string>
     <string name="monet_generator_signing">Signing the overlay…</string>
     <string name="monet_generator_packaging">Packaging the root module…</string>
-    <string name="monet_generator_pack_invalid">The Monet generator extension is damaged or incompatible. Delete it and download it again.</string>
+    <string name="monet_generator_pack_invalid">The Monet engine module generator extension is damaged or incompatible. Delete it and download it again.</string>
     <string name="monet_generator_failed">Generation failed during %1$s: %2$s</string>
     <string name="monet_generator_output">Module generated at:\n%1$s</string>
     <string name="monet_generator_counts">Covered %1$d resources (kept %2$d, added %3$d, pruned %4$d).</string>
-    <string name="monet_generator_install_hint">Install this ZIP with Magisk, KernelSU, APatch, or a derivative root manager, then reboot. KernelSU/APatch users must allow modules to affect WeChat in its app profile.</string>
+    <string name="monet_generator_install_hint">Install this ZIP with Magisk, KernelSU, APatch, or a derivative root manager. After installation, enable the “Monet engine module generator” switch and reboot. KernelSU/APatch users must allow modules to affect WeChat in its app profile.</string>
     <string name="feature_replace_navigation_bar_name">Replace home navigation bar</string>
     <string name="feature_replace_navigation_bar_description">Replace the bottom navigation bar of the homepage with Material Design or Backdrop style</string>
     <string name="feature_themes_name">Themes</string>
@@ -624,7 +625,7 @@
     <string name="feature_disable_pat_name">Disable nudges</string>
     <string name="feature_disable_pat_description">When you double-click someone else’s avatar, the photo will not be sent.</string>
     <string name="feature_disable_pinned_chats_collapsing_name">Disable pinned chat collapse</string>
-    <string name="feature_disable_pinned_chats_collapsing_description">Hide the "Collapse Chat" option\nAfter enabling this feature, you need to restart WeChat 2 times for the changes to take full effect</string>
+    <string name="feature_disable_pinned_chats_collapsing_description">Hide the "Collapse Chat" option</string>
     <string name="feature_disable_speech_to_text_button_name">Disable input box shortcut speech-to-text</string>
     <string name="feature_disable_speech_to_text_button_description">Hide the speech-to-text button on the right side of the input box</string>
     <string name="feature_disable_typing_status_uploading_name">Disable typing-status uploads</string>
@@ -1302,6 +1303,7 @@
     <string name="fab_default_restart_wechat">Restart WeChat</string>
     <string name="fab_default_force_stop">Force stop</string>
     <string name="fab_default_mark_all_read">Mark all as read</string>
+    <string name="home_side_panel_action_add_friend">Add friends</string>
     <string name="fab_edit_position_hint">Drag the main button to reposition it, then tap it to save</string>
     <string name="fab_position_saved">FAB position saved</string>
     <string name="fab_all_marked_read">All unread messages marked as read</string>
@@ -2313,8 +2315,12 @@
     <string name="chat_message_time_always_show">Show time on every message</string>
     <string name="chat_message_time_invalid_number">Invalid number</string>
     <string name="chat_floating_header_title">Floating header</string>
-    <string name="chat_floating_header_restart_hint">Changes apply after reopening the chat</string>
+    <string name="chat_floating_header_restart_hint">Changes apply immediately</string>
     <string name="chat_floating_header_summary">Show the header and cards below it, such as pinned messages, as floating cards</string>
+    <string name="chat_floating_header_style_label">Header style</string>
+    <string name="chat_floating_header_style_integrated">Integrated</string>
+    <string name="chat_floating_header_style_separated">Separated</string>
+    <string name="chat_floating_component_gap_label">Minimum component spacing</string>
     <string name="chat_floating_corner_radius">Corner radius: %1$d dp</string>
     <string name="chat_floating_side_margin">Side margin: %1$d dp</string>
     <string name="chat_floating_top_gap">Top spacing: %1$d dp</string>
@@ -3180,6 +3186,23 @@
     <string name="home_side_panel_card_weather">Weather</string>
     <string name="home_side_panel_card_wallet">Wallet</string>
     <string name="home_side_panel_card_hitokoto">Hitokoto</string>
+    <string name="home_side_panel_card_image">Image</string>
+    <string name="home_side_panel_image_select">Click to select an image</string>
+    <string name="home_side_panel_image_replace">Replace image</string>
+    <string name="home_side_panel_image_enter_edit">Enter edit mode to select an image</string>
+    <string name="home_side_panel_image_load_failed">Image failed to load</string>
+    <string name="home_side_panel_image_load_failed_replace">Image failed to load; tap to replace</string>
+    <string name="home_side_panel_image_scale_mode">Scale mode</string>
+    <string name="home_side_panel_image_scale_crop">Crop</string>
+    <string name="home_side_panel_image_scale_fit">Fit</string>
+    <string name="home_side_panel_image_scale_stretch">Stretch</string>
+    <string name="home_side_panel_image_scale_auto_ratio">Auto ratio</string>
+    <string name="home_side_panel_image_resize">Resize image card</string>
+    <string name="home_side_panel_image_too_large">Image is too large</string>
+    <string name="home_side_panel_image_dimensions_too_large">Image dimensions are too large</string>
+    <string name="home_side_panel_image_aspect_ratio_unsupported">Image aspect ratio is too extreme</string>
+    <string name="home_side_panel_image_invalid">Invalid image</string>
+    <string name="home_side_panel_image_import_failed">Image import failed</string>
     <string name="home_side_panel_card_horizontal_actions">Horizontal tiles</string>
     <string name="home_side_panel_card_vertical_actions">Vertical list</string>
     <string name="home_side_panel_edit_card">Edit card</string>
@@ -3305,6 +3328,7 @@
     <string name="payment_wallet_balance_optional">Wallet balance (leave blank to keep unchanged)</string>
     <string name="payment_wealth_balance_optional">Wealth balance (leave blank to keep unchanged)</string>
     <string name="payment_business_balance_optional">Business account balance (leave blank to keep unchanged)</string>
+    <string name="payment_balance_display_amount">Displayed amount</string>
     <string name="payment_wallet_balance_title">Wallet balance</string>
     <string name="payment_wealth_balance_title">Wealth balance</string>
     <string name="payment_business_balance_title">Business account</string>

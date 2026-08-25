@@ -63,6 +63,10 @@ object MonetEngine : ApiFeature() {
             WeLogger.i(TAG, "apply-to-wechat off, not recoloring")
             return
         }
+        if (MonetEngineModuleGenerator.isEnabled) {
+            WeLogger.i(TAG, "module generator enabled, leaving WeChat recoloring to the RRO module")
+            return
+        }
 
         "com.tencent.mm.ui.widget.MMSwitchBtn".toClass().constructors.forEach {
             it.hookAfter {

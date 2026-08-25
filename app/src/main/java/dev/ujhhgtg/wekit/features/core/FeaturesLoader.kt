@@ -6,13 +6,13 @@ import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
-import dev.ujhhgtg.wekit.ui.content.DexResolver
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import dev.ujhhgtg.wekit.utils.TargetProcesses
-import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.ui.content.DexResolver
+import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.CoroutineScope
@@ -30,7 +30,9 @@ object FeaturesLoader {
     private const val TAG = "FeaturesLoader"
 
     fun loadFeatures() {
-        val allFeatures = FeaturesProvider.ALL_HOOK_ITEMS
+        val allFeatures = FeaturesProvider.ALL_FEATURES
+        allFeatures.filterIsInstance<SwitchFeature>().forEach(SwitchFeature::loadPersistedState)
+
         val safeMode = SafeMode.isEnabled
         val featuresToStart = if (safeMode) {
             allFeatures.filterIsInstance<ApiFeature>()

@@ -30,6 +30,7 @@ import com.tencent.mm.ui.chatting.ChattingUI
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -657,14 +658,6 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     // homepage conversation-list cursor (com.tencent.mm.storage.m4.A/B) is built through this
     // wrapper, NOT the standard SQLiteDatabase.rawQuery path WeDatabaseListenerApi hooks, so we
     // intercept it directly — the same chokepoint ConversationGrouping/AggregateChats use.
-    internal val methodSqliteWrapperRawQuery by dexMethod(allowFailure = true) {
-        matcher {
-            modifiers = JavaModifier.PUBLIC
-            usingEqStrings("sql is null ", "DB IS CLOSED ! {%s}")
-            paramTypes("java.lang.String", "java.lang.String[]", "int")
-            returnType("android.database.Cursor")
-        }
-    }
     /**
      * `AddressLiveList.e(List snapshotList)` — the 通讯录 MvvmList preprocessor.
      * See hidecontacts/HideContactsLists.kt for why this is the right cut point.
@@ -982,6 +975,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     /** `v0.G(MultiTalkGroup)` — MultiTalkManager.onInviteMultiTalk. */
     internal val methodMultiTalkOnInvite by dexMethod(allowFailure = true) {
         matcher {
+            declaredClass(SplitGroupCall.methodExitMultiTalk.data.declaredClassName)
             usingEqStrings(
                 "MicroMsg.MT.MultiTalkManager",
                 "onInviteMultiTalk All Var Value:\n isMute: %b isHandsFree: %b isCameraFace: %b multiTalkStatus: %s groupIsNull: %b",
@@ -995,14 +989,6 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * so the invite hook's `thisObject` is the receiver to invoke this on — no separate singleton
      * lookup needed.
      */
-    internal val methodExitMultiTalk by dexMethod(allowFailure = true) {
-        matcher {
-            usingStrings(
-                "exitCurrentMultiTalk: isReject %b isMissCall %b isPhoneCall %b isNetworkError %b",
-            )
-        }
-    }
-
     // ── legacy v2protocal stack (only reached when the peer downgrades) ───────────────────────
 
     /** `nr4.y.x(...)` — the incoming float card. Shared by both stacks, so live on 8.0.76 as well. */

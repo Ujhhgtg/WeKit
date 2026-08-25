@@ -120,7 +120,7 @@ internal fun NukeSettingsRoot() {
     }
     var query by rememberSaveable { mutableStateOf("") }
     val featureItems = remember(resolvedLocale) {
-        FeaturesProvider.ALL_HOOK_ITEMS
+        FeaturesProvider.ALL_FEATURES
             .filterIsInstance<SwitchFeature>()
             .sortedWith { first, second ->
                 featureNameCollator.compare(first.localizedName(context), second.localizedName(context))
@@ -216,7 +216,7 @@ private fun NukeHomePage(
             NukeRootEntry(
                 title = stringResource(R.string.nuke_module_debug_title),
                 imageVector = MaterialSymbols.Outlined.Settings,
-                count = FeaturesProvider.ALL_HOOK_ITEMS.size,
+                count = FeaturesProvider.ALL_FEATURES.size,
                 destination = NukeDestination.ModuleDebug,
             )
         )

@@ -4,8 +4,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
@@ -13,9 +12,8 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
-import org.luckypray.dexkit.query.enums.StringMatchType
 
-object ErudaConsole : SwitchFeature(), IResolveDex {
+object ErudaConsole : SwitchFeature() {
 
     override val technicalId = "Eruda 调试面板"
     override val nameRes = R.string.feature_eruda_console_name
@@ -30,41 +28,14 @@ object ErudaConsole : SwitchFeature(), IResolveDex {
             .use { it.readText() }
     }
 
-    private val xwebOnPageFinished by dexMethod {
-        searchPackages("com.tencent.mm.plugin.appbrand.page")
-        matcher {
-            declaredClass {
-                usingEqStrings(
-                    "MicroMsg.AppBrandWebView",
-                    "onReceivedHttpError, WebResourceRequest url = %s, ErrWebResourceResponse mimeType = %s, status = %d"
-                )
-                superClass {
-                    className("com.tencent.xweb", StringMatchType.StartsWith)
-                }
-            }
-            paramTypes("com.tencent.xweb.WebView", "java.lang.String", "android.graphics.Bitmap")
-            returnType = "void"
-        }
-    }
-    private val androidOnPageFinished by dexMethod {
-        searchPackages("com.tencent.mm.plugin.appbrand.page")
-        matcher {
-            declaredClass {
-                superClass = "android.webkit.WebViewClient"
-            }
-            paramCount = 2
-            returnType = "void"
-        }
-    }
-
     override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND
 
     override fun onEnable() {
-        xwebOnPageFinished.hookAfter {
+        WeWebViewApi.xwebOnPageFinished.hookAfter {
             WeLogger.i(TAG, "injecting into xwebOnPageFinished: ${args[0]}")
             injectEruda(args[0]!!)
         }
-        androidOnPageFinished.hookAfter {
+        WeWebViewApi.androidOnPageFinished.hookAfter {
             WeLogger.i(TAG, "injecting into androidOnPageFinished: ${args[0]}")
             injectEruda(args[0]!!)
         }

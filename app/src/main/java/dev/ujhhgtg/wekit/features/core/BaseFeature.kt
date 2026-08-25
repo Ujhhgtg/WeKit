@@ -4,7 +4,6 @@ package dev.ujhhgtg.wekit.features.core
 
 import android.content.Context
 import androidx.annotation.StringRes
-import androidx.compose.runtime.Composable
 import dev.ujhhgtg.reflekt.reflected.BaseReflectedMethod
 import dev.ujhhgtg.reflekt.reflected.ReflectedConstructor
 import dev.ujhhgtg.reflekt.reflekt
@@ -80,13 +79,10 @@ abstract class BaseFeature {
 
     open fun onDisable() {}
 
-    @Composable
-    open fun Ui() {
-    }
-
     private val _dexDelegates = mutableListOf<BaseDexDelegate>()
     val dexDelegates: List<BaseDexDelegate> get() = _dexDelegates
     internal fun registerDexDelegate(d: BaseDexDelegate) {
+        d.owner = this
         _dexDelegates += d
     }
 

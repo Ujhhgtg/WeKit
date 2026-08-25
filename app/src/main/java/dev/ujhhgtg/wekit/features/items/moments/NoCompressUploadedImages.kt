@@ -14,6 +14,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
+import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
@@ -62,7 +63,7 @@ object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
     }
 
     private val vfsGetCachePathMethod by lazy {
-        WeMomentsApi.classVfs.reflekt().firstMethod {
+        WeMessageApi.classVfs.reflekt().firstMethod {
             modifiers(Modifiers.STATIC)
             parameters(BString, bool)
             returnType = BString

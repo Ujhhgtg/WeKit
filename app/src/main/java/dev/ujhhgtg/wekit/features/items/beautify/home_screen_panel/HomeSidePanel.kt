@@ -395,7 +395,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             scope = stateScope,
             layoutStore = layoutStore,
             closePanel = { afterClosed ->
-                close(animated = true, oneShot = true, afterClosed = afterClosed)
+                close(animated = true, afterClosed = afterClosed)
             },
         )
         private val outlineProvider = ProgressOutlineProvider()
@@ -466,7 +466,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             dimView.alpha = 0f
             dimView.isClickable = true
             dimView.setOnClickListener {
-                if (renderedProgress > CLOSED_EPSILON) close(animated = true, oneShot = true)
+                if (renderedProgress > CLOSED_EPSILON) close(animated = true)
             }
 
             panelView.setBackgroundColor(AndroidColor.TRANSPARENT)
@@ -824,7 +824,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
 
         fun close(
             animated: Boolean,
-            oneShot: Boolean = false,
             afterClosed: (() -> Unit)? = null,
         ) {
             if (suppressCloseUntilNextFrame) return
@@ -835,7 +834,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             parent.requestDisallowInterceptTouchEvent(false)
             gesture.close()
             if (animated) {
-                animateTo(0f, from, oneShot, afterClosed)
+                animateTo(0f, from, afterClosed)
             } else {
                 applyProgress(0f)
                 afterClosed?.invoke()
@@ -877,7 +876,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                         val target = gesture.onUp(event.eventTime)
                         dragging = false
                         parent.requestDisallowInterceptTouchEvent(false)
-                        animateTo(target, from, oneShot = target == 0f)
+                        animateTo(target, from)
                         PagerTouchResult.CONSUME
                     }
                 }
@@ -891,7 +890,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                         val target = gesture.onCancel()
                         dragging = false
                         parent.requestDisallowInterceptTouchEvent(false)
-                        animateTo(target, from, oneShot = target == 0f)
+                        animateTo(target, from)
                         PagerTouchResult.CONSUME
                     }
                 }
@@ -975,7 +974,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                     val target = gesture.onUp(event.eventTime)
                     dragging = false
                     parent.requestDisallowInterceptTouchEvent(false)
-                    animateTo(target, from, oneShot = target == 0f)
+                    animateTo(target, from)
                     true
                 }
 
@@ -984,7 +983,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                     val target = gesture.onCancel()
                     dragging = false
                     parent.requestDisallowInterceptTouchEvent(false)
-                    animateTo(target, from, oneShot = target == 0f)
+                    animateTo(target, from)
                     true
                 }
 
@@ -1010,7 +1009,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private fun animateTo(
             target: Float,
             from: Float = renderedProgress,
-            oneShot: Boolean = false,
             afterClosed: (() -> Unit)? = null,
         ) {
             requestSync(SYNC_HIERARCHY or SYNC_GEOMETRY)
@@ -1025,11 +1023,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             overlayRoot.visibility = View.VISIBLE
             var canceled = false
             animator = ValueAnimator.ofFloat(from, target).apply {
-                duration = if (oneShot && target == 0f) {
-                    (120L + 120L * kotlin.math.abs(from - target)).roundToInt().toLong()
-                } else {
-                    (180L + 180L * kotlin.math.abs(from - target)).roundToInt().toLong()
-                }
+                duration = (120L + 120L * kotlin.math.abs(from - target)).roundToInt().toLong()
                 interpolator = DecelerateInterpolator(1.4f)
                 addUpdateListener {
                     val progress = it.animatedValue as Float
@@ -1137,7 +1131,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             }
             syncToolbarProfileVisibility()
             if (chattingVisible && renderedProgress > CLOSED_EPSILON) {
-                close(animated = true, oneShot = true)
+                close(animated = true)
             }
         }
 

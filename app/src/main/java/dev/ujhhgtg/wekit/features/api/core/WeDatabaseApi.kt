@@ -41,12 +41,12 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_we_database_api_description
 
-    private val classMmKernel by dexClass {
+    internal val classMmKernel by dexClass {
         matcher {
             usingEqStrings("MicroMsg.MMKernel", "Kernel not null, has initialized.")
         }
     }
-    private val methodGetStorage by dexMethod {
+    internal val methodGetStorage by dexMethod {
         matcher {
             declaredClass(classMmKernel.data.name)
             modifiers = Modifier.PUBLIC or Modifier.STATIC
@@ -71,6 +71,14 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     private val classSqliteDbWrapper by dexClass {
         matcher {
             usingEqStrings("MicroMsg.SqliteDB", "sql is null ")
+        }
+    }
+    internal val methodSqliteWrapperRawQuery by dexMethod(allowFailure = true) {
+        matcher {
+            modifiers = Modifier.PUBLIC
+            usingEqStrings("sql is null ", "DB IS CLOSED ! {%s}")
+            paramTypes("java.lang.String", "java.lang.String[]", "int")
+            returnType("android.database.Cursor")
         }
     }
 

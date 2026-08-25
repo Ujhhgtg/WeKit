@@ -20,11 +20,16 @@ object LocalizedContextFactory {
             setLocales(LocaleList.forLanguageTags(locale.androidTag))
         }
         val configured = base.createConfigurationContext(configuration)
-        return when (mode) {
+        val localized = when (mode) {
             LocaleResourceMode.InjectedHost -> configured.also {
                 ResourcesInjector.injectModuleRes(it.resources)
             }
             LocaleResourceMode.ModuleApp -> configured
+        }
+        return if (locale == SupportedLocale.MEOW_CHINESE) {
+            MeowResourcesContext(localized)
+        } else {
+            localized
         }
     }
 }

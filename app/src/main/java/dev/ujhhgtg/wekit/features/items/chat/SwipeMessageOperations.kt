@@ -27,6 +27,7 @@ import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -51,6 +52,7 @@ import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.luckypray.dexkit.DexKitBridge
 import java.util.Collections
 import java.util.WeakHashMap
 import kotlin.math.abs
@@ -106,6 +108,34 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
                 "warn!!! cacheSize:%s sysSize:%s"
             )
         }
+    }
+
+    // ChattingUIFragment installs this listener on the chat list. On ACTION_DOWN it asks the
+    // current ChatFooter to close the keyboard/panel, then returns false so normal list handling
+    // continues. A blank-area DOWN claimed by our row never reaches that listener, so resolve the
+    // exact ChatFooter call and mirror it at the point where we claim the stream.
+    private val methodChatListOnTouch by dexMethod {
+        searchPackages("com.tencent.mm.ui.chatting")
+        matcher {
+            usingEqStrings("onTouch: touch down", "onTouch: touch up")
+            paramTypes("android.view.View", "android.view.MotionEvent")
+            returnType = "boolean"
+        }
+    }
+
+    private val methodHideChatInput by dexMethod()
+
+    override fun resolveDex(dexKit: DexKitBridge) {
+        methodHideChatInput.setDescriptor(
+            methodChatListOnTouch.data.invokes
+                .distinctBy { it.descriptor }
+                .single {
+                    it.declaredClassName == "com.tencent.mm.pluginsdk.ui.chat.ChatFooter" &&
+                        it.returnTypeName == "void" &&
+                        (it.paramTypeNames == listOf("boolean") ||
+                            it.paramTypeNames == listOf("int", "boolean"))
+                }
+        )
     }
 
     // ── lifecycle ────────────────────────────────────────────────────────────
@@ -301,6 +331,7 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
                     }
                     true
                 } else {
+                    hideChatInput(s.chattingContext!!)
                     false
                 }
             }
@@ -586,6 +617,22 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
     }
 
     // ── swipe actions ──────────────────────────────────────────────────────────
+
+    private fun hideChatInput(chattingContext: Any) {
+        val apiMan = chattingContext.reflekt()
+            .firstField { type = WeServiceApi.apiManagerClass }
+            .get()!!
+        val api = WeServiceApi.getApiByClass(apiMan, classChattingUiFootComponent.clazz)
+        val chatFooter = api.reflekt()
+            .firstField { type = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter" }
+            .get()!! as ChatFooter
+        val method = methodHideChatInput.method
+        if (method.parameterCount == 1) {
+            method.invoke(chatFooter, true)
+        } else {
+            method.invoke(chatFooter, 0, true)
+        }
+    }
 
     private fun onSwipeQuote(originalView: View, chattingContext: Any) {
         val apiMan = chattingContext.reflekt()

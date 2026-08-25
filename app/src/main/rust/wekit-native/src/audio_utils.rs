@@ -191,6 +191,46 @@ pub fn any_to_silk(mp3_path: &str, silk_path: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn pcm_file_to_silk(
+    pcm_path: &str,
+    silk_path: &str,
+    sample_rate: u32,
+    channel_count: usize,
+) -> Result<()> {
+    if sample_rate == 0 {
+        bail!("Invalid PCM sample rate: 0");
+    }
+    if channel_count == 0 {
+        bail!("Invalid PCM channel count: 0");
+    }
+
+    let pcm_file = File::open(pcm_path)?;
+    let frame_bytes = channel_count
+        .checked_mul(std::mem::size_of::<i16>())
+        .ok_or_else(|| anyhow!("PCM channel count is too large"))?;
+    let pcm_len = pcm_file.metadata()?.len();
+    if pcm_len % frame_bytes as u64 != 0 {
+        bail!("PCM byte length is not aligned to channel frames");
+    }
+
+    let frame_count = usize::try_from(pcm_len / frame_bytes as u64)
+        .map_err(|_| anyhow!("PCM file is too large"))?;
+    let mut reader = BufReader::new(pcm_file);
+    let mut frame = vec![0u8; frame_bytes];
+    let mut mono = Vec::with_capacity(frame_count);
+    for _ in 0..frame_count {
+        reader.read_exact(&mut frame)?;
+        let sum = frame
+            .chunks_exact(2)
+            // Android's supported arm64 ABI is little-endian, matching its native PCM byte order.
+            .map(|bytes| i16::from_le_bytes([bytes[0], bytes[1]]) as i64)
+            .sum::<i64>();
+        mono.push((sum / channel_count as i64).clamp(i16::MIN as i64, i16::MAX as i64) as i16);
+    }
+    let pcm = resample_to(&mono, sample_rate, 24000);
+    pcm_bytes_to_silk(&pcm, File::create(silk_path)?)
+}
+
 const SILK_MAGIC: &[u8] = b"#!SILK_V3";
 const SILK_FRAME_MS: i32 = 20;
 

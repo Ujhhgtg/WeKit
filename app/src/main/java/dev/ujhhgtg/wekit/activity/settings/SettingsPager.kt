@@ -471,6 +471,7 @@ private fun ThemeSection() {
         LanguageSelection.SYSTEM to stringResource(R.string.language_follow_system),
         LanguageSelection.ENGLISH to stringResource(R.string.language_english),
         LanguageSelection.SIMPLIFIED_CHINESE to stringResource(R.string.language_simplified_chinese),
+        LanguageSelection.MEOW_CHINESE to stringResource(R.string.language_meow_chinese),
         LanguageSelection.TRADITIONAL_CHINESE to stringResource(R.string.language_traditional_chinese),
     )
     val languageSummary = if (selectedLanguage == LanguageSelection.SYSTEM) {

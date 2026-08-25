@@ -4,7 +4,10 @@ import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
 import dev.ujhhgtg.wekit.features.items.beautify.BeautifyText
@@ -28,6 +31,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.nio.file.Path
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal data class HomeSidePanelUiState(
@@ -40,6 +45,7 @@ internal data class HomeSidePanelUiState(
     val initialized: Boolean,
     val showToolbarProfile: Boolean,
     val hideWeChatTitle: Boolean,
+    val imageImportingCardIds: Set<String> = emptySet(),
 )
 
 internal class HomeSidePanelState(
@@ -53,6 +59,7 @@ internal class HomeSidePanelState(
     private val closePanel: ((() -> Unit)?) -> Unit,
     private val layoutStore: HomeSidePanelLayoutStore = HomeSidePanelLayoutStore,
     private val idGenerator: HomeSidePanelIdGenerator = UuidHomeSidePanelIdGenerator,
+    private val imageAssets: HomeSidePanelImageAssetStore = HomeSidePanelImageAssetStore(),
 ) {
 
     private data class ActiveEditing(
@@ -60,11 +67,19 @@ internal class HomeSidePanelState(
         val editor: HomeSidePanelEditSession,
     )
 
+    private data class ActiveImageImport(
+        val token: String,
+        val sessionId: String,
+        val cardId: String,
+        var job: Job? = null,
+    )
+
     private val started = AtomicBoolean()
     private var editing: ActiveEditing? = null
     private var cancelDrag: (() -> Unit)? = null
     private var pendingLocationCardId: String? = null
     private val weatherActionJobs = mutableMapOf<String, Job>()
+    private val imageImports = linkedMapOf<String, ActiveImageImport>()
     private var statusSyncJob: Job? = null
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     private val _addCandidates = MutableSharedFlow<HomeSidePanelAddCandidate>(extraBufferCapacity = 8)
@@ -92,6 +107,7 @@ internal class HomeSidePanelState(
             initialized = false,
             showToolbarProfile = HomeSidePanelPreferences.showToolbarProfile,
             hideWeChatTitle = HomeSidePanelPreferences.hideWeChatTitle,
+            imageImportingCardIds = emptySet(),
         ),
     )
 
@@ -102,6 +118,7 @@ internal class HomeSidePanelState(
 
     fun start() {
         if (!started.compareAndSet(false, true)) return
+        imageAssets.cleanupStaleDrafts()
         scope.launch {
             runtimeStore.states.collect { runtimeStates ->
                 _uiState.update { it.copy(runtimeStates = runtimeStates) }
@@ -186,6 +203,8 @@ internal class HomeSidePanelState(
         val active = requireEditing()
         _uiState.update { it.copy(initialized = false) }
         runtimeStore.discardDraft(active.sessionId)
+        cancelImageImports(active.sessionId)
+        imageAssets.discardSession(active.sessionId)
         editing = null
         pendingLocationCardId = null
         cancelWeatherActionJobs()
@@ -204,6 +223,18 @@ internal class HomeSidePanelState(
     fun saveEditing() {
         cancelDrag?.invoke()
         val active = requireEditing()
+        check(_uiState.value.imageImportingCardIds.isEmpty()) {
+            "Side panel image imports must finish before saving"
+        }
+        val prepared = imageAssets.prepareCommit(
+            sessionId = active.sessionId,
+            oldAssetIds = _uiState.value.formalLayout.imageAssetIds(),
+            newAssetIds = active.editor.draft.imageAssetIds(),
+        ).getOrElse { failure ->
+            WeLogger.w(TAG, "failed to prepare side panel image assets", failure)
+            publishMessage(beautifyText(R.string.home_side_panel_save_failed))
+            return
+        }
         val result = commitHomeSidePanelEdit(
             editor = active.editor,
             persist = layoutStore::save,
@@ -213,6 +244,7 @@ internal class HomeSidePanelState(
             },
         )
         if (result is HomeSidePanelEditCommit.Retained) {
+            imageAssets.rollbackCommit(prepared)
             WeLogger.w(TAG, "failed to save side panel layout", result.failure)
             publishMessage(beautifyText(R.string.home_side_panel_save_failed))
             return
@@ -221,6 +253,9 @@ internal class HomeSidePanelState(
         result.promotionFailure?.let { failure ->
             WeLogger.w(TAG, "layout saved; recovering failed runtime promotion", failure)
             runtimeStore.recoverCommittedLayout(active.sessionId, result.layout)
+        }
+        runCatching { imageAssets.finalizeCommit(prepared) }.onFailure { failure ->
+            WeLogger.w(TAG, "layout saved; failed to clean side panel image assets", failure)
         }
 
         editing = null
@@ -272,10 +307,111 @@ internal class HomeSidePanelState(
     }
 
     fun removeCard(cardId: String) {
+        editing?.let { cancelImageImports(it.sessionId, cardId) }
         weatherActionJobs.remove(cardId)?.cancel()
         if (pendingLocationCardId == cardId) pendingLocationCardId = null
         _weatherSettings.update { it - cardId }
         mutateDraft { removeCard(cardId) }
+    }
+
+    fun selectImage(cardId: String) {
+        val active = requireEditing()
+        requireDraftImageCard(cardId)
+        if (cardId in _uiState.value.imageImportingCardIds) return
+        val sessionId = active.sessionId
+        val token = UUID.randomUUID().toString()
+        imageImports[token] = ActiveImageImport(token, sessionId, cardId)
+        refreshImageImportingCards()
+        runCatching {
+            TransparentActivity.launch(activity) {
+                val launcher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+                    finish()
+                    val request = imageImports[token] ?: return@registerForActivityResult
+                    if (uri == null) {
+                        completeImageImport(token)
+                        return@registerForActivityResult
+                    }
+                    val job = scope.launch {
+                        try {
+                            val result = imageAssets.importDraft(request.sessionId) {
+                                activity.contentResolver.openInputStream(uri)
+                                    ?: throw IllegalStateException("Failed to open selected image")
+                            }
+                            val current = editing
+                            val currentCardExists = current?.sessionId == request.sessionId &&
+                                current.editor.draft.cards.any {
+                                    it.id == request.cardId && it is ImageCardConfig
+                                }
+                            if (currentCardExists) {
+                                when (result) {
+                                    is HomeSidePanelImageImportResult.Success -> mutateImageDraft {
+                                        updateImage(request.cardId) {
+                                            it.copy(
+                                                imageAssetId = result.assetId,
+                                                imageWidthPx = result.widthPx,
+                                                imageHeightPx = result.heightPx,
+                                            )
+                                        }
+                                    }
+
+                                    HomeSidePanelImageImportResult.TooLarge -> publishMessage(
+                                        beautifyText(R.string.home_side_panel_image_too_large),
+                                    )
+
+                                    HomeSidePanelImageImportResult.TooManyPixels -> publishMessage(
+                                        beautifyText(R.string.home_side_panel_image_dimensions_too_large),
+                                    )
+
+                                    HomeSidePanelImageImportResult.UnsupportedAspectRatio -> publishMessage(
+                                        beautifyText(R.string.home_side_panel_image_aspect_ratio_unsupported),
+                                    )
+
+                                    HomeSidePanelImageImportResult.InvalidImage -> publishMessage(
+                                        beautifyText(R.string.home_side_panel_image_invalid),
+                                    )
+
+                                    is HomeSidePanelImageImportResult.Failure -> {
+                                        WeLogger.w(TAG, "failed to import side panel image", result.error)
+                                        publishMessage(beautifyText(R.string.home_side_panel_image_import_failed))
+                                    }
+                                }
+                            } else if (result is HomeSidePanelImageImportResult.Success) {
+                                imageAssets.deleteDraftAsset(request.sessionId, result.assetId)
+                            }
+                        } finally {
+                            completeImageImport(token)
+                        }
+                    }
+                    request.job = job
+                }
+                launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }
+        }.onFailure { failure ->
+            completeImageImport(token)
+            WeLogger.w(TAG, "failed to open side panel image picker", failure)
+            publishMessage(beautifyText(R.string.home_side_panel_image_import_failed))
+        }
+    }
+
+    fun updateImageScaleMode(cardId: String, mode: HomeSidePanelImageScaleMode) {
+        mutateImageDraft { updateImage(cardId) { it.copy(scaleMode = mode) } }
+    }
+
+    fun updateImageHeight(cardId: String, heightDp: Int) {
+        mutateImageDraft { updateImage(cardId) { it.copy(heightDp = heightDp) } }
+    }
+
+    fun updateImageDimensions(cardId: String, widthPx: Int, heightPx: Int) {
+        mutateImageDraft {
+            updateImage(cardId) { it.copy(imageWidthPx = widthPx, imageHeightPx = heightPx) }
+        }
+    }
+
+    fun imageFile(cardId: String): Path? {
+        val card = renderedCard(cardId)
+        require(card is ImageCardConfig) { "Card '$cardId' is ${card.type}; expected Image card" }
+        val assetId = card.imageAssetId ?: return null
+        return imageAssets.resolve(editing?.sessionId, assetId)
     }
 
     fun openAddAction(cardId: String) {
@@ -499,7 +635,12 @@ internal class HomeSidePanelState(
     fun close() {
         cancelDrag?.invoke()
         cancelDrag = null
-        editing?.let { runtimeStore.discardDraft(it.sessionId) }
+        val active = editing
+        active?.let {
+            cancelImageImports(it.sessionId)
+            runtimeStore.discardDraft(it.sessionId)
+            imageAssets.discardSession(it.sessionId)
+        }
         editing = null
         pendingLocationCardId = null
         cancelWeatherActionJobs()
@@ -562,6 +703,29 @@ internal class HomeSidePanelState(
         weatherActionJobs.clear()
     }
 
+    private fun cancelImageImports(sessionId: String, cardId: String? = null) {
+        val matching = imageImports.values.filter {
+            it.sessionId == sessionId && (cardId == null || it.cardId == cardId)
+        }
+        matching.forEach { request ->
+            imageImports.remove(request.token)
+            request.job?.cancel()
+        }
+        refreshImageImportingCards()
+    }
+
+    private fun completeImageImport(token: String) {
+        if (imageImports.remove(token) != null) refreshImageImportingCards()
+    }
+
+    private fun refreshImageImportingCards() {
+        val sessionId = editing?.sessionId
+        val cardIds = if (sessionId == null) emptySet() else imageImports.values
+            .filter { it.sessionId == sessionId }
+            .mapTo(linkedSetOf(), ActiveImageImport::cardId)
+        _uiState.update { it.copy(imageImportingCardIds = cardIds) }
+    }
+
     private fun updateWeatherSettings(
         cardId: String,
         selectedCity: WeatherCity? = null,
@@ -595,6 +759,13 @@ internal class HomeSidePanelState(
         return result
     }
 
+    private inline fun <T> mutateImageDraft(block: HomeSidePanelEditSession.() -> T): T {
+        val active = requireEditing()
+        val result = active.editor.block()
+        _uiState.update { it.copy(renderedLayout = active.editor.draft) }
+        return result
+    }
+
     private fun requireEditing(): ActiveEditing = checkNotNull(editing) {
         "No HomeSidePanel edit session is active"
     }
@@ -622,6 +793,12 @@ internal class HomeSidePanelState(
     private fun requireDraftHitokotoCard(cardId: String): HitokotoCardConfig {
         val card = requireDraftCard(cardId)
         require(card is HitokotoCardConfig) { "Card '$cardId' is ${card.type}; expected Hitokoto card" }
+        return card
+    }
+
+    private fun requireDraftImageCard(cardId: String): ImageCardConfig {
+        val card = requireDraftCard(cardId)
+        require(card is ImageCardConfig) { "Card '$cardId' is ${card.type}; expected Image card" }
         return card
     }
 
