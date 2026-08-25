@@ -107,7 +107,10 @@ EXPECTED_TEMPLATE_NAMES = tuple(spec[0] for spec in TEMPLATE_SPECS)
 MANAGED_OUTPUT_FILES = ("monet_roles.json", "monet_profiles.json", "upstream.txt")
 LEGACY_OUTPUT_NAMES = ("template_api31.apk", "template_api34.apk", "monet_tables.json")
 PRESERVED_OUTPUT_FILES = (
+    "boot-completed.sh",
+    "common.sh",
     "customize.sh",
+    "service.sh",
     "update-binary",
     "updater-script",
     "tools/domestic_structural_profiles.b85",

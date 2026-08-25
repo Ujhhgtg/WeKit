@@ -22,6 +22,23 @@ importer = load_module("gen_monet_tables")
 
 
 class S4ToolTest(unittest.TestCase):
+    def test_preserved_output_contract_includes_state_recovery_scripts(self):
+        self.assertEqual(
+            {
+                "boot-completed.sh",
+                "common.sh",
+                "customize.sh",
+                "service.sh",
+                "update-binary",
+                "updater-script",
+                "tools/domestic_structural_profiles.b85",
+                "tools/gen_monet_tables.py",
+                "tools/sync_s4_payload.py",
+                "tools/test_s4_tools.py",
+            },
+            set(sync.PRESERVED_OUTPUT_FILES),
+        )
+
     def test_publish_uses_allowlist_and_preserves_required_repository_assets(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -58,40 +75,42 @@ class S4ToolTest(unittest.TestCase):
             self.assertEqual(0o751, output.stat().st_mode & 0o777)
 
     def test_publish_rejects_missing_required_asset_without_moving_old_output(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            output = root / "payload"
-            generated = root / "generated"
-            output.mkdir()
-            self._write_preserved(output)
-            (output / "customize.sh").unlink()
-            (output / "monet_roles.json").write_text("old", encoding="utf-8")
-            self._write_generated(generated, "new")
+        for missing in sync.PRESERVED_OUTPUT_FILES:
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                output = root / "payload"
+                generated = root / "generated"
+                output.mkdir()
+                self._write_preserved(output)
+                (output / missing).unlink()
+                (output / "monet_roles.json").write_text("old", encoding="utf-8")
+                self._write_generated(generated, "new")
 
-            with self.assertRaisesRegex(ValueError, "required preserved payload asset"):
-                sync.publish_generated(generated, output)
+                with self.assertRaisesRegex(ValueError, "required preserved payload asset"):
+                    sync.publish_generated(generated, output)
 
-            self.assertEqual("old", (output / "monet_roles.json").read_text(encoding="utf-8"))
+                self.assertEqual("old", (output / "monet_roles.json").read_text(encoding="utf-8"))
 
     def test_publish_rejects_symlinked_required_asset_without_moving_old_output(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            output = root / "payload"
-            generated = root / "generated"
-            output.mkdir()
-            self._write_preserved(output)
-            (output / "customize.sh").unlink()
-            external = root / "external"
-            external.write_text("external", encoding="utf-8")
-            (output / "customize.sh").symlink_to(external)
-            (output / "monet_roles.json").write_text("old", encoding="utf-8")
-            self._write_generated(generated, "new")
+        for symlinked in sync.PRESERVED_OUTPUT_FILES:
+            with self.subTest(symlinked=symlinked), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                output = root / "payload"
+                generated = root / "generated"
+                output.mkdir()
+                self._write_preserved(output)
+                (output / symlinked).unlink()
+                external = root / "external"
+                external.write_text("external", encoding="utf-8")
+                (output / symlinked).symlink_to(external)
+                (output / "monet_roles.json").write_text("old", encoding="utf-8")
+                self._write_generated(generated, "new")
 
-            with self.assertRaisesRegex(ValueError, "required preserved payload asset"):
-                sync.publish_generated(generated, output)
+                with self.assertRaisesRegex(ValueError, "required preserved payload asset"):
+                    sync.publish_generated(generated, output)
 
-            self.assertEqual("old", (output / "monet_roles.json").read_text(encoding="utf-8"))
-            self.assertTrue((output / "customize.sh").is_symlink())
+                self.assertEqual("old", (output / "monet_roles.json").read_text(encoding="utf-8"))
+                self.assertTrue((output / symlinked).is_symlink())
 
     def test_publish_fresh_output_has_deterministic_directory_mode(self):
         with tempfile.TemporaryDirectory() as directory:
