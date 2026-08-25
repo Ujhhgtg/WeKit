@@ -259,7 +259,6 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
                 s.triggered = false
                 s.actionOverlay?.dismiss(animated = false)
                 s.actionOverlay = null
-                hideChatInput(s.chattingContext!!)
                 // Claim so the non-clickable container keeps receiving the stream (blank-area path).
                 true
             }
@@ -332,6 +331,7 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
                     }
                     true
                 } else {
+                    hideChatInput(s.chattingContext!!)
                     false
                 }
             }
