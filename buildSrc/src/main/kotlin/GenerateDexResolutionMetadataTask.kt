@@ -6,11 +6,19 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import java.security.MessageDigest
 
+internal data class DexResolutionSafetySource(
+    val relativePath: String,
+    val sourceText: String,
+)
+
 abstract class GenerateDexResolutionMetadataTask : DefaultTask() {
     @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val sourceDir: DirectoryProperty
 
     @get:OutputDirectory
@@ -24,9 +32,19 @@ abstract class GenerateDexResolutionMetadataTask : DefaultTask() {
 
     @TaskAction
     fun generate() {
-        val sourceFiles = sourceDir.get().asFile.walkTopDown()
+        val sourceRoot = sourceDir.get().asFile
+        val sourceFiles = sourceRoot.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
+            .sortedBy { it.relativeTo(sourceRoot).invariantSeparatorsPath }
             .toList()
+        val sourceDirSafetyDigest = dexResolutionSafetyDigest(
+            sourceFiles.map { sourceFile ->
+                DexResolutionSafetySource(
+                    relativePath = sourceFile.relativeTo(sourceRoot).invariantSeparatorsPath,
+                    sourceText = sourceFile.readText(),
+                )
+            },
+        )
         val discoveredOwnerClassNames = sourceFiles
             .flatMap(::discoverDexResolverOwnerClassNames)
             .toSet()
@@ -48,7 +66,13 @@ abstract class GenerateDexResolutionMetadataTask : DefaultTask() {
         )
 
         metadataFile.parentFile.mkdirs()
-        metadataFile.writeText(renderMetadataSource(namespace.get(), owners))
+        metadataFile.writeText(
+            renderMetadataSource(
+                namespace = namespace.get(),
+                owners = owners,
+                sourceDirSafetyDigest = sourceDirSafetyDigest,
+            ),
+        )
 
         outputRoot.resolve("$namespacePath/dexkit/cache/GeneratedMethodHashes.kt").delete()
 
@@ -94,17 +118,23 @@ internal fun requireCompleteDexResolverMetadata(
 
 private const val FINGERPRINT_SCHEMA_SALT = "wekit-dex-resolution-metadata-v2"
 
-internal fun renderMetadataSource(namespace: String, owners: List<DexResolverSource>): String {
+internal fun renderMetadataSource(
+    namespace: String,
+    owners: List<DexResolverSource>,
+    sourceDirSafetyDigest: String,
+): String {
+    require(sourceDirSafetyDigest.matches(Regex("[0-9a-f]{64}"))) {
+        "Dex resolver source-directory safety digest must be lowercase SHA-256."
+    }
     val ownerAnnotations = owners.joinToString(",\n") { "            ${it.qualifiedClassName.asKotlinString()}" }
     val ownerEntries = owners.joinToString(",\n") { owner ->
-        val ownerSafetyFingerprint = fingerprint(
-            stableId = owner.qualifiedClassName,
-            kind = "OWNER_SAFETY",
-            source = owner.ownerSafetySource,
-        )
         val producerEntries = owner.producers.joinToString(",\n") { producer ->
-            val localFingerprint = if (producer.usesOwnerSafetyFingerprint) {
-                ownerSafetyFingerprint
+            val localFingerprint = if (producer.usesSourceDirSafetyFingerprint) {
+                fingerprint(
+                    stableId = producer.stableId,
+                    kind = "${producer.kind.name}_SOURCE_DIR_SAFETY",
+                    source = sourceDirSafetyDigest,
+                )
             } else {
                 fingerprint(producer.stableId, producer.kind.name, producer.fingerprintSource)
             }
@@ -115,7 +145,7 @@ internal fun renderMetadataSource(namespace: String, owners: List<DexResolverSou
                         propertyName = ${producer.propertyName?.asKotlinString() ?: "null"},
                         kind = DexProducerKind.${producer.kind.name},
                         localFingerprint = ${localFingerprint.asKotlinString()},
-                        usesOwnerSafetyFingerprint = ${producer.usesOwnerSafetyFingerprint},
+                        usesSourceDirSafetyFingerprint = ${producer.usesSourceDirSafetyFingerprint},
                     )
             """.trimIndent()
         }
@@ -127,7 +157,6 @@ internal fun renderMetadataSource(namespace: String, owners: List<DexResolverSou
         """
             ${owner.qualifiedClassName.asKotlinString()} to DexOwnerMetadata(
                 ownerClassName = ${owner.qualifiedClassName.asKotlinString()},
-                ownerSafetyFingerprint = ${ownerSafetyFingerprint.asKotlinString()},
                 producers = $producers,
                 customOutputPropertyNames = $customOutputs,
             )
@@ -142,9 +171,44 @@ internal fun renderMetadataSource(namespace: String, owners: List<DexResolverSou
 $ownerAnnotations,
         )
         object GeneratedDexResolutionMetadata {
+            const val SOURCE_DIR_SAFETY_DIGEST: String = ${sourceDirSafetyDigest.asKotlinString()}
             val OWNERS: Map<String, DexOwnerMetadata> = $ownersMap
         }
     """.trimIndent() + "\n"
+}
+
+internal fun dexResolutionSafetyDigest(sources: List<DexResolutionSafetySource>): String {
+    val duplicatePaths = sources.groupingBy { normalizeSafetyPath(it.relativePath) }
+        .eachCount()
+        .filterValues { it > 1 }
+        .keys
+    require(duplicatePaths.isEmpty()) {
+        "Duplicate Dex resolver safety-source paths: ${duplicatePaths.sorted()}"
+    }
+
+    return sha256(
+        buildString {
+            append("wekit-dex-resolution-source-dir-safety-v1\n")
+            sources.sortedBy { normalizeSafetyPath(it.relativePath) }.forEach { source ->
+                val relativePath = normalizeSafetyPath(source.relativePath)
+                val normalizedSource = normalizeSafetySource(source.sourceText)
+                appendLengthPrefixed(relativePath)
+                appendLengthPrefixed(normalizedSource)
+            }
+        },
+    )
+}
+
+private fun normalizeSafetyPath(path: String): String = path.replace('\\', '/')
+
+private fun normalizeSafetySource(source: String): String =
+    source.replace("\r\n", "\n").replace('\r', '\n')
+
+private fun StringBuilder.appendLengthPrefixed(value: String) {
+    append(value.toByteArray(Charsets.UTF_8).size)
+    append(':')
+    append(value)
+    append('\n')
 }
 
 private fun fingerprint(stableId: String, kind: String, source: String): String =

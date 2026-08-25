@@ -314,7 +314,6 @@ private class WorkerGraphFixture {
             val ownerId = owner.javaClass.name
             ownerId to DexOwnerMetadata(
                 ownerClassName = ownerId,
-                ownerSafetyFingerprint = "owner-$ownerId",
                 producers = owner.dexDelegates.associate { delegate ->
                     delegate.stableId to DexProducerMetadata(
                         stableId = delegate.stableId,
@@ -322,7 +321,7 @@ private class WorkerGraphFixture {
                         propertyName = delegate.propertyName,
                         kind = DexProducerKind.INLINE_METHOD,
                         localFingerprint = "producer-${delegate.propertyName}",
-                        usesOwnerSafetyFingerprint = false,
+                        usesSourceDirSafetyFingerprint = false,
                     )
                 },
                 customOutputPropertyNames = emptySet(),

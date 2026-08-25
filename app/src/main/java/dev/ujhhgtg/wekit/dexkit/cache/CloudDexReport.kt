@@ -122,7 +122,7 @@ internal object CloudDexReport {
                     propertyName = null,
                     kind = DexProducerKind.CUSTOM,
                     localFingerprint = outputs.first().producerFingerprint,
-                    usesOwnerSafetyFingerprint = false,
+                    usesSourceDirSafetyFingerprint = false,
                 ),
                 dependencyFingerprints,
             )

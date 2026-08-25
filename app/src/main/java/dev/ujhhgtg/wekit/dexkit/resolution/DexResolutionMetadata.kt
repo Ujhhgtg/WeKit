@@ -12,12 +12,13 @@ data class DexProducerMetadata(
     val propertyName: String?,
     val kind: DexProducerKind,
     val localFingerprint: String,
-    val usesOwnerSafetyFingerprint: Boolean,
+    // True means localFingerprint is conservatively derived from every Kotlin file in the
+    // metadata generator's source directory, rather than a proven producer/helper closure.
+    val usesSourceDirSafetyFingerprint: Boolean,
 )
 
 data class DexOwnerMetadata(
     val ownerClassName: String,
-    val ownerSafetyFingerprint: String,
     val producers: Map<String, DexProducerMetadata>,
     val customOutputPropertyNames: Set<String>,
 )

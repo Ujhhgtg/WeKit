@@ -14,14 +14,15 @@ internal data class DexProducerSource(
     val kind: ResolveBlockKind,
     val startLine: Int,
     val fingerprintSource: String,
-    val usesOwnerSafetyFingerprint: Boolean,
+    // False means fingerprintSource proves the complete local helper/value closure. True delegates
+    // safety to the generator's digest of every Kotlin source under its configured sourceDir.
+    val usesSourceDirSafetyFingerprint: Boolean,
 )
 
 internal data class DexResolverSource(
     val file: File,
     val qualifiedClassName: String,
     val producers: List<DexProducerSource>,
-    val ownerSafetySource: String,
     val customOutputPropertyNames: Set<String>,
     val blocks: List<ResolveSourceBlock>,
     internal val sourceLinesByBlock: Map<ResolveSourceBlock, IntArray> = emptyMap(),
@@ -129,8 +130,6 @@ private fun scanDexResolverDeclaration(
     fun isDirectMemberAt(index: Int): Boolean =
         index > classBodyStart && index < classBodyEnd && clean.braceDepthAt(index) == classBodyDepth
 
-    val ownerSafetySource = clean.substring(resolveDexDeclaration.range.first, classBodyEnd + 1).trim()
-
     val blocks = mutableListOf<ResolveSourceBlock>()
     val sourceLinesByBlock = mutableMapOf<ResolveSourceBlock, IntArray>()
     fun addBlock(kind: ResolveBlockKind, start: Int, end: Int) {
@@ -225,25 +224,25 @@ private fun scanDexResolverDeclaration(
         .toSet()
     val helperPropertyNames = memberPropertyNames - delegatePropertyNames.toSet()
     val producers = rawProducers.map { raw ->
-        val closure = buildHelperClosure(raw.source, helperFunctions, helperPropertyNames)
-        val usesOwnerSafetyFingerprint = !closure.isProven
+        val closure = buildHelperClosure(
+            producerSource = raw.source,
+            helperFunctions = helperFunctions,
+            helperPropertyNames = helperPropertyNames,
+            delegatePropertyNames = delegatePropertyNames.toSet(),
+        )
         DexProducerSource(
             stableId = raw.stableId,
             propertyName = raw.propertyName,
             kind = raw.kind,
             startLine = raw.startLine,
-            fingerprintSource = if (usesOwnerSafetyFingerprint) {
-                ownerSafetySource
-            } else {
-                buildString {
-                    append(raw.source.trim())
-                    closure.helperSources.forEach {
-                        append("\n")
-                        append(it.trim())
-                    }
+            fingerprintSource = buildString {
+                append(raw.source.trim())
+                closure.helperSources.forEach {
+                    append("\n")
+                    append(it.trim())
                 }
             },
-            usesOwnerSafetyFingerprint = usesOwnerSafetyFingerprint,
+            usesSourceDirSafetyFingerprint = !closure.isProven,
         )
     }.sortedBy { it.startLine }
 
@@ -251,7 +250,6 @@ private fun scanDexResolverDeclaration(
         file = file,
         qualifiedClassName = fullClassName,
         producers = producers,
-        ownerSafetySource = ownerSafetySource,
         customOutputPropertyNames = customOutputPropertyNames,
         blocks = blocks.sortedBy { it.startLine },
         sourceLinesByBlock = sourceLinesByBlock,
@@ -321,6 +319,7 @@ private fun buildHelperClosure(
     producerSource: String,
     helperFunctions: Map<String, List<HelperFunctionSource>>,
     helperPropertyNames: Set<String>,
+    delegatePropertyNames: Set<String>,
 ): HelperClosure {
     val included = linkedMapOf<String, HelperFunctionSource>()
     val visiting = linkedSetOf<String>()
@@ -360,6 +359,14 @@ private fun buildHelperClosure(
                 else -> proven = false
             }
         }
+
+        if (
+            scannedSource.hasUnresolvedValueReference(
+                knownIdentifiers = delegatePropertyNames,
+            )
+        ) {
+            proven = false
+        }
     }
 
     visit(producerSource)
@@ -398,6 +405,13 @@ private val MEMBER_FUNCTION_DECLARATION =
     Regex("""\bfun\s+(?:<[^>{}\n]+>\s*)?(?:[\w?.<>, ]+\s*\.\s*)?(\w+)\s*\(""")
 private val MEMBER_SEPARATOR = Regex("""\b(?:val|var|fun|class|object|override)\b""")
 private val FUNCTION_REFERENCE = Regex("""::\s*\w+""")
+private val CODE_IDENTIFIER = Regex("""[_\p{L}][_\p{L}\p{M}\p{N}]*|`[^`\r\n]+`""")
+private val LOCAL_VALUE_DECLARATION = Regex("""\b(?:val|var)\s+([_\p{L}][_\p{L}\p{M}\p{N}]*)""")
+private val NAMED_VALUE_DECLARATION = Regex("""\b([_\p{L}][_\p{L}\p{M}\p{N}]*)\s*:""")
+private val LOOP_VALUE_DECLARATION = Regex("""\bfor\s*\(\s*([_\p{L}][_\p{L}\p{M}\p{N}]*)\s+in\b""")
+private val CATCH_VALUE_DECLARATION = Regex("""\bcatch\s*\(\s*([_\p{L}][_\p{L}\p{M}\p{N}]*)\b""")
+private val LAMBDA_VALUE_DECLARATION =
+    Regex("""(?:\{|\()\s*((?:[_\p{L}][_\p{L}\p{M}\p{N}]*\s*,\s*)*[_\p{L}][_\p{L}\p{M}\p{N}]*)\s*->""")
 private const val SIMPLE_CALL_NAME_PATTERN = "[_\\p{L}][_\\p{L}\\p{M}\\p{N}]*"
 private const val CALL_NAME_PATTERN = "(?:$SIMPLE_CALL_NAME_PATTERN|`[^`\\r\\n]+`)"
 private const val EXPLICIT_TYPE_ARGUMENTS_PATTERN = "(?:<[^{};]+>\\s*)?"
@@ -424,6 +438,16 @@ private val SAFE_RESOLUTION_CALL_NAMES = setOf(
     "usingStrings",
     "when",
     "while",
+)
+private val KOTLIN_NON_VALUE_IDENTIFIERS = setOf(
+    "as", "break", "by", "catch", "class", "companion", "const", "constructor", "continue",
+    "crossinline", "data", "do", "dynamic", "else", "enum", "expect", "external", "false",
+    "field", "file", "final", "finally", "for", "fun", "get", "if", "import", "in", "infix",
+    "init", "inline", "inner", "interface", "internal", "is", "lateinit", "noinline", "null",
+    "object", "open", "operator", "out", "override", "package", "param", "private", "property",
+    "protected", "public", "receiver", "reified", "return", "sealed", "set", "setparam", "super",
+    "suspend", "tailrec", "this", "throw", "true", "try", "typealias", "typeof", "val", "value",
+    "var", "vararg", "when", "where", "while",
 )
 private val LIVE_HOST_ACCESS = Regex("""\b(?:class|method|field|ctor)[A-Za-z0-9_]*\.(clazz|method|field|constructor)\b""")
 private val HOST_VERSION_ACCESS = Regex("""\bHostInfo\.(versionCode|versionName|isHostGooglePlay)\b""")
@@ -518,6 +542,54 @@ private class ScannedSource(
                     isQualified = previousCodeIndex != null && text[previousCodeIndex] == '.',
                 )
             }
+
+    fun hasUnresolvedValueReference(knownIdentifiers: Set<String>): Boolean {
+        val declaredIdentifiers = linkedSetOf<String>().apply {
+            addAll(findAllCode(LOCAL_VALUE_DECLARATION).map { it.groupValues[1] })
+            addAll(findAllCode(NAMED_VALUE_DECLARATION).map { it.groupValues[1] })
+            addAll(findAllCode(LOOP_VALUE_DECLARATION).map { it.groupValues[1] })
+            addAll(findAllCode(CATCH_VALUE_DECLARATION).map { it.groupValues[1] })
+            findAllCode(LAMBDA_VALUE_DECLARATION).forEach { match ->
+                addAll(match.groupValues[1].split(',').map(String::trim))
+            }
+        }
+        // This scanner does not model Kotlin lexical scopes. Treat local bindings as uncertain
+        // instead of globally whitelisting their names and accidentally accepting a same-named
+        // top-level value referenced outside the binding's actual scope. The delegate declaration
+        // itself is the only known binding present in every inline producer source.
+        if ((declaredIdentifiers - knownIdentifiers).isNotEmpty()) return true
+
+        return findAllCode(CODE_IDENTIFIER).any { match ->
+            val name = match.value.removeSurrounding("`")
+            val isEscapedIdentifier = match.value.startsWith('`')
+            if (
+                name in knownIdentifiers ||
+                (!isEscapedIdentifier && name in KOTLIN_NON_VALUE_IDENTIFIERS)
+            ) {
+                return@any false
+            }
+
+            val previous = previousCodeIndex(match.range.first)
+            if (previous != null && (text[previous] == '.' || text[previous] == '@')) {
+                return@any false
+            }
+
+            val next = nextCodeIndex(match.range.last + 1).takeIf { it != -1 }
+            if (next != null && text[next] == '@') return@any false
+
+            val callSuffix = substring(match.range.last + 1, length)
+            if (Regex("""^\s*$EXPLICIT_TYPE_ARGUMENTS_PATTERN(?:\(|(?:$CALL_NAME_PATTERN@\s*)?\{)""")
+                    .containsMatchIn(callSuffix)
+            ) {
+                return@any false
+            }
+
+            true
+        }
+    }
+
+    private fun previousCodeIndex(startIndex: Int): Int? =
+        (startIndex - 1 downTo 0).firstOrNull { codeMask[it] && !text[it].isWhitespace() }
 }
 
 private sealed class LexContext {

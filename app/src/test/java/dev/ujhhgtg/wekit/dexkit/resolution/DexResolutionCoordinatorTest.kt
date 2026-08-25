@@ -113,7 +113,6 @@ class DexResolutionCoordinatorTest {
         val metadata = mapOf(
             ownerName to DexOwnerMetadata(
                 ownerClassName = ownerName,
-                ownerSafetyFingerprint = "owner",
                 producers = emptyMap(),
                 customOutputPropertyNames = emptySet(),
             )
@@ -800,7 +799,7 @@ class DexResolutionCoordinatorTest {
             propertyName = "property",
             kind = DexProducerKind.INLINE_METHOD,
             localFingerprint = "l",
-            usesOwnerSafetyFingerprint = false,
+            usesSourceDirSafetyFingerprint = false,
         )
 
         val fingerprint = effectiveFingerprint(
@@ -936,7 +935,7 @@ class DexResolutionCoordinatorTest {
                 propertyName = delegate.propertyName,
                 kind = DexProducerKind.INLINE_METHOD,
                 localFingerprint = localFingerprints[delegate.stableId] ?: "inline-${delegate.propertyName}",
-                usesOwnerSafetyFingerprint = false,
+                usesSourceDirSafetyFingerprint = false,
             )
         }
         val customProducer = if (custom.isEmpty()) {
@@ -950,14 +949,13 @@ class DexResolutionCoordinatorTest {
                     propertyName = null,
                     kind = DexProducerKind.CUSTOM,
                     localFingerprint = "custom",
-                    usesOwnerSafetyFingerprint = false,
+                    usesSourceDirSafetyFingerprint = false,
                 )
             )
         }
         return mapOf(
             ownerName to DexOwnerMetadata(
                 ownerClassName = ownerName,
-                ownerSafetyFingerprint = "owner",
                 producers = inlineProducers + customProducer,
                 customOutputPropertyNames = custom.mapTo(sortedSetOf()) { it.propertyName },
             )

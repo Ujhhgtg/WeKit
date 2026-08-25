@@ -102,12 +102,11 @@ class DexCacheSaveEligibilityTest {
                     propertyName = delegate.propertyName,
                     kind = DexProducerKind.INLINE_METHOD,
                     localFingerprint = "local-${delegate.propertyName}",
-                    usesOwnerSafetyFingerprint = false,
+                    usesSourceDirSafetyFingerprint = false,
                 )
             }
             owner.javaClass.name to DexOwnerMetadata(
                 ownerClassName = owner.javaClass.name,
-                ownerSafetyFingerprint = "owner",
                 producers = producers,
                 customOutputPropertyNames = emptySet(),
             )

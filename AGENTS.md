@@ -122,6 +122,12 @@
   closure after such a change; never retain or hand-edit an old fingerprint to suppress it. Avoid
   unrelated formatting/refactors in resolver and inline matcher bodies when a cache invalidation
   is not intended.
+- Fine-grained producer fingerprints are used only when buildSrc proves the complete direct
+  owner-local helper/value closure. Any unresolved free value, top-level/imported helper, overload,
+  recursion, dynamic dispatch, function reference, or other uncertain closure selects the
+  source-directory safety fingerprint instead. That fallback digests the stable relative paths and
+  normalized contents of every Kotlin file under `app/src/main/java`, so any such source change
+  invalidates every conservative producer while proven producers retain fine-grained invalidation.
 
 ### Host compatibility path selection
 

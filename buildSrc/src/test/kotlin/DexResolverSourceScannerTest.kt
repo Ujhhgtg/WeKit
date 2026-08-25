@@ -249,11 +249,11 @@ class DexResolverSourceScannerTest {
         val producer = source.producers.single()
         assertTrue(producer.fingerprintSource.contains("helper anchor"))
         assertFalse(producer.fingerprintSource.contains("not part of resolution"))
-        assertFalse(producer.usesOwnerSafetyFingerprint)
+        assertFalse(producer.usesSourceDirSafetyFingerprint)
     }
 
     @Test
-    fun unresolvedOrIndirectHelperUsesOwnerSafetyFingerprint() {
+    fun unresolvedOrIndirectHelperUsesSourceDirSafetyFingerprint() {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
@@ -272,12 +272,51 @@ class DexResolverSourceScannerTest {
         )!!
 
         val producer = source.producers.single()
-        assertTrue(producer.usesOwnerSafetyFingerprint)
-        assertEquals(source.ownerSafetySource, producer.fingerprintSource)
+        assertTrue(producer.usesSourceDirSafetyFingerprint)
     }
 
     @Test
-    fun recursiveHelperUsesOwnerSafetyFingerprint() {
+    fun unresolvedBareValueUsesSourceDirSafetyFingerprint() {
+        val source = scanDexResolverSource(
+            "Sample.kt",
+            """
+                package sample
+
+                import sample.constants.importedAnchor
+
+                object Sample : IResolveDex {
+                    val target by dexMethod {
+                        matcher { usingEqStrings(importedAnchor) }
+                    }
+                }
+            """.trimIndent(),
+        )!!
+
+        assertTrue(source.producers.single().usesSourceDirSafetyFingerprint)
+    }
+
+    @Test
+    fun sameFileTopLevelConstantUsesSourceDirSafetyFingerprint() {
+        val source = scanDexResolverSource(
+            "Sample.kt",
+            """
+                package sample
+
+                private const val TOP_LEVEL_ANCHOR = "anchor"
+
+                object Sample : IResolveDex {
+                    val target by dexMethod {
+                        matcher { usingEqStrings(TOP_LEVEL_ANCHOR) }
+                    }
+                }
+            """.trimIndent(),
+        )!!
+
+        assertTrue(source.producers.single().usesSourceDirSafetyFingerprint)
+    }
+
+    @Test
+    fun recursiveHelperUsesSourceDirSafetyFingerprint() {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
@@ -297,11 +336,11 @@ class DexResolverSourceScannerTest {
             """.trimIndent(),
         )!!
 
-        assertTrue(source.producers.single().usesOwnerSafetyFingerprint)
+        assertTrue(source.producers.single().usesSourceDirSafetyFingerprint)
     }
 
     @Test
-    fun overloadedHelperUsesOwnerSafetyFingerprint() {
+    fun overloadedHelperUsesSourceDirSafetyFingerprint() {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
@@ -321,11 +360,11 @@ class DexResolverSourceScannerTest {
             """.trimIndent(),
         )!!
 
-        assertTrue(source.producers.single().usesOwnerSafetyFingerprint)
+        assertTrue(source.producers.single().usesSourceDirSafetyFingerprint)
     }
 
     @Test
-    fun expressionBodyHelperUsesOwnerSafetyFingerprint() {
+    fun expressionBodyHelperUsesSourceDirSafetyFingerprint() {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
@@ -339,11 +378,11 @@ class DexResolverSourceScannerTest {
             """.trimIndent(),
         )!!
 
-        assertTrue(source.producers.single().usesOwnerSafetyFingerprint)
+        assertTrue(source.producers.single().usesSourceDirSafetyFingerprint)
     }
 
     @Test
-    fun dynamicDispatchHelperUsesOwnerSafetyFingerprint() {
+    fun dynamicDispatchHelperUsesSourceDirSafetyFingerprint() {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
@@ -357,11 +396,11 @@ class DexResolverSourceScannerTest {
             """.trimIndent(),
         )!!
 
-        assertTrue(source.producers.single().usesOwnerSafetyFingerprint)
+        assertTrue(source.producers.single().usesSourceDirSafetyFingerprint)
     }
 
     @Test
-    fun uncertainHelperCallFormsUseOwnerSafetyFingerprint() {
+    fun uncertainHelperCallFormsUseSourceDirSafetyFingerprint() {
         val helperForms = listOf(
             """
                 object Sample : IResolveDex {
@@ -398,10 +437,9 @@ class DexResolverSourceScannerTest {
             val source = scanDexResolverSource("Sample$index.kt", sourceText)!!
             val producer = source.producers.single()
             assertTrue(
-                producer.usesOwnerSafetyFingerprint,
-                "helper form $index must use the owner safety fingerprint",
+                producer.usesSourceDirSafetyFingerprint,
+                "helper form $index must use the source-directory safety fingerprint",
             )
-            assertEquals(source.ownerSafetySource, producer.fingerprintSource)
         }
     }
 
@@ -423,13 +461,13 @@ class DexResolverSourceScannerTest {
         )!!
 
         val producer = source.producers.single()
-        assertFalse(producer.usesOwnerSafetyFingerprint)
+        assertFalse(producer.usesSourceDirSafetyFingerprint)
         assertTrue(producer.fingerprintSource.contains("fun helper"))
         assertTrue(producer.fingerprintSource.contains("helper-body"))
     }
 
     @Test
-    fun uncertainTrailingLambdaCallFormsUseOwnerSafetyFingerprint() {
+    fun uncertainTrailingLambdaCallFormsUseSourceDirSafetyFingerprint() {
         val callForms = listOf(
             "externalHelper { usingEqStrings(\"anchor\") }",
             "externalHelper<String> { usingEqStrings(\"anchor\") }",
@@ -449,10 +487,9 @@ class DexResolverSourceScannerTest {
             )!!
             val producer = source.producers.single()
             assertTrue(
-                producer.usesOwnerSafetyFingerprint,
-                "trailing-lambda form $index must use the owner safety fingerprint",
+                producer.usesSourceDirSafetyFingerprint,
+                "trailing-lambda form $index must use the source-directory safety fingerprint",
             )
-            assertEquals(source.ownerSafetySource, producer.fingerprintSource)
         }
     }
 
