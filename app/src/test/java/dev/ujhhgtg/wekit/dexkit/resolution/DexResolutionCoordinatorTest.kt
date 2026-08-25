@@ -523,6 +523,80 @@ class DexResolutionCoordinatorTest {
     }
 
     @Test
+    fun cycleDoesNotOverwriteEarlierUnexpectedOutputFailure() {
+        val owner = object : TestOwner() {}
+        val detecting = owner.customMethod("detecting")
+        val remaining = owner.customMethod("remaining")
+        val originalError = IllegalStateException("original delegate failure")
+        lateinit var originalDiagnostic: DexResolutionDiagnostic
+        owner.customResolver = {
+            detecting.recordUnexpectedFailure(originalError)
+            originalDiagnostic = detecting.diagnostic
+            DexResolutionContext.requireData(detecting)
+        }
+        val consumerOwner = object : TestOwner() {}
+        val consumer = consumerOwner.inlineMethod("consumer") { delegate ->
+            DexResolutionContext.requireData(detecting)
+            delegate.setDescriptor("cycle.Consumer", "run", "()V")
+            true
+        }
+        val coordinator = coordinator(owner, consumerOwner)
+
+        val cycleResult = assertTimeoutPreemptively(
+            Duration.ofSeconds(2),
+            ThrowingSupplier { coordinator.resolveDelegate(detecting) },
+        )
+        val consumerResult = coordinator.resolveDelegate(consumer)
+
+        val cycleError = (cycleResult as DexNodeResult.Failed).error as DexResolutionCycleException
+        assertEquals(originalDiagnostic, detecting.diagnostic)
+        assertEquals("original delegate failure", detecting.diagnostic.message)
+        assertEquals(null, detecting.diagnostic.dependencyPath)
+        assertEquals(DexResolutionStatus.BLOCKED, remaining.diagnostic.status)
+        assertEquals(detecting.stableId, remaining.diagnostic.blockedBy)
+        assertEquals(DexResolutionStatus.BLOCKED, consumer.diagnostic.status)
+        assertEquals(detecting.stableId, consumer.diagnostic.blockedBy)
+        assertSame(cycleError, (consumerResult as DexNodeResult.Failed).error)
+    }
+
+    @Test
+    fun cycleDoesNotOverwriteEarlierBlockedOutputFailure() {
+        val owner = object : TestOwner() {}
+        val detecting = owner.customMethod("detecting")
+        val remaining = owner.customMethod("remaining")
+        val originalBlockedBy = "dev.example.Upstream#failed"
+        lateinit var originalDiagnostic: DexResolutionDiagnostic
+        owner.customResolver = {
+            detecting.markBlocked(originalBlockedBy)
+            originalDiagnostic = detecting.diagnostic
+            DexResolutionContext.requireData(detecting)
+        }
+        val consumerOwner = object : TestOwner() {}
+        val consumer = consumerOwner.inlineMethod("consumer") { delegate ->
+            DexResolutionContext.requireData(detecting)
+            delegate.setDescriptor("cycle.Consumer", "run", "()V")
+            true
+        }
+        val coordinator = coordinator(owner, consumerOwner)
+
+        val cycleResult = assertTimeoutPreemptively(
+            Duration.ofSeconds(2),
+            ThrowingSupplier { coordinator.resolveDelegate(detecting) },
+        )
+        val consumerResult = coordinator.resolveDelegate(consumer)
+
+        val cycleError = (cycleResult as DexNodeResult.Failed).error as DexResolutionCycleException
+        assertEquals(originalDiagnostic, detecting.diagnostic)
+        assertEquals(DexResolutionStatus.BLOCKED, detecting.diagnostic.status)
+        assertEquals(originalBlockedBy, detecting.diagnostic.blockedBy)
+        assertEquals(DexResolutionStatus.BLOCKED, remaining.diagnostic.status)
+        assertEquals(detecting.stableId, remaining.diagnostic.blockedBy)
+        assertEquals(DexResolutionStatus.BLOCKED, consumer.diagnostic.status)
+        assertEquals(originalBlockedBy, consumer.diagnostic.blockedBy)
+        assertSame(cycleError, (consumerResult as DexNodeResult.Failed).error)
+    }
+
+    @Test
     fun customToCustomCycleAttributesFailureAndBlocksEveryDependent() {
         val firstOwner = object : TestOwner() {}
         val first = firstOwner.customMethod("first")

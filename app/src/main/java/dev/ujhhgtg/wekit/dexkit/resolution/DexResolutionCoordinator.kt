@@ -93,6 +93,12 @@ class DexResolutionCoordinator(
             error.detectingDelegateId
                 ?.let(registry.nodesById::get)
                 ?.delegate
+                ?.takeIf { delegate ->
+                    delegate.diagnostic.status !in setOf(
+                        DexResolutionStatus.UNEXPECTED_FAILURE,
+                        DexResolutionStatus.BLOCKED,
+                    )
+                }
                 ?.recordUnexpectedFailure(error, error.path)
             throw error
         }
