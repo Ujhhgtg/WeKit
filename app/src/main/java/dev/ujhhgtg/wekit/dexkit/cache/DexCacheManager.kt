@@ -475,27 +475,42 @@ internal fun requireNoDuplicateJsonKeys(text: String) {
                 if (char == '\\') {
                     require(index < text.length)
                     val escaped = text[index++]
-                    if (escaped == 'u') {
-                        require(index + 4 <= text.length)
-                        result.append(text.substring(index, index + 4).toInt(16).toChar())
-                        index += 4
-                    } else result.append(escaped)
-                } else result.append(char)
+                    when (escaped) {
+                        'u' -> {
+                            require(index + 4 <= text.length)
+                            result.append(text.substring(index, index + 4).toInt(16).toChar())
+                            index += 4
+                        }
+                        '"', '\\', '/' -> result.append(escaped)
+                        'b' -> result.append('\b')
+                        'f' -> result.append('\u000c')
+                        'n' -> result.append('\n')
+                        'r' -> result.append('\r')
+                        't' -> result.append('\t')
+                        else -> error("invalid JSON escape: \\$escaped")
+                    }
+                } else {
+                    require(char >= ' ') { "unescaped control character in JSON string" }
+                    result.append(char)
+                }
             }
             error("unterminated JSON string")
         }
-        fun value() {
+        fun value(depth: Int) {
+            require(depth <= MAX_STRICT_JSON_NESTING) {
+                "JSON nesting exceeds $MAX_STRICT_JSON_NESTING"
+            }
             whitespace()
             when (text.getOrNull(index)) {
-                '{' -> objectValue()
-                '[' -> arrayValue()
+                '{' -> objectValue(depth)
+                '[' -> arrayValue(depth)
                 '"' -> string()
                 null -> error("missing JSON value")
                 else -> while (index < text.length && text[index] !in charArrayOf(',', '}', ']')) index++
             }
             whitespace()
         }
-        fun objectValue() {
+        fun objectValue(depth: Int) {
             index++
             val keys = mutableSetOf<String>()
             whitespace()
@@ -504,7 +519,7 @@ internal fun requireNoDuplicateJsonKeys(text: String) {
                 whitespace()
                 val key = string()
                 require(keys.add(key)) { "duplicate JSON key: $key" }
-                whitespace(); require(text[index++] == ':'); value(); whitespace()
+                whitespace(); require(text[index++] == ':'); value(depth + 1); whitespace()
                 when (text[index++]) {
                     '}' -> return
                     ',' -> Unit
@@ -512,12 +527,12 @@ internal fun requireNoDuplicateJsonKeys(text: String) {
                 }
             }
         }
-        fun arrayValue() {
+        fun arrayValue(depth: Int) {
             index++
             whitespace()
             if (text.getOrNull(index) == ']') { index++; return }
             while (true) {
-                value(); whitespace()
+                value(depth + 1); whitespace()
                 when (text[index++]) {
                     ']' -> return
                     ',' -> Unit
@@ -526,5 +541,19 @@ internal fun requireNoDuplicateJsonKeys(text: String) {
             }
         }
     }
-    Parser().apply { value(); whitespace(); require(index == text.length) { "trailing JSON data" } }
+    try {
+        Parser().apply {
+            value(0)
+            whitespace()
+            require(index == text.length) { "trailing JSON data" }
+        }
+    } catch (error: IllegalArgumentException) {
+        throw error
+    } catch (error: RuntimeException) {
+        throw IllegalArgumentException("malformed JSON", error)
+    } catch (error: StackOverflowError) {
+        throw IllegalArgumentException("JSON nesting exceeds parser capacity", error)
+    }
 }
+
+private const val MAX_STRICT_JSON_NESTING = 128

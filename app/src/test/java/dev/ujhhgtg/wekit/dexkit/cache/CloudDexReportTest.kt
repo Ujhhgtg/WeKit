@@ -155,6 +155,35 @@ class CloudDexReportTest {
         }
     }
 
+    @Test
+    fun truncatedCloudJsonIsNormalizedToIllegalArgumentException() {
+        listOf("{", "{\"schemaVersion\":").forEach { report ->
+            assertThrows(IllegalArgumentException::class.java) {
+                CloudDexReport.select(report, host, owners)
+            }
+        }
+    }
+
+    @Test
+    fun malformedJsonEscapeIsRejectedByStrictScan() {
+        assertThrows(IllegalArgumentException::class.java) {
+            requireNoDuplicateJsonKeys("""{"value":"\x"}""")
+        }
+    }
+
+    @Test
+    fun excessiveCloudJsonNestingIsNormalizedToIllegalArgumentException() {
+        val deepValue = "[".repeat(10_000) + "0" + "]".repeat(10_000)
+        val report = validReport().replace(
+            "\"features\":[",
+            "\"future\":$deepValue,\"features\":[",
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            CloudDexReport.select(report, host, owners)
+        }
+    }
+
     private fun validReport() = """
         {"schemaVersion":2,"outcome":"PASS","versionCode":3040,"versionName":"8.0.69","isGooglePlay":false,"features":[
             ${feature("owner.Consumer", "consumer-local", listOf("owner.Api#target"), consumerEffective())},
