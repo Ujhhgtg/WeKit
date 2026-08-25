@@ -68,9 +68,32 @@ internal object MonetApkSigner {
             .build()
             .sign()
 
-        val verification = ApkVerifier.Builder(signedApk).build().verify()
-        require(verification.isVerified && verification.isVerifiedUsingV3Scheme) {
-            "Signed Monet overlay failed APK signature verification: ${verification.errors}"
+        verifySignedApk(signedApk)
+    }
+
+    internal fun verifySignedApk(signedApk: File) {
+        val v3Verification = ApkVerifier.Builder(signedApk).build().verify()
+        require(v3Verification.isVerified && v3Verification.isVerifiedUsingV3Scheme) {
+            "Signed Monet overlay failed APK Signature Scheme v3 verification: " +
+                v3Verification.errors
+        }
+        val v2Verification = ApkVerifier.Builder(signedApk)
+            .setMinCheckedPlatformVersion(24)
+            .setMaxCheckedPlatformVersion(27)
+            .build()
+            .verify()
+        require(v2Verification.isVerified && v2Verification.isVerifiedUsingV2Scheme) {
+            "Signed Monet overlay failed APK Signature Scheme v2 verification: " +
+                v2Verification.errors
+        }
+        val v2Certificates = v2Verification.signerCertificates
+        val v3Certificates = v3Verification.signerCertificates
+        require(
+            v2Certificates.size == 1 &&
+                v3Certificates.size == 1 &&
+                v2Certificates.single().encoded.contentEquals(v3Certificates.single().encoded),
+        ) {
+            "Signed Monet overlay v2 and v3 signer identities differ"
         }
         loadMonetTemplate(signedApk).use { apk ->
             val signatures = requireNotNull(apk.apkSignatureBlock) {

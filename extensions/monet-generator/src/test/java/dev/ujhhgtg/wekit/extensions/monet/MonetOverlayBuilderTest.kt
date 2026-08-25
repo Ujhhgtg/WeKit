@@ -1,6 +1,9 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
 import com.android.apksig.ApkVerifier
+import com.android.apksig.apk.ApkUtils
+import com.android.apksig.internal.apk.ApkSigningBlockUtils
+import com.android.apksig.util.DataSources
 import com.reandroid.archive.block.SignatureId
 import com.reandroid.arsc.chunk.PackageBlock
 import com.reandroid.arsc.model.ResourceEntry
@@ -19,6 +22,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import java.io.RandomAccessFile
+import com.android.apksig.internal.util.Pair as ApkSigPair
 
 class MonetOverlayBuilderTest {
 
@@ -200,6 +205,72 @@ class MonetOverlayBuilderTest {
     }
 
     @Test
+    fun `signer verification rejects a corrupt v2 block even when v3 remains valid`() {
+        val signed = signApi31Template("corrupt-source.apk")
+        val corrupt = rewriteSigningBlock(signed, "corrupt-v2.apk") { blocks ->
+            replaceV2Block(blocks) { v2 ->
+                v2.clone().also { bytes ->
+                    bytes[bytes.lastIndex] = (bytes.last().toInt() xor 1).toByte()
+                }
+            }
+        }
+
+        assertV3StillVerifies(corrupt)
+        loadMonetTemplate(corrupt).use { apk ->
+            assertNotNull(apk.apkSignatureBlock.getSignature(SignatureId.V2))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetApkSigner.verifySignedApk(corrupt)
+        }
+    }
+
+    @Test
+    fun `signer verification rejects a missing v2 block even when v3 remains valid`() {
+        val signed = signApi31Template("missing-source.apk")
+        val missing = rewriteSigningBlock(signed, "missing-v2.apk") { blocks ->
+            blocks.map { block ->
+                if (block.second == SignatureId.V2.id) {
+                    ApkSigPair.of(block.first, MISSING_V2_TEST_BLOCK_ID)
+                } else {
+                    block
+                }
+            }
+        }
+
+        assertV3StillVerifies(missing)
+        loadMonetTemplate(missing).use { apk ->
+            assertNull(apk.apkSignatureBlock.getSignature(SignatureId.V2))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetApkSigner.verifySignedApk(missing)
+        }
+    }
+
+    @Test
+    fun `signer verification rejects different v2 and v3 signer identities`() {
+        val signed = signApi31Template("identity-source.apk")
+        val alternate = signApi31Template("identity-alternate.apk")
+        val alternateV2 = readSignatureBlocks(alternate)
+            .single { it.second == SignatureId.V2.id }
+            .first
+        val mismatched = rewriteSigningBlock(signed, "identity-mismatch.apk") { blocks ->
+            replaceV2Block(blocks) { alternateV2 }
+        }
+
+        assertV3StillVerifies(mismatched)
+        val v2Verification = ApkVerifier.Builder(mismatched)
+            .setMinCheckedPlatformVersion(24)
+            .setMaxCheckedPlatformVersion(27)
+            .build()
+            .verify()
+        assertTrue(v2Verification.isVerified)
+        assertTrue(v2Verification.isVerifiedUsingV2Scheme)
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetApkSigner.verifySignedApk(mismatched)
+        }
+    }
+
+    @Test
     fun `BlurTab writes fixed alpha literals and records palette sources`() {
         val fixture = fixture(
             sdkInt = 33,
@@ -376,6 +447,64 @@ class MonetOverlayBuilderTest {
         nightSource = "night-source",
     )
 
+    private fun signApi31Template(fileName: String): File =
+        tempDir.resolve(fileName).also { output ->
+            MonetApkSigner.sign(
+                PAYLOAD_DIR.resolve("templates/template_base_api31.apk"),
+                output,
+                minSdk = 31,
+            )
+        }
+
+    private fun rewriteSigningBlock(
+        source: File,
+        outputName: String,
+        rewrite: (
+            List<ApkSigPair<ByteArray, Int>>,
+        ) -> List<ApkSigPair<ByteArray, Int>>,
+    ): File = tempDir.resolve(outputName).also { output ->
+        source.copyTo(output)
+        RandomAccessFile(output, "rw").use { apk ->
+            val dataSource = DataSources.asDataSource(apk)
+            val signingBlock = ApkUtils.findApkSigningBlock(dataSource)
+            val rewritten = ApkSigningBlockUtils.generateApkSigningBlock(
+                rewrite(ApkSigningBlockUtils.getApkSignatureBlocks(signingBlock.contents)),
+            )
+            require(rewritten.size.toLong() == signingBlock.contents.size()) {
+                "Test signing-block rewrite changed its size"
+            }
+            apk.seek(signingBlock.startOffset)
+            apk.write(rewritten)
+        }
+    }
+
+    private fun readSignatureBlocks(apk: File): List<ApkSigPair<ByteArray, Int>> =
+        RandomAccessFile(apk, "r").use { input ->
+            ApkSigningBlockUtils.getApkSignatureBlocks(
+                ApkUtils.findApkSigningBlock(DataSources.asDataSource(input)).contents,
+            )
+        }
+
+    private fun replaceV2Block(
+        blocks: List<ApkSigPair<ByteArray, Int>>,
+        replacement: (ByteArray) -> ByteArray,
+    ): List<ApkSigPair<ByteArray, Int>> {
+        require(blocks.count { it.second == SignatureId.V2.id } == 1)
+        return blocks.map { block ->
+            if (block.second == SignatureId.V2.id) {
+                ApkSigPair.of(replacement(block.first), block.second)
+            } else {
+                block
+            }
+        }
+    }
+
+    private fun assertV3StillVerifies(apk: File) {
+        val verification = ApkVerifier.Builder(apk).build().verify()
+        assertTrue(verification.isVerified)
+        assertTrue(verification.isVerifiedUsingV3Scheme)
+    }
+
     private fun MonetRoleCatalog.overlay(id: String): MonetOverlayDefinition =
         overlays.single { it.id == id }
 
@@ -405,6 +534,7 @@ class MonetOverlayBuilderTest {
         const val INCOMING_BUBBLE_ROLE = "chat.bubble.incoming.normal"
         const val THEMED_ICON_ROLE = "launcher.themed.icon"
         const val TAB_BACKGROUND_ROLE = "main.tab.background"
+        const val MISSING_V2_TEST_BLOCK_ID = 0x12345678
         val EVIDENCE_ONLY_ROLE_IDS = setOf(
             "chat.input.container",
             "payment.keyboard.key.style",
