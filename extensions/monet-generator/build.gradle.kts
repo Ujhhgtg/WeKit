@@ -33,7 +33,10 @@ configure<LibraryExtension> {
     }
 
     testOptions {
-        unitTests.all { it.useJUnitPlatform() }
+        unitTests.all {
+            it.useJUnitPlatform()
+            it.maxHeapSize = "4g"
+        }
     }
 }
 

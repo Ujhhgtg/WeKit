@@ -1,28 +1,31 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
-internal data class MonetResourceKey(val type: String, val name: String)
+import java.io.Serializable
 
-internal sealed interface MonetResourceValue {
+internal data class MonetResourceKey(val type: String, val name: String) : Serializable
+
+internal sealed interface MonetResourceValue : Serializable {
     data class Literal(val valueType: String, val data: Long) : MonetResourceValue
     data class Reference(val resourceId: Int, val valueType: String = "REFERENCE") : MonetResourceValue
     data class File(val path: String) : MonetResourceValue
+    data class Text(val value: String) : MonetResourceValue
     data class Complex(val parentId: Int, val items: List<MonetComplexValue>) : MonetResourceValue
 }
 
-internal data class MonetComplexValue(val nameId: Int, val value: MonetResourceValue)
-internal data class MonetConfiguredValue(val qualifiers: String, val value: MonetResourceValue)
+internal data class MonetComplexValue(val nameId: Int, val value: MonetResourceValue) : Serializable
+internal data class MonetConfiguredValue(val qualifiers: String, val value: MonetResourceValue) : Serializable
 internal data class MonetResourceNode(
     val id: Int,
     val key: MonetResourceKey,
     val values: List<MonetConfiguredValue>,
-)
+) : Serializable
 
 internal data class MonetXmlElement(
     val name: String,
     val namespace: String? = null,
     val attributes: List<MonetXmlAttribute>,
     val children: List<MonetXmlElement>,
-)
+) : Serializable
 
 internal data class MonetXmlAttribute(
     val namespace: String?,
@@ -30,14 +33,27 @@ internal data class MonetXmlAttribute(
     val nameId: Int?,
     val valueType: String,
     val value: MonetResourceValue,
-)
+) : Serializable
 
 internal class MonetResourceGraph(
     nodes: List<MonetResourceNode>,
     private val xmlByOwner: Map<Int, List<MonetXmlElement>> = emptyMap(),
-) {
+) : Serializable {
     private val byId = nodes.associateBy(MonetResourceNode::id)
     private val byKey = nodes.associateBy(MonetResourceNode::key)
+    private val outgoingById: Map<Int, Set<Int>> = byId.mapValues { (id, node) ->
+        HashSet<Int>().also { references ->
+            node.values.forEach { it.value.collectReferences(references) }
+            xmlByOwner[id].orEmpty().forEach { it.collectReferences(references) }
+        }
+    }
+    private val incomingById: Map<Int, Set<Int>> = HashMap<Int, MutableSet<Int>>().also { incoming ->
+        outgoingById.forEach { (sourceId, targets) ->
+            targets.forEach { targetId ->
+                incoming.getOrPut(targetId, ::linkedSetOf).add(sourceId)
+            }
+        }
+    }
 
     init {
         require(byId.size == nodes.size) { "duplicate resource ID" }
@@ -53,26 +69,25 @@ internal class MonetResourceGraph(
     fun withXmlTree(ownerId: Int, tree: MonetXmlElement): MonetResourceGraph =
         MonetResourceGraph(byId.values.toList(), xmlByOwner + (ownerId to (xmlTrees(ownerId) + tree)))
 
-    fun outgoing(id: Int): Set<Int> = buildSet {
-        byId[id]?.values?.forEach { addAll(it.value.references()) }
-        xmlTrees(id).forEach { addAll(it.references()) }
-    }
-
-    fun incoming(id: Int): Set<Int> = byId.keys.filterTo(linkedSetOf()) { id in outgoing(it) }
+    fun outgoing(id: Int): Set<Int> = outgoingById[id].orEmpty()
+    fun incoming(id: Int): Set<Int> = incomingById[id].orEmpty()
 }
 
-private fun MonetXmlElement.references(): Set<Int> = buildSet {
-    attributes.forEach { addAll(it.value.references()) }
-    children.forEach { addAll(it.references()) }
+private fun MonetXmlElement.collectReferences(result: MutableSet<Int>) {
+    attributes.forEach { it.value.collectReferences(result) }
+    children.forEach { it.collectReferences(result) }
 }
 
-private fun MonetResourceValue.references(): Set<Int> = when (this) {
-    is MonetResourceValue.Reference -> setOf(resourceId)
-    is MonetResourceValue.Complex -> buildSet {
-        if (parentId != 0) add(parentId)
-        items.forEach { addAll(it.value.references()) }
+private fun MonetResourceValue.collectReferences(result: MutableSet<Int>) {
+    when (this) {
+        is MonetResourceValue.Reference -> result += resourceId
+        is MonetResourceValue.Complex -> {
+            if (parentId != 0) result += parentId
+            items.forEach { it.value.collectReferences(result) }
+        }
+        is MonetResourceValue.File,
+        is MonetResourceValue.Text,
+        is MonetResourceValue.Literal,
+        -> Unit
     }
-    is MonetResourceValue.File,
-    is MonetResourceValue.Literal,
-    -> emptySet()
 }

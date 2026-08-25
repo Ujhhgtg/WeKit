@@ -43,7 +43,6 @@ internal object MonetApkResourceGraphLoader {
             }
         }
 
-        var graph = MonetResourceGraph(resources.values.map(MutableResource::toNode))
         val definitions = linkedMapOf<XmlIdentity, MonetXmlElement>()
         xmlDocuments.forEach { ownedXml ->
             val definition = ownedXml.xml.root
@@ -53,10 +52,11 @@ internal object MonetApkResourceGraphLoader {
             }
             if (existing == null) definitions[ownedXml.identity] = definition
         }
-        definitions.forEach { (identity, tree) ->
-            graph = graph.withXmlTree(identity.ownerId, tree)
-        }
-        return graph
+        val xmlByOwner = definitions.entries.groupBy(
+            keySelector = { it.key.ownerId },
+            valueTransform = Map.Entry<XmlIdentity, MonetXmlElement>::value,
+        )
+        return MonetResourceGraph(resources.values.map(MutableResource::toNode), xmlByOwner)
     }
 
     private fun MutableMap<Int, MutableResource>.merge(resource: ResourceEntry, apk: File) {
@@ -103,6 +103,7 @@ internal object MonetApkResourceGraphLoader {
             if (stringValue != null && stringValue.startsWith("res/")) {
                 return MonetResourceValue.File(stringValue)
             }
+            if (stringValue != null) return MonetResourceValue.Text(stringValue)
         }
         return MonetResourceValue.Literal(
             valueType = valueType.name,
