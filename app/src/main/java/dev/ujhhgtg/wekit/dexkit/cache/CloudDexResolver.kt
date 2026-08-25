@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.dexkit.cache
 
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionRegistry
+import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.io.ByteArrayOutputStream
@@ -44,10 +44,7 @@ internal object CloudDexResolver {
             .build()
     }
 
-    suspend fun resolve(
-        registry: DexResolutionRegistry,
-        items: List<IResolveDex>,
-    ): CloudDexResolutionResult = withContext(Dispatchers.IO) {
+    suspend fun resolve(items: List<IResolveDex>): CloudDexResolutionResult = withContext(Dispatchers.IO) {
         val host = CloudDexHost(
             versionName = HostInfo.versionName,
             versionCode = HostInfo.versionCode,
@@ -69,20 +66,13 @@ internal object CloudDexResolver {
             CloudDexReport.select(
                 jsonText = reportText,
                 host = host,
-                owners = registry.ownersById.values.map { owner ->
-                    CurrentDexOwner(
-                        ownerId = owner.javaClass.name,
-                        technicalId = owner.technicalId,
-                        delegates = owner.dexDelegates.associate { delegate ->
-                            val producer = registry.producerOf(delegate)
-                            delegate.stableId to CurrentDexDelegate(
-                                id = delegate.stableId,
-                                producerId = producer.stableId,
-                                producerFingerprint = producer.metadata.localFingerprint,
-                                isValidDescriptor = delegate::isValidDescriptor,
-                                isPlaceholderDescriptor = delegate::isPlaceholderDescriptor,
-                            )
-                        },
+                items = items.map { item ->
+                    val feature = item as BaseFeature
+                    CurrentDexItem(
+                        className = item.javaClass.name,
+                        technicalId = feature.technicalId,
+                        methodHash = DexCacheManager.methodHash(item),
+                        delegateKeys = item.dexDelegates.mapTo(linkedSetOf()) { it.key },
                     )
                 },
             )
@@ -105,8 +95,7 @@ internal object CloudDexResolver {
             return@withContext failure(items, CloudDexNotice.CacheWriteFailure(error.message.orEmpty()))
         }
 
-        val restore = DexCacheManager.restoreValidOwners(registry)
-        val remainingItems = items.filter { it.javaClass.name !in restore.validOwners }
+        val remainingItems = DexCacheManager.getOutdatedItems(items)
         val importedCount = items.size - remainingItems.size
         CloudDexResolutionResult(
             importedCount = importedCount,

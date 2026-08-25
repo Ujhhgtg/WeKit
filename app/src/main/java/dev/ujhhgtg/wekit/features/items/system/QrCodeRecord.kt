@@ -60,6 +60,7 @@ import dev.ujhhgtg.wekit.utils.nul
 import dev.ujhhgtg.wekit.utils.openInSystem
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.Serializable
+import org.luckypray.dexkit.DexKitBridge
 
 object QrCodeRecord : ClickableFeature(), IResolveDex {
 
@@ -267,9 +268,12 @@ object QrCodeRecord : ClickableFeature(), IResolveDex {
         WePrefs.remove(KEY_RECORDS)
     }
 
-    internal val methodQBarString by dexMethod {
+    private val methodQBarString by dexMethod {
         matcher {
             usingEqStrings("MicroMsg.QBarStringHandler", "key_offline_scan_show_tips")
         }
+    }
+
+    override fun resolveDex(dexKit: DexKitBridge) {
     }
 }

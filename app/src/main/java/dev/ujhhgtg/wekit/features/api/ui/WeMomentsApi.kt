@@ -26,7 +26,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.TimelineObjectProto
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.buildMusicTimelineBundle
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -196,7 +195,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             )
         }
     }
-    internal val methodGetSnsInfoStorage by dexMethod {
+    private val methodGetSnsInfoStorage by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
             modifiers = Modifier.STATIC
@@ -596,8 +595,15 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
+    val classVfs by dexClass {
+        searchPackages("com.tencent.mm.vfs")
+        matcher {
+            usingEqStrings("MicroMsg.VFSFileOp", "readFileAsString(\"%s\" failed: %s")
+        }
+    }
+
     val vfsReadMethod by lazy {
-        WeMessageApi.classVfs.reflekt().firstMethod {
+        classVfs.reflekt().firstMethod {
             modifiers(Modifiers.STATIC)
             parameters(String::class)
             returnType = InputStream::class
@@ -605,7 +611,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     }
 
     val vfsCopyMethod by lazy {
-        WeMessageApi.classVfs.reflekt().firstMethod {
+        classVfs.reflekt().firstMethod {
             modifiers(Modifiers.STATIC)
             parameters(String::class, Boolean::class)
             returnType = OutputStream::class
@@ -613,7 +619,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     }
 
     val vfsExistsMethod by lazy {
-        WeMessageApi.classVfs.reflekt().firstMethod {
+        classVfs.reflekt().firstMethod {
             modifiers(Modifiers.STATIC)
             parameters(String::class)
             returnType = Boolean::class
@@ -1976,7 +1982,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         resolvedVfsSizeMethod?.let { return it }
         if (vfsSizeResolveTried && probePath == null) return null
 
-        val methods = WeMessageApi.classVfs.clazz.declaredMethods.filter {
+        val methods = classVfs.clazz.declaredMethods.filter {
             Modifier.isStatic(it.modifiers) && it.parameterCount == 1 &&
                     it.parameterTypes[0] == String::class.java && it.returnType == Long::class.javaPrimitiveType
         }.onEach { it.isAccessible = true }

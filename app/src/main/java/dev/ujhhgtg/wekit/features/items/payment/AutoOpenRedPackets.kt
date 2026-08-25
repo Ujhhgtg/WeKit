@@ -20,7 +20,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
-import dev.ujhhgtg.wekit.features.api.core.WePaymentApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
@@ -64,12 +63,32 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
         40, 0, 48, 0, 56, 0, 64, 0, 72, 0, 80, 0, 88, 0, 96, 0, 104, 0, 112, 0, 120, 0,
     )
 
+    private val classReceiveLuckyMoney by dexClass {
+        matcher {
+            methods {
+                add {
+                    name = "<init>"
+                    usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoney")
+                }
+            }
+        }
+    }
     private val classReceiveLuckyMoneyUnion by dexClass {
         matcher {
             methods {
                 add {
                     name = "<init>"
                     usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoneyUnion")
+                }
+            }
+        }
+    }
+    private val classOpenLuckyMoney by dexClass {
+        matcher {
+            methods {
+                add {
+                    name = "<init>"
+                    usingEqStrings("MicroMsg.NetSceneOpenLuckyMoney")
                 }
             }
         }
@@ -89,9 +108,23 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
             usingEqStrings("LuckyMoneyNotHookReceiveUI")
         }
     }
+    private val methodReceiveOnGYNetEnd by dexMethod {
+        matcher {
+            declaredClass(classReceiveLuckyMoney.data.name)
+            name = "onGYNetEnd"
+            paramCount = 3
+        }
+    }
     private val methodReceiveUnionOnGYNetEnd by dexMethod {
         matcher {
             declaredClass(classReceiveLuckyMoneyUnion.data.name)
+            name = "onGYNetEnd"
+            paramCount = 3
+        }
+    }
+    private val methodOpenOnGYNetEnd by dexMethod {
+        matcher {
+            declaredClass(classOpenLuckyMoney.data.name)
             name = "onGYNetEnd"
             paramCount = 3
         }
@@ -128,14 +161,14 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)
 
-        WePaymentApi.methodReceiveLuckyMoneyOnGYNetEnd.hookAfter {
+        methodReceiveOnGYNetEnd.hookAfter {
             handleReceiveResponse(args[2] as? JSONObject)
         }
         methodReceiveUnionOnGYNetEnd.hookAfter {
             handleReceiveResponse(args[2] as? JSONObject)
         }
 
-        WePaymentApi.methodOpenLuckyMoneyOnGYNetEnd.hookAfter {
+        methodOpenOnGYNetEnd.hookAfter {
             handleOpenResponse(args[2] as? JSONObject)
         }
         methodOpenUnionOnGYNetEnd.hookAfter {
@@ -265,7 +298,7 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
                             1, channelId, sendId, nativeUrl, 1 /* inWay */, "v1.0" /* ver */
                         )
                     } else {
-                        WePaymentApi.classReceiveLuckyMoney.clazz.createInstance(
+                        classReceiveLuckyMoney.clazz.createInstance(
                             msgType, channelId, sendId, nativeUrl, 1 /* inWay */, "v1.0" /* ver */, talker
                         )
                     }
@@ -345,7 +378,7 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
                     WeLogger.i(TAG, "using union open request (sendId=$sendId)")
                     createUnionOpenRequest(info, timingIdentifier)
                 } else {
-                    WePaymentApi.classOpenLuckyMoney.clazz.createInstance(
+                    classOpenLuckyMoney.clazz.createInstance(
                         info.msgType, info.channelId, info.sendId, info.nativeUrl,
                         info.headImg, info.nickName, info.talker,
                         "v1.0", timingIdentifier, ""

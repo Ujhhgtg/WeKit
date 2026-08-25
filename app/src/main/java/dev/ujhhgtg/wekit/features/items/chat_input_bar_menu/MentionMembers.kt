@@ -74,6 +74,16 @@ object MentionMembers : SwitchFeature(), IResolveDex {
     @Volatile
     private var pendingStealthAt: Pair<String, String>? = null
 
+    // 消息入库方法 (文本发送 NetSceneSendMsg 构造时调用), (msgInfo, boolean) -> long
+    private val methodInsertMessage by dexMethod {
+        searchPackages("com.tencent.mm.storage")
+        matcher {
+            usingEqStrings("Error insert message msg:%s talker:%s")
+            paramCount(2)
+            returnType("long")
+        }
+    }
+
     // MsgSourceHelper 节点合并方法: static (msgInfo, String nodeXml, boolean) -> void
     private val methodMergeMsgSourceNode by dexMethod {
         matcher {
@@ -242,7 +252,7 @@ object MentionMembers : SwitchFeature(), IResolveDex {
     }
 
     override fun onEnable() {
-        WeMessageApi.methodMsgInfoHandleApiInsertMessage.hookBefore {
+        methodInsertMessage.hookBefore {
             val msgInfo = MessageInfo(args[0]!!)
 
             // 只处理自己发送的文本消息 (isSend=1, type=1)

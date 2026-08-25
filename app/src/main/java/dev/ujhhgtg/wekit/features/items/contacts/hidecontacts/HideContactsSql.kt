@@ -1,7 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.contacts.hidecontacts
 
-import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
-
 import com.tencent.wcdb.database.SQLiteDatabase
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
@@ -165,11 +163,11 @@ private fun looksLikeUnreadCountQuery(lower: String): Boolean {
 }
 
 private fun HideContacts.installWrapperHook() {
-    if (WeDatabaseApi.methodSqliteWrapperRawQuery.isPlaceholder) {
+    if (methodSqliteWrapperRawQuery.isPlaceholder) {
         WeLogger.w(TAG, "SQLite wrapper query method not resolved; query-time hiding disabled")
         return
     }
-    WeDatabaseApi.methodSqliteWrapperRawQuery.hookBefore {
+    methodSqliteWrapperRawQuery.hookBefore {
         val sql = args.firstOrNull() as? String ?: return@hookBefore
         val rewritten = rewriteWrapperSql(sql) ?: return@hookBefore
         args[0] = rewritten

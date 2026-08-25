@@ -90,7 +90,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
-import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -181,6 +180,13 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                 "MicroMsg.AppPanel",
                 "onMeasure width: %d, heigth:%d, isMeasured:%b, gridWidth:%d, gridHeight:%d"
             )
+        }
+    }
+
+    private val methodAppGridGetView by dexMethod {
+        matcher {
+            usingStrings("MicroMsg.AppGrid", "pos:", "page:")
+            name = "getView"
         }
     }
 
@@ -497,7 +503,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             }
         }
 
-        WeChatInputBarMenuApi.methodAppGridGetView.hookAfter {
+        methodAppGridGetView.hookAfter {
             val itemView = result as View
             captureAppGridToolType(thisObject!!, itemView)
         }

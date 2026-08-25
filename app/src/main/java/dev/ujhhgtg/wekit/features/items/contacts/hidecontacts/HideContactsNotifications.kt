@@ -6,7 +6,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
-import dev.ujhhgtg.wekit.features.items.notifications.NotificationsEvolved
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -78,6 +77,14 @@ object HideContactsNotifications : ApiFeature(), IResolveDex {
      * ever 0-hits, that feature would already surface the dex-repair dialog, so adding
      * `allowFailure` here would buy nothing.
      */
+    private val methodDealNotify by dexMethod {
+        searchPackages("com.tencent.mm.booter.notification")
+        matcher {
+            paramCount(6)
+            usingEqStrings("jacks dealNotify, talker:%s, msgtype:%d, tipsFlag:%d, isRevokeMesasge:%B content:%s")
+        }
+    }
+
     /**
      * `com.tencent.mm.booter.notification.e0.f(long msgId, String userName, String nickName,
      * String content, String avatarPath, Map msgSource, j4 cmd)` — the LightPush notification
@@ -147,7 +154,7 @@ object HideContactsNotifications : ApiFeature(), IResolveDex {
         // switch, which would make turning 隐藏联系人 on require a WeChat restart to suppress
         // notifications.
 
-        NotificationsEvolved.methodDealNotify.hookBefore(100) {
+        methodDealNotify.hookBefore(100) {
             val talker = args[1] as? String ?: return@hookBefore
             if (!isSuppressed(talker)) return@hookBefore
             WeLogger.i(TAG, "suppressing message notification from $talker")

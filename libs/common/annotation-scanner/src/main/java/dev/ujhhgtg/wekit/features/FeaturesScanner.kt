@@ -29,22 +29,16 @@ private const val EXTENSIONS_PACKAGE = "$PACKAGE_NAME.extensions"
 private const val BASE_FEATURE = "$FEATURES_CORE_PACKAGE.BaseFeature"
 private const val EXTENSION_PACK = "$EXTENSIONS_PACKAGE.ExtensionPack"
 private const val RESOLVER_INTERFACE = "$PACKAGE_NAME.dexkit.abc.IResolveDex"
-private const val METADATA_OWNERS_OPTION = "wekit.dexResolutionOwnerInventory"
 
 class FeaturesKspProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =
-        FeaturesScanner(
-            environment.codeGenerator,
-            environment.logger,
-            environment.options[METADATA_OWNERS_OPTION],
-        )
+        FeaturesScanner(environment.codeGenerator, environment.logger)
 }
 
 /** Generates runtime registries for source Feature and ExtensionPack objects. */
 class FeaturesScanner(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
-    private val generatedDexResolutionOwnerInventory: String?,
 ) : SymbolProcessor {
     private var generated = false
 
@@ -63,7 +57,6 @@ class FeaturesScanner(
         val extensionPacks = objects
             .filter { it.isSubtypeOf(EXTENSION_PACK) }
             .sortedBy { it.qualifiedName!!.asString() }
-        val dexResolvers = features.filter { it.isSubtypeOf(RESOLVER_INTERFACE) }
 
         if (features.isEmpty()) {
             logger.error("No BaseFeature objects were discovered in app sources")
@@ -73,7 +66,6 @@ class FeaturesScanner(
             logger.error("No ExtensionPack objects were discovered in app sources")
             return emptyList()
         }
-        if (!validateDexResolutionMetadataOwners(dexResolvers)) return emptyList()
 
         features.groupBy { it.containingFile!! }
             .filterValues { it.size > 1 }
@@ -88,37 +80,9 @@ class FeaturesScanner(
             }
 
         generateFeaturesProvider(features)
-        generateDexResolutionRegistry(dexResolvers)
+        generateDexResolutionRegistry(features.filter { it.isSubtypeOf(RESOLVER_INTERFACE) })
         generateExtensionPacksProvider(extensionPacks)
         return emptyList()
-    }
-
-    private fun validateDexResolutionMetadataOwners(
-        symbols: List<KSClassDeclaration>,
-    ): Boolean {
-        val inventory = generatedDexResolutionOwnerInventory
-        if (inventory == null) {
-            logger.error("Missing generated Dex metadata owner inventory processor option")
-            return false
-        }
-        val generatedOwnerNames = inventory.lineSequence().filter(String::isNotBlank).toList()
-        val discoveredOwnerNames = symbols.map { it.qualifiedName!!.asString() }
-        val duplicateGeneratedNames = generatedOwnerNames.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
-        val missing = discoveredOwnerNames.toSet() - generatedOwnerNames.toSet()
-        val unexpected = generatedOwnerNames.toSet() - discoveredOwnerNames.toSet()
-        if (duplicateGeneratedNames.isEmpty() && missing.isEmpty() && unexpected.isEmpty()) return true
-
-        logger.error(
-            buildString {
-                append("Generated Dex metadata owner inventory does not match KSP-discovered resolvers.")
-                if (missing.isNotEmpty()) append(" Missing: ${missing.sorted()}.")
-                if (unexpected.isNotEmpty()) append(" Unexpected: ${unexpected.sorted()}.")
-                if (duplicateGeneratedNames.isNotEmpty()) {
-                    append(" Duplicates: ${duplicateGeneratedNames.sorted()}.")
-                }
-            }
-        )
-        return false
     }
 
     private fun generateFeaturesProvider(symbols: List<KSClassDeclaration>) {

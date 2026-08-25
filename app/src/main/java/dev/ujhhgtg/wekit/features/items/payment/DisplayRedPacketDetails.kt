@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.api.core.WePaymentApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
@@ -38,6 +37,15 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
             usingStrings(
                 "MicroMsg.LuckyMoneyDetailUI",
                 "try get user contact: %s"
+            )
+        }
+    }
+
+    private val classNetSceneOpenLuckyMoney by dexClass {
+        matcher {
+            usingStrings(
+                "MicroMsg.NetSceneOpenLuckyMoney",
+                "/cgi-bin/mmpay-bin/openwxhb"
             )
         }
     }
@@ -80,7 +88,7 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
             }
         }
 
-        listOf(WePaymentApi.classOpenLuckyMoney, classNetSceneLuckyMoneyDetail).forEach { dexClass ->
+        listOf(classNetSceneOpenLuckyMoney, classNetSceneLuckyMoneyDetail).forEach { dexClass ->
             val method = dexClass.reflekt().firstMethod {
                 name = "onGYNetEnd"
                 parameters(int, BString, JSONObject::class.java)

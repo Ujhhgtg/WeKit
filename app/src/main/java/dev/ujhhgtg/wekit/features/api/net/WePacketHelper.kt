@@ -12,8 +12,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
-import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.abc.WeRequestCallback
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -129,9 +127,18 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     val classOplogReq by dexClass()
 
     // 网络
+    val classNetSceneBase by dexClass {
+        matcher {
+            usingStrings("MicroMsg.NetSceneBase")
+            modifiers = Modifier.ABSTRACT
+            methods {
+                add { usingNumbers(600000L) }
+            }
+        }
+    }
     val classNetScenePat by dexClass {
         matcher {
-            superClass = WeMessageApi.classNetSceneBase.data.name
+            superClass = classNetSceneBase.data.name
 
             methods {
                 add {
@@ -141,6 +148,22 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                 }
             }
             usingStrings("/cgi-bin/micromsg-bin/sendpat")
+        }
+    }
+    private val classNetQueue by dexClass {
+        matcher {
+            usingStrings("MicroMsg.NetSceneQueue", "waiting2running waitingQueue_size =")
+        }
+    }
+    private val classMmKernel by dexClass {
+        matcher {
+            usingStrings(":appbrand0", ":appbrand1", ":appbrand2")
+            methods {
+                add {
+                    modifiers = Modifier.STATIC or Modifier.PUBLIC
+                    returnType = classNetQueue.data.name
+                }
+            }
         }
     }
     private val classNetDispatcher by dexClass()
@@ -154,7 +177,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                 add {
                     name = "onSceneEnd"
                     paramCount = 4
-                    paramTypes("int", "int", "java.lang.String", WeMessageApi.classNetSceneBase.data.name)
+                    paramTypes("int", "int", "java.lang.String", classNetSceneBase.getDescriptorString()!!)
                     returnType = "void"
                 }
             }
@@ -167,7 +190,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                 add {
                     returnType = "int"
                     paramCount = 5
-                    paramTypes("int", "int", "java.lang.String", null, WeMessageApi.classNetSceneBase.data.name)
+                    paramTypes("int", "int", "java.lang.String", null, classNetSceneBase.getDescriptorString()!!)
                 }
             }
         }
@@ -176,8 +199,8 @@ object WePacketHelper : ApiFeature(), IResolveDex {
 
     // 关键方法 //
     private val methodGetNetQueue by dexMethod {
-        val kernelName = WeDatabaseApi.classMmKernel.data.name
-        val queueName = WeMessageApi.classNetSceneQueue.data.name
+        val kernelName = classMmKernel.getDescriptorString() ?: ""
+        val queueName = classNetQueue.getDescriptorString() ?: ""
         matcher {
             declaredClass = kernelName
             modifiers = Modifier.STATIC or Modifier.PUBLIC
@@ -386,7 +409,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
 
                 // 发送逻辑
                 if (nativeNetScene != null) {
-                    val netQueue = WeDatabaseApi.classMmKernel.clazz.reflekt().invokeMethod(
+                    val netQueue = classMmKernel.clazz.reflekt().invokeMethod(
                         methodGetNetQueue.method.name, null, superclass = true
                     )!!
                     val cgiType = nativeNetScene.reflekt().invokeMethod("getType", superclass = true) as Int

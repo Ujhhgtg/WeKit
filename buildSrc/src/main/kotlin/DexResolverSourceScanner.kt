@@ -8,19 +8,9 @@ internal data class ResolveSourceBlock(
     val text: String,
 )
 
-internal data class DexProducerSource(
-    val stableId: String,
-    val propertyName: String?,
-    val kind: ResolveBlockKind,
-    val startLine: Int,
-    val fingerprintSource: String,
-)
-
 internal data class DexResolverSource(
     val file: File,
     val qualifiedClassName: String,
-    val producers: List<DexProducerSource>,
-    val customOutputPropertyNames: Set<String>,
     val blocks: List<ResolveSourceBlock>,
     internal val sourceLinesByBlock: Map<ResolveSourceBlock, IntArray> = emptyMap(),
 )
@@ -35,95 +25,42 @@ internal data class DesktopResolverViolation(
 }
 
 internal fun scanDexResolverSource(file: File): DexResolverSource? =
-    scanDexResolverSources(file).firstOrNull()
+    scanDexResolverSource(file.readText(), file)
 
 internal fun scanDexResolverSource(path: String, sourceText: String): DexResolverSource? =
-    scanDexResolverSources(path, sourceText).firstOrNull()
+    scanDexResolverSource(sourceText, File(path))
 
-internal fun scanDexResolverSources(file: File): List<DexResolverSource> =
-    scanDexResolverSources(file.readText(), file)
-
-internal fun scanDexResolverSources(path: String, sourceText: String): List<DexResolverSource> =
-    scanDexResolverSources(sourceText, File(path))
-
-private data class SourceClassDeclaration(
-    val match: MatchResult,
-    val name: String,
-    val bodyStart: Int,
-    val bodyEnd: Int,
-)
-
-private data class QualifiedSourceClassDeclaration(
-    val declaration: SourceClassDeclaration,
-    val qualifiedName: String,
-)
-
-private data class ParsedDexResolverSourceFile(
-    val clean: ScannedSource,
-    val declarations: List<QualifiedSourceClassDeclaration>,
-)
-
-internal fun discoverDexResolverOwnerClassNames(file: File): List<String> =
-    parseDexResolverSourceFile(file.readText()).declarations.map { it.qualifiedName }
-
-private fun scanDexResolverSources(sourceText: String, file: File): List<DexResolverSource> {
-    val parsed = parseDexResolverSourceFile(sourceText)
-    return parsed.declarations.map { declaration ->
-        scanDexResolverDeclaration(
-            clean = parsed.clean,
-            file = file,
-            declaration = declaration.declaration,
-            fullClassName = declaration.qualifiedName,
-        )
-    }
-}
-
-private fun parseDexResolverSourceFile(sourceText: String): ParsedDexResolverSourceFile {
+private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSource? {
     val clean = stripCommentsPreservingStrings(sourceText)
     val packageName = clean.findCode(Regex("""package\s+([\w.]+)"""))?.groupValues?.get(1)
-    val declarationMatches = clean.findAllCode(CLASS_DECLARATION)
-    val declarations = declarationMatches.mapIndexedNotNull { index, match ->
-        val bodyStart = clean.indexOfCode('{', match.range.last + 1)
-        val nextDeclarationStart = declarationMatches.getOrNull(index + 1)?.range?.first ?: clean.length
-        if (bodyStart == -1 || bodyStart >= nextDeclarationStart) return@mapIndexedNotNull null
-        val bodyEnd = clean.findBlockEnd(bodyStart)
-        if (bodyEnd == -1) return@mapIndexedNotNull null
-        SourceClassDeclaration(match, match.groupValues[1], bodyStart, bodyEnd)
-    }
-    fun qualifiedName(declaration: SourceClassDeclaration): String {
-        val parents = declarations.filter { candidate ->
-            candidate !== declaration &&
-                declaration.match.range.first > candidate.bodyStart &&
-                declaration.match.range.first < candidate.bodyEnd
+    val classRegex = Regex("""\b(?:class|object)\s+(\w+)\b""")
+    val declarations = clean.findAllCode(classRegex)
+    val resolveDexDeclaration = declarations.withIndex().firstNotNullOfOrNull { (index, match) ->
+        val braceIndex = clean.indexOfCode('{', match.range.first)
+        val closingBraceIndex = clean.indexOfCode('}', match.range.first)
+        val nextDeclarationIndex = declarations.getOrNull(index + 1)?.range?.first ?: clean.length
+        if (
+            braceIndex == -1 ||
+            braceIndex >= nextDeclarationIndex ||
+            (closingBraceIndex != -1 && braceIndex >= closingBraceIndex)
+        ) {
+            return@firstNotNullOfOrNull null
         }
-        val parent = parents.minByOrNull { it.bodyEnd - it.bodyStart }
-        val localName = if (parent == null) declaration.name else "${qualifiedName(parent)}.${declaration.name}"
-        return if (parent == null && packageName != null) "$packageName.$localName" else localName
-    }
 
-    val resolverDeclarations = declarations.filter { declaration ->
-        val signature = clean.substring(declaration.match.range.first, declaration.bodyStart)
-        signature.contains(":") && Regex("""\bIResolveDex\b""").containsMatchIn(signature)
-    }.map { declaration ->
-        QualifiedSourceClassDeclaration(declaration, qualifiedName(declaration))
-    }
-    return ParsedDexResolverSourceFile(clean, resolverDeclarations)
-}
+        val signature = clean.substring(match.range.first, braceIndex)
+        if (signature.contains(":") && Regex("""\bIResolveDex\b""").containsMatchIn(signature)) match else null
+    } ?: return null
 
-private fun scanDexResolverDeclaration(
-    clean: ScannedSource,
-    file: File,
-    declaration: SourceClassDeclaration,
-    fullClassName: String,
-): DexResolverSource {
-    val resolveDexDeclaration = declaration.match
-    val classBodyStart = declaration.bodyStart
-    val classBodyEnd = declaration.bodyEnd
+    val className = resolveDexDeclaration.groupValues[1]
+    val fullClassName = if (packageName != null) "$packageName.$className" else className
+    val classBodyStart = clean.indexOfCode('{', resolveDexDeclaration.range.last)
+    val classBodyEnd = if (classBodyStart == -1) -1 else clean.findBlockEnd(classBodyStart)
     val classBodyDepth = if (classBodyStart == -1) -1 else clean.braceDepthAt(classBodyStart + 1)
     fun isDirectMember(match: MatchResult): Boolean =
         match.range.first > classBodyStart &&
             match.range.first < classBodyEnd &&
             clean.braceDepthAt(match.range.first) == classBodyDepth
+
     val blocks = mutableListOf<ResolveSourceBlock>()
     val sourceLinesByBlock = mutableMapOf<ResolveSourceBlock, IntArray>()
     fun addBlock(kind: ResolveBlockKind, start: Int, end: Int) {
@@ -132,103 +69,32 @@ private fun scanDexResolverDeclaration(
         sourceLinesByBlock[block] = IntArray(end - start + 1) { clean.sourceLineAt(start + it) }
     }
 
-    data class RawProducer(
-        val stableId: String,
-        val propertyName: String?,
-        val kind: ResolveBlockKind,
-        val startLine: Int,
-        val source: String,
-    )
-
-    val rawProducers = mutableListOf<RawProducer>()
-    val delegatePropertyNames = mutableListOf<String>()
-    val customOutputPropertyNames = linkedSetOf<String>()
     val resolveDexMatch = clean.findAllCode(Regex("""override\s+fun\s+resolveDex\s*\(""")).firstOrNull(::isDirectMember)
     if (resolveDexMatch != null) {
         val start = clean.indexOfCode('{', resolveDexMatch.range.last)
         val end = if (start == -1) -1 else clean.findBlockEnd(start)
         if (end != -1) {
             addBlock(ResolveBlockKind.CUSTOM, start, end)
-            rawProducers += RawProducer(
-                stableId = "$fullClassName#resolveDex",
-                propertyName = null,
-                kind = ResolveBlockKind.CUSTOM,
-                startLine = clean.sourceLineAt(resolveDexMatch.range.first),
-                source = clean.substring(resolveDexMatch.range.first, end + 1),
-            )
         }
     }
 
     val separatorRegex = Regex("""\b(val|fun|private|public|internal|class|object|override)\b""")
-    clean.findAllCode(DEX_DELEGATE_DECLARATION).filter(::isDirectMember).forEach { match ->
-        val propertyName = match.groupValues[1]
-        delegatePropertyNames += propertyName
-        val kind = match.groupValues[2].toResolveBlockKind()
-        val factoryStart = match.range.first + match.value.lastIndexOf("dex${match.groupValues[2]}")
-        val factoryNameEnd = factoryStart + "dex${match.groupValues[2]}".length
-        val firstCodeAfterFactory = clean.nextCodeIndex(factoryNameEnd)
-        val factoryEnd = if (firstCodeAfterFactory != -1 && clean.text[firstCodeAfterFactory] == '(') {
-            clean.findDelimitedEnd(firstCodeAfterFactory, '(', ')')
-        } else {
-            factoryNameEnd - 1
+    clean.findAllCode(INLINE_DELEGATE).filter(::isDirectMember).forEach { match ->
+        val startScan = match.range.last + 1
+        val nextOpenBrace = clean.indexOfCode('{', startScan)
+        if (nextOpenBrace != -1 && !clean.containsCodeMatch(separatorRegex, startScan, nextOpenBrace)) {
+            val end = clean.findBlockEnd(nextOpenBrace)
+            if (end != -1 && end < classBodyEnd) {
+                addBlock(match.groupValues[1].toResolveBlockKind(), nextOpenBrace, end)
+            }
         }
-        require(factoryEnd != -1) { "Unclosed dex delegate factory call in $fullClassName.$propertyName" }
-
-        val nextOpenBrace = clean.indexOfCode('{', factoryEnd + 1)
-        val hasInlineBlock = nextOpenBrace != -1 &&
-            nextOpenBrace < classBodyEnd &&
-            !clean.containsCodeMatch(separatorRegex, factoryEnd + 1, nextOpenBrace)
-        val declarationEnd = if (hasInlineBlock) clean.findBlockEnd(nextOpenBrace) else factoryEnd
-        require(declarationEnd != -1) { "Unclosed inline dex block in $fullClassName.$propertyName" }
-
-        if (hasInlineBlock) {
-            addBlock(kind, nextOpenBrace, declarationEnd)
-            rawProducers += RawProducer(
-                stableId = "$fullClassName#$propertyName",
-                propertyName = propertyName,
-                kind = kind,
-                startLine = clean.sourceLineAt(match.range.first),
-                source = clean.substring(match.range.first, declarationEnd + 1),
-            )
-        } else {
-            customOutputPropertyNames += propertyName
-        }
-    }
-
-    val duplicatePropertyNames = delegatePropertyNames.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
-    require(duplicatePropertyNames.isEmpty()) {
-        "Class $fullClassName declares duplicate Dex delegate property names: ${duplicatePropertyNames.sorted()}"
-    }
-
-    if (customOutputPropertyNames.isNotEmpty() && rawProducers.none { it.kind == ResolveBlockKind.CUSTOM }) {
-        error(
-            "Class $fullClassName declares non-inline Dex outputs " +
-                "${customOutputPropertyNames.sorted()} but has no resolveDex() body."
-        )
     }
 
     if (blocks.isEmpty()) {
         error("Class $fullClassName implements IResolveDex but has neither a resolveDex() body nor any inline dex blocks.")
     }
 
-    val producers = rawProducers.map { raw ->
-        DexProducerSource(
-            stableId = raw.stableId,
-            propertyName = raw.propertyName,
-            kind = raw.kind,
-            startLine = raw.startLine,
-            fingerprintSource = raw.source.trim(),
-        )
-    }.sortedBy { it.startLine }
-
-    return DexResolverSource(
-        file = file,
-        qualifiedClassName = fullClassName,
-        producers = producers,
-        customOutputPropertyNames = customOutputPropertyNames,
-        blocks = blocks.sortedBy { it.startLine },
-        sourceLinesByBlock = sourceLinesByBlock,
-    )
+    return DexResolverSource(file, fullClassName, blocks.sortedBy { it.startLine }, sourceLinesByBlock)
 }
 
 internal fun findDesktopIncompatibleAccesses(source: DexResolverSource): List<DesktopResolverViolation> =
@@ -255,10 +121,7 @@ private fun String.toResolveBlockKind(): ResolveBlockKind = when (this) {
     else -> error("Unsupported dex resolver delegate kind: $this")
 }
 
-private val DEX_DELEGATE_DECLARATION =
-    Regex("""\b(?:val|var)\s+(\w+)(?:\s*:[^=\n]+)?\s+by\s+dex(Class|Field|Method|Constructor)\b""")
-private val CLASS_DECLARATION = Regex("""\b(?:class|object|interface)\s+(\w+)\b""")
-private val MEMBER_SEPARATOR = Regex("""\b(?:val|var|fun|class|object|override)\b""")
+private val INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\b""")
 private val LIVE_HOST_ACCESS = Regex("""\b(?:class|method|field|ctor)[A-Za-z0-9_]*\.(clazz|method|field|constructor)\b""")
 private val HOST_VERSION_ACCESS = Regex("""\bHostInfo\.(versionCode|versionName|isHostGooglePlay)\b""")
 
@@ -275,26 +138,6 @@ private class ScannedSource(
     fun indexOfCode(char: Char, startIndex: Int): Int {
         for (i in startIndex.coerceAtLeast(0) until text.length) {
             if (text[i] == char && codeMask[i]) return i
-        }
-        return -1
-    }
-
-    fun nextCodeIndex(startIndex: Int): Int {
-        for (i in startIndex.coerceAtLeast(0) until text.length) {
-            if (codeMask[i] && !text[i].isWhitespace()) return i
-        }
-        return -1
-    }
-
-    fun findDelimitedEnd(openIndex: Int, open: Char, close: Char): Int {
-        if (openIndex !in text.indices || text[openIndex] != open || !codeMask[openIndex]) return -1
-        var depth = 0
-        for (i in openIndex until text.length) {
-            if (!codeMask[i]) continue
-            when (text[i]) {
-                open -> depth++
-                close -> if (--depth == 0) return i
-            }
         }
         return -1
     }
@@ -331,7 +174,6 @@ private class ScannedSource(
         regex.findAll(text, startIndex.coerceIn(0, text.length))
             .takeWhile { it.range.first < endIndex }
             .any { codeMask[it.range.first] }
-
 }
 
 private sealed class LexContext {

@@ -19,5 +19,4 @@ data class DexResolutionDiagnostic(
     val exceptionType: String? = null,
     val stackTrace: String? = null,
     val blockedBy: String? = null,
-    val dependencyPath: List<String>? = null,
 )

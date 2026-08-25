@@ -179,8 +179,8 @@ androidComponents {
         val kotlinSources = variant.sources.kotlin ?: return@onVariants
 
         kotlinSources.addGeneratedSourceDirectory(
-            generateDexResolutionMetadata,
-            GenerateDexResolutionMetadataTask::outputDir
+            generateMethodHashes,
+            GenerateMethodHashesTask::outputDir
         )
 
         kotlinSources.addGeneratedSourceDirectory(
@@ -192,12 +192,11 @@ androidComponents {
 
 // --- tasks ---
 
-val generateDexResolutionMetadata = tasks.register<GenerateDexResolutionMetadataTask>("generateDexResolutionMetadata") {
-    description = "Generate Dex resolution producer metadata"
+val generateMethodHashes = tasks.register<GenerateMethodHashesTask>("generateMethodHashes") {
+    description = "Generate resolveDex() method hashes"
     group = "wekit"
     sourceDir.set(file("src/main/java"))
-    outputDir.set(layout.buildDirectory.dir("generated/source/dex-resolution-metadata"))
-    ownerInventoryFile.set(layout.buildDirectory.file("generated/dex-resolution-owner-inventory.txt"))
+    outputDir.set(layout.buildDirectory.dir("generated/source/methodhashes"))
     namespace.set(libs.versions.namespace.get())
 }
 
@@ -253,11 +252,6 @@ val generateScriptDepsDex = tasks.register<GenerateScriptDepsDexTask>("generateS
 // --- end tasks ---
 
 ksp {
-    arg(
-        "wekit.dexResolutionOwnerInventory",
-        generateDexResolutionMetadata.flatMap(GenerateDexResolutionMetadataTask::ownerInventoryFile)
-            .map { inventory -> inventory.asFile.readText() },
-    )
     // Room schema export for migration diffing
     arg("room.schemaLocation", "$projectDir/schemas")
     arg("room.generateKotlin", "true")

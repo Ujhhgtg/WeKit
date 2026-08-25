@@ -1,10 +1,12 @@
 package dev.ujhhgtg.wekit.features.items.system
 
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object RemoveQrCodeScanLimit : SwitchFeature() {
+object RemoveQrCodeScanLimit : SwitchFeature(), IResolveDex {
 
     override val technicalId = "移除二维码扫描限制"
     override val nameRes = R.string.feature_remove_qr_code_scan_limit_name
@@ -17,9 +19,15 @@ object RemoveQrCodeScanLimit : SwitchFeature() {
         PICTURE_LONG_PRESS(4, 37) // 长按图片
     }
 
+    private val methodQBarString by dexMethod {
+        matcher {
+            usingEqStrings("MicroMsg.QBarStringHandler", "key_offline_scan_show_tips")
+        }
+    }
+
     override fun onEnable() {
-        QrCodeRecord.methodQBarString.hookBefore {
-            val (sourceIndex, a8KeySceneIndex) = if (QrCodeRecord.methodQBarString.method.parameterCount == 16) 3 to 4 else 2 to 3
+        methodQBarString.hookBefore {
+            val (sourceIndex, a8KeySceneIndex) = if (methodQBarString.method.parameterCount == 16) 3 to 4 else 2 to 3
             val source = args[sourceIndex] as Int
             val a8KeyScene = args[a8KeySceneIndex] as Int
             val matchedScene =

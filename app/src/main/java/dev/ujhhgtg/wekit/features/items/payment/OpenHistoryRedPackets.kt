@@ -22,8 +22,11 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
-import dev.ujhhgtg.wekit.features.api.core.WePaymentApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.core.models.WeMessage
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
@@ -48,7 +51,7 @@ import kotlin.concurrent.thread
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.milliseconds
 
-object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.IContactInfoProvider {
+object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.IContactInfoProvider, IResolveDex {
 
     override val technicalId = "捡漏历史红包"
     override val nameRes = R.string.feature_open_history_red_packets_name
@@ -60,6 +63,41 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
 
     // 微信红包超过 24 小时即过期, 扫描更早的消息没有意义
     private const val RED_PACKET_EXPIRY_MILLIS = 24L * 60 * 60 * 1000
+
+    private val classReceiveLuckyMoney by dexClass {
+        matcher {
+            methods {
+                add {
+                    name = "<init>"
+                    usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoney")
+                }
+            }
+        }
+    }
+    private val classOpenLuckyMoney by dexClass {
+        matcher {
+            methods {
+                add {
+                    name = "<init>"
+                    usingEqStrings("MicroMsg.NetSceneOpenLuckyMoney")
+                }
+            }
+        }
+    }
+    private val methodReceiveOnGYNetEnd by dexMethod {
+        matcher {
+            declaredClass(classReceiveLuckyMoney.data.name)
+            name = "onGYNetEnd"
+            paramCount = 3
+        }
+    }
+    private val methodOpenOnGYNetEnd by dexMethod {
+        matcher {
+            declaredClass(classOpenLuckyMoney.data.name)
+            name = "onGYNetEnd"
+            paramCount = 3
+        }
+    }
 
     private var isRunning by mutableStateOf(false)
     private val logList = mutableStateListOf<HistoryLog>()
@@ -86,7 +124,7 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
     override fun onEnable() {
         WeContactPrefsScreenApi.addProvider(this)
 
-        WePaymentApi.methodReceiveLuckyMoneyOnGYNetEnd.hookAfter {
+        methodReceiveOnGYNetEnd.hookAfter {
             val json = args[2] as? JSONObject ?: return@hookAfter
             val sendId = json.optString("sendId")
             val timingIdentifier = json.optString("timingIdentifier")
@@ -97,7 +135,7 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
 
             thread(name = "OpenHistoryRedPacketThread") {
                 try {
-                    val openReq = WePaymentApi.classOpenLuckyMoney.clazz.createInstance(
+                    val openReq = classOpenLuckyMoney.clazz.createInstance(
                         info.msgType, info.channelId, info.sendId, info.nativeUrl,
                         info.headImg, info.nickName, info.talker,
                         "v1.0", timingIdentifier, ""
@@ -111,7 +149,7 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
             }
         }
 
-        WePaymentApi.methodOpenLuckyMoneyOnGYNetEnd.hookAfter {
+        methodOpenOnGYNetEnd.hookAfter {
             val json = args[2] as? JSONObject ?: return@hookAfter
 
             val sendId = json.optString("sendId")
@@ -275,7 +313,7 @@ object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.ICont
                 nickName = nickName
             )
 
-            val req = WePaymentApi.classReceiveLuckyMoney.clazz.createInstance(
+            val req = classReceiveLuckyMoney.clazz.createInstance(
                 msgType, channelId, sendId, nativeUrl, 1, "v1.0", msg.talker
             )
             WeNetSceneApi.sendNetScene(req)

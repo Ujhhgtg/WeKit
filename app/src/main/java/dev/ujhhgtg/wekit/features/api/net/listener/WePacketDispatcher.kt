@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -47,7 +46,7 @@ object WePacketDispatcher : ApiFeature(), IResolveDex {
     override fun onEnable() {
         Handler(Looper.getMainLooper()).postDelayed(3000) {
             try {
-                val netSceneBaseClass = WeMessageApi.classNetSceneBase.clazz
+                val netSceneBaseClass = WePacketHelper.classNetSceneBase.clazz
                 val callbackInterface = classOnGYNetEnd.clazz
 
                 netSceneBaseClass.reflekt().firstMethod { name = "dispatch" }.hookBefore {

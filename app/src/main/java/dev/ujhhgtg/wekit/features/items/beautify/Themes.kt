@@ -74,8 +74,6 @@ import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
-import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.Themes.THEMES_PATH
@@ -1363,6 +1361,19 @@ object Themes : ClickableFeature(), IResolveDex {
         }
     }
 
+    private val methodChattingDataAdapterV3OnBindViewHolder by dexMethod {
+        matcher {
+            usingStrings("MicroMsg.ChattingDataAdapterV3", "_onBindViewHolder[")
+        }
+    }
+
+    private val methodAppGridGetView by dexMethod {
+        matcher {
+            usingStrings("MicroMsg.AppGrid", "pos:", "page:")
+            name = "getView"
+        }
+    }
+
     private val methodHistoryMsgTongueShow1 by dexMethod {
         matcher {
             usingEqStrings("MicroMsg.HistoryMsgTongueComponent", "[update] mGoBackToHistoryMsgLayout VISIBLE")
@@ -1761,7 +1772,7 @@ object Themes : ClickableFeature(), IResolveDex {
         }
 
         // C0838j 22 —— ChattingDataAdapterV3.onBindViewHolder
-        WeMessageApi.methodChattingDataAdapterOnBindViewHolder.hookAfter {
+        methodChattingDataAdapterV3OnBindViewHolder.hookAfter {
             val holderView = args.getOrNull(0) ?: return@hookAfter
             val position = args.getOrNull(1) as? Int ?: return@hookAfter
             applyChatBubbleTheme(holderView, position, thisObject)
@@ -1964,7 +1975,7 @@ object Themes : ClickableFeature(), IResolveDex {
             }
 
         // C0838j 29 —— 聊天「+」面板
-        WeChatInputBarMenuApi.methodAppGridGetView.hookAfter {
+        methodAppGridGetView.hookAfter {
             val view = result as? View ?: return@hookAfter
             for ((resName, drawableName) in CHAT_PLUS_ICONS) {
                 val imageView = findImageViewByResTag(view as? ViewGroup, resName) ?: continue

@@ -1,10 +1,5 @@
 package dev.ujhhgtg.wekit.dexkit.cache
 
-import dev.ujhhgtg.wekit.dexkit.resolution.DexProducerKind
-import dev.ujhhgtg.wekit.dexkit.resolution.DexProducerMetadata
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
-import dev.ujhhgtg.wekit.dexkit.resolution.effectiveFingerprint
-import java.util.TreeMap
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -14,23 +9,17 @@ internal data class CloudDexHost(
     val isGooglePlay: Boolean,
 )
 
-internal data class CurrentDexDelegate(
-    val id: String,
-    val producerId: String,
-    val producerFingerprint: String,
-    val isValidDescriptor: (String) -> Boolean,
-    val isPlaceholderDescriptor: (String) -> Boolean,
-)
-
-internal data class CurrentDexOwner(
-    val ownerId: String,
+internal data class CurrentDexItem(
+    val className: String,
     val technicalId: String,
-    val delegates: Map<String, CurrentDexDelegate>,
+    val methodHash: String,
+    val delegateKeys: Set<String>,
 )
 
 internal data class CloudDexCacheEntry(
     val technicalId: String,
-    val manifest: DexCacheManifest,
+    val methodHash: String,
+    val descriptors: Map<String, String>,
 )
 
 internal data class CloudDexSelection(
@@ -47,9 +36,8 @@ internal object CloudDexReport {
     fun select(
         jsonText: String,
         host: CloudDexHost,
-        owners: List<CurrentDexOwner>,
+        items: List<CurrentDexItem>,
     ): CloudDexSelection {
-        requireNoDuplicateJsonKeys(jsonText)
         val report = json.decodeFromString<Report>(jsonText)
         require(report.schemaVersion == SCHEMA_VERSION) { "unsupported cloud report schema: ${report.schemaVersion}" }
         require(report.outcome == APK_PASS) { "cloud report did not pass: ${report.outcome}" }
@@ -57,129 +45,46 @@ internal object CloudDexReport {
         require(report.versionCode == host.versionCode) { "cloud report version code does not match host" }
         require(report.isGooglePlay == host.isGooglePlay) { "cloud report channel does not match host" }
 
-        val outputsByProducer = owners.flatMap { owner -> owner.delegates.values.map { it.producerId to it } }
-            .groupBy({ it.first }, { it.second })
-        val ownerByProducer = owners.flatMap { owner ->
-            owner.delegates.values.map { it.producerId to owner.ownerId }
-        }.toMap()
-        val featuresByOwner = report.features.groupBy(Feature::className)
-        val reportDelegatesById = report.features.flatMap(Feature::delegates).groupBy(Delegate::id)
-        val invalidOwners = mutableSetOf<String>()
-        val entriesByOwner = mutableMapOf<String, Map<String, Delegate>>()
+        val featuresByClass = report.features.groupBy(Feature::className)
+        val entries = items.mapNotNull { item ->
+            val features = featuresByClass[item.className]
+            if (features?.size != 1) return@mapNotNull null
 
-        owners.forEach ownerLoop@{ owner ->
-            val feature = featuresByOwner[owner.ownerId]?.singleOrNull()
-            if (feature == null || feature.outcome !in FEATURE_PASS_OUTCOMES) {
-                invalidOwners += owner.ownerId
-                return@ownerLoop
+            val feature = features.single()
+            if (feature.outcome !in FEATURE_PASS_OUTCOMES || feature.methodHash != item.methodHash) {
+                return@mapNotNull null
             }
-            val featureDelegatesById = feature.delegates.groupBy(Delegate::id)
-            val selected = TreeMap<String, Delegate>()
-            for (delegateId in owner.delegates.keys.sorted()) {
-                val reportDelegate = featureDelegatesById[delegateId]?.singleOrNull()
-                val current = owner.delegates.getValue(delegateId)
-                val descriptor = reportDelegate?.descriptor
-                if (reportDelegate == null || reportDelegatesById[delegateId]?.size != 1 ||
-                    reportDelegate.producerFingerprint != current.producerFingerprint ||
-                    descriptor.isNullOrBlank() ||
-                    !current.isValidDescriptor(descriptor) ||
-                    !reportDelegate.hasValidClassification(current.isPlaceholderDescriptor(descriptor)) ||
-                    reportDelegate.dependencies.size != reportDelegate.dependencies.distinct().size
-                ) {
-                    invalidOwners += owner.ownerId
-                    return@ownerLoop
+
+            val delegatesByKey = feature.delegates.groupBy(Delegate::key)
+            if (delegatesByKey.values.any { it.size != 1 }) return@mapNotNull null
+
+            val descriptors = LinkedHashMap<String, String>(item.delegateKeys.size)
+            for (key in item.delegateKeys) {
+                val delegate = delegatesByKey[key]?.singleOrNull() ?: return@mapNotNull null
+                val descriptor = delegate.descriptor
+                if (!delegate.hasValidOutcome() || descriptor.isNullOrEmpty()) {
+                    return@mapNotNull null
                 }
-                selected[delegateId] = reportDelegate
+                descriptors[key] = descriptor
             }
-            owner.delegates.values.groupBy { it.producerId }.forEach { (producerId, outputs) ->
-                val snapshots = outputs.map { output -> selected.getValue(output.id).producerSnapshot() }.distinct()
-                if (snapshots.size != 1) {
-                    invalidOwners += owner.ownerId
-                    return@ownerLoop
-                }
-            }
-            entriesByOwner[owner.ownerId] = selected
-        }
 
-        val effectiveByProducer = mutableMapOf<String, String>()
-        val visiting = mutableSetOf<String>()
-        fun validateProducer(producerId: String): Boolean {
-            if (producerId in effectiveByProducer) return true
-            if (!visiting.add(producerId)) return false
-            val ownerId = ownerByProducer[producerId] ?: return false
-            if (ownerId in invalidOwners) return false
-            val outputs = outputsByProducer[producerId] ?: return false
-            val entry = entriesByOwner[ownerId]?.get(outputs.first().id) ?: return false
-            val dependencyFingerprints = TreeMap<String, String>()
-            for (dependencyId in entry.dependencies.sorted()) {
-                if (!validateProducer(dependencyId)) return false
-                dependencyFingerprints[dependencyId] = effectiveByProducer.getValue(dependencyId)
-            }
-            val expected = effectiveFingerprint(
-                DexProducerMetadata(
-                    stableId = producerId,
-                    ownerClassName = ownerId,
-                    propertyName = null,
-                    kind = DexProducerKind.CUSTOM,
-                    localFingerprint = outputs.first().producerFingerprint,
-                ),
-                dependencyFingerprints,
-            )
-            if (entry.effectiveFingerprint != expected) return false
-            visiting.remove(producerId)
-            effectiveByProducer[producerId] = expected
-            return true
-        }
-
-        owners.forEach { owner ->
-            if (owner.ownerId !in invalidOwners &&
-                owner.delegates.values.map { it.producerId }.distinct().any { !validateProducer(it) }
-            ) {
-                invalidOwners += owner.ownerId
-            }
-        }
-        var changed: Boolean
-        do {
-            changed = false
-            owners.forEach { owner ->
-                if (owner.ownerId !in invalidOwners) {
-                    val badDependency = entriesByOwner.getValue(owner.ownerId).values
-                        .flatMap { it.dependencies }
-                        .any { ownerByProducer[it] in invalidOwners }
-                    if (badDependency) {
-                        invalidOwners += owner.ownerId
-                        changed = true
-                    }
-                }
-            }
-        } while (changed)
-
-        val entries = owners.filter { it.ownerId !in invalidOwners }.sortedBy { it.ownerId }.map { owner ->
-            val delegates = entriesByOwner.getValue(owner.ownerId).mapValuesTo(TreeMap()) { (_, delegate) ->
-                DexCacheDelegateEntry(
-                    descriptor = delegate.descriptor!!,
-                    status = delegate.status,
-                    isPlaceholder = delegate.isPlaceholder,
-                    producerFingerprint = delegate.producerFingerprint,
-                    effectiveFingerprint = delegate.effectiveFingerprint,
-                    dependencies = delegate.dependencies.sorted(),
-                )
-            }
             CloudDexCacheEntry(
-                technicalId = owner.technicalId,
-                manifest = DexCacheManifest(owner = owner.ownerId, timestamp = 0, delegates = delegates),
+                technicalId = item.technicalId,
+                methodHash = item.methodHash,
+                descriptors = descriptors,
             )
         }
-        return CloudDexSelection(entries, invalidOwners.size)
+
+        return CloudDexSelection(entries, items.size - entries.size)
     }
 
-    private const val SCHEMA_VERSION = 2
+    private const val SCHEMA_VERSION = 1
     private const val APK_PASS = "PASS"
     private val FEATURE_PASS_OUTCOMES = setOf("PASS", "PASS_WITH_EXPECTED_FAILURES")
 
-    private fun Delegate.hasValidClassification(localIsPlaceholder: Boolean): Boolean = when (status) {
-        DexResolutionStatus.SUCCESS -> !isPlaceholder && !localIsPlaceholder
-        DexResolutionStatus.EXPECTED_FAILURE -> isPlaceholder && localIsPlaceholder
+    private fun Delegate.hasValidOutcome(): Boolean = when (status) {
+        "SUCCESS" -> !isPlaceholder
+        "EXPECTED_FAILURE" -> isPlaceholder
         else -> false
     }
 }
@@ -197,20 +102,15 @@ private data class Report(
 @Serializable
 private data class Feature(
     val className: String,
+    val methodHash: String,
     val outcome: String,
     val delegates: List<Delegate>,
 )
 
 @Serializable
 private data class Delegate(
-    val id: String,
-    val status: DexResolutionStatus,
+    val key: String,
+    val status: String,
     val descriptor: String? = null,
     val isPlaceholder: Boolean = false,
-    val producerFingerprint: String,
-    val effectiveFingerprint: String,
-    val dependencies: List<String>,
 )
-
-private fun Delegate.producerSnapshot() =
-    Triple(producerFingerprint, effectiveFingerprint, dependencies.sorted())

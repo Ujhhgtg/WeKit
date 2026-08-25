@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.CloudDexResolver
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionRegistry
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -62,7 +61,6 @@ private const val TAG = "DexResolver"
 fun DexResolver(
     context: Context,
     outdatedItems: List<IResolveDex>,
-    registry: DexResolutionRegistry,
     scope: CoroutineScope,
     dismiss: () -> Unit,
 ) {
@@ -85,7 +83,7 @@ fun DexResolver(
         phase = DialogPhase.DownloadingCloud
         scope.launch {
             val remainingItems = try {
-                CloudDexResolver.resolve(registry, currentItems).remainingItems
+                CloudDexResolver.resolve(currentItems).remainingItems
             } catch (error: Exception) {
                 WeLogger.e(TAG, "cloud resolution failed", error)
                 currentItems
@@ -106,7 +104,7 @@ fun DexResolver(
                 phase = DialogPhase.ResolvingLocal(remainingItems.size)
             }
             try {
-                val result = LocalDexResolver.resolve(registry, remainingItems) { progress ->
+                val result = LocalDexResolver.resolve(remainingItems) { progress ->
                     withContext(Dispatchers.Main.immediate) { updateProgress(progress) }
                 }
                 withContext(Dispatchers.Main.immediate) {

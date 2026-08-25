@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookCallback
@@ -28,9 +27,27 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
 
     private const val SELECTION_LIMIT = 100
 
+    private val classChattingDataAdapter by dexClass {
+        matcher {
+            usingEqStrings(
+                "MicroMsg.ChattingDataAdapterV3",
+                "[handleMsgChange] isLockNotify:"
+            )
+        }
+    }
+
+    private val methodToggleMessageSelection by dexMethod {
+        matcher {
+            declaredClass(classChattingDataAdapter.data.name)
+            usingNumbers(SELECTION_LIMIT)
+            usingEqStrings("msgIdTalker")
+            returnType(bool)
+        }
+    }
+
     private val methodGetSelectedMessageCount by dexMethod {
         matcher {
-            declaredClass(WeMessageApi.classChattingDataAdapter.data.name)
+            declaredClass(classChattingDataAdapter.data.name)
             addUsingField {
                 type(CopyOnWriteArraySet::class.java)
             }
@@ -74,7 +91,7 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
     }
 
     private val selectedMessagesField: Field by lazy {
-        WeMessageApi.methodToggleMessageSelection.method.declaringClass.declaredFields.single {
+        methodToggleMessageSelection.method.declaringClass.declaredFields.single {
             it.type == CopyOnWriteArraySet::class.java
         }.makeAccessible()
     }
@@ -127,6 +144,6 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
             }
         }
 
-        registerUnhook(WeMessageApi.methodToggleMessageSelection.method.hookDirectly(hook))
+        registerUnhook(methodToggleMessageSelection.method.hookDirectly(hook))
     }
 }

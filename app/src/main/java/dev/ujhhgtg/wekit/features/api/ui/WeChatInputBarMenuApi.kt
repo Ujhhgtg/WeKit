@@ -68,12 +68,6 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.ChatFooter", "send msg onClick")
         }
     }
-    internal val methodAppGridGetView by dexMethod {
-        matcher {
-            usingStrings("MicroMsg.AppGrid", "pos:", "page:")
-            name = "getView"
-        }
-    }
 
     /**
      * 在 ChatFooter 内定位原生发送按钮 (第 0 个子视图中文本为 "发送"/"send" 的 Button)。

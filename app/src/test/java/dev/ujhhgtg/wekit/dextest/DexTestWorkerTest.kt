@@ -1,18 +1,7 @@
 package dev.ujhhgtg.wekit.dextest
 
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
-import dev.ujhhgtg.wekit.dexkit.dsl.DexMethodDelegate
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.dexkit.resolution.DexHostMetadata
-import dev.ujhhgtg.wekit.dexkit.resolution.DexOwnerMetadata
-import dev.ujhhgtg.wekit.dexkit.resolution.DexProducerKind
-import dev.ujhhgtg.wekit.dexkit.resolution.DexProducerMetadata
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionCoordinator
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionRegistry
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
-import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestEntry
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestRegistry
 import java.nio.file.Files
@@ -20,12 +9,8 @@ import java.nio.file.Path
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.Properties
-import java.util.concurrent.atomic.AtomicInteger
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Test
 import org.luckypray.dexkit.DexKitBridge
-import sun.misc.Unsafe
 
 internal data class DexTestWorkerConfig(
     val apk: Path,
@@ -88,7 +73,7 @@ class DexTestWorkerTest {
         )
 
         val report = try {
-            val selectedEntries = selectDexTestEntries(
+            val entries = selectDexTestEntries(
                 DexResolutionTestRegistry.ITEMS,
                 config.featureSelectors,
             )
@@ -97,16 +82,9 @@ class DexTestWorkerTest {
             System.load(config.nativeLibrary.toString())
             DexKitBridge.create(config.apk.toString()).use { dexKit ->
                 val host = DexHostMetadata(config.versionCode, config.versionName, config.isGooglePlay)
-                val loadedOwners = loadDexOwners(
-                    DexResolutionTestRegistry.ITEMS,
-                    javaClass.classLoader ?: error("worker class loader is null"),
-                )
-                val features = resolveDexFeatureReports(
-                    loadedOwners = loadedOwners,
-                    selectedEntries = selectedEntries,
-                    dexKit = dexKit,
-                    host = host,
-                )
+                val features = entries.map { entry ->
+                    runDexFeature(entry, dexKit, host, javaClass.classLoader ?: error("worker class loader is null"))
+                }
                 buildReport(
                     config = config,
                     environment = environment,
@@ -139,211 +117,6 @@ class DexTestWorkerTest {
     }
 }
 
-class DexTestWorkerSchedulingTest {
-
-    @Test
-    fun selectorsResolveOneSharedGraphAndReportDependencyClosureOnce() {
-        val fixture = WorkerGraphFixture()
-        var coordinatorCreations = 0
-
-        val reports = fixture.resolve(
-            loadedOwners = fixture.loadedOwners.reversed(),
-            onCoordinatorCreated = { coordinatorCreations++ },
-        )
-
-        assertEquals(1, coordinatorCreations)
-        assertEquals(1, fixture.sharedExecutions.get())
-        assertEquals(fixture.reportClassNames, reports.map(DexTestFeatureReport::className))
-        assertEquals(
-            DexResolutionStatus.SUCCESS,
-            reports.single { it.className == fixture.shared.entry.className }.delegates.single().status,
-        )
-        fixture.consumers.forEach { consumer ->
-            assertEquals(
-                listOf(fixture.shared.owner.dexDelegates.single().stableId),
-                reports.single { it.className == consumer.entry.className }.delegates.single().dependencies,
-            )
-        }
-    }
-
-    @Test
-    fun registryOrderingDoesNotChangeSharedGraphReports() {
-        val fixture = WorkerGraphFixture()
-
-        val forward = fixture.resolve(fixture.loadedOwners)
-        val reversed = fixture.resolve(fixture.loadedOwners.reversed())
-
-        assertEquals(stableGraphSnapshot(forward), stableGraphSnapshot(reversed))
-        assertEquals(2, fixture.sharedExecutions.get())
-    }
-
-    @Test
-    fun unrelatedRootsContinueAndAggregateEveryReportedDelegateOnce() {
-        val fixture = WorkerGraphFixture()
-
-        val reports = fixture.resolve(fixture.loadedOwners)
-
-        assertEquals(1, fixture.unrelatedExecutions.get())
-        assertEquals(DexTestFeatureOutcome.FAIL, reports.single { it.className == fixture.blocked.entry.className }.outcome)
-        assertEquals(DexTestFeatureOutcome.PASS, reports.single { it.className == fixture.unrelated.entry.className }.outcome)
-        assertEquals(
-            DexTestCounts(
-                success = 4,
-                expectedFailure = 1,
-                unexpectedFailure = 1,
-                blocked = 1,
-                incomplete = 1,
-            ),
-            countDexTestOutcomes(reports),
-        )
-    }
-
-    @Test
-    fun ownerLoadingKeepsInitializationFailureFeatureScoped() {
-        val entries = listOf(
-            DexResolutionTestEntry(LoadableOwner::class.java.name),
-            DexResolutionTestEntry("dev.example.DoesNotExist"),
-        )
-
-        val loaded = loadDexOwners(entries, javaClass.classLoader!!)
-
-        assertInstanceOf(LoadedDexOwner.Ready::class.java, loaded[0])
-        assertInstanceOf(LoadedDexOwner.Failed::class.java, loaded[1])
-        assertEquals("dev.example.DoesNotExist", loaded[1].entry.className)
-    }
-
-    private object LoadableOwner : WorkerTestOwner()
-
-    private fun stableGraphSnapshot(reports: List<DexTestFeatureReport>) = reports.map { report ->
-        report.copy(
-            delegates = report.delegates.map { delegate -> delegate.copy(stackTrace = null) },
-            featureError = report.featureError?.copy(stackTrace = null),
-        )
-    }
-}
-
-private class WorkerGraphFixture {
-    val sharedExecutions = AtomicInteger()
-    val unrelatedExecutions = AtomicInteger()
-
-    val shared = ready(object : WorkerTestOwner() {}) { owner ->
-        owner.inlineMethod("shared") { delegate ->
-            sharedExecutions.incrementAndGet()
-            delegate.setDescriptor("fixture.Shared", "run", "()V")
-            true
-        }
-    }
-    val consumers = listOf(
-        ready(object : WorkerTestOwner() {}) { owner ->
-            owner.inlineMethod("consumerOne") { delegate ->
-                DexResolutionContext.requireData(shared.owner.dexDelegates.single())
-                delegate.setDescriptor("fixture.ConsumerOne", "run", "()V")
-                true
-            }
-        },
-        ready(object : WorkerTestOwner() {}) { owner ->
-            owner.inlineMethod("consumerTwo") { delegate ->
-                DexResolutionContext.requireData(shared.owner.dexDelegates.single())
-                delegate.setDescriptor("fixture.ConsumerTwo", "run", "()V")
-                true
-            }
-        },
-    )
-    val failing = ready(object : WorkerTestOwner() {}) { owner ->
-        owner.inlineMethod("failing") { error("fixture failure") }
-    }
-    val blocked = ready(object : WorkerTestOwner() {}) { owner ->
-        owner.inlineMethod("blocked") { delegate ->
-            DexResolutionContext.requireData(failing.owner.dexDelegates.single())
-            delegate.setDescriptor("fixture.Blocked", "run", "()V")
-            true
-        }
-    }
-    val unrelated = ready(object : WorkerTestOwner() {}) { owner ->
-        owner.inlineMethod("unrelated") { delegate ->
-            unrelatedExecutions.incrementAndGet()
-            delegate.setDescriptor("fixture.Unrelated", "run", "()V")
-            true
-        }
-    }
-    val expected = ready(object : WorkerTestOwner() {}) { owner ->
-        owner.inlineMethod("expected") { delegate ->
-            delegate.setPlaceholderDescriptor(expectedFailure = true, reason = "fixture absence")
-            true
-        }
-    }
-    val incomplete = ready(object : WorkerTestOwner() {}) { owner ->
-        owner.inlineMethod("incomplete") { true }
-    }
-
-    val loadedOwners = listOf(shared) + consumers + listOf(failing, blocked, unrelated, expected, incomplete)
-    private val selectedEntries = consumers.map(LoadedDexOwner.Ready::entry) +
-        listOf(blocked.entry, unrelated.entry, expected.entry, incomplete.entry)
-    val reportClassNames = loadedOwners.map { it.entry.className }.sorted()
-
-    fun resolve(
-        loadedOwners: List<LoadedDexOwner.Ready>,
-        onCoordinatorCreated: () -> Unit = {},
-    ): List<DexTestFeatureReport> = resolveDexFeatureReports(
-        loadedOwners = loadedOwners,
-        selectedEntries = selectedEntries,
-        dexKit = allocateDexKitWithoutNativeState(),
-        host = DexHostMetadata(versionCode = 1, versionName = "test", isGooglePlay = false),
-        registryFactory = { owners -> DexResolutionRegistry.create(owners, metadataFor(owners)) },
-        coordinatorFactory = { registry, dexKit, host ->
-            onCoordinatorCreated()
-            DexResolutionCoordinator(registry, dexKit, host)
-        },
-    )
-
-    private fun ready(
-        owner: WorkerTestOwner,
-        configure: (WorkerTestOwner) -> Unit,
-    ): LoadedDexOwner.Ready {
-        configure(owner)
-        return LoadedDexOwner.Ready(
-            entry = DexResolutionTestEntry(owner.javaClass.name),
-            owner = owner,
-            elapsedMillis = 0,
-        )
-    }
-
-    private fun metadataFor(owners: List<IResolveDex>): Map<String, DexOwnerMetadata> =
-        owners.associate { resolver ->
-            val owner = resolver as WorkerTestOwner
-            val ownerId = owner.javaClass.name
-            ownerId to DexOwnerMetadata(
-                ownerClassName = ownerId,
-                producers = owner.dexDelegates.associate { delegate ->
-                    delegate.stableId to DexProducerMetadata(
-                        stableId = delegate.stableId,
-                        ownerClassName = ownerId,
-                        propertyName = delegate.propertyName,
-                        kind = DexProducerKind.INLINE_METHOD,
-                        localFingerprint = "producer-${delegate.propertyName}",
-                    )
-                },
-                customOutputPropertyNames = emptySet(),
-            )
-        }
-}
-
-private open class WorkerTestOwner : BaseFeature(), IResolveDex {
-    override val technicalId = "worker-test"
-    override val nameRes = 0
-    override val categoryIds = emptyList<String>()
-
-    fun inlineMethod(
-        propertyName: String,
-        block: DexResolutionCoordinator.(DexMethodDelegate) -> Boolean,
-    ): DexMethodDelegate = DexMethodDelegate(this, propertyName, block).also(::registerDexDelegate)
-}
-
-private fun allocateDexKitWithoutNativeState(): DexKitBridge {
-    val field = Unsafe::class.java.getDeclaredField("theUnsafe").apply { isAccessible = true }
-    return (field.get(null) as Unsafe).allocateInstance(DexKitBridge::class.java) as DexKitBridge
-}
-
 internal fun selectDexTestEntries(
     entries: List<DexResolutionTestEntry>,
     selectors: List<String>?,
@@ -372,7 +145,14 @@ private fun buildReport(
     elapsedMillis: Long,
     features: List<DexTestFeatureReport>,
 ): DexTestApkReport {
-    val counts = countDexTestOutcomes(features)
+    val delegates = features.flatMap(DexTestFeatureReport::delegates)
+    val counts = DexTestCounts(
+        success = delegates.count { it.status.name == "SUCCESS" },
+        expectedFailure = delegates.count { it.status.name == "EXPECTED_FAILURE" },
+        unexpectedFailure = delegates.count { it.status.name == "UNEXPECTED_FAILURE" },
+        blocked = delegates.count { it.status.name == "BLOCKED" },
+        incomplete = delegates.count { it.status.name == "INCOMPLETE" },
+    )
     val outcome = if (features.all {
             it.outcome == DexTestFeatureOutcome.PASS || it.outcome == DexTestFeatureOutcome.PASS_WITH_EXPECTED_FAILURES
         }
@@ -395,17 +175,6 @@ private fun buildReport(
         outcome = outcome,
         counts = counts,
         features = features,
-    )
-}
-
-internal fun countDexTestOutcomes(features: List<DexTestFeatureReport>): DexTestCounts {
-    val delegates = features.flatMap(DexTestFeatureReport::delegates)
-    return DexTestCounts(
-        success = delegates.count { it.status == DexResolutionStatus.SUCCESS },
-        expectedFailure = delegates.count { it.status == DexResolutionStatus.EXPECTED_FAILURE },
-        unexpectedFailure = delegates.count { it.status == DexResolutionStatus.UNEXPECTED_FAILURE },
-        blocked = delegates.count { it.status == DexResolutionStatus.BLOCKED },
-        incomplete = delegates.count { it.status == DexResolutionStatus.INCOMPLETE },
     )
 }
 

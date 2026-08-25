@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.dexkit.resolution
 
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
+import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import org.luckypray.dexkit.DexKitBridge
 
@@ -20,25 +20,26 @@ data class DexHostMetadata(
 }
 
 object DexResolutionContext {
-    private val current = ThreadLocal<DexResolutionSession?>()
+    private data class Session(
+        val dexKit: DexKitBridge,
+        val host: DexHostMetadata,
+    )
+
+    private val current = ThreadLocal<Session?>()
 
     val dexKit: DexKitBridge
-        get() = current.get()?.coordinator?.dexKit ?: error("Dex resolution context is not active")
+        get() = current.get()?.dexKit ?: error("Dex resolution context is not active")
 
     val host: DexHostMetadata
-        get() = current.get()?.coordinator?.host ?: error("Dex resolution context is not active")
+        get() = current.get()?.host ?: error("Dex resolution context is not active")
 
-    fun requireData(delegate: BaseDexDelegate): String {
-        val session = current.get() ?: error("Dex resolution context is not active")
-        return session.coordinator.requireData(session.producerId, delegate)
-    }
-
-    internal fun <T> withResolutionSession(
-        session: DexResolutionSession,
+    internal fun <T> withResolutionContext(
+        dexKit: DexKitBridge,
+        host: DexHostMetadata,
         block: () -> T,
     ): T {
         val previous = current.get()
-        current.set(session)
+        current.set(Session(dexKit, host))
         try {
             return block()
         } finally {
@@ -47,37 +48,10 @@ object DexResolutionContext {
     }
 }
 
-fun resolveAllDex(
-    owners: Collection<IResolveDex>,
+fun IResolveDex.resolveAllDex(
     dexKit: DexKitBridge,
     host: DexHostMetadata = DexHostMetadata.currentAndroidHost(),
-): DexResolutionBatchResult {
-    val registry = DexResolutionRegistry.create(owners.toList())
-    val coordinator = DexResolutionCoordinator(registry, dexKit, host)
-    return coordinator.resolveOwners(owners)
+) = DexResolutionContext.withResolutionContext(dexKit, host) {
+    (this as BaseFeature).resolveInlineDex(dexKit)
+    resolveDex(dexKit)
 }
-
-internal fun IResolveDex.resolveAllDex(
-    dexKit: DexKitBridge,
-    host: DexHostMetadata = DexHostMetadata.currentAndroidHost(),
-) {
-    val result = resolveAllDex(listOf(this), dexKit, host)
-    result.resultsByProducer.forEach { (producerId, nodeResult) ->
-        when (nodeResult) {
-            is DexNodeResult.Failed -> throw nodeResult.error
-            is DexNodeResult.Resolved -> require(
-                nodeResult.diagnostic.status in setOf(
-                    DexResolutionStatus.SUCCESS,
-                    DexResolutionStatus.EXPECTED_FAILURE,
-                )
-            ) {
-                "Dex resolution producer $producerId completed with ${nodeResult.diagnostic.status}"
-            }
-        }
-    }
-}
-
-data class DexResolutionSession(
-    val coordinator: DexResolutionCoordinator,
-    val producerId: String,
-)

@@ -22,7 +22,6 @@ import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
@@ -45,6 +44,26 @@ object CustomSourceApp : ClickableFeature(), IResolveDex {
 
     private data class SourceApp(val appId: String, val appName: String)
 
+    private val methodCommitSnsInfo by dexMethod {
+        matcher {
+            usingEqStrings("MicroMsg.UploadPackHelper", "commit sns info ret %d, typeFlag %d sightMd5 %s")
+        }
+    }
+
+    private val methodSetSdkAppId by dexMethod {
+        searchPackages("com.tencent.mm.plugin.sns.model")
+        matcher {
+            usingEqStrings("setSdkId", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
+        }
+    }
+
+    private val methodSetSdkAppName by dexMethod {
+        searchPackages("com.tencent.mm.plugin.sns.model")
+        matcher {
+            usingEqStrings("setSdkAppName", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
+        }
+    }
+
     private val methodSnsUploadUIInitView by dexMethod {
         matcher {
             declaredClass = "com.tencent.mm.plugin.sns.ui.SnsUploadUI"
@@ -65,13 +84,13 @@ object CustomSourceApp : ClickableFeature(), IResolveDex {
             })
         }
 
-        WeMomentsApi.methodCommit.hookBefore {
+        methodCommitSnsInfo.hookBefore {
             if (appId.isNotBlank()) {
-                WeMomentsApi.methodSetSdkId.method.invoke(thisObject, appId)
+                methodSetSdkAppId.method.invoke(thisObject, appId)
                 WeLogger.i(TAG, "modified app id: $appId")
             }
             if (appName.isNotBlank()) {
-                WeMomentsApi.methodSetSdkAppName.method.invoke(thisObject, appName)
+                methodSetSdkAppName.method.invoke(thisObject, appName)
                 WeLogger.i(TAG, "modified app name: $appName")
             }
         }

@@ -65,6 +65,11 @@ object WeServiceApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.ChatroomService", "[isEnableRoomManager]")
         }
     }
+    private val methodChatroomStorageGetMemberCount by dexMethod {
+        matcher {
+            usingEqStrings("MicroMsg.ChatroomStorage", "[getMemberCount] init field_memberCount! username:%s count:%s")
+        }
+    }
     val classImageInfoStorage by dexClass {
         matcher {
             usingEqStrings("MicroMsg.ImgInfoStorage", "generateMd5: %s, %s")
@@ -199,7 +204,7 @@ object WeServiceApi : ApiFeature(), IResolveDex {
     val chatroomStorage
         get() =
             chatroomService.reflekt().firstField {
-                type = WeConversationApi.methodChatroomStorageGetMemberCount.method.declaringClass
+                type = methodChatroomStorageGetMemberCount.method.declaringClass
             }.get()!!
 
     fun getServiceByClass(clazz: Class<*>): Any {

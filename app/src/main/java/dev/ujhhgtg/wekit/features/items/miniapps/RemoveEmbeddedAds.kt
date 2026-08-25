@@ -33,7 +33,7 @@ object RemoveEmbeddedAds : SwitchFeature(), IResolveDex {
     // 广告数据请求: JS 侧通过 operateWXData / adOperateWXData 下发 webapi_getadvert,
     // 最终由 NetSceneJSOperateWxData 发出。构造时把 ad_unit_id 置空, 服务端就不会
     // 返回广告素材, 广告位自然不渲染。目标是让广告不出现, 而不是拦截点击后的跳转。
-    internal val ctorNetSceneJSOperateWxData by dexConstructor {
+    private val ctorNetSceneJSOperateWxData by dexConstructor {
         matcher {
             declaredClass {
                 usingEqStrings("MicroMsg.NetSceneJSOperateWxData", "doScene hash=%d, funcid=%d")

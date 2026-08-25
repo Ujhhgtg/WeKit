@@ -21,7 +21,6 @@ use crate::workspace_root;
 
 const DEXKIT_REPOSITORY: &str = "https://github.com/LuckyPray/DexKit.git";
 const DEXKIT_REVISION: &str = "ffa6c51c38fe3ecfddb18d8949c30c48dbfbfd6a";
-const DEX_TEST_SCHEMA_VERSION: i64 = 2;
 
 #[derive(Args, Debug)]
 pub struct DexTestArgs {
@@ -75,13 +74,10 @@ enum ApkOutcome {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DelegateReport {
-    id: String,
+    key: String,
     status: String,
     descriptor: Option<String>,
     is_placeholder: bool,
-    producer_fingerprint: String,
-    effective_fingerprint: Option<String>,
-    dependencies: Vec<String>,
     message: Option<String>,
     exception_type: Option<String>,
     stack_trace: Option<String>,
@@ -93,6 +89,7 @@ struct DelegateReport {
 struct FeatureReport {
     class_name: String,
     display_name: String,
+    method_hash: String,
     outcome: String,
     elapsed_millis: i64,
     delegates: Vec<DelegateReport>,
@@ -681,7 +678,7 @@ fn read_report(path: &Path) -> Result<ApkReport> {
 
 fn infrastructure_report(apk: &Path, native: &DexKitNative, error: &anyhow::Error) -> ApkReport {
     ApkReport {
-        schema_version: DEX_TEST_SCHEMA_VERSION,
+        schema_version: 1,
         worker_pid: 0,
         apk_path: apk.to_string_lossy().to_string(),
         file_name: apk
@@ -761,7 +758,7 @@ fn build_summary(run_dir: &Path, started: &str, reports: &[(ApkReport, PathBuf)]
         ApkOutcome::Fail
     };
     Summary {
-        schema_version: DEX_TEST_SCHEMA_VERSION,
+        schema_version: 1,
         run_id: run_dir
             .file_name()
             .and_then(|name| name.to_str())
@@ -794,7 +791,7 @@ fn render_apk(report: &ApkReport, path: &Path, verbose: bool) {
             }
             println!(
                 "  {} [{}] {}",
-                delegate.id,
+                delegate.key,
                 delegate.status,
                 delegate.descriptor.as_deref().unwrap_or("")
             );
@@ -972,60 +969,5 @@ mod tests {
                 .as_deref(),
             Some("Android_Wechat_RELEASE_GP_AppBundle")
         );
-    }
-
-    #[test]
-    fn parses_schema_two_delegate_graph_metadata() {
-        let report: ApkReport = serde_json::from_str(
-            r#"{
-              "schemaVersion": 2,
-              "workerPid": 1,
-              "apkPath": "/tmp/wechat.apk",
-              "fileName": "wechat.apk",
-              "label": "wechat",
-              "apkSize": 1,
-              "apkSha256": "hash",
-              "versionCode": 1,
-              "versionName": "8.0.65",
-              "buildTag": "tag",
-              "isGooglePlay": false,
-              "dexCount": 1,
-              "environment": {"dexKitVersion":"2", "dexKitRevision":"r", "architecture":"x86_64", "jvmVersion":"21"},
-              "startedAt": "start",
-              "finishedAt": "finish",
-              "elapsedMillis": 1,
-              "outcome": "PASS",
-              "counts": {"success":0,"expectedFailure":0,"unexpectedFailure":1,"blocked":0,"incomplete":0},
-              "features": [{
-                "className": "dev.example.Root",
-                "displayName": "Root",
-                "outcome": "FAIL",
-                "elapsedMillis": 1,
-                "delegates": [{
-                  "id": "dev.example.Root#target",
-                  "status": "UNEXPECTED_FAILURE",
-                  "descriptor": null,
-                  "isPlaceholder": false,
-                  "producerFingerprint": "local",
-                  "effectiveFingerprint": null,
-                  "dependencies": ["dev.example.Api#dependency"],
-                  "message": "boom",
-                  "exceptionType": "java.lang.IllegalStateException",
-                  "stackTrace": "trace",
-                  "blockedBy": null
-                }],
-                "featureError": null
-              }],
-              "infrastructureError": null
-            }"#,
-        )
-        .unwrap();
-
-        let delegate = &report.features[0].delegates[0];
-        assert_eq!(report.schema_version, 2);
-        assert_eq!(delegate.id, "dev.example.Root#target");
-        assert_eq!(delegate.producer_fingerprint, "local");
-        assert_eq!(delegate.effective_fingerprint, None);
-        assert_eq!(delegate.dependencies, ["dev.example.Api#dependency"]);
     }
 }

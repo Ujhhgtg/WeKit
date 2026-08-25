@@ -1,15 +1,13 @@
 package dev.ujhhgtg.wekit.dexkit.cache
 
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
-import java.io.IOException
-import java.nio.file.Files
+import kotlin.io.path.writeText
 import java.nio.file.Path
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readText
-import kotlin.io.path.writeText
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -19,87 +17,61 @@ class CloudDexCacheWriterTest {
     lateinit var tempDir: Path
 
     @Test
-    fun writesStableV2ManifestsAndRemovesTransactionArtifacts() {
-        val manifest = manifest("owner.First", listOf("z", "a"))
-        writeCloudCacheFiles(tempDir, listOf(CloudDexCacheEntry("First/Feature", manifest)), 1234L)
+    fun writesCompleteCacheFilesAndRemovesTransactionArtifacts() {
+        writeCloudCacheFiles(
+            cacheDir = tempDir,
+            entries = listOf(
+                CloudDexCacheEntry("First/Feature", "first-hash", mapOf("First:key" to "first-value")),
+                CloudDexCacheEntry("SecondFeature", "second-hash", mapOf("Second:key" to "second-value")),
+            ),
+            timestamp = 1234L,
+        )
 
-        val text = tempDir.resolve("First_Feature.json").readText()
-        val decoded = Json.decodeFromString<DexCacheManifest>(text)
-        assertEquals(2, decoded.schema)
-        assertEquals(1234L, decoded.timestamp)
-        assertEquals(listOf("a", "z"), decoded.delegates.getValue("owner.First#target").dependencies)
+        assertCache(
+            path = tempDir.resolve("First_Feature.json"),
+            methodHash = "first-hash",
+            timestamp = "1234",
+            key = "First:key",
+            value = "first-value",
+        )
+        assertCache(
+            path = tempDir.resolve("SecondFeature.json"),
+            methodHash = "second-hash",
+            timestamp = "1234",
+            key = "Second:key",
+            value = "second-value",
+        )
         assertTrue(tempDir.listDirectoryEntries().none { it.fileName.toString().endsWith(".tmp") })
         assertTrue(tempDir.listDirectoryEntries().none { it.fileName.toString().endsWith(".bak") })
     }
 
     @Test
-    fun failureMidCommitRestoresEveryPreviousDestination() {
-        val first = tempDir.resolve("First.json")
-        val second = tempDir.resolve("Second.json")
-        first.writeText("old-first")
-        second.writeText("old-second")
-        var moves = 0
+    fun replacesAnExistingCacheWithOneCompleteJsonObject() {
+        val destination = tempDir.resolve("FirstFeature.json")
+        destination.writeText("old-cache")
 
-        assertThrows(IOException::class.java) {
-            writeDexCacheManifests(
-                tempDir,
-                listOf(manifest("owner.First"), manifest("owner.Second")),
-                mapOf("owner.First" to "First", "owner.Second" to "Second"),
-            ) { source, destination ->
-                moves++
-                if (moves == 4) throw IOException("injected commit failure")
-                Files.move(source, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-            }
-        }
-
-        assertEquals("old-first", first.readText())
-        assertEquals("old-second", second.readText())
-        assertEquals(listOf("First.json", "Second.json"), tempDir.listDirectoryEntries().map { it.fileName.toString() }.sorted())
-    }
-
-    @Test
-    fun rollbackFailurePreservesRecoverableBackupAndIsSuppressed() {
-        val first = tempDir.resolve("First.json")
-        val second = tempDir.resolve("Second.json")
-        first.writeText("old-first")
-        second.writeText("old-second")
-        var moves = 0
-
-        val error = assertThrows(IOException::class.java) {
-            writeDexCacheManifests(
-                tempDir,
-                listOf(manifest("owner.First"), manifest("owner.Second")),
-                mapOf("owner.First" to "First", "owner.Second" to "Second"),
-            ) { source, destination ->
-                moves++
-                when (moves) {
-                    4 -> throw IOException("commit failed")
-                    6 -> throw IOException("first restore failed")
-                    else -> Files.move(source, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-                }
-            }
-        }
-
-        assertEquals("commit failed", error.message)
-        assertEquals(listOf("first restore failed"), error.suppressed.map { it.message })
-        val backup = tempDir.listDirectoryEntries().single { it.fileName.toString().endsWith(".bak") }
-        assertEquals("old-first", backup.readText())
-        assertEquals("old-second", second.readText())
-        assertTrue(tempDir.listDirectoryEntries().none { it.fileName.toString().endsWith(".tmp") })
-    }
-
-    private fun manifest(owner: String, dependencies: List<String> = emptyList()) = DexCacheManifest(
-        owner = owner,
-        timestamp = 0,
-        delegates = mapOf(
-            "$owner#target" to DexCacheDelegateEntry(
-                descriptor = "Ltarget;->call()V",
-                status = DexResolutionStatus.SUCCESS,
-                isPlaceholder = false,
-                producerFingerprint = "local",
-                effectiveFingerprint = "effective",
-                dependencies = dependencies,
+        writeCloudCacheFiles(
+            cacheDir = tempDir,
+            entries = listOf(
+                CloudDexCacheEntry("FirstFeature", "new-hash", mapOf("First:key" to "new-value")),
             ),
-        ),
-    )
+            timestamp = 5678L,
+        )
+
+        assertCache(destination, "new-hash", "5678", "First:key", "new-value")
+        assertEquals(listOf("FirstFeature.json"), tempDir.listDirectoryEntries().map { it.fileName.toString() })
+    }
+
+    private fun assertCache(
+        path: Path,
+        methodHash: String,
+        timestamp: String,
+        key: String,
+        value: String,
+    ) {
+        val json = Json.parseToJsonElement(path.readText()).jsonObject
+        assertEquals(methodHash, json.getValue("methodHash").jsonPrimitive.content)
+        assertEquals(timestamp, json.getValue("timestamp").jsonPrimitive.content)
+        assertEquals(value, json.getValue(key).jsonPrimitive.content)
+    }
 }
