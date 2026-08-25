@@ -133,7 +133,7 @@ class MonetS4PayloadTest {
         assertEquals(1, verified.size)
         val play3084 = verified.single().jsonObject
         assertEquals(3084, play3084.getValue("versionCode").jsonPrimitive.int)
-        assertEquals(PLAY_3084_GRAPH_DIGEST, play3084.getValue("resourceDigest").jsonPrimitive.content)
+        assertEquals(PLAY_3084_BASE_GRAPH_DIGEST, play3084.getValue("resourceDigest").jsonPrimitive.content)
         assertEquals(
             catalog.roles.map { it.id }.toSet(),
             play3084.getValue("roles").jsonObject.keys,
@@ -214,8 +214,8 @@ class MonetS4PayloadTest {
     }
 
     private companion object {
-        const val PLAY_3084_GRAPH_DIGEST =
-            "0235e64f66ad276867de2482c2a3fd62daef0202b3061330ef0f6cf8db434ed9"
+        const val PLAY_3084_BASE_GRAPH_DIGEST =
+            "1c2955c55a9029ccc0c918801dd31ea301eaa601a287c5bb0ed709fe4e3b31eb"
         const val CLASSIC_REPAIR_SHA256 =
             "c172c38d941bc89dba127fc1df5b3015dbc591cabc779639fc7b5fae5d787ed8"
         val AUXILIARY_ROLE_IDS = setOf(

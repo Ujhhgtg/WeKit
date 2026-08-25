@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.extensions.monet
 
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetDexEvidenceProvider
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
@@ -33,21 +34,28 @@ class MonetPlay3084ApksIntegrationTest {
         val extractionDir = File(tempDir, "resource-apks")
         assertTrue(extractionDir.mkdir(), "failed to create $extractionDir")
         try {
-            val resourceApks = extractResourceBearingApks(apks, extractionDir)
+            val extractedResourceApks = extractResourceBearingApks(apks, extractionDir)
             assertEquals(
                 EXPECTED_RESOURCE_APK_COUNT,
-                resourceApks.size,
+                extractedResourceApks.size,
                 "unexpected Play 3084 resource-bearing APK boundary",
             )
+            val baseApk = extractedResourceApks.single { extracted ->
+                extracted.sourceName == "base.apk" || extracted.sourceName.endsWith("/base.apk")
+            }.file
+            val resourceApks = extractedResourceApks.map(ExtractedApk::file)
+
+            val baseGraph = MonetApkResourceGraphLoader.load(listOf(baseApk), TARGET_PACKAGE)
+            assertEquals(PLAY_BASE_RESOURCE_GRAPH_DIGEST, baseGraph.resourceDigest())
 
             val graph = MonetApkResourceGraphLoader.load(resourceApks, TARGET_PACKAGE)
 
-            assertEquals(PLAY_RESOURCE_GRAPH_DIGEST, graph.resourceDigest())
+            assertEquals(PLAY_FULL_RESOURCE_GRAPH_DIGEST, graph.resourceDigest())
             val payload = File("../../app/embedded/monet")
             val catalog = MonetRoleCatalog.load(payload)
             val profiles = MonetProfileCatalog.load(payload)
             val profile = profiles.verifiedProfiles.single()
-            assertEquals(PLAY_RESOURCE_GRAPH_DIGEST, profile.resourceDigest)
+            assertEquals(PLAY_BASE_RESOURCE_GRAPH_DIGEST, profile.resourceDigest)
             assertEquals(231, profile.roles.size)
             assertEquals(profile.roles.size, profile.roles.values.toSet().size)
             assertEquals(catalog.roles.map(MonetRoleDefinition::id).toSet(), profile.roles.keys)
@@ -100,6 +108,28 @@ class MonetPlay3084ApksIntegrationTest {
             )
             assertEquals(profile.roles, resolved.resolved.mapValues { it.value.key })
 
+            val representativeInstalledApks = extractedResourceApks.filter { extracted ->
+                extracted.sourceName in REPRESENTATIVE_INSTALLED_APKS
+            }.map(ExtractedApk::file)
+            assertTrue(representativeInstalledApks.size >= 3, "representative Play split subset is incomplete")
+            val representativeGraph = MonetApkResourceGraphLoader.load(
+                representativeInstalledApks,
+                TARGET_PACKAGE,
+            )
+            assertEquals(PLAY_BASE_RESOURCE_GRAPH_DIGEST, baseGraph.resourceDigest())
+            assertFalse(profile.resourceDigest == representativeGraph.resourceDigest())
+            val representativeResolved = MonetResourceResolver.resolve(
+                graph = representativeGraph,
+                catalog = catalog,
+                profiles = listOf(profile.toResolutionProfile()),
+                sdkInt = 36,
+                provider = object : MonetDexEvidenceProvider {
+                    override fun query(candidates: List<dev.ujhhgtg.wekit.extensions.monet.api.MonetDexCandidate>) =
+                        error("representative installed graph unexpectedly requested Dex evidence: $candidates")
+                },
+            )
+            assertEquals(profile.roles, representativeResolved.resolved.mapValues { it.value.key })
+
             val inputLayout = requireNotNull(graph.node(MonetResourceKey("layout", "v0")))
             val inputBackground = requireNotNull(graph.node(MonetResourceKey("drawable", "bw7")))
             val quoteBackground = requireNotNull(graph.node(MonetResourceKey("drawable", "cf8")))
@@ -121,7 +151,7 @@ class MonetPlay3084ApksIntegrationTest {
         }
     }
 
-    private fun extractResourceBearingApks(apks: File, outputDir: File): List<File> =
+    private fun extractResourceBearingApks(apks: File, outputDir: File): List<ExtractedApk> =
         ZipFile(apks).use { bundle ->
             val names = mutableSetOf<String>()
             val apkEntries = bundle.entries().asSequence()
@@ -154,9 +184,11 @@ class MonetPlay3084ApksIntegrationTest {
                 bundle.getInputStream(entry).use { input ->
                     output.outputStream().buffered().use(input::copyTo)
                 }
-                output
+                ExtractedApk(entry.name, output)
             }
         }
+
+    private data class ExtractedApk(val sourceName: String, val file: File)
 
     private fun validateNestedApkName(name: String) {
         require(name.isNotBlank() && !name.startsWith('/') && '\\' !in name) {
@@ -189,10 +221,18 @@ class MonetPlay3084ApksIntegrationTest {
         const val PLAY_APKS_ENV = "WEKIT_MONET_PLAY_3084_APKS"
         const val PLAY_APKS_SHA256 =
             "64121c48f76dfa01e92e0ac40c4f8df8888e0d4861dcfda5b83838f06e19fd24"
-        const val PLAY_RESOURCE_GRAPH_DIGEST =
+        const val PLAY_FULL_RESOURCE_GRAPH_DIGEST =
             "0235e64f66ad276867de2482c2a3fd62daef0202b3061330ef0f6cf8db434ed9"
+        const val PLAY_BASE_RESOURCE_GRAPH_DIGEST =
+            "1c2955c55a9029ccc0c918801dd31ea301eaa601a287c5bb0ed709fe4e3b31eb"
         const val TARGET_PACKAGE = "com.tencent.mm"
         const val RESOURCE_TABLE_PATH = "resources.arsc"
         const val EXPECTED_RESOURCE_APK_COUNT = 32
+        val REPRESENTATIVE_INSTALLED_APKS = setOf(
+            "base.apk",
+            "split_config.zh.apk",
+            "split_config.xxhdpi.apk",
+            "split_delivery.apk",
+        )
     }
 }

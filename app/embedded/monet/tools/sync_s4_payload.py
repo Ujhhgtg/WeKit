@@ -28,7 +28,7 @@ MODULE_SHA256 = "87a7e6ae6ad3cccf55071a8bf77de94301ff5ce99d060c446e2932f6c4d4644
 PLAY_APKS_SHA256 = "64121c48f76dfa01e92e0ac40c4f8df8888e0d4861dcfda5b83838f06e19fd24"
 PLAY_BASE_SHA256 = "c2c21dd4616f9ed939c03826ccc930fd9636f388984596e9510f05ee0cf71074"
 PLAY_RESOURCES_SHA256 = "fc84586cb214cbf86a0fdb5f9035a1289d665eccd50f56b980bcc061a42ca82a"
-PLAY_GRAPH_DIGEST = "0235e64f66ad276867de2482c2a3fd62daef0202b3061330ef0f6cf8db434ed9"
+PLAY_BASE_GRAPH_DIGEST = "1c2955c55a9029ccc0c918801dd31ea301eaa601a287c5bb0ed709fe4e3b31eb"
 CLASSIC_REPAIR_SHA256 = "c172c38d941bc89dba127fc1df5b3015dbc591cabc779639fc7b5fae5d787ed8"
 AAPT2_VERSION = "36.1.0"
 AAPT2_SHA256 = "012764928a2e5ad747531f669fcda1cf2ccd2d0b6eb8bdb728807c17e3cf16d0"
@@ -856,7 +856,7 @@ def build_profiles(role_ids: dict[str, str]) -> dict[str, object]:
         "digestAlgorithm": "monet-resource-graph-v1",
         "verifiedProfiles": [
             {
-                "resourceDigest": PLAY_GRAPH_DIGEST,
+                "resourceDigest": PLAY_BASE_GRAPH_DIGEST,
                 "versionName": "8.0.72",
                 "versionCode": 3084,
                 "channel": "google-play",
@@ -966,7 +966,7 @@ def sync(module_zip: Path, play_apks: Path, output: Path) -> None:
         publish_generated(generated, output)
 
     print(f"generated 7 templates and {len(role_ids)} semantic roles in {output}")
-    print(f"verified Play 3084 graph digest: {PLAY_GRAPH_DIGEST}")
+    print(f"verified Play 3084 base graph digest: {PLAY_BASE_GRAPH_DIGEST}")
 
 
 def main() -> None:

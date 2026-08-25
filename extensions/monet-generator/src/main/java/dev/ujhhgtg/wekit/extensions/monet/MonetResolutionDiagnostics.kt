@@ -61,6 +61,11 @@ internal data class MonetResolutionReport(
 internal class MonetResolutionException(
     val diagnostic: MonetRoleDiagnostic,
     cause: Throwable? = null,
+    val report: MonetResolutionReport = MonetResolutionReport(
+        resolved = emptyMap(),
+        skipped = emptyList(),
+        diagnostics = mapOf(diagnostic.roleId to diagnostic),
+    ),
 ) : IllegalStateException(
     buildString {
         append("Monet role ").append(diagnostic.roleId)

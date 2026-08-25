@@ -20,8 +20,10 @@ internal object MonetResourceResolver {
         val states = linkedMapOf<String, ResolutionState>()
         val skipped = mutableListOf<MonetRoleDiagnostic>()
         val diagnostics = linkedMapOf<String, MonetRoleDiagnostic>()
+        val resolved = linkedMapOf<String, MonetResolvedRole>()
 
-        catalog.roles.forEach { role ->
+        try {
+            catalog.roles.forEach { role ->
             if (sdkInt < role.minSdk || role.maxSdk?.let { sdkInt > it } == true) {
                 val diagnostic = MonetRoleDiagnostic(
                     roleId = role.id,
@@ -195,7 +197,6 @@ internal object MonetResourceResolver {
             }
         }
 
-        val resolved = linkedMapOf<String, MonetResolvedRole>()
         catalog.roles.forEach { role ->
             val state = states[role.id] ?: return@forEach
             val profileCandidate = validatedProfileCandidate(role.id, graph, profiles, state)
@@ -231,11 +232,34 @@ internal object MonetResourceResolver {
         roleDefinitions.keys.forEach { roleId ->
             check(roleId in diagnostics) { "missing diagnostic for $roleId" }
         }
-        return MonetResolutionReport(
-            resolved = resolved.toMap(),
-            skipped = skipped.toList(),
-            diagnostics = diagnostics.toMap(),
-        )
+            return MonetResolutionReport(
+                resolved = resolved.toMap(),
+                skipped = skipped.toList(),
+                diagnostics = diagnostics.toMap(),
+            )
+        } catch (error: MonetResolutionException) {
+            val contextualDiagnostics = linkedMapOf<String, MonetRoleDiagnostic>()
+            contextualDiagnostics.putAll(diagnostics)
+            states.forEach { (roleId, state) ->
+                contextualDiagnostics.putIfAbsent(roleId, state.diagnostic(failure = null))
+            }
+            contextualDiagnostics.putAll(error.report.diagnostics)
+            contextualDiagnostics[error.diagnostic.roleId] = error.diagnostic
+            val contextualResolved = linkedMapOf<String, MonetResolvedRole>()
+            contextualResolved.putAll(resolved)
+            contextualResolved.putAll(error.report.resolved)
+            val contextualSkipped = (skipped + error.report.skipped)
+                .distinctBy(MonetRoleDiagnostic::roleId)
+            throw MonetResolutionException(
+                diagnostic = error.diagnostic,
+                cause = error.cause,
+                report = MonetResolutionReport(
+                    resolved = contextualResolved,
+                    skipped = contextualSkipped,
+                    diagnostics = contextualDiagnostics,
+                ),
+            )
+        }
     }
 
     private fun profileCandidate(

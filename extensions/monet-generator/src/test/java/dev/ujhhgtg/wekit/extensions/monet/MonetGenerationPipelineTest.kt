@@ -31,6 +31,8 @@ class MonetGenerationPipelineTest {
     @Test
     fun `failed selected overlay preserves previous successful zip`() {
         val fixture = Fixture(failOverlay = "MonetWeChatBubblePro.apk")
+        fixture.workDir.mkdirs()
+        val sentinel = fixture.workDir.resolve("caller-owned.txt").apply { writeText("keep") }
         fixture.output.writeText("previous")
 
         assertThrows(MonetGenerationException::class.java) {
@@ -39,7 +41,8 @@ class MonetGenerationPipelineTest {
 
         assertEquals("previous", fixture.output.readText())
         assertFalse(fixture.temporaryOutput.exists())
-        assertFalse(fixture.workDir.exists())
+        assertEquals("keep", sentinel.readText())
+        assertEquals(listOf(sentinel), fixture.workDir.listFiles().orEmpty().toList())
     }
 
     @Test
@@ -90,17 +93,30 @@ class MonetGenerationPipelineTest {
     }
 
     @Test
-    fun `pipeline passes only profiles with the canonical graph digest to resolver`() {
+    fun `pipeline selects profiles by base graph digest and resolves the full split graph`() {
         val fixture = Fixture()
-        val matchingDigest = fixture.stages.graph.resourceDigest()
+        val resourceSplit = fixture.apk("profile-resource.apk", resourceBearing = true)
+        val matchingDigest = fixture.stages.baseGraph.resourceDigest()
+        assertFalse(matchingDigest == fixture.stages.fullGraph.resourceDigest())
         fixture.stages.profileCatalog = profileCatalog(
             matchingDigest = matchingDigest,
             nonMatchingDigest = "a".repeat(64),
         )
 
-        fixture.pipeline.generate(fixture.request(), fixture.listener)
+        fixture.pipeline.generate(
+            fixture.request(sourceApkPaths = listOf(fixture.baseApk.path, resourceSplit.path)),
+            fixture.listener,
+        )
 
         assertEquals(listOf(matchingDigest), fixture.stages.resolverProfiles.map(MonetProfile::resourceDigest))
+        assertTrue(fixture.stages.resolverGraph === fixture.stages.fullGraph)
+        assertEquals(
+            listOf(
+                listOf(fixture.baseApk.canonicalFile),
+                listOf(fixture.baseApk.canonicalFile, resourceSplit.canonicalFile),
+            ),
+            fixture.stages.loadedApkBatches,
+        )
         assertEquals(fixture.request().dexEvidenceProvider, fixture.stages.resolverProvider)
     }
 
@@ -114,7 +130,22 @@ class MonetGenerationPipelineTest {
             stages = emptyList(),
             message = "fixture ambiguity",
         )
-        val fixture = Fixture(resolutionFailure = MonetResolutionException(failure))
+        val priorRole = MonetResolvedRole(
+            roleId = "chat.background",
+            resourceId = 0x7f060001,
+            key = MonetResourceKey("color", "chat_background"),
+            profileMatched = false,
+        )
+        val fixture = Fixture(
+            resolutionFailure = MonetResolutionException(
+                diagnostic = failure,
+                report = MonetResolutionReport(
+                    resolved = mapOf(priorRole.roleId to priorRole),
+                    skipped = emptyList(),
+                    diagnostics = mapOf(failure.roleId to failure),
+                ),
+            ),
+        )
         fixture.output.writeText("previous")
         fixture.diagnostics.writeText("older diagnostics")
 
@@ -124,6 +155,7 @@ class MonetGenerationPipelineTest {
 
         assertEquals("previous", fixture.output.readText())
         assertTrue(fixture.diagnostics.readText().contains("chat.bubble.incoming.normal"))
+        assertTrue(fixture.diagnostics.readText().contains("chat.background"))
         assertTrue(fixture.diagnostics.readText().contains("AMBIGUOUS"))
         assertFalse(File(fixture.diagnostics.parentFile, fixture.diagnostics.name + ".tmp").exists())
     }
@@ -144,10 +176,76 @@ class MonetGenerationPipelineTest {
         assertFalse(fixture.temporaryOutput.exists())
     }
 
+    @Test
+    fun `package reopen rejects equal size selected overlay corruption`() {
+        val fixture = Fixture(corruptOverlayInPackage = true)
+        fixture.output.writeText("previous")
+
+        assertThrows(MonetGenerationException::class.java) {
+            fixture.pipeline.generate(fixture.request(), fixture.listener)
+        }
+
+        assertEquals("previous", fixture.output.readText())
+        assertFalse(fixture.temporaryOutput.exists())
+    }
+
+    @Test
+    fun `preparing listener failure preserves caller work root and temporary output`() {
+        val fixture = Fixture()
+        fixture.workDir.mkdirs()
+        val sentinel = fixture.workDir.resolve("caller-owned.txt").apply { writeText("keep") }
+        fixture.output.writeText("previous")
+        fixture.temporaryOutput.writeText("caller temporary")
+        val throwingListener = MonetGenerationListenerV2 { error("listener failure") }
+
+        assertThrows(MonetGenerationException::class.java) {
+            fixture.pipeline.generate(fixture.request(), throwingListener)
+        }
+
+        assertEquals("keep", sentinel.readText())
+        assertEquals("previous", fixture.output.readText())
+        assertEquals("caller temporary", fixture.temporaryOutput.readText())
+    }
+
+    @Test
+    fun `overlapping caller work root is rejected without deleting payload or output`() {
+        val fixture = Fixture()
+        fixture.output.writeText("previous")
+        val payloadSentinel = fixture.payloadDir.resolve("caller-owned.txt").apply { writeText("keep") }
+
+        assertThrows(MonetGenerationException::class.java) {
+            fixture.pipeline.generate(
+                fixture.request(workDir = fixture.output.parentFile!!),
+                fixture.listener,
+            )
+        }
+
+        assertEquals("keep", payloadSentinel.readText())
+        assertEquals("previous", fixture.output.readText())
+        assertTrue(fixture.baseApk.isFile)
+    }
+
+    @Test
+    fun `payload directory cannot be caller work root`() {
+        val fixture = Fixture()
+        val payloadSentinel = fixture.payloadDir.resolve("caller-owned.txt").apply { writeText("keep") }
+
+        assertThrows(MonetGenerationException::class.java) {
+            fixture.pipeline.generate(
+                fixture.request(workDir = fixture.payloadDir),
+                fixture.listener,
+            )
+        }
+
+        assertEquals("keep", payloadSentinel.readText())
+        REQUIRED_PAYLOADS.forEach { name -> assertTrue(fixture.payloadDir.resolve(name).isFile) }
+    }
+
     private inner class Fixture(
         failOverlay: String? = null,
         resolutionFailure: MonetResolutionException? = null,
         omitLastOverlayFromPackage: Boolean = false,
+        corruptOverlayInPackage: Boolean = false,
     ) {
         val payloadDir = File(tempDir, "payload-${nextFixtureId()}").apply(::writeRequiredPayload)
         val workDir = File(tempDir, "work-${nextFixtureId()}")
@@ -159,12 +257,18 @@ class MonetGenerationPipelineTest {
         val listener = MonetGenerationListenerV2 { event ->
             if (event is MonetGenerationEventV2.Progress) progressStages += event.stage
         }
-        val stages = FakeStages(failOverlay, resolutionFailure, omitLastOverlayFromPackage)
+        val stages = FakeStages(
+            failOverlay,
+            resolutionFailure,
+            omitLastOverlayFromPackage,
+            corruptOverlayInPackage,
+        )
         val pipeline = MonetGenerationPipeline(stages)
 
         fun request(
             bubbleStyle: MonetBubbleStyle = MonetBubbleStyle.MODERN,
             sourceApkPaths: List<String> = listOf(baseApk.absolutePath),
+            workDir: File = this.workDir,
         ) = MonetGenerationRequestV2(
             resources = uninitializedResources(),
             packageName = "com.tencent.mm",
@@ -201,8 +305,9 @@ class MonetGenerationPipelineTest {
         private val failOverlay: String?,
         private val resolutionFailure: MonetResolutionException?,
         private val omitLastOverlayFromPackage: Boolean,
+        private val corruptOverlayInPackage: Boolean,
     ) : MonetGenerationPipelineStages {
-        val graph = MonetResourceGraph(
+        val baseGraph = MonetResourceGraph(
             listOf(
                 MonetResourceNode(
                     id = 0x7f080001,
@@ -213,15 +318,30 @@ class MonetGenerationPipelineTest {
                 ),
             ),
         )
-        var profileCatalog = profileCatalog(graph.resourceDigest(), "a".repeat(64))
+        val fullGraph = MonetResourceGraph(
+            listOf(
+                requireNotNull(baseGraph.node(0x7f080001)),
+                MonetResourceNode(
+                    id = 0x7f080002,
+                    key = MonetResourceKey("drawable", "split_fixture"),
+                    values = listOf(
+                        MonetConfiguredValue("", MonetResourceValue.Literal("INT_COLOR_ARGB8", 2)),
+                    ),
+                ),
+            ),
+        )
+        var profileCatalog = profileCatalog(baseGraph.resourceDigest(), "a".repeat(64))
         var loadedApks: List<File> = emptyList()
+        val loadedApkBatches = mutableListOf<List<File>>()
         var resolverProfiles: List<MonetProfile> = emptyList()
         var resolverProvider: MonetDexEvidenceProvider? = null
+        var resolverGraph: MonetResourceGraph? = null
 
         override fun loadGraph(apkPaths: List<File>, targetPackage: String): MonetResourceGraph {
             loadedApks = apkPaths
+            loadedApkBatches += apkPaths
             assertEquals("com.tencent.mm", targetPackage)
-            return graph
+            return if (apkPaths.size == 1) baseGraph else fullGraph
         }
 
         override fun loadRoleCatalog(payloadDir: File): MonetRoleCatalog = ROLE_CATALOG
@@ -237,6 +357,7 @@ class MonetGenerationPipelineTest {
         ): MonetResolutionReport {
             resolverProfiles = profiles
             resolverProvider = provider
+            resolverGraph = graph
             resolutionFailure?.let { throw it }
             return RESOLUTION_REPORT
         }
@@ -304,7 +425,13 @@ class MonetGenerationPipelineTest {
                     zip.putNextEntry(ZipEntry(name))
                     val bytes = when (name) {
                         "monet-resolution.json" -> diagnosticsFile.readBytes()
-                        else -> overlaysByEntry[name]?.file?.readBytes() ?: name.toByteArray()
+                        else -> overlaysByEntry[name]?.file?.readBytes()?.let { original ->
+                            if (corruptOverlayInPackage) {
+                                original.copyOf().apply { this[0] = (this[0].toInt() xor 1).toByte() }
+                            } else {
+                                original
+                            }
+                        } ?: name.toByteArray()
                     }
                     zip.write(bytes)
                     zip.closeEntry()

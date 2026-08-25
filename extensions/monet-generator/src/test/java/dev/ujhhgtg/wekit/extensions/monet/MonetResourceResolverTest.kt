@@ -241,6 +241,57 @@ class MonetResourceResolverTest {
     }
 
     @Test
+    fun `failure report preserves prior resolved role and staged diagnostics`() {
+        val resolvedId = 0x7f060001
+        val firstAmbiguousId = 0x7f080002
+        val secondAmbiguousId = 0x7f080003
+        val optionalRoleId = "launcher.optional.icon"
+        val firstRoleId = "chat.background"
+        val failingRoleId = "chat.bubble.ambiguous"
+        val error = assertThrows(MonetResolutionException::class.java) {
+            MonetResourceResolver.resolve(
+                graph = MonetResourceGraph(
+                    listOf(
+                        MonetResourceNode(
+                            resolvedId,
+                            MonetResourceKey("color", "chat_background"),
+                            emptyList(),
+                        ),
+                        MonetResourceNode(
+                            firstAmbiguousId,
+                            MonetResourceKey("drawable", "bubble_first"),
+                            emptyList(),
+                        ),
+                        MonetResourceNode(
+                            secondAmbiguousId,
+                            MonetResourceKey("drawable", "bubble_second"),
+                            emptyList(),
+                        ),
+                    ),
+                ),
+                catalog = MonetRoleCatalog(
+                    schemaVersion = 1,
+                    roles = listOf(
+                        MonetRoleDefinition(optionalRoleId, "mipmap", core = false),
+                        MonetRoleDefinition(firstRoleId, "color", core = true),
+                        MonetRoleDefinition(failingRoleId, "drawable", core = true),
+                    ),
+                    overlays = emptyList(),
+                ),
+                profiles = emptyList(),
+                sdkInt = 31,
+                provider = RecordingEvidenceProvider(),
+            )
+        }
+
+        assertEquals(resolvedId, error.report.resolved.getValue(firstRoleId).resourceId)
+        assertEquals(optionalRoleId, error.report.skipped.single().roleId)
+        assertEquals(MonetResolutionFailure.AMBIGUOUS, error.report.diagnostics.getValue(failingRoleId).failure)
+        assertTrue(error.report.diagnostics.getValue(firstRoleId).stages.isNotEmpty())
+        assertTrue(error.report.diagnostics.getValue(failingRoleId).stages.isNotEmpty())
+    }
+
+    @Test
     fun `verified exact profile disambiguates an ambiguous live-valid candidate set`() {
         val report = resolveFixture(
             twoEqualDrawables = true,
