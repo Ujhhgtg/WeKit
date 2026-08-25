@@ -257,7 +257,9 @@ internal object MonetExtensionArchive {
             METADATA_MAX_BYTES,
         )
         val packManifest = containedDestination(directory, canonical, PACK_MANIFEST_NAME)
-        if (packManifest.exists()) requireRegularFile(packManifest, PACK_MANIFEST_NAME)
+        if (Files.exists(packManifest.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            requireRegularFile(packManifest, PACK_MANIFEST_NAME)
+        }
         for ((name, limit) in runtimeLimits) {
             val file = containedDestination(directory, canonical, name)
             aggregateBytes += requireFileWithinLimit(file, name, limit)

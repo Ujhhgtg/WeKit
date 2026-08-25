@@ -13,6 +13,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -207,6 +208,42 @@ class MonetExtensionArchiveTest {
             MONET_GENERATOR_ENTRYPOINT_V2,
         )
         staging.resolve("payload/monet_roles.json").writeText("corrupted")
+
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetExtensionArchive.verifyInstalled(
+                staging,
+                MONET_GENERATOR_API_VERSION_V2,
+                MONET_GENERATOR_ENTRYPOINT_V2,
+            )
+        }
+    }
+
+    @Test
+    fun `installed directory rejects dangling manifest symlink`() {
+        val staging = temp.resolve("installed-dangling-manifest-staging")
+        extract(writeArchive(), staging)
+        Files.createSymbolicLink(
+            staging.resolve("manifest.json").toPath(),
+            staging.resolve("missing-manifest-target").toPath(),
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            MonetExtensionArchive.verifyInstalled(
+                staging,
+                MONET_GENERATOR_API_VERSION_V2,
+                MONET_GENERATOR_ENTRYPOINT_V2,
+            )
+        }
+    }
+
+    @Test
+    fun `installed directory rejects manifest symlink to regular file`() {
+        val staging = temp.resolve("installed-manifest-link-staging")
+        extract(writeArchive(), staging)
+        Files.createSymbolicLink(
+            staging.resolve("manifest.json").toPath(),
+            File("extension.json").toPath(),
+        )
 
         assertThrows(IllegalArgumentException::class.java) {
             MonetExtensionArchive.verifyInstalled(
