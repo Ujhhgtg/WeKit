@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.extensions.monet
 
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetBubbleStyle
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationOptions
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequest
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetTabStyle
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -14,28 +13,6 @@ internal class MonetModulePackager(
     private val versionCode: Long,
     private val sdkInt: Int,
 ) {
-    constructor(request: MonetGenerationRequest) : this(
-        payloadDir = request.payloadDir,
-        versionName = request.versionName,
-        versionCode = request.versionCode,
-        sdkInt = request.sdkInt,
-    )
-
-    /** Retained until Task 9 removes the V1 generation path. */
-    fun pack(signedOverlayApk: File, outputZip: File) {
-        require(signedOverlayApk.isFile) { "Signed Monet overlay is missing: $signedOverlayApk" }
-        writeZip(
-            outputZip,
-            listOf(
-                textEntry("module.prop", buildModuleProp()),
-                payloadEntry("customize.sh", SCRIPT_MODE),
-                payloadEntry("META-INF/com/google/android/update-binary", SCRIPT_MODE, "update-binary"),
-                payloadEntry("META-INF/com/google/android/updater-script", FILE_MODE, "updater-script"),
-                fileEntry(installPath(BASE_APK_NAME), signedOverlayApk),
-            ),
-        )
-    }
-
     fun pack(
         signedOverlays: List<MonetBuiltOverlay>,
         options: MonetGenerationOptions,

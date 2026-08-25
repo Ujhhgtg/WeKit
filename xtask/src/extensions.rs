@@ -29,6 +29,27 @@ const PACK_MONET_GENERATOR: &str = "monet-generator";
 const PACK_CLOUDFLARED: &str = "cloudflared";
 const PACK_ARCHLINUX: &str = "archlinux-arm64";
 const PACK_LLAMA: &str = "llama-native";
+const MONET_GENERATOR_API_VERSION_V2: u8 = 2;
+const MONET_GENERATOR_ENTRYPOINT_V2: &str =
+    "dev.ujhhgtg.wekit.extensions.monet.MonetGeneratorEntrypointV2";
+const MONET_PAYLOADS: [&str; 16] = [
+    "boot-completed.sh",
+    "common.sh",
+    "customize.sh",
+    "monet_profiles.json",
+    "monet_roles.json",
+    "service.sh",
+    "templates/template_base_api31.apk",
+    "templates/template_base_api34.apk",
+    "templates/template_blur_tab.apk",
+    "templates/template_classic.apk",
+    "templates/template_corners.apk",
+    "templates/template_pro.apk",
+    "templates/template_solid_tab.apk",
+    "update-binary",
+    "updater-script",
+    "upstream.txt",
+];
 /// Static index entry for the externally hosted Qwen GGUF; no asset is built.
 const PACK_QWEN_MODEL: &str = "qwen3.8-4b-distill";
 const DIST_DIR: &str = "dist/extensions";
@@ -408,17 +429,10 @@ fn build_script_deps(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
 fn monet_archive_entries(
     inputs: &BTreeMap<String, PathBuf>,
 ) -> Result<BTreeMap<String, Option<PathBuf>>> {
-    const PAYLOADS: [&str; 6] = [
-        "customize.sh",
-        "monet_tables.json",
-        "template_api31.apk",
-        "template_api34.apk",
-        "update-binary",
-        "updater-script",
-    ];
     anyhow::ensure!(
-        inputs.len() == PAYLOADS.len() + 1,
-        "Monet pack requires exactly one DEX and six payload files"
+        inputs.len() == MONET_PAYLOADS.len() + 1,
+        "Monet pack requires exactly one DEX and {} payload files",
+        MONET_PAYLOADS.len(),
     );
 
     let mut entries = BTreeMap::new();
@@ -432,7 +446,7 @@ fn monet_archive_entries(
         ),
     );
     entries.insert("extension.json".to_string(), None);
-    for name in PAYLOADS {
+    for name in MONET_PAYLOADS {
         entries.insert(
             format!("payload/{name}"),
             Some(
@@ -448,6 +462,14 @@ fn monet_archive_entries(
 
 fn sha256_bytes(bytes: &[u8]) -> String {
     hex(&Sha256::digest(bytes))
+}
+
+fn monet_extension_json(hashes: &BTreeMap<String, String>) -> Result<Vec<u8>> {
+    Ok(serde_json::to_vec_pretty(&serde_json::json!({
+        "apiVersion": MONET_GENERATOR_API_VERSION_V2,
+        "entrypoint": MONET_GENERATOR_ENTRYPOINT_V2,
+        "files": hashes,
+    }))?)
 }
 
 fn build_monet_generator_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
@@ -470,32 +492,20 @@ fn build_monet_generator_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry>
     );
 
     let payload_dir = root.join("app/embedded/monet");
-    let inputs = [
-        (
-            "classes.dex",
-            root.join("extensions/monet-generator/build/outputs/extension-dex/classes.dex"),
-        ),
-        ("customize.sh", payload_dir.join("customize.sh")),
-        ("monet_tables.json", payload_dir.join("monet_tables.json")),
-        ("template_api31.apk", payload_dir.join("template_api31.apk")),
-        ("template_api34.apk", payload_dir.join("template_api34.apk")),
-        ("update-binary", payload_dir.join("update-binary")),
-        ("updater-script", payload_dir.join("updater-script")),
-    ]
-    .into_iter()
-    .map(|(name, path)| (name.to_string(), path))
-    .collect::<BTreeMap<_, _>>();
+    let mut inputs = BTreeMap::from([(
+        "classes.dex".to_string(),
+        root.join("extensions/monet-generator/build/outputs/extension-dex/classes.dex"),
+    )]);
+    for name in MONET_PAYLOADS {
+        inputs.insert(name.to_string(), payload_dir.join(name));
+    }
     let entries = monet_archive_entries(&inputs)?;
     let hashes = entries
         .iter()
         .filter_map(|(name, path)| path.as_ref().map(|path| (name, path)))
         .map(|(name, path)| Ok((name.clone(), sha256_file(path)?)))
         .collect::<Result<BTreeMap<_, _>>>()?;
-    let extension_json = serde_json::to_vec_pretty(&serde_json::json!({
-        "apiVersion": 1,
-        "entrypoint": "dev.ujhhgtg.wekit.extensions.monet.MonetGeneratorEntrypointV1",
-        "files": hashes,
-    }))?;
+    let extension_json = monet_extension_json(&hashes)?;
 
     let mut identity = hashes.clone();
     identity.insert("extension.json".into(), sha256_bytes(&extension_json));
@@ -906,12 +916,22 @@ mod tests {
     fn fixture_monet_inputs() -> BTreeMap<String, PathBuf> {
         [
             "classes.dex",
+            "boot-completed.sh",
+            "common.sh",
             "customize.sh",
-            "monet_tables.json",
-            "template_api31.apk",
-            "template_api34.apk",
+            "monet_profiles.json",
+            "monet_roles.json",
+            "service.sh",
+            "templates/template_base_api31.apk",
+            "templates/template_base_api34.apk",
+            "templates/template_blur_tab.apk",
+            "templates/template_classic.apk",
+            "templates/template_corners.apk",
+            "templates/template_pro.apk",
+            "templates/template_solid_tab.apk",
             "update-binary",
             "updater-script",
+            "upstream.txt",
         ]
         .into_iter()
         .map(|name| (name.to_string(), PathBuf::from(name)))
@@ -943,20 +963,51 @@ mod tests {
     }
 
     #[test]
-    fn monet_pack_contains_contract_dex_and_payload() {
+    fn monet_pack_contains_exact_v2_contract_dex_and_payload() {
         let entries = monet_archive_entries(&fixture_monet_inputs()).unwrap();
         assert_eq!(
             entries.keys().map(String::as_str).collect::<Vec<_>>(),
             vec![
                 "classes.dex",
                 "extension.json",
+                "payload/boot-completed.sh",
+                "payload/common.sh",
                 "payload/customize.sh",
-                "payload/monet_tables.json",
-                "payload/template_api31.apk",
-                "payload/template_api34.apk",
+                "payload/monet_profiles.json",
+                "payload/monet_roles.json",
+                "payload/service.sh",
+                "payload/templates/template_base_api31.apk",
+                "payload/templates/template_base_api34.apk",
+                "payload/templates/template_blur_tab.apk",
+                "payload/templates/template_classic.apk",
+                "payload/templates/template_corners.apk",
+                "payload/templates/template_pro.apk",
+                "payload/templates/template_solid_tab.apk",
                 "payload/update-binary",
                 "payload/updater-script",
+                "payload/upstream.txt",
             ],
+        );
+    }
+
+    #[test]
+    fn monet_pack_metadata_uses_v2_contract() {
+        let hashes = files(&[("classes.dex", "a"), ("payload/upstream.txt", "b")]);
+
+        let metadata: serde_json::Value =
+            serde_json::from_slice(&monet_extension_json(&hashes).unwrap()).unwrap();
+
+        assert_eq!(metadata["apiVersion"], 2);
+        assert_eq!(
+            metadata["entrypoint"],
+            "dev.ujhhgtg.wekit.extensions.monet.MonetGeneratorEntrypointV2",
+        );
+        assert_eq!(
+            metadata["files"],
+            serde_json::json!({
+                "classes.dex": "a",
+                "payload/upstream.txt": "b",
+            }),
         );
     }
 
