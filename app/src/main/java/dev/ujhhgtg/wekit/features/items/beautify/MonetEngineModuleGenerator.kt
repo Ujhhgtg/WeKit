@@ -25,13 +25,18 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.extensions.ExtensionPacks
+import dev.ujhhgtg.wekit.extensions.HostMonetDexEvidenceProvider
 import dev.ujhhgtg.wekit.extensions.MonetGeneratorPack
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationEvent
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationListener
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequest
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResult
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationStage
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetLogLevel
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetBubbleStyle
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationEventV2
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationListenerV2
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationOptions
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequestV2
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResultV2
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationStageV2
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetLogLevelV2
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetTabStyle
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetUserScope
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -39,6 +44,7 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.androidUserId
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import kotlin.concurrent.thread
 import kotlin.io.path.div
@@ -90,40 +96,51 @@ object MonetEngineModuleGenerator : ClickableFeature() {
         showComposeDialog(activity, directlyDismissable = false) {
             var state by remember {
                 mutableStateOf<GeneratorUiState>(
-                    GeneratorUiState.Running(MonetGenerationStage.PREPARING),
+                    GeneratorUiState.Running(MonetGenerationStageV2.PREPARING),
                 )
             }
 
             LaunchedEffect(Unit) {
                 thread(name = "monet-module-generator") {
-                    var currentStage = MonetGenerationStage.PREPARING
+                    var currentStage = MonetGenerationStageV2.PREPARING
                     try {
                         val resolvedOutputZip =
                             (KnownPaths.downloads / "monet_engine_module.zip").toFile()
                         val workDir = (KnownPaths.moduleCache / "monet").toFile()
-                        val request = MonetGenerationRequest(
+                        val request = MonetGenerationRequestV2(
                             resources = HostInfo.application.resources,
                             packageName = HostInfo.packageName,
-                            sourceApkPath = HostInfo.appInfo.sourceDir,
+                            sourceApkPaths = listOf(HostInfo.appInfo.sourceDir) +
+                                HostInfo.appInfo.splitSourceDirs.orEmpty().sorted(),
                             versionCode = HostInfo.versionCode,
                             versionName = HostInfo.versionName,
+                            isGooglePlay = HostInfo.isHostGooglePlay,
                             sdkInt = Build.VERSION.SDK_INT,
+                            currentUserId = androidUserId,
+                            options = MonetGenerationOptions(
+                                bubbleStyle = MonetBubbleStyle.MODERN,
+                                multiSceneCornersEnabled = true,
+                                tabStyle = MonetTabStyle.SOLID,
+                                userScope = MonetUserScope.CURRENT,
+                            ),
+                            blurPalette = null,
+                            dexEvidenceProvider = HostMonetDexEvidenceProvider,
                             payloadDir = resolvedPack.payloadDir,
                             workDir = workDir,
                             outputZip = resolvedOutputZip,
                         )
                         val result = resolvedPack.generator.generate(
                             request,
-                            MonetGenerationListener { event ->
+                            MonetGenerationListenerV2 { event ->
                                 when (event) {
-                                    is MonetGenerationEvent.Progress -> {
+                                    is MonetGenerationEventV2.Progress -> {
                                         currentStage = event.stage
                                         window.decorView.post {
                                             state = GeneratorUiState.Running(event.stage)
                                         }
                                     }
 
-                                    is MonetGenerationEvent.Log -> logEvent(event)
+                                    is MonetGenerationEventV2.Log -> logEvent(event)
                                 }
                             },
                         )
@@ -176,28 +193,28 @@ object MonetEngineModuleGenerator : ClickableFeature() {
         }
     }
 
-    private fun logEvent(event: MonetGenerationEvent.Log) {
+    private fun logEvent(event: MonetGenerationEventV2.Log) {
         val error = event.error
         when (event.level) {
-            MonetLogLevel.DEBUG -> if (error == null) {
+            MonetLogLevelV2.DEBUG -> if (error == null) {
                 WeLogger.d(TAG, event.message)
             } else {
                 WeLogger.d(TAG, event.message, error)
             }
 
-            MonetLogLevel.INFO -> if (error == null) {
+            MonetLogLevelV2.INFO -> if (error == null) {
                 WeLogger.i(TAG, event.message)
             } else {
                 WeLogger.i(TAG, event.message, error)
             }
 
-            MonetLogLevel.WARN -> if (error == null) {
+            MonetLogLevelV2.WARN -> if (error == null) {
                 WeLogger.w(TAG, event.message)
             } else {
                 WeLogger.w(TAG, event.message, error)
             }
 
-            MonetLogLevel.ERROR -> if (error == null) {
+            MonetLogLevelV2.ERROR -> if (error == null) {
                 WeLogger.e(TAG, event.message)
             } else {
                 WeLogger.e(TAG, event.message, error)
@@ -207,18 +224,21 @@ object MonetEngineModuleGenerator : ClickableFeature() {
 }
 
 private sealed interface GeneratorUiState {
-    data class Running(val stage: MonetGenerationStage) : GeneratorUiState
-    data class Done(val result: MonetGenerationResult) : GeneratorUiState
-    data class Failed(val stage: MonetGenerationStage, val message: String) : GeneratorUiState
+    data class Running(val stage: MonetGenerationStageV2) : GeneratorUiState
+    data class Done(val result: MonetGenerationResultV2) : GeneratorUiState
+    data class Failed(val stage: MonetGenerationStageV2, val message: String) : GeneratorUiState
 }
 
 @Composable
-private fun stageText(stage: MonetGenerationStage): String = stringResource(
+private fun stageText(stage: MonetGenerationStageV2): String = stringResource(
     when (stage) {
-        MonetGenerationStage.PREPARING -> R.string.monet_generator_preparing
-        MonetGenerationStage.BUILDING_OVERLAY -> R.string.monet_generator_building
-        MonetGenerationStage.SIGNING -> R.string.monet_generator_signing
-        MonetGenerationStage.PACKAGING -> R.string.monet_generator_packaging
+        MonetGenerationStageV2.PREPARING,
+        MonetGenerationStageV2.SCANNING_RESOURCES,
+        MonetGenerationStageV2.RESOLVING_RESOURCES,
+        -> R.string.monet_generator_preparing
+        MonetGenerationStageV2.BUILDING_OVERLAYS -> R.string.monet_generator_building
+        MonetGenerationStageV2.SIGNING -> R.string.monet_generator_signing
+        MonetGenerationStageV2.PACKAGING -> R.string.monet_generator_packaging
     },
 )
 
@@ -232,17 +252,20 @@ private fun RunningContent(status: String) {
 }
 
 @Composable
-private fun DoneContent(result: MonetGenerationResult) {
+private fun DoneContent(result: MonetGenerationResultV2) {
     Column {
         Text(stringResource(R.string.monet_generator_output, result.outputZip.absolutePath))
         Spacer(Modifier.height(12.dp))
+        val kept = result.overlays.sumOf { it.kept }
+        val added = result.overlays.sumOf { it.added + it.rewritten }
+        val skipped = result.overlays.sumOf { it.skipped }
         Text(
             stringResource(
                 R.string.monet_generator_counts,
-                result.kept + result.added,
-                result.kept,
-                result.added,
-                result.pruned,
+                kept + added,
+                kept,
+                added,
+                skipped,
             ),
             style = MaterialTheme.typography.bodySmall,
         )
