@@ -75,12 +75,12 @@ internal class MonetGenerationPipeline(
             currentStage = MonetGenerationStageV2.SCANNING_RESOURCES
             emitProgress(listener, currentStage)
             val resourceApks = selectResourceBearingApks(request.sourceApkPaths)
+            val resourceDigest = stages.loadBaseResourceDigest(resourceApks.first(), request.packageName)
+            val graph = stages.loadGraph(resourceApks, request.packageName)
             createOwnedRunDirectory(paths.runDir)
             ownedRunDir = paths.runDir
             deleteTemporaryFile(paths.temporaryOutput)
             temporaryOutputOwned = true
-            val resourceDigest = stages.loadBaseResourceDigest(resourceApks.first(), request.packageName)
-            val graph = stages.loadGraph(resourceApks, request.packageName)
             val catalog = stages.loadRoleCatalog(request.payloadDir)
             val matchingProfiles = stages.loadProfileCatalog(request.payloadDir)
                 .verifiedProfiles

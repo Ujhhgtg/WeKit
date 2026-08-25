@@ -286,11 +286,36 @@ class MonetGenerationPipelineTest {
         assertEquals("prior diagnostics", fixture.diagnostics.readText())
     }
 
+    @Test
+    fun `deep graph load failure preserves all caller paths before run ownership`() {
+        val fixture = Fixture(failResolutionGraphLoad = true)
+        fixture.workDir.mkdirs()
+        val workSentinel = fixture.workDir.resolve("caller-owned.txt").apply { writeText("work") }
+        val payloadSentinel = fixture.payloadDir.resolve("caller-owned.txt").apply { writeText("payload") }
+        val diagnosticsScratch = fixture.output.parentFile!!.resolve("monet-resolution.json.tmp")
+            .apply { writeText("prior diagnostics scratch") }
+        fixture.output.writeText("prior output")
+        fixture.temporaryOutput.writeText("prior temporary")
+        fixture.diagnostics.writeText("prior diagnostics")
+
+        assertThrows(MonetGenerationException::class.java) {
+            fixture.pipeline.generate(fixture.request(), fixture.listener)
+        }
+
+        assertEquals("work", workSentinel.readText())
+        assertEquals("payload", payloadSentinel.readText())
+        assertEquals("prior output", fixture.output.readText())
+        assertEquals("prior temporary", fixture.temporaryOutput.readText())
+        assertEquals("prior diagnostics", fixture.diagnostics.readText())
+        assertEquals("prior diagnostics scratch", diagnosticsScratch.readText())
+    }
+
     private inner class Fixture(
         failOverlay: String? = null,
         resolutionFailure: MonetResolutionException? = null,
         omitLastOverlayFromPackage: Boolean = false,
         corruptOverlayInPackage: Boolean = false,
+        failResolutionGraphLoad: Boolean = false,
     ) {
         val payloadDir = File(tempDir, "payload-${nextFixtureId()}").apply(::writeRequiredPayload)
         val workDir = File(tempDir, "work-${nextFixtureId()}")
@@ -307,6 +332,7 @@ class MonetGenerationPipelineTest {
             resolutionFailure,
             omitLastOverlayFromPackage,
             corruptOverlayInPackage,
+            failResolutionGraphLoad,
         )
         val pipeline = MonetGenerationPipeline(stages)
 
@@ -352,6 +378,7 @@ class MonetGenerationPipelineTest {
         private val resolutionFailure: MonetResolutionException?,
         private val omitLastOverlayFromPackage: Boolean,
         private val corruptOverlayInPackage: Boolean,
+        private val failResolutionGraphLoad: Boolean,
     ) : MonetGenerationPipelineStages {
         val baseGraph = MonetResourceGraph(
             listOf(
@@ -392,6 +419,7 @@ class MonetGenerationPipelineTest {
 
         override fun loadGraph(apkPaths: List<File>, targetPackage: String): MonetResourceGraph {
             graphLoadOperations += "resolution-graph"
+            if (failResolutionGraphLoad) error("injected deep graph load failure")
             loadedApks = apkPaths
             loadedApkBatches += apkPaths
             assertEquals("com.tencent.mm", targetPackage)
