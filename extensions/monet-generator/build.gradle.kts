@@ -64,7 +64,9 @@ tasks.withType<Test>().configureEach {
             includeTestsMatching("dev.ujhhgtg.wekit.extensions.monettest.MonetTestWorkerTest")
         }
         monetTestWorkerProperties.forEach { propertyName ->
-            systemProperty(propertyName, providers.gradleProperty(propertyName).orNull.orEmpty())
+            providers.gradleProperty(propertyName).orNull
+                ?.takeIf(String::isNotBlank)
+                ?.let { value -> systemProperty(propertyName, value) }
         }
         maxHeapSize = "3g"
         maxParallelForks = 1

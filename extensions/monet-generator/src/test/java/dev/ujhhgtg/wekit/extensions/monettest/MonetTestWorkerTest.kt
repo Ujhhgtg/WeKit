@@ -1,6 +1,8 @@
 package dev.ujhhgtg.wekit.extensions.monettest
 
 import com.reandroid.arsc.chunk.xml.AndroidManifestBlock
+import com.reandroid.arsc.model.ResourceEntry
+import com.reandroid.arsc.value.ValueType
 import dev.ujhhgtg.wekit.extensions.monet.MonetApkResourceGraphLoader
 import dev.ujhhgtg.wekit.extensions.monet.MonetApkSigner
 import dev.ujhhgtg.wekit.extensions.monet.MonetBuiltOverlay
@@ -139,10 +141,13 @@ private fun runApkSample(
         graphKind = "COMPILED_APK_GRAPH",
         binaryXmlShapesComparable = true,
     )
-    require(Files.isRegularFile(config.nativeLibrary)) {
-        "DexKit native library is not a regular file: ${config.nativeLibrary}"
+    val nativeLibrary = requireNotNull(config.nativeLibrary) {
+        "compiled Monet input requires a DexKit native library"
     }
-    MonetNativeLibraryLoader.load(config.nativeLibrary)
+    require(Files.isRegularFile(nativeLibrary)) {
+        "DexKit native library is not a regular file: $nativeLibrary"
+    }
+    MonetNativeLibraryLoader.load(nativeLibrary)
     DexKitBridge.create(prepared.dexBytes.toTypedArray()).use { bridge ->
         require(bridge.isValid) { "DexKit bridge is invalid after creation" }
         val dexCount = bridge.getDexNum()
@@ -449,6 +454,15 @@ private fun validateOverlay(
             require(roleId in definition.templateResources)
             validatedTargets[roleId] = "${target.key.type}/${target.key.name}"
         }
+        if (overlay.overlayId == BLUR_TAB_ID) {
+            val tabTarget = requireNotNull(resolution.resolved[TAB_BACKGROUND_ROLE])
+            val tabResource = requireNotNull(pkg.getResource(tabTarget.key.type, tabTarget.key.name))
+            validateBlurResourceValues(
+                tabResource,
+                DESKTOP_LIGHT_BLUR_ARGB,
+                DESKTOP_NIGHT_BLUR_ARGB,
+            )
+        }
     }
     val blur = overlay.diagnostics.blurPalette?.let { palette ->
         MonetTestBlurPaletteReport(
@@ -476,6 +490,30 @@ private fun validateOverlay(
         signatureVerified = true,
         blurPalette = blur,
     )
+}
+
+internal fun validateBlurResourceValues(
+    resource: ResourceEntry,
+    expectedLightArgb: Int,
+    expectedNightArgb: Int,
+) {
+    var lightCount = 0
+    var nightCount = 0
+    resource.iterator(false).forEachRemaining { entry ->
+        if (entry.isNull) return@forEachRemaining
+        val isNight = entry.resConfig.qualifiers.orEmpty().split('-').contains("night")
+        require(entry.valueType == ValueType.COLOR_ARGB8) {
+            "BlurTab ${if (isNight) "night" else "light"} value has type ${entry.valueType}"
+        }
+        val expected = if (isNight) expectedNightArgb else expectedLightArgb
+        require(entry.resValue.data == expected) {
+            "BlurTab ${if (isNight) "night" else "light"} value is " +
+                "0x${entry.resValue.data.toUInt().toString(16)}, expected 0x${expected.toUInt().toString(16)}"
+        }
+        if (isNight) nightCount++ else lightCount++
+    }
+    require(lightCount > 0) { "BlurTab has no default/light configured value" }
+    require(nightCount > 0) { "BlurTab has no night configured value" }
 }
 
 private fun infrastructureReport(
@@ -516,26 +554,31 @@ private fun infrastructureReport(
     infrastructureError = error.toMonetTestError(),
 )
 
-private interface ReportingDexEvidenceProvider : MonetDexEvidenceProvider {
+internal interface ReportingDexEvidenceProvider : MonetDexEvidenceProvider {
     fun report(): MonetTestDexEvidenceReport
 }
 
-private class RecordingDexEvidenceProvider(
-    private val bridge: DexKitBridge,
+internal class RecordingDexEvidenceProvider(
+    private val collector: (List<MonetDexCandidate>) -> List<MonetResourceDexEvidence>,
 ) : ReportingDexEvidenceProvider {
+    constructor(bridge: DexKitBridge) : this(
+        collector = { candidates -> DexKitMonetEvidenceCollector.collect(bridge, candidates) },
+    )
+
     private val queries = mutableListOf<MonetTestDexQueryReport>()
     private var failure: String? = null
 
-    override fun query(candidates: List<MonetDexCandidate>): List<MonetResourceDexEvidence> = try {
-        val evidence = DexKitMonetEvidenceCollector.collect(bridge, candidates)
-        queries += MonetTestDexQueryReport(
-            candidates = candidates.map(MonetDexCandidate::toReport),
-            evidence = evidence.map(MonetResourceDexEvidence::toReport),
-        )
-        evidence
-    } catch (error: Throwable) {
-        failure = error.message ?: error.javaClass.name
-        throw error
+    override fun query(candidates: List<MonetDexCandidate>): List<MonetResourceDexEvidence> {
+        val queryIndex = queries.size
+        queries += monetDexQueryReport(candidates, emptyList())
+        return try {
+            collector(candidates).also { evidence ->
+                queries[queryIndex] = monetDexQueryReport(candidates, evidence)
+            }
+        } catch (error: Throwable) {
+            failure = error.message ?: error.javaClass.name
+            throw error
+        }
     }
 
     override fun report() = MonetTestDexEvidenceReport(
@@ -553,10 +596,7 @@ private class UnavailableDexEvidenceProvider : ReportingDexEvidenceProvider {
     private val queries = mutableListOf<MonetTestDexQueryReport>()
 
     override fun query(candidates: List<MonetDexCandidate>): List<MonetResourceDexEvidence> {
-        queries += MonetTestDexQueryReport(
-            candidates = candidates.map(MonetDexCandidate::toReport),
-            evidence = emptyList(),
-        )
+        queries += monetDexQueryReport(candidates, emptyList())
         error(DECODED_DEX_UNAVAILABLE_REASON)
     }
 
@@ -569,20 +609,44 @@ private class UnavailableDexEvidenceProvider : ReportingDexEvidenceProvider {
 
 private fun MonetDexCandidate.toReport() = MonetTestDexCandidateReport(resourceId, type, name)
 
-private fun MonetResourceDexEvidence.toReport() = MonetTestResourceDexEvidenceReport(
-    resourceId = resourceId,
-    methods = methods.map { method ->
-        MonetTestMethodEvidenceReport(
-            descriptor = method.descriptor,
-            stableStrings = method.stableStrings,
-            invokedMethodShapes = method.invokedMethodShapes,
-            neighboringResourceIds = method.neighboringResourceIds,
-            fieldAccesses = method.fieldAccesses.map { field ->
-                MonetTestFieldAccessReport(field.descriptor, field.access.name)
+internal fun monetDexQueryReport(
+    candidates: List<MonetDexCandidate>,
+    evidence: List<MonetResourceDexEvidence>,
+): MonetTestDexQueryReport {
+    val requestedCandidates = monetCandidateSet(candidates.map(MonetDexCandidate::resourceId))
+    val candidatesById = candidates.associateBy(MonetDexCandidate::resourceId)
+    val evidenceResources = monetCandidateSet(evidence.map(MonetResourceDexEvidence::resourceId))
+    val evidenceById = evidence.associateBy(MonetResourceDexEvidence::resourceId)
+    return MonetTestDexQueryReport(
+        requestedCandidates = requestedCandidates,
+        sampleCandidates = requestedCandidates.sampleResourceIds.mapNotNull(candidatesById::get)
+            .map(MonetDexCandidate::toReport),
+        evidenceResources = evidenceResources,
+        sampleEvidence = evidenceResources.sampleResourceIds.mapNotNull(evidenceById::get)
+            .map(MonetResourceDexEvidence::toReport),
+    )
+}
+
+private fun MonetResourceDexEvidence.toReport(): MonetTestResourceDexEvidenceReport {
+    val methodDescriptors = monetStringSet(methods.map { method -> method.descriptor })
+    val methodsByDescriptor = methods.associateBy { method -> method.descriptor }
+    return MonetTestResourceDexEvidenceReport(
+        resourceId = resourceId,
+        methodDescriptors = methodDescriptors,
+        sampleMethods = methodDescriptors.sampleValues.mapNotNull(methodsByDescriptor::get)
+            .map { method ->
+                MonetTestMethodEvidenceReport(
+                    descriptor = method.descriptor,
+                    stableStrings = monetStringSet(method.stableStrings),
+                    invokedMethodShapes = monetStringSet(method.invokedMethodShapes),
+                    neighboringResourceIds = monetCandidateSet(method.neighboringResourceIds),
+                    fieldAccesses = monetStringSet(method.fieldAccesses.map { field ->
+                        "${field.descriptor}\t${field.access.name}"
+                    }),
+                )
             },
-        )
-    },
-)
+    )
+}
 
 private object MonetNativeLibraryLoader {
     private var loadedPath: Path? = null
@@ -683,6 +747,10 @@ private val DESKTOP_BLUR_PALETTE = MonetBlurPalette(
 private const val DESKTOP_SMOKE_SDK = 33
 private const val TARGET_PACKAGE = "com.tencent.mm"
 private const val DECODED_DEX_UNAVAILABLE_REASON = "decoded resources contain no DEX evidence"
+private const val BLUR_TAB_ID = "blur-tab"
+private const val TAB_BACKGROUND_ROLE = "main.tab.background"
+private val DESKTOP_LIGHT_BLUR_ARGB = 0xb0123456L.toInt()
+private val DESKTOP_NIGHT_BLUR_ARGB = 0xc7abcdefL.toInt()
 
 internal data class MonetPreparedResourceApk(
     val sourceName: String,

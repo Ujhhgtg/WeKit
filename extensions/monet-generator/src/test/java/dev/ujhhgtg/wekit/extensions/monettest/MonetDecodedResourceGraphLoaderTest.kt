@@ -127,6 +127,56 @@ class MonetDecodedResourceGraphLoaderTest {
         assertTrue(decoded.limitations.any { "unbound namespace prefixes" in it })
     }
 
+    @Test
+    fun `decoded numeric reference resolves through authoritative public ids`() {
+        write(
+            "values/public.xml",
+            """
+            <resources>
+                <public type="color" name="accent" id="0x7f060001" />
+                <public type="drawable" name="known" id="0x7f080001" />
+            </resources>
+            """.trimIndent(),
+        )
+        write("values/colors.xml", "<resources><color name=\"accent\">#112233</color></resources>")
+        write(
+            "drawable/known.xml",
+            """
+            <shape xmlns:android="http://schemas.android.com/apk/res/android">
+                <solid android:color="@0x7f060001" />
+            </shape>
+            """.trimIndent(),
+        )
+
+        val decoded = MonetDecodedResourceGraphLoader.load(tempDir)
+        val accent = requireNotNull(decoded.graph.node(MonetResourceKey("color", "accent")))
+        val known = requireNotNull(decoded.graph.node(MonetResourceKey("drawable", "known")))
+
+        assertEquals(setOf(accent.id), decoded.graph.outgoing(known.id))
+    }
+
+    @Test
+    fun `decoded dangling numeric reference fails closed`() {
+        write(
+            "values/public.xml",
+            "<resources><public type=\"drawable\" name=\"dangling\" id=\"0x7f080001\" /></resources>",
+        )
+        write(
+            "drawable/dangling.xml",
+            """
+            <shape xmlns:android="http://schemas.android.com/apk/res/android">
+                <solid android:color="@0x7f060099" />
+            </shape>
+            """.trimIndent(),
+        )
+
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            MonetDecodedResourceGraphLoader.load(tempDir)
+        }
+
+        assertTrue(error.message.orEmpty().contains("absent from values/public.xml"))
+    }
+
     private fun write(relativePath: String, text: String) {
         val output = tempDir.resolve(relativePath)
         val parent = requireNotNull(output.parentFile)

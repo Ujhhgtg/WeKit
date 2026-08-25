@@ -2,12 +2,14 @@ use anyhow::{Context, Result, bail};
 use clap::Args;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::env;
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use zip::ZipArchive;
 
@@ -104,19 +106,25 @@ fn validate_inputs(inputs: &[SampleInput]) -> Result<()> {
 }
 
 fn report_names(inputs: &[SampleInput]) -> Vec<String> {
-    let labels = inputs.iter().map(SampleInput::label).collect::<Vec<_>>();
-    let mut occurrences = HashMap::<&str, usize>::new();
-    for label in &labels {
-        *occurrences.entry(label).or_default() += 1;
-    }
-    labels
+    let mut used = HashSet::from([
+        SUMMARY_FILE_NAME.to_string(),
+        SUMMARY_TEMP_FILE_NAME.to_string(),
+    ]);
+    inputs
         .iter()
-        .enumerate()
-        .map(|(index, label)| {
-            if occurrences[label.as_str()] == 1 {
-                format!("{label}.json")
-            } else {
-                format!("{label}-{}.json", index + 1)
+        .map(|input| {
+            let label = input.label();
+            let preferred = format!("{label}.json");
+            if used.insert(preferred.clone()) {
+                return preferred;
+            }
+            let mut suffix = 2;
+            loop {
+                let candidate = format!("{label}-{suffix}.json");
+                if used.insert(candidate.clone()) {
+                    return candidate;
+                }
+                suffix += 1;
             }
         })
         .collect()
@@ -182,8 +190,8 @@ fn write_summary(
             .collect(),
     };
     fs::create_dir_all(run_dir)?;
-    let output = run_dir.join("summary.json");
-    let temporary = run_dir.join("summary.json.tmp");
+    let output = run_dir.join(SUMMARY_FILE_NAME);
+    let temporary = run_dir.join(SUMMARY_TEMP_FILE_NAME);
     fs::write(&temporary, serde_json::to_vec_pretty(&summary)?)?;
     fs::rename(temporary, output)?;
     Ok(summary)
@@ -258,16 +266,27 @@ pub fn task_monet_test(args: MonetTestArgs) -> Result<()> {
         .and_then(|name| name.to_str())
         .unwrap_or("monet-test")
         .to_string();
-    let native = ensure_linux_dexkit(&root)?;
+    let native = if requires_dexkit_native(&inputs) {
+        Some(ensure_linux_dexkit(&root)?)
+    } else {
+        None
+    };
     let names = report_names(&inputs);
     let mut results = Vec::with_capacity(inputs.len());
 
-    println!(
-        "monet-test: {} sample(s), DexKit {} ({})",
-        inputs.len(),
-        native.version,
-        native.library_path.display(),
-    );
+    if let Some(native) = &native {
+        println!(
+            "monet-test: {} sample(s), DexKit {} ({})",
+            inputs.len(),
+            native.version,
+            native.library_path.display(),
+        );
+    } else {
+        println!(
+            "monet-test: {} decoded sample(s), DexKit not initialized",
+            inputs.len()
+        );
+    }
     for (index, input) in inputs.iter().enumerate() {
         let report_path = run_dir.join(&names[index]);
         println!(
@@ -276,9 +295,9 @@ pub fn task_monet_test(args: MonetTestArgs) -> Result<()> {
             inputs.len(),
             input.path().display(),
         );
-        let metadata = sample_metadata(&root, &run_dir, index, input);
+        let metadata = sample_metadata(&root, &run_dir, input);
         let worker = metadata.and_then(|metadata| {
-            run_worker(&root, input, &metadata, &native, &report_path).and_then(|status| {
+            run_worker(&root, input, &metadata, native.as_ref(), &report_path).and_then(|status| {
                 if status == 0 {
                     read_worker_report(&report_path)
                 } else {
@@ -289,7 +308,7 @@ pub fn task_monet_test(args: MonetTestArgs) -> Result<()> {
         let report = match worker {
             Ok(report) => report,
             Err(error) => {
-                write_infrastructure_report(&report_path, input, &native, &error)?;
+                write_infrastructure_report(&report_path, input, native.as_ref(), &error)?;
                 read_worker_report(&report_path)?
             }
         };
@@ -332,6 +351,12 @@ pub fn task_monet_test(args: MonetTestArgs) -> Result<()> {
             run_dir.display()
         )
     }
+}
+
+fn requires_dexkit_native(inputs: &[SampleInput]) -> bool {
+    inputs
+        .iter()
+        .any(|input| matches!(input, SampleInput::Apk(_) | SampleInput::Archive(_)))
 }
 
 fn normalize_inputs(args: &MonetTestArgs) -> Result<Vec<SampleInput>> {
@@ -423,15 +448,10 @@ fn resolve_run_dir(root: &Path, explicit: Option<&Path>) -> Result<PathBuf> {
     Ok(run_dir)
 }
 
-fn sample_metadata(
-    root: &Path,
-    run_dir: &Path,
-    index: usize,
-    input: &SampleInput,
-) -> Result<ApkMetadata> {
+fn sample_metadata(root: &Path, run_dir: &Path, input: &SampleInput) -> Result<ApkMetadata> {
     match input {
         SampleInput::Apk(apk) => read_apk_metadata(root, apk),
-        SampleInput::Archive(apks) => read_apks_metadata(root, run_dir, index, apks),
+        SampleInput::Archive(apks) => read_apks_metadata(root, run_dir, apks),
         SampleInput::Decoded(path) => Ok(ApkMetadata {
             version_code: 0,
             version_name: infer_decoded_version(path).unwrap_or_else(|| input.label()),
@@ -441,12 +461,33 @@ fn sample_metadata(
     }
 }
 
-fn read_apks_metadata(
-    root: &Path,
-    run_dir: &Path,
-    index: usize,
-    apks: &Path,
-) -> Result<ApkMetadata> {
+fn read_apks_metadata(root: &Path, run_dir: &Path, apks: &Path) -> Result<ApkMetadata> {
+    let owned = extract_base_apk_for_metadata(apks, run_dir)?;
+    let metadata = read_apk_metadata(root, &owned.path);
+    let cleanup = owned.cleanup();
+    match (metadata, cleanup) {
+        (Ok(metadata), Ok(())) => Ok(metadata),
+        (Err(error), Ok(())) => Err(error),
+        (Ok(_), Err(error)) => Err(error),
+        (Err(error), Err(cleanup_error)) => Err(error.context(cleanup_error)),
+    }
+}
+
+struct OwnedMetadataApk {
+    path: PathBuf,
+    root: PathBuf,
+}
+
+impl OwnedMetadataApk {
+    fn cleanup(self) -> Result<()> {
+        fs::remove_file(&self.path)
+            .with_context(|| format!("remove owned metadata APK {}", self.path.display()))?;
+        fs::remove_dir(&self.root)
+            .with_context(|| format!("remove owned metadata directory {}", self.root.display()))
+    }
+}
+
+fn extract_base_apk_for_metadata(apks: &Path, scratch_parent: &Path) -> Result<OwnedMetadataApk> {
     let file = File::open(apks)?;
     let mut archive = ZipArchive::new(file)
         .with_context(|| format!("open APKS metadata archive {}", apks.display()))?;
@@ -471,28 +512,57 @@ fn read_apks_metadata(
             base_indices.len()
         )
     }
-    let temporary = run_dir.join(format!(".metadata-{index}-base.apk"));
-    let extraction = (|| -> Result<()> {
+    let root = create_owned_metadata_dir(scratch_parent)?;
+    let temporary = root.join("base.apk");
+    let extraction = (|| -> Result<OwnedMetadataApk> {
         let mut base = archive.by_index(base_indices[0])?;
-        let mut output = File::create(&temporary)?;
+        let mut output = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)
+            .with_context(|| format!("create owned metadata APK {}", temporary.display()))?;
         std::io::copy(&mut base, &mut output)?;
         output.flush()?;
-        Ok(())
+        Ok(OwnedMetadataApk {
+            path: temporary.clone(),
+            root: root.clone(),
+        })
     })();
     drop(archive);
-    let metadata = extraction.and_then(|()| read_apk_metadata(root, &temporary));
-    let cleanup = if temporary.exists() {
-        fs::remove_file(&temporary)
-            .with_context(|| format!("remove temporary base APK {}", temporary.display()))
-    } else {
-        Ok(())
-    };
-    match (metadata, cleanup) {
-        (Ok(metadata), Ok(())) => Ok(metadata),
-        (Err(error), Ok(())) => Err(error),
-        (Ok(_), Err(error)) => Err(error),
-        (Err(error), Err(cleanup_error)) => Err(error.context(cleanup_error)),
+    if extraction.is_err() {
+        if temporary.exists() {
+            let _ = fs::remove_file(&temporary);
+        }
+        let _ = fs::remove_dir(&root);
     }
+    extraction
+}
+
+fn create_owned_metadata_dir(parent: &Path) -> Result<PathBuf> {
+    static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+
+    fs::create_dir_all(parent)?;
+    let time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    for _ in 0..1024 {
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let candidate = parent.join(format!(
+            ".monet-metadata-{}-{time:x}-{id:x}",
+            std::process::id(),
+        ));
+        match fs::create_dir(&candidate) {
+            Ok(()) => return Ok(candidate),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(error).with_context(|| {
+                    format!("create owned metadata directory {}", candidate.display())
+                });
+            }
+        }
+    }
+    bail!("could not allocate a unique owned metadata directory")
 }
 
 fn validate_nested_apk_name(name: &str) -> Result<()> {
@@ -524,26 +594,32 @@ fn run_worker(
     root: &Path,
     input: &SampleInput,
     metadata: &ApkMetadata,
-    native: &DexKitNative,
+    native: Option<&DexKitNative>,
     report: &Path,
 ) -> Result<i32> {
     let gradle = root.join("gradlew");
-    let properties = [
+    let mut properties = vec![
         ("wekit.monetTest.inputKind", input.kind_name().to_string()),
         (
             "wekit.monetTest.inputPath",
             input.path().to_string_lossy().to_string(),
         ),
         (
-            "wekit.monetTest.nativeLibrary",
-            native.library_path.to_string_lossy().to_string(),
-        ),
-        (
             "wekit.monetTest.report",
             report.to_string_lossy().to_string(),
         ),
-        ("wekit.monetTest.dexKitVersion", native.version.clone()),
-        ("wekit.monetTest.dexKitRevision", native.revision.clone()),
+        (
+            "wekit.monetTest.dexKitVersion",
+            native
+                .map(|value| value.version.clone())
+                .unwrap_or_else(|| "not-loaded".to_string()),
+        ),
+        (
+            "wekit.monetTest.dexKitRevision",
+            native
+                .map(|value| value.revision.clone())
+                .unwrap_or_else(|| "not-loaded".to_string()),
+        ),
         (
             "wekit.monetTest.versionCode",
             metadata.version_code.to_string(),
@@ -554,6 +630,14 @@ fn run_worker(
             metadata.is_google_play.to_string(),
         ),
     ];
+    if let Some(native) = native {
+        properties.push((
+            "wekit.monetTest.nativeLibrary",
+            native.library_path.to_string_lossy().to_string(),
+        ));
+    } else if !matches!(input, SampleInput::Decoded(_)) {
+        bail!("DexKit native was not initialized for compiled Monet input")
+    }
     let mut command = Command::new(gradle);
     command.current_dir(root).args([
         ":extensions:monet-generator:testDebugUnitTest",
@@ -588,7 +672,7 @@ fn read_worker_report(path: &Path) -> Result<WorkerReport> {
 fn write_infrastructure_report(
     path: &Path,
     input: &SampleInput,
-    native: &DexKitNative,
+    native: Option<&DexKitNative>,
     error: &anyhow::Error,
 ) -> Result<()> {
     let decoded = matches!(input, SampleInput::Decoded(_));
@@ -600,9 +684,9 @@ fn write_infrastructure_report(
         "elapsedMillis": 0,
         "outcome": "INFRASTRUCTURE_FAILURE",
         "environment": {
-            "dexKitVersion": native.version,
-            "dexKitRevision": native.revision,
-            "architecture": native.architecture,
+            "dexKitVersion": native.map(|value| value.version.as_str()).unwrap_or("not-loaded"),
+            "dexKitRevision": native.map(|value| value.revision.as_str()).unwrap_or("not-loaded"),
+            "architecture": native.map(|value| value.architecture.as_str()).unwrap_or(std::env::consts::ARCH),
             "jvmVersion": "",
         },
         "input": {
@@ -709,12 +793,16 @@ fn now_rfc3339() -> String {
         .unwrap_or_else(|_| "unknown".to_string())
 }
 
+const SUMMARY_FILE_NAME: &str = "summary.json";
+const SUMMARY_TEMP_FILE_NAME: &str = "summary.json.tmp";
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use clap::Parser;
     use std::fs;
     use std::path::PathBuf;
+    use zip::write::SimpleFileOptions;
 
     #[derive(Parser)]
     struct TestCli {
@@ -767,10 +855,43 @@ mod tests {
     }
 
     #[test]
+    fn report_names_avoid_global_suffix_and_aggregate_collisions() {
+        let inputs = vec![
+            SampleInput::Apk(PathBuf::from("foo.apk")),
+            SampleInput::Archive(PathBuf::from("foo.apks")),
+            SampleInput::Apk(PathBuf::from("foo-2.apk")),
+            SampleInput::Apk(PathBuf::from("summary.apk")),
+            SampleInput::Apk(PathBuf::from("summary-2.apk")),
+        ];
+
+        assert_eq!(
+            report_names(&inputs),
+            vec![
+                "foo.json",
+                "foo-2.json",
+                "foo-2-2.json",
+                "summary-2.json",
+                "summary-2-2.json",
+            ],
+        );
+    }
+
+    #[test]
     fn zero_inputs_are_rejected() {
         let error = validate_inputs(&[]).unwrap_err();
 
         assert!(error.to_string().contains("at least one"));
+    }
+
+    #[test]
+    fn decoded_only_inputs_do_not_require_dexkit_native() {
+        assert!(!requires_dexkit_native(&[SampleInput::Decoded(
+            PathBuf::from("wechat_8065/app/src/main/res",)
+        )]));
+        assert!(requires_dexkit_native(&[
+            SampleInput::Decoded(PathBuf::from("wechat_8065/app/src/main/res")),
+            SampleInput::Archive(PathBuf::from("wechat.apks")),
+        ]));
     }
 
     #[test]
@@ -815,6 +936,44 @@ mod tests {
         assert!(first_report.is_file());
         assert!(second_report.is_file());
         assert!(run_dir.join("summary.json").is_file());
+
+        fs::remove_dir_all(run_dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn metadata_extraction_owns_unique_scratch_and_preserves_predictable_paths() {
+        use std::os::unix::fs::symlink;
+
+        let run_dir = std::env::temp_dir().join(format!(
+            "wekit-monet-metadata-scratch-{}",
+            std::process::id(),
+        ));
+        if run_dir.exists() {
+            fs::remove_dir_all(&run_dir).unwrap();
+        }
+        fs::create_dir(&run_dir).unwrap();
+        let sentinel = run_dir.join(".metadata-0-base.apk");
+        let sentinel_link = run_dir.join(".metadata-1-base.apk");
+        fs::write(&sentinel, "sentinel").unwrap();
+        symlink(&sentinel, &sentinel_link).unwrap();
+        let apks = run_dir.join("sample.apks");
+        let mut archive = zip::ZipWriter::new(File::create(&apks).unwrap());
+        archive
+            .start_file("base.apk", SimpleFileOptions::default())
+            .unwrap();
+        archive.write_all(b"base-apk").unwrap();
+        archive.finish().unwrap();
+
+        let owned = extract_base_apk_for_metadata(&apks, &run_dir).unwrap();
+        let owned_root = owned.path.parent().unwrap().to_path_buf();
+
+        assert_eq!(fs::read_to_string(&sentinel).unwrap(), "sentinel");
+        assert_eq!(fs::read_link(&sentinel_link).unwrap(), sentinel);
+        assert_ne!(owned_root, run_dir);
+        assert_eq!(fs::read(&owned.path).unwrap(), b"base-apk");
+        owned.cleanup().unwrap();
+        assert!(!owned_root.exists());
 
         fs::remove_dir_all(run_dir).unwrap();
     }

@@ -45,6 +45,18 @@ class MonetTestWorkerConfigTest {
         }
     }
 
+    @Test
+    fun `decoded worker config does not require native library property`() {
+        val decoded = properties().apply {
+            setProperty("wekit.monetTest.inputKind", "DECODED_RES")
+            remove("wekit.monetTest.nativeLibrary")
+        }
+
+        val config = MonetTestWorkerConfig.fromSystemProperties(decoded)
+
+        assertEquals(null, config.nativeLibrary)
+    }
+
     private fun properties() = Properties().apply {
         setProperty("wekit.monetTest.inputKind", "APKS")
         setProperty("wekit.monetTest.inputPath", "/tmp/wechat.apks")

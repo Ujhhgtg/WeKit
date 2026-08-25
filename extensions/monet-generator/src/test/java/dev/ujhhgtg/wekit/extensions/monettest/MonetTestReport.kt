@@ -24,7 +24,7 @@ internal enum class MonetTestInputKind {
 internal data class MonetTestWorkerConfig(
     val inputKind: MonetTestInputKind,
     val inputPath: Path,
-    val nativeLibrary: Path,
+    val nativeLibrary: Path?,
     val report: Path,
     val dexKitVersion: String,
     val dexKitRevision: String,
@@ -44,14 +44,18 @@ internal data class MonetTestWorkerConfig(
             val rawChannel = required("wekit.monetTest.isGooglePlay")
             val isGooglePlay = rawChannel.toBooleanStrictOrNull()
                 ?: error("wekit.monetTest.isGooglePlay must be true or false, was $rawChannel")
+            val nativeLibrary = properties.getProperty("wekit.monetTest.nativeLibrary")
+                ?.takeIf(String::isNotBlank)
+                ?.let { value -> File(value).toPath().toAbsolutePath().normalize() }
+            require(inputKind == MonetTestInputKind.DECODED_RES || nativeLibrary != null) {
+                "missing required system property: wekit.monetTest.nativeLibrary"
+            }
             return MonetTestWorkerConfig(
                 inputKind = inputKind,
                 inputPath = File(required("wekit.monetTest.inputPath")).toPath()
                     .toAbsolutePath()
                     .normalize(),
-                nativeLibrary = File(required("wekit.monetTest.nativeLibrary")).toPath()
-                    .toAbsolutePath()
-                    .normalize(),
+                nativeLibrary = nativeLibrary,
                 report = File(required("wekit.monetTest.report")).toPath()
                     .toAbsolutePath()
                     .normalize(),
@@ -213,30 +217,35 @@ internal data class MonetTestDexCandidateReport(
 )
 
 @Serializable
-internal data class MonetTestFieldAccessReport(
-    val descriptor: String,
-    val access: String,
+internal data class MonetTestStringSet(
+    val totalCount: Int,
+    val sortedValuesSha256: String,
+    val sampleValues: List<String>,
+    val truncated: Boolean,
 )
 
 @Serializable
 internal data class MonetTestMethodEvidenceReport(
     val descriptor: String,
-    val stableStrings: List<String>,
-    val invokedMethodShapes: List<String>,
-    val neighboringResourceIds: List<Int>,
-    val fieldAccesses: List<MonetTestFieldAccessReport>,
+    val stableStrings: MonetTestStringSet,
+    val invokedMethodShapes: MonetTestStringSet,
+    val neighboringResourceIds: MonetTestCandidateSet,
+    val fieldAccesses: MonetTestStringSet,
 )
 
 @Serializable
 internal data class MonetTestResourceDexEvidenceReport(
     val resourceId: Int,
-    val methods: List<MonetTestMethodEvidenceReport>,
+    val methodDescriptors: MonetTestStringSet,
+    val sampleMethods: List<MonetTestMethodEvidenceReport>,
 )
 
 @Serializable
 internal data class MonetTestDexQueryReport(
-    val candidates: List<MonetTestDexCandidateReport>,
-    val evidence: List<MonetTestResourceDexEvidenceReport>,
+    val requestedCandidates: MonetTestCandidateSet,
+    val sampleCandidates: List<MonetTestDexCandidateReport>,
+    val evidenceResources: MonetTestCandidateSet,
+    val sampleEvidence: List<MonetTestResourceDexEvidenceReport>,
 )
 
 @Serializable
@@ -335,6 +344,32 @@ internal fun monetCandidateSet(resourceIds: Collection<Int>): MonetTestCandidate
         totalCount = sorted.size,
         sortedIdsSha256 = digest,
         sampleResourceIds = sample,
+        truncated = truncated,
+    )
+}
+
+internal fun monetStringSet(values: Collection<String>): MonetTestStringSet {
+    val sorted = values.distinct().sorted()
+    val canonical = buildString {
+        sorted.forEach { value ->
+            append(value.toByteArray(Charsets.UTF_8).size).append(':').append(value)
+        }
+    }
+    val digest = MessageDigest.getInstance("SHA-256")
+        .digest(canonical.toByteArray(Charsets.UTF_8))
+        .joinToString("") { byte ->
+            (byte.toInt() and 0xff).toString(16).padStart(2, '0')
+        }
+    val truncated = sorted.size > MAX_INLINE_CANDIDATE_IDS
+    val sample = if (truncated) {
+        sorted.take(MAX_INLINE_CANDIDATE_IDS / 2) + sorted.takeLast(MAX_INLINE_CANDIDATE_IDS / 2)
+    } else {
+        sorted
+    }
+    return MonetTestStringSet(
+        totalCount = sorted.size,
+        sortedValuesSha256 = digest,
+        sampleValues = sample,
         truncated = truncated,
     )
 }

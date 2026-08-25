@@ -66,7 +66,12 @@ internal object MonetDecodedResourceGraphLoader {
                     }
                     resource.addValue(
                         qualifiers,
-                        parseValue(element.textContent.trim(), resourcesByKey, allowDecodedLiteral = false),
+                        parseValue(
+                            element.textContent.trim(),
+                            resourcesByKey,
+                            resourcesById,
+                            allowDecodedLiteral = false,
+                        ),
                         colorsXml,
                     )
                 }
@@ -100,6 +105,7 @@ internal object MonetDecodedResourceGraphLoader {
                     root = parseElement(
                         parseXml(xmlPath).documentElement,
                         resourcesByKey,
+                        resourcesById,
                         references,
                     ),
                     references = references,
@@ -130,13 +136,19 @@ internal object MonetDecodedResourceGraphLoader {
     private fun parseElement(
         element: Element,
         resourcesByKey: Map<MonetResourceKey, MutableDecodedResource>,
+        resourcesById: Map<Int, MonetResourceKey>,
         references: MutableSet<Int>,
     ): MonetRawXmlElement {
         val attributes = buildList {
             for (index in 0 until element.attributes.length) {
                 val attribute = element.attributes.item(index)
                 if (attribute.nodeName == "xmlns" || attribute.nodeName.startsWith("xmlns:")) continue
-                val parsed = parseValue(attribute.nodeValue, resourcesByKey, allowDecodedLiteral = true)
+                val parsed = parseValue(
+                    attribute.nodeValue,
+                    resourcesByKey,
+                    resourcesById,
+                    allowDecodedLiteral = true,
+                )
                 if (parsed is MonetResourceValue.Reference) references += parsed.resourceId
                 add(
                     MonetRawXmlAttribute(
@@ -155,7 +167,7 @@ internal object MonetDecodedResourceGraphLoader {
                 when (child.nodeType) {
                     Node.ELEMENT_NODE -> add(
                         MonetRawXmlChild.Element(
-                            parseElement(child as Element, resourcesByKey, references),
+                            parseElement(child as Element, resourcesByKey, resourcesById, references),
                         ),
                     )
                     Node.TEXT_NODE, Node.CDATA_SECTION_NODE -> child.nodeValue
@@ -176,6 +188,7 @@ internal object MonetDecodedResourceGraphLoader {
     private fun parseValue(
         rawValue: String,
         resourcesByKey: Map<MonetResourceKey, MutableDecodedResource>,
+        resourcesById: Map<Int, MonetResourceKey>,
         allowDecodedLiteral: Boolean,
     ): MonetResourceValue {
         val value = rawValue.trim()
@@ -188,7 +201,11 @@ internal object MonetDecodedResourceGraphLoader {
         if (value.startsWith('@') && !value.startsWith("@android:")) {
             val reference = value.removePrefix("@").removePrefix("+")
             if (reference.startsWith("0x")) {
-                return MonetResourceValue.Reference(parseResourceId(reference))
+                val resourceId = parseResourceId(reference)
+                require(resourceId in resourcesById) {
+                    "decoded numeric resource reference is absent from values/public.xml: $value"
+                }
+                return MonetResourceValue.Reference(resourceId)
             }
             val pieces = reference.split('/', limit = 2)
             require(pieces.size == 2) { "unsupported decoded resource reference: $value" }
