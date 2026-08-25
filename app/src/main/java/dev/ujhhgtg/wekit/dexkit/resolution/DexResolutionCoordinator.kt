@@ -20,6 +20,7 @@ data class DexResolutionBatchResult(
 
 class DexResolutionCycleException(
     val path: List<String>,
+    val detectingDelegateId: String? = null,
 ) : IllegalStateException("Dex resolution dependency cycle: ${path.joinToString(" -> ")}")
 
 private class DexResolutionDependencyException(
@@ -73,13 +74,8 @@ class DexResolutionCoordinator(
         return DexResolutionBatchResult(results)
     }
 
-    fun resolveDelegate(delegate: BaseDexDelegate): DexNodeResult {
-        val result = resolveProducer(registry.producerOf(delegate))
-        return when (result) {
-            is DexNodeResult.Failed -> result
-            is DexNodeResult.Resolved -> DexNodeResult.Resolved(delegate.diagnostic)
-        }
-    }
+    fun resolveDelegate(delegate: BaseDexDelegate): DexNodeResult =
+        resolveProducer(registry.producerOf(delegate))
 
     internal fun requireData(fromProducerId: String, delegate: BaseDexDelegate): String {
         val dependency = registry.producerOf(delegate)
@@ -91,19 +87,35 @@ class DexResolutionCoordinator(
             return delegate.getDescriptorString()
                 ?: throw DexResolutionDependencyException(delegate.stableId)
         }
-        addDependency(fromProducerId, dependency.stableId)
+        try {
+            addDependency(fromProducerId, dependency.stableId, delegate)
+        } catch (error: DexResolutionCycleException) {
+            error.detectingDelegateId
+                ?.let(registry.nodesById::get)
+                ?.delegate
+                ?.recordUnexpectedFailure(error, error.path)
+            throw error
+        }
         val result = resolveProducer(dependency)
-        if (result is DexNodeResult.Failed) {
-            markBlocked(fromProducerId, failureKey(delegate, dependency))
-            throw result.error
+        when (result) {
+            is DexNodeResult.Failed -> {
+                markBlocked(fromProducerId, producerFailureKey(dependency))
+                throw result.error
+            }
+            is DexNodeResult.Resolved -> if (!isSuccessful(result.diagnostic.status)) {
+                val blockedBy = producerFailureKey(dependency)
+                markBlocked(fromProducerId, blockedBy)
+                throw DexResolutionDependencyException(blockedBy)
+            }
         }
         if (delegate.diagnostic.status !in setOf(
                 DexResolutionStatus.SUCCESS,
                 DexResolutionStatus.EXPECTED_FAILURE,
             )
         ) {
-            markBlocked(fromProducerId, delegate.stableId)
-            throw DexResolutionDependencyException(delegate.stableId)
+            val blockedBy = diagnosticFailureKey(delegate)
+            markBlocked(fromProducerId, blockedBy)
+            throw DexResolutionDependencyException(blockedBy)
         }
         return delegate.getDescriptorString()
             ?: throw DexResolutionDependencyException(delegate.stableId)
@@ -179,9 +191,11 @@ class DexResolutionCoordinator(
         val failing = producer.outputs.firstOrNull {
             it.diagnostic.status == DexResolutionStatus.UNEXPECTED_FAILURE
         }
-        val blockedBy = failing?.stableId ?: producer.stableId
+        val blockedBy = failing?.stableId
+            ?: (error as? DexResolutionCycleException)?.detectingDelegateId
+            ?: producer.stableId
         producer.outputs.forEach { delegate ->
-            if (delegate !== failing) delegate.markBlocked(blockedBy)
+            if (delegate.stableId != blockedBy) delegate.markBlocked(blockedBy)
         }
     }
 
@@ -189,18 +203,36 @@ class DexResolutionCoordinator(
         registry.producersById.getValue(producerId).outputs.forEach { it.markBlocked(blockedBy) }
     }
 
-    private fun failureKey(delegate: BaseDexDelegate, producer: DexProducerNode): String =
+    private fun producerFailureKey(producer: DexProducerNode): String {
+        val failedOutputs = producer.outputs.filterNot { isSuccessful(it.diagnostic.status) }
+        val maxSeverity = failedOutputs.maxOfOrNull { diagnosticSeverity(it.diagnostic.status) }
+            ?: return producer.stableId
+        val failing = failedOutputs.first { diagnosticSeverity(it.diagnostic.status) == maxSeverity }
+        return diagnosticFailureKey(failing)
+    }
+
+    private fun diagnosticFailureKey(delegate: BaseDexDelegate): String =
         when (delegate.diagnostic.status) {
-            DexResolutionStatus.UNEXPECTED_FAILURE -> delegate.stableId
-            DexResolutionStatus.BLOCKED -> delegate.diagnostic.blockedBy ?: producer.stableId
-            else -> producer.stableId
+            DexResolutionStatus.BLOCKED -> delegate.diagnostic.blockedBy ?: delegate.stableId
+            else -> delegate.stableId
         }
 
-    private fun addDependency(from: String, to: String) {
+    private fun addDependency(
+        from: String,
+        to: String,
+        accessedDelegate: BaseDexDelegate,
+    ) {
         require(registry.producersById.containsKey(from)) { "Unknown Dex producer: $from" }
         synchronized(dependencyLock) {
             val path = findPath(to, from)
-            if (path != null) throw DexResolutionCycleException(path + to)
+            if (path != null) {
+                val detectingDelegate = registry.producersById.getValue(from).inlineDelegate
+                    ?: accessedDelegate
+                throw DexResolutionCycleException(
+                    path = path + to,
+                    detectingDelegateId = detectingDelegate.stableId,
+                )
+            }
             mutableDependencies.getOrPut(from) { sortedSetOf() }.add(to)
         }
     }
@@ -237,6 +269,9 @@ class DexResolutionCoordinator(
         DexResolutionStatus.BLOCKED -> 4
         DexResolutionStatus.UNEXPECTED_FAILURE -> 5
     }
+
+    private fun isSuccessful(status: DexResolutionStatus): Boolean =
+        status == DexResolutionStatus.SUCCESS || status == DexResolutionStatus.EXPECTED_FAILURE
 }
 
 fun effectiveFingerprint(
