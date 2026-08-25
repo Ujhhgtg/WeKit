@@ -180,7 +180,7 @@ fn stage_release(run_dir: &Path, output_dir: &Path, sha: &str) -> Result<()> {
             fs::read(&path).with_context(|| format!("read Dex test report {}", path.display()))?;
         let report: StagedReport = serde_json::from_slice(&bytes)
             .with_context(|| format!("parse Dex test report {}", path.display()))?;
-        if report.schema_version != 1 {
+        if report.schema_version != 2 {
             bail!("unsupported Dex test report schema in {}", path.display());
         }
         reports.push((path, bytes, report));
@@ -366,7 +366,7 @@ mod tests {
             path,
             format!(
                 r#"{{
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "outcome": "{outcome}",
   "versionName": "{version}",
   "versionCode": {code},
@@ -381,7 +381,7 @@ mod tests {
     fn write_summary(run_dir: &Path, outcome: &str) {
         fs::write(
             run_dir.join("summary.json"),
-            format!(r#"{{"schemaVersion":1,"outcome":"{outcome}","reports":[]}}"#),
+            format!(r#"{{"schemaVersion":2,"outcome":"{outcome}","reports":[]}}"#),
         )
         .unwrap();
     }
