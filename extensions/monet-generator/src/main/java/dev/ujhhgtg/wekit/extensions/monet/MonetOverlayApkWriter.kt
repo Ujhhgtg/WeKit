@@ -76,9 +76,6 @@ internal object MonetOverlayApkWriter {
             setVersionCode(versionCode.toInt())
             setMinSdkVersion(minSdk)
             setTargetSdkVersion(targetSdk)
-            getOrCreateApplicationElement().createAndroidAttribute("hasCode", ATTR_HAS_CODE)
-                .setValueAsBoolean(false)
-            setExtractNativeLibs(false)
             val overlay = manifestElement.newElement("overlay")
             overlay.createAndroidAttribute("targetPackage", ATTR_TARGET_PACKAGE)
                 .setValueAsString("com.tencent.mm")
@@ -87,6 +84,9 @@ internal object MonetOverlayApkWriter {
                 valueType = ValueType.DEC
                 data = 1
             }
+            getOrCreateApplicationElement().createAndroidAttribute("hasCode", ATTR_HAS_CODE)
+                .setValueAsBoolean(false)
+            setExtractNativeLibs(false)
         }
         apk.setManifest(manifest)
         val table = TableBlock()
@@ -113,11 +113,13 @@ internal object MonetOverlayApkWriter {
         targetSdk: Int,
         versionName: String,
         versionCode: Long,
+        priority: Int,
         colors: List<ColorTarget>,
         drawables: List<DrawableTarget> = emptyList(),
         literalColors: List<LiteralColorTarget> = emptyList(),
     ) {
         require(versionCode in 0..Int.MAX_VALUE.toLong())
+        require(priority >= 0)
         val apk = ApkModule()
         val manifest = AndroidManifestBlock().apply {
             setPackageName(packageName)
@@ -125,16 +127,16 @@ internal object MonetOverlayApkWriter {
             setVersionCode(versionCode.toInt())
             setMinSdkVersion(minSdk)
             setTargetSdkVersion(targetSdk)
-            getOrCreateApplicationElement().createAndroidAttribute("hasCode", ATTR_HAS_CODE)
-                .setValueAsBoolean(false)
-            setExtractNativeLibs(false)
             val overlay = manifestElement.newElement("overlay")
             overlay.createAndroidAttribute("targetPackage", ATTR_TARGET_PACKAGE).setValueAsString("com.tencent.mm")
             overlay.createAndroidAttribute("isStatic", ATTR_IS_STATIC).setValueAsBoolean(true)
             overlay.createAndroidAttribute("priority", ATTR_PRIORITY).apply {
                 valueType = ValueType.DEC
-                data = 1
+                data = priority
             }
+            getOrCreateApplicationElement().createAndroidAttribute("hasCode", ATTR_HAS_CODE)
+                .setValueAsBoolean(false)
+            setExtractNativeLibs(false)
         }
         apk.setManifest(manifest)
         val table = TableBlock()

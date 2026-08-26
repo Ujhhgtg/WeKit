@@ -29,6 +29,7 @@ class MonetOverlayApkWriterTest {
             36,
             "8.0.77",
             3100,
+            20,
             emptyList(),
             drawables.distinctBy(MonetOverlayApkWriter.DrawableTarget::name),
         )
@@ -50,6 +51,7 @@ class MonetOverlayApkWriterTest {
             33,
             "8.0.77",
             3100,
+            10,
             listOf(MonetOverlayApkWriter.ColorTarget("x", 0x0106006c)),
             listOf(
                 MonetOverlayApkWriter.DrawableTarget(

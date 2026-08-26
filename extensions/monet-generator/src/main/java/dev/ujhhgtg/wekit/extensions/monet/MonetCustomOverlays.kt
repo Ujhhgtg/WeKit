@@ -56,6 +56,25 @@ internal object MonetCustomOverlays {
         }.distinctBy(DrawableTarget::name)
     }
 
+    fun classicBubbles(
+        resolved: Map<String, MonetResourceNode>,
+        palette: Palette,
+    ): List<DrawableTarget> {
+        val incomingLight = classicBubble(palette.incomingLight, incoming = true)
+        val incomingNight = classicBubble(palette.incomingNight, incoming = true)
+        val outgoingLight = classicBubble(palette.outgoingLight, incoming = false)
+        val outgoingNight = classicBubble(palette.outgoingNight, incoming = false)
+        val incomingMask = classicMask(incoming = true)
+        val outgoingMask = classicMask(incoming = false)
+        return buildList {
+            INCOMING_BUBBLES.forEach { addPair(resolved, it, incomingLight, incomingNight) }
+            OUTGOING_BUBBLES.forEach { addPair(resolved, it, outgoingLight, outgoingNight) }
+            INCOMING_MASKS.forEach { addPair(resolved, it, incomingMask, incomingMask) }
+            OUTGOING_MASKS.forEach { addPair(resolved, it, outgoingMask, outgoingMask) }
+            addPair(resolved, "chat.voice-to-text.background", incomingLight, incomingNight)
+        }.distinctBy(DrawableTarget::name)
+    }
+
     fun corners(
         resolved: Map<String, MonetResourceNode>,
         palette: Palette,
@@ -141,6 +160,28 @@ internal object MonetCustomOverlays {
         },
     )
 
+    private fun classicBubble(color: Int, incoming: Boolean): XmlNode = XmlNode(
+        "shape",
+        listOf(android("shape", ATTR_SHAPE, XmlValue.Integer(0))),
+        listOf(
+            XmlNode("solid", listOf(android("color", ATTR_COLOR, colorValue(color)))),
+            XmlNode("corners", listOf(
+                android("topLeftRadius", ATTR_TOP_LEFT_RADIUS, XmlValue.Dimension(if (incoming) 6f else 16f)),
+                android("topRightRadius", ATTR_TOP_RIGHT_RADIUS, XmlValue.Dimension(if (incoming) 16f else 6f)),
+                android("bottomLeftRadius", ATTR_BOTTOM_LEFT_RADIUS, XmlValue.Dimension(16f)),
+                android("bottomRightRadius", ATTR_BOTTOM_RIGHT_RADIUS, XmlValue.Dimension(16f)),
+            )),
+            XmlNode("padding", listOf(
+                android("left", ATTR_LEFT, XmlValue.Dimension(12f)),
+                android("top", ATTR_TOP, XmlValue.Dimension(8f)),
+                android("right", ATTR_RIGHT, XmlValue.Dimension(12f)),
+                android("bottom", ATTR_BOTTOM, XmlValue.Dimension(8f)),
+            )),
+        ),
+    )
+
+    private fun classicMask(incoming: Boolean): XmlNode = classicBubble(0x1a000000, incoming)
+
     private fun selector(pressed: XmlNode, normal: XmlNode): XmlNode = XmlNode(
         "selector",
         children = listOf(
@@ -203,6 +244,10 @@ internal object MonetCustomOverlays {
     private const val ATTR_SHAPE = 0x0101019a
     private const val ATTR_COLOR = 0x010101a5
     private const val ATTR_RADIUS = 0x010101a8
+    private const val ATTR_TOP_LEFT_RADIUS = 0x010101a9
+    private const val ATTR_TOP_RIGHT_RADIUS = 0x010101aa
+    private const val ATTR_BOTTOM_LEFT_RADIUS = 0x010101ab
+    private const val ATTR_BOTTOM_RIGHT_RADIUS = 0x010101ac
     private const val ATTR_LEFT = 0x010101ad
     private const val ATTR_TOP = 0x010101ae
     private const val ATTR_RIGHT = 0x010101af

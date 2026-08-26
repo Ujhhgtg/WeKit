@@ -67,8 +67,8 @@ restore_overlays() {
   result=0
   for user in $users; do
     for package in $OVERLAY_PACKAGES; do
+      pm path "$package" >/dev/null 2>&1 || continue
       cmd overlay enable --user "$user" "$package" >/dev/null 2>&1 || result=1
-      cmd overlay set-priority --user "$user" "$package" highest >/dev/null 2>&1 || result=1
     done
     am force-stop --user "$user" com.tencent.mm >/dev/null 2>&1 || result=1
   done
@@ -168,6 +168,9 @@ LOCK=/dev/.wekit-monet-overlay-restore
 mkdir "$LOCK" 2>/dev/null || exit 0
 trap 'rmdir "$LOCK"' EXIT
 . "$MODDIR/common.sh"
+until [ "$(getprop sys.boot_completed)" = 1 ]; do
+  sleep 2
+done
 restore_overlays
 """
 }

@@ -29,6 +29,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
         fun build(
             fileName: String,
             packageName: String,
+            priority: Int,
             overlayColors: List<MonetOverlayApkWriter.ColorTarget> = emptyList(),
             drawables: List<MonetOverlayApkWriter.DrawableTarget> = emptyList(),
             literalColors: List<MonetOverlayApkWriter.LiteralColorTarget> = emptyList(),
@@ -42,6 +43,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
                 targetSdk,
                 request.versionName,
                 request.versionCode,
+                priority,
                 overlayColors,
                 drawables,
                 literalColors,
@@ -50,35 +52,47 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             unsigned.delete()
             overlays += MonetModulePackager.Overlay(signed, packageName)
         }
+        val baseDrawables = buildList {
+            addAll(MonetCustomOverlays.baseVisuals(resolved, palette))
+            addAll(MonetCustomOverlays.bubbles(resolved, MonetBubbleStyle.MODERN, palette))
+            if (request.sdkInt >= 33) addAll(MonetCustomOverlays.themedIcon(resolved, palette))
+        }
         build(
             "MonetWeChat.apk",
             "monet.com.tencent.mm",
+            1,
             colors,
-            MonetCustomOverlays.baseVisuals(resolved, palette),
+            baseDrawables,
         )
-        MonetCustomOverlays.bubbles(resolved, request.options.bubbleStyle, palette).takeIf { it.isNotEmpty() }?.let {
-            val style = if (request.options.bubbleStyle == MonetBubbleStyle.PRO) "bubblepro" else "modernbubble"
-            build("MonetWeChatBubble.apk", "monet.$style.com.tencent.mm", drawables = it)
+        when (request.options.bubbleStyle) {
+            MonetBubbleStyle.MODERN -> Unit
+            MonetBubbleStyle.CLASSIC -> build(
+                "MonetWeChatClassicBubble.apk",
+                "monet.classicbubble.com.tencent.mm",
+                10,
+                drawables = MonetCustomOverlays.classicBubbles(resolved, palette),
+            )
+            MonetBubbleStyle.PRO -> build(
+                "MonetWeChatBubblePro.apk",
+                "monet.bubblepro.com.tencent.mm",
+                20,
+                drawables = MonetCustomOverlays.bubbles(resolved, MonetBubbleStyle.PRO, palette),
+            )
         }
         if (request.options.multiSceneCorners) {
             build(
                 "MonetWeChatMultiSceneCorners.apk",
                 "monet.multiscenecorners.com.tencent.mm",
+                30,
                 drawables = MonetCustomOverlays.corners(resolved, palette),
-            )
-        }
-        if (request.sdkInt >= 33) {
-            build(
-                "MonetWeChatThemedIcon.apk",
-                "monet.themedicon.com.tencent.mm",
-                drawables = MonetCustomOverlays.themedIcon(resolved, palette),
             )
         }
         val tabName = requireNotNull(resolved["main.tab.background"]).key.name
         if (request.options.tabStyle == MonetTabStyle.BLUR) {
             build(
-                "MonetWeChatTab.apk",
+                "MonetWeChatBlurTab.apk",
                 "monet.blurtab.com.tencent.mm",
+                10,
                 literalColors = listOf(
                     MonetOverlayApkWriter.LiteralColorTarget(
                         tabName,
@@ -89,8 +103,9 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             )
         } else {
             build(
-                "MonetWeChatTab.apk",
+                "MonetWeChatSolidTab.apk",
                 "monet.solidtab.com.tencent.mm",
+                10,
                 overlayColors = listOf(
                     MonetOverlayApkWriter.ColorTarget(tabName, palette.surfaceLight, palette.surfaceNight),
                 ),
