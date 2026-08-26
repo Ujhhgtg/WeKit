@@ -18,10 +18,34 @@ data class MonetGenerationRequest(
     val versionCode: Long,
     val versionName: String,
     val sdkInt: Int,
+    val dexEvidenceProvider: MonetDexEvidenceProvider,
     val payloadDir: File,
     val workDir: File,
     val outputZip: File,
 )
+
+fun interface MonetDexEvidenceProvider {
+    fun query(candidates: List<MonetDexCandidate>): List<MonetResourceDexEvidence>
+}
+
+data class MonetDexCandidate(val resourceId: Int, val type: String, val name: String)
+
+data class MonetResourceDexEvidence(
+    val resourceId: Int,
+    val methods: List<MonetMethodDexEvidence>,
+)
+
+data class MonetMethodDexEvidence(
+    val descriptor: String,
+    val stableStrings: List<String>,
+    val invokedMethodShapes: List<String>,
+    val neighboringResourceIds: List<Int>,
+    val fieldAccesses: List<MonetFieldAccessEvidence>,
+)
+
+data class MonetFieldAccessEvidence(val descriptor: String, val access: MonetFieldAccess)
+
+enum class MonetFieldAccess { READ, WRITE }
 
 fun interface MonetGenerationListener {
     fun onEvent(event: MonetGenerationEvent)

@@ -6,7 +6,7 @@ import com.reandroid.arsc.value.ValueItem
 import com.reandroid.arsc.value.ValueType
 import java.io.File
 
-internal object MonetApkResourceGraphLoader {
+object MonetApkResourceGraphLoader {
     fun load(apkPaths: List<File>, targetPackage: String): MonetResourceGraph {
         val resources = linkedMapOf<Int, MutableResource>()
         val xmlDocuments = mutableListOf<OwnedXml>()

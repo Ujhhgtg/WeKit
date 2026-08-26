@@ -1,8 +1,14 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
-internal data class MonetSemanticRule(val id: String, val type: String, val requiredEvidence: Set<String>)
+internal data class MonetSemanticRule(
+    val id: String,
+    val type: String,
+    val requiredEvidence: Set<String>,
+    val requiredDexEvidence: Set<String> = emptySet(),
+)
 
 internal val MONET_RULES = listOf(
+    MonetSemanticRule("about.authors.suffix", "string", setOf("config::text:《隐私保护指引》", "context:layout:attribute:LinearLayout/LinearLayout/LinearLayout/TextView:16842968:paddingRight:REFERENCE:reference:dimen:REFERENCE")),
     MonetSemanticRule("about.compatibility", "string", setOf("config::text:ICP备案号：粤B2-20090059-1621A >")),
     MonetSemanticRule("about.separator", "string", setOf("config::text:客服电话：400 670 0700")),
     MonetSemanticRule("about.slogan", "string", setOf("config::text:腾讯公司 版权所有\nCopyright © 2011-%d Tencent. All Rights Reserved.")),
@@ -19,6 +25,7 @@ internal val MONET_RULES = listOf(
     MonetSemanticRule("chat.input.background", "drawable", setOf("usage:layout:RelativeLayout/LinearLayout/LinearLayout/LinearLayout/LinearLayout/LinearLayout/RelativeLayout/com.tencent.mm.view.MaxHeightScrollView/LinearLayout/LinearLayout:16842964:background")),
     MonetSemanticRule("chat.input.container", "layout", setOf("attribute:RelativeLayout/LinearLayout/RelativeLayout:16842997:layout_height:DIMENSION:literal:DIMENSION:12289")),
     MonetSemanticRule("chat.input.transparent-layer", "drawable", setOf("usage:layout:LinearLayout/FrameLayout/LinearLayout/LinearLayout/RelativeLayout/FrameLayout/com.tencent.mm.ui.widget.RoundedCornerFrameLayout/View:16842964:background")),
+    MonetSemanticRule("chat.quote.background", "drawable", setOf("usage:layout:RelativeLayout/LinearLayout/LinearLayout/LinearLayout/androidx.constraintlayout.widget.ConstraintLayout/RelativeLayout:16842964:background")),
     MonetSemanticRule("chat.red-envelope.incoming.normal", "drawable", setOf("usage:layout:LinearLayout/LinearLayout/LinearLayout:16842964:background", "usage:layout:LinearLayout/LinearLayout/RelativeLayout/FrameLayout:16842964:background")),
     MonetSemanticRule("chat.red-envelope.outgoing.normal", "drawable", setOf("usage:layout:LinearLayout/LinearLayout:16842964:background", "usage:layout:LinearLayout/RelativeLayout/FrameLayout:16842964:background")),
     MonetSemanticRule("chat.voice-to-text.background", "drawable", setOf("usage:layout:com.tencent.mm.ui.chatting.viewitems.ChattingItemTranslate:16842964:background")),
@@ -59,8 +66,10 @@ internal val MONET_RULES = listOf(
     MonetSemanticRule("theme.color.system-surface-container-dark--system-surface-container-dark.slot-05", "color", setOf("config::literal:COLOR_RGB8:4288327124")),
     MonetSemanticRule("theme.color.system-surface-container-dark--system-surface-container-dark.slot-06", "color", setOf("config::literal:COLOR_RGB8:4292953916")),
     MonetSemanticRule("theme.color.system-surface-container-dark--system-surface-container-dark.slot-09", "color", setOf("config::literal:COLOR_ARGB8:2147483648", "usage:layout:FrameLayout/LinearLayout/RelativeLayout/TextView:16842904:textColor")),
+    MonetSemanticRule("theme.color.system-surface-container-dark--system-surface-container-dark.slot-10", "color", setOf("context:layout:attribute:FrameLayout/LinearLayout/TextView:16842972:visibility:DEC:literal:DEC:0")),
     MonetSemanticRule("theme.color.system-surface-container-dark--system-surface-container-dark.slot-12", "color", setOf("usage:layout:RelativeLayout/androidx.coordinatorlayout.widget.CoordinatorLayout:16842964:background")),
     MonetSemanticRule("theme.color.system-surface-container-dark--system-surface-container-dark.slot-15", "color", setOf("config::literal:COLOR_RGB8:4278212427")),
+    MonetSemanticRule("theme.color.system-surface-container-dark--system-surface-container-dark.slot-16", "color", setOf("config::literal:COLOR_ARGB8:4283190348", "context:drawable:attribute:shape/corners:16843176:radius:DIMENSION:literal:DIMENSION:4097")),
     MonetSemanticRule("theme.color.system-surface-container-dark--system-surface-container-dark.slot-18", "color", setOf("config::literal:COLOR_RGB8:4279505439")),
     MonetSemanticRule("theme.color.system-surface-container-dark--system-surface-container-dark.slot-19", "color", setOf("config::literal:COLOR_RGB8:4280689210")),
     MonetSemanticRule("theme.color.system-surface-container-dark--system-surface-container-dark.slot-21", "color", setOf("config::literal:COLOR_ARGB8:234881023", "usage:layout:LinearLayout/FrameLayout:16842964:background")),
@@ -68,6 +77,7 @@ internal val MONET_RULES = listOf(
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-01", "color", setOf("config::literal:COLOR_ARGB8:1307438573")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-02", "color", setOf("usage:layout:com.tencent.mm.plugin.finder.view.FinderInterceptFrameLayout/LinearLayout/TextView:16842964:background")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-04", "color", setOf("usage:layout:FrameLayout/ScrollView/LinearLayout/com.tencent.mm.ui.widget.InputPanelFrameLayout/LinearLayout/com.tencent.mm.ui.widget.RoundedCornerFrameLayout:16842964:background")),
+    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-05", "color", setOf("context:layout:attribute:LinearLayout/RelativeLayout/LinearLayout/View:16842997:layout_height:DIMENSION:literal:DIMENSION:2049", "context:layout:attribute:RelativeLayout/ScrollView/LinearLayout/LinearLayout:16843002:layout_marginBottom:DIMENSION:literal:DIMENSION:4097", "usage:layout:RelativeLayout:16842964:background")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-07", "color", setOf("config::literal:COLOR_RGB8:4293783021", "usage:layout:LinearLayout/TextView:16842964:background")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-08", "color", setOf("config::literal:COLOR_ARGB8:4281874488")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-14", "color", setOf("usage:layout:merge/com.tencent.mm.plugin.finder.view.FinderCommentFooter/LinearLayout:16842964:background")),
@@ -75,6 +85,8 @@ internal val MONET_RULES = listOf(
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-17", "color", setOf("config::literal:COLOR_RGB8:4287935452")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-23", "color", setOf("config::literal:COLOR_RGB8:4280953387")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-25", "color", setOf("config::literal:COLOR_ARGB8:2130706432", "usage:owner:style:item:16843857:reference")),
+    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-26", "color", setOf("config::literal:COLOR_RGB8:4293783021", "context:layout:attribute:LinearLayout/LinearLayout/TextView:16843000:layout_marginTop:DIMENSION:literal:DIMENSION:4294967041"), setOf("string:Finder.FinderFeedSearchUI")),
+    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-27", "color", setOf("config::literal:COLOR_RGB8:4280492835"), setOf("string:getContext(...)", "string:onClick", "string:text")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-29", "color", setOf("usage:layout:FrameLayout/com.tencent.mm.ui.widget.RoundedCornerFrameLayout/LinearLayout/com.tencent.mm.ui.widget.RoundedCornerFrameLayout:16842964:background")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-30", "color", setOf("config::literal:COLOR_RGB8:4294967295", "usage:layout:LinearLayout/RelativeLayout:16842964:background")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-33", "color", setOf("config:-night:literal:COLOR_RGB8:4283256141")),
@@ -83,6 +95,7 @@ internal val MONET_RULES = listOf(
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-36", "color", setOf("config::literal:COLOR_ARGB8:4294111986")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-38", "color", setOf("usage:layout:LinearLayout/FrameLayout/ScrollView:16842964:background")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-40", "color", setOf("usage:drawable:selector/item/rotate/rotate/shape/solid:16843173:color")),
+    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-42", "color", setOf("config::literal:COLOR_RGB8:4294111986"), setOf("string:MicroMsg.AppBrandPageViewWC")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-43", "color", setOf("config::literal:COLOR_RGB8:4292927712", "incoming:color")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-45", "color", setOf("usage:layout:com.tencent.mm.plugin.sns.ui.item.improve.view.ImproveRoundLinearLayout/com.tencent.mm.plugin.sns.ui.item.improve.view.ImproveRoundLinearLayout/FrameLayout/com.tencent.mm.view.CropImageView:16843033:src")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-51", "color", setOf("config:-night:literal:COLOR_RGB8:4279308561", "config::literal:COLOR_RGB8:4294111986")),
@@ -109,6 +122,7 @@ internal val MONET_RULES = listOf(
     MonetSemanticRule("theme.color.system-surface-light--system-surface-light.slot-03", "color", setOf("usage:layout:com.tencent.mm.ui.widget.RoundCornerLinearLayout/com.tencent.neattextview.textview.view.NeatTextView:16842904:textColor")),
     MonetSemanticRule("theme.color.unknown--10ffffff.slot-01", "color", setOf("config::literal:COLOR_RGB8:4292532954")),
     MonetSemanticRule("theme.color.unknown--10ffffff.slot-04", "color", setOf("config:-night:literal:COLOR_RGB8:4280295456", "config::literal:COLOR_RGB8:4294967295")),
+    MonetSemanticRule("theme.color.unknown--10ffffff.slot-06", "color", setOf("context:layout:attribute:RelativeLayout/ListView:16842974:scrollbars:HEX:literal:HEX:512", "context:layout:attribute:RelativeLayout/com.tencent.mm.ui.widget.button.WeButton:16842972:visibility:DEC:literal:DEC:2", "context:layout:attribute:RelativeLayout/ListView:16842970:focusable:BOOLEAN:literal:BOOLEAN:0"), setOf("string:MicroMsg.FTS.FTSHotSearchUIC")),
     MonetSemanticRule("theme.color.unknown--10ffffff.slot-07", "color", setOf("config:-night:literal:COLOR_RGB8:4281348144", "config::reference:color:REFERENCE")),
     MonetSemanticRule("theme.color.unknown--10ffffff.slot-08", "color", setOf("config::literal:COLOR_RGB8:4294177779")),
     MonetSemanticRule("theme.color.unknown--10ffffff.slot-09", "color", setOf("config:-night:literal:COLOR_ARGB8:1291845632", "config::literal:COLOR_ARGB8:218103808")),
@@ -119,4 +133,5 @@ internal val MONET_RULES = listOf(
     MonetSemanticRule("theme.color.unknown--system-surface-container-dark.slot-03", "color", setOf("config:-night:literal:COLOR_RGB8:4280558628", "usage:drawable:layer-list/item/shape/solid:16843173:color")),
     MonetSemanticRule("theme.color.unknown--system-surface-container-dark.slot-04", "color", setOf("usage:layout:androidx.constraintlayout.widget.ConstraintLayout/com.tencent.mm.mj_publisher.finder.widgets.RoundFrameLayout:16842964:background")),
     MonetSemanticRule("theme.color.unknown--system-surface-container-dark.slot-05", "color", setOf("config::literal:COLOR_ARGB8:822083583")),
+    MonetSemanticRule("theme.color.unknown--system-surface-dark.slot-02", "color", setOf("config::literal:COLOR_RGB8:4294309365"), setOf("string:com/tencent/mm/plugin/downloader_app/ui/AppIconView")),
 )

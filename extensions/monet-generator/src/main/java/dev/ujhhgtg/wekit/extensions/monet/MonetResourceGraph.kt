@@ -2,9 +2,9 @@ package dev.ujhhgtg.wekit.extensions.monet
 
 import java.io.Serializable
 
-internal data class MonetResourceKey(val type: String, val name: String) : Serializable
+data class MonetResourceKey(val type: String, val name: String) : Serializable
 
-internal sealed interface MonetResourceValue : Serializable {
+sealed interface MonetResourceValue : Serializable {
     data class Literal(val valueType: String, val data: Long) : MonetResourceValue
     data class Reference(val resourceId: Int, val valueType: String = "REFERENCE") : MonetResourceValue
     data class File(val path: String) : MonetResourceValue
@@ -12,22 +12,22 @@ internal sealed interface MonetResourceValue : Serializable {
     data class Complex(val parentId: Int, val items: List<MonetComplexValue>) : MonetResourceValue
 }
 
-internal data class MonetComplexValue(val nameId: Int, val value: MonetResourceValue) : Serializable
-internal data class MonetConfiguredValue(val qualifiers: String, val value: MonetResourceValue) : Serializable
-internal data class MonetResourceNode(
+data class MonetComplexValue(val nameId: Int, val value: MonetResourceValue) : Serializable
+data class MonetConfiguredValue(val qualifiers: String, val value: MonetResourceValue) : Serializable
+data class MonetResourceNode(
     val id: Int,
     val key: MonetResourceKey,
     val values: List<MonetConfiguredValue>,
 ) : Serializable
 
-internal data class MonetXmlElement(
+data class MonetXmlElement(
     val name: String,
     val namespace: String? = null,
     val attributes: List<MonetXmlAttribute>,
     val children: List<MonetXmlElement>,
 ) : Serializable
 
-internal data class MonetXmlAttribute(
+data class MonetXmlAttribute(
     val namespace: String?,
     val name: String,
     val nameId: Int?,
@@ -35,7 +35,7 @@ internal data class MonetXmlAttribute(
     val value: MonetResourceValue,
 ) : Serializable
 
-internal class MonetResourceGraph(
+class MonetResourceGraph(
     nodes: List<MonetResourceNode>,
     private val xmlByOwner: Map<Int, List<MonetXmlElement>> = emptyMap(),
 ) : Serializable {

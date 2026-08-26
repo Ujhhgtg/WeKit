@@ -1,7 +1,49 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
-internal object MonetStructureMatcher {
-    fun resolveAll(graph: MonetResourceGraph): Map<String, MonetResourceNode> {
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetDexCandidate
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetDexEvidenceProvider
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetFieldAccess
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetMethodDexEvidence
+
+object MonetStructureMatcher {
+    val roleIds: Set<String> = MONET_RULES.mapTo(linkedSetOf(), MonetSemanticRule::id)
+
+    fun resolveAll(
+        graph: MonetResourceGraph,
+        dexProvider: MonetDexEvidenceProvider? = null,
+    ): Map<String, MonetResourceNode> {
+        val candidates = structuralCandidates(graph)
+        val anchored = candidates.filter { (rule, ids) -> rule.requiredDexEvidence.isNotEmpty() && ids.size > 1 }
+        val dexFiltered = if (anchored.isEmpty()) emptyMap() else {
+            val provider = requireNotNull(dexProvider) { "Dex evidence is required for ambiguous Monet roles" }
+            val neighborIds = anchored.keys.flatMap { rule ->
+                rule.requiredDexEvidence.mapNotNull { token ->
+                    token.removePrefix("neighbor:").takeIf { token.startsWith("neighbor:") }
+                }
+            }.associateWith { role -> candidates.entries.single { it.key.id == role }.value.single() }
+            val requestedIds = (anchored.values.flatten() + neighborIds.values).distinct().sorted()
+            val evidence = provider.query(requestedIds.map { id ->
+                val node = requireNotNull(graph.node(id))
+                MonetDexCandidate(id, node.key.type, node.key.name)
+            })
+            require(evidence.map { it.resourceId }.distinct().size == evidence.size)
+            val byId = evidence.associateBy { it.resourceId }
+            anchored.mapValues { (rule, ids) ->
+                ids.filterTo(linkedSetOf()) { id ->
+                    byId[id]?.methods.orEmpty().any { method ->
+                        method.tokens(neighborIds).containsAll(rule.requiredDexEvidence)
+                    }
+                }
+            }
+        }
+        return MONET_RULES.associate { rule ->
+            val candidateIds = dexFiltered[rule] ?: candidates.getValue(rule)
+            require(candidateIds.size == 1) { "${rule.id}: ${candidateIds.mapNotNull(graph::node).map { it.key }}" }
+            rule.id to requireNotNull(graph.node(candidateIds.single()))
+        }
+    }
+
+    internal fun structuralCandidates(graph: MonetResourceGraph): Map<MonetSemanticRule, Set<Int>> {
         val requiredByType = MONET_RULES.groupBy(MonetSemanticRule::type).mapValues { (_, rules) ->
             rules.flatMapTo(hashSetOf(), MonetSemanticRule::requiredEvidence)
         }
@@ -13,11 +55,19 @@ internal object MonetStructureMatcher {
                 }
             }
         }
-        return MONET_RULES.associate { rule ->
-            val candidateIds = rule.requiredEvidence.map { idsByToken[it].orEmpty() }
+        return MONET_RULES.associateWith { rule ->
+            rule.requiredEvidence.map { idsByToken[it].orEmpty() }
                 .reduce { result, ids -> result.intersect(ids) }
-            require(candidateIds.size == 1) { "${rule.id}: ${candidateIds.mapNotNull(graph::node).map { it.key }}" }
-            rule.id to requireNotNull(graph.node(candidateIds.single()))
+        }
+    }
+
+    private fun MonetMethodDexEvidence.tokens(neighborIds: Map<String, Int>): Set<String> = buildSet {
+        add("descriptor:$descriptor")
+        stableStrings.forEach { add("string:$it") }
+        invokedMethodShapes.forEach { add("invoke:$it") }
+        neighborIds.forEach { (role, id) -> if (id in neighboringResourceIds) add("neighbor:$role") }
+        fieldAccesses.forEach { field ->
+            add("field:${if (field.access == MonetFieldAccess.READ) "read" else "write"}:${field.descriptor}")
         }
     }
 

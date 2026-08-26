@@ -26,6 +26,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.extensions.MonetGeneratorPack
+import dev.ujhhgtg.wekit.extensions.MonetDexEvidenceCollector
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationEvent
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationListener
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequest
@@ -108,6 +109,7 @@ object MonetEngineModuleGenerator : ClickableFeature() {
                             versionCode = HostInfo.versionCode,
                             versionName = HostInfo.versionName,
                             sdkInt = Build.VERSION.SDK_INT,
+                            dexEvidenceProvider = MonetDexEvidenceCollector::collect,
                             payloadDir = resolvedPack.payloadDir,
                             workDir = workDir,
                             outputZip = resolvedOutputZip,

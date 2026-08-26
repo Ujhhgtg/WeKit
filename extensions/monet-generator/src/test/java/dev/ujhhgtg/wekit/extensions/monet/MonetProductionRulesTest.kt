@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
 
@@ -11,7 +12,13 @@ class MonetProductionRulesTest {
             File("/home/ujhhgtg/coding/wechat_$it.apk")
         } + File("/home/ujhhgtg/coding/wechat_8069_3020_play.apk")
         samples.forEach { apk ->
-            assertEquals(MONET_RULES.size, MonetStructureMatcher.resolveAll(MonetCorpus.graph(apk)).size, apk.name)
+            MonetStructureMatcher.structuralCandidates(MonetCorpus.graph(apk)).forEach { (rule, candidates) ->
+                if (rule.requiredDexEvidence.isEmpty()) {
+                    assertEquals(1, candidates.size, "${apk.name}: ${rule.id}")
+                } else {
+                    assertTrue(candidates.isNotEmpty(), "${apk.name}: ${rule.id}")
+                }
+            }
         }
     }
 }

@@ -12,7 +12,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
     override fun generate(request: MonetGenerationRequest, listener: MonetGenerationListener): MonetGenerationResult {
         listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.PREPARING))
         val graph = MonetApkResourceGraphLoader.load(listOf(File(request.sourceApkPath)), request.packageName)
-        val resolved = MonetStructureMatcher.resolveAll(graph)
+        val resolved = MonetStructureMatcher.resolveAll(graph, request.dexEvidenceProvider)
         val colors = MONET_RULES.filter { it.type == "color" }.mapNotNull { rule ->
             val node = resolved[rule.id] ?: return@mapNotNull null
             val target = paletteFor(rule.id, request)
