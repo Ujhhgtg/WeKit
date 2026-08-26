@@ -1,4 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.chat
+import dev.ujhhgtg.wekit.R
 
 import android.view.View
 import androidx.compose.foundation.layout.Column
@@ -31,7 +32,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.core.models.WeMessage
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
-import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -48,12 +49,11 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@Feature(
-    name = "群聊统计报告",
-    categories = ["聊天"],
-    description = "在群聊长按菜单添加 AI 摘要入口",
-)
 object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
+    override val technicalId = "群聊统计报告"
+    override val nameRes = R.string.feature_group_chat_summary_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_group_chat_summary_description
 
     private const val GROUP_SUMMARY_MENU_ID = 777029
 

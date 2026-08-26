@@ -683,12 +683,36 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     }
 
     /**
+     * 获取指定时间段内的消息
+     * @param convId 会话 ID
+     * @param startTime 起始时间戳 (ms)
+     * @param endTime 结束时间戳 (ms)
+     */
+    fun getMessagesInRange(convId: String, startTime: Long, endTime: Long): List<WeMessage> {
+        if (convId.isEmpty()) return emptyList()
+        val sql = """
+            SELECT * FROM message WHERE talker = ? AND createTime BETWEEN ? AND ?
+            ORDER BY createTime ASC
+        """.trimIndent()
+        return executeQuery(sql, arrayOf(convId, startTime, endTime)).map { row ->
+            WeMessage(
+                msgId = row.long("msgId"),
+                msgSvrId = row.long("msgSvrId"),
+                talker = row.str("talker"),
+                content = row.str("content"),
+                typeCode = row.int("type"),
+                createTime = row.long("createTime"),
+                isSend = row.int("isSend")
+            )
+        }
+    }
+
+    /**
      * 获取指定会话中特定发送者的【消息】
      * @param convId 会话 ID（单聊为对方 wxid，群聊为 xxx@chatroom）
      * @param senderId 发送者 ID（wxid）
      */
-    fun getMessagesFromSender(
-        convId: String,
+    fun getMessagesFromSender(        convId: String,
         senderId: String,
     ): List<WeMessage> {
         if (convId.isEmpty() || senderId.isEmpty()) return emptyList()
