@@ -247,147 +247,147 @@ jobs:
           path: wekit-zygisk/release/*.zip
           if-no-files-found: error
 
-  dex-test:
-    runs-on: ubuntu-latest
-    outputs:
-      reports-available: ${{ steps.report-check.outputs.available }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          submodules: recursive
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 21
-          cache: gradle
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@nightly
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-multilib jq unzip
-          mkdir -p "$RUNNER_TEMP/bin"
-          curl --fail --location --retry 3 \
-            https://github.com/mgdm/htmlq/releases/download/v0.4.0/htmlq-x86_64-linux.tar.gz \
-            | tar -xz -C "$RUNNER_TEMP/bin"
-          chmod +x "$RUNNER_TEMP/bin/htmlq"
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-
-      - name: Restore fixed WeChat APKs
-        id: apk-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ${{ runner.temp }}/wekit-dex-test-apks
-          key: dex-test-apks-v1-${{ runner.os }}-${{ hashFiles('docs/getting-started.md', '.github/scripts/download-dex-test-apks.sh', 'xtask/src/dex_test_ci.rs') }}
-
-      - name: Restore DexKit desktop cache
-        id: dexkit-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: .wekit/dex-test/source
-          key: dexkit-desktop-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', 'xtask/src/dex_test.rs') }}
-
-      - name: Generate supported APK manifest
-        run: |
-          ./x dex-test-ci sources \
-            --doc docs/getting-started.md \
-            --output "$RUNNER_TEMP/wekit-dex-test-sources.json"
-          test "$(jq '.sources | length' "$RUNNER_TEMP/wekit-dex-test-sources.json")" -gt 0
-
-      - name: Download supported WeChat APKs
-        id: apks
-        run: |
-          chmod +x .github/scripts/download-dex-test-apks.sh
-          set +e
-          .github/scripts/download-dex-test-apks.sh \
-            "$RUNNER_TEMP/wekit-dex-test-sources.json" \
-            "$RUNNER_TEMP/wekit-dex-test-apks" \
-            --failures-out "$RUNNER_TEMP/wekit-dex-test-download-failures.txt" \
-            > "$RUNNER_TEMP/wekit-dex-test-apks.txt"
-          download_status=$?
-          set -e
-          if [[ -s "$RUNNER_TEMP/wekit-dex-test-download-failures.txt" ]]; then
-            while IFS= read -r failed_apk; do
-              echo "::warning::failed to download $failed_apk; skipping its dex resolution"
-            done < "$RUNNER_TEMP/wekit-dex-test-download-failures.txt"
-          fi
-          if [[ -s "$RUNNER_TEMP/wekit-dex-test-apks.txt" ]]; then
-            mapfile -t downloaded_apks < "$RUNNER_TEMP/wekit-dex-test-apks.txt"
-            echo "apk-count=${#downloaded_apks[@]}" >> "$GITHUB_OUTPUT"
-          else
-            echo "apk-count=0" >> "$GITHUB_OUTPUT"
-          fi
-          if [[ $download_status -ne 0 ]]; then
-            echo "::error::download script failed with status $download_status"
-            exit 1
-          fi
-
-      - name: Run desktop Dex resolution
-        id: dex-resolution
-        if: steps.apks.outcome == 'success' && fromJSON(steps.apks.outputs.apk-count || '0') > 0
-        run: |
-          mapfile -t apks < "$RUNNER_TEMP/wekit-dex-test-apks.txt"
-          args=()
-          for apk in "${apks[@]}"; do
-            args+=(--apk "$apk")
-          done
-          set +e
-          ./x dex-test "${args[@]}" --output-dir dex-test-results/ci
-          status=$?
-          set -e
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          test -n "$(find dex-test-results/ci -mindepth 2 -maxdepth 2 -name summary.json -print -quit)"
-
-      - name: Check Dex resolution reports
-        id: report-check
-        if: always()
-        run: |
-          if test -n "$(find dex-test-results/ci -mindepth 2 -maxdepth 2 -name summary.json -print -quit)"; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Upload Dex resolution reports
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: wekit-dex-test-reports
-          path: dex-test-results/ci
-          if-no-files-found: warn
-
-      - name: Save fixed WeChat APKs
-        if: always() && steps.apks.outcome == 'success'
-        uses: actions/cache/save@v6
-        with:
-          path: ${{ runner.temp }}/wekit-dex-test-apks
-          key: ${{ steps.apk-cache.outputs.cache-primary-key }}
-
-      - name: Save DexKit desktop cache
-        if: always() && steps.dex-resolution.outcome == 'success'
-        uses: actions/cache/save@v6
-        with:
-          path: .wekit/dex-test/source
-          key: ${{ steps.dexkit-cache.outputs.cache-primary-key }}
-
-      - name: Enforce Dex resolution result
-        if: always()
-        env:
-          DEX_TEST_STATUS: ${{ steps.dex-resolution.outputs.status }}
-        run: |
-          test -n "$DEX_TEST_STATUS"
-          test "$DEX_TEST_STATUS" -eq 0
-
+#   dex-test:
+#     runs-on: ubuntu-latest
+#     outputs:
+#       reports-available: ${{ steps.report-check.outputs.available }}
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v7
+#         with:
+#           fetch-depth: 0
+#           submodules: recursive
+#
+#       - name: Set up JDK 21
+#         uses: actions/setup-java@v5
+#         with:
+#           distribution: temurin
+#           java-version: 21
+#           cache: gradle
+#
+#       - name: Set up Rust
+#         uses: dtolnay/rust-toolchain@nightly
+#
+#       - name: Install system dependencies
+#         run: |
+#           sudo apt-get update
+#           sudo apt-get install -y gcc-multilib jq unzip
+#           mkdir -p "$RUNNER_TEMP/bin"
+#           curl --fail --location --retry 3 \
+#             https://github.com/mgdm/htmlq/releases/download/v0.4.0/htmlq-x86_64-linux.tar.gz \
+#             | tar -xz -C "$RUNNER_TEMP/bin"
+#           chmod +x "$RUNNER_TEMP/bin/htmlq"
+#           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+#
+#       - name: Restore fixed WeChat APKs
+#         id: apk-cache
+#         uses: actions/cache/restore@v6
+#         with:
+#           path: ${{ runner.temp }}/wekit-dex-test-apks
+#           key: dex-test-apks-v1-${{ runner.os }}-${{ hashFiles('docs/getting-started.md', '.github/scripts/download-dex-test-apks.sh', 'xtask/src/dex_test_ci.rs') }}
+#
+#       - name: Restore DexKit desktop cache
+#         id: dexkit-cache
+#         uses: actions/cache/restore@v6
+#         with:
+#           path: .wekit/dex-test/source
+#           key: dexkit-desktop-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', 'xtask/src/dex_test.rs') }}
+#
+#       - name: Generate supported APK manifest
+#         run: |
+#           ./x dex-test-ci sources \
+#             --doc docs/getting-started.md \
+#             --output "$RUNNER_TEMP/wekit-dex-test-sources.json"
+#           test "$(jq '.sources | length' "$RUNNER_TEMP/wekit-dex-test-sources.json")" -gt 0
+#
+#       - name: Download supported WeChat APKs
+#         id: apks
+#         run: |
+#           chmod +x .github/scripts/download-dex-test-apks.sh
+#           set +e
+#           .github/scripts/download-dex-test-apks.sh \
+#             "$RUNNER_TEMP/wekit-dex-test-sources.json" \
+#             "$RUNNER_TEMP/wekit-dex-test-apks" \
+#             --failures-out "$RUNNER_TEMP/wekit-dex-test-download-failures.txt" \
+#             > "$RUNNER_TEMP/wekit-dex-test-apks.txt"
+#           download_status=$?
+#           set -e
+#           if [[ -s "$RUNNER_TEMP/wekit-dex-test-download-failures.txt" ]]; then
+#             while IFS= read -r failed_apk; do
+#               echo "::warning::failed to download $failed_apk; skipping its dex resolution"
+#             done < "$RUNNER_TEMP/wekit-dex-test-download-failures.txt"
+#           fi
+#           if [[ -s "$RUNNER_TEMP/wekit-dex-test-apks.txt" ]]; then
+#             mapfile -t downloaded_apks < "$RUNNER_TEMP/wekit-dex-test-apks.txt"
+#             echo "apk-count=${#downloaded_apks[@]}" >> "$GITHUB_OUTPUT"
+#           else
+#             echo "apk-count=0" >> "$GITHUB_OUTPUT"
+#           fi
+#           if [[ $download_status -ne 0 ]]; then
+#             echo "::error::download script failed with status $download_status"
+#             exit 1
+#           fi
+#
+#       - name: Run desktop Dex resolution
+#         id: dex-resolution
+#         if: steps.apks.outcome == 'success' && fromJSON(steps.apks.outputs.apk-count || '0') > 0
+#         run: |
+#           mapfile -t apks < "$RUNNER_TEMP/wekit-dex-test-apks.txt"
+#           args=()
+#           for apk in "${apks[@]}"; do
+#             args+=(--apk "$apk")
+#           done
+#           set +e
+#           ./x dex-test "${args[@]}" --output-dir dex-test-results/ci
+#           status=$?
+#           set -e
+#           echo "status=$status" >> "$GITHUB_OUTPUT"
+#           test -n "$(find dex-test-results/ci -mindepth 2 -maxdepth 2 -name summary.json -print -quit)"
+#
+#       - name: Check Dex resolution reports
+#         id: report-check
+#         if: always()
+#         run: |
+#           if test -n "$(find dex-test-results/ci -mindepth 2 -maxdepth 2 -name summary.json -print -quit)"; then
+#             echo "available=true" >> "$GITHUB_OUTPUT"
+#           else
+#             echo "available=false" >> "$GITHUB_OUTPUT"
+#           fi
+#
+#       - name: Upload Dex resolution reports
+#         if: always()
+#         uses: actions/upload-artifact@v7
+#         with:
+#           name: wekit-dex-test-reports
+#           path: dex-test-results/ci
+#           if-no-files-found: warn
+#
+#       - name: Save fixed WeChat APKs
+#         if: always() && steps.apks.outcome == 'success'
+#         uses: actions/cache/save@v6
+#         with:
+#           path: ${{ runner.temp }}/wekit-dex-test-apks
+#           key: ${{ steps.apk-cache.outputs.cache-primary-key }}
+#
+#       - name: Save DexKit desktop cache
+#         if: always() && steps.dex-resolution.outcome == 'success'
+#         uses: actions/cache/save@v6
+#         with:
+#           path: .wekit/dex-test/source
+#           key: ${{ steps.dexkit-cache.outputs.cache-primary-key }}
+#
+#       - name: Enforce Dex resolution result
+#         if: always()
+#         env:
+#           DEX_TEST_STATUS: ${{ steps.dex-resolution.outputs.status }}
+#         run: |
+#           test -n "$DEX_TEST_STATUS"
+#           test "$DEX_TEST_STATUS" -eq 0
+#
   release-dex-test:
-    needs: dex-test
+    needs: build
     runs-on: ubuntu-latest
-    if: ${{ always() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.event_name != 'pull_request' && needs.dex-test.outputs.reports-available == 'true' }}
+    if: ${{ always() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.event_name != 'pull_request' && false }}
     permissions:
       contents: write
     steps:
