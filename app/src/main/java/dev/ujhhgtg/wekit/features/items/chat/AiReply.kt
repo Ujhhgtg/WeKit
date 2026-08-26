@@ -1,12 +1,11 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import android.view.View
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,12 +34,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Auto_awesome
-import com.composables.icons.materialsymbols.outlined.Close
+import com.composables.icons.materialsymbols.outlined.Autorenew
+import com.composables.icons.materialsymbols.outlined.Build_circle
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.agent.model.LlmMessage
@@ -57,6 +58,8 @@ import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.Button
+import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
+import dev.ujhhgtg.wekit.ui.content.rememberMaterial3BlurBackdrop
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.VectorPathDrawable
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -127,7 +130,6 @@ object AiReply : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider
         }
     }
 
-    @OptIn(ExperimentalLayoutApi::class)
     @Composable
     private fun AiReplyDialog(
         messageContent: String,
@@ -137,130 +139,198 @@ object AiReply : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider
         var replies by remember { mutableStateOf<List<String>>(emptyList()) }
         var isLoading by remember { mutableStateOf(false) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
-        var contextCount by remember { mutableIntStateOf(29) }
-        var replyCount by remember { mutableIntStateOf(16) }
+        var contextCount by remember { mutableIntStateOf(30) }
+        var replyCount by remember { mutableIntStateOf(3) }
         var selectedTone by remember { mutableStateOf(tonePresets.first()) }
         var customPrompt by remember { mutableStateOf("") }
         val scope = rememberCoroutineScope()
 
+        val backdrop = rememberMaterial3BlurBackdrop(enabled = true)
+
         Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
-            modifier = Modifier.fillMaxWidth(0.92f),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f),
+            tonalElevation = 0.dp,
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .m3AppBarBlur(backdrop, blurRadius = 30f, blendAlpha = 0.85f, shape = RoundedCornerShape(20.dp)),
         ) {
             Column(
                 modifier = Modifier
                     .padding(20.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
+                // 顶部：大标题 + 设置齿轮 + 历史会话
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "智能回复",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = MaterialSymbols.Outlined.Build_circle,
+                            contentDescription = "设置",
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = MaterialSymbols.Outlined.Autorenew,
+                            contentDescription = "历史会话/上下文管理",
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // 触发的消息
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = messageContent,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(12.dp),
+                    )
+                }
+
+                HorizontalDivider(Modifier.padding(vertical = 14.dp))
+
+                // 参考上下文滑块
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "AI回复",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
+                        text = "参考上下文",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Medium,
                     )
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            imageVector = MaterialSymbols.Outlined.Close,
-                            contentDescription = "关闭",
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
                     Text(
-                        text = messageContent,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(12.dp),
+                        text = "${contextCount}条",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
-
-                HorizontalDivider(Modifier.padding(vertical = 12.dp))
-
-                Text(
-                    text = "参考上下文",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 Spacer(Modifier.height(4.dp))
                 SliderRow(
                     value = contextCount,
                     options = listOf(0, 10, 20, 30, 50, 100),
-                    suffix = "条",
                     enabled = !isLoading,
                     onValueChange = { contextCount = it },
                 )
-
-                Spacer(Modifier.height(8.dp))
-
                 Text(
-                    text = "生成备选数",
-                    style = MaterialTheme.typography.labelMedium,
+                    text = "读取最近聊天记录，数值越大记忆越长，消耗token越高",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
                 )
+
+                Spacer(Modifier.height(14.dp))
+
+                // 生成备选数滑块
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "生成备选数",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        text = "${replyCount}条",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 SliderRow(
                     value = replyCount,
                     options = listOf(1, 3, 5, 10, 16, 30),
-                    suffix = "条",
                     enabled = !isLoading,
                     onValueChange = { replyCount = it },
                 )
-
-                Spacer(Modifier.height(12.dp))
-
                 Text(
-                    text = "快捷选择语气预设",
-                    style = MaterialTheme.typography.labelMedium,
+                    text = "一次产出多少条回复，数量越多消耗接口额度",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
                 )
-                Spacer(Modifier.height(4.dp))
 
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    tonePresets.forEach { preset ->
-                        FilterChip(
-                            selected = preset == selectedTone,
-                            onClick = { if (!isLoading) selectedTone = preset },
-                            label = {
-                                Text(
-                                    preset.name,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            ),
-                        )
+                Spacer(Modifier.height(16.dp))
+
+                // 快捷语气预设
+                Text(
+                    text = "快捷语气预设",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                )
+                Spacer(Modifier.height(8.dp))
+
+                // 只在列表中取前4个作为快捷预设
+                val quickPresets = tonePresets.take(4)
+                quickPresets.chunked(2).forEach { row ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        row.forEach { preset ->
+                            val selected = preset == selectedTone
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(bottom = 8.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(
+                                        if (selected) MaterialTheme.colorScheme.primaryContainer
+                                        else MaterialTheme.colorScheme.surfaceContainerLow
+                                    )
+                                    .clickable(enabled = !isLoading) { selectedTone = preset }
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column {
+                                    Text(
+                                        text = preset.name,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Medium,
+                                        color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                                        else MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = preset.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                        // 如果单行只有1个，补空
+                        if (row.size == 1) {
+                            Spacer(Modifier.weight(1f))
+                        }
                     }
                 }
 
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = selectedTone.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Spacer(Modifier.height(4.dp))
 
-                Spacer(Modifier.height(12.dp))
-
+                // 自定义输入
                 OutlinedTextField(
                     value = customPrompt,
                     onValueChange = { customPrompt = it },
@@ -277,8 +347,31 @@ object AiReply : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider
                     maxLines = 3,
                 )
 
-                HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                HorizontalDivider(Modifier.padding(vertical = 14.dp))
 
+                // 回复内容块
+                Text(
+                    text = "待生成回复内容",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                )
+                Spacer(Modifier.height(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "这里会填入触发的聊天消息",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(12.dp),
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // 错误提示
                 errorMessage?.let { err ->
                     Surface(
                         shape = RoundedCornerShape(8.dp),
@@ -295,6 +388,7 @@ object AiReply : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider
                     Spacer(Modifier.height(12.dp))
                 }
 
+                // 加载中
                 if (isLoading) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -315,6 +409,7 @@ object AiReply : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider
                     }
                 }
 
+                // 回复列表
                 if (replies.isNotEmpty()) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -323,7 +418,7 @@ object AiReply : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider
                         replies.forEach { reply ->
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Row(
@@ -355,12 +450,13 @@ object AiReply : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider
                     Spacer(Modifier.height(12.dp))
                 }
 
+                // 按钮
                 if (replies.isNotEmpty()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        TextButton(
+                        Button(
                             onClick = {
                                 replies = emptyList()
                                 errorMessage = null
@@ -380,7 +476,7 @@ object AiReply : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider
                             enabled = !isLoading,
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("不满意？换一批")
+                            Text("✨不满意？换一批")
                         }
                         TextButton(
                             onClick = onDismiss,
@@ -409,7 +505,7 @@ object AiReply : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider
                         enabled = !isLoading,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("生成智能回复")
+                        Text("✨不满意？换一批")
                     }
                 }
             }
@@ -420,7 +516,6 @@ object AiReply : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider
     private fun SliderRow(
         value: Int,
         options: List<Int>,
-        suffix: String,
         enabled: Boolean,
         onValueChange: (Int) -> Unit,
     ) {
@@ -428,7 +523,7 @@ object AiReply : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             options.forEach { option ->
                 FilterChip(
@@ -437,8 +532,8 @@ object AiReply : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider
                     enabled = enabled,
                     label = {
                         Text(
-                            "$option$suffix",
-                            style = MaterialTheme.typography.labelSmall,
+                            "${option}条",
+                            style = MaterialTheme.typography.labelMedium,
                         )
                     },
                     colors = FilterChipDefaults.filterChipColors(
