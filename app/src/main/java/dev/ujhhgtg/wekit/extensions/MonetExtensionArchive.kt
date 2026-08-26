@@ -53,7 +53,6 @@ internal object MonetExtensionArchive {
 
     private const val METADATA_NAME = "extension.json"
     private const val PACK_MANIFEST_NAME = "manifest.json"
-    private const val PAYLOAD_DIR_NAME = "payload"
     private const val KIB = 1024L
     private const val MIB = 1024L * KIB
     private const val METADATA_MAX_BYTES = 16L * KIB
@@ -64,9 +63,6 @@ internal object MonetExtensionArchive {
 
     private val runtimeLimits = linkedMapOf(
         "classes.dex" to 8L * MIB,
-        "payload/customize.sh" to 64L * KIB,
-        "payload/update-binary" to 64L * KIB,
-        "payload/updater-script" to 64L * KIB,
     )
     private val requiredFiles = runtimeLimits.keys
     private val archiveLimits = runtimeLimits + (METADATA_NAME to METADATA_MAX_BYTES)
@@ -205,24 +201,11 @@ internal object MonetExtensionArchive {
         val canonical = directory.canonicalPath
         val rootEntries = directory.listFiles()
             ?: throw IllegalArgumentException("cannot list Monet extension directory: $directory")
-        val allowedRootNames = setOf(METADATA_NAME, PACK_MANIFEST_NAME, PAYLOAD_DIR_NAME, "classes.dex")
+        val allowedRootNames = setOf(METADATA_NAME, PACK_MANIFEST_NAME, "classes.dex")
         require(rootEntries.mapTo(mutableSetOf()) { it.name } in setOf(
             allowedRootNames,
             allowedRootNames - PACK_MANIFEST_NAME,
         )) { "Monet extension installed layout mismatch" }
-
-        val payloadDir = containedDestination(directory, canonical, PAYLOAD_DIR_NAME)
-        require(Files.isDirectory(payloadDir.toPath(), LinkOption.NOFOLLOW_LINKS)) {
-            "missing Monet extension payload directory"
-        }
-        val expectedPayloadNames = requiredFiles
-            .filter { it.startsWith("$PAYLOAD_DIR_NAME/") }
-            .mapTo(mutableSetOf()) { it.substringAfter('/') }
-        val payloadEntries = payloadDir.listFiles()
-            ?: throw IllegalArgumentException("cannot list Monet extension payload directory")
-        require(payloadEntries.mapTo(mutableSetOf()) { it.name } == expectedPayloadNames) {
-            "Monet extension payload layout mismatch"
-        }
 
         var aggregateBytes = requireFileWithinLimit(
             containedDestination(directory, canonical, METADATA_NAME),

@@ -1,12 +1,12 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetBubbleStyle
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationEvent
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationListener
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequest
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResult
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationStage
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGeneratorApiV1
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetBubbleStyle
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetTabStyle
 import java.io.File
 
@@ -95,7 +95,13 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
         }
         listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.SIGNING))
         listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.PACKAGING))
-        MonetModulePackager.pack(overlays, request.options, request.outputZip)
+        MonetModulePackager.pack(
+            overlays,
+            request.options,
+            request.versionName,
+            request.versionCode,
+            request.outputZip,
+        )
         return MonetGenerationResult(request.outputZip, colors.size, 0, overlays.size)
     }
 

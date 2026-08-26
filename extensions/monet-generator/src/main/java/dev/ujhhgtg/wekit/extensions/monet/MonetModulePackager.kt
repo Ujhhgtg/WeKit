@@ -9,8 +9,16 @@ import java.util.zip.ZipOutputStream
 internal object MonetModulePackager {
     data class Overlay(val file: File, val packageName: String)
 
-    fun pack(overlays: List<Overlay>, options: MonetGenerationOptions, output: File) {
+    fun pack(
+        overlays: List<Overlay>,
+        options: MonetGenerationOptions,
+        versionName: String,
+        versionCode: Long,
+        output: File,
+    ) {
         require(overlays.isNotEmpty())
+        require(versionName.isNotBlank() && '\n' !in versionName && '\r' !in versionName)
+        require(versionCode >= 0)
         output.parentFile?.mkdirs()
         val packages = overlays.joinToString(" ", transform = Overlay::packageName)
         val scope = if (options.userScope == MonetUserScope.ALL) "all" else "current"
@@ -18,15 +26,13 @@ internal object MonetModulePackager {
             fun add(name: String, text: String) = add(zip, name, text.toByteArray())
             add(
                 "module.prop",
-                "id=wekit_monet\nname=WeKit Monet\nversion=2\nversionCode=2\nauthor=Ujhhgtg\n" +
-                    "description=Runtime generated WeChat Monet overlays\n",
+                "id=wekit-monet-engine\nname=微信莫奈引擎 (WeKit)\n" +
+                    "version=$versionName ($versionCode)\nversionCode=$versionCode\nauthor=Ujhhgtg\n" +
+                    "description=为微信 $versionName 启用动态壁纸取色, 由 WeKit 在运行时生成\n",
             )
-            add(
-                "customize.sh",
-                "#!/system/bin/sh\nset_perm_recursive \"${'$'}MODPATH\" 0 0 0755 0644\n" +
-                    "set_perm \"${'$'}MODPATH/service.sh\" 0 0 0755\n" +
-                    "set_perm \"${'$'}MODPATH/boot-completed.sh\" 0 0 0755\n",
-            )
+            add("customize.sh", CUSTOMIZE_SCRIPT)
+            add("META-INF/com/google/android/update-binary", UPDATE_BINARY)
+            add("META-INF/com/google/android/updater-script", "#MAGISK\n")
             add(
                 "config.conf",
                 "USER_SCOPE=$scope\nCURRENT_USER=${options.currentUserId}\nOVERLAY_PACKAGES='$packages'\n",
@@ -66,6 +72,68 @@ restore_overlays() {
   done
   return ${'$'}result
 }
+"""
+
+    private const val CUSTOMIZE_SCRIPT = """# shellcheck disable=SC2034
+SKIPUNZIP=0
+
+ui_print " "
+ui_print '             _       __     __ __ _ __'
+ui_print '            | |     / /__  / //_/(_) /_'
+ui_print '            | | /| / / _ \/ ,<  / / __/'
+ui_print '            | |/ |/ /  __/ /| |/ / /_'
+ui_print '            |__/|__/\___/_/ |_/_/\__/'
+ui_print " "
+ui_print "       [WeKit] WeChat, now with superpowers"
+ui_print " "
+ui_print "已安装生成时选定的 S4 Monet 覆盖。"
+ui_print " "
+ui_print "温馨提示:"
+ui_print "- 若正在使用 KernelSU 或 APatch 及其衍生版, 请禁用「微信」的「App Profile」中的「卸载模块」选项。"
+ui_print "- 无须禁用「默认卸载模块」。"
+ui_print "- 若仍不生效, 请尝试给予「微信」Root 权限。"
+
+set_perm "${'$'}MODPATH/module.prop" 0 0 0644
+set_perm "${'$'}MODPATH/config.conf" 0 0 0644
+set_perm "${'$'}MODPATH/customize.sh" 0 0 0755
+set_perm "${'$'}MODPATH/common.sh" 0 0 0755
+set_perm "${'$'}MODPATH/service.sh" 0 0 0755
+set_perm "${'$'}MODPATH/boot-completed.sh" 0 0 0755
+[ -d "${'$'}MODPATH/system" ] && set_perm_recursive "${'$'}MODPATH/system" 0 0 0755 0644
+"""
+
+    private const val UPDATE_BINARY = """#!/sbin/sh
+
+#################
+# Initialization
+#################
+
+umask 022
+
+ui_print() { echo "${'$'}1"; }
+
+require_new_magisk() {
+  ui_print "********************************"
+  ui_print " Please install Magisk v20.4+! "
+  ui_print "********************************"
+  exit 1
+}
+
+#########################
+# Load util_functions.sh
+#########################
+
+OUTFD=${'$'}2
+ZIPFILE=${'$'}3
+
+mount /data 2>/dev/null
+
+[ -f /data/adb/magisk/util_functions.sh ] || require_new_magisk
+. /data/adb/magisk/util_functions.sh
+[ ${'$'}MAGISK_VER_CODE -lt 20400 ] && require_new_magisk
+
+install_module
+exit 0
 """
 
     private const val BOOT_SCRIPT = """#!/system/bin/sh
