@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.extensions
 import dev.ujhhgtg.wekit.extensions.monet.MonetApkResourceGraphLoader
 import dev.ujhhgtg.wekit.extensions.monet.MonetStructureMatcher
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty
 import org.luckypray.dexkit.DexKitBridge
@@ -20,24 +21,31 @@ class MonetMatcherCorpusTest {
         val samples = listOf("8065", "8067", "8069", "8074", "8076", "8077", "8069_3020_play").map {
             File("/home/ujhhgtg/coding/wechat_$it.apk")
         } + File("/home/ujhhgtg/Downloads/com.tencent.mm_8.0.72-3084_1arch_7dpi_24lang_2feat_17c51f333f2c0751329ed31584832928_apkmirror.com.apks")
+        val failures = mutableListOf<String>()
 
         samples.forEach { sample ->
             val extracted = if (sample.extension == "apks") extractResourceApks(sample) else null
             try {
                 val graph = MonetApkResourceGraphLoader.load(extracted?.second ?: listOf(sample), "com.tencent.mm")
                 DexKitBridge.create(dexBytes(sample).toTypedArray()).use { bridge ->
-                    val resolved = MonetStructureMatcher.resolveAll(graph) { candidates ->
+                    val audit = MonetStructureMatcher.audit(graph) { candidates ->
                         MonetDexEvidenceCollector.collect(bridge, candidates)
                     }
-                    assertEquals(MonetStructureMatcher.roleIds, resolved.keys, sample.name)
+                    assertEquals(MonetStructureMatcher.roleIds, audit.keys, sample.name)
+                    audit.filterValues { it.size != 1 }.forEach { (role, candidates) ->
+                        failures += "${sample.name}: $role -> ${candidates.map { it.key }}"
+                    }
                     EXPECTED_DEX_TARGETS.getValue(sample.name).forEach { (role, name) ->
-                        assertEquals(name, resolved.getValue(role).key.name, "${sample.name}: $role")
+                        audit.getValue(role).singleOrNull()?.let { resolved ->
+                            if (resolved.key.name != name) failures += "${sample.name}: $role expected $name, got ${resolved.key.name}"
+                        }
                     }
                 }
             } finally {
                 extracted?.first?.deleteRecursively()
             }
         }
+        assertTrue(failures.isEmpty(), failures.joinToString("\n"))
     }
 
     private fun extractResourceApks(apks: File): Pair<File, List<File>> {

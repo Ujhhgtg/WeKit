@@ -11,7 +11,25 @@ object MonetStructureMatcher {
     fun resolveAll(
         graph: MonetResourceGraph,
         dexProvider: MonetDexEvidenceProvider? = null,
-    ): Map<String, MonetResourceNode> {
+    ): Map<String, MonetResourceNode> = audit(graph, dexProvider).mapValues { (role, candidates) ->
+        require(candidates.size == 1) { "$role: ${candidates.map { it.key }}" }
+        candidates.single()
+    }
+
+    fun audit(
+        graph: MonetResourceGraph,
+        dexProvider: MonetDexEvidenceProvider? = null,
+    ): Map<String, List<MonetResourceNode>> {
+        val finalCandidates = resolveCandidateIds(graph, dexProvider)
+        return MONET_RULES.associate { rule ->
+            rule.id to finalCandidates.getValue(rule).mapNotNull(graph::node)
+        }
+    }
+
+    private fun resolveCandidateIds(
+        graph: MonetResourceGraph,
+        dexProvider: MonetDexEvidenceProvider?,
+    ): Map<MonetSemanticRule, Set<Int>> {
         val candidates = structuralCandidates(graph)
         val anchored = candidates.filter { (rule, ids) -> rule.requiredDexEvidence.isNotEmpty() && ids.size > 1 }
         val dexFiltered = if (anchored.isEmpty()) emptyMap() else {
@@ -36,11 +54,9 @@ object MonetStructureMatcher {
                 }
             }
         }
-        return MONET_RULES.associate { rule ->
-            val candidateIds = dexFiltered[rule] ?: candidates.getValue(rule)
-            require(candidateIds.size == 1) { "${rule.id}: ${candidateIds.mapNotNull(graph::node).map { it.key }}" }
-            rule.id to requireNotNull(graph.node(candidateIds.single()))
-        }
+        return disambiguate(MONET_RULES.associateWith { rule ->
+            dexFiltered[rule] ?: candidates.getValue(rule)
+        }, assignEquivalentGroups = true)
     }
 
     internal fun structuralCandidates(graph: MonetResourceGraph): Map<MonetSemanticRule, Set<Int>> {
@@ -55,9 +71,43 @@ object MonetStructureMatcher {
                 }
             }
         }
-        return MONET_RULES.associateWith { rule ->
+        return disambiguate(MONET_RULES.associateWith { rule ->
             rule.requiredEvidence.map { idsByToken[it].orEmpty() }
                 .reduce { result, ids -> result.intersect(ids) }
+        }, assignEquivalentGroups = false)
+    }
+
+    private fun disambiguate(
+        input: Map<MonetSemanticRule, Set<Int>>,
+        assignEquivalentGroups: Boolean,
+    ): Map<MonetSemanticRule, Set<Int>> {
+        val result = input.mapValuesTo(linkedMapOf()) { (_, ids) -> ids.toSet() }
+        while (true) {
+            var changed = false
+            val singletons = result.filterValues { it.size == 1 }.entries.groupBy { it.value.single() }
+            require(singletons.values.all { it.size == 1 }) {
+                "Monet roles resolve to the same resource: ${singletons.filterValues { it.size > 1 }.values.flatten().map { it.key.id }}"
+            }
+            val claimed = singletons.keys
+            result.entries.filter { it.value.size > 1 }.forEach { entry ->
+                val filtered = entry.value - claimed
+                if (filtered != entry.value) {
+                    entry.setValue(filtered)
+                    changed = true
+                }
+            }
+            if (assignEquivalentGroups) {
+                result.entries.filter { it.value.size > 1 }.groupBy { it.value }.forEach { (ids, entries) ->
+                    val semantic = entries.map { it.key.id.substringBefore(".slot-") }.distinct()
+                    if (entries.size == ids.size && semantic.size == 1 && semantic.single().startsWith("theme.color.")) {
+                        entries.sortedBy { it.key.id }.zip(ids.sorted()).forEach { (entry, id) ->
+                            entry.setValue(setOf(id))
+                        }
+                        changed = true
+                    }
+                }
+            }
+            if (!changed) return result
         }
     }
 
@@ -76,6 +126,14 @@ object MonetStructureMatcher {
     private fun calculateEvidence(node: MonetResourceNode, graph: MonetResourceGraph): Set<String> = HashSet<String>().apply {
         addAll(localEvidence(node, graph))
         addAll(usageEvidence(node, graph))
+        graph.outgoing(node.id).mapNotNull(graph::node).forEach { child ->
+            localEvidence(child, graph).forEach { add("child:${child.key.type}:$it") }
+        }
+        (-2..2).filter { it != 0 }.forEach { offset ->
+            graph.node(node.id + offset)?.takeIf { it.key.type == node.key.type }?.let { neighbor ->
+                localEvidence(neighbor, graph).forEach { add("adjacent:$offset:$it") }
+            }
+        }
         graph.incoming(node.id).mapNotNull(graph::node).forEach { owner ->
             localEvidence(owner, graph).forEach { add("context:${owner.key.type}:$it") }
             usageEvidence(owner, graph).forEach { add("context:${owner.key.type}:$it") }

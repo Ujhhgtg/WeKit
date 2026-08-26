@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -16,11 +15,7 @@ class MonetProductionRulesTest {
         )
         samples.forEach { (sample, graph) ->
             MonetStructureMatcher.structuralCandidates(graph).forEach { (rule, candidates) ->
-                if (rule.requiredDexEvidence.isEmpty()) {
-                    assertEquals(1, candidates.size, "$sample: ${rule.id}")
-                } else {
-                    assertTrue(candidates.isNotEmpty(), "$sample: ${rule.id}")
-                }
+                assertTrue(candidates.isNotEmpty(), "$sample: ${rule.id}")
             }
         }
     }
