@@ -262,5 +262,5 @@ object MonetApkResourceGraphLoader {
         val xml: MonetBinaryXml,
     )
 
-    private val MONET_XML_RESOURCE_TYPES = setOf("drawable", "layout")
+    private val MONET_XML_RESOURCE_TYPES = setOf("color", "drawable", "layout")
 }
