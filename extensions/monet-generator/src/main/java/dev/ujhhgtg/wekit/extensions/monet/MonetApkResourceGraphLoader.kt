@@ -4,11 +4,11 @@ import com.reandroid.apk.ApkModule
 import com.reandroid.arsc.model.ResourceEntry
 import com.reandroid.arsc.value.ValueItem
 import com.reandroid.arsc.value.ValueType
-import java.io.File
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.util.zip.InflaterInputStream
+import java.io.File
 import java.security.MessageDigest
+import java.util.zip.InflaterInputStream
 
 object MonetApkResourceGraphLoader {
     fun load(apkPaths: List<File>, targetPackage: String): MonetResourceGraph {
@@ -128,9 +128,9 @@ object MonetApkResourceGraphLoader {
         if (header.size < 26 || header[0].toInt() and 0xff != 0x89 || String(header, 1, 3) != "PNG") {
             return MonetFileStructure(format)
         }
-        fun intAt(offset: Int): Int = ((header[offset].toInt() and 0xff) shl 24) or
-            ((header[offset + 1].toInt() and 0xff) shl 16) or
-            ((header[offset + 2].toInt() and 0xff) shl 8) or
+        fun intAt(offset: Int): Int = header[offset].toInt() and 0xff shl 24 or
+            (header[offset + 1].toInt() and 0xff shl 16) or
+            (header[offset + 2].toInt() and 0xff shl 8) or
             (header[offset + 3].toInt() and 0xff)
         var offset = 8
         var firstDataLength: Int? = null

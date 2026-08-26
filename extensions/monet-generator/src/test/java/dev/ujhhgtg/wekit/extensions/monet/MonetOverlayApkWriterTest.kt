@@ -13,14 +13,14 @@ class MonetOverlayApkWriterTest {
         val resolved = MONET_RULES.mapIndexed { index, rule ->
             rule.id to MonetResourceNode(index + 1, MonetResourceKey(rule.type, "target_$index"), emptyList())
         }.toMap()
-        val palette = MonetS4Overlays.Palette(
+        val palette = MonetCustomOverlays.Palette(
             0x01060070, 0x0106009b, 0x0106003a, 0x01060041,
             0x0106006c, 0x01060097, 0x01060060, 0x0106008b,
         )
-        val drawables = MonetS4Overlays.baseVisuals(resolved, palette) +
-            MonetS4Overlays.bubbles(resolved, dev.ujhhgtg.wekit.extensions.monet.api.MonetBubbleStyle.PRO, palette) +
-            MonetS4Overlays.corners(resolved, palette) +
-            MonetS4Overlays.themedIcon(resolved, palette)
+        val drawables = MonetCustomOverlays.baseVisuals(resolved, palette) +
+            MonetCustomOverlays.bubbles(resolved, dev.ujhhgtg.wekit.extensions.monet.api.MonetBubbleStyle.PRO, palette) +
+            MonetCustomOverlays.corners(resolved, palette) +
+            MonetCustomOverlays.themedIcon(resolved, palette)
         val output = File(createTempDirectory("monet-s4-writer").toFile(), "overlay.apk")
         MonetOverlayApkWriter.createReferenced(
             output,

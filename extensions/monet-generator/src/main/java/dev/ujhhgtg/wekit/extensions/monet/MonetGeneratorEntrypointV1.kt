@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
+import android.annotation.SuppressLint
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetBubbleStyle
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationEvent
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationListener
@@ -51,9 +52,9 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             "MonetWeChat.apk",
             "monet.com.tencent.mm",
             colors,
-            MonetS4Overlays.baseVisuals(resolved, palette),
+            MonetCustomOverlays.baseVisuals(resolved, palette),
         )
-        MonetS4Overlays.bubbles(resolved, request.options.bubbleStyle, palette).takeIf { it.isNotEmpty() }?.let {
+        MonetCustomOverlays.bubbles(resolved, request.options.bubbleStyle, palette).takeIf { it.isNotEmpty() }?.let {
             val style = if (request.options.bubbleStyle == MonetBubbleStyle.PRO) "bubblepro" else "modernbubble"
             build("MonetWeChatBubble.apk", "monet.$style.com.tencent.mm", drawables = it)
         }
@@ -61,14 +62,14 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             build(
                 "MonetWeChatMultiSceneCorners.apk",
                 "monet.multiscenecorners.com.tencent.mm",
-                drawables = MonetS4Overlays.corners(resolved, palette),
+                drawables = MonetCustomOverlays.corners(resolved, palette),
             )
         }
         if (request.sdkInt >= 33) {
             build(
                 "MonetWeChatThemedIcon.apk",
                 "monet.themedicon.com.tencent.mm",
-                drawables = MonetS4Overlays.themedIcon(resolved, palette),
+                drawables = MonetCustomOverlays.themedIcon(resolved, palette),
             )
         }
         val tabName = requireNotNull(resolved["main.tab.background"]).key.name
@@ -105,7 +106,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
         return MonetGenerationResult(request.outputZip, colors.size, 0, overlays.size)
     }
 
-    private fun overlayPalette(request: MonetGenerationRequest) = MonetS4Overlays.Palette(
+    private fun overlayPalette(request: MonetGenerationRequest) = MonetCustomOverlays.Palette(
         incomingLight = frameworkColor(request, "system_surface_container_light", "system_neutral2_50", "system_surface_light"),
         incomingNight = frameworkColor(request, "system_surface_container_dark", "system_neutral2_800", "system_surface_dark"),
         outgoingLight = frameworkColor(request, "system_accent1_100", "system_accent1_200"),
@@ -116,12 +117,13 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
         primaryNight = frameworkColor(request, "system_accent1_800", "system_accent1_700"),
     )
 
+    @SuppressLint("DiscouragedApi")
     private fun frameworkColor(request: MonetGenerationRequest, vararg names: String): Int =
         names.firstNotNullOfOrNull { name ->
             request.resources.getIdentifier(name, "color", "android").takeIf { it != 0 }
         } ?: error("framework Monet color unavailable: ${names.joinToString()}")
 
-    private fun Int.withAlpha(alpha: Int): Int = (this and 0x00ffffff) or (alpha shl 24)
+    private fun Int.withAlpha(alpha: Int): Int = this and 0x00ffffff or (alpha shl 24)
 
     private fun paletteFor(id: String, request: MonetGenerationRequest): Pair<Int, Int?> {
         val semantic = id.removePrefix("theme.color.").substringBefore(".slot-")

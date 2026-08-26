@@ -6,7 +6,7 @@ import dev.ujhhgtg.wekit.extensions.monet.MonetOverlayApkWriter.XmlNode
 import dev.ujhhgtg.wekit.extensions.monet.MonetOverlayApkWriter.XmlValue
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetBubbleStyle
 
-internal object MonetS4Overlays {
+internal object MonetCustomOverlays {
     data class Palette(
         val incomingLight: Int,
         val incomingNight: Int,

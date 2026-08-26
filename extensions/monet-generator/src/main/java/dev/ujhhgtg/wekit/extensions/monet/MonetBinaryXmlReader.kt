@@ -11,7 +11,7 @@ internal data class MonetBinaryXml(
 internal object MonetBinaryXmlReader {
     fun read(document: ResXmlDocument): MonetBinaryXml {
         val referenceIds = linkedSetOf<Int>()
-        val root = document.getElements().asSequence().firstOrNull()
+        val root = document.elements.asSequence().firstOrNull()
             ?: error("binary XML document has no root element")
         return MonetBinaryXml(root.toMonetElement(referenceIds))
     }

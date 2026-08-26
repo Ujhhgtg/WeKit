@@ -38,7 +38,7 @@ internal object MonetModulePackager {
                 "USER_SCOPE=$scope\nCURRENT_USER=${options.currentUserId}\nOVERLAY_PACKAGES='$packages'\n",
             )
             add("common.sh", COMMON_SCRIPT)
-            add("service.sh", "#!/system/bin/sh\nMODDIR=${'$'}{0%/*}\nsh \"${'$'}MODDIR/boot-completed.sh\"\n")
+            add("service.sh", $$"#!/system/bin/sh\nMODDIR=${0%/*}\nsh \"$MODDIR/boot-completed.sh\"\n")
             add("boot-completed.sh", BOOT_SCRIPT)
             overlays.forEach { overlay ->
                 add(zip, "system/product/overlay/${overlay.file.name}", overlay.file.readBytes())
@@ -52,29 +52,29 @@ internal object MonetModulePackager {
         zip.closeEntry()
     }
 
-    private const val COMMON_SCRIPT = """#!/system/bin/sh
+    private const val COMMON_SCRIPT = $$"""#!/system/bin/sh
 restore_overlays() {
-  config="${'$'}MODDIR/config.conf"
-  [ -f "${'$'}config" ] || return 1
-  . "${'$'}config"
-  if [ "${'$'}USER_SCOPE" = all ]; then
-    users="${'$'}(cmd user list 2>/dev/null | sed -n 's/.*UserInfo{\([0-9][0-9]*\):.*/\1/p')"
+  config="$MODDIR/config.conf"
+  [ -f "$config" ] || return 1
+  . "$config"
+  if [ "$USER_SCOPE" = all ]; then
+    users="$(cmd user list 2>/dev/null | sed -n 's/.*UserInfo{\([0-9][0-9]*\):.*/\1/p')"
   else
-    users="${'$'}CURRENT_USER"
+    users="$CURRENT_USER"
   fi
   result=0
-  for user in ${'$'}users; do
-    for package in ${'$'}OVERLAY_PACKAGES; do
-      cmd overlay enable --user "${'$'}user" "${'$'}package" >/dev/null 2>&1 || result=1
-      cmd overlay set-priority --user "${'$'}user" "${'$'}package" highest >/dev/null 2>&1 || result=1
+  for user in $users; do
+    for package in $OVERLAY_PACKAGES; do
+      cmd overlay enable --user "$user" "$package" >/dev/null 2>&1 || result=1
+      cmd overlay set-priority --user "$user" "$package" highest >/dev/null 2>&1 || result=1
     done
-    am force-stop --user "${'$'}user" com.tencent.mm >/dev/null 2>&1 || result=1
+    am force-stop --user "$user" com.tencent.mm >/dev/null 2>&1 || result=1
   done
-  return ${'$'}result
+  return $result
 }
 """
 
-    private const val CUSTOMIZE_SCRIPT = """# shellcheck disable=SC2034
+    private const val CUSTOMIZE_SCRIPT = $$"""# shellcheck disable=SC2034
 SKIPUNZIP=0
 
 ui_print " "
@@ -86,23 +86,23 @@ ui_print '            |__/|__/\___/_/ |_/_/\__/'
 ui_print " "
 ui_print "       [WeKit] WeChat, now with superpowers"
 ui_print " "
-ui_print "已安装生成时选定的 S4 Monet 覆盖。"
+ui_print "已安装生成时选定的莫奈覆盖。"
 ui_print " "
 ui_print "温馨提示:"
 ui_print "- 若正在使用 KernelSU 或 APatch 及其衍生版, 请禁用「微信」的「App Profile」中的「卸载模块」选项。"
 ui_print "- 无须禁用「默认卸载模块」。"
 ui_print "- 若仍不生效, 请尝试给予「微信」Root 权限。"
 
-set_perm "${'$'}MODPATH/module.prop" 0 0 0644
-set_perm "${'$'}MODPATH/config.conf" 0 0 0644
-set_perm "${'$'}MODPATH/customize.sh" 0 0 0755
-set_perm "${'$'}MODPATH/common.sh" 0 0 0755
-set_perm "${'$'}MODPATH/service.sh" 0 0 0755
-set_perm "${'$'}MODPATH/boot-completed.sh" 0 0 0755
-[ -d "${'$'}MODPATH/system" ] && set_perm_recursive "${'$'}MODPATH/system" 0 0 0755 0644
+set_perm "$MODPATH/module.prop" 0 0 0644
+set_perm "$MODPATH/config.conf" 0 0 0644
+set_perm "$MODPATH/customize.sh" 0 0 0755
+set_perm "$MODPATH/common.sh" 0 0 0755
+set_perm "$MODPATH/service.sh" 0 0 0755
+set_perm "$MODPATH/boot-completed.sh" 0 0 0755
+[ -d "$MODPATH/system" ] && set_perm_recursive "$MODPATH/system" 0 0 0755 0644
 """
 
-    private const val UPDATE_BINARY = """#!/sbin/sh
+    private const val UPDATE_BINARY = $$"""#!/sbin/sh
 
 #################
 # Initialization
@@ -110,7 +110,7 @@ set_perm "${'$'}MODPATH/boot-completed.sh" 0 0 0755
 
 umask 022
 
-ui_print() { echo "${'$'}1"; }
+ui_print() { echo "$1"; }
 
 require_new_magisk() {
   ui_print "********************************"
@@ -123,25 +123,25 @@ require_new_magisk() {
 # Load util_functions.sh
 #########################
 
-OUTFD=${'$'}2
-ZIPFILE=${'$'}3
+OUTFD=$2
+ZIPFILE=$3
 
 mount /data 2>/dev/null
 
 [ -f /data/adb/magisk/util_functions.sh ] || require_new_magisk
 . /data/adb/magisk/util_functions.sh
-[ ${'$'}MAGISK_VER_CODE -lt 20400 ] && require_new_magisk
+[ $MAGISK_VER_CODE -lt 20400 ] && require_new_magisk
 
 install_module
 exit 0
 """
 
-    private const val BOOT_SCRIPT = """#!/system/bin/sh
-MODDIR=${'$'}{0%/*}
+    private const val BOOT_SCRIPT = $$"""#!/system/bin/sh
+MODDIR=${0%/*}
 LOCK=/dev/.wekit-monet-overlay-restore
-mkdir "${'$'}LOCK" 2>/dev/null || exit 0
-trap 'rmdir "${'$'}LOCK"' EXIT
-. "${'$'}MODDIR/common.sh"
+mkdir "$LOCK" 2>/dev/null || exit 0
+trap 'rmdir "$LOCK"' EXIT
+. "$MODDIR/common.sh"
 restore_overlays
 """
 }

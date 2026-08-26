@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
 import com.reandroid.apk.ApkModule
+import com.reandroid.archive.BlockInputSource
 import com.reandroid.arsc.chunk.PackageBlock
 import com.reandroid.arsc.chunk.TableBlock
 import com.reandroid.arsc.chunk.xml.AndroidManifestBlock
@@ -9,7 +10,6 @@ import com.reandroid.arsc.chunk.xml.ResXmlElement
 import com.reandroid.arsc.coder.ComplexUtil
 import com.reandroid.arsc.coder.UnitDimension
 import com.reandroid.arsc.value.ValueType
-import com.reandroid.archive.BlockInputSource
 import java.io.File
 
 internal object MonetOverlayApkWriter {
@@ -74,7 +74,7 @@ internal object MonetOverlayApkWriter {
                 .setValueAsString("com.tencent.mm")
             overlay.createAndroidAttribute("isStatic", ATTR_IS_STATIC).setValueAsBoolean(true)
             overlay.createAndroidAttribute("priority", ATTR_PRIORITY).apply {
-                valueType = com.reandroid.arsc.value.ValueType.DEC
+                valueType = ValueType.DEC
                 data = 1
             }
         }
@@ -85,7 +85,7 @@ internal object MonetOverlayApkWriter {
         colors.forEach { (name, argb) ->
             val entry = pkg.getOrCreate("", "color", name)
                 ?: error("could not create color $name")
-            entry.setValueAsRaw(com.reandroid.arsc.value.ValueType.COLOR_ARGB8, argb)
+            entry.setValueAsRaw(ValueType.COLOR_ARGB8, argb)
         }
         requireNotNull(pkg.getResource("color", colors.keys.first()))
         table.refreshFull()
@@ -114,7 +114,7 @@ internal object MonetOverlayApkWriter {
             overlay.createAndroidAttribute("targetPackage", ATTR_TARGET_PACKAGE).setValueAsString("com.tencent.mm")
             overlay.createAndroidAttribute("isStatic", ATTR_IS_STATIC).setValueAsBoolean(true)
             overlay.createAndroidAttribute("priority", ATTR_PRIORITY).apply {
-                valueType = com.reandroid.arsc.value.ValueType.DEC
+                valueType = ValueType.DEC
                 data = 1
             }
         }
@@ -159,7 +159,7 @@ internal object MonetOverlayApkWriter {
     ) {
         val path = "res/$type${qualifiers}/${name}.xml"
         pkg.getOrCreate(qualifiers, type, name)!!.setValueAsString(path)
-        val document = ResXmlDocument().apply { setPackageBlock(pkg) }
+        val document = ResXmlDocument().apply { packageBlock = pkg }
         document.newElement(node.name).write(node, pkg)
         document.refreshFull()
         apk.add(BlockInputSource(path, document))
