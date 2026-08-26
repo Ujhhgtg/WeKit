@@ -3782,4 +3782,8 @@
     <string name="settings_page_transition_animation_title">Page transition animation</string>
     <string name="settings_page_transition_animation_aosp">AOSP</string>
     <string name="settings_page_transition_animation_miuix">Miuix</string>
+    <string name="feature_ai_reply_name">AI Reply</string>
+    <string name="feature_ai_reply_description">Add AI reply entry to message long-press menu</string>
+    <string name="feature_group_chat_summary_name">Group Chat Summary</string>
+    <string name="feature_group_chat_summary_description">Add AI summary entry to group chat long-press menu</string>
 </resources>

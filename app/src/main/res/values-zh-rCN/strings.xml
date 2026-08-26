@@ -3810,4 +3810,8 @@
     <string name="settings_page_transition_animation_title">页面过渡动画</string>
     <string name="settings_page_transition_animation_aosp">AOSP</string>
     <string name="settings_page_transition_animation_miuix">Miuix</string>
+    <string name="feature_ai_reply_name">AI 回复</string>
+    <string name="feature_ai_reply_description">在消息长按菜单添加 AI 回复入口</string>
+    <string name="feature_group_chat_summary_name">群聊摘要</string>
+    <string name="feature_group_chat_summary_description">在群聊长按菜单添加 AI 摘要入口</string>
 </resources>
