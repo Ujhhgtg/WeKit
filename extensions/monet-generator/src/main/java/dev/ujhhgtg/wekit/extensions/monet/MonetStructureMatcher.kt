@@ -1,19 +1,46 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
 internal object MonetStructureMatcher {
-    fun resolveAll(graph: MonetResourceGraph): Map<String, MonetResourceNode> = MONET_RULES.associate { rule ->
-        val candidates = graph.nodes(rule.type).filter { node ->
-            evidence(node, graph).containsAll(rule.requiredEvidence)
+    fun resolveAll(graph: MonetResourceGraph): Map<String, MonetResourceNode> {
+        val requiredByType = MONET_RULES.groupBy(MonetSemanticRule::type).mapValues { (_, rules) ->
+            rules.flatMapTo(hashSetOf(), MonetSemanticRule::requiredEvidence)
         }
-        require(candidates.size == 1) { "${rule.id}: ${candidates.map { it.key }}" }
-        rule.id to candidates.single()
+        val idsByToken = HashMap<String, MutableSet<Int>>()
+        requiredByType.forEach { (type, required) ->
+            graph.nodes(type).forEach { node ->
+                calculateEvidence(node, graph).forEach { token ->
+                    if (token in required) idsByToken.getOrPut(token, ::linkedSetOf).add(node.id)
+                }
+            }
+        }
+        return MONET_RULES.associate { rule ->
+            val candidateIds = rule.requiredEvidence.map { idsByToken[it].orEmpty() }
+                .reduce { result, ids -> result.intersect(ids) }
+            require(candidateIds.size == 1) { "${rule.id}: ${candidateIds.mapNotNull(graph::node).map { it.key }}" }
+            rule.id to requireNotNull(graph.node(candidateIds.single()))
+        }
     }
 
-    fun evidence(node: MonetResourceNode, graph: MonetResourceGraph): Set<String> = buildSet {
+    fun evidence(node: MonetResourceNode, graph: MonetResourceGraph): Set<String> = calculateEvidence(node, graph)
+
+    private fun calculateEvidence(node: MonetResourceNode, graph: MonetResourceGraph): Set<String> = HashSet<String>().apply {
+        addAll(localEvidence(node, graph))
+        addAll(usageEvidence(node, graph))
+        graph.incoming(node.id).mapNotNull(graph::node).forEach { owner ->
+            localEvidence(owner, graph).forEach { add("context:${owner.key.type}:$it") }
+            usageEvidence(owner, graph).forEach { add("context:${owner.key.type}:$it") }
+        }
+    }
+
+    private fun localEvidence(node: MonetResourceNode, graph: MonetResourceGraph): Set<String> = HashSet<String>().apply {
         node.values.forEach { configured ->
             add("config:${configured.qualifiers}:${configured.value.evidence(graph)}")
         }
         graph.xmlTrees(node.id).forEach { it.collectEvidence("", graph, this) }
+        graph.outgoing(node.id).mapNotNull(graph::node).forEach { add("outgoing:${it.key.type}") }
+    }
+
+    private fun usageEvidence(node: MonetResourceNode, graph: MonetResourceGraph): Set<String> = HashSet<String>().apply {
         graph.incoming(node.id).mapNotNull(graph::node).forEach { owner ->
             add("incoming:${owner.key.type}")
             owner.values.forEach { configured ->
@@ -23,7 +50,6 @@ internal object MonetStructureMatcher {
                 tree.collectUsage(node.id, "", owner.key.type, graph, this)
             }
         }
-        graph.outgoing(node.id).mapNotNull(graph::node).forEach { add("outgoing:${it.key.type}") }
     }
 
     fun candidates(
