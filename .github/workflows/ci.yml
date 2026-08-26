@@ -122,16 +122,29 @@ jobs:
       - name: Decode keystore
         if: github.event_name != 'pull_request'
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/wekit-keystore.jks
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/wekit-keystore.jks
+            echo "Keystore decoded"
+          else
+            echo "No KEYSTORE_BASE64 secret, generating ephemeral keystore"
+            keytool -genkeypair -v -keystore $RUNNER_TEMP/wekit-keystore.jks \
+              -storepass wekitpass -keypass wekitpass -alias wekit \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=WeKit CI,O=WeKit,C=CN"
+            echo "WEKIT_KEYSTORE_FILE=$RUNNER_TEMP/wekit-keystore.jks" >> $GITHUB_ENV
+            echo "WEKIT_KEYSTORE_PASSWORD=wekitpass" >> $GITHUB_ENV
+            echo "WEKIT_KEY_ALIAS=wekit" >> $GITHUB_ENV
+            echo "WEKIT_KEY_PASSWORD=wekitpass" >> $GITHUB_ENV
+          fi
 
       - name: Build Release (Signed)
         if: github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WEKIT_KEYSTORE_FILE: ${{ runner.temp }}/wekit-keystore.jks
-          WEKIT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          WEKIT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          WEKIT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          WEKIT_KEYSTORE_FILE: ${{ env.WEKIT_KEYSTORE_FILE || format('{0}/wekit-keystore.jks', runner.temp) }}
+          WEKIT_KEYSTORE_PASSWORD: ${{ env.WEKIT_KEYSTORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          WEKIT_KEY_ALIAS: ${{ env.WEKIT_KEY_ALIAS || secrets.KEY_ALIAS }}
+          WEKIT_KEY_PASSWORD: ${{ env.WEKIT_KEY_PASSWORD || secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --warning-mode all --stacktrace
 
       - name: Build Release (Unsigned)
