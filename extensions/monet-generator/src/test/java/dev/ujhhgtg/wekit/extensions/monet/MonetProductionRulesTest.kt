@@ -8,15 +8,18 @@ import java.io.File
 class MonetProductionRulesTest {
     @Test
     fun `all production rules resolve uniquely across the APK corpus`() {
-        val samples = listOf("8065", "8067", "8069", "8074", "8076", "8077").map {
-            File("/home/ujhhgtg/coding/wechat_$it.apk")
-        } + File("/home/ujhhgtg/coding/wechat_8069_3020_play.apk")
-        samples.forEach { apk ->
-            MonetStructureMatcher.structuralCandidates(MonetCorpus.graph(apk)).forEach { (rule, candidates) ->
+        val samples = listOf("8065", "8067", "8069", "8074", "8076", "8077").associateWith {
+            MonetCorpus.graph(File("/home/ujhhgtg/coding/wechat_$it.apk"))
+        } + mapOf(
+            "8069_3020_play" to MonetCorpus.graph(File("/home/ujhhgtg/coding/wechat_8069_3020_play.apk")),
+            "play3084" to MonetCorpus.graph("play3084", emptyList()),
+        )
+        samples.forEach { (sample, graph) ->
+            MonetStructureMatcher.structuralCandidates(graph).forEach { (rule, candidates) ->
                 if (rule.requiredDexEvidence.isEmpty()) {
-                    assertEquals(1, candidates.size, "${apk.name}: ${rule.id}")
+                    assertEquals(1, candidates.size, "$sample: ${rule.id}")
                 } else {
-                    assertTrue(candidates.isNotEmpty(), "${apk.name}: ${rule.id}")
+                    assertTrue(candidates.isNotEmpty(), "$sample: ${rule.id}")
                 }
             }
         }
