@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.beautify
 
 import android.app.Activity
 import android.os.Build
+import android.os.Process
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,8 +10,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,8 +32,13 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.extensions.MonetGeneratorPack
+import dev.ujhhgtg.wekit.extensions.MonetDexEvidenceCollector
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationEvent
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationListener
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationOptions
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetBubbleStyle
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetTabStyle
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetUserScope
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequest
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResult
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationStage
@@ -63,7 +74,7 @@ object MonetEngineModuleGenerator : ClickableFeature() {
             ExtensionPackDialogs.requireInstall(activity, MonetGeneratorPack)
             return
         }
-        showGeneratorDialog(activity)
+        showOptionsDialog(activity)
     }
 
     private fun showUnsupportedDialog(activity: Activity) {
@@ -78,7 +89,56 @@ object MonetEngineModuleGenerator : ClickableFeature() {
         }
     }
 
-    private fun showGeneratorDialog(activity: Activity) {
+    private fun showOptionsDialog(activity: Activity) {
+        showComposeDialog(activity) {
+            var bubbleStyle by remember { mutableStateOf(MonetBubbleStyle.MODERN) }
+            var corners by remember { mutableStateOf(true) }
+            var tabStyle by remember { mutableStateOf(MonetTabStyle.SOLID) }
+            var userScope by remember { mutableStateOf(MonetUserScope.CURRENT) }
+            AlertDialogContent(
+                title = { Text(stringResource(R.string.monet_options_title)) },
+                text = {
+                    Column {
+                        Text(stringResource(R.string.monet_bubble_style), style = MaterialTheme.typography.titleSmall)
+                        RadioOption(stringResource(R.string.monet_bubble_modern), bubbleStyle == MonetBubbleStyle.MODERN) { bubbleStyle = MonetBubbleStyle.MODERN }
+                        RadioOption(stringResource(R.string.monet_bubble_classic), bubbleStyle == MonetBubbleStyle.CLASSIC) { bubbleStyle = MonetBubbleStyle.CLASSIC }
+                        RadioOption(stringResource(R.string.monet_bubble_pro), bubbleStyle == MonetBubbleStyle.PRO) { bubbleStyle = MonetBubbleStyle.PRO }
+                        Row(
+                            Modifier.fillMaxWidth().clickable { corners = !corners }.padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(stringResource(R.string.monet_multi_scene_corners), Modifier.weight(1f))
+                            Switch(corners, { corners = it })
+                        }
+                        Text(stringResource(R.string.monet_tab_style), style = MaterialTheme.typography.titleSmall)
+                        RadioOption(stringResource(R.string.monet_tab_solid), tabStyle == MonetTabStyle.SOLID) { tabStyle = MonetTabStyle.SOLID }
+                        RadioOption(stringResource(R.string.monet_tab_blur), tabStyle == MonetTabStyle.BLUR) { tabStyle = MonetTabStyle.BLUR }
+                        Text(stringResource(R.string.monet_user_scope), style = MaterialTheme.typography.titleSmall)
+                        RadioOption(stringResource(R.string.monet_user_current), userScope == MonetUserScope.CURRENT) { userScope = MonetUserScope.CURRENT }
+                        RadioOption(stringResource(R.string.monet_user_all), userScope == MonetUserScope.ALL) { userScope = MonetUserScope.ALL }
+                    }
+                },
+                confirmButton = {
+                    Button({
+                        onDismiss()
+                        showGeneratorDialog(
+                            activity,
+                            MonetGenerationOptions(
+                                bubbleStyle = bubbleStyle,
+                                multiSceneCorners = corners,
+                                tabStyle = tabStyle,
+                                userScope = userScope,
+                                currentUserId = Process.myUid() / 100000,
+                            ),
+                        )
+                    }) { Text(stringResource(R.string.monet_generate)) }
+                },
+                dismissButton = { Button(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+            )
+        }
+    }
+
+    private fun showGeneratorDialog(activity: Activity, options: MonetGenerationOptions) {
         val resolvedPack = try {
             requireNotNull(MonetGeneratorPack.resolve())
         } catch (error: Throwable) {
@@ -105,9 +165,13 @@ object MonetEngineModuleGenerator : ClickableFeature() {
                             resources = HostInfo.application.resources,
                             packageName = HostInfo.packageName,
                             sourceApkPath = HostInfo.appInfo.sourceDir,
+                            sourceApkPaths = listOf(HostInfo.appInfo.sourceDir) +
+                                HostInfo.appInfo.splitSourceDirs.orEmpty(),
                             versionCode = HostInfo.versionCode,
                             versionName = HostInfo.versionName,
                             sdkInt = Build.VERSION.SDK_INT,
+                            dexEvidenceProvider = MonetDexEvidenceCollector::collect,
+                            options = options,
                             payloadDir = resolvedPack.payloadDir,
                             workDir = workDir,
                             outputZip = resolvedOutputZip,
@@ -221,6 +285,17 @@ private fun stageText(stage: MonetGenerationStage): String = stringResource(
         MonetGenerationStage.PACKAGING -> R.string.monet_generator_packaging
     },
 )
+
+@Composable
+private fun RadioOption(label: String, selected: Boolean, onSelect: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onSelect).padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected, onSelect)
+        Text(label)
+    }
+}
 
 @Composable
 private fun RunningContent(status: String) {

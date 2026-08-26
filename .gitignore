@@ -16,8 +16,9 @@ build/
 local.properties
 
 /target
-/.wekit/dex-test/
+/.wekit/
 /dex-test-results/
+/monet-test-results/
 
 # Project exclude paths
 /.spec-workflow/
