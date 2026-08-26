@@ -19,10 +19,25 @@ data class MonetGenerationRequest(
     val versionName: String,
     val sdkInt: Int,
     val dexEvidenceProvider: MonetDexEvidenceProvider,
+    val options: MonetGenerationOptions = MonetGenerationOptions(),
     val payloadDir: File,
     val workDir: File,
     val outputZip: File,
 )
+
+data class MonetGenerationOptions(
+    val bubbleStyle: MonetBubbleStyle = MonetBubbleStyle.MODERN,
+    val multiSceneCorners: Boolean = true,
+    val tabStyle: MonetTabStyle = MonetTabStyle.SOLID,
+    val userScope: MonetUserScope = MonetUserScope.CURRENT,
+    val currentUserId: Int = 0,
+    val blurLightArgb: Int? = null,
+    val blurNightArgb: Int? = null,
+)
+
+enum class MonetBubbleStyle { MODERN, CLASSIC, PRO }
+enum class MonetTabStyle { SOLID, BLUR }
+enum class MonetUserScope { CURRENT, ALL }
 
 fun interface MonetDexEvidenceProvider {
     fun query(candidates: List<MonetDexCandidate>): List<MonetResourceDexEvidence>
