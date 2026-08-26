@@ -96,6 +96,8 @@ class MonetOverlayApkWriterTest {
                 assertEquals("manifest", apk.androidManifest.documentElement.name)
                 assertEquals("8.0.77", apk.androidManifest.versionName)
                 assertEquals(3100, apk.androidManifest.versionCode)
+                assertEquals(false, apk.androidManifest.applicationElement.searchAttributeByName("hasCode").valueAsBoolean)
+                assertEquals(false, apk.androidManifest.isExtractNativeLibs)
                 assertEquals(expected.first, apk.androidManifest.minSdkVersion)
                 assertEquals(expected.second, apk.androidManifest.targetSdkVersion)
                 assertEquals(

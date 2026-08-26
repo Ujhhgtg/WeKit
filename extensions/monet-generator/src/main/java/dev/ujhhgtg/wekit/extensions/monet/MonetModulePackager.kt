@@ -20,6 +20,7 @@ internal object MonetModulePackager {
         require(overlays.isNotEmpty())
         require(versionName.isNotBlank() && '\n' !in versionName && '\r' !in versionName)
         require(versionCode >= 0)
+        require(sdkInt >= 31)
         output.parentFile?.mkdirs()
         val packages = overlays.joinToString(" ", transform = Overlay::packageName)
         val scope = if (options.userScope == MonetUserScope.ALL) "all" else "current"
@@ -42,12 +43,7 @@ internal object MonetModulePackager {
             add("service.sh", $$"#!/system/bin/sh\nMODDIR=${0%/*}\nsh \"$MODDIR/boot-completed.sh\"\n")
             add("boot-completed.sh", BOOT_SCRIPT)
             overlays.forEach { overlay ->
-                val path = if (sdkInt >= 34) {
-                    "system/priv-app/${overlay.file.nameWithoutExtension}/${overlay.file.name}"
-                } else {
-                    "system/product/overlay/${overlay.file.name}"
-                }
-                add(zip, path, overlay.file.readBytes())
+                add(zip, "files/${overlay.file.name}", overlay.file.readBytes())
             }
         }
     }
@@ -102,12 +98,33 @@ ui_print "- 若正在使用 KernelSU 或 APatch 及其衍生版, 请禁用「微
 ui_print "- 无须禁用「默认卸载模块」。"
 ui_print "- 若仍不生效, 请尝试给予「微信」Root 权限。"
 
+install_static_overlay() {
+  apk="$1"
+  name="${apk##*/}"
+  name="${name%.apk}"
+  if [ "$(getprop ro.build.version.sdk)" -ge 34 ]; then
+    target="$MODPATH/system/priv-app/$name"
+    mkdir -p "$target" || return 1
+    cp -f "$apk" "$target/$name.apk" || return 1
+  else
+    target="$MODPATH/system/product/overlay"
+    mkdir -p "$target" || return 1
+    cp -f "$apk" "$target/$name.apk" || return 1
+  fi
+}
+
+for apk in "$MODPATH"/files/Monet*.apk; do
+  [ -f "$apk" ] || abort "! 缺少 Overlay APK。"
+  install_static_overlay "$apk" || abort "! 安装 ${apk##*/} 失败。"
+done
+
 set_perm "$MODPATH/module.prop" 0 0 0644
 set_perm "$MODPATH/config.conf" 0 0 0644
 set_perm "$MODPATH/customize.sh" 0 0 0755
 set_perm "$MODPATH/common.sh" 0 0 0755
 set_perm "$MODPATH/service.sh" 0 0 0755
 set_perm "$MODPATH/boot-completed.sh" 0 0 0755
+set_perm_recursive "$MODPATH/files" 0 0 0755 0644
 [ -d "$MODPATH/system" ] && set_perm_recursive "$MODPATH/system" 0 0 0755 0644
 """
 

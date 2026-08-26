@@ -33,8 +33,7 @@ class MonetModulePackagerTest {
                 setOf(
                     "module.prop", "customize.sh", "config.conf", "common.sh", "service.sh",
                     "boot-completed.sh", "META-INF/com/google/android/update-binary",
-                    "META-INF/com/google/android/updater-script", "system/priv-app/Base/Base.apk",
-                    "system/priv-app/Bubble/Bubble.apk",
+                    "META-INF/com/google/android/updater-script", "files/Base.apk", "files/Bubble.apk",
                 ),
                 zip.entries().asSequence().map { it.name }.toSet(),
             )
@@ -47,6 +46,8 @@ class MonetModulePackagerTest {
             assertTrue("WeChat, now with superpowers" in customize)
             assertTrue("App Profile" in customize)
             assertTrue("export MODULE_HOT_INSTALL_REQUEST=true" in customize)
+            assertTrue("system/priv-app/\$name" in customize)
+            assertTrue("system/product/overlay" in customize)
             val scripts = listOf("common.sh", "service.sh", "boot-completed.sh").joinToString { name ->
                 zip.getInputStream(zip.getEntry(name)).bufferedReader().readText()
             }

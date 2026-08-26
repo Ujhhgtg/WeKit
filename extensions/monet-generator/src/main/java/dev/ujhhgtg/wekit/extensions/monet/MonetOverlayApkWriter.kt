@@ -76,6 +76,9 @@ internal object MonetOverlayApkWriter {
             setVersionCode(versionCode.toInt())
             setMinSdkVersion(minSdk)
             setTargetSdkVersion(targetSdk)
+            getOrCreateApplicationElement().createAndroidAttribute("hasCode", ATTR_HAS_CODE)
+                .setValueAsBoolean(false)
+            setExtractNativeLibs(false)
             val overlay = manifestElement.newElement("overlay")
             overlay.createAndroidAttribute("targetPackage", ATTR_TARGET_PACKAGE)
                 .setValueAsString("com.tencent.mm")
@@ -122,6 +125,9 @@ internal object MonetOverlayApkWriter {
             setVersionCode(versionCode.toInt())
             setMinSdkVersion(minSdk)
             setTargetSdkVersion(targetSdk)
+            getOrCreateApplicationElement().createAndroidAttribute("hasCode", ATTR_HAS_CODE)
+                .setValueAsBoolean(false)
+            setExtractNativeLibs(false)
             val overlay = manifestElement.newElement("overlay")
             overlay.createAndroidAttribute("targetPackage", ATTR_TARGET_PACKAGE).setValueAsString("com.tencent.mm")
             overlay.createAndroidAttribute("isStatic", ATTR_IS_STATIC).setValueAsBoolean(true)
@@ -214,6 +220,7 @@ internal object MonetOverlayApkWriter {
     }
 
     private const val ATTR_PRIORITY = 0x0101001c
+    private const val ATTR_HAS_CODE = 0x0101000c
     private const val ATTR_TARGET_PACKAGE = 0x01010021
     private const val ATTR_IS_STATIC = 0x0101055a
 }
