@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
+import java.util.zip.ZipFile
 import kotlin.io.path.createTempDirectory
 
 class MonetOverlayApkWriterTest {
@@ -85,6 +86,36 @@ class MonetOverlayApkWriterTest {
     }
 
     @Test
+    fun `writer creates a readable light and night literal-only overlay`() {
+        val output = File(createTempDirectory("monet-literal").toFile(), "overlay.apk")
+        MonetOverlayApkWriter.createReferenced(
+            output,
+            "monet.blurtab.com.tencent.mm",
+            34,
+            36,
+            "8.0.76",
+            3141,
+            10,
+            emptyList(),
+            literalColors = listOf(
+                MonetOverlayApkWriter.LiteralColorTarget("df", 0xb0123456.toInt(), 0xc7abcdef.toInt()),
+            ),
+        )
+        ApkModule.loadApkFile(output).apply { setLoadDefaultFramework(false) }.use { apk ->
+            assertEquals(2, apk.tableBlock.pickOne()!!.getResource("color", "df")!!.configsCount)
+        }
+        val table = ZipFile(output).use { zip -> zip.getInputStream(zip.getEntry("resources.arsc")).readBytes() }
+        val packageOffset = 12 + i32(table, 16)
+        assertEquals(28, i32(table, 32))
+        assertEquals(0, i32(table, packageOffset + 0x110))
+        assertEquals(0, i32(table, packageOffset + 0x118))
+        var chunkOffset = packageOffset + u16(table, packageOffset + 2)
+        while (u16(table, chunkOffset) != 0x0202) chunkOffset += i32(table, chunkOffset + 4)
+        assertEquals(2, u16(table, chunkOffset + 10))
+        assertEquals(0x00001000, i32(table, chunkOffset + 16))
+    }
+
+    @Test
     fun `writer signs API31 and API34 overlays without templates`() {
         listOf(33 to (31 to 33), 34 to (34 to 36)).forEach { (sdk, expected) ->
             val output = File(createTempDirectory("monet-signed").toFile(), "overlay.apk")
@@ -113,4 +144,10 @@ class MonetOverlayApkWriterTest {
             }
         }
     }
+
+    private fun u16(bytes: ByteArray, offset: Int): Int =
+        (bytes[offset].toInt() and 0xff) or ((bytes[offset + 1].toInt() and 0xff) shl 8)
+
+    private fun i32(bytes: ByteArray, offset: Int): Int =
+        u16(bytes, offset) or (u16(bytes, offset + 2) shl 16)
 }

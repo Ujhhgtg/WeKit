@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
 import com.reandroid.apk.ApkModule
+import com.reandroid.archive.ByteInputSource
 import com.reandroid.archive.BlockInputSource
 import com.reandroid.arsc.chunk.PackageBlock
 import com.reandroid.arsc.chunk.TableBlock
@@ -11,6 +12,7 @@ import com.reandroid.arsc.coder.ComplexUtil
 import com.reandroid.arsc.coder.UnitDimension
 import com.reandroid.arsc.value.ValueType
 import java.io.File
+import java.util.zip.ZipEntry
 
 internal object MonetOverlayApkWriter {
     data class ColorTarget(val name: String, val lightId: Int, val nightId: Int? = null)
@@ -102,6 +104,7 @@ internal object MonetOverlayApkWriter {
         table.refreshFull()
         require(table.bytes.isNotEmpty())
         apk.refreshTable()
+        freezeCanonicalTable(apk, table)
         output.parentFile?.mkdirs()
         apk.writeApk(output)
         apk.close()
@@ -144,14 +147,19 @@ internal object MonetOverlayApkWriter {
         val table = TableBlock()
         apk.setTableBlock(table)
         val pkg = table.newPackage(0x7f, packageName)
+        val uiModeVariants = mutableSetOf<Pair<String, String>>()
         colors.forEach { color ->
             pkg.getOrCreate("", "color", color.name)!!.setValueAsReference(color.lightId)
-            color.nightId?.let { pkg.getOrCreate("-night", "color", color.name)!!.setValueAsReference(it) }
+            color.nightId?.let {
+                pkg.getOrCreate("-night", "color", color.name)!!.setValueAsReference(it)
+                uiModeVariants += "color" to color.name
+            }
         }
         literalColors.forEach { color ->
             pkg.getOrCreate("", "color", color.name)!!.setValueAsRaw(ValueType.COLOR_ARGB8, color.lightArgb)
             color.nightArgb?.let {
                 pkg.getOrCreate("-night", "color", color.name)!!.setValueAsRaw(ValueType.COLOR_ARGB8, it)
+                uiModeVariants += "color" to color.name
             }
         }
         strings.forEach { string ->
@@ -159,7 +167,10 @@ internal object MonetOverlayApkWriter {
         }
         drawables.forEach { drawable ->
             pkg.getOrCreate(drawable.lightQualifiers, drawable.type, drawable.name)
-            drawable.night?.let { pkg.getOrCreate(drawable.nightQualifiers, drawable.type, drawable.name) }
+            drawable.night?.let {
+                pkg.getOrCreate(drawable.nightQualifiers, drawable.type, drawable.name)
+                uiModeVariants += drawable.type to drawable.name
+            }
         }
         drawables.forEach { drawable ->
             addXmlResource(apk, pkg, drawable.type, drawable.lightQualifiers, drawable.name, drawable.light)
@@ -168,10 +179,57 @@ internal object MonetOverlayApkWriter {
             }
         }
         table.refreshFull()
+        uiModeVariants.forEach { (type, name) -> markUiModeVariant(pkg, type, name) }
         apk.refreshTable()
+        freezeCanonicalTable(apk, table)
         output.parentFile?.mkdirs()
         apk.writeApk(output)
         apk.close()
+    }
+
+    private fun markUiModeVariant(pkg: PackageBlock, type: String, name: String) {
+        val entryId = requireNotNull(pkg.getResource(type, name)).resourceId and 0xffff
+        requireNotNull(pkg.getSpecTypePair(type)).specBlock.getSpecFlag(entryId)
+            .setInteger(NATIVE_CONFIG_UI_MODE)
+    }
+
+    /**
+     * ARSCLib 1.4.0 leaves several aapt2 resource-table fields unset when a table is created
+     * from scratch. Android's readers are not required to repair those fields. Freeze a canonical
+     * byte source after the final refresh so a later BlockInputSource refresh cannot erase them.
+     */
+    private fun freezeCanonicalTable(apk: ApkModule, table: TableBlock) {
+        val bytes = table.bytes
+        val tableStrings = table.stringPool
+        if (tableStrings.isEmpty) {
+            val offset = table.countUpTo(tableStrings)
+            putI32(bytes, offset + 20, tableStrings.headerBlock.headerSize)
+        }
+        table.listPackages().forEach { pkg ->
+            val packageOffset = table.countUpTo(pkg)
+            putI32(bytes, packageOffset + 0x110, 0)
+            putI32(bytes, packageOffset + 0x118, 0)
+            pkg.listSpecTypePairs().forEach { pair ->
+                val specOffset = table.countUpTo(pair.specBlock)
+                putU16(bytes, specOffset + 10, pair.countTypeBlocks())
+            }
+        }
+
+        apk.removeInputSource(TableBlock.FILE_NAME)
+        apk.add(ByteInputSource(bytes, TableBlock.FILE_NAME).apply {
+            method = ZipEntry.STORED
+            sort = 1
+        })
+    }
+
+    private fun putU16(bytes: ByteArray, offset: Int, value: Int) {
+        bytes[offset] = value.toByte()
+        bytes[offset + 1] = (value ushr 8).toByte()
+    }
+
+    private fun putI32(bytes: ByteArray, offset: Int, value: Int) {
+        putU16(bytes, offset, value)
+        putU16(bytes, offset + 2, value ushr 16)
     }
 
     private fun addXmlResource(
@@ -230,4 +288,5 @@ internal object MonetOverlayApkWriter {
     private const val ATTR_HAS_CODE = 0x0101000c
     private const val ATTR_TARGET_PACKAGE = 0x01010021
     private const val ATTR_IS_STATIC = 0x0101055a
+    private const val NATIVE_CONFIG_UI_MODE = 0x00001000
 }
