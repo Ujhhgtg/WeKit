@@ -408,17 +408,14 @@ fn build_script_deps(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
 fn monet_archive_entries(
     inputs: &BTreeMap<String, PathBuf>,
 ) -> Result<BTreeMap<String, Option<PathBuf>>> {
-    const PAYLOADS: [&str; 6] = [
+    const PAYLOADS: [&str; 3] = [
         "customize.sh",
-        "monet_tables.json",
-        "template_api31.apk",
-        "template_api34.apk",
         "update-binary",
         "updater-script",
     ];
     anyhow::ensure!(
         inputs.len() == PAYLOADS.len() + 1,
-        "Monet pack requires exactly one DEX and six payload files"
+        "Monet pack requires exactly one DEX and three payload files"
     );
 
     let mut entries = BTreeMap::new();
@@ -476,9 +473,6 @@ fn build_monet_generator_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry>
             root.join("extensions/monet-generator/build/outputs/extension-dex/classes.dex"),
         ),
         ("customize.sh", payload_dir.join("customize.sh")),
-        ("monet_tables.json", payload_dir.join("monet_tables.json")),
-        ("template_api31.apk", payload_dir.join("template_api31.apk")),
-        ("template_api34.apk", payload_dir.join("template_api34.apk")),
         ("update-binary", payload_dir.join("update-binary")),
         ("updater-script", payload_dir.join("updater-script")),
     ]
@@ -907,9 +901,6 @@ mod tests {
         [
             "classes.dex",
             "customize.sh",
-            "monet_tables.json",
-            "template_api31.apk",
-            "template_api34.apk",
             "update-binary",
             "updater-script",
         ]
@@ -951,9 +942,6 @@ mod tests {
                 "classes.dex",
                 "extension.json",
                 "payload/customize.sh",
-                "payload/monet_tables.json",
-                "payload/template_api31.apk",
-                "payload/template_api34.apk",
                 "payload/update-binary",
                 "payload/updater-script",
             ],

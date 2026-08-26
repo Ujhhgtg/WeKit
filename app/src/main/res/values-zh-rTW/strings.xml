@@ -3796,4 +3796,17 @@
     <string name="feature_ai_reply_description">在消息长按菜单添加 AI 回复入口</string>
     <string name="feature_group_chat_summary_name">群聊摘要</string>
     <string name="feature_group_chat_summary_description">在群聊长按菜单添加 AI 摘要入口</string>
+    <string name="monet_options_title">自訂莫奈模組</string>
+    <string name="monet_bubble_style">氣泡樣式</string>
+    <string name="monet_bubble_modern">現代圓角</string>
+    <string name="monet_bubble_classic">經典微信</string>
+    <string name="monet_bubble_pro">Pro 圓角</string>
+    <string name="monet_multi_scene_corners">輸入欄、引用與支付鍵盤圓角</string>
+    <string name="monet_tab_style">底欄樣式</string>
+    <string name="monet_tab_solid">純色莫奈</string>
+    <string name="monet_tab_blur">半透明莫奈</string>
+    <string name="monet_user_scope">使用者範圍</string>
+    <string name="monet_user_current">目前使用者</string>
+    <string name="monet_user_all">全部使用者</string>
+    <string name="monet_generate">產生</string>
 </resources>

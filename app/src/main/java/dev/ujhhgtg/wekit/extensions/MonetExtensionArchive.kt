@@ -65,9 +65,6 @@ internal object MonetExtensionArchive {
     private val runtimeLimits = linkedMapOf(
         "classes.dex" to 8L * MIB,
         "payload/customize.sh" to 64L * KIB,
-        "payload/monet_tables.json" to MIB,
-        "payload/template_api31.apk" to MIB,
-        "payload/template_api34.apk" to MIB,
         "payload/update-binary" to 64L * KIB,
         "payload/updater-script" to 64L * KIB,
     )
