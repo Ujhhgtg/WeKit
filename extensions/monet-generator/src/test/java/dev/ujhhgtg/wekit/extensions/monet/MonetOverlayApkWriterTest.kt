@@ -27,6 +27,8 @@ class MonetOverlayApkWriterTest {
             "monet.test.com.tencent.mm",
             34,
             36,
+            "8.0.77",
+            3100,
             emptyList(),
             drawables.distinctBy(MonetOverlayApkWriter.DrawableTarget::name),
         )
@@ -46,6 +48,8 @@ class MonetOverlayApkWriterTest {
             "monet.test.com.tencent.mm",
             31,
             33,
+            "8.0.77",
+            3100,
             listOf(MonetOverlayApkWriter.ColorTarget("x", 0x0106006c)),
             listOf(
                 MonetOverlayApkWriter.DrawableTarget(
@@ -84,10 +88,14 @@ class MonetOverlayApkWriterTest {
                 output,
                 "monet.test.com.tencent.mm",
                 sdk,
+                "8.0.77",
+                3100,
                 mapOf("x" to 0xff112233.toInt()),
             )
             ApkModule.loadApkFile(output).apply { setLoadDefaultFramework(false) }.use { apk ->
                 assertEquals("manifest", apk.androidManifest.documentElement.name)
+                assertEquals("8.0.77", apk.androidManifest.versionName)
+                assertEquals(3100, apk.androidManifest.versionCode)
                 assertEquals(expected.first, apk.androidManifest.minSdkVersion)
                 assertEquals(expected.second, apk.androidManifest.targetSdkVersion)
                 assertEquals(

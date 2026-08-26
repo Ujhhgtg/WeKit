@@ -40,6 +40,8 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
                 packageName,
                 minSdk,
                 targetSdk,
+                request.versionName,
+                request.versionCode,
                 overlayColors,
                 drawables,
                 literalColors,

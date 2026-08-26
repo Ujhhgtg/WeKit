@@ -44,13 +44,15 @@ internal object MonetOverlayApkWriter {
         output: File,
         packageName: String,
         sdk: Int,
+        versionName: String,
+        versionCode: Long,
         colors: Map<String, Int>,
     ) {
         val minSdk = if (sdk >= 34) 34 else 31
         val targetSdk = if (sdk >= 34) 36 else 33
         val unsigned = File(output.parentFile, ".${output.name}.unsigned")
         try {
-            create(unsigned, packageName, minSdk, targetSdk, colors)
+            create(unsigned, packageName, minSdk, targetSdk, versionName, versionCode, colors)
             MonetApkSigner.sign(unsigned, output, minSdk)
         } finally {
             unsigned.delete()
@@ -62,11 +64,16 @@ internal object MonetOverlayApkWriter {
         packageName: String,
         minSdk: Int,
         targetSdk: Int,
+        versionName: String,
+        versionCode: Long,
         colors: Map<String, Int>,
     ) {
+        require(versionCode in 0..Int.MAX_VALUE.toLong())
         val apk = ApkModule()
         val manifest = AndroidManifestBlock().apply {
             setPackageName(packageName)
+            setVersionName(versionName)
+            setVersionCode(versionCode.toInt())
             setMinSdkVersion(minSdk)
             setTargetSdkVersion(targetSdk)
             val overlay = manifestElement.newElement("overlay")
@@ -101,13 +108,18 @@ internal object MonetOverlayApkWriter {
         packageName: String,
         minSdk: Int,
         targetSdk: Int,
+        versionName: String,
+        versionCode: Long,
         colors: List<ColorTarget>,
         drawables: List<DrawableTarget> = emptyList(),
         literalColors: List<LiteralColorTarget> = emptyList(),
     ) {
+        require(versionCode in 0..Int.MAX_VALUE.toLong())
         val apk = ApkModule()
         val manifest = AndroidManifestBlock().apply {
             setPackageName(packageName)
+            setVersionName(versionName)
+            setVersionCode(versionCode.toInt())
             setMinSdkVersion(minSdk)
             setTargetSdkVersion(targetSdk)
             val overlay = manifestElement.newElement("overlay")
