@@ -7,10 +7,23 @@ data class MonetResourceKey(val type: String, val name: String) : Serializable
 sealed interface MonetResourceValue : Serializable {
     data class Literal(val valueType: String, val data: Long) : MonetResourceValue
     data class Reference(val resourceId: Int, val valueType: String = "REFERENCE") : MonetResourceValue
-    data class File(val path: String) : MonetResourceValue
+    data class File(val path: String, val structure: MonetFileStructure?) : MonetResourceValue
     data class Text(val value: String) : MonetResourceValue
     data class Complex(val parentId: Int, val items: List<MonetComplexValue>) : MonetResourceValue
 }
+
+data class MonetFileStructure(
+    val format: String,
+    val width: Int? = null,
+    val height: Int? = null,
+    val colorType: Int? = null,
+    val firstDataLength: Int? = null,
+    val ninePatchLength: Int? = null,
+    val sampleSum: Long? = null,
+    val alphaSum: Long? = null,
+    val distinctSamples: Int? = null,
+    val pixelSha256: String? = null,
+) : Serializable
 
 data class MonetComplexValue(val nameId: Int, val value: MonetResourceValue) : Serializable
 data class MonetConfiguredValue(val qualifiers: String, val value: MonetResourceValue) : Serializable

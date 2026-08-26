@@ -35,11 +35,20 @@ class MonetMatcherCorpusTest {
                     audit.filterValues { it.size != 1 }.forEach { (role, candidates) ->
                         failures += "${sample.name}: $role -> ${candidates.map { it.key }}"
                     }
-                    EXPECTED_DEX_TARGETS.getValue(sample.name).forEach { (role, name) ->
+                    audit.filterValues { it.size == 1 }.entries.groupBy { it.value.single().id }
+                        .filterValues { it.size > 1 }.values.forEach { collision ->
+                            failures += "${sample.name}: duplicate ${collision.map { it.key }} -> ${collision.first().value.single().key}"
+                        }
+                    EXPECTED_TARGETS.getValue(sample.name).forEach { (role, name) ->
                         audit.getValue(role).singleOrNull()?.let { resolved ->
                             if (resolved.key.name != name) failures += "${sample.name}: $role expected $name, got ${resolved.key.name}"
                         }
                     }
+                    val expectedTransfer = EXPECTED_TRANSFER_TARGETS.getValue(sample.name)
+                    val actualIncoming = INCOMING_TRANSFER_ROLES.mapNotNull { audit.getValue(it).singleOrNull()?.key?.name }.toSet()
+                    val actualOutgoing = OUTGOING_TRANSFER_ROLES.mapNotNull { audit.getValue(it).singleOrNull()?.key?.name }.toSet()
+                    if (actualIncoming != expectedTransfer.first) failures += "${sample.name}: incoming transfer $actualIncoming"
+                    if (actualOutgoing != expectedTransfer.second) failures += "${sample.name}: outgoing transfer $actualOutgoing"
                 }
             } finally {
                 extracted?.first?.deleteRecursively()
@@ -91,23 +100,52 @@ class MonetMatcherCorpusTest {
 
     private companion object {
         val DEX_NAME = Regex("classes(\\d*)?\\.dex")
-        val DEX_ROLES = listOf(
+        val EXPECTED_ROLES = listOf(
+            "main.surface.header.primary",
+            "main.surface.header.secondary",
+            "chat.bubble.incoming.pro",
+            "chat.bubble.incoming.pro.handled",
+            "chat.bubble.outgoing.pro",
+            "chat.bubble.outgoing.pro.handled",
+            "chat.red-envelope.incoming.alias",
+            "chat.red-envelope.outgoing.alias",
             "theme.color.system-surface-container-light--system-surface-container-dark.slot-26",
             "theme.color.system-surface-container-light--system-surface-container-dark.slot-27",
             "theme.color.system-surface-container-light--system-surface-container-dark.slot-42",
             "theme.color.unknown--10ffffff.slot-06",
             "theme.color.unknown--system-surface-dark.slot-02",
         )
-        val EXPECTED_DEX_TARGETS = mapOf(
-            "wechat_8065.apk" to listOf("tt", "up", "dp", "rh", "e2"),
-            "wechat_8067.apk" to listOf("tt", "up", "dp", "rh", "e2"),
-            "wechat_8069.apk" to listOf("tt", "up", "dp", "rh", "e2"),
-            "wechat_8074.apk" to listOf("tt", "up", "dp", "rh", "e2"),
-            "wechat_8076.apk" to listOf("tt", "up", "dp", "rh", "e2"),
-            "wechat_8077.apk" to listOf("tt", "up", "dp", "rh", "e2"),
-            "wechat_8069_3020_play.apk" to listOf("adl", "af0", "n0", "a_z", "ni"),
+        val FIXED_TARGETS = listOf(
+            "c2creceivermsgnodebg", "c2creceivermsgnodebg_handled",
+            "c2csendermsgnodebg", "c2csendermsgnodebg_handled",
+            "redcoverreceivermsgnodebg", "redcoversendermsgnodebg",
+        )
+        val EXPECTED_TARGETS = mapOf(
+            "wechat_8065.apk" to listOf("ao1", "ao2") + FIXED_TARGETS + listOf("tt", "up", "dp", "rh", "e2"),
+            "wechat_8067.apk" to listOf("ao1", "ao2") + FIXED_TARGETS + listOf("tt", "up", "dp", "rh", "e2"),
+            "wechat_8069.apk" to listOf("ao1", "ao2") + FIXED_TARGETS + listOf("tt", "up", "dp", "rh", "e2"),
+            "wechat_8074.apk" to listOf("ao1", "ao2") + FIXED_TARGETS + listOf("tt", "up", "dp", "rh", "e2"),
+            "wechat_8076.apk" to listOf("ao1", "ao2") + FIXED_TARGETS + listOf("tt", "up", "dp", "rh", "e2"),
+            "wechat_8077.apk" to listOf("ao1", "ao2") + FIXED_TARGETS + listOf("tt", "up", "dp", "rh", "e2"),
+            "wechat_8069_3020_play.apk" to listOf("can", "cao") + FIXED_TARGETS + listOf("adl", "af0", "n0", "a_z", "ni"),
             "com.tencent.mm_8.0.72-3084_1arch_7dpi_24lang_2feat_17c51f333f2c0751329ed31584832928_apkmirror.com.apks" to
-                listOf("adr", "af6", "n0", "aa4", "ni"),
-        ).mapValues { (_, names) -> DEX_ROLES.zip(names).toMap() }
+                listOf("cbr", "cbs") + FIXED_TARGETS + listOf("adr", "af6", "n0", "aa4", "ni"),
+        ).mapValues { (_, names) -> EXPECTED_ROLES.zip(names).toMap() }
+        val INCOMING_TRANSFER_ROLES = listOf("chat.transfer.incoming.expired", "chat.transfer.incoming.received")
+        val OUTGOING_TRANSFER_ROLES = listOf("chat.transfer.outgoing.expired", "chat.transfer.outgoing.received")
+        val STANDARD_TRANSFER_TARGETS = setOf("c2c_chatfrom_remittance_expired_bg", "k6") to
+            setOf("c2c_chatto_remittance_expired_bg", "k9")
+        val EXPECTED_TRANSFER_TARGETS = mapOf(
+            "wechat_8065.apk" to STANDARD_TRANSFER_TARGETS,
+            "wechat_8067.apk" to STANDARD_TRANSFER_TARGETS,
+            "wechat_8069.apk" to STANDARD_TRANSFER_TARGETS,
+            "wechat_8074.apk" to STANDARD_TRANSFER_TARGETS,
+            "wechat_8076.apk" to STANDARD_TRANSFER_TARGETS,
+            "wechat_8077.apk" to STANDARD_TRANSFER_TARGETS,
+            "wechat_8069_3020_play.apk" to
+                (setOf("c2c_chatfrom_remittance_expired_bg", "ym") to setOf("c2c_chatto_remittance_expired_bg", "yy")),
+            "com.tencent.mm_8.0.72-3084_1arch_7dpi_24lang_2feat_17c51f333f2c0751329ed31584832928_apkmirror.com.apks" to
+                (setOf("c2c_chatfrom_remittance_expired_bg", "z1") to setOf("c2c_chatto_remittance_expired_bg", "zc")),
+        )
     }
 }

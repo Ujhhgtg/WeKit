@@ -42,7 +42,10 @@ internal object MonetDexEvidenceCollector {
                 users.map { method ->
                     MonetMethodDexEvidence(
                         descriptor = method.descriptor,
-                        stableStrings = method.usingStrings.distinct().sorted(),
+                        ownerPackage = method.declaredClassName.substringBeforeLast('.', ""),
+                        methodShape = "(${method.paramTypeNames.joinToString(",", transform = ::typeShape)}):${typeShape(method.returnTypeName)}",
+                        stableStrings = (sequenceOf(method) + method.callers.asSequence())
+                            .flatMap { it.usingStrings.asSequence() }.distinct().sorted().toList(),
                         invokedMethodShapes = method.invokes.map(::invokeShape).distinct().sorted(),
                         neighboringResourceIds = descriptors.filter { (other, users) ->
                             other != candidate && method.descriptor in users

@@ -11,9 +11,15 @@ object MonetStructureMatcher {
     fun resolveAll(
         graph: MonetResourceGraph,
         dexProvider: MonetDexEvidenceProvider? = null,
-    ): Map<String, MonetResourceNode> = audit(graph, dexProvider).mapValues { (role, candidates) ->
-        require(candidates.size == 1) { "$role: ${candidates.map { it.key }}" }
-        candidates.single()
+    ): Map<String, MonetResourceNode> {
+        val resolved = audit(graph, dexProvider).mapValues { (role, candidates) ->
+            require(candidates.size == 1) { "$role: ${candidates.map { it.key }}" }
+            candidates.single()
+        }
+        require(resolved.values.map(MonetResourceNode::id).distinct().size == resolved.size) {
+            "multiple Monet roles resolved to the same resource"
+        }
+        return resolved
     }
 
     fun audit(
@@ -30,7 +36,8 @@ object MonetStructureMatcher {
         graph: MonetResourceGraph,
         dexProvider: MonetDexEvidenceProvider?,
     ): Map<MonetSemanticRule, Set<Int>> {
-        val candidates = structuralCandidates(graph)
+        val structural = structuralResolution(graph)
+        val candidates = structural.candidates
         val anchored = candidates.filter { (rule, ids) -> rule.requiredDexEvidence.isNotEmpty() && ids.size > 1 }
         val dexFiltered = if (anchored.isEmpty()) emptyMap() else {
             val provider = requireNotNull(dexProvider) { "Dex evidence is required for ambiguous Monet roles" }
@@ -49,19 +56,47 @@ object MonetStructureMatcher {
             anchored.mapValues { (rule, ids) ->
                 ids.filterTo(linkedSetOf()) { id ->
                     byId[id]?.methods.orEmpty().any { method ->
-                        method.tokens(neighborIds).containsAll(rule.requiredDexEvidence)
+                        val tokens = method.tokens(neighborIds)
+                        tokens.containsAll(rule.requiredDexEvidence)
                     }
                 }
             }
         }
-        return disambiguate(MONET_RULES.associateWith { rule ->
+        val combined = MONET_RULES.associateWith { rule ->
             dexFiltered[rule] ?: candidates.getValue(rule)
-        }, assignEquivalentGroups = true)
+        }
+        val related = applyRoleRelations(combined, graph)
+        return disambiguate(assignPreferred(related, structural.preferredScores), assignEquivalentGroups = true)
+    }
+
+    private fun applyRoleRelations(
+        input: Map<MonetSemanticRule, Set<Int>>,
+        graph: MonetResourceGraph,
+    ): Map<MonetSemanticRule, Set<Int>> {
+        var result = disambiguate(input, assignEquivalentGroups = false)
+        while (true) {
+            var changed = false
+            val byRole = result.entries.associate { it.key.id to it.value }
+            val filtered = result.mapValues { (rule, ids) ->
+                val related = rule.requiredAdjacentRoles.mapNotNull { (offset, role) ->
+                    byRole[role]?.singleOrNull()?.let { offset to it }
+                }
+                if (related.size != rule.requiredAdjacentRoles.size) ids else ids.filterTo(linkedSetOf()) { id ->
+                    related.all { (offset, expected) -> graph.node(id + offset)?.id == expected }
+                }.also { if (it != ids) changed = true }
+            }
+            result = disambiguate(filtered, assignEquivalentGroups = false)
+            if (!changed) return result
+        }
     }
 
     internal fun structuralCandidates(graph: MonetResourceGraph): Map<MonetSemanticRule, Set<Int>> {
+        return structuralResolution(graph).candidates
+    }
+
+    private fun structuralResolution(graph: MonetResourceGraph): StructuralResolution {
         val requiredByType = MONET_RULES.groupBy(MonetSemanticRule::type).mapValues { (_, rules) ->
-            rules.flatMapTo(hashSetOf(), MonetSemanticRule::requiredEvidence)
+            rules.flatMapTo(hashSetOf()) { it.requiredEvidence + it.preferredEvidence }
         }
         val idsByToken = HashMap<String, MutableSet<Int>>()
         requiredByType.forEach { (type, required) ->
@@ -71,10 +106,102 @@ object MonetStructureMatcher {
                 }
             }
         }
-        return disambiguate(MONET_RULES.associateWith { rule ->
-            rule.requiredEvidence.map { idsByToken[it].orEmpty() }
-                .reduce { result, ids -> result.intersect(ids) }
+        val candidates = disambiguate(MONET_RULES.associateWith { rule ->
+            if (rule.requiredEvidence.isEmpty()) {
+                graph.nodes(rule.type).mapTo(linkedSetOf(), MonetResourceNode::id)
+            } else {
+                rule.requiredEvidence.map { idsByToken[it].orEmpty() }
+                    .reduce { result, ids -> result.intersect(ids) }
+            }
         }, assignEquivalentGroups = false)
+        val scores = MONET_RULES.associateWith { rule ->
+            candidates.getValue(rule).associateWith { id ->
+                rule.preferredEvidence.count { id in idsByToken[it].orEmpty() }
+            }
+        }
+        return StructuralResolution(candidates, scores)
+    }
+
+    private data class StructuralResolution(
+        val candidates: Map<MonetSemanticRule, Set<Int>>,
+        val preferredScores: Map<MonetSemanticRule, Map<Int, Int>>,
+    )
+
+    private fun assignPreferred(
+        input: Map<MonetSemanticRule, Set<Int>>,
+        scores: Map<MonetSemanticRule, Map<Int, Int>>,
+    ): Map<MonetSemanticRule, Set<Int>> {
+        val result = input.mapValuesTo(linkedMapOf()) { it.value.toSet() }
+        result.entries.filter { it.value.size > 1 && it.key.preferredEvidence.isNotEmpty() }
+            .groupBy { it.key.equivalentOutputSemantic() }.filterKeys { it != null }
+            .forEach { (_, entries) ->
+                val roles = entries.map { it.key }.sortedBy(MonetSemanticRule::id)
+                val candidates = entries.flatMap { it.value }.distinct().sorted()
+                if (roles.size > candidates.size) return@forEach
+                val assignment = minimumCostAssignment(roles, candidates) { role, candidate ->
+                    if (candidate !in result.getValue(role)) 1_000_000 else -scores.getValue(role).getValue(candidate)
+                }
+                if (assignment.all { (roleIndex, candidateIndex) ->
+                        val role = roles[roleIndex]
+                        val candidate = candidates[candidateIndex]
+                        candidate in result.getValue(role) && scores.getValue(role).getValue(candidate) > 0
+                    }
+                ) {
+                    assignment.forEach { (roleIndex, candidateIndex) ->
+                        result[roles[roleIndex]] = setOf(candidates[candidateIndex])
+                    }
+                }
+            }
+        return result
+    }
+
+    private fun minimumCostAssignment(
+        rows: List<MonetSemanticRule>,
+        columns: List<Int>,
+        cost: (MonetSemanticRule, Int) -> Int,
+    ): Map<Int, Int> {
+        val rowPotential = IntArray(rows.size + 1)
+        val columnPotential = IntArray(columns.size + 1)
+        val matchedRow = IntArray(columns.size + 1)
+        val way = IntArray(columns.size + 1)
+        for (row in rows.indices) {
+            matchedRow[0] = row + 1
+            var column = 0
+            val minimum = IntArray(columns.size + 1) { Int.MAX_VALUE }
+            val used = BooleanArray(columns.size + 1)
+            do {
+                used[column] = true
+                val currentRow = matchedRow[column]
+                var delta = Int.MAX_VALUE
+                var nextColumn = 0
+                for (candidateColumn in 1..columns.size) if (!used[candidateColumn]) {
+                    val current = cost(rows[currentRow - 1], columns[candidateColumn - 1]) -
+                        rowPotential[currentRow] - columnPotential[candidateColumn]
+                    if (current < minimum[candidateColumn]) {
+                        minimum[candidateColumn] = current
+                        way[candidateColumn] = column
+                    }
+                    if (minimum[candidateColumn] < delta) {
+                        delta = minimum[candidateColumn]
+                        nextColumn = candidateColumn
+                    }
+                }
+                for (candidateColumn in 0..columns.size) if (used[candidateColumn]) {
+                    rowPotential[matchedRow[candidateColumn]] += delta
+                    columnPotential[candidateColumn] -= delta
+                } else {
+                    minimum[candidateColumn] -= delta
+                }
+                column = nextColumn
+            } while (matchedRow[column] != 0)
+            do {
+                val previous = way[column]
+                matchedRow[column] = matchedRow[previous]
+                column = previous
+            } while (column != 0)
+        }
+        return (1..columns.size).filter { matchedRow[it] != 0 }
+            .associate { matchedRow[it] - 1 to it - 1 }
     }
 
     private fun disambiguate(
@@ -85,9 +212,6 @@ object MonetStructureMatcher {
         while (true) {
             var changed = false
             val singletons = result.filterValues { it.size == 1 }.entries.groupBy { it.value.single() }
-            require(singletons.values.all { it.size == 1 }) {
-                "Monet roles resolve to the same resource: ${singletons.filterValues { it.size > 1 }.values.flatten().map { it.key.id }}"
-            }
             val claimed = singletons.keys
             result.entries.filter { it.value.size > 1 }.forEach { entry ->
                 val filtered = entry.value - claimed
@@ -98,8 +222,8 @@ object MonetStructureMatcher {
             }
             if (assignEquivalentGroups) {
                 result.entries.filter { it.value.size > 1 }.groupBy { it.value }.forEach { (ids, entries) ->
-                    val semantic = entries.map { it.key.id.substringBefore(".slot-") }.distinct()
-                    if (entries.size == ids.size && semantic.size == 1 && semantic.single().startsWith("theme.color.")) {
+                    val semantic = entries.map { it.key.equivalentOutputSemantic() }.distinct()
+                    if (entries.size == ids.size && semantic.size == 1 && semantic.single() != null) {
                         entries.sortedBy { it.key.id }.zip(ids.sorted()).forEach { (entry, id) ->
                             entry.setValue(setOf(id))
                         }
@@ -111,8 +235,17 @@ object MonetStructureMatcher {
         }
     }
 
+    private fun MonetSemanticRule.equivalentOutputSemantic(): String? = when {
+        id.startsWith("theme.color.") -> id.substringBefore(".slot-")
+        id.startsWith("chat.transfer.incoming.") || id.startsWith("chat.transfer.outgoing.") ->
+            id.substringBeforeLast('.')
+        else -> null
+    }
+
     private fun MonetMethodDexEvidence.tokens(neighborIds: Map<String, Int>): Set<String> = buildSet {
         add("descriptor:$descriptor")
+        add("owner-package:$ownerPackage")
+        add("method-shape:$methodShape")
         stableStrings.forEach { add("string:$it") }
         invokedMethodShapes.forEach { add("invoke:$it") }
         neighborIds.forEach { (role, id) -> if (id in neighboringResourceIds) add("neighbor:$role") }
@@ -128,6 +261,11 @@ object MonetStructureMatcher {
         addAll(usageEvidence(node, graph))
         graph.outgoing(node.id).mapNotNull(graph::node).forEach { child ->
             localEvidence(child, graph).forEach { add("child:${child.key.type}:$it") }
+            graph.outgoing(child.id).mapNotNull(graph::node).forEach { grandchild ->
+                localEvidence(grandchild, graph).forEach {
+                    add("child:${child.key.type}:${grandchild.key.type}:$it")
+                }
+            }
         }
         (-2..2).filter { it != 0 }.forEach { offset ->
             graph.node(node.id + offset)?.takeIf { it.key.type == node.key.type }?.let { neighbor ->
@@ -137,6 +275,9 @@ object MonetStructureMatcher {
         graph.incoming(node.id).mapNotNull(graph::node).forEach { owner ->
             localEvidence(owner, graph).forEach { add("context:${owner.key.type}:$it") }
             usageEvidence(owner, graph).forEach { add("context:${owner.key.type}:$it") }
+            graph.outgoing(owner.id).filter { it != node.id }.mapNotNull(graph::node).forEach { sibling ->
+                localEvidence(sibling, graph).forEach { add("sibling:${owner.key.type}:${sibling.key.type}:$it") }
+            }
         }
     }
 
@@ -198,7 +339,7 @@ object MonetStructureMatcher {
             type = null,
             valueType = valueType,
         )
-        is MonetResourceValue.File -> ValueFeature("file", null, "FILE")
+        is MonetResourceValue.File -> ValueFeature("file", null, structure?.toString() ?: "FILE")
         is MonetResourceValue.Text -> ValueFeature("text", null, "STRING", text = value)
         is MonetResourceValue.Complex -> ValueFeature(
             kind = "complex",
@@ -276,7 +417,10 @@ private fun MonetResourceValue.evidence(graph: MonetResourceGraph): String = whe
     is MonetResourceValue.Reference -> "reference:${graph.node(resourceId)?.key?.type ?: "framework"}:$valueType"
     is MonetResourceValue.Literal -> "literal:$valueType:$data"
     is MonetResourceValue.Text -> "text:$value"
-    is MonetResourceValue.File -> "file"
+    is MonetResourceValue.File -> structure?.let {
+        "file:${it.format}:${it.width}:${it.height}:${it.colorType}:${it.firstDataLength}:${it.ninePatchLength}:" +
+            "${it.sampleSum}:${it.alphaSum}:${it.distinctSamples}:${it.pixelSha256}"
+    } ?: "file"
     is MonetResourceValue.Complex -> "complex:" + items.joinToString(";") {
         "${it.nameId}=${it.value.evidence(graph)}"
     }

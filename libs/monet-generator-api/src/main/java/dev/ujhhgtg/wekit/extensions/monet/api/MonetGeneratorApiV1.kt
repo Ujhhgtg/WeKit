@@ -37,6 +37,8 @@ data class MonetResourceDexEvidence(
 
 data class MonetMethodDexEvidence(
     val descriptor: String,
+    val ownerPackage: String,
+    val methodShape: String,
     val stableStrings: List<String>,
     val invokedMethodShapes: List<String>,
     val neighboringResourceIds: List<Int>,
