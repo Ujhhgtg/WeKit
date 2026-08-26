@@ -165,6 +165,8 @@ object MonetEngineModuleGenerator : ClickableFeature() {
                             resources = HostInfo.application.resources,
                             packageName = HostInfo.packageName,
                             sourceApkPath = HostInfo.appInfo.sourceDir,
+                            sourceApkPaths = listOf(HostInfo.appInfo.sourceDir) +
+                                HostInfo.appInfo.splitSourceDirs.orEmpty(),
                             versionCode = HostInfo.versionCode,
                             versionName = HostInfo.versionName,
                             sdkInt = Build.VERSION.SDK_INT,

@@ -13,7 +13,7 @@ import java.io.File
 class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
     override fun generate(request: MonetGenerationRequest, listener: MonetGenerationListener): MonetGenerationResult {
         listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.PREPARING))
-        val graph = MonetApkResourceGraphLoader.load(listOf(File(request.sourceApkPath)), request.packageName)
+        val graph = MonetApkResourceGraphLoader.load(request.sourceApkPaths.map(::File), request.packageName)
         val resolved = MonetStructureMatcher.resolveAll(graph, request.dexEvidenceProvider)
         val colors = MONET_RULES.filter { it.type == "color" }.mapNotNull { rule ->
             val node = resolved[rule.id] ?: return@mapNotNull null
@@ -79,8 +79,8 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
                 literalColors = listOf(
                     MonetOverlayApkWriter.LiteralColorTarget(
                         tabName,
-                        request.options.blurLightArgb ?: 0xb0f4fbf5.toInt(),
-                        request.options.blurNightArgb ?: 0xb0191919.toInt(),
+                        request.options.blurLightArgb ?: request.resources.getColor(palette.surfaceLight, null).withAlpha(0xb0),
+                        request.options.blurNightArgb ?: request.resources.getColor(palette.surfaceNight, null).withAlpha(0xb0),
                     ),
                 ),
             )
@@ -114,6 +114,8 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
         names.firstNotNullOfOrNull { name ->
             request.resources.getIdentifier(name, "color", "android").takeIf { it != 0 }
         } ?: error("framework Monet color unavailable: ${names.joinToString()}")
+
+    private fun Int.withAlpha(alpha: Int): Int = (this and 0x00ffffff) or (alpha shl 24)
 
     private fun paletteFor(id: String, request: MonetGenerationRequest): Pair<Int, Int?> {
         val semantic = id.removePrefix("theme.color.").substringBefore(".slot-")

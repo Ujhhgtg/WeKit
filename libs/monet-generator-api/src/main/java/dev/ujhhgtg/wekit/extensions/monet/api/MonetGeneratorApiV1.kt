@@ -15,6 +15,7 @@ data class MonetGenerationRequest(
     val resources: Resources,
     val packageName: String,
     val sourceApkPath: String,
+    val sourceApkPaths: List<String> = listOf(sourceApkPath),
     val versionCode: Long,
     val versionName: String,
     val sdkInt: Int,
