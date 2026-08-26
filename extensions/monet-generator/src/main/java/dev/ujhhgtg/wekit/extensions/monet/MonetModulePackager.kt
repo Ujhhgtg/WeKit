@@ -1,63 +1,79 @@
 package dev.ujhhgtg.wekit.extensions.monet
 
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequest
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationOptions
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetUserScope
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-internal class MonetModulePackager(
-    private val request: MonetGenerationRequest,
-) {
-    fun pack(signedOverlayApk: File, outputZip: File) {
-        val apkInstallPath = if (request.sdkInt >= 34) {
-            "system/priv-app/$OVERLAY_APK_NAME"
-        } else {
-            "system/product/overlay/$OVERLAY_APK_NAME"
-        }
+internal object MonetModulePackager {
+    data class Overlay(val file: File, val packageName: String)
 
-        outputZip.parentFile?.mkdirs()
-        ZipOutputStream(outputZip.outputStream().buffered()).use { zos ->
-            zos.putTextEntry("module.prop", buildModuleProp())
-            zos.putRawEntry("customize.sh", payload("customize.sh"))
-            zos.putRawEntry(
-                "META-INF/com/google/android/update-binary",
-                payload("update-binary"),
+    fun pack(overlays: List<Overlay>, options: MonetGenerationOptions, output: File) {
+        require(overlays.isNotEmpty())
+        output.parentFile?.mkdirs()
+        val packages = overlays.joinToString(" ", transform = Overlay::packageName)
+        val scope = if (options.userScope == MonetUserScope.ALL) "all" else "current"
+        ZipOutputStream(output.outputStream().buffered()).use { zip ->
+            fun add(name: String, text: String) = add(zip, name, text.toByteArray())
+            add(
+                "module.prop",
+                "id=wekit_monet\nname=WeKit Monet\nversion=2\nversionCode=2\nauthor=Ujhhgtg\n" +
+                    "description=Runtime generated WeChat Monet overlays\n",
             )
-            zos.putRawEntry(
-                "META-INF/com/google/android/updater-script",
-                payload("updater-script"),
+            add(
+                "customize.sh",
+                "#!/system/bin/sh\nset_perm_recursive \"${'$'}MODPATH\" 0 0 0755 0644\n" +
+                    "set_perm \"${'$'}MODPATH/service.sh\" 0 0 0755\n" +
+                    "set_perm \"${'$'}MODPATH/boot-completed.sh\" 0 0 0755\n",
             )
-            zos.putFileEntry(apkInstallPath, signedOverlayApk)
+            add(
+                "config.conf",
+                "USER_SCOPE=$scope\nCURRENT_USER=${options.currentUserId}\nOVERLAY_PACKAGES='$packages'\n",
+            )
+            add("common.sh", COMMON_SCRIPT)
+            add("service.sh", "#!/system/bin/sh\nMODDIR=${'$'}{0%/*}\nsh \"${'$'}MODDIR/boot-completed.sh\"\n")
+            add("boot-completed.sh", BOOT_SCRIPT)
+            overlays.forEach { overlay ->
+                add(zip, "system/product/overlay/${overlay.file.name}", overlay.file.readBytes())
+            }
         }
     }
 
-    private fun payload(name: String) = request.payloadDir.resolve(name).readBytes()
-
-    private fun buildModuleProp(): String = buildString {
-        appendLine("id=wekit-monet-engine")
-        appendLine("name=微信莫奈引擎 (WeKit)")
-        appendLine("version=${request.versionName} (${request.versionCode})")
-        appendLine("versionCode=${request.versionCode}")
-        appendLine("author=Ujhhgtg")
-        append("description=为微信 ${request.versionName} 启用动态壁纸取色, 由 WeKit 在运行时生成")
+    private fun add(zip: ZipOutputStream, name: String, bytes: ByteArray) {
+        zip.putNextEntry(ZipEntry(name).apply { time = 315532800000L })
+        zip.write(bytes)
+        zip.closeEntry()
     }
 
-    private fun ZipOutputStream.putTextEntry(name: String, content: String) {
-        putRawEntry(name, content.toByteArray(Charsets.UTF_8))
-    }
+    private const val COMMON_SCRIPT = """#!/system/bin/sh
+restore_overlays() {
+  config="${'$'}MODDIR/config.conf"
+  [ -f "${'$'}config" ] || return 1
+  . "${'$'}config"
+  if [ "${'$'}USER_SCOPE" = all ]; then
+    users="${'$'}(cmd user list 2>/dev/null | sed -n 's/.*UserInfo{\([0-9][0-9]*\):.*/\1/p')"
+  else
+    users="${'$'}CURRENT_USER"
+  fi
+  result=0
+  for user in ${'$'}users; do
+    for package in ${'$'}OVERLAY_PACKAGES; do
+      cmd overlay enable --user "${'$'}user" "${'$'}package" >/dev/null 2>&1 || result=1
+      cmd overlay set-priority --user "${'$'}user" "${'$'}package" highest >/dev/null 2>&1 || result=1
+    done
+    am force-stop --user "${'$'}user" com.tencent.mm >/dev/null 2>&1 || result=1
+  done
+  return ${'$'}result
+}
+"""
 
-    private fun ZipOutputStream.putFileEntry(name: String, file: File) {
-        putRawEntry(name, file.readBytes())
-    }
-
-    private fun ZipOutputStream.putRawEntry(name: String, bytes: ByteArray) {
-        val entry = ZipEntry(name).apply { method = ZipEntry.DEFLATED }
-        putNextEntry(entry)
-        write(bytes)
-        closeEntry()
-    }
-
-    private companion object {
-        const val OVERLAY_APK_NAME = "MonetWeChat.apk"
-    }
+    private const val BOOT_SCRIPT = """#!/system/bin/sh
+MODDIR=${'$'}{0%/*}
+LOCK=/dev/.wekit-monet-overlay-restore
+mkdir "${'$'}LOCK" 2>/dev/null || exit 0
+trap 'rmdir "${'$'}LOCK"' EXIT
+. "${'$'}MODDIR/common.sh"
+restore_overlays
+"""
 }

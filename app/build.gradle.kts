@@ -351,6 +351,7 @@ dependencies {
 
     testImplementation(libs.junit.jupiter)
     testImplementation(project(":libs:common:stubs"))
+    testImplementation(project(":extensions:monet-generator"))
     testImplementation(libs.legacyxposed.api)
     testImplementation(libs.libxposed.api)
     testImplementation(libs.sqlite.jdbc)
@@ -370,8 +371,11 @@ val dexTestWorkerProperties = listOf(
     "wekit.dexTest.features",
 )
 val dexTestWorker = providers.gradleProperty("dexTestWorker").map(String::toBoolean).orElse(false)
+val monetCorpus = providers.gradleProperty("wekit.monetCorpus").map(String::toBoolean).orElse(false)
 
 tasks.withType<Test>().configureEach {
+    systemProperty("wekit.monetCorpus", monetCorpus.get())
+    if (monetCorpus.get()) maxHeapSize = "4g"
     if (dexTestWorker.get()) {
         filter {
             includeTestsMatching("dev.ujhhgtg.wekit.dextest.DexTestWorkerTest")

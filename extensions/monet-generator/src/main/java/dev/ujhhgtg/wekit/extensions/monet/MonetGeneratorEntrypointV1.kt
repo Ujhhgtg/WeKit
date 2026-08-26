@@ -6,91 +6,134 @@ import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequest
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResult
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationStage
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGeneratorApiV1
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetLogLevel
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetBubbleStyle
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetTabStyle
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 
 class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
-    override fun generate(
-        request: MonetGenerationRequest,
-        listener: MonetGenerationListener,
-    ): MonetGenerationResult {
-        require(request.sdkInt >= 31) { "Android 12 or newer is required" }
-        val temporaryOutput = File(request.outputZip.parentFile, request.outputZip.name + ".tmp")
-        try {
-            listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.PREPARING))
-            validatePayload(request)
-            if (request.workDir.exists()) {
-                require(request.workDir.deleteRecursively()) {
-                    "Could not clear Monet work directory: ${request.workDir}"
-                }
-            }
-            require(request.workDir.mkdirs() || request.workDir.isDirectory) {
-                "Could not create Monet work directory: ${request.workDir}"
-            }
-
-            val templateName = if (request.sdkInt >= 34) {
-                "template_api34.apk"
-            } else {
-                "template_api31.apk"
-            }
-            val minSdk = if (request.sdkInt >= 34) 34 else 31
-            val template = request.payloadDir.resolve(templateName)
-            val unsignedApk = request.workDir.resolve("overlay-unsigned.apk")
-            val signedApk = request.workDir.resolve("overlay-signed.apk")
-            val log = { level: MonetLogLevel, message: String, error: Throwable? ->
-                listener.onEvent(MonetGenerationEvent.Log(level, message, error))
-            }
-
-            listener.onEvent(
-                MonetGenerationEvent.Progress(MonetGenerationStage.BUILDING_OVERLAY),
-            )
-            val build = MonetOverlayBuilder(
-                request,
-                MonetTables.load(request.payloadDir),
-                template,
-                log,
-            ).build(unsignedApk)
-            listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.SIGNING))
-            MonetApkSigner.sign(unsignedApk, signedApk, minSdk)
-            listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.PACKAGING))
-            MonetModulePackager(request).pack(signedApk, temporaryOutput)
-            require(temporaryOutput.isFile) { "Monet module archive was not produced" }
-            Files.move(
-                temporaryOutput.toPath(),
-                request.outputZip.toPath(),
-                StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING,
-            )
-            return MonetGenerationResult(
-                request.outputZip,
-                build.kept,
-                build.pruned,
-                build.added,
-            )
-        } finally {
-            temporaryOutput.delete()
-            request.workDir.deleteRecursively()
+    override fun generate(request: MonetGenerationRequest, listener: MonetGenerationListener): MonetGenerationResult {
+        listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.PREPARING))
+        val graph = MonetApkResourceGraphLoader.load(request.sourceApkPaths.map(::File), request.packageName)
+        val resolved = MonetStructureMatcher.resolveAll(graph, request.dexEvidenceProvider)
+        val colors = MONET_RULES.filter { it.type == "color" }.mapNotNull { rule ->
+            val node = resolved[rule.id] ?: return@mapNotNull null
+            val target = paletteFor(rule.id, request)
+            MonetOverlayApkWriter.ColorTarget(node.key.name, target.first, target.second)
         }
-    }
-
-    private fun validatePayload(request: MonetGenerationRequest) {
-        for (name in REQUIRED_PAYLOADS) {
-            require(request.payloadDir.resolve(name).isFile) {
-                "Missing Monet payload: $name"
-            }
+        listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.BUILDING_OVERLAY))
+        val minSdk = if (request.sdkInt >= 34) 34 else 31
+        val targetSdk = if (request.sdkInt >= 34) 36 else 33
+        val palette = overlayPalette(request)
+        val overlays = mutableListOf<MonetModulePackager.Overlay>()
+        fun build(
+            fileName: String,
+            packageName: String,
+            overlayColors: List<MonetOverlayApkWriter.ColorTarget> = emptyList(),
+            drawables: List<MonetOverlayApkWriter.DrawableTarget> = emptyList(),
+            literalColors: List<MonetOverlayApkWriter.LiteralColorTarget> = emptyList(),
+        ) {
+            val unsigned = File(request.workDir, ".$fileName.unsigned")
+            val signed = File(request.workDir, fileName)
+            MonetOverlayApkWriter.createReferenced(
+                unsigned,
+                packageName,
+                minSdk,
+                targetSdk,
+                overlayColors,
+                drawables,
+                literalColors,
+            )
+            MonetApkSigner.sign(unsigned, signed, minSdk)
+            unsigned.delete()
+            overlays += MonetModulePackager.Overlay(signed, packageName)
         }
-    }
-
-    private companion object {
-        val REQUIRED_PAYLOADS = listOf(
-            "template_api31.apk",
-            "template_api34.apk",
-            "monet_tables.json",
-            "customize.sh",
-            "update-binary",
-            "updater-script",
+        build(
+            "MonetWeChat.apk",
+            "monet.com.tencent.mm",
+            colors,
+            MonetS4Overlays.baseVisuals(resolved, palette),
         )
+        MonetS4Overlays.bubbles(resolved, request.options.bubbleStyle, palette).takeIf { it.isNotEmpty() }?.let {
+            val style = if (request.options.bubbleStyle == MonetBubbleStyle.PRO) "bubblepro" else "modernbubble"
+            build("MonetWeChatBubble.apk", "monet.$style.com.tencent.mm", drawables = it)
+        }
+        if (request.options.multiSceneCorners) {
+            build(
+                "MonetWeChatMultiSceneCorners.apk",
+                "monet.multiscenecorners.com.tencent.mm",
+                drawables = MonetS4Overlays.corners(resolved, palette),
+            )
+        }
+        if (request.sdkInt >= 33) {
+            build(
+                "MonetWeChatThemedIcon.apk",
+                "monet.themedicon.com.tencent.mm",
+                drawables = MonetS4Overlays.themedIcon(resolved, palette),
+            )
+        }
+        val tabName = requireNotNull(resolved["main.tab.background"]).key.name
+        if (request.options.tabStyle == MonetTabStyle.BLUR) {
+            build(
+                "MonetWeChatTab.apk",
+                "monet.blurtab.com.tencent.mm",
+                literalColors = listOf(
+                    MonetOverlayApkWriter.LiteralColorTarget(
+                        tabName,
+                        request.options.blurLightArgb ?: request.resources.getColor(palette.surfaceLight, null).withAlpha(0xb0),
+                        request.options.blurNightArgb ?: request.resources.getColor(palette.surfaceNight, null).withAlpha(0xb0),
+                    ),
+                ),
+            )
+        } else {
+            build(
+                "MonetWeChatTab.apk",
+                "monet.solidtab.com.tencent.mm",
+                overlayColors = listOf(
+                    MonetOverlayApkWriter.ColorTarget(tabName, palette.surfaceLight, palette.surfaceNight),
+                ),
+            )
+        }
+        listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.SIGNING))
+        listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.PACKAGING))
+        MonetModulePackager.pack(overlays, request.options, request.outputZip)
+        return MonetGenerationResult(request.outputZip, colors.size, 0, overlays.size)
+    }
+
+    private fun overlayPalette(request: MonetGenerationRequest) = MonetS4Overlays.Palette(
+        incomingLight = frameworkColor(request, "system_surface_container_light", "system_neutral2_50", "system_surface_light"),
+        incomingNight = frameworkColor(request, "system_surface_container_dark", "system_neutral2_800", "system_surface_dark"),
+        outgoingLight = frameworkColor(request, "system_accent1_100", "system_accent1_200"),
+        outgoingNight = frameworkColor(request, "system_accent1_800", "system_accent1_700"),
+        surfaceLight = frameworkColor(request, "system_surface_container_light", "system_neutral2_50", "system_surface_light"),
+        surfaceNight = frameworkColor(request, "system_surface_container_dark", "system_neutral2_800", "system_surface_dark"),
+        primaryLight = frameworkColor(request, "system_accent1_100", "system_accent1_200"),
+        primaryNight = frameworkColor(request, "system_accent1_800", "system_accent1_700"),
+    )
+
+    private fun frameworkColor(request: MonetGenerationRequest, vararg names: String): Int =
+        names.firstNotNullOfOrNull { name ->
+            request.resources.getIdentifier(name, "color", "android").takeIf { it != 0 }
+        } ?: error("framework Monet color unavailable: ${names.joinToString()}")
+
+    private fun Int.withAlpha(alpha: Int): Int = (this and 0x00ffffff) or (alpha shl 24)
+
+    private fun paletteFor(id: String, request: MonetGenerationRequest): Pair<Int, Int?> {
+        val semantic = id.removePrefix("theme.color.").substringBefore(".slot-")
+        val parts = semantic.split("--", limit = 2)
+        fun resolve(token: String, night: Boolean): Int {
+            val normalized = when {
+                token.startsWith("system-") -> token.replace('-', '_')
+                token == "10000000" || token.startsWith("unknown") -> if (night) "system_surface_dark" else "system_surface_light"
+                token == "10ffffff" || token == "e6ffffff" -> if (night) "system_surface_dark" else "system_surface_light"
+                else -> if (night) "system_surface_dark" else "system_surface_light"
+            }
+            val fallbacks = when (normalized) {
+                "system_surface_container_light" -> listOf(normalized, "system_neutral2_50", "system_surface_light")
+                "system_surface_container_dark" -> listOf(normalized, "system_neutral2_800", "system_surface_dark")
+                else -> listOf(normalized)
+            }
+            return frameworkColor(request, *fallbacks.toTypedArray())
+        }
+        return resolve(parts.first(), false) to resolve(parts.getOrElse(1) { parts.first() }, true)
     }
 }

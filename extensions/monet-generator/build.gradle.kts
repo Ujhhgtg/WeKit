@@ -33,7 +33,10 @@ configure<LibraryExtension> {
     }
 
     testOptions {
-        unitTests.all { it.useJUnitPlatform() }
+        unitTests.all {
+            it.useJUnitPlatform()
+            it.maxHeapSize = "4g"
+        }
     }
 }
 
@@ -84,5 +87,6 @@ dependencies {
     implementation(libs.bouncycastle.pkix)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit.jupiter)
+    testImplementation(project(":libs:monet-generator-api"))
     testRuntimeOnly(libs.junit.platform.launcher)
 }

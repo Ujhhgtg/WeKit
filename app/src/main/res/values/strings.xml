@@ -3782,4 +3782,17 @@
     <string name="settings_page_transition_animation_title">Page transition animation</string>
     <string name="settings_page_transition_animation_aosp">AOSP</string>
     <string name="settings_page_transition_animation_miuix">Miuix</string>
+    <string name="monet_options_title">Customize Monet module</string>
+    <string name="monet_bubble_style">Bubble style</string>
+    <string name="monet_bubble_modern">Modern rounded</string>
+    <string name="monet_bubble_classic">Classic WeChat</string>
+    <string name="monet_bubble_pro">Pro rounded</string>
+    <string name="monet_multi_scene_corners">Rounded input, quote, and payment keys</string>
+    <string name="monet_tab_style">Tab bar</string>
+    <string name="monet_tab_solid">Solid Monet</string>
+    <string name="monet_tab_blur">Translucent Monet</string>
+    <string name="monet_user_scope">Users</string>
+    <string name="monet_user_current">Current user</string>
+    <string name="monet_user_all">All users</string>
+    <string name="monet_generate">Generate</string>
 </resources>

@@ -170,7 +170,7 @@ class MonetExtensionArchiveTest {
             MONET_GENERATOR_API_VERSION,
             MONET_GENERATOR_ENTRYPOINT_V1,
         )
-        staging.resolve("payload/monet_tables.json").writeText("corrupted")
+        staging.resolve("payload/customize.sh").writeText("corrupted")
 
         assertThrows(IllegalArgumentException::class.java) {
             MonetExtensionArchive.verifyInstalled(
@@ -228,9 +228,6 @@ class MonetExtensionArchiveTest {
     fun `each runtime entry enforces its declared size limit`() {
         val limits = linkedMapOf(
             "classes.dex" to 8 * 1024 * 1024,
-            "payload/template_api31.apk" to 1024 * 1024,
-            "payload/template_api34.apk" to 1024 * 1024,
-            "payload/monet_tables.json" to 1024 * 1024,
             "payload/customize.sh" to 64 * 1024,
             "payload/update-binary" to 64 * 1024,
             "payload/updater-script" to 64 * 1024,
@@ -358,9 +355,6 @@ class MonetExtensionArchiveTest {
         val FILE_CONTENTS = linkedMapOf(
             "classes.dex" to "dex",
             "payload/customize.sh" to "customize",
-            "payload/monet_tables.json" to "tables",
-            "payload/template_api31.apk" to "api31",
-            "payload/template_api34.apk" to "api34",
             "payload/update-binary" to "binary",
             "payload/updater-script" to "script",
         )
