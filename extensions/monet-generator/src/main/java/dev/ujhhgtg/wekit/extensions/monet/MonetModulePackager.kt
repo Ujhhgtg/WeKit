@@ -14,6 +14,7 @@ internal object MonetModulePackager {
         options: MonetGenerationOptions,
         versionName: String,
         versionCode: Long,
+        sdkInt: Int,
         output: File,
     ) {
         require(overlays.isNotEmpty())
@@ -41,7 +42,12 @@ internal object MonetModulePackager {
             add("service.sh", $$"#!/system/bin/sh\nMODDIR=${0%/*}\nsh \"$MODDIR/boot-completed.sh\"\n")
             add("boot-completed.sh", BOOT_SCRIPT)
             overlays.forEach { overlay ->
-                add(zip, "system/product/overlay/${overlay.file.name}", overlay.file.readBytes())
+                val path = if (sdkInt >= 34) {
+                    "system/priv-app/${overlay.file.nameWithoutExtension}/${overlay.file.name}"
+                } else {
+                    "system/product/overlay/${overlay.file.name}"
+                }
+                add(zip, path, overlay.file.readBytes())
             }
         }
     }

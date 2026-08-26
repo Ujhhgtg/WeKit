@@ -103,6 +103,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             request.options,
             request.versionName,
             request.versionCode,
+            request.sdkInt,
             request.outputZip,
         )
         return MonetGenerationResult(request.outputZip, colors.size, 0, overlays.size)

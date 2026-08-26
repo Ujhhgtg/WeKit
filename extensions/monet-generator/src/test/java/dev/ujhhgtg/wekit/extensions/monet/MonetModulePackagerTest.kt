@@ -25,6 +25,7 @@ class MonetModulePackagerTest {
             MonetGenerationOptions(userScope = MonetUserScope.ALL, currentUserId = 10),
             "8.0.77",
             3100,
+            34,
             output,
         )
         ZipFile(output).use { zip ->
@@ -32,8 +33,8 @@ class MonetModulePackagerTest {
                 setOf(
                     "module.prop", "customize.sh", "config.conf", "common.sh", "service.sh",
                     "boot-completed.sh", "META-INF/com/google/android/update-binary",
-                    "META-INF/com/google/android/updater-script", "system/product/overlay/Base.apk",
-                    "system/product/overlay/Bubble.apk",
+                    "META-INF/com/google/android/updater-script", "system/priv-app/Base/Base.apk",
+                    "system/priv-app/Bubble/Bubble.apk",
                 ),
                 zip.entries().asSequence().map { it.name }.toSet(),
             )
