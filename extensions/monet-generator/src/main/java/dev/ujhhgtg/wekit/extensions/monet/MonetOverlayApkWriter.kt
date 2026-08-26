@@ -65,7 +65,7 @@ internal object MonetOverlayApkWriter {
         colors: Map<String, Int>,
     ) {
         val apk = ApkModule()
-        val manifest = AndroidManifestBlock.empty().apply {
+        val manifest = AndroidManifestBlock().apply {
             setPackageName(packageName)
             setMinSdkVersion(minSdk)
             setTargetSdkVersion(targetSdk)
@@ -106,7 +106,7 @@ internal object MonetOverlayApkWriter {
         literalColors: List<LiteralColorTarget> = emptyList(),
     ) {
         val apk = ApkModule()
-        val manifest = AndroidManifestBlock.empty().apply {
+        val manifest = AndroidManifestBlock().apply {
             setPackageName(packageName)
             setMinSdkVersion(minSdk)
             setTargetSdkVersion(targetSdk)

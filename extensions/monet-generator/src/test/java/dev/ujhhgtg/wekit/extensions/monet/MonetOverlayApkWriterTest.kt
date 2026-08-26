@@ -31,6 +31,7 @@ class MonetOverlayApkWriterTest {
             drawables.distinctBy(MonetOverlayApkWriter.DrawableTarget::name),
         )
         ApkModule.loadApkFile(output).apply { setLoadDefaultFramework(false) }.use { apk ->
+            assertEquals("manifest", apk.androidManifest.documentElement.name)
             assertTrue(apk.listResFiles().isNotEmpty())
             assertTrue(apk.listResFiles().all { it.isBinaryXml })
         }
@@ -86,6 +87,7 @@ class MonetOverlayApkWriterTest {
                 mapOf("x" to 0xff112233.toInt()),
             )
             ApkModule.loadApkFile(output).apply { setLoadDefaultFramework(false) }.use { apk ->
+                assertEquals("manifest", apk.androidManifest.documentElement.name)
                 assertEquals(expected.first, apk.androidManifest.minSdkVersion)
                 assertEquals(expected.second, apk.androidManifest.targetSdkVersion)
                 assertEquals(
