@@ -79,9 +79,6 @@ restore_overlays() {
     private const val CUSTOMIZE_SCRIPT = $$"""# shellcheck disable=SC2034
 SKIPUNZIP=0
 
-# Ask compatible root managers to activate this module update immediately.
-export MODULE_HOT_INSTALL_REQUEST=true
-
 ui_print " "
 ui_print '             _       __     __ __ _ __'
 ui_print '            | |     / /__  / //_/(_) /_'

@@ -32,11 +32,13 @@ class MonetOverlayApkWriterTest {
             20,
             emptyList(),
             drawables.distinctBy(MonetOverlayApkWriter.DrawableTarget::name),
+            strings = listOf(MonetOverlayApkWriter.StringTarget("title", "WeChat Monet Pro")),
         )
         ApkModule.loadApkFile(output).apply { setLoadDefaultFramework(false) }.use { apk ->
             assertEquals("manifest", apk.androidManifest.documentElement.name)
             assertTrue(apk.listResFiles().isNotEmpty())
             assertTrue(apk.listResFiles().all { it.isBinaryXml })
+            assertEquals("title", apk.tableBlock.pickOne()!!.getResource("string", "title")!!.name)
         }
     }
 

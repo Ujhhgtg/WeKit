@@ -15,6 +15,7 @@ import java.io.File
 internal object MonetOverlayApkWriter {
     data class ColorTarget(val name: String, val lightId: Int, val nightId: Int? = null)
     data class LiteralColorTarget(val name: String, val lightArgb: Int, val nightArgb: Int? = null)
+    data class StringTarget(val name: String, val value: String)
     data class DrawableTarget(
         val name: String,
         val light: XmlNode,
@@ -117,6 +118,7 @@ internal object MonetOverlayApkWriter {
         colors: List<ColorTarget>,
         drawables: List<DrawableTarget> = emptyList(),
         literalColors: List<LiteralColorTarget> = emptyList(),
+        strings: List<StringTarget> = emptyList(),
     ) {
         require(versionCode in 0..Int.MAX_VALUE.toLong())
         require(priority >= 0)
@@ -151,6 +153,9 @@ internal object MonetOverlayApkWriter {
             color.nightArgb?.let {
                 pkg.getOrCreate("-night", "color", color.name)!!.setValueAsRaw(ValueType.COLOR_ARGB8, it)
             }
+        }
+        strings.forEach { string ->
+            pkg.getOrCreate("", "string", string.name)!!.setValueAsString(string.value)
         }
         drawables.forEach { drawable ->
             pkg.getOrCreate(drawable.lightQualifiers, drawable.type, drawable.name)

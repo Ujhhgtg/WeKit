@@ -33,6 +33,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             overlayColors: List<MonetOverlayApkWriter.ColorTarget> = emptyList(),
             drawables: List<MonetOverlayApkWriter.DrawableTarget> = emptyList(),
             literalColors: List<MonetOverlayApkWriter.LiteralColorTarget> = emptyList(),
+            strings: List<MonetOverlayApkWriter.StringTarget> = emptyList(),
         ) {
             val unsigned = File(request.workDir, ".$fileName.unsigned")
             val signed = File(request.workDir, fileName)
@@ -47,6 +48,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
                 overlayColors,
                 drawables,
                 literalColors,
+                strings,
             )
             MonetApkSigner.sign(unsigned, signed, minSdk)
             unsigned.delete()
@@ -63,6 +65,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             1,
             colors,
             baseDrawables,
+            strings = referenceStrings(resolved, request.versionName),
         )
         when (request.options.bubbleStyle) {
             MonetBubbleStyle.MODERN -> Unit
@@ -142,6 +145,24 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
         } ?: error("framework Monet color unavailable: ${names.joinToString()}")
 
     private fun Int.withAlpha(alpha: Int): Int = this and 0x00ffffff or (alpha shl 24)
+
+    private fun referenceStrings(
+        resolved: Map<String, MonetResourceNode>,
+        versionName: String,
+    ): List<MonetOverlayApkWriter.StringTarget> {
+        val values = mapOf(
+            "about.title" to "WeChat Monet Pro",
+            "about.authors.prefix" to "作者: 枯れ木, 1e93d,",
+            "about.authors.suffix" to " HSSkyBoy",
+            "about.separator" to "",
+            "about.compatibility" to "适配版本: $versionName",
+            "about.update-date" to "由 WeKit 运行时生成",
+            "about.slogan" to " 故事的开始，是蝉鸣不止的盛夏 ",
+        )
+        return values.map { (role, value) ->
+            MonetOverlayApkWriter.StringTarget(requireNotNull(resolved[role]).key.name, value)
+        }
+    }
 
     private fun paletteFor(id: String, request: MonetGenerationRequest): Pair<Int, Int?> {
         val semantic = id.removePrefix("theme.color.").substringBefore(".slot-")

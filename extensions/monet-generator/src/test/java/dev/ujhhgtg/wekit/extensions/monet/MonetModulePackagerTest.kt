@@ -45,7 +45,7 @@ class MonetModulePackagerTest {
             val customize = zip.getInputStream(zip.getEntry("customize.sh")).bufferedReader().readText()
             assertTrue("WeChat, now with superpowers" in customize)
             assertTrue("App Profile" in customize)
-            assertTrue("export MODULE_HOT_INSTALL_REQUEST=true" in customize)
+            assertFalse("MODULE_HOT_INSTALL_REQUEST" in customize)
             assertTrue("system/priv-app/\$name" in customize)
             assertTrue("system/product/overlay" in customize)
             val scripts = listOf("common.sh", "service.sh", "boot-completed.sh").joinToString { name ->
