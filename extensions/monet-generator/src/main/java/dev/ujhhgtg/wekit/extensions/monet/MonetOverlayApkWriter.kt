@@ -15,9 +15,15 @@ import java.io.File
 import java.util.zip.ZipEntry
 
 internal object MonetOverlayApkWriter {
-    data class ColorTarget(val name: String, val lightId: Int, val nightId: Int? = null)
+    sealed interface ColorValue {
+        data class Reference(val id: Int) : ColorValue
+        data class Literal(val argb: Int) : ColorValue
+    }
+    data class ColorTarget(val name: String, val light: ColorValue?, val night: ColorValue?) {
+        init { require(light != null || night != null) }
+    }
     data class LiteralColorTarget(val name: String, val lightArgb: Int, val nightArgb: Int? = null)
-    data class StringTarget(val name: String, val value: String)
+    data class StringTarget(val name: String, val value: String, val qualifiers: String = "")
     data class DrawableTarget(
         val name: String,
         val light: XmlNode,
@@ -147,29 +153,39 @@ internal object MonetOverlayApkWriter {
         val table = TableBlock()
         apk.setTableBlock(table)
         val pkg = table.newPackage(0x7f, packageName)
-        val uiModeVariants = mutableSetOf<Pair<String, String>>()
+        val specFlags = mutableMapOf<Pair<String, String>, Int>()
+        fun record(type: String, name: String, qualifiers: String) {
+            val key = type to name
+            specFlags[key] = specFlags.getOrDefault(key, 0) or qualifierFlags(qualifiers)
+        }
         colors.forEach { color ->
-            pkg.getOrCreate("", "color", color.name)!!.setValueAsReference(color.lightId)
-            color.nightId?.let {
-                pkg.getOrCreate("-night", "color", color.name)!!.setValueAsReference(it)
-                uiModeVariants += "color" to color.name
+            color.light?.let {
+                pkg.getOrCreate("", "color", color.name)!!.setColorValue(it)
+                record("color", color.name, "")
+            }
+            color.night?.let {
+                pkg.getOrCreate("-night", "color", color.name)!!.setColorValue(it)
+                record("color", color.name, "-night")
             }
         }
         literalColors.forEach { color ->
             pkg.getOrCreate("", "color", color.name)!!.setValueAsRaw(ValueType.COLOR_ARGB8, color.lightArgb)
             color.nightArgb?.let {
                 pkg.getOrCreate("-night", "color", color.name)!!.setValueAsRaw(ValueType.COLOR_ARGB8, it)
-                uiModeVariants += "color" to color.name
+                record("color", color.name, "-night")
             }
+            record("color", color.name, "")
         }
         strings.forEach { string ->
-            pkg.getOrCreate("", "string", string.name)!!.setValueAsString(string.value)
+            pkg.getOrCreate(string.qualifiers, "string", string.name)!!.setValueAsString(string.value)
+            record("string", string.name, string.qualifiers)
         }
         drawables.forEach { drawable ->
             pkg.getOrCreate(drawable.lightQualifiers, drawable.type, drawable.name)
+            record(drawable.type, drawable.name, drawable.lightQualifiers)
             drawable.night?.let {
                 pkg.getOrCreate(drawable.nightQualifiers, drawable.type, drawable.name)
-                uiModeVariants += drawable.type to drawable.name
+                record(drawable.type, drawable.name, drawable.nightQualifiers)
             }
         }
         drawables.forEach { drawable ->
@@ -179,7 +195,7 @@ internal object MonetOverlayApkWriter {
             }
         }
         table.refreshFull()
-        uiModeVariants.forEach { (type, name) -> markUiModeVariant(pkg, type, name) }
+        specFlags.forEach { (key, flags) -> markSpecFlags(pkg, key.first, key.second, flags) }
         apk.refreshTable()
         freezeCanonicalTable(apk, table)
         output.parentFile?.mkdirs()
@@ -187,10 +203,34 @@ internal object MonetOverlayApkWriter {
         apk.close()
     }
 
-    private fun markUiModeVariant(pkg: PackageBlock, type: String, name: String) {
+    private fun com.reandroid.arsc.value.Entry.setColorValue(value: ColorValue) {
+        when (value) {
+            is ColorValue.Reference -> setValueAsReference(value.id)
+            is ColorValue.Literal -> setValueAsRaw(ValueType.COLOR_ARGB8, value.argb)
+        }
+    }
+
+    private fun markSpecFlags(pkg: PackageBlock, type: String, name: String, flags: Int) {
         val entryId = requireNotNull(pkg.getResource(type, name)).resourceId and 0xffff
         requireNotNull(pkg.getSpecTypePair(type)).specBlock.getSpecFlag(entryId)
-            .setInteger(NATIVE_CONFIG_UI_MODE)
+            .setInteger(flags)
+    }
+
+    private fun qualifierFlags(qualifiers: String): Int {
+        if (qualifiers.isEmpty()) return 0
+        val parts = qualifiers.removePrefix("-").split('-')
+        var result = 0
+        if ("night" in parts) result = result or NATIVE_CONFIG_UI_MODE
+        if (parts.any { it == "anydpi" || it == "nodpi" || it.endsWith("dpi") }) {
+            result = result or NATIVE_CONFIG_DENSITY
+        }
+        if (parts.any { it.length > 1 && it[0] == 'v' && it.drop(1).all(Char::isDigit) }) {
+            result = result or NATIVE_CONFIG_VERSION
+        }
+        if (parts.firstOrNull()?.matches(Regex("[a-z]{2,3}")) == true) {
+            result = result or NATIVE_CONFIG_LOCALE
+        }
+        return result
     }
 
     /**
@@ -288,5 +328,8 @@ internal object MonetOverlayApkWriter {
     private const val ATTR_HAS_CODE = 0x0101000c
     private const val ATTR_TARGET_PACKAGE = 0x01010021
     private const val ATTR_IS_STATIC = 0x0101055a
+    private const val NATIVE_CONFIG_LOCALE = 0x00000004
+    private const val NATIVE_CONFIG_DENSITY = 0x00000100
+    private const val NATIVE_CONFIG_VERSION = 0x00000400
     private const val NATIVE_CONFIG_UI_MODE = 0x00001000
 }

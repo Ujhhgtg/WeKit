@@ -16,7 +16,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
         listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.PREPARING))
         val graph = MonetApkResourceGraphLoader.load(request.sourceApkPaths.map(::File), request.packageName)
         val resolved = MonetStructureMatcher.resolveAll(graph, request.dexEvidenceProvider)
-        val colors = MONET_RULES.filter { it.type == "color" }.mapNotNull { rule ->
+        val colors = MONET_RULES.filter { it.type == "color" && it.id != "main.tab.background" }.mapNotNull { rule ->
             val node = resolved[rule.id] ?: return@mapNotNull null
             val target = paletteFor(rule.id, request)
             MonetOverlayApkWriter.ColorTarget(node.key.name, target.first, target.second)
@@ -25,6 +25,9 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
         val minSdk = if (request.sdkInt >= 34) 34 else 31
         val targetSdk = if (request.sdkInt >= 34) 36 else 33
         val palette = overlayPalette(request)
+        val splashIconId = requireNotNull(graph.node(MonetResourceKey("drawable", "icon"))) {
+            "drawable/icon"
+        }.id
         val overlays = mutableListOf<MonetModulePackager.Overlay>()
         fun build(
             fileName: String,
@@ -34,6 +37,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             drawables: List<MonetOverlayApkWriter.DrawableTarget> = emptyList(),
             literalColors: List<MonetOverlayApkWriter.LiteralColorTarget> = emptyList(),
             strings: List<MonetOverlayApkWriter.StringTarget> = emptyList(),
+            installInitially: Boolean = true,
         ) {
             val unsigned = File(request.workDir, ".$fileName.unsigned")
             val signed = File(request.workDir, fileName)
@@ -52,11 +56,11 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             )
             MonetApkSigner.sign(unsigned, signed, minSdk)
             unsigned.delete()
-            overlays += MonetModulePackager.Overlay(signed, packageName)
+            overlays += MonetModulePackager.Overlay(signed, packageName, installInitially)
         }
         val baseDrawables = buildList {
-            addAll(MonetCustomOverlays.baseVisuals(resolved, palette))
-            addAll(MonetCustomOverlays.bubbles(resolved, MonetBubbleStyle.MODERN, palette))
+            addAll(MonetCustomOverlays.baseVisuals(resolved, palette, splashIconId))
+            addAll(MonetCustomOverlays.modernBubbles(resolved, palette))
             if (request.sdkInt >= 33) addAll(MonetCustomOverlays.themedIcon(resolved, palette))
         }
         build(
@@ -79,7 +83,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
                 "MonetWeChatBubblePro.apk",
                 "monet.bubblepro.com.tencent.mm",
                 20,
-                drawables = MonetCustomOverlays.bubbles(resolved, MonetBubbleStyle.PRO, palette),
+                drawables = MonetCustomOverlays.proBubbles(resolved, palette),
             )
         }
         if (request.options.multiSceneCorners) {
@@ -91,29 +95,32 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             )
         }
         val tabName = requireNotNull(resolved["main.tab.background"]).key.name
-        if (request.options.tabStyle == MonetTabStyle.BLUR) {
-            build(
-                "MonetWeChatBlurTab.apk",
-                "monet.blurtab.com.tencent.mm",
-                10,
-                literalColors = listOf(
-                    MonetOverlayApkWriter.LiteralColorTarget(
-                        tabName,
-                        request.options.blurLightArgb ?: request.resources.getColor(palette.surfaceLight, null).withAlpha(0xb0),
-                        request.options.blurNightArgb ?: request.resources.getColor(palette.surfaceNight, null).withAlpha(0xb0),
-                    ),
+        build(
+            "MonetWeChatSolidTab.apk",
+            "monet.solidtab.com.tencent.mm",
+            10,
+            overlayColors = listOf(
+                MonetOverlayApkWriter.ColorTarget(
+                    tabName,
+                    MonetOverlayApkWriter.ColorValue.Reference(palette.surfaceContainerLight),
+                    MonetOverlayApkWriter.ColorValue.Reference(palette.surfaceContainerDark),
                 ),
-            )
-        } else {
-            build(
-                "MonetWeChatSolidTab.apk",
-                "monet.solidtab.com.tencent.mm",
-                10,
-                overlayColors = listOf(
-                    MonetOverlayApkWriter.ColorTarget(tabName, palette.surfaceLight, palette.surfaceNight),
+            ),
+            installInitially = request.options.tabStyle == MonetTabStyle.SOLID,
+        )
+        build(
+            "MonetWeChatBlurTab.apk",
+            "monet.blurtab.com.tencent.mm",
+            10,
+            literalColors = listOf(
+                MonetOverlayApkWriter.LiteralColorTarget(
+                    tabName,
+                    request.options.blurLightArgb ?: request.resources.getColor(palette.surfaceContainerLight, null).withAlpha(0xb0),
+                    request.options.blurNightArgb ?: request.resources.getColor(palette.surfaceContainerDark, null).withAlpha(0xc7),
                 ),
-            )
-        }
+            ),
+            installInitially = request.options.tabStyle == MonetTabStyle.BLUR,
+        )
         listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.SIGNING))
         listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.PACKAGING))
         MonetModulePackager.pack(
@@ -128,14 +135,30 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
     }
 
     private fun overlayPalette(request: MonetGenerationRequest) = MonetCustomOverlays.Palette(
-        incomingLight = frameworkColor(request, "system_surface_container_light", "system_neutral2_50", "system_surface_light"),
-        incomingNight = frameworkColor(request, "system_surface_container_dark", "system_neutral2_800", "system_surface_dark"),
-        outgoingLight = frameworkColor(request, "system_accent1_100", "system_accent1_200"),
-        outgoingNight = frameworkColor(request, "system_accent1_800", "system_accent1_700"),
-        surfaceLight = frameworkColor(request, "system_surface_container_light", "system_neutral2_50", "system_surface_light"),
-        surfaceNight = frameworkColor(request, "system_surface_container_dark", "system_neutral2_800", "system_surface_dark"),
-        primaryLight = frameworkColor(request, "system_accent1_100", "system_accent1_200"),
-        primaryNight = frameworkColor(request, "system_accent1_800", "system_accent1_700"),
+        surfaceLight = frameworkColor(request, "system_surface_light"),
+        surfaceDark = frameworkColor(request, "system_surface_dark"),
+        surfaceContainerLight = frameworkColor(
+            request, "system_surface_container_light", "system_neutral2_50", "system_surface_light",
+        ),
+        surfaceContainerDark = frameworkColor(
+            request, "system_surface_container_dark", "system_neutral2_800", "system_surface_dark",
+        ),
+        surfaceContainerHighLight = frameworkColor(
+            request, "system_surface_container_high_light", "system_surface_container_light", "system_surface_light",
+        ),
+        surfaceContainerHighDark = frameworkColor(
+            request, "system_surface_container_high_dark", "system_surface_container_dark", "system_surface_dark",
+        ),
+        primaryLight = frameworkColor(request, "system_primary_light", "system_accent1_500"),
+        primaryDark = frameworkColor(request, "system_primary_dark", "system_accent1_200"),
+        primaryContainerLight = frameworkColor(request, "system_primary_container_light", "system_accent1_100"),
+        primaryContainerDark = frameworkColor(request, "system_primary_container_dark", "system_accent1_800"),
+        accent1_300 = frameworkColor(request, "system_accent1_300"),
+        accent1_400 = frameworkColor(request, "system_accent1_400"),
+        accent1_500 = frameworkColor(request, "system_accent1_500"),
+        accent1_700 = frameworkColor(request, "system_accent1_700"),
+        accent2_100 = frameworkColor(request, "system_accent2_100"),
+        neutral2_700 = frameworkColor(request, "system_neutral2_700", "system_surface_dark"),
     )
 
     @SuppressLint("DiscouragedApi")
@@ -151,36 +174,70 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
         versionName: String,
     ): List<MonetOverlayApkWriter.StringTarget> {
         val values = mapOf(
-            "about.title" to "WeChat Monet Pro",
-            "about.authors.prefix" to "作者: 枯れ木, 1e93d,",
-            "about.authors.suffix" to " HSSkyBoy",
-            "about.separator" to "",
-            "about.compatibility" to "适配版本: $versionName",
-            "about.update-date" to "由 WeKit 运行时生成",
-            "about.slogan" to " 故事的开始，是蝉鸣不止的盛夏 ",
+            "" to mapOf(
+                "about.title" to "WeChat Monet Pro",
+                "about.authors.prefix" to "作者: 枯れ木, 1e93d,",
+                "about.authors.suffix" to " HSSkyBoy",
+                "about.separator" to "",
+                "about.compatibility" to "适配版本: $versionName",
+                "about.update-date" to "由 WeKit 运行时生成",
+                "about.slogan" to " 故事的开始，是蝉鸣不止的盛夏 ",
+            ),
+            "-en" to mapOf(
+                "about.title" to "WeChat Monet Pro",
+                "about.authors.prefix" to "Producer: 枯れ木, 1e93d,",
+                "about.authors.suffix" to " HSSkyBoy",
+                "about.separator" to "",
+                "about.compatibility" to "Adapted version: $versionName",
+                "about.update-date" to "Generated at runtime by WeKit",
+                "about.slogan" to " The story begins in midsummer when the cicadas are chirping ",
+            ),
+            "-zh-rHK" to mapOf(
+                "about.title" to "WeChat Monet Pro",
+                "about.authors.prefix" to "適配: $versionName",
+                "about.authors.suffix" to "作者: 枯れ木, 1e93d, HSSkyBoy",
+                "about.separator" to "",
+                "about.compatibility" to "由 WeKit 執行階段產生",
+                "about.update-date" to " 故事的開始，是蟬鳴不止的盛夏 ",
+                "about.slogan" to "公益免費，持續更新",
+            ),
+            "-zh-rTW" to mapOf(
+                "about.title" to "WeChat Monet Pro",
+                "about.authors.prefix" to "作者: 枯れ木, 1e93d,",
+                "about.authors.suffix" to " HSSkyBoy",
+                "about.separator" to "",
+                "about.compatibility" to "適配版本: $versionName",
+                "about.update-date" to "由 WeKit 執行階段產生",
+                "about.slogan" to " 故事的開始，是蟬鳴不止的盛夏 ",
+            ),
         )
-        return values.map { (role, value) ->
-            MonetOverlayApkWriter.StringTarget(requireNotNull(resolved[role]).key.name, value)
+        return values.flatMap { (qualifiers, localized) ->
+            localized.map { (role, value) ->
+                MonetOverlayApkWriter.StringTarget(requireNotNull(resolved[role]).key.name, value, qualifiers)
+            }
         }
     }
 
-    private fun paletteFor(id: String, request: MonetGenerationRequest): Pair<Int, Int?> {
+    private fun paletteFor(
+        id: String,
+        request: MonetGenerationRequest,
+    ): Pair<MonetOverlayApkWriter.ColorValue?, MonetOverlayApkWriter.ColorValue?> {
         val semantic = id.removePrefix("theme.color.").substringBefore(".slot-")
         val parts = semantic.split("--", limit = 2)
-        fun resolve(token: String, night: Boolean): Int {
-            val normalized = when {
-                token.startsWith("system-") -> token.replace('-', '_')
-                token == "10000000" || token.startsWith("unknown") -> if (night) "system_surface_dark" else "system_surface_light"
-                token == "10ffffff" || token == "e6ffffff" -> if (night) "system_surface_dark" else "system_surface_light"
-                else -> if (night) "system_surface_dark" else "system_surface_light"
+        fun resolve(token: String): MonetOverlayApkWriter.ColorValue? {
+            if (token == "unknown") return null
+            if (token.length == 8 && token.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
+                return MonetOverlayApkWriter.ColorValue.Literal(token.toUInt(16).toInt())
             }
+            require(token.startsWith("system-")) { "unsupported S4 color token: $token" }
+            val normalized = token.replace('-', '_')
             val fallbacks = when (normalized) {
                 "system_surface_container_light" -> listOf(normalized, "system_neutral2_50", "system_surface_light")
                 "system_surface_container_dark" -> listOf(normalized, "system_neutral2_800", "system_surface_dark")
                 else -> listOf(normalized)
             }
-            return frameworkColor(request, *fallbacks.toTypedArray())
+            return MonetOverlayApkWriter.ColorValue.Reference(frameworkColor(request, *fallbacks.toTypedArray()))
         }
-        return resolve(parts.first(), false) to resolve(parts.getOrElse(1) { parts.first() }, true)
+        return resolve(parts.first()) to resolve(parts.getOrElse(1) { parts.first() })
     }
 }

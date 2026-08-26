@@ -15,12 +15,14 @@ class MonetModulePackagerTest {
     fun `module contains selected overlays and overlay-only boot restore`() {
         val dir = createTempDirectory("monet-module").toFile()
         val first = File(dir, "Base.apk").apply { writeBytes(byteArrayOf(1)) }
-        val second = File(dir, "Bubble.apk").apply { writeBytes(byteArrayOf(2)) }
+        val solid = File(dir, "MonetWeChatSolidTab.apk").apply { writeBytes(byteArrayOf(2)) }
+        val blur = File(dir, "MonetWeChatBlurTab.apk").apply { writeBytes(byteArrayOf(3)) }
         val output = File(dir, "module.zip")
         MonetModulePackager.pack(
             listOf(
                 MonetModulePackager.Overlay(first, "monet.base"),
-                MonetModulePackager.Overlay(second, "monet.bubble"),
+                MonetModulePackager.Overlay(solid, "monet.solidtab.com.tencent.mm"),
+                MonetModulePackager.Overlay(blur, "monet.blurtab.com.tencent.mm", installInitially = false),
             ),
             MonetGenerationOptions(userScope = MonetUserScope.ALL, currentUserId = 10),
             "8.0.77",
@@ -31,9 +33,10 @@ class MonetModulePackagerTest {
         ZipFile(output).use { zip ->
             assertEquals(
                 setOf(
-                    "module.prop", "customize.sh", "config.conf", "common.sh", "service.sh",
+                    "module.prop", "customize.sh", "config.conf", "common.sh", "action.sh", "service.sh",
                     "boot-completed.sh", "META-INF/com/google/android/update-binary",
-                    "META-INF/com/google/android/updater-script", "files/Base.apk", "files/Bubble.apk",
+                    "META-INF/com/google/android/updater-script", "files/Base.apk",
+                    "files/MonetWeChatSolidTab.apk", "files/MonetWeChatBlurTab.apk",
                 ),
                 zip.entries().asSequence().map { it.name }.toSet(),
             )
@@ -48,10 +51,11 @@ class MonetModulePackagerTest {
             assertTrue("export MODULE_HOT_INSTALL_REQUEST=true" in customize)
             assertTrue("system/priv-app/\$name" in customize)
             assertTrue("system/product/overlay" in customize)
-            val scripts = listOf("common.sh", "service.sh", "boot-completed.sh").joinToString { name ->
+            val scripts = listOf("common.sh", "action.sh", "service.sh", "boot-completed.sh").joinToString { name ->
                 zip.getInputStream(zip.getEntry(name)).bufferedReader().readText()
             }
             assertTrue("cmd overlay enable" in scripts)
+            assertTrue("select_tab_overlay" in scripts)
             assertFalse("tinker" in scripts.lowercase())
         }
     }

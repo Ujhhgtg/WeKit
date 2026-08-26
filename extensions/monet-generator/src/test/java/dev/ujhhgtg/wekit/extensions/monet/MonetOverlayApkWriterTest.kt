@@ -15,31 +15,62 @@ class MonetOverlayApkWriterTest {
             rule.id to MonetResourceNode(index + 1, MonetResourceKey(rule.type, "target_$index"), emptyList())
         }.toMap()
         val palette = MonetCustomOverlays.Palette(
-            0x01060070, 0x0106009b, 0x0106003a, 0x01060041,
-            0x0106006c, 0x01060097, 0x01060060, 0x0106008b,
+            surfaceLight = 0x01060070,
+            surfaceDark = 0x01060097,
+            surfaceContainerLight = 0x01060071,
+            surfaceContainerDark = 0x0106009b,
+            surfaceContainerHighLight = 0x01060072,
+            surfaceContainerHighDark = 0x0106009c,
+            primaryLight = 0x01060060,
+            primaryDark = 0x0106008b,
+            primaryContainerLight = 0x01060061,
+            primaryContainerDark = 0x0106008c,
+            accent1_300 = 0x0106003a,
+            accent1_400 = 0x0106003b,
+            accent1_500 = 0x0106003c,
+            accent1_700 = 0x0106003e,
+            accent2_100 = 0x01060041,
+            neutral2_700 = 0x0106006c,
         )
-        val drawables = MonetCustomOverlays.baseVisuals(resolved, palette) +
-            MonetCustomOverlays.bubbles(resolved, dev.ujhhgtg.wekit.extensions.monet.api.MonetBubbleStyle.PRO, palette) +
-            MonetCustomOverlays.corners(resolved, palette) +
-            MonetCustomOverlays.themedIcon(resolved, palette)
-        val output = File(createTempDirectory("monet-s4-writer").toFile(), "overlay.apk")
-        MonetOverlayApkWriter.createReferenced(
-            output,
-            "monet.test.com.tencent.mm",
-            34,
-            36,
-            "8.0.77",
-            3100,
-            20,
-            emptyList(),
-            drawables.distinctBy(MonetOverlayApkWriter.DrawableTarget::name),
-            strings = listOf(MonetOverlayApkWriter.StringTarget("title", "WeChat Monet Pro")),
+        val groups = mapOf(
+            "base" to MonetCustomOverlays.baseVisuals(resolved, palette, 0x7f080001) +
+                MonetCustomOverlays.modernBubbles(resolved, palette) +
+                MonetCustomOverlays.themedIcon(resolved, palette),
+            "pro" to MonetCustomOverlays.proBubbles(resolved, palette),
+            "classic" to MonetCustomOverlays.classicBubbles(resolved, palette),
+            "corners" to MonetCustomOverlays.corners(resolved, palette),
         )
-        ApkModule.loadApkFile(output).apply { setLoadDefaultFramework(false) }.use { apk ->
-            assertEquals("manifest", apk.androidManifest.documentElement.name)
-            assertTrue(apk.listResFiles().isNotEmpty())
-            assertTrue(apk.listResFiles().all { it.isBinaryXml })
-            assertEquals("title", apk.tableBlock.pickOne()!!.getResource("string", "title")!!.name)
+        val dir = createTempDirectory("monet-s4-writer").toFile()
+        groups.forEach { (name, drawables) ->
+            val output = File(dir, "$name.apk")
+            MonetOverlayApkWriter.createReferenced(
+                output,
+                "monet.test.$name.com.tencent.mm",
+                34,
+                36,
+                "8.0.77",
+                3100,
+                20,
+                emptyList(),
+                drawables.distinctBy(MonetOverlayApkWriter.DrawableTarget::name),
+                strings = if (name == "base") listOf(
+                    MonetOverlayApkWriter.StringTarget("title", "WeChat Monet Pro"),
+                    MonetOverlayApkWriter.StringTarget("title", "WeChat Monet Pro", "-en"),
+                ) else emptyList(),
+            )
+            ApkModule.loadApkFile(output).apply { setLoadDefaultFramework(false) }.use { apk ->
+                assertEquals("manifest", apk.androidManifest.documentElement.name)
+                assertTrue(apk.listResFiles().isNotEmpty())
+                assertTrue(apk.listResFiles().all { it.isBinaryXml })
+                if (name == "base") {
+                    val pkg = apk.tableBlock.pickOne()!!
+                    val title = pkg.getResource("string", "title")!!
+                    assertEquals(2, title.configsCount)
+                    assertEquals(0x00000004, title.get().specFlag.integer)
+                    val icon = pkg.getResource("mipmap", resolved.getValue("launcher.themed.icon").key.name)!!
+                    assertEquals(0x00000500, icon.get().specFlag.integer)
+                }
+            }
         }
     }
 
@@ -55,7 +86,13 @@ class MonetOverlayApkWriterTest {
             "8.0.77",
             3100,
             10,
-            listOf(MonetOverlayApkWriter.ColorTarget("x", 0x0106006c)),
+            listOf(
+                MonetOverlayApkWriter.ColorTarget(
+                    "x",
+                    MonetOverlayApkWriter.ColorValue.Reference(0x0106006c),
+                    null,
+                ),
+            ),
             listOf(
                 MonetOverlayApkWriter.DrawableTarget(
                     "bubble",
