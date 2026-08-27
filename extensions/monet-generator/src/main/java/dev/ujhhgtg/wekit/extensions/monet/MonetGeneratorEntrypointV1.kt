@@ -69,7 +69,6 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             1,
             colors,
             baseDrawables,
-            strings = referenceStrings(resolved, request.versionName),
         )
         when (request.options.bubbleStyle) {
             MonetBubbleStyle.MODERN -> Unit
@@ -168,55 +167,6 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
         } ?: error("framework Monet color unavailable: ${names.joinToString()}")
 
     private fun Int.withAlpha(alpha: Int): Int = this and 0x00ffffff or (alpha shl 24)
-
-    private fun referenceStrings(
-        resolved: Map<String, MonetResourceNode>,
-        versionName: String,
-    ): List<MonetOverlayApkWriter.StringTarget> {
-        val values = mapOf(
-            "" to mapOf(
-                "about.title" to "WeChat Monet Pro",
-                "about.authors.prefix" to "作者: 枯れ木, 1e93d,",
-                "about.authors.suffix" to " HSSkyBoy",
-                "about.separator" to "",
-                "about.compatibility" to "适配版本: $versionName",
-                "about.update-date" to "由 WeKit 运行时生成",
-                "about.slogan" to " 故事的开始，是蝉鸣不止的盛夏 ",
-            ),
-            "-en" to mapOf(
-                "about.title" to "WeChat Monet Pro",
-                "about.authors.prefix" to "Producer: 枯れ木, 1e93d,",
-                "about.authors.suffix" to " HSSkyBoy",
-                "about.separator" to "",
-                "about.compatibility" to "Adapted version: $versionName",
-                "about.update-date" to "Generated at runtime by WeKit",
-                "about.slogan" to " The story begins in midsummer when the cicadas are chirping ",
-            ),
-            "-zh-rHK" to mapOf(
-                "about.title" to "WeChat Monet Pro",
-                "about.authors.prefix" to "適配: $versionName",
-                "about.authors.suffix" to "作者: 枯れ木, 1e93d, HSSkyBoy",
-                "about.separator" to "",
-                "about.compatibility" to "由 WeKit 執行階段產生",
-                "about.update-date" to " 故事的開始，是蟬鳴不止的盛夏 ",
-                "about.slogan" to "公益免費，持續更新",
-            ),
-            "-zh-rTW" to mapOf(
-                "about.title" to "WeChat Monet Pro",
-                "about.authors.prefix" to "作者: 枯れ木, 1e93d,",
-                "about.authors.suffix" to " HSSkyBoy",
-                "about.separator" to "",
-                "about.compatibility" to "適配版本: $versionName",
-                "about.update-date" to "由 WeKit 執行階段產生",
-                "about.slogan" to " 故事的開始，是蟬鳴不止的盛夏 ",
-            ),
-        )
-        return values.flatMap { (qualifiers, localized) ->
-            localized.map { (role, value) ->
-                MonetOverlayApkWriter.StringTarget(requireNotNull(resolved[role]).key.name, value, qualifiers)
-            }
-        }
-    }
 
     private fun paletteFor(
         id: String,
