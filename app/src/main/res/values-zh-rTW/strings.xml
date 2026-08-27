@@ -529,10 +529,6 @@
     <string name="feature_monet_module_generator_name">莫奈引擎模組產生器</string>
     <string name="feature_monet_module_generator_description">產生可透過 Root 管理器安裝、零執行時損耗的微信莫奈 RRO 模組。需要 Android 12+ 與莫奈引擎模組產生器擴充套件。</string>
     <string name="monet_generator_unsupported">需要 Android 12 或更新版本。</string>
-    <string name="monet_generator_preparing">正在準備擴充套件資源…</string>
-    <string name="monet_generator_building">正在為目前微信版本產生資源覆蓋…</string>
-    <string name="monet_generator_signing">正在簽署資源覆蓋…</string>
-    <string name="monet_generator_packaging">正在封裝 Root 模組…</string>
     <string name="monet_generator_pack_invalid">莫奈引擎模組產生器擴充套件已損壞或不相容，請刪除後重新下載。</string>
     <string name="monet_generator_failed">在%1$s階段產生失敗：%2$s</string>
     <string name="monet_generator_output">模組已產生至：\n%1$s</string>

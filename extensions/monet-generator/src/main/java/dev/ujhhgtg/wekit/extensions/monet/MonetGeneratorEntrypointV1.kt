@@ -13,15 +13,26 @@ import java.io.File
 
 class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
     override fun generate(request: MonetGenerationRequest, listener: MonetGenerationListener): MonetGenerationResult {
-        listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.PREPARING))
-        val graph = MonetApkResourceGraphLoader.load(request.sourceApkPaths.map(::File), request.packageName)
+        fun progress(stage: MonetGenerationStage, detail: String, completed: Int, total: Int) {
+            listener.onEvent(MonetGenerationEvent.Progress(stage, detail, completed, total))
+        }
+
+        progress(MonetGenerationStage.LOADING_APKS, "读取微信资源 APK", 0, request.sourceApkPaths.size)
+        val graph = MonetApkResourceGraphLoader.load(
+            request.sourceApkPaths.map(::File),
+            request.packageName,
+        ) { detail, completed, total ->
+            progress(MonetGenerationStage.BUILDING_RESOURCE_GRAPH, detail, completed, total)
+        }
+        progress(MonetGenerationStage.BUILDING_RESOURCE_GRAPH, "ARSC/XML 引用图构建完成", 1, 1)
+        progress(MonetGenerationStage.RESOLVING_ROLES, "解析 ${MonetStructureMatcher.roleIds.size} 个语义角色", 0, 1)
         val resolved = MonetStructureMatcher.resolveAll(graph, request.dexEvidenceProvider)
+        progress(MonetGenerationStage.RESOLVING_ROLES, "已解析 ${resolved.size} 个语义角色", 1, 1)
         val colors = MONET_RULES.filter { it.type == "color" && it.id != "main.tab.background" }.mapNotNull { rule ->
             val node = resolved[rule.id] ?: return@mapNotNull null
             val target = paletteFor(rule.id, request)
             MonetOverlayApkWriter.ColorTarget(node.key.name, target.first, target.second)
         }
-        listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.BUILDING_OVERLAY))
         val minSdk = if (request.sdkInt >= 34) 34 else 31
         val targetSdk = if (request.sdkInt >= 34) 36 else 33
         val palette = overlayPalette(request)
@@ -29,6 +40,10 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             "drawable/icon"
         }.id
         val overlays = mutableListOf<MonetModulePackager.Overlay>()
+        val overlayTotal = 3 +
+            (if (request.options.bubbleStyle == MonetBubbleStyle.MODERN) 0 else 1) +
+            (if (request.options.multiSceneCorners) 1 else 0)
+        var overlayIndex = 0
         fun build(
             fileName: String,
             packageName: String,
@@ -39,6 +54,8 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             strings: List<MonetOverlayApkWriter.StringTarget> = emptyList(),
             installInitially: Boolean = true,
         ) {
+            overlayIndex++
+            progress(MonetGenerationStage.BUILDING_OVERLAY, "构建 $fileName", overlayIndex - 1, overlayTotal)
             val unsigned = File(request.workDir, ".$fileName.unsigned")
             val signed = File(request.workDir, fileName)
             MonetOverlayApkWriter.createReferenced(
@@ -54,9 +71,11 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
                 literalColors,
                 strings,
             )
+            progress(MonetGenerationStage.SIGNING, "签名 $fileName", overlayIndex - 1, overlayTotal)
             MonetApkSigner.sign(unsigned, signed, minSdk)
             unsigned.delete()
             overlays += MonetModulePackager.Overlay(signed, packageName, installInitially)
+            progress(MonetGenerationStage.SIGNING, "已完成 $fileName", overlayIndex, overlayTotal)
         }
         val baseDrawables = buildList {
             addAll(MonetCustomOverlays.baseVisuals(resolved, palette, splashIconId))
@@ -120,8 +139,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             ),
             installInitially = request.options.tabStyle == MonetTabStyle.BLUR,
         )
-        listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.SIGNING))
-        listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.PACKAGING))
+        progress(MonetGenerationStage.PACKAGING, "打包 ${overlays.size} 个 Overlay", 0, 1)
         MonetModulePackager.pack(
             overlays,
             request.options,
@@ -130,6 +148,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             request.sdkInt,
             request.outputZip,
         )
+        progress(MonetGenerationStage.PACKAGING, "Root 模块打包完成", 1, 1)
         return MonetGenerationResult(request.outputZip, colors.size, 0, overlays.size)
     }
 

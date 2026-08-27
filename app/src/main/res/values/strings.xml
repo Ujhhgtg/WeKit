@@ -569,10 +569,6 @@
     <string name="feature_monet_module_generator_name">Monet engine module generator</string>
     <string name="feature_monet_module_generator_description">Generate a root-installable WeChat Monet RRO with no runtime overhead. Requires Android 12+ and the Monet engine module generator extension.</string>
     <string name="monet_generator_unsupported">Android 12 or newer is required.</string>
-    <string name="monet_generator_preparing">Preparing extension payload…</string>
-    <string name="monet_generator_building">Building the overlay for this WeChat version…</string>
-    <string name="monet_generator_signing">Signing the overlay…</string>
-    <string name="monet_generator_packaging">Packaging the root module…</string>
     <string name="monet_generator_pack_invalid">The Monet engine module generator extension is damaged or incompatible. Delete it and download it again.</string>
     <string name="monet_generator_failed">Generation failed during %1$s: %2$s</string>
     <string name="monet_generator_output">Module generated at:\n%1$s</string>

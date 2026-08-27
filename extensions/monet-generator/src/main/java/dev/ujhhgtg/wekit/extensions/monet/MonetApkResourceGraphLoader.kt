@@ -11,14 +11,20 @@ import java.security.MessageDigest
 import java.util.zip.InflaterInputStream
 
 object MonetApkResourceGraphLoader {
-    fun load(apkPaths: List<File>, targetPackage: String): MonetResourceGraph {
+    fun load(
+        apkPaths: List<File>,
+        targetPackage: String,
+        onProgress: (detail: String, completed: Int, total: Int) -> Unit = { _, _, _ -> },
+    ): MonetResourceGraph {
         val resources = linkedMapOf<Int, MutableResource>()
         val xmlDocuments = mutableListOf<OwnedXml>()
 
-        apkPaths.forEach { apk ->
+        apkPaths.forEachIndexed { index, apk ->
+            onProgress("打开 ${apk.name}", index, apkPaths.size)
             ApkModule.loadApkFile(apk).apply { setLoadDefaultFramework(false) }.use { module ->
                 val resFiles = module.listResFiles().toList()
                 val fileStructures = resFiles.associate { it.filePath to it.fileStructure() }
+                onProgress("解析 ${apk.name} 的资源表", index, apkPaths.size)
                 module.tableBlock.listPackages()
                     .filter { it.name == targetPackage }
                     .forEach { packageBlock ->
@@ -27,6 +33,7 @@ object MonetApkResourceGraphLoader {
                         }
                     }
 
+                onProgress("解析 ${apk.name} 的 ${resFiles.count { it.isBinaryXml }} 个二进制 XML", index, apkPaths.size)
                 resFiles.asSequence()
                     .forEach { resFile ->
                         val owners = resFile.asSequence()
@@ -46,6 +53,7 @@ object MonetApkResourceGraphLoader {
                         }
                     }
             }
+            onProgress("完成 ${apk.name}", index + 1, apkPaths.size)
         }
 
         val definitions = linkedMapOf<XmlIdentity, MonetXmlElement>()
