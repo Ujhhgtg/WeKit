@@ -150,9 +150,7 @@ object MonetStructureMatcher {
                 else -> null
             }
             val staticNames = STATIC_ROLE_NAMES[rule.id].orEmpty()
-            val orderedStaticNames = if (
-                rule.id.endsWith("slot-56") && graph.node(MonetResourceKey("color", "xy"))?.id !in colorCandidates.orEmpty()
-            ) listOf("c", "xy") else staticNames
+            val orderedStaticNames = staticNames
             val referencedStatic = STATIC_ROLE_REFERENCES[rule.id]?.let { ownerKey ->
                 graph.node(ownerKey)?.let { owner ->
                     graph.xmlTrees(owner.id)
@@ -209,14 +207,11 @@ object MonetStructureMatcher {
         "chat.transfer.outgoing.expired" to listOf("c2c_chatto_remittance_expired_bg"),
         "chat.transfer.incoming.received" to listOf("z1", "k6", "ym"),
         "chat.transfer.outgoing.received" to listOf("zc", "k9", "yy"),
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-56" to listOf("xy", "c"),
         "theme.color.system-surface-container-light--system-surface-container-dark.slot-27" to listOf("af6"),
         "theme.color.unknown--10ffffff.slot-06" to listOf("rh", "aa4"),
         "theme.color.unknown--system-surface-dark.slot-02" to listOf("e2", "ni"),
     )
-    private val STATIC_ROLE_REFERENCES = mapOf(
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-56" to MonetResourceKey("drawable", "gy"),
-    )
+    private val STATIC_ROLE_REFERENCES = emptyMap<String, MonetResourceKey>()
     private val STATIC_FORCE_ROLES = setOf(
         "theme.color.system-surface-container-light--system-surface-container-dark.slot-56",
         "theme.color.system-surface-container-light--system-surface-container-dark.slot-27",

@@ -59,7 +59,7 @@ class MonetMatcherCorpusTest {
                 assertEquals("tt", structural.getValue(DELETE_ACTION_COLOR).single().key.name, version)
                 assertEquals("dp", structural.getValue(APP_BRAND_PAGE_BACKGROUND).single().key.name, version)
                 assertEquals("af6", structural.getValue(SURFACE_CONTAINER_SLOT_27).single().key.name, version)
-                assertEquals("c", structural.getValue(SURFACE_CONTAINER_SLOT_56).single().key.name, version)
+                assertEquals("o6", structural.getValue(SURFACE_CONTAINER_SLOT_56).single().key.name, version)
                 assertEquals("rh", structural.getValue("theme.color.unknown--10ffffff.slot-06").single().key.name, version)
                 assertEquals("e2", structural.getValue("theme.color.unknown--system-surface-dark.slot-02").single().key.name, version)
                 assertEquals("c2c_chatfrom_remittance_expired_bg", structural.getValue("chat.transfer.incoming.expired").single().key.name, version)
