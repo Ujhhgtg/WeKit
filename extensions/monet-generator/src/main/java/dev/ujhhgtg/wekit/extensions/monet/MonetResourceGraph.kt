@@ -80,7 +80,7 @@ class MonetResourceGraph(
     fun xmlTrees(ownerId: Int): List<MonetXmlElement> = xmlByOwner[ownerId].orEmpty()
 
     fun withXmlTree(ownerId: Int, tree: MonetXmlElement): MonetResourceGraph =
-        MonetResourceGraph(byId.values.toList(), xmlByOwner + (ownerId to (xmlTrees(ownerId) + tree)))
+        MonetResourceGraph(byId.values.toList(), xmlByOwner + (ownerId to xmlTrees(ownerId) + tree))
 
     fun outgoing(id: Int): Set<Int> = outgoingById[id].orEmpty()
     fun incoming(id: Int): Set<Int> = incomingById[id].orEmpty()

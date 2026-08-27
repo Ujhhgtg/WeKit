@@ -170,7 +170,7 @@ class MonetExtensionArchiveTest {
             MONET_GENERATOR_API_VERSION,
             MONET_GENERATOR_ENTRYPOINT_V1,
         )
-        staging.resolve("payload/customize.sh").writeText("corrupted")
+        staging.resolve("classes.dex").writeText("corrupted")
 
         assertThrows(IllegalArgumentException::class.java) {
             MonetExtensionArchive.verifyInstalled(
@@ -185,7 +185,7 @@ class MonetExtensionArchiveTest {
     fun `installed directory rejects unexpected runtime files`() {
         val staging = temp.resolve("installed-extra-staging")
         extract(writeArchive(), staging)
-        staging.resolve("payload/extra").writeText("unexpected")
+        staging.resolve("unexpected").writeText("unexpected")
 
         assertThrows(IllegalArgumentException::class.java) {
             MonetExtensionArchive.verifyInstalled(
@@ -228,9 +228,6 @@ class MonetExtensionArchiveTest {
     fun `each runtime entry enforces its declared size limit`() {
         val limits = linkedMapOf(
             "classes.dex" to 8 * 1024 * 1024,
-            "payload/customize.sh" to 64 * 1024,
-            "payload/update-binary" to 64 * 1024,
-            "payload/updater-script" to 64 * 1024,
         )
 
         limits.forEach { (name, limit) ->
@@ -279,7 +276,7 @@ class MonetExtensionArchiveTest {
             limiter.copy(
                 ByteArrayInputStream("456".encodeToByteArray()),
                 ByteArrayOutputStream(),
-                "payload/customize.sh",
+                "extension.json",
                 4,
             )
         }
@@ -354,9 +351,6 @@ class MonetExtensionArchiveTest {
     private companion object {
         val FILE_CONTENTS = linkedMapOf(
             "classes.dex" to "dex",
-            "payload/customize.sh" to "customize",
-            "payload/update-binary" to "binary",
-            "payload/updater-script" to "script",
         )
     }
 

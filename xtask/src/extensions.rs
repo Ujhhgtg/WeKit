@@ -408,14 +408,9 @@ fn build_script_deps(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
 fn monet_archive_entries(
     inputs: &BTreeMap<String, PathBuf>,
 ) -> Result<BTreeMap<String, Option<PathBuf>>> {
-    const PAYLOADS: [&str; 3] = [
-        "customize.sh",
-        "update-binary",
-        "updater-script",
-    ];
     anyhow::ensure!(
-        inputs.len() == PAYLOADS.len() + 1,
-        "Monet pack requires exactly one DEX and three payload files"
+        inputs.len() == 1 && inputs.contains_key("classes.dex"),
+        "Monet pack requires exactly one DEX"
     );
 
     let mut entries = BTreeMap::new();
@@ -429,17 +424,6 @@ fn monet_archive_entries(
         ),
     );
     entries.insert("extension.json".to_string(), None);
-    for name in PAYLOADS {
-        entries.insert(
-            format!("payload/{name}"),
-            Some(
-                inputs
-                    .get(name)
-                    .with_context(|| format!("missing Monet payload: {name}"))?
-                    .clone(),
-            ),
-        );
-    }
     Ok(entries)
 }
 
@@ -466,15 +450,11 @@ fn build_monet_generator_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry>
         ":extensions:monet-generator:generateMonetGeneratorDex failed"
     );
 
-    let payload_dir = root.join("app/embedded/monet");
     let inputs = [
         (
             "classes.dex",
             root.join("extensions/monet-generator/build/outputs/extension-dex/classes.dex"),
         ),
-        ("customize.sh", payload_dir.join("customize.sh")),
-        ("update-binary", payload_dir.join("update-binary")),
-        ("updater-script", payload_dir.join("updater-script")),
     ]
     .into_iter()
     .map(|(name, path)| (name.to_string(), path))
@@ -898,12 +878,7 @@ mod tests {
     use super::*;
 
     fn fixture_monet_inputs() -> BTreeMap<String, PathBuf> {
-        [
-            "classes.dex",
-            "customize.sh",
-            "update-binary",
-            "updater-script",
-        ]
+        ["classes.dex"]
         .into_iter()
         .map(|name| (name.to_string(), PathBuf::from(name)))
         .collect()
@@ -934,17 +909,11 @@ mod tests {
     }
 
     #[test]
-    fn monet_pack_contains_contract_dex_and_payload() {
+    fn monet_pack_contains_only_contract_dex() {
         let entries = monet_archive_entries(&fixture_monet_inputs()).unwrap();
         assert_eq!(
             entries.keys().map(String::as_str).collect::<Vec<_>>(),
-            vec![
-                "classes.dex",
-                "extension.json",
-                "payload/customize.sh",
-                "payload/update-binary",
-                "payload/updater-script",
-            ],
+            vec!["classes.dex", "extension.json"],
         );
     }
 

@@ -4,15 +4,15 @@ import android.app.Activity
 import android.os.Build
 import android.os.Process
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.clickable
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -31,18 +31,17 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.extensions.ExtensionPacks
-import dev.ujhhgtg.wekit.extensions.MonetGeneratorPack
 import dev.ujhhgtg.wekit.extensions.MonetDexEvidenceCollector
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationEvent
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationListener
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationOptions
+import dev.ujhhgtg.wekit.extensions.MonetGeneratorPack
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetBubbleStyle
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetTabStyle
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetUserScope
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationEvent
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationOptions
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequest
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResult
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationStage
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetLogLevel
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetTabStyle
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetUserScope
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -178,19 +177,18 @@ object MonetEngineModuleGenerator : ClickableFeature() {
                         )
                         val result = resolvedPack.generator.generate(
                             request,
-                            MonetGenerationListener { event ->
-                                when (event) {
-                                    is MonetGenerationEvent.Progress -> {
-                                        currentStage = event.stage
-                                        window.decorView.post {
-                                            state = GeneratorUiState.Running(event.stage)
-                                        }
+                        ) { event ->
+                            when (event) {
+                                is MonetGenerationEvent.Progress -> {
+                                    currentStage = event.stage
+                                    window.decorView.post {
+                                        state = GeneratorUiState.Running(event.stage)
                                     }
-
-                                    is MonetGenerationEvent.Log -> logEvent(event)
                                 }
-                            },
-                        )
+
+                                is MonetGenerationEvent.Log -> logEvent(event)
+                            }
+                        }
                         window.decorView.post { state = GeneratorUiState.Done(result) }
                     } catch (error: Throwable) {
                         WeLogger.e(TAG, "generation failed during $currentStage", error)
