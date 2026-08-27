@@ -4,10 +4,10 @@ import android.content.res.Resources
 import java.io.File
 
 const val MONET_GENERATOR_API_VERSION = 1
-const val MONET_GENERATOR_ENTRYPOINT_V1 =
-    "dev.ujhhgtg.wekit.extensions.monet.MonetGeneratorEntrypointV1"
+const val MONET_GENERATOR_ENTRYPOINT =
+    "dev.ujhhgtg.wekit.extensions.monet.MonetGeneratorEntrypoint"
 
-interface MonetGeneratorApiV1 {
+interface MonetGeneratorApi {
     fun generate(request: MonetGenerationRequest, listener: MonetGenerationListener): MonetGenerationResult
 }
 
@@ -70,7 +70,18 @@ fun interface MonetGenerationListener {
 }
 
 sealed interface MonetGenerationEvent {
-    data class Progress(val stage: MonetGenerationStage) : MonetGenerationEvent
+    data class Progress(
+        val stage: MonetGenerationStage,
+        val detail: String,
+        val completed: Int?,
+        val total: Int?,
+    ) : MonetGenerationEvent {
+        init {
+            require(detail.isNotBlank())
+            require((completed == null) == (total == null))
+            if (completed != null && total != null) require(total > 0 && completed in 0..total)
+        }
+    }
     data class Log(
         val level: MonetLogLevel,
         val message: String,
@@ -78,7 +89,14 @@ sealed interface MonetGenerationEvent {
     ) : MonetGenerationEvent
 }
 
-enum class MonetGenerationStage { PREPARING, BUILDING_OVERLAY, SIGNING, PACKAGING }
+enum class MonetGenerationStage {
+    LOADING_APKS,
+    BUILDING_RESOURCE_GRAPH,
+    RESOLVING_ROLES,
+    BUILDING_OVERLAY,
+    SIGNING,
+    PACKAGING,
+}
 
 enum class MonetLogLevel { DEBUG, INFO, WARN, ERROR }
 

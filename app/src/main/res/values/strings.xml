@@ -569,10 +569,6 @@
     <string name="feature_monet_module_generator_name">Monet engine module generator</string>
     <string name="feature_monet_module_generator_description">Generate a root-installable WeChat Monet RRO with no runtime overhead. Requires Android 12+ and the Monet engine module generator extension.</string>
     <string name="monet_generator_unsupported">Android 12 or newer is required.</string>
-    <string name="monet_generator_preparing">Preparing extension payload…</string>
-    <string name="monet_generator_building">Building the overlay for this WeChat version…</string>
-    <string name="monet_generator_signing">Signing the overlay…</string>
-    <string name="monet_generator_packaging">Packaging the root module…</string>
     <string name="monet_generator_pack_invalid">The Monet engine module generator extension is damaged or incompatible. Delete it and download it again.</string>
     <string name="monet_generator_failed">Generation failed during %1$s: %2$s</string>
     <string name="monet_generator_output">Module generated at:\n%1$s</string>
@@ -1263,6 +1259,7 @@
     <string name="conversation_group_all">All</string>
     <string name="conversation_group_default_unread">Unread</string>
     <string name="conversation_group_default_groups">Group chats</string>
+    <string name="conversation_group_default_friends">Friends</string>
     <string name="conversation_group_default_officials">Official accounts</string>
     <string name="conversation_group_action_new">New</string>
     <string name="conversation_group_action_edit">Edit</string>
@@ -1281,18 +1278,25 @@
     <string name="conversation_group_mode_manual">Select manually</string>
     <string name="conversation_group_mode_unread">All unread conversations automatically</string>
     <string name="conversation_group_mode_groups">All group chats automatically</string>
+    <string name="conversation_group_mode_friends">All friends automatically</string>
     <string name="conversation_group_mode_officials">All official accounts automatically</string>
     <string name="conversation_group_mode_sql">Custom SQL rule</string>
     <string name="conversation_group_selected_count">Selected %1$d conversations</string>
     <string name="conversation_group_select_conversations">Select conversations</string>
     <string name="conversation_group_unread_match_count">Automatically group all unread conversations (%1$d currently matched)</string>
     <string name="conversation_group_groups_match_count">Automatically group all group chats (%1$d currently matched)</string>
+    <string name="conversation_group_friends_match_count">Automatically group all friends (%1$d currently matched)</string>
     <string name="conversation_group_officials_match_count">Automatically group all official accounts (%1$d currently matched)</string>
     <string name="conversation_group_select_fields">SELECT fields</string>
     <string name="conversation_group_where_clause">WHERE clause</string>
     <string name="conversation_group_match_count">Currently matches %1$d conversations</string>
     <string name="conversation_group_sql_help" formatted="false">Data sources: rcontact r, img_flag i, rconversation c\nExample: c.unReadCount &gt; 0 AND r.username LIKE \'%@chatroom\'</string>
     <string name="conversation_group_saved">Saved</string>
+    <string name="conversation_grouping_backend_title">Conversation grouping backend</string>
+    <string name="conversation_grouping_backend_query">Query Rewrite</string>
+    <string name="conversation_grouping_backend_query_description">Filter conversations in the WeChat database query.</string>
+    <string name="conversation_grouping_backend_adapter">Adapter Filter</string>
+    <string name="conversation_grouping_backend_adapter_description">Filter the conversation adapter in memory.</string>
     <string name="fab_default_scan">Scan</string>
     <string name="fab_default_moments">Moments</string>
     <string name="fab_default_wallet">Wallet</string>

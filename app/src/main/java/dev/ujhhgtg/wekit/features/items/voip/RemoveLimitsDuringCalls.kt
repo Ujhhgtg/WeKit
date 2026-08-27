@@ -19,13 +19,17 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
         listOf(
             methodIsDuringCall,
             methodIsMultiTalking,
-            methodIsMultiTalking,
+            methodIsMultiTalking2,
             methodIsCameraUsing,
             methodIsCameraUsing2,
             methodIsVoiceUsing,
             methodIsVoiceUsing2,
             methodCheckAppBrandVoiceUsing,
-            methodCheckAppBrandVoiceUsing2
+            methodCheckAppBrandVoiceUsing2,
+            methodMultiTalkCallBack,
+            methodVoipCallBack,
+            methodIpCallCallBack,
+            methodFlutterLinkVoipCallBack
         ).forEach {
             it.hookBefore {
                 result = false
@@ -56,7 +60,13 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
         }
     }
 
-    //    private val methodIsMultiTalking2 by dexMethod()
+    private val methodIsMultiTalking2 by dexMethod {
+        matcher {
+            declaredClass(methodIsDuringCall.data.declaredClassName)
+            usingEqStrings("MicroMsg.DeviceOccupy", "isMultiTalking")
+            paramCount = 2
+        }
+    }
     private val methodIsCameraUsing by dexMethod {
         matcher {
             declaredClass(methodIsDuringCall.data.declaredClassName)
@@ -95,6 +105,94 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
             declaredClass(methodIsDuringCall.data.declaredClassName)
             usingEqStrings("MicroMsg.DeviceOccupy", "checkAppBrandVoiceUsingAndShowToast isVoiceUsing:%b, isCameraUsing:%b")
             paramCount = 2
+        }
+    }
+
+    private val methodMultiTalkCallBack by dexMethod {
+        searchPackages("com.tencent.mm.plugin.multitalk.model")
+        matcher {
+            declaredClass {
+                addAnnotation {
+                    type("dalvik.annotation.Signature")
+                    addElement {
+                        name = "value"
+                        arrayValue {
+                            add { stringValue("Lcom/tencent/mm/sdk/event/IListener<") }
+                            add { stringValue("Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;") }
+                            add { stringValue(">;") }
+                        }
+                    }
+                }
+            }
+            name = "callback"
+            paramCount = 1
+            returnType = "boolean"
+        }
+    }
+
+    private val methodVoipCallBack by dexMethod {
+        searchPackages("com.tencent.mm.plugin.voip.model")
+        matcher {
+            declaredClass {
+                addAnnotation {
+                    type("dalvik.annotation.Signature")
+                    addElement {
+                        name = "value"
+                        arrayValue {
+                            add { stringValue("Lcom/tencent/mm/sdk/event/IListener<") }
+                            add { stringValue("Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;") }
+                            add { stringValue(">;") }
+                        }
+                    }
+                }
+            }
+            name = "callback"
+            paramCount = 1
+            returnType = "boolean"
+        }
+    }
+
+    private val methodIpCallCallBack by dexMethod {
+        searchPackages("com.tencent.mm.plugin.ipcall")
+        matcher {
+            declaredClass {
+                addAnnotation {
+                    type("dalvik.annotation.Signature")
+                    addElement {
+                        name = "value"
+                        arrayValue {
+                            add { stringValue("Lcom/tencent/mm/sdk/event/IListener<") }
+                            add { stringValue("Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;") }
+                            add { stringValue(">;") }
+                        }
+                    }
+                }
+            }
+            name = "callback"
+            paramCount = 1
+            returnType = "boolean"
+        }
+    }
+
+    private val methodFlutterLinkVoipCallBack by dexMethod {
+        searchPackages("com.tencent.mm.voipmp.helper", "com.tencent.mm.plugin_flutter_ilinkvoip.helper")
+        matcher {
+            declaredClass {
+                addAnnotation {
+                    type("dalvik.annotation.Signature")
+                    addElement {
+                        name = "value"
+                        arrayValue {
+                            add { stringValue("Lcom/tencent/mm/sdk/event/IListener<") }
+                            add { stringValue("Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;") }
+                            add { stringValue(">;") }
+                        }
+                    }
+                }
+            }
+            name = "callback"
+            paramCount = 1
+            returnType = "boolean"
         }
     }
 }

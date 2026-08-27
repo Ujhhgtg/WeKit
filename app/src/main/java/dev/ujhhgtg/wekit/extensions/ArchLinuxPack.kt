@@ -36,32 +36,20 @@ object ArchLinuxPack : ExtensionPack {
 
     override fun install(verifiedTmp: File, version: String, sha256: String, meta: String?) {
         val staging = File(baseDir, ".$version-installing").apply { deleteRecursively(); mkdirs() }
-        try {
-            ZipFile(verifiedTmp).use { archive ->
-                val manifestEntry = archive.getEntry("manifest.json") ?: error("Arch pack has no inner manifest")
-                val manifestBytes = archive.getInputStream(manifestEntry).readBytes()
-                val hashes = Json.parseToJsonElement(manifestBytes.decodeToString()).jsonObject["files"]!!
-                    .jsonObject.mapValues { it.value.jsonPrimitive.content }
-                for (name in listOf(ROOTFS, BRIDGE)) {
-                    val entry = archive.getEntry(name) ?: error("Arch pack is missing $name")
-                    require(!entry.isDirectory && entry.size >= 0) { "invalid Arch pack entry: $name" }
-                    val temporary = File(staging, "$name.tmp")
-                    archive.getInputStream(entry).use { input -> temporary.outputStream().use(input::copyTo) }
-                    require(PackFs.verify(temporary, hashes.getValue(name))) { "inner manifest SHA-256 mismatch for $name" }
-                    val output = File(staging, name)
-                    PackFs.atomicReplace(temporary, output)
-                    if (name != ROOTFS) require(output.setExecutable(true, true)) { "cannot make $name executable" }
-                }
-                File(staging, SOURCE_MANIFEST).writeBytes(manifestBytes)
+        ZipFile(verifiedTmp).use { archive ->
+            val manifestBytes = archive.getInputStream(archive.getEntry("manifest.json")).readBytes()
+            for (name in listOf(ROOTFS, BRIDGE)) {
+                val entry = archive.getEntry(name) ?: error("Arch pack is missing $name")
+                val output = File(staging, name)
+                archive.getInputStream(entry).use { input -> output.outputStream().use(input::copyTo) }
+                if (name != ROOTFS) output.setExecutable(true, true)
             }
-            PackFs.writeManifest(staging, PackManifest(id, version, sha256, System.currentTimeMillis()))
-            val destination = File(baseDir, version)
-            destination.deleteRecursively()
-            require(staging.renameTo(destination)) { "cannot publish Arch template" }
-            sweepOtherVersions(version)
-        } finally {
-            staging.deleteRecursively()
+            File(staging, SOURCE_MANIFEST).writeBytes(manifestBytes)
         }
+        PackFs.writeManifest(staging, PackManifest(id, version, sha256, System.currentTimeMillis()))
+        val destination = File(baseDir, version).apply { deleteRecursively() }
+        require(staging.renameTo(destination)) { "cannot publish Arch template" }
+        sweepOtherVersions(version)
     }
 
     suspend fun createInstance(instanceId: String): ArchLinuxInstance {

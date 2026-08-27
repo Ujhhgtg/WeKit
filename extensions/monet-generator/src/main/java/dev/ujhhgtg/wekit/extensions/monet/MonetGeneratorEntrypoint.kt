@@ -7,21 +7,33 @@ import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationListener
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequest
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResult
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationStage
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGeneratorApiV1
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGeneratorApi
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetTabStyle
 import java.io.File
 
-class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
+class MonetGeneratorEntrypoint : MonetGeneratorApi {
     override fun generate(request: MonetGenerationRequest, listener: MonetGenerationListener): MonetGenerationResult {
-        listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.PREPARING))
-        val graph = MonetApkResourceGraphLoader.load(request.sourceApkPaths.map(::File), request.packageName)
-        val resolved = MonetStructureMatcher.resolveAll(graph, request.dexEvidenceProvider)
+        fun progress(stage: MonetGenerationStage, detail: String, completed: Int? = null, total: Int? = null) {
+            listener.onEvent(MonetGenerationEvent.Progress(stage, detail, completed, total))
+        }
+
+        progress(MonetGenerationStage.LOADING_APKS, "读取微信资源 APK", 0, request.sourceApkPaths.size)
+        val graph = MonetApkResourceGraphLoader.load(
+            request.sourceApkPaths.map(::File),
+            request.packageName,
+        ) { detail, _, _ ->
+            progress(MonetGenerationStage.BUILDING_RESOURCE_GRAPH, detail)
+        }
+        progress(MonetGenerationStage.BUILDING_RESOURCE_GRAPH, "ARSC/XML 引用图构建完成")
+        progress(MonetGenerationStage.RESOLVING_ROLES, "解析 ${MonetStructureMatcher.roleIds.size} 个语义角色", 0, MonetStructureMatcher.roleIds.size)
+        val resolved = MonetStructureMatcher.resolveAll(graph, request.dexEvidenceProvider) { completed, total, role ->
+            progress(MonetGenerationStage.RESOLVING_ROLES, "解析 $role", completed, total)
+        }
         val colors = MONET_RULES.filter { it.type == "color" && it.id != "main.tab.background" }.mapNotNull { rule ->
             val node = resolved[rule.id] ?: return@mapNotNull null
             val target = paletteFor(rule.id, request)
             MonetOverlayApkWriter.ColorTarget(node.key.name, target.first, target.second)
         }
-        listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.BUILDING_OVERLAY))
         val minSdk = if (request.sdkInt >= 34) 34 else 31
         val targetSdk = if (request.sdkInt >= 34) 36 else 33
         val palette = overlayPalette(request)
@@ -29,6 +41,10 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             "drawable/icon"
         }.id
         val overlays = mutableListOf<MonetModulePackager.Overlay>()
+        val overlayTotal = 3 +
+            (if (request.options.bubbleStyle == MonetBubbleStyle.MODERN) 0 else 1) +
+            if (request.options.multiSceneCorners) 1 else 0
+        var overlayIndex = 0
         fun build(
             fileName: String,
             packageName: String,
@@ -39,6 +55,8 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             strings: List<MonetOverlayApkWriter.StringTarget> = emptyList(),
             installInitially: Boolean = true,
         ) {
+            overlayIndex++
+            progress(MonetGenerationStage.BUILDING_OVERLAY, "构建 $fileName", overlayIndex - 1, overlayTotal)
             val unsigned = File(request.workDir, ".$fileName.unsigned")
             val signed = File(request.workDir, fileName)
             MonetOverlayApkWriter.createReferenced(
@@ -54,9 +72,11 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
                 literalColors,
                 strings,
             )
+            progress(MonetGenerationStage.SIGNING, "签名 $fileName", overlayIndex - 1, overlayTotal)
             MonetApkSigner.sign(unsigned, signed, minSdk)
             unsigned.delete()
             overlays += MonetModulePackager.Overlay(signed, packageName, installInitially)
+            progress(MonetGenerationStage.SIGNING, "已完成 $fileName", overlayIndex, overlayTotal)
         }
         val baseDrawables = buildList {
             addAll(MonetCustomOverlays.baseVisuals(resolved, palette, splashIconId))
@@ -69,7 +89,6 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             1,
             colors,
             baseDrawables,
-            strings = referenceStrings(resolved, request.versionName),
         )
         when (request.options.bubbleStyle) {
             MonetBubbleStyle.MODERN -> Unit
@@ -121,8 +140,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             ),
             installInitially = request.options.tabStyle == MonetTabStyle.BLUR,
         )
-        listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.SIGNING))
-        listener.onEvent(MonetGenerationEvent.Progress(MonetGenerationStage.PACKAGING))
+        progress(MonetGenerationStage.PACKAGING, "打包 ${overlays.size} 个 Overlay")
         MonetModulePackager.pack(
             overlays,
             request.options,
@@ -131,6 +149,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             request.sdkInt,
             request.outputZip,
         )
+        progress(MonetGenerationStage.PACKAGING, "Root 模块打包完成")
         return MonetGenerationResult(request.outputZip, colors.size, 0, overlays.size)
     }
 
@@ -169,55 +188,6 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
 
     private fun Int.withAlpha(alpha: Int): Int = this and 0x00ffffff or (alpha shl 24)
 
-    private fun referenceStrings(
-        resolved: Map<String, MonetResourceNode>,
-        versionName: String,
-    ): List<MonetOverlayApkWriter.StringTarget> {
-        val values = mapOf(
-            "" to mapOf(
-                "about.title" to "WeChat Monet Pro",
-                "about.authors.prefix" to "作者: 枯れ木, 1e93d,",
-                "about.authors.suffix" to " HSSkyBoy",
-                "about.separator" to "",
-                "about.compatibility" to "适配版本: $versionName",
-                "about.update-date" to "由 WeKit 运行时生成",
-                "about.slogan" to " 故事的开始，是蝉鸣不止的盛夏 ",
-            ),
-            "-en" to mapOf(
-                "about.title" to "WeChat Monet Pro",
-                "about.authors.prefix" to "Producer: 枯れ木, 1e93d,",
-                "about.authors.suffix" to " HSSkyBoy",
-                "about.separator" to "",
-                "about.compatibility" to "Adapted version: $versionName",
-                "about.update-date" to "Generated at runtime by WeKit",
-                "about.slogan" to " The story begins in midsummer when the cicadas are chirping ",
-            ),
-            "-zh-rHK" to mapOf(
-                "about.title" to "WeChat Monet Pro",
-                "about.authors.prefix" to "適配: $versionName",
-                "about.authors.suffix" to "作者: 枯れ木, 1e93d, HSSkyBoy",
-                "about.separator" to "",
-                "about.compatibility" to "由 WeKit 執行階段產生",
-                "about.update-date" to " 故事的開始，是蟬鳴不止的盛夏 ",
-                "about.slogan" to "公益免費，持續更新",
-            ),
-            "-zh-rTW" to mapOf(
-                "about.title" to "WeChat Monet Pro",
-                "about.authors.prefix" to "作者: 枯れ木, 1e93d,",
-                "about.authors.suffix" to " HSSkyBoy",
-                "about.separator" to "",
-                "about.compatibility" to "適配版本: $versionName",
-                "about.update-date" to "由 WeKit 執行階段產生",
-                "about.slogan" to " 故事的開始，是蟬鳴不止的盛夏 ",
-            ),
-        )
-        return values.flatMap { (qualifiers, localized) ->
-            localized.map { (role, value) ->
-                MonetOverlayApkWriter.StringTarget(requireNotNull(resolved[role]).key.name, value, qualifiers)
-            }
-        }
-    }
-
     private fun paletteFor(
         id: String,
         request: MonetGenerationRequest,
@@ -230,8 +200,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
                 return MonetOverlayApkWriter.ColorValue.Literal(token.toUInt(16).toInt())
             }
             require(token.startsWith("system-")) { "unsupported S4 color token: $token" }
-            val normalized = token.replace('-', '_')
-            val fallbacks = when (normalized) {
+            val fallbacks = when (val normalized = token.replace('-', '_')) {
                 "system_surface_container_light" -> listOf(normalized, "system_neutral2_50", "system_surface_light")
                 "system_surface_container_dark" -> listOf(normalized, "system_neutral2_800", "system_surface_dark")
                 else -> listOf(normalized)

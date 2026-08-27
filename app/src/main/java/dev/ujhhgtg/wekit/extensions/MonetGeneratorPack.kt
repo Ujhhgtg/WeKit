@@ -6,8 +6,8 @@ import com.composables.icons.materialsymbols.outlined.Extension
 import dalvik.system.DelegateLastClassLoader
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_API_VERSION
-import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_ENTRYPOINT_V1
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGeneratorApiV1
+import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_ENTRYPOINT
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGeneratorApi
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import java.io.File
@@ -41,7 +41,7 @@ object MonetGeneratorPack : ExtensionPack {
         val metadata = MonetExtensionArchive.verifyInstalled(
             paths.destination,
             MONET_GENERATOR_API_VERSION,
-            MONET_GENERATOR_ENTRYPOINT_V1,
+            MONET_GENERATOR_ENTRYPOINT,
         )
         val installedDex = paths.destination.resolve("classes.dex")
         val payloadDir = paths.destination.resolve("payload")
@@ -58,64 +58,33 @@ object MonetGeneratorPack : ExtensionPack {
             dex.absolutePath,
             MonetGeneratorPack::class.java.classLoader,
         )
-        val instance = loader.loadClass(MONET_GENERATOR_ENTRYPOINT_V1)
+        val instance = loader.loadClass(MONET_GENERATOR_ENTRYPOINT)
             .getDeclaredConstructor()
             .newInstance()
-        require(instance is MonetGeneratorApiV1) { "incompatible Monet generator entrypoint" }
+        require(instance is MonetGeneratorApi) { "incompatible Monet generator entrypoint" }
         cachedLoader = loader
         return Resolved(instance, payloadDir).also { cachedResolution = it }
     }
 
     @Synchronized
     override fun install(verifiedTmp: File, version: String, sha256: String, meta: String?) {
-        MonetInstallPaths.requireContentVersion(version)
         require(!isInUse()) { "cannot update Monet generator while it is in use" }
         val paths = MonetInstallPaths.resolve(installDir(), version)
         paths.baseDir.mkdirs()
         val staging = paths.staging
         val destination = paths.destination
-        val previous = paths.previous
-        if (!destination.exists() && previous.isDirectory) {
-            require(previous.renameTo(destination)) { "cannot restore prior Monet generator $version" }
-        }
         staging.deleteRecursively()
-        previous.deleteRecursively()
         staging.mkdirs()
-        try {
-            MonetExtensionArchive.extractAndVerify(
-                verifiedTmp,
-                staging,
-                MONET_GENERATOR_API_VERSION,
-                MONET_GENERATOR_ENTRYPOINT_V1,
-            )
-            PackFs.writeManifest(
-                staging,
-                PackManifest(id, version, sha256, System.currentTimeMillis()),
-            )
-            if (destination.exists()) {
-                require(destination.renameTo(previous)) {
-                    "cannot preserve prior Monet generator $version"
-                }
-            }
-            if (!staging.renameTo(destination)) {
-                if (previous.exists()) {
-                    require(previous.renameTo(destination)) {
-                        "cannot restore prior Monet generator $version"
-                    }
-                }
-                error("cannot publish Monet generator $version")
-            }
-            previous.deleteRecursively()
-            sweepOtherVersions(version)
-            WeLogger.i("MonetGeneratorPack", "installed Monet generator $version")
-        } finally {
-            staging.deleteRecursively()
-            if (!destination.exists() && previous.isDirectory) previous.renameTo(destination)
-        }
+        MonetExtensionArchive.extractAndVerify(verifiedTmp, staging, MONET_GENERATOR_API_VERSION, MONET_GENERATOR_ENTRYPOINT)
+        PackFs.writeManifest(staging, PackManifest(id, version, sha256, System.currentTimeMillis()))
+        destination.deleteRecursively()
+        require(staging.renameTo(destination)) { "cannot publish Monet generator $version" }
+        sweepOtherVersions(version)
+        WeLogger.i("MonetGeneratorPack", "installed Monet generator $version")
     }
 
     internal class Resolved(
-        val generator: MonetGeneratorApiV1,
+        val generator: MonetGeneratorApi,
         val payloadDir: File,
     )
 }
