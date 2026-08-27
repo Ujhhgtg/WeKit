@@ -52,110 +52,14 @@ object QwenModelPack : ModelExtensionPack {
 
     override fun isSupported(): Boolean = supportsArm64ExtensionProcess()
 
-    override fun installedManifest(): PackManifest? {
-        val manifest = baseDir.listFiles()
-            .orEmpty()
-            .filter { it.isDirectory && !it.name.startsWith(".") }
-            .mapNotNull { PackFs.readManifest(it) }
-            .maxByOrNull { it.installedAtEpochMs }
-            ?: return null
-        // Crash after candidate->destination but before rollback cleanup: the
-        // visible complete install is authoritative, so release its rollback.
-        // A candidate is never removed from this read path: it may belong to
-        // an install that is concurrently between staging and publication.
-        if (isComplete(baseDir.resolve(manifest.version), manifest.version, manifest.sha256)) {
-            previousDir(manifest.version).deleteRecursively()
-        }
-        return manifest
-    }
-
     override fun isInUse(): Boolean =
         LocalLlamaController.isRunning() && LocalLlamaController.loadedModelPath() == modelFile()?.absolutePath
 
-    override fun recoverInterruptedInstall(verifiedTmp: File, version: String, sha256: String) {
-        baseDir.mkdirs()
-        val candidate = candidateDir(version)
-        val destination = baseDir.resolve(version)
-        val previous = previousDir(version)
-
-        // Crash after old->previous but before candidate->destination: prefer
-        // completing the fully staged publication. If that rename cannot be
-        // completed, restore the old install before recovering the new blob.
-        if (!destination.exists() && isComplete(candidate, version, sha256) &&
-            candidate.renameTo(destination)
-        ) {
-            previous.deleteRecursively()
-            return
-        }
-        if (!destination.exists() && previous.isDirectory) {
-            require(previous.renameTo(destination)) { "cannot restore prior Qwen model $version" }
-        }
-        if (isComplete(destination, version, sha256)) {
-            candidate.deleteRecursively()
-            previous.deleteRecursively()
-            return
-        }
-
-        if (isComplete(candidate, version, sha256)) {
-            verifiedTmp.parentFile?.mkdirs()
-            PackFs.atomicReplace(candidate.resolve(MODEL_FILE), verifiedTmp)
-        }
-        candidate.deleteRecursively()
-        if (destination.exists()) previous.deleteRecursively()
-    }
-
     override fun install(verifiedTmp: File, version: String, sha256: String, meta: String?) {
-        recoverInterruptedInstall(verifiedTmp, version, sha256)
-        val candidate = candidateDir(version)
-        val destination = baseDir.resolve(version)
-        val previous = previousDir(version)
-        if (isComplete(destination, version, sha256)) {
-            verifiedTmp.delete()
-            sweepOtherVersions(version)
-            return
-        }
-
-        candidate.deleteRecursively()
-        previous.deleteRecursively()
-        require(candidate.mkdirs()) { "cannot create Qwen install candidate $candidate" }
-        // The manifest is the recovery marker: a candidate is reusable only
-        // when both this complete marker and the already-verified model exist.
-        PackFs.writeManifest(
-            candidate,
-            PackManifest(id, version, sha256, System.currentTimeMillis(), meta),
-        )
-
-        var published = false
-        try {
-            PackFs.atomicReplace(verifiedTmp, candidate.resolve(MODEL_FILE))
-            if (destination.exists()) {
-                require(destination.renameTo(previous)) {
-                    "cannot preserve prior Qwen model $version"
-                }
-            }
-            if (!candidate.renameTo(destination)) {
-                if (previous.isDirectory) {
-                    require(previous.renameTo(destination)) {
-                        "cannot restore prior Qwen model $version"
-                    }
-                }
-                error("cannot publish Qwen model $version")
-            }
-            published = true
-            previous.deleteRecursively()
-            sweepOtherVersions(version)
-        } finally {
-            if (!published) {
-                if (!destination.exists() && previous.isDirectory) {
-                    require(previous.renameTo(destination)) {
-                        "cannot restore prior Qwen model $version"
-                    }
-                }
-                val stagedModel = candidate.resolve(MODEL_FILE)
-                if (stagedModel.isFile) PackFs.atomicReplace(stagedModel, verifiedTmp)
-                candidate.deleteRecursively()
-            }
-        }
+        val destination = baseDir.resolve(version).apply { deleteRecursively(); mkdirs() }
+        PackFs.atomicReplace(verifiedTmp, destination.resolve(MODEL_FILE))
+        PackFs.writeManifest(destination, PackManifest(id, version, sha256, System.currentTimeMillis(), meta))
+        sweepOtherVersions(version)
     }
 
     override fun onInstalled() = LocalLlamaSync.schedule()
@@ -176,14 +80,4 @@ object QwenModelPack : ModelExtensionPack {
         return parseLocalModelMeta(manifest.meta ?: FALLBACK_META, file)
     }
 
-    private fun candidateDir(version: String): File = baseDir.resolve(".$version-installing")
-
-    private fun previousDir(version: String): File = baseDir.resolve(".$version-previous")
-
-    private fun isComplete(dir: File, version: String, sha256: String): Boolean {
-        val manifest = PackFs.readManifest(dir) ?: return false
-        return manifest.id == id && manifest.version == version &&
-            manifest.sha256.equals(sha256, ignoreCase = true) &&
-            dir.resolve(MODEL_FILE).isFile
-    }
 }
