@@ -20,6 +20,7 @@ import androidx.annotation.StringRes
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.beautify.BeautifyText
 import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
+import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.coroutines.CancellationException
@@ -541,6 +542,7 @@ internal class HomeSidePanelCityIndex(context: Context) {
         val directory = File(appContext.noBackupFilesDir, ASSET_DIRECTORY).apply { mkdirs() }
         val databaseFile = File(directory, ASSET_FILE_NAME)
         if (!databaseFile.exists()) {
+            ResourcesInjector.injectModuleRes(appContext.resources)
             appContext.assets.open(ASSET_PATH).use { input ->
                 databaseFile.outputStream().use(input::copyTo)
             }
