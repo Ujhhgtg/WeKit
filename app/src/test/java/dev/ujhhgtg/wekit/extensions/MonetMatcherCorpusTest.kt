@@ -39,7 +39,7 @@ class MonetMatcherCorpusTest {
             }
             DOMESTIC_SLOT_57.forEach { (version, expectedSlot57) ->
                 val target = MonetApkResourceGraphLoader.load(
-                    listOf(File("/home/ujhhgtg/coding/wechat_$version.apk")),
+                    listOf(File(System.getProperty("wekit.monetTarget.$version") ?: "/home/ujhhgtg/coding/wechat_$version.apk")),
                     "com.tencent.mm",
                 )
                 val structural = MonetStructureMatcher.structuralAudit(target)

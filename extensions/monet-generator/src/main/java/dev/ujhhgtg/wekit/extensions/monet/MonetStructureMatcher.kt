@@ -20,8 +20,12 @@ object MonetStructureMatcher {
                 rule.id to candidates.single()
             }
         }.toMap()
-        require(resolved.values.map(MonetResourceNode::id).distinct().size == resolved.size) {
-            "multiple Monet roles resolved to the same resource"
+        val duplicateRoles = resolved.entries.groupBy { it.value.id }
+            .filterValues { it.size > 1 }
+            .values
+            .flatMap { roles -> listOf(roles.map { it.key }, roles.map { it.value.key }) }
+        require(duplicateRoles.isEmpty()) {
+            "multiple Monet roles resolved to the same resource: $duplicateRoles"
         }
         return resolved
     }
