@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.extensions
 
 import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_API_VERSION
-import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_ENTRYPOINT_V1
+import dev.ujhhgtg.wekit.extensions.monet.api.MONET_GENERATOR_ENTRYPOINT
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -29,7 +29,7 @@ class MonetExtensionArchiveTest {
         val metadata = extract(archive, staging)
 
         assertEquals(MONET_GENERATOR_API_VERSION, metadata.apiVersion)
-        assertEquals(MONET_GENERATOR_ENTRYPOINT_V1, metadata.entrypoint)
+        assertEquals(MONET_GENERATOR_ENTRYPOINT, metadata.entrypoint)
         assertEquals(FILE_CONTENTS.keys, metadata.files.keys)
         FILE_CONTENTS.forEach { (name, content) ->
             assertEquals(content, staging.resolve(name).readText())
@@ -168,7 +168,7 @@ class MonetExtensionArchiveTest {
         MonetExtensionArchive.verifyInstalled(
             staging,
             MONET_GENERATOR_API_VERSION,
-            MONET_GENERATOR_ENTRYPOINT_V1,
+            MONET_GENERATOR_ENTRYPOINT,
         )
         staging.resolve("classes.dex").writeText("corrupted")
 
@@ -176,7 +176,7 @@ class MonetExtensionArchiveTest {
             MonetExtensionArchive.verifyInstalled(
                 staging,
                 MONET_GENERATOR_API_VERSION,
-                MONET_GENERATOR_ENTRYPOINT_V1,
+                MONET_GENERATOR_ENTRYPOINT,
             )
         }
     }
@@ -191,7 +191,7 @@ class MonetExtensionArchiveTest {
             MonetExtensionArchive.verifyInstalled(
                 staging,
                 MONET_GENERATOR_API_VERSION,
-                MONET_GENERATOR_ENTRYPOINT_V1,
+                MONET_GENERATOR_ENTRYPOINT,
             )
         }
     }
@@ -209,7 +209,7 @@ class MonetExtensionArchiveTest {
             MonetExtensionArchive.verifyInstalled(
                 staging,
                 MONET_GENERATOR_API_VERSION,
-                MONET_GENERATOR_ENTRYPOINT_V1,
+                MONET_GENERATOR_ENTRYPOINT,
             )
         }
     }
@@ -287,14 +287,14 @@ class MonetExtensionArchiveTest {
             archive,
             staging,
             MONET_GENERATOR_API_VERSION,
-            MONET_GENERATOR_ENTRYPOINT_V1,
+            MONET_GENERATOR_ENTRYPOINT,
         )
 
     private fun writeArchive(
         actualFiles: Map<String, String> = FILE_CONTENTS,
         declaredHashes: Map<String, String> = hashes(FILE_CONTENTS),
         apiVersion: Int = MONET_GENERATOR_API_VERSION,
-        entrypoint: String = MONET_GENERATOR_ENTRYPOINT_V1,
+        entrypoint: String = MONET_GENERATOR_ENTRYPOINT,
         extraEntries: Map<String, String> = emptyMap(),
         metadataPaddingBytes: Int = 0,
     ): File {

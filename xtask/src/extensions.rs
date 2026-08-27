@@ -467,7 +467,7 @@ fn build_monet_generator_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry>
         .collect::<Result<BTreeMap<_, _>>>()?;
     let extension_json = serde_json::to_vec_pretty(&serde_json::json!({
         "apiVersion": 1,
-        "entrypoint": "dev.ujhhgtg.wekit.extensions.monet.MonetGeneratorEntrypointV1",
+        "entrypoint": "dev.ujhhgtg.wekit.extensions.monet.MonetGeneratorEntrypoint",
         "files": hashes,
     }))?;
 

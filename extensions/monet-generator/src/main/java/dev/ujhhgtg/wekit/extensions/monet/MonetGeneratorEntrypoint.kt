@@ -7,11 +7,11 @@ import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationListener
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequest
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResult
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationStage
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGeneratorApiV1
+import dev.ujhhgtg.wekit.extensions.monet.api.MonetGeneratorApi
 import dev.ujhhgtg.wekit.extensions.monet.api.MonetTabStyle
 import java.io.File
 
-class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
+class MonetGeneratorEntrypoint : MonetGeneratorApi {
     override fun generate(request: MonetGenerationRequest, listener: MonetGenerationListener): MonetGenerationResult {
         fun progress(stage: MonetGenerationStage, detail: String, completed: Int? = null, total: Int? = null) {
             listener.onEvent(MonetGenerationEvent.Progress(stage, detail, completed, total))
@@ -21,7 +21,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
         val graph = MonetApkResourceGraphLoader.load(
             request.sourceApkPaths.map(::File),
             request.packageName,
-        ) { detail, completed, total ->
+        ) { detail, _, _ ->
             progress(MonetGenerationStage.BUILDING_RESOURCE_GRAPH, detail)
         }
         progress(MonetGenerationStage.BUILDING_RESOURCE_GRAPH, "ARSC/XML 引用图构建完成")
@@ -43,7 +43,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
         val overlays = mutableListOf<MonetModulePackager.Overlay>()
         val overlayTotal = 3 +
             (if (request.options.bubbleStyle == MonetBubbleStyle.MODERN) 0 else 1) +
-            (if (request.options.multiSceneCorners) 1 else 0)
+            if (request.options.multiSceneCorners) 1 else 0
         var overlayIndex = 0
         fun build(
             fileName: String,
@@ -200,8 +200,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
                 return MonetOverlayApkWriter.ColorValue.Literal(token.toUInt(16).toInt())
             }
             require(token.startsWith("system-")) { "unsupported S4 color token: $token" }
-            val normalized = token.replace('-', '_')
-            val fallbacks = when (normalized) {
+            val fallbacks = when (val normalized = token.replace('-', '_')) {
                 "system_surface_container_light" -> listOf(normalized, "system_neutral2_50", "system_surface_light")
                 "system_surface_container_dark" -> listOf(normalized, "system_neutral2_800", "system_surface_dark")
                 else -> listOf(normalized)

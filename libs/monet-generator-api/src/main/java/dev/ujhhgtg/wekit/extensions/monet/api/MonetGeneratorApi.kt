@@ -4,10 +4,10 @@ import android.content.res.Resources
 import java.io.File
 
 const val MONET_GENERATOR_API_VERSION = 1
-const val MONET_GENERATOR_ENTRYPOINT_V1 =
-    "dev.ujhhgtg.wekit.extensions.monet.MonetGeneratorEntrypointV1"
+const val MONET_GENERATOR_ENTRYPOINT =
+    "dev.ujhhgtg.wekit.extensions.monet.MonetGeneratorEntrypoint"
 
-interface MonetGeneratorApiV1 {
+interface MonetGeneratorApi {
     fun generate(request: MonetGenerationRequest, listener: MonetGenerationListener): MonetGenerationResult
 }
 
