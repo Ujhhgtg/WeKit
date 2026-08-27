@@ -1,4 +1,6 @@
-# WeKit — Agent Guide
+# AGENTS.md
+
+The following instructions are for non-Claude models. If you are Claude, ignore those and go read CLAUDE.md.
 
 ## Superpowers
 
