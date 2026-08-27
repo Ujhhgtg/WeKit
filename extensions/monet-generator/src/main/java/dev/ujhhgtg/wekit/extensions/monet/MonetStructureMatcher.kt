@@ -12,10 +12,14 @@ object MonetStructureMatcher {
         graph: MonetResourceGraph,
         dexProvider: MonetDexEvidenceProvider? = null,
     ): Map<String, MonetResourceNode> {
-        val resolved = audit(graph, dexProvider).mapValues { (role, candidates) ->
-            require(candidates.size == 1) { "$role: ${candidates.map { it.key }}" }
-            candidates.single()
-        }
+        val audited = audit(graph, dexProvider)
+        val resolved = MONET_RULES.mapNotNull { rule ->
+            val candidates = audited.getValue(rule.id)
+            if (rule.optional && candidates.isEmpty()) null else {
+                require(candidates.size == 1) { "${rule.id}: ${candidates.map { it.key }}" }
+                rule.id to candidates.single()
+            }
+        }.toMap()
         require(resolved.values.map(MonetResourceNode::id).distinct().size == resolved.size) {
             "multiple Monet roles resolved to the same resource"
         }
@@ -131,10 +135,17 @@ object MonetStructureMatcher {
                 rule.requiredEvidence.map { idsByToken[it].orEmpty() }
                     .reduce { result, ids -> result.intersect(ids) }
             }
-            val staticNames = if (
-                rule.id == "theme.color.system-surface-container-light--system-surface-container-dark.slot-57" &&
-                graph.node(MonetResourceKey("color", "xz"))?.id !in colorCandidates.orEmpty()
-            ) listOf("u4", "xz") else STATIC_ROLE_NAMES[rule.id].orEmpty()
+            val semanticCandidates: Set<Int>? = when (rule.id) {
+                SEARCH_BAR_BACKGROUND -> graph.actionBarSearchBackgroundColors()
+                THREE_STATE_STROKE -> graph.threeStateSelectorDefaultStrokeColors()
+                FINDER_LIVE_TAB -> colorCandidates?.filterNotTo(linkedSetOf()) { graph.isVipBadgeColor(it) }
+                DELETE_ACTION_COLOR -> graph.sharedRawIconTextColors("icons_outlined_delete", 0xffedededL)
+                APP_BRAND_PAGE_BACKGROUND -> graph.sandwichedColor(0xff333333L, 0xfff2f2f2L, 0xff191919L)
+                SURFACE_CONTAINER_SLOT_59 -> graph.upSwipeCardTextColors().intersect(colorCandidates.orEmpty())
+                SURFACE_CONTAINER_SLOT_57 -> graph.sharedArrowIconTextColors()
+                else -> null
+            }
+            val staticNames = STATIC_ROLE_NAMES[rule.id].orEmpty()
             val orderedStaticNames = if (
                 rule.id.endsWith("slot-56") && graph.node(MonetResourceKey("color", "xy"))?.id !in colorCandidates.orEmpty()
             ) listOf("c", "xy") else staticNames
@@ -162,7 +173,9 @@ object MonetStructureMatcher {
                         (!rule.id.endsWith("received") || graph.xmlTrees(node.id).any { it.name == "selector" })
                 }?.id
                 }?.let(::setOf)
-            if (rule.id in STATIC_FORCE_ROLES && (static?.singleOrNull() ?: staticAny) != null) {
+            if (semanticCandidates != null) {
+                semanticCandidates
+            } else if (rule.id in STATIC_FORCE_ROLES && (static?.singleOrNull() ?: staticAny) != null) {
                 setOf(static?.singleOrNull() ?: staticAny!!)
             } else if (static != null && (structural.isEmpty() || static.any { it in structural })) {
                 static.intersect(structural).takeIf { it.isNotEmpty() } ?: static
@@ -193,9 +206,6 @@ object MonetStructureMatcher {
         "chat.transfer.incoming.received" to listOf("z1", "k6", "ym"),
         "chat.transfer.outgoing.received" to listOf("zc", "k9", "yy"),
         "theme.color.system-surface-container-light--system-surface-container-dark.slot-56" to listOf("xy", "c"),
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-57" to listOf("xz", "u4"),
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-58" to listOf("aj9", "y1"),
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-59" to listOf("aja", "y2"),
         "theme.color.system-surface-container-light--system-surface-container-dark.slot-27" to listOf("af6"),
         "theme.color.unknown--10ffffff.slot-06" to listOf("rh", "aa4"),
         "theme.color.unknown--system-surface-dark.slot-02" to listOf("e2", "ni"),
@@ -205,9 +215,6 @@ object MonetStructureMatcher {
     )
     private val STATIC_FORCE_ROLES = setOf(
         "theme.color.system-surface-container-light--system-surface-container-dark.slot-56",
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-57",
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-58",
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-59",
         "theme.color.system-surface-container-light--system-surface-container-dark.slot-27",
     )
 
@@ -220,7 +227,6 @@ object MonetStructureMatcher {
         "theme.color.system-surface-container-light--10ffffff.slot-02" to mapOf("" to 4294111986L, "-night" to 4281348144L),
         "theme.color.system-surface-container-light--10ffffff.slot-03" to mapOf("" to 4294111986L, "-night" to 4281348144L),
         "theme.color.system-surface-container-light--system-surface-container-dark.slot-56" to mapOf("" to 637534208L),
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-57" to mapOf("" to 2348810240L),
         "theme.color.system-surface-container-light--system-surface-container-dark.slot-58" to mapOf("" to 4294440951L),
         "theme.color.system-surface-container-light--system-surface-container-dark.slot-59" to mapOf("" to 2348810240L),
         "theme.color.system-surface-light--system-surface-dark.slot-04" to mapOf("" to 4291801463L),
@@ -228,6 +234,20 @@ object MonetStructureMatcher {
     private val COLOR_SELECTOR_BASELINES = mapOf(
         "theme.color.system-surface-dark--system-surface-dark.slot-02" to 4278627926L,
     )
+    private const val SURFACE_CONTAINER_SLOT_57 =
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-57"
+    private const val SURFACE_CONTAINER_SLOT_59 =
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-59"
+    private const val SEARCH_BAR_BACKGROUND =
+        "theme.color.system-surface-container-light--10ffffff.slot-02"
+    private const val THREE_STATE_STROKE =
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-50"
+    private const val FINDER_LIVE_TAB =
+        "theme.color.system-surface-light--system-surface-dark.slot-04"
+    private const val DELETE_ACTION_COLOR =
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-26"
+    private const val APP_BRAND_PAGE_BACKGROUND =
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-42"
 
     private fun MonetXmlElement.containsLiteralColor(expected: Long): Boolean =
         attributes.any { (it.value as? MonetResourceValue.Literal)?.data == expected } ||
@@ -513,6 +533,135 @@ private fun MonetXmlElement.referenceIds(): Set<Int> = buildSet {
     }
     children.forEach { addAll(it.referenceIds()) }
 }
+
+private fun MonetResourceGraph.sharedArrowIconTextColors(): Set<Int> = buildSet {
+    nodes("layout").forEach { owner ->
+        xmlTrees(owner.id).forEach { it.collectSharedArrowIconTextColors(this@sharedArrowIconTextColors, this) }
+    }
+}
+
+private fun MonetResourceGraph.sharedRawIconTextColors(rawName: String, expectedColor: Long): Set<Int> = buildSet {
+    nodes("layout").forEach { owner ->
+        xmlTrees(owner.id).forEach { it.collectSharedRawIconTextColors(this@sharedRawIconTextColors, rawName, this) }
+    }
+    retainAll(nodes("color").filter { it.defaultLiteral() == expectedColor }.map(MonetResourceNode::id).toSet())
+}
+
+private fun MonetXmlElement.collectSharedRawIconTextColors(
+    graph: MonetResourceGraph,
+    rawName: String,
+    result: MutableSet<Int>,
+) {
+    val icon = children.firstOrNull {
+        it.reference("src")?.let(graph::node)?.key == MonetResourceKey("raw", rawName)
+    }
+    val iconColor = icon?.reference("iconColor")
+    if (iconColor != null && children.any { it.name.substringAfterLast('.') == "TextView" && it.reference("textColor") == iconColor }) {
+        result += iconColor
+    }
+    children.forEach { it.collectSharedRawIconTextColors(graph, rawName, result) }
+}
+
+private fun MonetResourceGraph.sandwichedColor(before: Long, value: Long, after: Long): Set<Int> =
+    nodes("color").filterTo(linkedSetOf()) { node ->
+        node.defaultLiteral() == value && this@sandwichedColor.node(node.id - 1)?.defaultLiteral() == before &&
+            this@sandwichedColor.node(node.id + 1)?.defaultLiteral() == after
+    }.mapTo(linkedSetOf(), MonetResourceNode::id)
+
+private fun MonetResourceNode.defaultLiteral(): Long? =
+    (values.singleOrNull { it.qualifiers.isEmpty() }?.value as? MonetResourceValue.Literal)?.data
+
+private fun MonetResourceGraph.actionBarSearchBackgroundColors(): Set<Int> = buildSet {
+    nodes("layout").forEach { owner ->
+        xmlTrees(owner.id).filter { tree ->
+            tree.containsRaw(this@actionBarSearchBackgroundColors, "arrow_left_regular") &&
+                tree.containsRaw(this@actionBarSearchBackgroundColors, "icons_outlined_search")
+        }.forEach { it.collectSearchBackgroundColors(this@actionBarSearchBackgroundColors, this) }
+    }
+}
+
+private fun MonetResourceGraph.upSwipeCardTextColors(): Set<Int> = buildSet {
+    nodes("layout").forEach { owner ->
+        xmlTrees(owner.id).forEach { it.collectUpSwipeCardTextColors(this) }
+    }
+}
+
+private fun MonetXmlElement.collectUpSwipeCardTextColors(result: MutableSet<Int>) {
+    val image = children.firstOrNull { it.name.substringAfterLast('.') == "ImageView" }
+    val text = children.firstOrNull { it.name.substringAfterLast('.') == "TextView" }
+    val singleLine = text?.literal("singleLine")
+    if (image?.reference("tint") != null && image.reference("src") != null && text != null &&
+        text.literal("maxLines") == 1L && singleLine != null && singleLine != 0L
+    ) text.reference("textColor")?.let(result::add)
+    children.forEach { it.collectUpSwipeCardTextColors(result) }
+}
+
+private fun MonetXmlElement.collectSearchBackgroundColors(graph: MonetResourceGraph, result: MutableSet<Int>) {
+    if (containsRaw(graph, "icons_outlined_search")) reference("backgroundTint")?.let(result::add)
+    children.forEach { it.collectSearchBackgroundColors(graph, result) }
+}
+
+private fun MonetXmlElement.containsRaw(graph: MonetResourceGraph, name: String): Boolean =
+    reference("src")?.let(graph::node)?.key == MonetResourceKey("raw", name) ||
+        children.any { it.containsRaw(graph, name) }
+
+private fun MonetResourceGraph.threeStateSelectorDefaultStrokeColors(): Set<Int> = buildSet {
+    nodes("drawable").forEach { owner ->
+        xmlTrees(owner.id).filter { it.name == "selector" }.forEach { selector ->
+            val items = selector.children.filter { it.name == "item" }
+            val activated = items.getOrNull(1)?.literal("state_activated")
+            if (items.size != 3 || items[0].literal("state_enabled") != 0L ||
+                activated == null || activated == 0L || items[2].attributes.any { it.name.startsWith("state_") }
+            ) return@forEach
+            val strokes = items.map { it.descendant("stroke")?.reference("color") }
+            val solids = items.map { it.descendant("solid")?.reference("color") }
+            if (strokes[0] != null && strokes[0] == strokes[1] && strokes[2] != null &&
+                strokes[2] != strokes[0] && solids.toSet().size == 1 && solids[0] != null
+            ) add(strokes[2]!!)
+        }
+    }
+}
+
+private fun MonetResourceGraph.isVipBadgeColor(targetId: Int): Boolean = nodes("layout").any { owner ->
+    xmlTrees(owner.id).any { it.hasVipBadgeColor(this, targetId) }
+}
+
+private fun MonetXmlElement.hasVipBadgeColor(graph: MonetResourceGraph, targetId: Int): Boolean {
+    val hasVipIcon = children.any {
+        it.reference("src")?.let(graph::node)?.key == MonetResourceKey("raw", "vip_filled_new")
+    }
+    val usesTarget = children.any { child ->
+        child.attributes.any { it.name in setOf("iconColor", "textColor") &&
+            (it.value as? MonetResourceValue.Reference)?.resourceId == targetId }
+    }
+    return hasVipIcon && usesTarget || children.any { it.hasVipBadgeColor(graph, targetId) }
+}
+
+private fun MonetXmlElement.descendant(name: String): MonetXmlElement? =
+    children.firstOrNull { it.name == name } ?: children.firstNotNullOfOrNull { it.descendant(name) }
+
+private fun MonetXmlElement.literal(name: String): Long? =
+    (attributes.firstOrNull { it.name == name }?.value as? MonetResourceValue.Literal)?.data
+
+private fun MonetXmlElement.collectSharedArrowIconTextColors(
+    graph: MonetResourceGraph,
+    result: MutableSet<Int>,
+) {
+    val icon = children.firstOrNull { child ->
+        child.name.substringAfterLast('.') == "WeImageView" &&
+            child.reference("src")?.let(graph::node)?.key == MonetResourceKey("raw", "arrow_double_regular")
+    }
+    val text = children.firstOrNull { child ->
+        child.name.substringAfterLast('.') == "TextView" && child.reference("textSize") != null &&
+            (child.attributes.firstOrNull { it.name == "textFontWeight" }?.value as? MonetResourceValue.Literal)?.data == 500L
+    }
+    val iconColor = icon?.reference("iconColor")
+    if (iconColor != null && iconColor == text?.reference("textColor")) result += iconColor
+    children.forEach { it.collectSharedArrowIconTextColors(graph, result) }
+}
+
+private fun MonetXmlElement.reference(name: String): Int? =
+    (attributes.firstOrNull { it.name == name }?.value as? MonetResourceValue.Reference)?.resourceId
 
 private fun MonetResourceValue.collectUsage(
     targetId: Int,
