@@ -11,9 +11,11 @@ object MonetStructureMatcher {
     fun resolveAll(
         graph: MonetResourceGraph,
         dexProvider: MonetDexEvidenceProvider? = null,
+        onProgress: (completed: Int, total: Int, role: String) -> Unit = { _, _, _ -> },
     ): Map<String, MonetResourceNode> {
         val audited = audit(graph, dexProvider)
-        val resolved = MONET_RULES.mapNotNull { rule ->
+        val resolved = MONET_RULES.mapIndexedNotNull { index, rule ->
+            onProgress(index + 1, MONET_RULES.size, rule.id)
             val candidates = audited.getValue(rule.id)
             if (rule.optional && candidates.isEmpty()) null else {
                 require(candidates.size == 1) { "${rule.id}: ${candidates.map { it.key }}" }

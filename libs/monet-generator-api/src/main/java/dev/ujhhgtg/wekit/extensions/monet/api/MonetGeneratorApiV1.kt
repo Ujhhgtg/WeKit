@@ -73,12 +73,13 @@ sealed interface MonetGenerationEvent {
     data class Progress(
         val stage: MonetGenerationStage,
         val detail: String,
-        val completed: Int,
-        val total: Int,
+        val completed: Int?,
+        val total: Int?,
     ) : MonetGenerationEvent {
         init {
             require(detail.isNotBlank())
-            require(total > 0 && completed in 0..total)
+            require((completed == null) == (total == null))
+            if (completed != null && total != null) require(total > 0 && completed in 0..total)
         }
     }
     data class Log(

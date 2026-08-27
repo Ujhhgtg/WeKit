@@ -304,15 +304,21 @@ private fun RunningContent(progress: MonetGenerationEvent.Progress) {
     Column {
         Text(progress.detail)
         Spacer(Modifier.height(8.dp))
-        LinearProgressIndicator(
-            progress = { progress.completed.toFloat() / progress.total.coerceAtLeast(1) },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Text(
-            "${progress.completed}/${progress.total}",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.align(Alignment.End).padding(top = 4.dp),
-        )
+        val completed = progress.completed
+        val total = progress.total
+        if (completed != null && total != null) {
+            LinearProgressIndicator(
+                progress = { completed.toFloat() / total.coerceAtLeast(1) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "$completed/$total",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.align(Alignment.End).padding(top = 4.dp),
+            )
+        } else {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
     }
 }
 

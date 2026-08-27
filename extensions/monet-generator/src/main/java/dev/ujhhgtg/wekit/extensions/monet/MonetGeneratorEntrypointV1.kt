@@ -13,7 +13,7 @@ import java.io.File
 
 class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
     override fun generate(request: MonetGenerationRequest, listener: MonetGenerationListener): MonetGenerationResult {
-        fun progress(stage: MonetGenerationStage, detail: String, completed: Int, total: Int) {
+        fun progress(stage: MonetGenerationStage, detail: String, completed: Int? = null, total: Int? = null) {
             listener.onEvent(MonetGenerationEvent.Progress(stage, detail, completed, total))
         }
 
@@ -22,12 +22,13 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             request.sourceApkPaths.map(::File),
             request.packageName,
         ) { detail, completed, total ->
-            progress(MonetGenerationStage.BUILDING_RESOURCE_GRAPH, detail, completed, total)
+            progress(MonetGenerationStage.BUILDING_RESOURCE_GRAPH, detail)
         }
-        progress(MonetGenerationStage.BUILDING_RESOURCE_GRAPH, "ARSC/XML 引用图构建完成", 1, 1)
-        progress(MonetGenerationStage.RESOLVING_ROLES, "解析 ${MonetStructureMatcher.roleIds.size} 个语义角色", 0, 1)
-        val resolved = MonetStructureMatcher.resolveAll(graph, request.dexEvidenceProvider)
-        progress(MonetGenerationStage.RESOLVING_ROLES, "已解析 ${resolved.size} 个语义角色", 1, 1)
+        progress(MonetGenerationStage.BUILDING_RESOURCE_GRAPH, "ARSC/XML 引用图构建完成")
+        progress(MonetGenerationStage.RESOLVING_ROLES, "解析 ${MonetStructureMatcher.roleIds.size} 个语义角色", 0, MonetStructureMatcher.roleIds.size)
+        val resolved = MonetStructureMatcher.resolveAll(graph, request.dexEvidenceProvider) { completed, total, role ->
+            progress(MonetGenerationStage.RESOLVING_ROLES, "解析 $role", completed, total)
+        }
         val colors = MONET_RULES.filter { it.type == "color" && it.id != "main.tab.background" }.mapNotNull { rule ->
             val node = resolved[rule.id] ?: return@mapNotNull null
             val target = paletteFor(rule.id, request)
@@ -139,7 +140,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             ),
             installInitially = request.options.tabStyle == MonetTabStyle.BLUR,
         )
-        progress(MonetGenerationStage.PACKAGING, "打包 ${overlays.size} 个 Overlay", 0, 1)
+        progress(MonetGenerationStage.PACKAGING, "打包 ${overlays.size} 个 Overlay")
         MonetModulePackager.pack(
             overlays,
             request.options,
@@ -148,7 +149,7 @@ class MonetGeneratorEntrypointV1 : MonetGeneratorApiV1 {
             request.sdkInt,
             request.outputZip,
         )
-        progress(MonetGenerationStage.PACKAGING, "Root 模块打包完成", 1, 1)
+        progress(MonetGenerationStage.PACKAGING, "Root 模块打包完成")
         return MonetGenerationResult(request.outputZip, colors.size, 0, overlays.size)
     }
 
