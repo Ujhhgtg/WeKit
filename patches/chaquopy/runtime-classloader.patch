@@ -1,7 +1,53 @@
+diff --git a/product/runtime/src/main/python/java/class.pxi b/product/runtime/src/main/python/java/class.pxi
+index e165aa22..191441fe 100644
+--- a/product/runtime/src/main/python/java/class.pxi
++++ b/product/runtime/src/main/python/java/class.pxi
+@@ -10,6 +10,7 @@ global_class("java.lang.reflect.InvocationTargetException")
+ cdef class_lock = RLock()
+ cdef dict jclass_cache = {}
+ cdef instance_cache = WeakValueDictionary()
++cdef object jclass_pythonizer = None
+ # class_lock also protects none_casts in utils.pxi.
+
+ # Attributes which will never be looked up as Java members. This prevents infinite recursion, and is
+@@ -31,6 +32,13 @@ cdef jclass_from_klass(klass):
+ cdef jclass_from_j_klass(cls_name, JNIRef j_klass):
+     return jclass(cls_name, {"_chaquopy_j_klass": j_klass.global_ref()})
+
++cpdef set_jclass_pythonizer(pythonizer):
++    global jclass_pythonizer
++    if pythonizer is not None and not callable(pythonizer):
++        raise TypeError("pythonizer must be callable")
++    jclass_pythonizer = pythonizer
++
++
+ cpdef jclass(clsname, cls_dict=None):
+     """Returns a Python class for a Java class or interface type. The name must be fully-qualified,
+     using either Java notation (e.g. `java.lang.Object`) or JNI notation (e.g.
+@@ -50,6 +58,7 @@ cpdef jclass(clsname, cls_dict=None):
+     if not isinstance(clsname, str):
+         clsname = str(clsname)
+
++    cls = None
+     with class_lock:
+         cls = jclass_cache.get(clsname)
+         if cls:
+@@ -57,7 +66,9 @@ cpdef jclass(clsname, cls_dict=None):
+             assert (cls_dict is None) or (list(cls_dict) == ["_chaquopy_j_klass"]), clsname
+         else:
+             cls = new_class(clsname, None, cls_dict)
+-        return cls
++    if jclass_pythonizer is not None:
++        cls = jclass_pythonizer(cls)
++    return cls
+
+
+ cdef new_class(cls_name, bases, cls_dict=None):
 diff --git a/product/runtime/src/main/python/java/jvm.pxi b/product/runtime/src/main/python/java/jvm.pxi
+index 3bbec293..a7790467 100644
 --- a/product/runtime/src/main/python/java/jvm.pxi
 +++ b/product/runtime/src/main/python/java/jvm.pxi
-@@ -30,6 +30,7 @@
+@@ -30,6 +30,7 @@ cdef JNIEnv *get_jnienv() except NULL:
  # See CQPEnv.FindClass
  cdef GlobalRef j_class_loader
  cdef jmethodID mid_forName = NULL
@@ -9,7 +55,7 @@ diff --git a/product/runtime/src/main/python/java/jvm.pxi b/product/runtime/src/
  
  cdef set_jvm(JavaVM *new_jvm):
      global jvm
-@@ -48,6 +49,16 @@
+@@ -48,6 +49,16 @@ cdef set_jvm(JavaVM *new_jvm):
          "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;")
  
  
@@ -27,9 +73,10 @@ diff --git a/product/runtime/src/main/python/java/jvm.pxi b/product/runtime/src/
      lib_path = jvm_lib_path()
      cdef void *handle = dlopen(str_for_c(lib_path), RTLD_NOW | RTLD_GLOBAL)
 diff --git a/product/runtime/src/main/python/java/proxy.pxi b/product/runtime/src/main/python/java/proxy.pxi
+index 1b0a4ed0..948d6e0f 100644
 --- a/product/runtime/src/main/python/java/proxy.pxi
 +++ b/product/runtime/src/main/python/java/proxy.pxi
-@@ -67,7 +67,7 @@
+@@ -67,7 +67,7 @@ class DynamicProxyClass(ProxyClass):
      @classmethod
      def get_klass(metacls, cls_name, proxy_base):
          global DynamicProxy

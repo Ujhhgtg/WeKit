@@ -66,14 +66,70 @@ class ResolvedField(Protocol):
     hostBuildTag: str
 
 class Dex(Protocol):
-    def class_(self, matcher: ClassMatcher) -> ResolvedClass: ...
-    def classes(self, matcher: ClassMatcher) -> Sequence[ResolvedClass]: ...
-    def method(self, matcher: MethodMatcher) -> ResolvedMember: ...
-    def methods(self, matcher: MethodMatcher) -> Sequence[ResolvedMember]: ...
-    def constructor(self, matcher: MethodMatcher) -> ResolvedMember: ...
-    def constructors(self, matcher: MethodMatcher) -> Sequence[ResolvedMember]: ...
-    def field(self, matcher: FieldMatcher) -> ResolvedField: ...
-    def fields(self, matcher: FieldMatcher) -> Sequence[ResolvedField]: ...
+    def class_(
+        self,
+        matcher: ClassMatcher,
+        *,
+        search_packages: Sequence[str] = ...,
+        exclude_packages: Sequence[str] = ...,
+        ignore_packages_case: bool = ...,
+    ) -> ResolvedClass: ...
+    def classes(
+        self,
+        matcher: ClassMatcher,
+        *,
+        search_packages: Sequence[str] = ...,
+        exclude_packages: Sequence[str] = ...,
+        ignore_packages_case: bool = ...,
+    ) -> Sequence[ResolvedClass]: ...
+    def method(
+        self,
+        matcher: MethodMatcher,
+        *,
+        search_packages: Sequence[str] = ...,
+        exclude_packages: Sequence[str] = ...,
+        ignore_packages_case: bool = ...,
+    ) -> ResolvedMember: ...
+    def methods(
+        self,
+        matcher: MethodMatcher,
+        *,
+        search_packages: Sequence[str] = ...,
+        exclude_packages: Sequence[str] = ...,
+        ignore_packages_case: bool = ...,
+    ) -> Sequence[ResolvedMember]: ...
+    def constructor(
+        self,
+        matcher: MethodMatcher,
+        *,
+        search_packages: Sequence[str] = ...,
+        exclude_packages: Sequence[str] = ...,
+        ignore_packages_case: bool = ...,
+    ) -> ResolvedMember: ...
+    def constructors(
+        self,
+        matcher: MethodMatcher,
+        *,
+        search_packages: Sequence[str] = ...,
+        exclude_packages: Sequence[str] = ...,
+        ignore_packages_case: bool = ...,
+    ) -> Sequence[ResolvedMember]: ...
+    def field(
+        self,
+        matcher: FieldMatcher,
+        *,
+        search_packages: Sequence[str] = ...,
+        exclude_packages: Sequence[str] = ...,
+        ignore_packages_case: bool = ...,
+    ) -> ResolvedField: ...
+    def fields(
+        self,
+        matcher: FieldMatcher,
+        *,
+        search_packages: Sequence[str] = ...,
+        exclude_packages: Sequence[str] = ...,
+        ignore_packages_case: bool = ...,
+    ) -> Sequence[ResolvedField]: ...
 
 class TaskHandle(Protocol):
     def cancel(self) -> None: ...
@@ -83,9 +139,7 @@ class TaskHandle(Protocol):
 class Tasks(Protocol):
     def main(self, callback: Callable[[], object]) -> TaskHandle: ...
     async def main_async(self, callback: Callable[[], object]) -> object: ...
-    def spawn(
-        self, task: Awaitable[object] | Callable[[], object]
-    ) -> TaskHandle: ...
+    def spawn(self, task: Awaitable[object] | Callable[[], object]) -> TaskHandle: ...
 
 class Jvm(Protocol):
     loader: object
@@ -110,6 +164,4 @@ class PluginContext:
     def defer_async(
         self, action: Callable[[], Awaitable[object]]
     ) -> Callable[[], object]: ...
-    def spawn(
-        self, task: Awaitable[object] | Callable[[], object]
-    ) -> TaskHandle: ...
+    def spawn(self, task: Awaitable[object] | Callable[[], object]) -> TaskHandle: ...

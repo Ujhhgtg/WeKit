@@ -13,3 +13,9 @@ artifact validation. The release output is intentionally unsigned so the
 container cannot be installed as an application. The loader-neutral
 `RuntimeEntrypoint` Kotlin object loads the manifest-ordered native libraries
 before resolving the Chaquopy backend.
+
+DexKit's Python bindings are generated from the pinned DexKit AAR by
+`runtime:generateDexKitPythonBindings`. The runtime package and developer SDK
+therefore expose the same complete set of matcher classes, matcher collections,
+enums, snake-case methods, canonical aliases and typed overloads without a
+manually maintained API list.

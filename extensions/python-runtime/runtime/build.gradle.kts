@@ -89,8 +89,6 @@ configure<ApplicationExtension> {
     sourceSets["main"].assets.srcDir(generatedRuntimeAssets.get().asFile)
 }
 
-chaquopy { defaultConfig { version = libs.versions.pythonRuntimePython.get() } }
-
 kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.fromTarget(libs.versions.jdk.get())) }
     jvmToolchain(libs.versions.jdk.get().toInt())
@@ -99,6 +97,11 @@ kotlin {
 val chaquopyTarget = configurations.create("chaquopyTarget") {
     isCanBeConsumed = false
     isCanBeResolved = true
+}
+val dexKitCodegen = configurations.create("dexKitCodegen") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    isTransitive = false
 }
 
 dependencies {
@@ -110,9 +113,46 @@ dependencies {
         "com.chaquo.python:target:${libs.versions.pythonRuntimeChaquopyTarget.get()}:" +
             "${libs.versions.pythonRuntimeAbi.get()}@zip",
     )
+    dexKitCodegen("org.luckypray:dexkit:${libs.versions.dexkit.get()}")
+}
+
+val generatedDexKitPython = layout.buildDirectory.dir("generated/dexkitBindings/python")
+val generatedDexKitStubs = layout.buildDirectory.dir("generated/dexkitBindings/stubs")
+val generateDexKitPythonBindings = tasks.register<Exec>("generateDexKitPythonBindings") {
+    val generator = rootProject.file("codegen/generate_dexkit_bindings.py")
+    inputs.file(generator)
+    inputs.files(dexKitCodegen)
+    outputs.dirs(generatedDexKitPython, generatedDexKitStubs)
+    doFirst {
+        commandLine(
+            "python3",
+            generator,
+            "--aar",
+            dexKitCodegen.singleFile,
+            "--python-out",
+            generatedDexKitPython.get().asFile,
+            "--stub-out",
+            generatedDexKitStubs.get().asFile,
+        )
+    }
+}
+
+chaquopy {
+    defaultConfig { version = libs.versions.pythonRuntimePython.get() }
+    sourceSets {
+        named("main") {
+            srcDir(generatedDexKitPython.get().asFile)
+        }
+    }
 }
 
 tasks.named("preBuild") { dependsOn(generateRuntimeManifest) }
+tasks.matching {
+    it.name.matches(Regex("generate.+PythonSourceAssets")) ||
+        it.name.matches(Regex("merge.+PythonSources"))
+}.configureEach {
+    dependsOn(generateDexKitPythonBindings)
+}
 
 val extractedChaquopyTarget = layout.buildDirectory.dir("chaquopyTarget")
 tasks.register<Sync>("extractChaquopyTarget") {

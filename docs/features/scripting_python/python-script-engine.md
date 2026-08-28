@@ -14,11 +14,30 @@ This produces `dist/extensions/python-runtime-<content-hash>.apk` and `wekit-pyt
 
 `RuntimeEntrypoint` first loads the manifest-ordered native libraries by absolute path. It then creates `WeKitAndroidPlatform`, the integration replacement for Chaquopy 17.0 revision `e01057c72fdd737f202bd1be1de85af51e06cad0`'s `AndroidPlatform`: native loading is skipped because it has already completed, assets come from the injected runtime APK, bootstrap assets retain Chaquopy's original layout, and `java.android.importer.nativeLibraryDir` is set to the mounted version's extracted native directory. The documented Chaquopy patch changes the native `FindClass` cache and `dynamic_proxy` loader to the supplied `ClassLoaders.HYBRID`; callback and Python-created threads also set and restore that loader as TCCL. Runtime DEX still uses `ClassLoaders.MODULE` as its parent.
 
+The same patch installs a callback in Chaquopy's central `jclass` path. Every
+Java proxy returned by a direct Java import is therefore pythonized once: the
+canonical Java members remain available, while snake-case aliases and
+non-conflicting JavaBean properties are added automatically. Plugins do not
+need to call `ctx.jvm.pythonize` or use a wrapper object.
+
 ## Plugins
 
 Plugins live in `WeKit/scripts_python/<reverse-dns-id>/` and contain `plugin.json` plus an entry module. New plugins are disabled by default. Enabling one starts the process-local runtime on demand and calls `setup(ctx)` in a private `_wekit_plugins.<encoded-id>` namespace. `ctx.defer`, hook tokens and task handles are released in LIFO order during disable or reload.
 
-`ctx.dex` exposes class, method, constructor and field queries with package scopes, descriptor/name/type/modifier constraints, contains/equals/prefix/suffix/regex strings, class field/method structure, field reader/writer methods, method shorty/opcode/field/callee/caller constraints, all/any/none composition, plural results and strict single-result helpers. Every facade value is translated to DexKit 2.2.0's real matcher classes. Queries use WeKit's shared DexKit lease off the UI thread and return descriptors tagged with the current host version/build rather than process-stale reflection objects.
+`wekit.dexkit` is generated from DexKit 2.2.0's AAR. It exposes every public
+matcher, matcher collection and query enum as a typed Python class, with
+snake-case methods, typed overloads and the canonical JVM method aliases. A
+binding recursively unwraps nested Python bindings before calling DexKit and
+wraps matcher results again; the underlying JVM object is not the public API.
+Constructor keywords are generated from DexKit's fluent setters, so
+`MethodMatcher(return_type="void", param_count=1, using_strings=[eq("foo")])`
+and the equivalent fluent chain are the same binding.
+
+`ctx.dex` accepts these real bindings for class, method, constructor and field
+queries. Queries use WeKit's shared DexKit lease off the UI thread and return
+descriptors tagged with the current host version/build rather than
+process-stale reflection objects. The generated `.pyi` files ship in
+`wekit-python-sdk.zip` with the runtime and examples.
 
 The manager remains available when the runtime pack is absent. Missing runtime state is shown as `RUNTIME_MISSING`; WeKit does not download it or show an installation dialog during WeChat startup.
 

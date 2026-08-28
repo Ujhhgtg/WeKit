@@ -34,7 +34,7 @@ from ._types import (
     TaskHandle,
     TaskHost,
 )
-from .dexkit import ClassMatcher, FieldMatcher, MethodMatcher, StringMatcher
+from .dexkit import ClassMatcher, DexKitBinding, FieldMatcher, MethodMatcher
 from .pythonize import pythonize
 
 _config: RuntimeConfig | None = None
@@ -96,7 +96,9 @@ class PluginContext:
         manifest_file = self.root / "plugin.json"
         if manifest_file.stat().st_size > _config.getMaxManifestBytes():
             raise ValueError("plugin manifest exceeds the configured size limit")
-        self.manifest: dict[str, Any] = json.loads(manifest_file.read_text(encoding="utf-8"))
+        self.manifest: dict[str, Any] = json.loads(
+            manifest_file.read_text(encoding="utf-8")
+        )
         self.host_context: Any = _config.getApplication()
         self.log: _Logger = _Logger(host.logger(self.id))
         self.hooks: _Hooks = _Hooks(host.hooks(self.id), self)
@@ -210,14 +212,10 @@ class _Tasks:
         self._context: PluginContext = context
 
     def main(self, callback: Callable[[], object]) -> TaskHandle:
-        return self._delegate.main(
-            lambda: _run_context(self._context, callback)
-        )
+        return self._delegate.main(lambda: _run_context(self._context, callback))
 
     async def main_async(self, callback: Callable[[], object]) -> object:
-        handle = self._delegate.mainAsync(
-            lambda: _run_context(self._context, callback)
-        )
+        handle = self._delegate.mainAsync(lambda: _run_context(self._context, callback))
         while not handle.isDone():
             await asyncio.sleep(0.01)
         return handle.awaitResult()
@@ -236,9 +234,7 @@ class _Tasks:
                 raise
             return handle
         callback = cast(Callable[[], object], task)
-        return self._delegate.spawn(
-            lambda: _run_context(self._context, callback)
-        )
+        return self._delegate.spawn(lambda: _run_context(self._context, callback))
 
 
 class _Hooks:
@@ -250,7 +246,6 @@ class _Hooks:
         self, callback: Callable[[HookParameter], _T]
     ) -> Callable[[HookParameter], _T]:
         def wrapped(parameter: HookParameter) -> _T:
-            pythonize(type(parameter))
             result = _run_context(self._context, callback, parameter)
             if inspect.isawaitable(result):
                 if inspect.iscoroutine(result):
@@ -295,106 +290,131 @@ class _Dex:
     def __init__(self, delegate: DexHost) -> None:
         self._delegate: DexHost = delegate
 
-    def class_(self, matcher: ClassMatcher) -> ResolvedClass:
-        return self._delegate.findClass(self._class_matcher(matcher))
+    def class_(
+        self,
+        matcher: ClassMatcher,
+        *,
+        search_packages: Sequence[str] = (),
+        exclude_packages: Sequence[str] = (),
+        ignore_packages_case: bool = False,
+    ) -> ResolvedClass:
+        return self._delegate.findClass(
+            self._java(matcher),
+            list(search_packages),
+            list(exclude_packages),
+            ignore_packages_case,
+        )
 
-    def classes(self, matcher: ClassMatcher) -> Sequence[ResolvedClass]:
-        return self._delegate.findClasses(self._class_matcher(matcher))
+    def classes(
+        self,
+        matcher: ClassMatcher,
+        *,
+        search_packages: Sequence[str] = (),
+        exclude_packages: Sequence[str] = (),
+        ignore_packages_case: bool = False,
+    ) -> Sequence[ResolvedClass]:
+        return self._delegate.findClasses(
+            self._java(matcher),
+            list(search_packages),
+            list(exclude_packages),
+            ignore_packages_case,
+        )
 
-    def method(self, matcher: MethodMatcher) -> ResolvedMember:
-        return self._delegate.findMethod(self._method_matcher(matcher))
+    def method(
+        self,
+        matcher: MethodMatcher,
+        *,
+        search_packages: Sequence[str] = (),
+        exclude_packages: Sequence[str] = (),
+        ignore_packages_case: bool = False,
+    ) -> ResolvedMember:
+        return self._delegate.findMethod(
+            self._java(matcher),
+            list(search_packages),
+            list(exclude_packages),
+            ignore_packages_case,
+        )
 
-    def methods(self, matcher: MethodMatcher) -> Sequence[ResolvedMember]:
-        return self._delegate.findMethods(self._method_matcher(matcher))
+    def methods(
+        self,
+        matcher: MethodMatcher,
+        *,
+        search_packages: Sequence[str] = (),
+        exclude_packages: Sequence[str] = (),
+        ignore_packages_case: bool = False,
+    ) -> Sequence[ResolvedMember]:
+        return self._delegate.findMethods(
+            self._java(matcher),
+            list(search_packages),
+            list(exclude_packages),
+            ignore_packages_case,
+        )
 
-    def constructor(self, matcher: MethodMatcher) -> ResolvedMember:
-        return self._delegate.findConstructor(self._method_matcher(matcher))
+    def constructor(
+        self,
+        matcher: MethodMatcher,
+        *,
+        search_packages: Sequence[str] = (),
+        exclude_packages: Sequence[str] = (),
+        ignore_packages_case: bool = False,
+    ) -> ResolvedMember:
+        return self._delegate.findConstructor(
+            self._java(matcher),
+            list(search_packages),
+            list(exclude_packages),
+            ignore_packages_case,
+        )
 
-    def constructors(self, matcher: MethodMatcher) -> Sequence[ResolvedMember]:
-        return self._delegate.findConstructors(self._method_matcher(matcher))
+    def constructors(
+        self,
+        matcher: MethodMatcher,
+        *,
+        search_packages: Sequence[str] = (),
+        exclude_packages: Sequence[str] = (),
+        ignore_packages_case: bool = False,
+    ) -> Sequence[ResolvedMember]:
+        return self._delegate.findConstructors(
+            self._java(matcher),
+            list(search_packages),
+            list(exclude_packages),
+            ignore_packages_case,
+        )
 
-    def field(self, matcher: FieldMatcher) -> ResolvedField:
-        return self._delegate.findField(self._field_matcher(matcher))
+    def field(
+        self,
+        matcher: FieldMatcher,
+        *,
+        search_packages: Sequence[str] = (),
+        exclude_packages: Sequence[str] = (),
+        ignore_packages_case: bool = False,
+    ) -> ResolvedField:
+        return self._delegate.findField(
+            self._java(matcher),
+            list(search_packages),
+            list(exclude_packages),
+            ignore_packages_case,
+        )
 
-    def fields(self, matcher: FieldMatcher) -> Sequence[ResolvedField]:
-        return self._delegate.findFields(self._field_matcher(matcher))
+    def fields(
+        self,
+        matcher: FieldMatcher,
+        *,
+        search_packages: Sequence[str] = (),
+        exclude_packages: Sequence[str] = (),
+        ignore_packages_case: bool = False,
+    ) -> Sequence[ResolvedField]:
+        return self._delegate.findFields(
+            self._java(matcher),
+            list(search_packages),
+            list(exclude_packages),
+            ignore_packages_case,
+        )
 
     @staticmethod
-    def _string_matcher(matcher: StringMatcher | None) -> object | None:
-        if matcher is None:
-            return None
-        mode = jclass("dev.ujhhgtg.wekit.python.api.PythonStringMatchMode").valueOf(
-            matcher.mode.value
-        )
-        return jclass("dev.ujhhgtg.wekit.python.api.PythonStringMatcher")(
-            matcher.value,
-            mode,
-            matcher.ignore_case,
-        )
-
-    @classmethod
-    def _class_matcher(cls, matcher: ClassMatcher) -> object:
-        return jclass("dev.ujhhgtg.wekit.python.api.PythonClassMatcher")(
-            matcher.descriptor,
-            cls._string_matcher(matcher.name),
-            cls._string_matcher(matcher.source_file),
-            matcher.modifiers,
-            matcher.super_class,
-            matcher.interfaces,
-            [cls._string_matcher(item) for item in matcher.using_strings],
-            matcher.search_packages,
-            matcher.exclude_packages,
-            matcher.ignore_packages_case,
-            [cls._field_matcher(item) for item in matcher.fields],
-            [cls._method_matcher(item) for item in matcher.methods],
-            [cls._class_matcher(item) for item in matcher.all_of],
-            [cls._class_matcher(item) for item in matcher.any_of],
-            [cls._class_matcher(item) for item in matcher.none_of],
-        )
-
-    @classmethod
-    def _method_matcher(cls, matcher: MethodMatcher) -> object:
-        return jclass("dev.ujhhgtg.wekit.python.api.PythonMethodMatcher")(
-            matcher.descriptor,
-            cls._string_matcher(matcher.name),
-            matcher.modifiers,
-            matcher.declared_class,
-            matcher.return_type,
-            matcher.parameter_types,
-            matcher.parameter_count,
-            matcher.proto_shorty,
-            matcher.op_codes,
-            matcher.op_names,
-            [cls._string_matcher(item) for item in matcher.using_strings],
-            matcher.using_numbers,
-            matcher.using_fields,
-            matcher.invoked_methods,
-            matcher.caller_methods,
-            matcher.search_packages,
-            matcher.exclude_packages,
-            matcher.ignore_packages_case,
-            [cls._method_matcher(item) for item in matcher.all_of],
-            [cls._method_matcher(item) for item in matcher.any_of],
-            [cls._method_matcher(item) for item in matcher.none_of],
-        )
-
-    @classmethod
-    def _field_matcher(cls, matcher: FieldMatcher) -> object:
-        return jclass("dev.ujhhgtg.wekit.python.api.PythonFieldMatcher")(
-            matcher.descriptor,
-            cls._string_matcher(matcher.name),
-            matcher.modifiers,
-            matcher.declared_class,
-            matcher.type,
-            matcher.search_packages,
-            matcher.exclude_packages,
-            matcher.ignore_packages_case,
-            [cls._method_matcher(item) for item in matcher.read_methods],
-            [cls._method_matcher(item) for item in matcher.write_methods],
-            [cls._field_matcher(item) for item in matcher.all_of],
-            [cls._field_matcher(item) for item in matcher.any_of],
-            [cls._field_matcher(item) for item in matcher.none_of],
-        )
+    def _java(matcher: DexKitBinding) -> object:
+        if not isinstance(matcher, DexKitBinding):
+            raise TypeError("ctx.dex requires a generated DexKit binding")
+        return matcher._to_java()
 
 
 class _Jvm:
@@ -405,7 +425,7 @@ class _Jvm:
         return self.loader.loadClass(name)
 
     def proxy(self, name: str) -> type[Any]:
-        return pythonize(jclass(name))
+        return jclass(name)
 
     def pythonize(self, java_class: type[Any]) -> type[Any]:
         return pythonize(java_class)
@@ -462,7 +482,9 @@ def activate_plugin(request: PluginRequest, host: PluginHost) -> None:
             raise ImportError(f"plugin entry does not exist: {entry}")
         assert _config is not None
         if source.stat().st_size > _config.getMaxPluginFileBytes():
-            raise ImportError(f"plugin entry exceeds the configured size limit: {entry}")
+            raise ImportError(
+                f"plugin entry exceeds the configured size limit: {entry}"
+            )
 
         scope = _Scope()
         try:

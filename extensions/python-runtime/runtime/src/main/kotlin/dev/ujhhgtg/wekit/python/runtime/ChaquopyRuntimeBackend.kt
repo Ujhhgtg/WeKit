@@ -18,6 +18,7 @@ internal class ChaquopyRuntimeBackend : PythonRuntimeBackend {
         withLookupLoader {
             Python.getInstance().getModule("java.chaquopy")
                 .callAttrThrows("set_java_class_loader", config.lookupClassLoader)
+            Python.getInstance().getModule("wekit.pythonize").callAttrThrows("install")
             Python.getInstance().getModule("wekit._bootstrap")
                 .callAttrThrows("initialize", config)
         }

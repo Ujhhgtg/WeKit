@@ -29,7 +29,9 @@ class Logger(Protocol):
     def info(self, message: str, *arguments: object) -> None: ...
     def warning(self, message: str, *arguments: object) -> None: ...
     def error(self, message: str, *arguments: object) -> None: ...
-    def exception(self, message: str, error: BaseException, *arguments: object) -> None: ...
+    def exception(
+        self, message: str, error: BaseException, *arguments: object
+    ) -> None: ...
 
 
 class HookHost(Protocol):
@@ -73,14 +75,62 @@ class ResolvedField(Protocol):
 
 
 class DexHost(Protocol):
-    def findClass(self, matcher: object) -> ResolvedClass: ...
-    def findClasses(self, matcher: object) -> Sequence[ResolvedClass]: ...
-    def findMethod(self, matcher: object) -> ResolvedMember: ...
-    def findMethods(self, matcher: object) -> Sequence[ResolvedMember]: ...
-    def findConstructor(self, matcher: object) -> ResolvedMember: ...
-    def findConstructors(self, matcher: object) -> Sequence[ResolvedMember]: ...
-    def findField(self, matcher: object) -> ResolvedField: ...
-    def findFields(self, matcher: object) -> Sequence[ResolvedField]: ...
+    def findClass(
+        self,
+        matcher: object,
+        search_packages: list[str],
+        exclude_packages: list[str],
+        ignore_packages_case: bool,
+    ) -> ResolvedClass: ...
+    def findClasses(
+        self,
+        matcher: object,
+        search_packages: list[str],
+        exclude_packages: list[str],
+        ignore_packages_case: bool,
+    ) -> Sequence[ResolvedClass]: ...
+    def findMethod(
+        self,
+        matcher: object,
+        search_packages: list[str],
+        exclude_packages: list[str],
+        ignore_packages_case: bool,
+    ) -> ResolvedMember: ...
+    def findMethods(
+        self,
+        matcher: object,
+        search_packages: list[str],
+        exclude_packages: list[str],
+        ignore_packages_case: bool,
+    ) -> Sequence[ResolvedMember]: ...
+    def findConstructor(
+        self,
+        matcher: object,
+        search_packages: list[str],
+        exclude_packages: list[str],
+        ignore_packages_case: bool,
+    ) -> ResolvedMember: ...
+    def findConstructors(
+        self,
+        matcher: object,
+        search_packages: list[str],
+        exclude_packages: list[str],
+        ignore_packages_case: bool,
+    ) -> Sequence[ResolvedMember]: ...
+    def findField(
+        self,
+        matcher: object,
+        search_packages: list[str],
+        exclude_packages: list[str],
+        ignore_packages_case: bool,
+    ) -> ResolvedField: ...
+    def findFields(
+        self,
+        matcher: object,
+        search_packages: list[str],
+        exclude_packages: list[str],
+        ignore_packages_case: bool,
+    ) -> Sequence[ResolvedField]: ...
 
 
 class TaskHandle(Protocol):
