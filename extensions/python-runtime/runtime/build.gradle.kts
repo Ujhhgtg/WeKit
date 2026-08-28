@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id("com.android.application") version libs.versions.pythonRuntimeAgp
     id("com.chaquo.python") version libs.versions.pythonRuntimeChaquopy
+    id("org.jetbrains.kotlin.android") version libs.versions.kotlin
 }
 
 group = "dev.ujhhgtg.wekit.python.runtime"
