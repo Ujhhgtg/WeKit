@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
@@ -35,8 +37,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Bug_report
+import com.composables.icons.materialsymbols.outlined.Content_copy
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Download
+import com.composables.icons.materialsymbols.outlined.Edit
 import com.composables.icons.materialsymbols.outlined.Folder
 import com.composables.icons.materialsymbols.outlined.Refresh
 import com.composables.icons.materialsymbols.outlined.Restart_alt
@@ -64,6 +68,8 @@ import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.TargetProcesses
+import dev.ujhhgtg.wekit.utils.android.copyToClipboard
+import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -238,6 +244,7 @@ private fun PythonDetailScreen(
                 item {
                     BaseWidget(
                         title = stringResource(R.string.python_edit_entry),
+                        icon = MaterialSymbols.Outlined.Edit,
                         enabled = !inFlight,
                         onClick = openEditor,
                     )
@@ -367,6 +374,7 @@ private fun PythonDiagnosticsScreen(pluginId: String, onBack: () -> Unit) {
     val record = records[pluginId] ?: return
     val crashMarker = remember(pluginId) { PythonCrashGuard.suspect()?.takeIf { it.pluginId == pluginId } }
     val mountedRuntime = PythonRuntimePack.mounted()
+    val context = LocalContext.current
     val environment = remember {
         "process=${TargetProcesses.currentName}\n" +
             "abi=${Build.SUPPORTED_ABIS.joinToString()}\n" +
@@ -374,7 +382,47 @@ private fun PythonDiagnosticsScreen(pluginId: String, onBack: () -> Unit) {
             "loader=${StartupInfo.loaderService.javaClass.name}\n" +
             "moduleClassLoader=${PythonRuntimeLoader::class.java.classLoader}"
     }
-    AgentSettingsScaffold(stringResource(R.string.python_diagnostics_title), onBack) {
+    val runtimePackText = mountedRuntime?.let {
+        "version=${it.manifest.version}\nsha256=${it.manifest.sha256}\napk=${it.runtimeApk}\nnative=${it.nativeDirectory}"
+    } ?: stringResource(R.string.python_diag_not_mounted)
+    val runtimeTitle = stringResource(R.string.python_diag_runtime)
+    val runtimePackTitle = stringResource(R.string.python_diag_runtime_pack)
+    val environmentTitle = stringResource(R.string.python_diag_environment)
+    val pluginTitle = stringResource(R.string.python_diag_plugin)
+    val tracebackTitle = stringResource(R.string.python_traceback)
+    val diagnosticsText = buildString {
+        appendLine(runtimeTitle); appendLine(runtime)
+        appendLine()
+        appendLine(runtimePackTitle); appendLine(runtimePackText)
+        appendLine()
+        appendLine(environmentTitle); appendLine(environment)
+        appendLine()
+        appendLine(pluginTitle); appendLine(record.status.name)
+        crashMarker?.let {
+            appendLine()
+            appendLine("CrashGuard"); appendLine(it)
+        }
+        record.traceback?.let {
+            appendLine()
+            appendLine(tracebackTitle); appendLine(it)
+        }
+    }
+    val copiedText = stringResource(R.string.copied_to_clipboard)
+    AgentSettingsScaffold(
+        title = stringResource(R.string.python_diagnostics_title),
+        onBack = onBack,
+        actions = {
+            IconButton(onClick = {
+                copyToClipboard(context, diagnosticsText)
+                showToast(context, copiedText)
+            }) {
+                Icon(
+                    imageVector = MaterialSymbols.Outlined.Content_copy,
+                    contentDescription = stringResource(R.string.python_diagnostics_copy),
+                )
+            }
+        },
+    ) {
         item {
             SegmentedColumn {
                 item { BaseWidget(title = stringResource(R.string.python_diag_runtime), description = runtime.toString()) }
@@ -387,13 +435,6 @@ private fun PythonDiagnosticsScreen(pluginId: String, onBack: () -> Unit) {
                     )
                 }
                 item { BaseWidget(title = stringResource(R.string.python_diag_environment), description = environment) }
-                item {
-                    BaseWidget(
-                        title = stringResource(R.string.python_diag_p0_title),
-                        description = stringResource(R.string.python_diag_p0_unverified),
-                        isError = true,
-                    )
-                }
                 item { BaseWidget(title = stringResource(R.string.python_diag_plugin), description = record.status.name) }
                 crashMarker?.let { marker ->
                     item { BaseWidget(title = "CrashGuard", description = marker.toString(), isError = true) }

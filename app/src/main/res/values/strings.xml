@@ -539,7 +539,7 @@
     <string name="python_plugins_empty">No Python plugins found</string>
     <string name="python_security_section">Security</string>
     <string name="python_security_warning_title">Trusted code only</string>
-    <string name="python_security_warning">Plugins run inside WeChat without a sandbox. They can read or change process memory and files, use the network, install hooks, and crash or deadlock WeChat. Disabling a plugin cannot undo arbitrary side effects. Runtime hashes protect download integrity only.</string>
+    <string name="python_security_warning">Plugins run inside WeChat without a sandbox. They can read or change process memory and files, use the network, install hooks, and crash or deadlock WeChat. Disabling a plugin cannot undo arbitrary side effects.</string>
     <string name="python_plugin_info_section">Plugin</string>
     <string name="python_plugin_actions_section">Actions</string>
     <string name="python_open_directory">Open plugin directory</string>
@@ -551,6 +551,7 @@
     <string name="python_clear_data_confirm">Delete this plugin’s persistent data?</string>
     <string name="python_restart_wechat">Restart WeChat</string>
     <string name="python_diagnostics_title">Python diagnostics</string>
+    <string name="python_diagnostics_copy">Copy diagnostics</string>
     <string name="python_traceback">Traceback</string>
     <string name="python_saved">Saved</string>
     <string name="python_diag_runtime">Runtime</string>
@@ -558,8 +559,6 @@
     <string name="python_diag_environment">Environment</string>
     <string name="python_diag_plugin">Plugin</string>
     <string name="python_diag_not_mounted">Not mounted</string>
-    <string name="python_diag_p0_title">Device acceptance</string>
-    <string name="python_diag_p0_unverified">Not verified on an arm64 device. Native ClassLoader ownership, Android/WeKit/WeChat imports, normal and Zygisk loaders, and 16 KB pages remain unsupported until device evidence is recorded.</string>
 
     <!-- Feature metadata -->
     <string name="feature_batch_add_label_name">Batch add labels</string>

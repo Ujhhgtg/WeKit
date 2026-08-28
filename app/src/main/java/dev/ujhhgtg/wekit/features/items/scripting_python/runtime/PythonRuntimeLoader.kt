@@ -15,6 +15,7 @@ import dev.ujhhgtg.wekit.python.api.PythonRuntimeBackend
 import dev.ujhhgtg.wekit.python.api.PythonRuntimeConfig
 import dev.ujhhgtg.wekit.python.api.PythonRuntimeStartupException
 import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +46,7 @@ object PythonRuntimeLimits {
 }
 
 object PythonRuntimeLoader {
+    private const val TAG = "PythonRuntimeLoader"
     private val lock = Any()
     private val mutableStatus = MutableStateFlow(PythonRuntimeStatus())
     val status: StateFlow<PythonRuntimeStatus> = mutableStatus
@@ -89,6 +91,11 @@ object PythonRuntimeLoader {
                         error = cause,
                     )
                 }
+                WeLogger.e(
+                    TAG,
+                    "state=FAILED version=${mutableStatus.value.version} phase=${mutableStatus.value.phase}",
+                    cause,
+                )
                 pending.completeExceptionally(cause)
             }
         }
@@ -158,6 +165,7 @@ object PythonRuntimeLoader {
             backend = instance
             mutableStatus.value = PythonRuntimeStatus(PythonRuntimeState.STARTED, mounted.manifest.version)
         }
+        WeLogger.i(TAG, "state=STARTED version=${mounted.manifest.version}")
         return instance
     }
 
@@ -179,6 +187,7 @@ object PythonRuntimeLoader {
 
     private fun publish(state: PythonRuntimeState, mounted: MountedPythonRuntime, phase: String) {
         mutableStatus.value = PythonRuntimeStatus(state, mounted.manifest.version, phase)
+        WeLogger.i(TAG, "state=$state version=${mounted.manifest.version} phase=$phase")
     }
 
     private fun unwrap(error: Throwable): Throwable = when (error) {

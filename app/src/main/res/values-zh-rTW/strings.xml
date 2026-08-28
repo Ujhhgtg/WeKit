@@ -500,7 +500,7 @@
     <string name="python_plugins_empty">未發現 Python 外掛</string>
     <string name="python_security_section">安全</string>
     <string name="python_security_warning_title">僅執行可信程式碼</string>
-    <string name="python_security_warning">外掛在微信程序內執行且沒有沙箱，可以讀寫程序記憶體與檔案、使用網路、安裝 Hook，並可使微信崩潰或死鎖。停用外掛無法撤銷任意副作用。執行環境雜湊只保護下載完整性。</string>
+    <string name="python_security_warning">外掛在微信程序內執行且沒有沙箱，可以讀寫程序記憶體與檔案、使用網路、安裝 Hook，並可使微信崩潰或死鎖。停用外掛無法撤銷任意副作用。</string>
     <string name="python_plugin_info_section">外掛</string>
     <string name="python_plugin_actions_section">操作</string>
     <string name="python_open_directory">開啟外掛目錄</string>
@@ -512,6 +512,7 @@
     <string name="python_clear_data_confirm">刪除此外掛的持久資料？</string>
     <string name="python_restart_wechat">重新啟動微信</string>
     <string name="python_diagnostics_title">Python 診斷</string>
+    <string name="python_diagnostics_copy">複製診斷資訊</string>
     <string name="python_traceback">回溯</string>
     <string name="python_saved">已儲存</string>
     <string name="python_diag_runtime">執行環境</string>
@@ -519,8 +520,6 @@
     <string name="python_diag_environment">環境</string>
     <string name="python_diag_plugin">外掛</string>
     <string name="python_diag_not_mounted">未掛載</string>
-    <string name="python_diag_p0_title">真機驗收</string>
-    <string name="python_diag_p0_unverified">尚未在 arm64 真機驗證。Native ClassLoader 所有權、Android/WeKit/微信類別匯入、一般與 Zygisk 載入器以及 16 KB 頁面在記錄真機證據前均不受支援。</string>
     <string name="feature_category_enabled_summary">目前已啟用 %1$d 個功能</string>
     <string name="feature_batch_add_label_name">批量打標籤</string>
     <string name="feature_batch_add_label_description">爲選中的多個好友追加同一個標籤, 可選擇已有標籤或新建, 請求會自動間隔以規避服務器風控</string>

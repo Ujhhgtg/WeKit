@@ -501,7 +501,7 @@
     <string name="python_plugins_empty">未发现 Python 插件</string>
     <string name="python_security_section">安全</string>
     <string name="python_security_warning_title">仅运行可信代码</string>
-    <string name="python_security_warning">插件在微信进程内运行且没有沙箱，可以读取或修改进程内存与文件、访问网络、安装 Hook，并可导致微信崩溃或死锁。禁用插件无法撤销任意副作用。运行时哈希只保护下载完整性。</string>
+    <string name="python_security_warning">插件在微信进程内运行且没有沙箱，可以读取或修改进程内存与文件、访问网络、安装 Hook，并可导致微信崩溃或死锁。禁用插件无法撤销任意副作用。</string>
     <string name="python_plugin_info_section">插件</string>
     <string name="python_plugin_actions_section">操作</string>
     <string name="python_open_directory">打开插件目录</string>
@@ -513,6 +513,7 @@
     <string name="python_clear_data_confirm">删除此插件的持久数据？</string>
     <string name="python_restart_wechat">重启微信</string>
     <string name="python_diagnostics_title">Python 诊断</string>
+    <string name="python_diagnostics_copy">复制诊断信息</string>
     <string name="python_traceback">回溯</string>
     <string name="python_saved">已保存</string>
     <string name="python_diag_runtime">运行时</string>
@@ -520,8 +521,6 @@
     <string name="python_diag_environment">环境</string>
     <string name="python_diag_plugin">插件</string>
     <string name="python_diag_not_mounted">未挂载</string>
-    <string name="python_diag_p0_title">真机验收</string>
-    <string name="python_diag_p0_unverified">尚未在 arm64 真机验证。Native ClassLoader 所有权、Android/WeKit/微信类导入、普通与 Zygisk 加载器以及 16 KB 页面在记录真机证据前均不受支持。</string>
     <string name="feature_category_enabled_summary">当前已启用 %1$d 个功能</string>
     <!-- Feature metadata -->
     <string name="feature_batch_add_label_name">批量打标签</string>

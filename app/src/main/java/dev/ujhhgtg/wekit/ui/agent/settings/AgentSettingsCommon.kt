@@ -68,6 +68,7 @@ val AGENT_CONTENT_BOTTOM_INSET = 32.dp
 fun AgentSettingsScaffold(
     title: String,
     onBack: (() -> Unit)?,
+    actions: @Composable RowScope.() -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -89,6 +90,7 @@ fun AgentSettingsScaffold(
                         }
                     }
                 },
+                actions = actions,
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = barBackdrop.m3AppBarColor(),
