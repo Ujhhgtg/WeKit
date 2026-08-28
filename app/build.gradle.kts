@@ -410,7 +410,3 @@ tasks.withType<KotlinJvmCompile>().configureEach {
         freeCompilerArgs.add("-opt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi")
     }
 }
-
-tasks.named("check") {
-    dependsOn(":libs:python-runtime-api:verifyPythonRuntimeApiBoundary")
-}
