@@ -29,3 +29,8 @@ Chaquopy's published libxml2, libxslt and freetype dependency wheels predate
 16 KB pages, and its repository doesn't provide the HTTPX2-compatible
 backports.zstd and Brotli versions, xtask builds those recipes with the catalog
 NDK and caches the wheels under `target/`.
+
+An unaliased `import httpx` raises a migration-oriented `ImportError`. Plugins
+which cannot immediately update every import may call `httpx2.alias_httpx()`
+before importing any code which uses `httpx` or `httpcore`; HTTPX2 then owns the
+alias and the runtime shim is bypassed completely.
