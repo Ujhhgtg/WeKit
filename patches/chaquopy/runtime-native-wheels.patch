@@ -94,3 +94,40 @@ index 3da84931..9cbf29c6 100644
 
  ndk=$ANDROID_HOME/ndk/$ndk_version
  if ! [ -e $ndk ]; then
+diff --git a/server/pypi/packages/backports-zstd/meta.yaml b/server/pypi/packages/backports-zstd/meta.yaml
+new file mode 100644
+index 00000000..40350383
+--- /dev/null
++++ b/server/pypi/packages/backports-zstd/meta.yaml
+@@ -0,0 +1,3 @@
++package:
++  name: backports-zstd
++  version: "1.7.0"
+diff --git a/server/pypi/packages/backports-zstd/patches/normalize-name.patch b/server/pypi/packages/backports-zstd/patches/normalize-name.patch
+new file mode 100644
+index 00000000..fdb0aee0
+--- /dev/null
++++ b/server/pypi/packages/backports-zstd/patches/normalize-name.patch
+@@ -0,0 +1,8 @@
++--- a/pyproject.toml
+++++ b/pyproject.toml
++@@ -1,5 +1,5 @@
++ [project]
++-name = "backports.zstd"
+++name = "backports-zstd"
++ version = "1.7.0"
++ authors = [{ name = "Rogdham", email = "contact@rogdham.net" }]
+diff --git a/server/pypi/packages/brotli/meta.yaml b/server/pypi/packages/brotli/meta.yaml
+index 46e337d0..b76564d4 100644
+--- a/server/pypi/packages/brotli/meta.yaml
++++ b/server/pypi/packages/brotli/meta.yaml
+@@ -1,6 +1,6 @@
+ package:
+-  name: Brotli
+-  version: "1.1.0"
++  name: brotli
++  version: "1.2.0"
+
+ build:
+   number: 0
+diff --git a/server/pypi/packages/chaquopy-freetype/meta.yaml b/server/pypi/packages/chaquopy-freetype/meta.yaml

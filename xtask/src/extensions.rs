@@ -565,6 +565,9 @@ fn build_python_native_wheels(
     let ndk_version = versions["pythonRuntimeNdk"]
         .as_str()
         .context("missing pythonRuntimeNdk in version catalog")?;
+    let target_version = versions["pythonRuntimeChaquopyTarget"]
+        .as_str()
+        .context("missing pythonRuntimeChaquopyTarget in version catalog")?;
     let patch = root.join("patches/chaquopy/runtime-native-wheels.patch");
     let build_root = root.join("target/python-runtime-native-wheels");
     let artifacts = build_root.join("artifacts");
@@ -582,12 +585,21 @@ fn build_python_native_wheels(
             "chaquopy-libxslt",
             "chaquopy_libxslt-1.1.32-3-py3-none-android_24_arm64_v8a.whl",
         ),
+        (
+            "backports-zstd",
+            "backports_zstd-1.7.0-0-cp313-cp313-android_24_arm64_v8a.whl",
+        ),
+        (
+            "brotli",
+            "brotli-1.2.0-0-cp313-cp313-android_24_arm64_v8a.whl",
+        ),
     ];
     let mut cache_hasher = Sha256::new();
     cache_hasher.update(b"wekit-python-native-wheels-v1\0");
     cache_hasher.update(revision.as_bytes());
     cache_hasher.update(python_version.as_bytes());
     cache_hasher.update(ndk_version.as_bytes());
+    cache_hasher.update(target_version.as_bytes());
     cache_hasher.update(fs::read(&patch)?);
     let cache_key = hex(&cache_hasher.finalize());
     if wheels
@@ -616,6 +628,23 @@ fn build_python_native_wheels(
             fs::remove_dir_all(output)?;
         }
     }
+
+    let target_dir = source
+        .join("maven/com/chaquo/python/target")
+        .join(target_version);
+    fs::create_dir_all(&target_dir)?;
+    let target_name = format!("target-{target_version}-arm64-v8a.zip");
+    let target_zip = target_dir.join(&target_name);
+    run_extension_command(
+        Command::new("wget")
+            .args(["--quiet", "-O"])
+            .arg(&target_zip)
+            .arg(format!(
+                "https://repo.maven.apache.org/maven2/com/chaquo/python/target/\
+                 {target_version}/{target_name}"
+            )),
+        "download Chaquopy arm64 target for Python native wheels",
+    )?;
 
     let venv = build_root.join("venv");
     run_extension_command(
