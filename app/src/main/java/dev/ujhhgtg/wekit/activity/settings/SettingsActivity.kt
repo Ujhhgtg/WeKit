@@ -58,6 +58,7 @@ import com.composables.icons.materialsymbols.outlined.Camera
 import com.composables.icons.materialsymbols.outlined.Chat
 import com.composables.icons.materialsymbols.outlined.Checklist
 import com.composables.icons.materialsymbols.outlined.Chevron_right
+import com.composables.icons.materialsymbols.outlined.Code
 import com.composables.icons.materialsymbols.outlined.Comedy_mask
 import com.composables.icons.materialsymbols.outlined.Contact_page
 import com.composables.icons.materialsymbols.outlined.Contacts
@@ -161,6 +162,7 @@ val FEATURE_CATEGORIES = listOf(
     FeatureCategory(FeatureCategoryIds.PROFILE, R.string.feature_category_profile_title, MaterialSymbols.Outlined.Account_circle),
     FeatureCategory(FeatureCategoryIds.DEBUG, R.string.feature_category_debug_title, MaterialSymbols.Outlined.Bug_report),
     FeatureCategory(FeatureCategoryIds.SCRIPTING_JAVA, R.string.feature_category_scripting_java_title, MaterialSymbols.Outlined.Terminal),
+    FeatureCategory(FeatureCategoryIds.SCRIPTING_PYTHON, R.string.feature_category_scripting_python_title, MaterialSymbols.Outlined.Code),
     FeatureCategory(FeatureCategoryIds.ENTERTAIN, R.string.feature_category_entertain_title, MaterialSymbols.Outlined.Comedy_mask),
     FeatureCategory(FeatureCategoryIds.BATCH, R.string.feature_category_batch_title, MaterialSymbols.Outlined.Checklist),
     FeatureCategory(FeatureCategoryIds.HOME_SCREEN_MENU, R.string.feature_category_home_screen_menu_title, MaterialSymbols.Outlined.Add_circle),

@@ -7,7 +7,8 @@ plugins {
 }
 
 group = "dev.ujhhgtg.wekit"
-version = providers.gradleProperty("wekitPythonApiVersion").orElse(libs.versions.pythonRuntimeApiVersion).get()
+version = providers.gradleProperty("wekitPythonApiVersion")
+    .orElse(libs.versions.pythonRuntimeApiVersion).get()
 
 java {
     sourceCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
@@ -15,17 +16,21 @@ java {
 }
 
 kotlin {
-    compilerOptions { jvmTarget.set(JvmTarget.fromTarget(libs.versions.jdk.get())) }
+    compilerOptions {
+        jvmTarget.set(JvmTarget.fromTarget(libs.versions.jdk.get()))
+    }
     jvmToolchain(libs.versions.jdk.get().toInt())
 }
 
 configure<LibraryExtension> {
     namespace = "dev.ujhhgtg.wekit.python.api"
+
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
         compileSdk = libs.versions.compileSdk.get().toInt()
         consumerProguardFiles("consumer-rules.pro")
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
         targetCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())

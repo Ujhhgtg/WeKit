@@ -53,6 +53,10 @@ android {
         buildConfigField("String", "COMMIT_HASH", "\"${gitHash}\"")
         buildConfigField("String", "TAG", "\"WeKit\"")
         buildConfigField("long", "BUILD_TIMESTAMP", "${System.currentTimeMillis()}L")
+        buildConfigField("long", "PYTHON_SYNC_HOOK_BUDGET_MS", "${libs.versions.pythonRuntimeSyncHookBudgetMs.get()}L")
+        buildConfigField("long", "PYTHON_TASK_DRAIN_TIMEOUT_MS", "${libs.versions.pythonRuntimeTaskDrainTimeoutMs.get()}L")
+        buildConfigField("long", "PYTHON_MAX_MANIFEST_BYTES", "${libs.versions.pythonRuntimeMaxManifestBytes.get()}L")
+        buildConfigField("long", "PYTHON_MAX_PLUGIN_FILE_BYTES", "${libs.versions.pythonRuntimeMaxPluginFileBytes.get()}L")
     }
 
     splits {
@@ -121,6 +125,7 @@ android {
 
         release {
             optimization.enable = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName(if (foundKeystore) "release" else "debug")
         }
     }

@@ -1,0 +1,3 @@
+from .runtime import Logger, PluginContext
+
+def logger(ctx: PluginContext) -> Logger: ...

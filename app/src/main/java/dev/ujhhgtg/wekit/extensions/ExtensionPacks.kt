@@ -111,10 +111,8 @@ object ExtensionPacks {
     /** @return false when the pack is in use and must not be deleted. */
     fun delete(pack: ExtensionPack): Boolean {
         val flow = flows.getValue(pack.id)
-        if (pack.isInUse() || flow.value is Downloading || flow.value is Verifying) return false
-        pack.installDir().deleteRecursively()
-        pack.stagingDir().deleteRecursively()
-        if (pack.installDir().exists() || pack.stagingDir().exists()) return false
+        if (flow.value is Downloading || flow.value is Verifying) return false
+        if (!pack.deleteInstalled()) return false
         pack.onRemoved()
         refresh(pack)
         return true
@@ -175,14 +173,20 @@ object ExtensionPacks {
             } finally {
                 synchronized(lock) { activeCalls.remove(pack.id) }
             }
+            flow.value = Verifying
+            require(PackFs.verify(tmp, entry.sha256)) {
+                "SHA-256 mismatch for ${pack.id} ${entry.version}"
+            }
             pack.install(tmp, entry.version, entry.sha256, entry.meta)
             pack.onInstalled()
             WeLogger.i(TAG, "installed ${pack.id} ${entry.version}")
         } catch (e: CancellationException) {
+            tmp.delete()
             throw e
         } catch (e: Exception) {
             WeLogger.e(TAG, "download/install failed for ${pack.id}", e)
             flow.value = Failed(e.message ?: e.javaClass.simpleName)
+            tmp.delete()
             return
         }
         tmp.delete()

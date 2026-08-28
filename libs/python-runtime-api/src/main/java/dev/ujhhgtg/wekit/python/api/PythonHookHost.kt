@@ -1,23 +1,19 @@
 package dev.ujhhgtg.wekit.python.api
 
 interface PythonHookHost {
-    fun before(member: PythonMember, callback: PythonHookCallback, priority: Int = 50): PythonHookToken
-    fun after(member: PythonMember, callback: PythonHookCallback, priority: Int = 50): PythonHookToken
-    fun replace(member: PythonMember, callback: PythonHookCallback, priority: Int = 50): PythonHookToken
+    fun before(member: Any, callback: PythonHookCallback, priority: Int = 50): PythonHookToken
+    fun after(member: Any, callback: PythonHookCallback, priority: Int = 50): PythonHookToken
+    fun replace(member: Any, callback: PythonHookCallback, priority: Int = 50): PythonHookToken
+    fun invokeOriginal(parameter: Any): Any?
+    fun unhook(token: PythonHookToken)
 }
 
-data class PythonMember(val descriptor: String)
+interface PythonMemberHandle { val descriptor: String }
+
+data class PythonMember(override val descriptor: String) : PythonMemberHandle
 
 fun interface PythonHookCallback {
-    fun invoke(parameter: PythonHookParameter): Any?
-}
-
-interface PythonHookParameter {
-    val thisObject: Any?
-    val args: List<Any?>
-    var result: Any?
-    var throwable: Throwable?
-    fun invokeOriginal(): Any?
+    fun invoke(parameter: Any): Any?
 }
 
 data class PythonHookToken(val id: String)

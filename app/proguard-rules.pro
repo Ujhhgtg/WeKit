@@ -1,0 +1,4 @@
+-keep public class dev.ujhhgtg.wekit.python.api.** { *; }
+-keep public class dev.ujhhgtg.wekit.features.api.** { public *; }
+-keep public class dev.ujhhgtg.wekit.loader.abc.IHookBridge$IMemberHookParam { public *; }
+-keep class dev.ujhhgtg.wekit.activity.scripting_python.PythonScriptsSettingsActivity { *; }

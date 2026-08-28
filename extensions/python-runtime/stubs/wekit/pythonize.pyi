@@ -1,0 +1,5 @@
+from typing import Any, TypeVar
+
+_JavaClass = TypeVar("_JavaClass", bound=type[Any])
+
+def pythonize(java_class: _JavaClass) -> _JavaClass: ...

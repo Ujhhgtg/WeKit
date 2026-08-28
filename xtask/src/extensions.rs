@@ -15,7 +15,7 @@ use anyhow::{Context, Result};
 use clap::{Args, Subcommand};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -25,6 +25,7 @@ use zip::ZipWriter;
 use zip::write::SimpleFileOptions;
 
 const PACK_SCRIPT_DEPS: &str = "script-deps";
+const PACK_PYTHON_RUNTIME: &str = "python-runtime";
 const PACK_MONET_GENERATOR: &str = "monet-generator";
 const PACK_CLOUDFLARED: &str = "cloudflared";
 const PACK_ARCHLINUX: &str = "archlinux-arm64";
@@ -45,8 +46,8 @@ pub struct ExtensionsArgs {
     #[command(subcommand)]
     pub command: ExtensionsCommand,
 
-    /// Only process the given pack id (script-deps | monet-generator | cloudflared |
-    /// archlinux-arm64 | llama-native | qwen3.8-4b-distill). Skips writing the index.
+    /// Only process the given pack id (script-deps | python-runtime | monet-generator |
+    /// cloudflared | archlinux-arm64 | llama-native | qwen3.8-4b-distill). Skips writing the index.
     #[arg(long, global = true)]
     pub only: Option<String>,
 }
@@ -189,6 +190,9 @@ pub fn run(root: &Path, args: &ExtensionsArgs) -> Result<()> {
     let mut entries: Vec<PackIndexEntry> = Vec::new();
     if selected(PACK_SCRIPT_DEPS) {
         entries.push(build_script_deps(root, &dist)?);
+    }
+    if selected(PACK_PYTHON_RUNTIME) {
+        entries.push(build_python_runtime(root, &dist)?);
     }
     if selected(PACK_MONET_GENERATOR) {
         entries.push(build_monet_generator_zip(root, &dist)?);
@@ -405,6 +409,471 @@ fn build_script_deps(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
     Ok(entry)
 }
 
+fn build_python_runtime(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
+    let gradlew = if cfg!(windows) {
+        "gradlew.bat"
+    } else {
+        "./gradlew"
+    };
+    let catalog: toml::Value =
+        toml::from_str(&fs::read_to_string(root.join("gradle/libs.versions.toml"))?)?;
+    let api_version = catalog["versions"]["pythonRuntimeApiVersion"]
+        .as_str()
+        .context("missing pythonRuntimeApiVersion in version catalog")?;
+    let api_repo = root.join("target/python-runtime-api-maven");
+    if api_repo.exists() {
+        fs::remove_dir_all(&api_repo)?;
+    }
+    fs::create_dir_all(&api_repo)?;
+    let repo_property = format!("-PwekitPythonApiRepo={}", api_repo.display());
+    let version_property = format!("-PwekitPythonApiVersion={api_version}");
+
+    let status = Command::new(gradlew)
+        .args([":libs:python-runtime-api:bundleReleaseAar", "--quiet"])
+        .current_dir(root)
+        .status()
+        .context("failed to build Python runtime API")?;
+    anyhow::ensure!(status.success(), "Python runtime API build failed");
+    let api_dir = api_repo
+        .join("dev/ujhhgtg/wekit/python-runtime-api")
+        .join(api_version);
+    fs::create_dir_all(&api_dir)?;
+    let api_name = format!("python-runtime-api-{api_version}");
+    fs::copy(
+        root.join("libs/python-runtime-api/build/outputs/aar/python-runtime-api-release.aar"),
+        api_dir.join(format!("{api_name}.aar")),
+    )?;
+    fs::write(
+        api_dir.join(format!("{api_name}.pom")),
+        format!(
+            "<project><modelVersion>4.0.0</modelVersion><groupId>dev.ujhhgtg.wekit</groupId><artifactId>python-runtime-api</artifactId><version>{api_version}</version><packaging>aar</packaging></project>"
+        ),
+    )?;
+
+    let status = Command::new(gradlew)
+        .args([
+            "-p",
+            "extensions/python-runtime",
+            ":runtime:extractChaquopyTarget",
+            "--quiet",
+            repo_property.as_str(),
+            version_property.as_str(),
+        ])
+        .current_dir(root)
+        .status()
+        .context("failed to resolve the pinned Chaquopy target")?;
+    anyhow::ensure!(status.success(), "Chaquopy target extraction failed");
+
+    let patched_bridge = build_patched_chaquopy_bridge(root, &catalog)?;
+    let second_dex = build_runtime_multidex_probe(root, &catalog)?;
+    let bridge_property = format!("-PwekitPatchedChaquopyBridge={}", patched_bridge.display());
+
+    let status = Command::new(gradlew)
+        .args([
+            "-p",
+            "extensions/python-runtime",
+            ":runtime:assembleRelease",
+            "--quiet",
+            repo_property.as_str(),
+            version_property.as_str(),
+            bridge_property.as_str(),
+        ])
+        .current_dir(root)
+        .status()
+        .context("failed to build Python runtime")?;
+    anyhow::ensure!(status.success(), "Python runtime build failed");
+
+    let runtime_apk = root.join(
+        "extensions/python-runtime/runtime/build/outputs/apk/release/runtime-release-unsigned.apk",
+    );
+    anyhow::ensure!(runtime_apk.is_file(), "Python runtime APK was not produced");
+    let runtime_container = dist.join("python-runtime-unversioned.apk");
+    build_runtime_container(&runtime_apk, &second_dex, &runtime_container)?;
+    let metadata = inspect_runtime_container(&runtime_container)?;
+    let sha256 = sha256_file(&runtime_container)?;
+    let version = derive_version(&sha256);
+    let asset_name = format!("python-runtime-{version}.apk");
+    let asset = dist.join(&asset_name);
+    fs::rename(&runtime_container, &asset).context("publish Python runtime APK into dist")?;
+    clean_stale(dist, "python-runtime-", &asset)?;
+    build_python_sdk_artifact(root, dist)?;
+
+    println!("python-runtime: {version}");
+    Ok(PackIndexEntry {
+        id: PACK_PYTHON_RUNTIME.into(),
+        version,
+        asset: asset_name,
+        sha256,
+        external_url: None,
+        bytes: None,
+        meta: Some(metadata),
+    })
+}
+
+fn build_patched_chaquopy_bridge(root: &Path, catalog: &toml::Value) -> Result<PathBuf> {
+    let versions = &catalog["versions"];
+    let revision = versions["pythonRuntimeChaquopyRevision"]
+        .as_str()
+        .context("missing pythonRuntimeChaquopyRevision in version catalog")?;
+    let cython_version = versions["pythonRuntimeCython"]
+        .as_str()
+        .context("missing pythonRuntimeCython in version catalog")?;
+    let python_version = versions["pythonRuntimePython"]
+        .as_str()
+        .context("missing pythonRuntimePython in version catalog")?;
+    let target_version = versions["pythonRuntimeChaquopyTarget"]
+        .as_str()
+        .context("missing pythonRuntimeChaquopyTarget in version catalog")?;
+    let ndk_version = versions["pythonRuntimeNdk"]
+        .as_str()
+        .context("missing pythonRuntimeNdk in version catalog")?;
+    let min_sdk = versions["minSdk"]
+        .as_str()
+        .context("missing minSdk in version catalog")?;
+    let patch = root.join("patches/chaquopy/runtime-classloader.patch");
+    anyhow::ensure!(patch.is_file(), "Chaquopy runtime patch is missing");
+
+    let build_root = root.join("target/python-runtime-chaquopy");
+    let artifact = build_root.join("artifacts/chaquopy.so");
+    let cache_key_path = build_root.join("cache-key");
+    let mut cache_hasher = Sha256::new();
+    cache_hasher.update(b"wekit-chaquopy-bridge-v1\0");
+    cache_hasher.update(revision.as_bytes());
+    cache_hasher.update(cython_version.as_bytes());
+    cache_hasher.update(python_version.as_bytes());
+    cache_hasher.update(target_version.as_bytes());
+    cache_hasher.update(ndk_version.as_bytes());
+    cache_hasher.update(min_sdk.as_bytes());
+    cache_hasher.update(fs::read(&patch)?);
+    let cache_key = hex(&cache_hasher.finalize());
+    if artifact.is_file()
+        && fs::read_to_string(&cache_key_path)
+            .map(|cached| cached.trim() == cache_key)
+            .unwrap_or(false)
+    {
+        return Ok(artifact);
+    }
+    fs::create_dir_all(&build_root)?;
+
+    let upstream = build_root.join("upstream");
+    if !upstream.join(".git").exists() {
+        run_extension_command(
+            Command::new("git")
+                .args(["clone", "--no-checkout"])
+                .arg("https://github.com/chaquo/chaquopy.git")
+                .arg(&upstream),
+            "clone pinned Chaquopy source",
+        )?;
+    }
+    let has_revision = Command::new("git")
+        .args(["-C"])
+        .arg(&upstream)
+        .args(["cat-file", "-e", &format!("{revision}^{{commit}}")])
+        .status()
+        .context("failed to inspect the Chaquopy source cache")?
+        .success();
+    if !has_revision {
+        run_extension_command(
+            Command::new("git").args(["-C"]).arg(&upstream).args([
+                "fetch",
+                "--depth=1",
+                "origin",
+                revision,
+            ]),
+            "fetch pinned Chaquopy revision",
+        )?;
+    }
+
+    let source = build_root.join("source");
+    if source.exists() {
+        fs::remove_dir_all(&source)?;
+    }
+    run_extension_command(
+        Command::new("git")
+            .args(["clone", "--shared", "--no-checkout"])
+            .arg(&upstream)
+            .arg(&source),
+        "create Chaquopy build checkout",
+    )?;
+    run_extension_command(
+        Command::new("git")
+            .args(["-C"])
+            .arg(&source)
+            .args(["checkout", "--detach", revision]),
+        "checkout pinned Chaquopy revision",
+    )?;
+    run_extension_command(
+        Command::new("git")
+            .args(["-C"])
+            .arg(&source)
+            .args(["apply", "--check"])
+            .arg(&patch),
+        "validate Chaquopy runtime patch",
+    )?;
+    run_extension_command(
+        Command::new("git")
+            .args(["-C"])
+            .arg(&source)
+            .arg("apply")
+            .arg(&patch),
+        "apply Chaquopy runtime patch",
+    )?;
+
+    let venv = build_root.join("venv");
+    let venv_python = if cfg!(windows) {
+        venv.join("Scripts/python.exe")
+    } else {
+        venv.join("bin/python")
+    };
+    let venv_cython = if cfg!(windows) {
+        venv.join("Scripts/cython.exe")
+    } else {
+        venv.join("bin/cython")
+    };
+    if !venv_cython.is_file() {
+        run_extension_command(
+            Command::new("python3").args(["-m", "venv"]).arg(&venv),
+            "create Chaquopy Cython environment",
+        )?;
+        run_extension_command(
+            Command::new(&venv_python).args([
+                "-m",
+                "pip",
+                "install",
+                "--disable-pip-version-check",
+                "--quiet",
+                &format!("Cython=={cython_version}"),
+            ]),
+            "install pinned Cython",
+        )?;
+    }
+
+    let generated = build_root.join("generated");
+    if generated.exists() {
+        fs::remove_dir_all(&generated)?;
+    }
+    fs::create_dir_all(&generated)?;
+    let java_source = source.join("product/runtime/src/main/python/java");
+    run_extension_command(
+        Command::new(&venv_cython)
+            .args(["-Wextra", "-Werror", "chaquopy.pyx", "-I"])
+            .arg(&generated)
+            .arg("-o")
+            .arg(generated.join("chaquopy.c"))
+            .current_dir(&java_source),
+        "compile patched Chaquopy bridge source",
+    )?;
+
+    let target = root.join("extensions/python-runtime/runtime/build/chaquopyTarget");
+    let include_python = target
+        .join("include")
+        .join(format!("python{python_version}"));
+    let target_libs = target.join("jniLibs/arm64-v8a");
+    anyhow::ensure!(
+        include_python.join("Python.h").is_file()
+            && target_libs
+                .join(format!("libpython{python_version}.so"))
+                .is_file(),
+        "extracted Chaquopy target is incomplete",
+    );
+    fs::create_dir_all(artifact.parent().unwrap())?;
+    let compiler = crate::pinned_ndk_dir(root, Some(ndk_version))?
+        .join("toolchains/llvm/prebuilt")
+        .join(crate::host_prebuilt_tag()?)
+        .join("bin")
+        .join(format!("aarch64-linux-android{min_sdk}-clang"));
+    run_extension_command(
+        Command::new(compiler)
+            .args(["-shared", "-fPIC", "-O2", "-DNDEBUG"])
+            .arg(format!(
+                "-I{}",
+                source.join("product/runtime/src/main/c").display()
+            ))
+            .arg(format!("-I{}", include_python.display()))
+            .arg(generated.join("chaquopy.c"))
+            .arg(format!("-L{}", target_libs.display()))
+            .arg(format!("-lpython{python_version}"))
+            .args([
+                "-landroid",
+                "-ldl",
+                "-lm",
+                "-Wl,-z,max-page-size=16384",
+                "-Wl,-soname,chaquopy.so",
+                "-Wl,-s",
+                "-o",
+            ])
+            .arg(&artifact),
+        "link patched Chaquopy bridge",
+    )?;
+    fs::write(cache_key_path, &cache_key)?;
+    Ok(artifact)
+}
+
+fn build_runtime_multidex_probe(root: &Path, catalog: &toml::Value) -> Result<PathBuf> {
+    let min_sdk = catalog["versions"]["minSdk"]
+        .as_str()
+        .context("missing minSdk in version catalog")?;
+    let build_root = root.join("target/python-runtime-multidex");
+    if build_root.exists() {
+        fs::remove_dir_all(&build_root)?;
+    }
+    let classes = build_root.join("classes");
+    let dex = build_root.join("dex");
+    fs::create_dir_all(&classes)?;
+    fs::create_dir_all(&dex)?;
+    run_extension_command(
+        Command::new("javac")
+            .args(["--release", "8", "-Xlint:-options", "-d"])
+            .arg(&classes)
+            .arg(root.join("extensions/python-runtime/multidex/RuntimeMultidexProbe.java")),
+        "compile runtime multi-DEX probe",
+    )?;
+
+    let build_tools = PathBuf::from(crate::find_android_home(root)?).join("build-tools");
+    let d8_name = if cfg!(windows) { "d8.bat" } else { "d8" };
+    let mut d8_candidates = fs::read_dir(&build_tools)?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path().join(d8_name)))
+        .filter(|path| path.is_file())
+        .collect::<Vec<_>>();
+    d8_candidates.sort();
+    let d8 = d8_candidates
+        .into_iter()
+        .rev()
+        .find(|path| !path.to_string_lossy().contains("-rc"))
+        .context("Android d8 build tool is not installed")?;
+    run_extension_command(
+        Command::new(d8)
+            .args(["--min-api", min_sdk, "--output"])
+            .arg(&dex)
+            .arg(classes.join("dev/ujhhgtg/wekit/python/runtime/RuntimeMultidexProbe.class")),
+        "build runtime classes2.dex probe",
+    )?;
+    let output = dex.join("classes.dex");
+    anyhow::ensure!(
+        output.is_file(),
+        "runtime classes2.dex probe was not produced"
+    );
+    Ok(output)
+}
+
+fn run_extension_command(command: &mut Command, action: &str) -> Result<()> {
+    let status = command
+        .status()
+        .with_context(|| format!("failed to start {action}"))?;
+    anyhow::ensure!(status.success(), "{action} failed with {status}");
+    Ok(())
+}
+
+fn build_runtime_container(input: &Path, second_dex: &Path, output: &Path) -> Result<()> {
+    anyhow::ensure!(
+        second_dex.is_file(),
+        "Python runtime classes2.dex probe is missing"
+    );
+    let mut archive = zip::ZipArchive::new(File::open(input)?)?;
+    anyhow::ensure!(
+        archive.by_name("classes2.dex").is_err(),
+        "standalone runtime already has classes2.dex"
+    );
+    let mut writer = ZipWriter::new(File::create(output)?);
+    for index in 0..archive.len() {
+        writer.raw_copy_file(archive.by_index(index)?)?;
+    }
+    writer.start_file(
+        "classes2.dex",
+        SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored),
+    )?;
+    std::io::copy(&mut File::open(second_dex)?, &mut writer)?;
+    writer.finish()?;
+    Ok(())
+}
+
+fn inspect_runtime_container(path: &Path) -> Result<String> {
+    let mut archive = zip::ZipArchive::new(File::open(path)?)?;
+    let mut names = BTreeSet::new();
+    let mut dex_numbers = Vec::new();
+    for index in 0..archive.len() {
+        let name = archive.by_index(index)?.name().to_string();
+        anyhow::ensure!(
+            names.insert(name.clone()),
+            "duplicate runtime APK entry: {name}"
+        );
+        anyhow::ensure!(
+            !name.starts_with('/')
+                && !name.contains('\\')
+                && !name.split('/').any(|part| part == ".."),
+            "unsafe runtime APK entry: {name}",
+        );
+        if name == "classes.dex" {
+            dex_numbers.push(1);
+        } else if let Some(number) = name
+            .strip_prefix("classes")
+            .and_then(|name| name.strip_suffix(".dex"))
+        {
+            dex_numbers.push(
+                number
+                    .parse::<usize>()
+                    .context("invalid runtime DEX name")?,
+            );
+        }
+        anyhow::ensure!(
+            !name.starts_with("lib/") || name.starts_with("lib/arm64-v8a/"),
+            "runtime APK contains an unsupported ABI: {name}",
+        );
+    }
+    dex_numbers.sort_unstable();
+    anyhow::ensure!(
+        dex_numbers == (1..=dex_numbers.len()).collect::<Vec<_>>(),
+        "runtime DEX sequence has a gap"
+    );
+    anyhow::ensure!(
+        dex_numbers.len() >= 2,
+        "runtime APK must exercise multi-DEX loading"
+    );
+    anyhow::ensure!(
+        names.contains("assets/chaquopy/build.json"),
+        "runtime APK has no Chaquopy build.json"
+    );
+    anyhow::ensure!(
+        names
+            .iter()
+            .any(|name| name.starts_with("lib/arm64-v8a/") && name.ends_with(".so")),
+        "runtime APK has no arm64 native libraries"
+    );
+
+    let mut entry = archive
+        .by_name("assets/runtime-manifest.json")
+        .context("Python runtime APK has no runtime-manifest.json")?;
+    let mut text = String::new();
+    entry.read_to_string(&mut text)?;
+    Ok(serde_json::to_string(&serde_json::from_str::<
+        serde_json::Value,
+    >(&text)?)?)
+}
+
+fn build_python_sdk_artifact(root: &Path, dist: &Path) -> Result<()> {
+    let output = dist.join("wekit-python-sdk.zip");
+    let mut zip = ZipWriter::new(File::create(&output)?);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    for (prefix, directory) in [
+        ("stubs", root.join("extensions/python-runtime/stubs")),
+        ("examples", root.join("extensions/python-runtime/examples")),
+    ] {
+        for entry in walkdir::WalkDir::new(&directory) {
+            let entry = entry?;
+            if !entry.file_type().is_file() {
+                continue;
+            }
+            let relative = entry.path().strip_prefix(&directory)?;
+            let name = format!("{prefix}/{}", relative.to_string_lossy().replace('\\', "/"));
+            zip.start_file(name, options)?;
+            let mut input = File::open(entry.path())?;
+            std::io::copy(&mut input, &mut zip)?;
+        }
+    }
+    zip.finish()?;
+    Ok(())
+}
+
 fn monet_archive_entries(
     inputs: &BTreeMap<String, PathBuf>,
 ) -> Result<BTreeMap<String, Option<PathBuf>>> {
@@ -450,12 +919,10 @@ fn build_monet_generator_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry>
         ":extensions:monet-generator:generateMonetGeneratorDex failed"
     );
 
-    let inputs = [
-        (
-            "classes.dex",
-            root.join("extensions/monet-generator/build/outputs/extension-dex/classes.dex"),
-        ),
-    ]
+    let inputs = [(
+        "classes.dex",
+        root.join("extensions/monet-generator/build/outputs/extension-dex/classes.dex"),
+    )]
     .into_iter()
     .map(|(name, path)| (name.to_string(), path))
     .collect::<BTreeMap<_, _>>();
@@ -879,9 +1346,9 @@ mod tests {
 
     fn fixture_monet_inputs() -> BTreeMap<String, PathBuf> {
         ["classes.dex"]
-        .into_iter()
-        .map(|name| (name.to_string(), PathBuf::from(name)))
-        .collect()
+            .into_iter()
+            .map(|name| (name.to_string(), PathBuf::from(name)))
+            .collect()
     }
 
     fn files(entries: &[(&str, &str)]) -> BTreeMap<String, String> {

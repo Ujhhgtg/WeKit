@@ -1,0 +1,40 @@
+diff --git a/product/runtime/src/main/python/java/jvm.pxi b/product/runtime/src/main/python/java/jvm.pxi
+--- a/product/runtime/src/main/python/java/jvm.pxi
++++ b/product/runtime/src/main/python/java/jvm.pxi
+@@ -30,6 +30,7 @@
+ # See CQPEnv.FindClass
+ cdef GlobalRef j_class_loader
+ cdef jmethodID mid_forName = NULL
++java_class_loader = None
+ 
+ cdef set_jvm(JavaVM *new_jvm):
+     global jvm
+@@ -48,6 +49,16 @@
+         "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;")
+ 
+ 
++cpdef set_java_class_loader(loader):
++    """Set the lookup loader used by FindClass and Python-created threads."""
++    global j_class_loader, java_class_loader
++    if not isinstance(loader, JavaObject):
++        raise TypeError("loader must be a java.lang.ClassLoader")
++    j_class_loader = (<JNIRef?>loader._chaquopy_this).global_ref()
++    java_class_loader = loader
++    FindClass_cache.clear()
++
++
+ cdef JavaVM *start_jvm() except NULL:
+     lib_path = jvm_lib_path()
+     cdef void *handle = dlopen(str_for_c(lib_path), RTLD_NOW | RTLD_GLOBAL)
+diff --git a/product/runtime/src/main/python/java/proxy.pxi b/product/runtime/src/main/python/java/proxy.pxi
+--- a/product/runtime/src/main/python/java/proxy.pxi
++++ b/product/runtime/src/main/python/java/proxy.pxi
+@@ -67,7 +67,7 @@
+     @classmethod
+     def get_klass(metacls, cls_name, proxy_base):
+         global DynamicProxy
+-        return Proxy.getProxyClass(DynamicProxy.getClass().getClassLoader(),
++        return Proxy.getProxyClass(java_class_loader or DynamicProxy.getClass().getClassLoader(),
+                                    (DynamicProxy,) + proxy_base.implements)
+ 
+     @classmethod

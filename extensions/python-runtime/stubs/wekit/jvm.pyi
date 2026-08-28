@@ -1,0 +1,3 @@
+from typing import Any
+
+def class_for_name(name: str) -> type[Any]: ...

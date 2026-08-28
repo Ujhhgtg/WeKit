@@ -15,6 +15,7 @@ object FeatureCategoryIds {
     const val PROFILE = "profile"
     const val DEBUG = "debug"
     const val SCRIPTING_JAVA = "scripting_java"
+    const val SCRIPTING_PYTHON = "scripting_python"
     const val ENTERTAIN = "entertain"
     const val BATCH = "batch"
     const val HOME_SCREEN_MENU = "home_screen_menu"
@@ -36,6 +37,7 @@ object FeatureCategoryIds {
         PROFILE,
         DEBUG,
         SCRIPTING_JAVA,
+        SCRIPTING_PYTHON,
         ENTERTAIN,
         BATCH,
         HOME_SCREEN_MENU,

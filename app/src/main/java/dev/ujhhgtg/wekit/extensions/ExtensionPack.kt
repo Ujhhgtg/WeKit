@@ -41,6 +41,17 @@ interface ExtensionPack {
     /** True while the pack's payload is loaded/active — deletion is refused then. */
     fun isInUse(): Boolean
 
+    /**
+     * Deletes this pack's installed and staging files. Packs with a lifecycle-sensitive payload
+     * override this so the in-use check and filesystem mutation share the same lock.
+     */
+    fun deleteInstalled(): Boolean {
+        if (isInUse()) return false
+        installDir().deleteRecursively()
+        stagingDir().deleteRecursively()
+        return !installDir().exists() && !stagingDir().exists()
+    }
+
     /** Whether this pack is offered at all on the current device (e.g. ABI gate). */
     fun isSupported(): Boolean = true
 

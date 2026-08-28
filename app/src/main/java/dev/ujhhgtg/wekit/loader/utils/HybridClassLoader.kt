@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.loader.utils
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
+import java.util.concurrent.CopyOnWriteArrayList
 
 object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
 
@@ -10,7 +11,7 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
     lateinit var moduleParentClassLoader: ClassLoader
     lateinit var moduleClassLoader: ClassLoader
     lateinit var hostClassLoader: ClassLoader
-    val additionalLoaders = mutableListOf<ClassLoader>()
+    val additionalLoaders = CopyOnWriteArrayList<ClassLoader>()
 
     private val moduleFindClassMethod: Method by lazy {
         ClassLoader::class.java.getDeclaredMethod("findClass", String::class.java).apply {
