@@ -436,6 +436,9 @@ jobs:
     runs-on: ubuntu-latest
     # This dedicated publishing job is the only path that downloads the Arch rootfs.
     if: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')) || (github.event_name == 'workflow_dispatch' && inputs.publish_extensions) }}
+    concurrency:
+      group: extensions-release
+      cancel-in-progress: false
     permissions:
       contents: write
       id-token: write
@@ -540,13 +543,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          skip=true
-          for f in dist/extensions/script-deps-*.dex dist/extensions/cloudflared-*.zip dist/extensions/archlinux-arm64-*.zip dist/extensions/llama-native-*.zip dist/extensions/monet-generator-*.zip dist/extensions/manifest.json; do
-            name=$(basename "$f")
-            if ! gh release view Extensions --json assets -q '.assets[].name' | grep -qx "$name"; then
-              skip=false
-            fi
-          done
+          current_assets=$(
+            for f in dist/extensions/*; do
+              printf '%s\tsha256:%s\n' "$(basename "$f")" "$(sha256sum "$f" | cut -d' ' -f1)"
+            done | sort
+          )
+          published_assets=$(
+            gh api "repos/${{ github.repository }}/releases/tags/Extensions" \
+              --jq '.assets[] | [.name, .digest] | @tsv' 2>/dev/null | sort || true
+          )
+          if [[ "$current_assets" == "$published_assets" ]]; then
+            skip=true
+          else
+            skip=false
+          fi
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
 
       - name: Create Extensions release if missing
@@ -567,26 +577,46 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          shopt -s nullglob
+          pack_assets=()
+          for asset in dist/extensions/*; do
+            [[ "$asset" == dist/extensions/manifest.json ]] || pack_assets+=("$asset")
+          done
+          (( ${#pack_assets[@]} > 0 ))
           gh release upload Extensions \
-            dist/extensions/script-deps-*.dex \
-            dist/extensions/cloudflared-*.zip \
-            dist/extensions/archlinux-arm64-*.zip \
-            dist/extensions/llama-native-*.zip \
-            dist/extensions/monet-generator-*.zip \
-            dist/extensions/manifest.json \
+            "${pack_assets[@]}" \
             --clobber
+          gh release upload Extensions dist/extensions/manifest.json --clobber
+
+      - name: Remove stale pack assets
+        if: steps.published.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          current_files=(dist/extensions/*)
+          (( ${#current_files[@]} > 0 ))
+          published_assets=$(gh release view Extensions --json assets --jq '.assets[].name')
+
+          while IFS= read -r published_asset; do
+            [[ -z "$published_asset" ]] && continue
+            keep=false
+            for current_file in "${current_files[@]}"; do
+              if [[ "$published_asset" == "$(basename "$current_file")" ]]; then
+                keep=true
+                break
+              fi
+            done
+            if [[ "$keep" == false ]]; then
+              gh release delete-asset Extensions "$published_asset" --yes
+            fi
+          done <<< "$published_assets"
 
       - name: Attest build provenance
         if: steps.published.outputs.skip == 'false'
         uses: actions/attest-build-provenance@v3
         with:
-          subject-path: |
-            dist/extensions/script-deps-*.dex
-            dist/extensions/cloudflared-*.zip
-            dist/extensions/archlinux-arm64-*.zip
-            dist/extensions/llama-native-*.zip
-            dist/extensions/monet-generator-*.zip
-            dist/extensions/manifest.json
+          subject-path: dist/extensions/*
 
   release-ci:
     needs: [build, build_zygisk]
