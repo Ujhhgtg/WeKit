@@ -2,7 +2,7 @@ import com.android.build.api.dsl.ApplicationExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    id("com.android.application") version libs.versions.pythonRuntimeAgp
+    id("com.android.application") version libs.versions.agp
     id("com.chaquo.python") version libs.versions.pythonRuntimeChaquopy
     id("org.jetbrains.kotlin.android") version libs.versions.kotlin
 }
