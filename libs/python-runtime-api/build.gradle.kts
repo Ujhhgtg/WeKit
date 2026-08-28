@@ -36,10 +36,16 @@ tasks.register("verifyPythonRuntimeApiBoundary") {
     group = "verification"
     description = "Checks the loader-neutral API and base source tree for forbidden runtime references."
     val repositoryRoot = rootProject.projectDir
-    val sourceRoots = listOf(
-        projectDir.resolve("src/main"),
+    val apiSourceRoot = projectDir.resolve("src/main")
+    val sourceRoots = sequenceOf(
         repositoryRoot.resolve("app/src/main"),
-    )
+        repositoryRoot.resolve("libs"),
+        repositoryRoot.resolve("extensions/monet-generator/src/main"),
+    ).flatMap { root ->
+        if (root.name == "libs") {
+            root.walkTopDown().filter { it.isDirectory && it.name == "main" && it.parentFile.name == "src" }
+        } else sequenceOf(root)
+    }.filter { it.isDirectory }.toList()
     val entrypoint = repositoryRoot.resolve("extensions/python-runtime/runtime/src/main/java/dev/ujhhgtg/wekit/python/runtime/RuntimeEntrypoint.java")
     doLast {
         val forbiddenImport = Regex("com\\.chaquo\\.python")
@@ -51,7 +57,7 @@ tasks.register("verifyPythonRuntimeApiBoundary") {
             }
         }
         val forbiddenApiReference = Regex("com\\.chaquo\\.python|PyObject|BeanShell|JavaEngine")
-        sourceRoots.first().walkTopDown().filter { it.isFile && it.extension in setOf("kt", "java") }.forEach { file ->
+        apiSourceRoot.walkTopDown().filter { it.isFile && it.extension in setOf("kt", "java") }.forEach { file ->
             check(!forbiddenApiReference.containsMatchIn(file.readText())) {
                 "Forbidden implementation reference in API source ${file.relativeTo(repositoryRoot)}"
             }
@@ -62,4 +68,8 @@ tasks.register("verifyPythonRuntimeApiBoundary") {
             "RuntimeEntrypoint.bootstrap signature does not match the API contract"
         }
     }
+}
+
+tasks.named("check") {
+    dependsOn("verifyPythonRuntimeApiBoundary")
 }

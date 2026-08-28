@@ -1,5 +1,6 @@
 import com.android.build.api.dsl.ApplicationExtension
 import org.gradle.api.tasks.compile.JavaCompile
+import java.io.File
 import java.util.zip.ZipFile
 
 plugins {
@@ -10,6 +11,13 @@ plugins {
 val apiVersion = providers.gradleProperty("wekitPythonApiVersion").orElse("1.0.0")
 val apiRepository = providers.gradleProperty("wekitPythonApiRepo")
     .orElse(System.getenv("WEKIT_PYTHON_API_REPO") ?: "")
+val runtimeAgpVersion = "9.2.0"
+val runtimeChaquopyVersion = "17.0.0"
+val runtimeGradleVersion = "9.7.0"
+val runtimeJdkVersion = "21"
+val runtimePythonVersion = "3.13"
+val runtimeNdkVersion = "30.0.14904198"
+val runtimeAbi = "arm64-v8a"
 
 group = "dev.ujhhgtg.wekit.python.runtime"
 version = "0.1.0"
@@ -17,16 +25,20 @@ version = "0.1.0"
 configure<ApplicationExtension> {
     namespace = "dev.ujhhgtg.wekit.python.runtime"
     compileSdk = 35
+    ndkVersion = runtimeNdkVersion
     defaultConfig {
         applicationId = "dev.ujhhgtg.wekit.python.runtime.container"
         minSdk = 28
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
-        ndk { abiFilters += "arm64-v8a" }
+        ndk { abiFilters += runtimeAbi }
     }
     buildTypes {
-        release { isMinifyEnabled = false }
+        release {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -37,7 +49,7 @@ configure<ApplicationExtension> {
 
 chaquopy {
     defaultConfig {
-        version = "3.13"
+        version = runtimePythonVersion
     }
 }
 
@@ -61,36 +73,62 @@ val verifyApiArtifact = tasks.register("verifyPythonRuntimeApiArtifact") {
     }
 }
 
-val verifyNoDuplicateApiClasses = tasks.register("verifyNoDuplicateApiClasses") {
+fun registerApkVerification(variant: String) = tasks.register("verifyNoDuplicateApiClasses${variant.replaceFirstChar(Char::uppercase)}") {
     group = "verification"
     description = "Fails when the runtime APK packages a duplicate API class."
     doLast {
-        val candidates = listOf(
-            layout.buildDirectory.file("outputs/apk/release/runtime-release.apk").get().asFile,
-            layout.buildDirectory.file("outputs/apk/debug/runtime-debug.apk").get().asFile,
-        )
-        candidates.filter(File::isFile).forEach { apk ->
-            ZipFile(apk).use { zip ->
-                val duplicates = zip.entries().asSequence()
-                    .filter { it.name.matches(Regex("classes(?:[0-9]+)?\\.dex")) }
-                    .flatMap { entry ->
-                        val dexText = zip.getInputStream(entry).use { input ->
-                            input.readBytes().toString(Charsets.ISO_8859_1)
-                        }
-                        if (dexText.contains("dev/ujhhgtg/wekit/python/api/")) sequenceOf(entry.name)
-                        else emptySequence()
-                    }
-                    .toList()
-                check(duplicates.isEmpty()) { "Runtime APK contains duplicate API classes in DEX: ${duplicates.joinToString()}" }
+        val apk = layout.buildDirectory.file("outputs/apk/$variant/runtime-$variant.apk").get().asFile
+        val unsignedApk = layout.buildDirectory.file("outputs/apk/$variant/runtime-$variant-unsigned.apk").get().asFile
+        val selectedApk = apk.takeIf(File::isFile) ?: unsignedApk.takeIf(File::isFile)
+        check(selectedApk != null) { "Expected $variant runtime APK is missing: $apk" }
+        val sdkRoot = System.getenv("ANDROID_HOME")?.takeIf(String::isNotBlank)
+            ?: System.getenv("ANDROID_SDK_ROOT")?.takeIf(String::isNotBlank)
+        val analyzer = sdkRoot?.let { File(it, "cmdline-tools/latest/bin/apkanalyzer") }
+            ?.takeIf(File::isFile)
+        check(analyzer != null) { "apkanalyzer is required to inspect defined runtime DEX classes" }
+        val process = ProcessBuilder(analyzer.absolutePath, "dex", "packages", "--defined-only", selectedApk.absolutePath)
+            .redirectErrorStream(true)
+            .start()
+        val definedPackages = process.inputStream.bufferedReader().use { it.readText() }
+        check(process.waitFor() == 0) { "apkanalyzer failed while inspecting $selectedApk: $definedPackages" }
+        check(!definedPackages.lines().any { it.startsWith("C ") && it.contains("dev.ujhhgtg.wekit.python.api") }) {
+            "Runtime APK defines duplicate Python runtime API classes"
+        }
+        ZipFile(selectedApk!!).use { zip ->
                 check(zip.getEntry("assets/chaquopy/build.json") != null) {
                     "Runtime APK is missing Chaquopy's generated assets/chaquopy/build.json"
                 }
-            }
         }
     }
 }
 
-tasks.register("verifyRuntimeEntrypointSignature") {
+val verifyNoDuplicateApiClassesRelease = registerApkVerification("release")
+val verifyNoDuplicateApiClassesDebug = registerApkVerification("debug")
+
+val verifyRuntimeManifest = tasks.register("verifyRuntimeManifest") {
+    group = "verification"
+    description = "Checks runtime-manifest.json against the resolved standalone toolchain."
+    doLast {
+        val manifest = projectDir.resolve("src/main/assets/runtime-manifest.json")
+        check(manifest.isFile) { "Missing runtime manifest: $manifest" }
+        val text = manifest.readText()
+        fun field(name: String): String = Regex("\\\"$name\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"").find(text)?.groupValues?.get(1)
+            ?: error("runtime-manifest.json is missing $name")
+        check(field("agp") == runtimeAgpVersion) { "Manifest AGP does not match configured AGP $runtimeAgpVersion" }
+        check(field("chaquopy") == runtimeChaquopyVersion) { "Manifest Chaquopy version mismatch" }
+        check(field("gradle") == runtimeGradleVersion && gradle.gradleVersion == runtimeGradleVersion) {
+            "Manifest/actual Gradle mismatch: ${field("gradle")} vs ${gradle.gradleVersion}"
+        }
+        check(field("jdk") == runtimeJdkVersion && System.getProperty("java.specification.version") == runtimeJdkVersion) {
+            "Manifest/actual JDK mismatch"
+        }
+        check(field("python") == runtimePythonVersion) { "Manifest Python version mismatch" }
+        check(field("ndk") == runtimeNdkVersion) { "Manifest NDK version mismatch" }
+        check(field("abi") == runtimeAbi) { "Manifest ABI mismatch" }
+    }
+}
+
+val verifyRuntimeEntrypointSignature = tasks.register("verifyRuntimeEntrypointSignature") {
     group = "verification"
     description = "Checks the static loader-neutral RuntimeEntrypoint bootstrap contract."
     doLast {
@@ -104,13 +142,19 @@ tasks.register("verifyRuntimeEntrypointSignature") {
     }
 }
 
+tasks.named("check") {
+    dependsOn(verifyApiArtifact, verifyRuntimeManifest, verifyRuntimeEntrypointSignature)
+}
+
 tasks.configureEach {
     if (name == "assembleRelease" || name == "assembleDebug") {
         dependsOn(verifyApiArtifact)
-        finalizedBy(verifyNoDuplicateApiClasses)
+        dependsOn(verifyRuntimeManifest)
+        finalizedBy(if (name == "assembleRelease") verifyNoDuplicateApiClassesRelease else verifyNoDuplicateApiClassesDebug)
     }
 }
 
 tasks.withType<JavaCompile>().configureEach {
     dependsOn(verifyApiArtifact)
+    dependsOn(verifyRuntimeManifest)
 }
