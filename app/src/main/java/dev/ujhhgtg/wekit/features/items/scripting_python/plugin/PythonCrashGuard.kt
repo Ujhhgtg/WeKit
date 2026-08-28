@@ -51,7 +51,9 @@ object PythonCrashGuard {
 
     fun suspect(): PythonCrashMarker? = synchronized(lock) {
         if (!markerFile.isFile) return@synchronized null
-        runCatching { json.decodeFromString<PythonCrashMarker>(markerFile.readText()) }.getOrNull()
+        runCatching { json.decodeFromString<PythonCrashMarker>(markerFile.readText()) }
+            .getOrNull()
+            ?.takeUnless { it.token in activeMarkers }
     }
 
     fun clear() = synchronized(lock) {

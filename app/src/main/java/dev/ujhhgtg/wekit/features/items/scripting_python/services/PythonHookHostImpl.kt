@@ -73,9 +73,6 @@ internal class PythonHookHostImpl(
                 override fun beforeHookedMember(param: IHookBridge.IMemberHookParam) {
                     if (kind == HookKind.AFTER) return
                     if (scope.isClosed) return
-                    val oldResult = param.result
-                    val oldThrowable = param.throwable
-                    var originalInvoked = false
                     val crashToken = PythonCrashGuard.begin(pluginId, "hook-${kind.name.lowercase()}")
                     val elapsed = measureTimeMillis {
                         try {
@@ -83,45 +80,34 @@ internal class PythonHookHostImpl(
                             if (kind == HookKind.REPLACE) param.result = returned
                         } catch (error: Throwable) {
                             WeLogger.e("Python/$pluginId", "hook callback failed open", error)
-                            param.result = oldResult
-                            param.throwable = oldThrowable
-                            if (kind == HookKind.REPLACE) {
-                                param.result = invokeOriginal(param)
-                                originalInvoked = true
-                            }
+                            throw error
                         } finally {
                             PythonCrashGuard.finish(crashToken)
                         }
                     }
                     if (elapsed > PythonRuntimeLoader.syncHookBudgetMs()) {
                         WeLogger.w("Python/$pluginId", "hook callback exceeded budget: ${elapsed}ms")
-                        param.result = oldResult
-                        param.throwable = oldThrowable
-                        if (kind == HookKind.REPLACE && !originalInvoked) param.result = invokeOriginal(param)
+                        error("Python hook callback exceeded its synchronous budget")
                     }
                 }
 
                 override fun afterHookedMember(param: IHookBridge.IMemberHookParam) {
                     if (kind != HookKind.AFTER) return
                     if (scope.isClosed) return
-                    val oldResult = param.result
-                    val oldThrowable = param.throwable
                     val crashToken = PythonCrashGuard.begin(pluginId, "hook-after")
                     val elapsed = measureTimeMillis {
                         try {
                             PythonRuntimeLoader.withLookupClassLoader { callback.invoke(param) }
                         } catch (error: Throwable) {
                             WeLogger.e("Python/$pluginId", "after hook callback failed open", error)
-                            param.result = oldResult
-                            param.throwable = oldThrowable
+                            throw error
                         } finally {
                             PythonCrashGuard.finish(crashToken)
                         }
                     }
                     if (elapsed > PythonRuntimeLoader.syncHookBudgetMs()) {
                         WeLogger.w("Python/$pluginId", "after hook callback exceeded budget: ${elapsed}ms")
-                        param.result = oldResult
-                        param.throwable = oldThrowable
+                        error("Python hook callback exceeded its synchronous budget")
                     }
                 }
             },
