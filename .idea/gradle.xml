@@ -32,7 +32,6 @@
             <option value="$PROJECT_DIR$/libs/common/reflekt" />
             <option value="$PROJECT_DIR$/libs/common/stubs" />
             <option value="$PROJECT_DIR$/libs/monet-generator-api" />
-            <option value="$PROJECT_DIR$/libs/python-runtime-api" />
           </set>
         </option>
         <option name="myGradleHome" value="/usr/share/java/gradle" />
