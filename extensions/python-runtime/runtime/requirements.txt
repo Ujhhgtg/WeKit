@@ -1,0 +1,22 @@
+httpx[http2,brotli,zstd,socks]==0.28.1
+requests==2.34.2
+websockets==17.1
+cryptography==42.0.8
+pycryptodome==3.21.0
+PyJWT==2.13.0
+protobuf==7.36.0
+lxml==5.3.0
+beautifulsoup4==4.15.0
+Pillow==11.0.0
+qrcode==8.2
+numpy==1.26.2
+regex==2024.9.11
+python-dateutil==2.9.0.post0
+Brotli==1.1.0
+zstandard==0.23.0
+bottle==0.13.4
+
+# Rebuilt by xtask with 16 KB ELF alignment.
+chaquopy-libxml2==2.9.8
+chaquopy-libxslt==1.1.32
+chaquopy-freetype==2.9.1

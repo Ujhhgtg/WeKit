@@ -138,7 +138,20 @@ val generateDexKitPythonBindings = tasks.register<Exec>("generateDexKitPythonBin
 }
 
 chaquopy {
-    defaultConfig { version = libs.versions.pythonRuntimePython.get() }
+    defaultConfig {
+        version = libs.versions.pythonRuntimePython.get()
+        buildPython(
+            providers.gradleProperty("wekitPythonBuildExecutable")
+                .orElse("python${libs.versions.pythonRuntimePython.get()}")
+                .get(),
+        )
+        pip {
+            providers.gradleProperty("wekitPythonWheelDirectory").orNull?.let { directory ->
+                options("--find-links", directory)
+            }
+            install("-r", "requirements.txt")
+        }
+    }
     sourceSets {
         named("main") {
             srcDir(generatedDexKitPython.get().asFile)

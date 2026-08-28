@@ -1,0 +1,96 @@
+diff --git a/server/pypi/packages/chaquopy-freetype/meta.yaml b/server/pypi/packages/chaquopy-freetype/meta.yaml
+index 111c58cc..1801e81b 100644
+--- a/server/pypi/packages/chaquopy-freetype/meta.yaml
++++ b/server/pypi/packages/chaquopy-freetype/meta.yaml
+@@ -3,10 +3,10 @@ package:
+   version: "2.9.1"
+
+ build:
+-  number: 2
++  number: 3
+
+ source:
+-  url: https://download.savannah.gnu.org/releases/freetype/freetype-2.9.1.tar.gz
++  url: https://download-mirror.savannah.gnu.org/releases/freetype/freetype-2.9.1.tar.gz
+
+ about:
+   license_file: docs/FTL.TXT
+diff --git a/server/pypi/packages/chaquopy-libxml2/build.sh b/server/pypi/packages/chaquopy-libxml2/build.sh
+index 34bdf175..2d15c745 100755
+--- a/server/pypi/packages/chaquopy-libxml2/build.sh
++++ b/server/pypi/packages/chaquopy-libxml2/build.sh
+@@ -2,7 +2,7 @@
+ set -eu
+
+ ./configure --host=$HOST --prefix=$PREFIX --without-python
+-make -j $CPU_COUNT
++make -j $CPU_COUNT VERSION_SCRIPT_FLAGS=
+ make install
+
+ rm -r $PREFIX/{bin,share}
+diff --git a/server/pypi/packages/chaquopy-libxml2/meta.yaml b/server/pypi/packages/chaquopy-libxml2/meta.yaml
+index afd7e3c7..a7ba8990 100644
+--- a/server/pypi/packages/chaquopy-libxml2/meta.yaml
++++ b/server/pypi/packages/chaquopy-libxml2/meta.yaml
+@@ -6,4 +6,4 @@ build:
+   number: 3
+
+ source:
+-  url: ftp://xmlsoft.org/libxml2/libxml2-2.9.8.tar.gz
++  url: https://download.gnome.org/sources/libxml2/2.9/libxml2-2.9.8.tar.xz
+diff --git a/server/pypi/packages/chaquopy-libxslt/meta.yaml b/server/pypi/packages/chaquopy-libxslt/meta.yaml
+index 5b941b69..83d6da4c 100644
+--- a/server/pypi/packages/chaquopy-libxslt/meta.yaml
++++ b/server/pypi/packages/chaquopy-libxslt/meta.yaml
+@@ -6,7 +6,7 @@ build:
+   number: 3
+
+ source:
+-  url: ftp://xmlsoft.org/libxslt/libxslt-1.1.32.tar.gz
++  url: https://download.gnome.org/sources/libxslt/1.1/libxslt-1.1.32.tar.xz
+
+ requirements:
+   host:
+diff --git a/server/pypi/packages/chaquopy-libxslt/patches/clang-const.patch b/server/pypi/packages/chaquopy-libxslt/patches/clang-const.patch
+new file mode 100644
+index 00000000..d30a9e8f
+--- /dev/null
++++ b/server/pypi/packages/chaquopy-libxslt/patches/clang-const.patch
+@@ -0,0 +1,11 @@
++--- a/libxslt/extensions.c
+++++ b/libxslt/extensions.c
++@@ -2247,7 +2247,7 @@ xsltExtElementRegisterPreCompute(xsltTransformContextPtr ctxt,
++ static void
++ xsltHashScannerModuleFree(void *payload ATTRIBUTE_UNUSED,
++                           void *data ATTRIBUTE_UNUSED,
++-                          xmlChar * name ATTRIBUTE_UNUSED)
+++                          const xmlChar * name ATTRIBUTE_UNUSED)
++ {
++ #ifdef WITH_MODULES
++     xmlModuleClose(payload);
+diff --git a/server/pypi/requirements.txt b/server/pypi/requirements.txt
+index 5002a80c..dcb3279f 100644
+--- a/server/pypi/requirements.txt
++++ b/server/pypi/requirements.txt
+@@ -4,7 +4,7 @@ Jinja2==2.11.3
+ jsonschema==2.6.0
+ pyelftools==0.29
+ pypi-simple==1.1.0
+-PyYAML==6.0
++PyYAML==6.0.3
+ setuptools==69.1.1
+ tqdm==4.66.1
+ wheel==0.33.6
+diff --git a/target/android-env.sh b/target/android-env.sh
+index 3da84931..9cbf29c6 100644
+--- a/target/android-env.sh
++++ b/target/android-env.sh
+@@ -24,7 +24,7 @@ fail() {
+ # * https://android.googlesource.com/platform/ndk/+/ndk-rXX-release/docs/BuildSystemMaintainers.md
+ #   where XX is the NDK version. Do a diff against the version you're upgrading from, e.g.:
+ #   https://android.googlesource.com/platform/ndk/+/ndk-r25-release..ndk-r26-release/docs/BuildSystemMaintainers.md
+-ndk_version=27.3.13750724
++: ${ndk_version:=27.3.13750724}
+
+ ndk=$ANDROID_HOME/ndk/$ndk_version
+ if ! [ -e $ndk ]; then

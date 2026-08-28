@@ -19,3 +19,11 @@ DexKit's Python bindings are generated from the pinned DexKit AAR by
 therefore expose the same complete set of matcher classes, matcher collections,
 enums, snake-case methods, canonical aliases and typed overloads without a
 manually maintained API list.
+
+Runtime Python dependencies are pinned in `runtime/requirements.txt`. Native
+packages use the CPython 3.13 arm64 Android wheels published by Chaquopy. The
+xtask build resolves a matching Python 3.13 build interpreter through `uv` and
+passes its absolute executable path to the standalone Gradle project. Because
+Chaquopy's published libxml2, libxslt and freetype dependency wheels predate
+16 KB pages, xtask rebuilds their official recipes with the catalog NDK and
+caches build-number 3 wheels under `target/`.

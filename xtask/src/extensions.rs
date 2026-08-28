@@ -420,6 +420,10 @@ fn build_python_runtime(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
     let api_version = catalog["versions"]["pythonRuntimeApiVersion"]
         .as_str()
         .context("missing pythonRuntimeApiVersion in version catalog")?;
+    let python_version = catalog["versions"]["pythonRuntimePython"]
+        .as_str()
+        .context("missing pythonRuntimePython in version catalog")?;
+    let build_python = find_or_install_uv_python(python_version)?;
     let api_repo = root.join("target/python-runtime-api-maven");
     if api_repo.exists() {
         fs::remove_dir_all(&api_repo)?;
@@ -427,6 +431,7 @@ fn build_python_runtime(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
     fs::create_dir_all(&api_repo)?;
     let repo_property = format!("-PwekitPythonApiRepo={}", api_repo.display());
     let version_property = format!("-PwekitPythonApiVersion={api_version}");
+    let python_property = format!("-PwekitPythonBuildExecutable={}", build_python.display());
 
     let status = Command::new(gradlew)
         .args([":libs:python-runtime-api:bundleReleaseAar", "--quiet"])
@@ -458,6 +463,7 @@ fn build_python_runtime(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
             "--quiet",
             repo_property.as_str(),
             version_property.as_str(),
+            python_property.as_str(),
         ])
         .current_dir(root)
         .status()
@@ -465,8 +471,10 @@ fn build_python_runtime(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
     anyhow::ensure!(status.success(), "Chaquopy target extraction failed");
 
     let patched_bridge = build_patched_chaquopy_bridge(root, &catalog)?;
+    let native_wheels = build_python_native_wheels(root, &catalog, &build_python)?;
     let second_dex = build_runtime_multidex_probe(root, &catalog)?;
     let bridge_property = format!("-PwekitPatchedChaquopyBridge={}", patched_bridge.display());
+    let wheel_property = format!("-PwekitPythonWheelDirectory={}", native_wheels.display());
 
     let status = Command::new(gradlew)
         .args([
@@ -477,6 +485,8 @@ fn build_python_runtime(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
             repo_property.as_str(),
             version_property.as_str(),
             bridge_property.as_str(),
+            python_property.as_str(),
+            wheel_property.as_str(),
         ])
         .current_dir(root)
         .status()
@@ -510,6 +520,162 @@ fn build_python_runtime(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
     })
 }
 
+fn find_or_install_uv_python(version: &str) -> Result<PathBuf> {
+    let find = || {
+        Command::new("uv")
+            .args(["python", "find", version])
+            .output()
+            .with_context(|| {
+                format!("uv is required to provide Python {version} for the runtime build")
+            })
+    };
+    let mut output = find()?;
+    if !output.status.success() {
+        run_extension_command(
+            Command::new("uv").args(["python", "install", version]),
+            &format!("install Python {version} for the runtime build"),
+        )?;
+        output = find()?;
+    }
+    anyhow::ensure!(
+        output.status.success(),
+        "uv could not locate Python {version} for the runtime build"
+    );
+    let executable = PathBuf::from(String::from_utf8(output.stdout)?.trim());
+    anyhow::ensure!(
+        executable.is_file(),
+        "uv returned a missing Python executable: {}",
+        executable.display()
+    );
+    Ok(executable)
+}
+
+fn build_python_native_wheels(
+    root: &Path,
+    catalog: &toml::Value,
+    build_python: &Path,
+) -> Result<PathBuf> {
+    let versions = &catalog["versions"];
+    let revision = versions["pythonRuntimeChaquopyRevision"]
+        .as_str()
+        .context("missing pythonRuntimeChaquopyRevision in version catalog")?;
+    let python_version = versions["pythonRuntimePython"]
+        .as_str()
+        .context("missing pythonRuntimePython in version catalog")?;
+    let ndk_version = versions["pythonRuntimeNdk"]
+        .as_str()
+        .context("missing pythonRuntimeNdk in version catalog")?;
+    let patch = root.join("patches/chaquopy/runtime-native-wheels.patch");
+    let build_root = root.join("target/python-runtime-native-wheels");
+    let artifacts = build_root.join("artifacts");
+    let cache_key_path = build_root.join("cache-key");
+    let wheels = [
+        (
+            "chaquopy-freetype",
+            "chaquopy_freetype-2.9.1-3-py3-none-android_24_arm64_v8a.whl",
+        ),
+        (
+            "chaquopy-libxml2",
+            "chaquopy_libxml2-2.9.8-3-py3-none-android_24_arm64_v8a.whl",
+        ),
+        (
+            "chaquopy-libxslt",
+            "chaquopy_libxslt-1.1.32-3-py3-none-android_24_arm64_v8a.whl",
+        ),
+    ];
+    let mut cache_hasher = Sha256::new();
+    cache_hasher.update(b"wekit-python-native-wheels-v1\0");
+    cache_hasher.update(revision.as_bytes());
+    cache_hasher.update(python_version.as_bytes());
+    cache_hasher.update(ndk_version.as_bytes());
+    cache_hasher.update(fs::read(&patch)?);
+    let cache_key = hex(&cache_hasher.finalize());
+    if wheels
+        .iter()
+        .all(|(_, filename)| artifacts.join(filename).is_file())
+        && fs::read_to_string(&cache_key_path)
+            .map(|cached| cached.trim() == cache_key)
+            .unwrap_or(false)
+    {
+        return Ok(artifacts);
+    }
+
+    if build_root.exists() {
+        fs::remove_dir_all(&build_root)?;
+    }
+    fs::create_dir_all(&artifacts)?;
+    let source = root.join("target/python-runtime-chaquopy/source");
+    let pypi = source.join("server/pypi");
+    anyhow::ensure!(
+        pypi.join("build-wheel.py").is_file(),
+        "patched Chaquopy package builder is missing"
+    );
+    for (package, _) in &wheels {
+        let output = pypi.join("dist").join(package);
+        if output.exists() {
+            fs::remove_dir_all(output)?;
+        }
+    }
+
+    let venv = build_root.join("venv");
+    run_extension_command(
+        Command::new("uv")
+            .args(["venv", "--python"])
+            .arg(build_python)
+            .arg(&venv),
+        "create Python native-wheel build environment",
+    )?;
+    let venv_bin = if cfg!(windows) {
+        venv.join("Scripts")
+    } else {
+        venv.join("bin")
+    };
+    let venv_python = if cfg!(windows) {
+        venv_bin.join("python.exe")
+    } else {
+        venv_bin.join("python")
+    };
+    run_extension_command(
+        Command::new("uv")
+            .args(["pip", "install", "--python"])
+            .arg(&venv_python)
+            .arg("-r")
+            .arg(pypi.join("requirements.txt"))
+            .arg("patchelf"),
+        "install Python native-wheel build tools",
+    )?;
+
+    let mut path_entries = vec![venv_bin];
+    if let Some(parent) = build_python.parent() {
+        path_entries.push(parent.to_path_buf());
+    }
+    path_entries.extend(std::env::split_paths(
+        &std::env::var_os("PATH").unwrap_or_default(),
+    ));
+    let build_path = std::env::join_paths(path_entries)?;
+    let android_home = crate::find_android_home(root)?;
+    for (package, filename) in &wheels {
+        run_extension_command(
+            Command::new(pypi.join("build-wheel.py"))
+                .args(["--python", python_version, "--abi", "arm64-v8a"])
+                .arg(package)
+                .env("PATH", &build_path)
+                .env("ANDROID_HOME", &android_home)
+                .env("ANDROID_SDK_ROOT", &android_home)
+                .env("ndk_version", ndk_version),
+            &format!("build 16 KB-aligned {package} wheel"),
+        )?;
+        let wheel = pypi.join("dist").join(package).join(filename);
+        anyhow::ensure!(
+            wheel.is_file(),
+            "Python native wheel was not produced: {filename}"
+        );
+        fs::copy(wheel, artifacts.join(filename))?;
+    }
+    fs::write(cache_key_path, cache_key)?;
+    Ok(artifacts)
+}
+
 fn build_patched_chaquopy_bridge(root: &Path, catalog: &toml::Value) -> Result<PathBuf> {
     let versions = &catalog["versions"];
     let revision = versions["pythonRuntimeChaquopyRevision"]
@@ -530,10 +696,20 @@ fn build_patched_chaquopy_bridge(root: &Path, catalog: &toml::Value) -> Result<P
     let min_sdk = versions["minSdk"]
         .as_str()
         .context("missing minSdk in version catalog")?;
-    let patch = root.join("patches/chaquopy/runtime-classloader.patch");
-    anyhow::ensure!(patch.is_file(), "Chaquopy runtime patch is missing");
+    let patches = [
+        root.join("patches/chaquopy/runtime-classloader.patch"),
+        root.join("patches/chaquopy/runtime-native-wheels.patch"),
+    ];
+    for patch in &patches {
+        anyhow::ensure!(
+            patch.is_file(),
+            "Chaquopy patch is missing: {}",
+            patch.display()
+        );
+    }
 
     let build_root = root.join("target/python-runtime-chaquopy");
+    let source = build_root.join("source");
     let artifact = build_root.join("artifacts/chaquopy.so");
     let cache_key_path = build_root.join("cache-key");
     let mut cache_hasher = Sha256::new();
@@ -544,9 +720,12 @@ fn build_patched_chaquopy_bridge(root: &Path, catalog: &toml::Value) -> Result<P
     cache_hasher.update(target_version.as_bytes());
     cache_hasher.update(ndk_version.as_bytes());
     cache_hasher.update(min_sdk.as_bytes());
-    cache_hasher.update(fs::read(&patch)?);
+    for patch in &patches {
+        cache_hasher.update(fs::read(patch)?);
+    }
     let cache_key = hex(&cache_hasher.finalize());
     if artifact.is_file()
+        && source.join("server/pypi/build-wheel.py").is_file()
         && fs::read_to_string(&cache_key_path)
             .map(|cached| cached.trim() == cache_key)
             .unwrap_or(false)
@@ -584,7 +763,6 @@ fn build_patched_chaquopy_bridge(root: &Path, catalog: &toml::Value) -> Result<P
         )?;
     }
 
-    let source = build_root.join("source");
     if source.exists() {
         fs::remove_dir_all(&source)?;
     }
@@ -602,22 +780,24 @@ fn build_patched_chaquopy_bridge(root: &Path, catalog: &toml::Value) -> Result<P
             .args(["checkout", "--detach", revision]),
         "checkout pinned Chaquopy revision",
     )?;
-    run_extension_command(
-        Command::new("git")
-            .args(["-C"])
-            .arg(&source)
-            .args(["apply", "--check"])
-            .arg(&patch),
-        "validate Chaquopy runtime patch",
-    )?;
-    run_extension_command(
-        Command::new("git")
-            .args(["-C"])
-            .arg(&source)
-            .arg("apply")
-            .arg(&patch),
-        "apply Chaquopy runtime patch",
-    )?;
+    for patch in &patches {
+        run_extension_command(
+            Command::new("git")
+                .args(["-C"])
+                .arg(&source)
+                .args(["apply", "--check"])
+                .arg(patch),
+            "validate Chaquopy patch",
+        )?;
+        run_extension_command(
+            Command::new("git")
+                .args(["-C"])
+                .arg(&source)
+                .arg("apply")
+                .arg(patch),
+            "apply Chaquopy patch",
+        )?;
+    }
 
     let venv = build_root.join("venv");
     let venv_python = if cfg!(windows) {
