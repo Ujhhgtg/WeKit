@@ -4,14 +4,19 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Parcelable
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
+import androidx.core.view.children
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
@@ -26,8 +31,10 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import dev.ujhhgtg.wekit.utils.android.showToast
 import org.osmdroid.util.GeoPoint
+import java.util.Collections
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import java.util.WeakHashMap
 
 object FakeLocation : ClickableFeature(), IResolveDex {
 
@@ -67,6 +74,8 @@ object FakeLocation : ClickableFeature(), IResolveDex {
     private var longitude by prefOption(KEY_LNG, DEFAULT_LNG)
 
     private val hookedLocationClasses = ConcurrentHashMap.newKeySet<Class<*>>()
+    private val hookedAppGridLongClickClasses = ConcurrentHashMap.newKeySet<Class<*>>()
+    private val locationItemViews = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
     private val locationIntentRegex = Regex("""lat ([-+]?[0-9]*\.?[0-9]+);lng ([-+]?[0-9]*\.?[0-9]+);""")
 
     @Volatile
@@ -82,19 +91,34 @@ object FakeLocation : ClickableFeature(), IResolveDex {
                 hookTencentLocation(tencentLocation)
             }
         }
+
+        WeChatInputBarMenuApi.methodAppGridGetView.hookAfter {
+            val itemView = result as View
+            val isLocationItem = isLocationItem(itemView)
+            synchronized(locationItemViews) {
+                if (isLocationItem) locationItemViews.add(itemView)
+                else locationItemViews.remove(itemView)
+            }
+            if (isLocationItem) {
+                val appGrid = args[2] as AdapterView<*>
+                hookAppGridLongClick(appGrid.onItemLongClickListener!!)
+            }
+        }
     }
 
     override fun onDisable() {
         hookedLocationClasses.clear()
+        hookedAppGridLongClickClasses.clear()
+        synchronized(locationItemViews) { locationItemViews.clear() }
         pendingWeChatPicker = false
         wechatPickerHooked = false
     }
 
     override fun onClick(context: ComponentActivity) {
-        showLocationPickerChooser(context)
+        showLocationPicker(context)
     }
 
-    private fun showLocationPickerChooser(context: Context) {
+    private fun showLocationPicker(context: Context) {
         showComposeDialog(context) {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.system_fake_location_select)) },
@@ -128,6 +152,41 @@ object FakeLocation : ClickableFeature(), IResolveDex {
                     }
                 }
             )
+        }
+    }
+
+    private fun isLocationItem(itemView: View): Boolean {
+        return buildList {
+            fun collectVisibleIcons(view: View) {
+                if (view.visibility != View.VISIBLE) return
+                if (view is ImageView && view.drawable != null) add(view.drawable)
+                if (view is android.view.ViewGroup) view.children.forEach(::collectVisibleIcons)
+            }
+            collectVisibleIcons(itemView)
+        }.any { drawable ->
+            runCatching {
+                val resourceId = drawable.reflekt()
+                    .firstField { type = Int::class; superclass() }
+                    .get() as Int
+                itemView.resources.getResourceEntryName(resourceId) == "panel_icon_location"
+            }.getOrDefault(false)
+        }
+    }
+
+    private fun hookAppGridLongClick(listener: AdapterView.OnItemLongClickListener) {
+        val listenerClass = listener.javaClass
+        if (!hookedAppGridLongClickClasses.add(listenerClass)) return
+
+        listenerClass.reflekt().firstMethod {
+            name = "onItemLongClick"
+            parameters(AdapterView::class, View::class, Int::class, Long::class)
+        }.hookBefore {
+            val itemView = args[1] as View
+            val isLocationItem = synchronized(locationItemViews) { itemView in locationItemViews }
+            if (!isLocationItem) return@hookBefore
+
+            showLocationPicker((args[0] as AdapterView<*>).context)
+            result = true
         }
     }
 
