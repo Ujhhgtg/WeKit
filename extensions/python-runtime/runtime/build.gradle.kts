@@ -4,23 +4,22 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id("com.android.application") version libs.versions.pythonRuntimeAgp
     id("com.chaquo.python") version libs.versions.pythonRuntimeChaquopy
-    id("org.jetbrains.kotlin.android") version libs.versions.kotlin
 }
 
 group = "dev.ujhhgtg.wekit.python.runtime"
-version = libs.versions.pythonRuntimeVersion
+version = libs.versions.pythonRuntimeVersion.get()
 
 configure<ApplicationExtension> {
     namespace = "dev.ujhhgtg.wekit.python.runtime"
     compileSdk = libs.versions.compileSdk.get().toInt()
-    ndkVersion = libs.versions.pythonRuntimeNdk
+    ndkVersion = libs.versions.pythonRuntimeNdk.get()
     defaultConfig {
         applicationId = "dev.ujhhgtg.wekit.python.runtime.container"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = libs.versions.pythonRuntimeVersionCode.toInt()
-        versionName = libs.versions.pythonRuntimeVersion
-        ndk { abiFilters += libs.versions.pythonRuntimeAbi }
+        versionCode = libs.versions.pythonRuntimeVersionCode.get().toInt()
+        versionName = libs.versions.pythonRuntimeVersion.get()
+        ndk { abiFilters.add(libs.versions.pythonRuntimeAbi.get()) }
     }
     buildTypes { release { isMinifyEnabled = false } }
     compileOptions {
@@ -30,7 +29,7 @@ configure<ApplicationExtension> {
     packaging { jniLibs.useLegacyPackaging = true }
 }
 
-chaquopy { defaultConfig { version = libs.versions.pythonRuntimePython } }
+chaquopy { defaultConfig { version = libs.versions.pythonRuntimePython.get() } }
 
 kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.fromTarget(libs.versions.jdk.get())) }
