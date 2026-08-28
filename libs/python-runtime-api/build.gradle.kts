@@ -38,13 +38,14 @@ tasks.register("verifyPythonRuntimeApiBoundary") {
     val repositoryRoot = rootProject.projectDir
     val apiSourceRoot = projectDir.resolve("src/main")
     val sourceRoots = sequenceOf(
-        repositoryRoot.resolve("app/src/main"),
+        repositoryRoot.resolve("app/src"),
         repositoryRoot.resolve("libs"),
-        repositoryRoot.resolve("extensions/monet-generator/src/main"),
+        repositoryRoot.resolve("extensions/monet-generator/src"),
     ).flatMap { root ->
-        if (root.name == "libs") {
-            root.walkTopDown().filter { it.isDirectory && it.name == "main" && it.parentFile.name == "src" }
-        } else sequenceOf(root)
+        root.walkTopDown().filter { directory ->
+            directory.isDirectory && directory.name in setOf("java", "kotlin") &&
+                directory.parentFile.name != "test" && directory.parentFile.name != "androidTest"
+        }
     }.filter { it.isDirectory }.toList()
     val entrypoint = repositoryRoot.resolve("extensions/python-runtime/runtime/src/main/java/dev/ujhhgtg/wekit/python/runtime/RuntimeEntrypoint.java")
     doLast {

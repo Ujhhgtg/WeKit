@@ -8,5 +8,8 @@ The API AAR is compile-only and must be supplied with
 `-PwekitPythonApiRepo=/path/to/controlled/maven` and
 `-PwekitPythonApiVersion=1.0.0`. No `:app` dependency is permitted. Chaquopy
 generates `assets/chaquopy/build.json`; the runtime pack publisher must verify
-that file before accepting an APK. Task 1 intentionally leaves native loading
+that file before accepting an APK. The release output is intentionally unsigned
+(`runtime-release-unsigned.apk`) so the container cannot be installed as an
+application; signing/pack publication is owned by the later extension task.
+Task 1 intentionally leaves native loading
 and the backend unavailable, with diagnostics exposed by `RuntimeEntrypoint`.
