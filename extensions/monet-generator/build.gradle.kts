@@ -1,3 +1,5 @@
+@file:Suppress("AvoidDuplicateDependencies")
+
 import com.android.build.api.dsl.LibraryExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -64,12 +66,12 @@ afterEvaluate {
     val apiLibrary = compileClasspath.incoming.artifactView {
         attributes {
             attribute(
-                org.gradle.api.attributes.Attribute.of("artifactType", String::class.java),
+                Attribute.of("artifactType", String::class.java),
                 "android-classes-jar",
             )
         }
         componentFilter { component ->
-            component is org.gradle.api.artifacts.component.ProjectComponentIdentifier &&
+            component is ProjectComponentIdentifier &&
                 component.projectPath == ":libs:monet-generator-api"
         }
     }.files
