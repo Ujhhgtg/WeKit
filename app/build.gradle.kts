@@ -258,6 +258,7 @@ ksp {
 }
 
 dependencies {
+    implementation(project(":libs:python-runtime-api"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.dynamicanimation)

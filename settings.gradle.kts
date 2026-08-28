@@ -71,5 +71,6 @@ include(
     ":libs:common:bsh",
     ":libs:common:reflekt",
     ":libs:monet-generator-api",
+    ":libs:python-runtime-api",
     ":extensions:monet-generator"
 )
