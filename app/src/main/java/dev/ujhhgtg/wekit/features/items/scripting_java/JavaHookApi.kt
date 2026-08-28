@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.scripting_java
 
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
@@ -12,7 +13,12 @@ import java.lang.reflect.Member
 import java.util.function.Consumer
 import java.util.function.Function
 
-@Feature(name = "脚本 Hook 服务", categories = ["API"], description = "提供 BeanShell 脚本可用的 Xposed Hook 能力")
+@Feature(
+    id = "脚本 Hook 服务",
+    nameRes = "feature_java_hook_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_java_hook_api_description",
+)
 object JavaHookApi : ApiFeature() {
 
     private const val TAG = "JavaHookApi"

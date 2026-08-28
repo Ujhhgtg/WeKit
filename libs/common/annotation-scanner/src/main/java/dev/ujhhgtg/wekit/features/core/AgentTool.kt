@@ -44,6 +44,7 @@ annotation class AgentTool(
         const val BUILTIN_INFO = "builtin-info"
         /** Network tools: HTTP requests, page fetch, and external search APIs (Exa, Brave, …). */
         const val BUILTIN_NET = "builtin-net"
+        const val BUILTIN_TERMINAL = "builtin-terminal"
     }
 }
 

@@ -23,12 +23,15 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/buildSrc" />
+            <option value="$PROJECT_DIR$/extensions" />
+            <option value="$PROJECT_DIR$/extensions/monet-generator" />
             <option value="$PROJECT_DIR$/libs" />
             <option value="$PROJECT_DIR$/libs/common" />
             <option value="$PROJECT_DIR$/libs/common/annotation-scanner" />
             <option value="$PROJECT_DIR$/libs/common/bsh" />
             <option value="$PROJECT_DIR$/libs/common/reflekt" />
             <option value="$PROJECT_DIR$/libs/common/stubs" />
+            <option value="$PROJECT_DIR$/libs/monet-generator-api" />
           </set>
         </option>
         <option name="myGradleHome" value="/usr/share/java/gradle" />

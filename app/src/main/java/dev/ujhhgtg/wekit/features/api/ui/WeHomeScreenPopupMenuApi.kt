@@ -10,10 +10,12 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -26,7 +28,12 @@ import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
-@Feature(name = "首页菜单服务", categories = ["API"], description = "提供向首页右上角菜单添加菜单项的能力")
+@Feature(
+    id = "首页菜单服务",
+    nameRes = "feature_we_home_screen_popup_menu_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_home_screen_popup_menu_api_description",
+)
 object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
 
     interface IMenuItemsProvider {
@@ -90,7 +97,7 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
         searchPackages("com.tencent.mm.ui")
         matcher {
             addFieldForType(bool)
-            addFieldForType(classMenuItemData.clazz)
+            addFieldForType(classMenuItemData.data.name)
         }
     }
 

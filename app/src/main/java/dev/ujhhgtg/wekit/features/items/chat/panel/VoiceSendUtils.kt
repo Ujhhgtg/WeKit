@@ -9,9 +9,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.lifecycleScope
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
+import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -52,9 +55,9 @@ internal fun selectAndSendVoice(context: Context, currentConv: String) {
                 val prepareResult = runCatching {
                     contentResolver.openInputStream(uri)?.use { input ->
                         tempPath.outputStream().use(input::copyTo)
-                    } ?: error("无法读取所选语音文件")
+                    } ?: error(localizedChatString(R.string.chat_voice_file_read_selected_failed))
                     val format = MediaFileTypeDetector.detectAudio(tempPath)
-                        ?: error("不支持或无法识别的语音格式")
+                        ?: error(localizedChatString(R.string.chat_voice_file_unsupported_format))
                     val directSource = format == MediaFileTypeDetector.AudioFormat.SILK ||
                             format == MediaFileTypeDetector.AudioFormat.AMR
                     Triple(directSource, AudioUtils.getDurationMs(tempPath.absolutePathString()), tempPath)
@@ -63,12 +66,15 @@ internal fun selectAndSendVoice(context: Context, currentConv: String) {
                     tempPath.deleteIfExists()
                     withContext(Dispatchers.Main) {
                         finish()
-                        showToast(prepareResult.exceptionOrNull()?.message ?: "语音文件读取失败")
+                        showToast(
+                            prepareResult.exceptionOrNull()?.message
+                                ?: localizedChatString(R.string.chat_voice_file_read_failed),
+                        )
                     }
                     return@launch
                 }
                 val (isSilk, durationMs) = prepareResult.getOrThrow()
-                showToastSuspend("语音文件准备完成")
+                showToastSuspend(localizedChatString(R.string.chat_voice_file_ready))
 
                 withContext(Dispatchers.Main) {
                     finish()
@@ -78,38 +84,38 @@ internal fun selectAndSendVoice(context: Context, currentConv: String) {
                         }
                         var durationInput by remember { mutableStateOf(durationMs.toString()) }
                         AlertDialogContent(
-                            title = { Text("发送语音文件") },
+                            title = { Text(stringResource(R.string.chat_voice_file_send_title)) },
                             text = {
                                 TextField(
                                     value = durationInput,
                                     onValueChange = { durationInput = it.filter { c -> c.isDigit() } },
-                                    label = { Text("语音时长 (毫秒)") })
+                                    label = { Text(stringResource(R.string.chat_voice_file_duration_ms)) })
                             },
                             dismissButton = {
                                 TextButton({
                                     tempPath.deleteIfExists()
                                     onDismiss()
-                                }) { Text("取消") }
+                                }) { Text(stringResource(R.string.dialog_cancel)) }
                             },
                             confirmButton = {
                                 Button(onClick = {
                                     val durMs = durationInput.toLongOrNull()
                                     if (durMs == null) {
-                                        showToast("时长格式不正确!")
+                                        showToast(localizedChatString(R.string.chat_voice_file_invalid_duration))
                                         return@Button
                                     }
 
                                     val tempSilkPath = PanelPaths.panelCacheDir / "picked-${UUID.randomUUID()}.silk"
                                     val success = try {
                                         if (isSilk) {
-                                            showToast("正在发送 SILK...")
+                                            showToast(localizedChatString(R.string.chat_voice_file_sending_silk))
                                             WeMessageApi.sendVoice(
                                                 currentConv,
                                                 tempPath.absolutePathString(),
                                                 durMs.coerceToInt()
                                             )
                                         } else {
-                                            showToast("正在将音频转换为 SILK...")
+                                            showToast(localizedChatString(R.string.chat_voice_file_converting_silk))
                                             if (AudioUtils.anyToSilk(
                                                     tempPath.absolutePathString(),
                                                     tempSilkPath.absolutePathString(),
@@ -121,7 +127,7 @@ internal fun selectAndSendVoice(context: Context, currentConv: String) {
                                                     durMs.coerceToInt(),
                                                 )
                                             } else {
-                                                showToast("转换失败! 查看日志以了解错误详情")
+                                                showToast(localizedChatString(R.string.chat_voice_file_conversion_failed))
                                                 false
                                             }
                                         }
@@ -129,9 +135,14 @@ internal fun selectAndSendVoice(context: Context, currentConv: String) {
                                         tempSilkPath.deleteIfExists()
                                         tempPath.deleteIfExists()
                                     }
-                                    showToast("语音发送${if (success) "成功" else "失败!"}")
+                                    showToast(
+                                        localizedChatString(
+                                            if (success) R.string.chat_voice_file_send_success
+                                            else R.string.chat_voice_file_send_failed,
+                                        ),
+                                    )
                                     onDismiss()
-                                }) { Text("确定") }
+                                }) { Text(stringResource(R.string.dialog_confirm)) }
                             })
                     }
                 }

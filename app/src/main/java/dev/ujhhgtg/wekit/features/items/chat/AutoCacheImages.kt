@@ -2,27 +2,33 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import android.content.ContentValues
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Chevron_right
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -30,7 +36,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Feature(name = "自动缓存图片", categories = ["聊天"], description = "监听接收到的图片消息, 自动触发微信从 CDN 下载, 将原图缓存到本地")
+@Feature(
+    id = "自动缓存图片",
+    nameRes = "feature_auto_cache_images_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_auto_cache_images_description",
+)
 object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
 
     private const val TAG = "AutoCacheImages"
@@ -83,23 +94,33 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
             var useWhitelistState by remember { mutableStateOf(useWhitelist) }
 
             AlertDialogContent(
-                title = { Text("自动缓存图片") },
+                title = { Text(stringResource(R.string.feature_auto_cache_images_name)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable { useWhitelistState = !useWhitelistState },
-                            trailingContent = { Switch(checked = useWhitelistState, onCheckedChange = null) },
-                            supportingContent = { Text(if (useWhitelistState) "仅对选中联系人缓存图片" else "对选中联系人跳过缓存图片") },
-                            headlineContent = { Text(if (useWhitelistState) "黑名单 [> 白名单 <]" else "[> 黑名单 <] 白名单") },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(if (useWhitelistState) R.string.chat_auto_cache_whitelist_selected else R.string.chat_auto_cache_blacklist_selected),
+                                description = stringResource(if (useWhitelistState) R.string.chat_auto_cache_images_whitelist_description else R.string.chat_auto_cache_images_blacklist_description),
+                                checked = useWhitelistState,
+                                onCheckedChange = {
+                                    useWhitelistState = it
+                                    useWhitelist = it
+                                },
+                            )
+                        }
+                        item {
+                            BaseWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(if (useWhitelistState) R.string.chat_auto_cache_configure_whitelist else R.string.chat_auto_cache_configure_blacklist),
+                                description = stringResource(R.string.chat_auto_cache_select_contacts_hint),
+                                onClick = {
                                 val contacts = WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()
                                 val currentList = if (useWhitelistState) whitelist else blacklist
 
                                 showComposeDialog(context) {
                                     ContactsSelector(
-                                        title = if (useWhitelistState) "选择白名单" else "选择黑名单",
+                                        title = stringResource(if (useWhitelistState) R.string.chat_auto_cache_select_whitelist else R.string.chat_auto_cache_select_blacklist),
                                         contacts = contacts,
                                         initialSelectedWxIds = currentList,
                                         onDismiss = onDismiss
@@ -109,23 +130,23 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
                                         } else {
                                             blacklist = selectedIds
                                         }
-                                        showToast("已保存 ${selectedIds.size} 个联系人, 重启微信以使更改生效")
+                                        showToast(localizedChatQuantity(R.plurals.chat_auto_cache_contacts_saved, selectedIds.size, selectedIds.size))
                                         onDismiss()
                                     }
                                 }
-                            },
-                            supportingContent = { Text("点击选择联系人") },
-                            headlineContent = { Text(if (useWhitelistState) "配置白名单" else "配置黑名单") },
-                        )
+                                },
+                                trailingContent = {
+                                    Icon(
+                                        MaterialSymbols.Outlined.Chevron_right,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                            )
+                        }
                     }
                 },
-                confirmButton = {
-                    Button(onClick = {
-                        useWhitelist = useWhitelistState
-                        onDismiss()
-                    }) { Text("确定") }
-                },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }

@@ -38,7 +38,7 @@ pub struct ApiTable {
 
 /// module_abi — laid out identically to zygisk::internal::module_abi.
 ///
-/// `api_version` is C `long`, which is pointer-sized on both Android ABIs.
+/// `api_version` is C `long`, which is pointer-sized on Android.
 #[repr(C)]
 pub struct ModuleAbi {
     pub api_version: c_long,

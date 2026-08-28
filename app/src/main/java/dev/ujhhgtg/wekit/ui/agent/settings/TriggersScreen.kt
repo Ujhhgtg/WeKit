@@ -1,24 +1,35 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Add
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.SessionEntity
 import dev.ujhhgtg.wekit.agent.data.entity.TriggerEntity
@@ -29,18 +40,14 @@ import dev.ujhhgtg.wekit.agent.trigger.TriggerConditions
 import dev.ujhhgtg.wekit.agent.trigger.TriggerConditionsJson
 import dev.ujhhgtg.wekit.agent.trigger.TriggerScope
 import dev.ujhhgtg.wekit.agent.trigger.TriggerType
-import dev.ujhhgtg.wekit.ui.content.MiuixSmallTitle
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
+import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
-import top.yukonga.miuix.kmp.window.WindowDialog
 import java.time.Instant
 import java.util.UUID
 
@@ -53,6 +60,7 @@ import java.util.UUID
 @Composable
 fun TriggersScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val triggers by remember { WeAgentRepository.observeTriggers() }
         .collectAsState(initial = emptyList())
     // Session id -> title, for showing which session a SESSION-scoped trigger belongs to.
@@ -66,41 +74,66 @@ fun TriggersScreen(onBack: () -> Unit) {
     val global = triggers.filter { it.scope == TriggerScope.GLOBAL }
     val perSession = triggers.filter { it.scope == TriggerScope.SESSION }
 
-    AgentSettingsScaffold(title = "触发器", onBack = onBack) {
+    AgentSettingsScaffold(title = stringResource(R.string.agent_triggers_title), onBack = onBack) {
         if (triggers.isEmpty()) {
-            item { EmptyHint("还没有触发器。触发器可在定时、收到新消息或检测到数据库操作时自动唤起 AI 运行一轮。全局触发器每次触发都会新建会话。") }
-        }
-
-        if (global.isNotEmpty()) {
-            item { MiuixSmallTitle("全局触发器") }
-            items(global.size, key = { global[it].id }) { i ->
-                TriggerCard(
-                    global[i], sessionTitle = null, scope = scope,
-                    onEdit = { editing = global[i]; showEditor = true })
+            item {
+                AgentEmptyState(
+                    title = stringResource(R.string.agent_empty_triggers_title),
+                    message = stringResource(R.string.agent_empty_triggers_message),
+                    actionLabel = stringResource(R.string.agent_add_trigger),
+                    onAction = { editing = null; showEditor = true },
+                )
             }
-        }
-
-        if (perSession.isNotEmpty()) {
-            item { MiuixSmallTitle("会话触发器") }
-            items(perSession.size, key = { perSession[it].id }) { i ->
-                val t = perSession[i]
-                TriggerCard(
-                    t, sessionTitle = sessions[t.sessionId]?.title ?: "（会话已删除）", scope = scope,
-                    onEdit = { editing = t; showEditor = true })
+        } else {
+            if (global.isNotEmpty()) {
+                item {
+                    SegmentedColumn(title = stringResource(R.string.agent_global_triggers)) {
+                        global.forEach { t ->
+                            item(key = t.id) {
+                                TriggerSwitchRow(
+                                    t,
+                                    sessionTitle = null,
+                                    onEdit = { editing = t; showEditor = true },
+                                    scope = scope,
+                                )
+                            }
+                        }
+                    }
+                }
             }
-        }
 
-        item {
-            Button(
-                onClick = { editing = null; showEditor = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = AGENT_CONTENT_BOTTOM_INSET),
-            ) { Text("添加触发器") }
+            if (perSession.isNotEmpty()) {
+                item {
+                    SegmentedColumn(title = stringResource(R.string.agent_session_triggers)) {
+                        perSession.forEach { t ->
+                            item(key = t.id) {
+                                val sessionTitle = sessions[t.sessionId]?.title
+                                    ?: stringResource(R.string.agent_deleted_session)
+                                TriggerSwitchRow(
+                                    t,
+                                    sessionTitle = sessionTitle,
+                                    onEdit = { editing = t; showEditor = true },
+                                    scope = scope,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                AgentActionRow {
+                    AgentListActionButton(
+                        label = stringResource(R.string.agent_add_trigger),
+                        icon = MaterialSymbols.Outlined.Add,
+                        onClick = { editing = null; showEditor = true },
+                    )
+                }
+            }
         }
     }
 
-    TriggerEditorDialog(
+    TriggerEditorSheet(
         show = showEditor,
         existing = editing,
         sessions = sessions,
@@ -109,80 +142,90 @@ fun TriggersScreen(onBack: () -> Unit) {
         onDismiss = { showEditor = false; editing = null },
         onSave = { built ->
             scope.launch {
-                WeAgentRepository.upsertTrigger(built)
-                showEditor = false
+                try {
+                    WeAgentRepository.upsertTrigger(built)
+                    showEditor = false
+                } catch (e: Exception) {
+                    showToast(localizedContext.getString(R.string.agent_save_failed, e.message))
+                }
+            }
+        },
+        onDelete = { id ->
+            scope.launch {
+                try {
+                    WeAgentRepository.deleteTrigger(id)
+                    showEditor = false
+                    editing = null
+                } catch (e: Exception) {
+                    showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
+                }
             }
         },
     )
 }
 
 @Composable
-private fun TriggerCard(
+private fun TriggerSwitchRow(
     t: TriggerEntity,
     sessionTitle: String?,
-    scope: kotlinx.coroutines.CoroutineScope,
     onEdit: () -> Unit,
+    scope: kotlinx.coroutines.CoroutineScope,
 ) {
-    Card(Modifier.padding(bottom = 6.dp)) {
-        SwitchPreference(
-            title = t.name.ifBlank { "(未命名)" },
-            summary = buildString {
-                append(typeLabel(t.type))
-                sessionTitle?.let { append(" · 会话：").append(it) }
-                append(" · ").append(configSummary(t))
-            },
-            checked = t.enabled,
-            onCheckedChange = { on -> scope.launch { WeAgentRepository.setTriggerEnabled(t.id, on) } },
-        )
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-            TextButton(text = "编辑", onClick = onEdit, modifier = Modifier.weight(1f))
-            Spacer(Modifier.width(8.dp))
-            TextButton(
-                text = "删除",
-                onClick = { scope.launch { WeAgentRepository.deleteTrigger(t.id) } },
-                modifier = Modifier.weight(1f),
-            )
-        }
+    val sessionSummary = sessionTitle?.let { stringResource(R.string.agent_trigger_session_summary, it) }
+    val summary = listOfNotNull(typeLabel(t.type), sessionSummary, configSummary(t)).joinToString(" · ")
+    SwitchWidget(
+        title = t.name.ifBlank { stringResource(R.string.agent_unnamed_trigger) },
+        description = summary,
+        checked = t.enabled,
+        onCheckedChange = { on -> scope.launch { WeAgentRepository.setTriggerEnabled(t.id, on) } },
+        onClick = onEdit,
+        trailingDivider = true,
+    )
+}
+
+@Composable
+private fun typeLabel(type: TriggerType): String = stringResource(
+    when (type) {
+        TriggerType.SCHEDULE -> R.string.agent_trigger_type_schedule
+        TriggerType.MESSAGE -> R.string.agent_trigger_type_message
+        TriggerType.SQL -> R.string.agent_trigger_type_database
     }
-}
+)
 
-private fun typeLabel(type: TriggerType): String = when (type) {
-    TriggerType.SCHEDULE -> "定时"
-    TriggerType.MESSAGE -> "新消息"
-    TriggerType.SQL -> "数据库"
-}
-
+@Composable
 private fun configSummary(t: TriggerEntity): String = when (t.type) {
     TriggerType.SCHEDULE -> when (t.scheduleKind) {
-        ScheduleKind.INTERVAL -> "每 ${t.intervalSeconds ?: 0} 秒"
+        ScheduleKind.INTERVAL -> stringResource(R.string.agent_trigger_interval_summary, t.intervalSeconds ?: 0)
         ScheduleKind.DAILY -> {
             val m = t.dailyMinuteOfDay ?: 0
-            "每天 ${(m / 60).toString().padStart(2, '0')}:${(m % 60).toString().padStart(2, '0')}"
+            val time = "${(m / 60).toString().padStart(2, '0')}:${(m % 60).toString().padStart(2, '0')}"
+            stringResource(R.string.agent_trigger_daily_summary, time)
         }
 
-        ScheduleKind.CRON -> "cron: ${t.cronExpr}"
-        ScheduleKind.ONCE -> "一次性"
-        null -> "未配置"
+        ScheduleKind.CRON -> stringResource(R.string.agent_trigger_cron_summary, t.cronExpr.orEmpty())
+        ScheduleKind.ONCE -> stringResource(R.string.agent_trigger_once_summary)
+        null -> stringResource(R.string.agent_trigger_not_configured)
     }
 
     TriggerType.MESSAGE, TriggerType.SQL -> {
         val debounce = t.bufferDebounceMillis / 1000
-        "缓冲 ${debounce}s / 上限 ${t.bufferMaxEvents} 条"
+        stringResource(R.string.agent_trigger_buffer_summary, debounce, t.bufferMaxEvents)
     }
 }
 
 /**
- * Create/edit dialog. When [existing] is null a new GLOBAL trigger is created (session triggers are
+ * Create/edit sheet. When [existing] is null a new GLOBAL trigger is created (session triggers are
  * created by the agent or bound implicitly; the settings UI creates global ones). Type is fixed once
- * created (editing keeps the same type). The dialog scrolls since it can get tall.
+ * created (editing keeps the same type).
  */
 @Composable
-private fun TriggerEditorDialog(
+private fun TriggerEditorSheet(
     show: Boolean,
     existing: TriggerEntity?,
     sessions: Map<String, SessionEntity>,
     onDismiss: () -> Unit,
     onSave: (TriggerEntity) -> Unit,
+    onDelete: (String) -> Unit,
 ) {
     val creating = existing == null
 
@@ -244,189 +287,40 @@ private fun TriggerEditorDialog(
     var cooldownSec by remember(existing) { mutableStateOf(((existing?.cooldownMillis ?: 0) / 1000).toString()) }
     var filterOwn by remember(existing) { mutableStateOf(existing?.filterOwnEvents ?: true) }
 
-    WindowDialog(show = show, title = if (creating) "添加触发器" else "编辑触发器", onDismissRequest = onDismiss) {
-        Column(Modifier
-            .heightIn(max = 460.dp)
-            .verticalScroll(rememberScrollState())) {
-            TextField(value = name, onValueChange = { name = it }, label = "名称", useLabelAsPlaceholder = true, singleLine = true)
-            Spacer(Modifier.height(8.dp))
+    var showDeleteConfirm by remember(existing) { mutableStateOf(false) }
 
-            WindowDropdownPreference(
-                title = "类型",
-                items = listOf("定时", "新消息", "数据库操作"),
-                selectedIndex = typeIndex,
-                onSelectedIndexChange = { if (creating) typeIndex = it },
-            )
+    // An INTERVAL schedule with a blank/zero interval is silently dropped by TriggerScheduler
+    // (it needs intervalSeconds > 0), so the trigger would look enabled but never fire.
+    val intervalOk = type != TriggerType.SCHEDULE || kind != ScheduleKind.INTERVAL ||
+            (intervalSeconds.toLongOrNull() ?: 0L) > 0L
+    // An empty sqlOps list is the "all three ops" sentinel in TriggerConditions, so unticking
+    // everything would produce a trigger firing on every DB write — the opposite of the intent.
+    val sqlOpsOk = type != TriggerType.SQL || opInsert || opUpdate || opQuery
+    val saveEnabled = name.isNotBlank() && promptTemplate.isNotBlank() &&
+            (selectedScope == TriggerScope.GLOBAL || sessionList.isNotEmpty()) &&
+            intervalOk && sqlOpsOk
 
-            WindowDropdownPreference(
-                title = "作用域",
-                summary = if (selectedScope == TriggerScope.SESSION) "绑定某个会话，触发时在该会话内运行" else "每次触发都新建一个会话运行",
-                items = listOf("绑定会话", "全局（每次新建会话）"),
-                selectedIndex = scopeIndex,
-                onSelectedIndexChange = { scopeIndex = it },
-            )
-            if (selectedScope == TriggerScope.SESSION) {
-                if (sessionList.isEmpty()) {
-                    Text("还没有会话，无法绑定。请先在助手面板里创建一个会话。", Modifier.padding(vertical = 8.dp))
-                } else {
-                    WindowDropdownPreference(
-                        title = "绑定到会话",
-                        items = sessionList.map { it.title.ifBlank { "（未命名会话）" } },
-                        selectedIndex = boundSessionIndex.coerceIn(0, sessionList.lastIndex),
-                        onSelectedIndexChange = { boundSessionIndex = it },
-                    )
+    AgentEditorSheet(
+        show = show,
+        title = stringResource(if (creating) R.string.agent_add_trigger else R.string.agent_edit_trigger),
+        onDismiss = onDismiss,
+        bottomBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (!creating) {
+                    TextButton(
+                        onClick = { showDeleteConfirm = true },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text(stringResource(R.string.action_delete)) }
                 }
-            }
-
-            when (type) {
-                TriggerType.SCHEDULE -> {
-                    WindowDropdownPreference(
-                        title = "调度方式",
-                        items = listOf("固定间隔", "每天定时", "Cron 表达式", "一次性"),
-                        selectedIndex = kindIndex,
-                        onSelectedIndexChange = { kindIndex = it },
-                    )
-                    when (kind) {
-                        ScheduleKind.INTERVAL -> NumberField("间隔（秒）", intervalSeconds) { intervalSeconds = it }
-                        ScheduleKind.DAILY -> Row(Modifier.fillMaxWidth()) {
-                            Column(Modifier.weight(1f)) { NumberField("时（0-23）", dailyHour) { dailyHour = it } }
-                            Spacer(Modifier.width(8.dp))
-                            Column(Modifier.weight(1f)) { NumberField("分（0-59）", dailyMinute) { dailyMinute = it } }
-                        }
-
-                        ScheduleKind.CRON -> {
-                            TextField(
-                                value = cronExpr,
-                                onValueChange = { cronExpr = it },
-                                label = "Cron（分 时 日 月 周）",
-                                useLabelAsPlaceholder = true,
-                                singleLine = true
-                            )
-                        }
-
-                        ScheduleKind.ONCE -> {
-                            Text("一次性触发请由 AI 通过工具设定具体时间；此处保存后需在 AI 中配置触发时间。", Modifier.padding(vertical = 8.dp))
-                        }
-                    }
-                }
-
-                TriggerType.MESSAGE -> {
-                    Spacer(Modifier.height(8.dp))
-                    TextField(
-                        value = contentRegex,
-                        onValueChange = { contentRegex = it },
-                        label = "内容匹配（正则，可空）",
-                        useLabelAsPlaceholder = true,
-                        singleLine = true
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    TextField(
-                        value = talkerRegex,
-                        onValueChange = { talkerRegex = it },
-                        label = "会话/发送者匹配（正则，可空）",
-                        useLabelAsPlaceholder = true,
-                        singleLine = true
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    TextField(
-                        value = msgTypes,
-                        onValueChange = { msgTypes = it },
-                        label = "消息类型码（逗号分隔，可空）",
-                        useLabelAsPlaceholder = true,
-                        singleLine = true
-                    )
-                    WindowDropdownPreference(
-                        title = "方向",
-                        items = listOf("收到", "发出", "两者"),
-                        selectedIndex = directionIndex,
-                        onSelectedIndexChange = { directionIndex = it },
-                    )
-                    SwitchPreference(
-                        title = "过滤自己发出的消息",
-                        summary = "同时会挡住 AI 通过工具发出的消息，避免自触发循环",
-                        checked = filterOwn,
-                        onCheckedChange = { filterOwn = it },
-                    )
-                    BufferFields(
-                        debounceSec, maxEvents, maxWaitSec, cooldownSec,
-                        { debounceSec = it }, { maxEvents = it }, { maxWaitSec = it }, { cooldownSec = it })
-                }
-
-                TriggerType.SQL -> {
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp)) {
-                        OpToggle("INSERT", opInsert) { opInsert = it }
-                        OpToggle("UPDATE", opUpdate) { opUpdate = it }
-                        OpToggle("QUERY", opQuery) { opQuery = it }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    TextField(
-                        value = tableRegex,
-                        onValueChange = { tableRegex = it },
-                        label = "表名匹配（正则，INSERT/UPDATE）",
-                        useLabelAsPlaceholder = true,
-                        singleLine = true
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    TextField(
-                        value = sqlRegex,
-                        onValueChange = { sqlRegex = it },
-                        label = "SQL 匹配（正则，QUERY）",
-                        useLabelAsPlaceholder = true,
-                        singleLine = true
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    TextField(
-                        value = valuesRegex,
-                        onValueChange = { valuesRegex = it },
-                        label = "写入值匹配（正则，INSERT/UPDATE）",
-                        useLabelAsPlaceholder = true,
-                        singleLine = true
-                    )
-                    BufferFields(
-                        debounceSec, maxEvents, maxWaitSec, cooldownSec,
-                        { debounceSec = it }, { maxEvents = it }, { maxWaitSec = it }, { cooldownSec = it })
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-            TextField(
-                value = promptTemplate,
-                onValueChange = { promptTemplate = it },
-                label = "提示词（触发时追加在事件时间线之后）",
-                useLabelAsPlaceholder = true,
-                maxLines = 6
-            )
-            Spacer(Modifier.height(16.dp))
-
-            // An INTERVAL schedule with a blank/zero interval is silently dropped by TriggerScheduler
-            // (it needs intervalSeconds > 0), so the trigger would look enabled but never fire.
-            val intervalOk = type != TriggerType.SCHEDULE || kind != ScheduleKind.INTERVAL ||
-                    (intervalSeconds.toLongOrNull() ?: 0L) > 0L
-            // An empty sqlOps list is the "all three ops" sentinel in TriggerConditions, so unticking
-            // everything would produce a trigger firing on every DB write — the opposite of the intent.
-            val sqlOpsOk = type != TriggerType.SQL || opInsert || opUpdate || opQuery
-
-            if (!intervalOk) {
-                Text("间隔必须大于 0 秒，否则触发器不会运行。", Modifier.padding(vertical = 4.dp))
-            }
-            if (!sqlOpsOk) {
-                Text("至少需要选择一种数据库操作。", Modifier.padding(vertical = 4.dp))
-            }
-
-            Row(Modifier.fillMaxWidth()) {
-                TextButton(text = "取消", onClick = onDismiss, modifier = Modifier.weight(1f))
-                Spacer(Modifier.width(12.dp))
-                TextButton(
-                    text = "保存",
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    modifier = Modifier.weight(1f),
-                    // Disable save when a session-bound trigger has no session to bind to.
-                    enabled = name.isNotBlank() && promptTemplate.isNotBlank() &&
-                            (selectedScope == TriggerScope.GLOBAL || sessionList.isNotEmpty()) &&
-                            intervalOk && sqlOpsOk,
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                Spacer(Modifier.width(8.dp))
+                Button(
                     onClick = {
                         val built = buildTrigger(
                             existing = existing,
@@ -462,19 +356,272 @@ private fun TriggerEditorDialog(
                         )
                         onSave(built)
                     },
+                    enabled = saveEnabled,
+                ) { Text(stringResource(R.string.action_save)) }
+            }
+        },
+    ) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text(stringResource(R.string.agent_field_name)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+
+        DropDownMenuWidget(
+            icon = null,
+            iconPlaceholder = false,
+            title = stringResource(R.string.agent_trigger_type),
+            description = null,
+            value = type,
+            options = typeOptions.map {
+                DropdownOption(
+                    it,
+                    stringResource(
+                        when (it) {
+                            TriggerType.SCHEDULE -> R.string.agent_trigger_type_schedule
+                            TriggerType.MESSAGE -> R.string.agent_trigger_type_message
+                            TriggerType.SQL -> R.string.agent_trigger_type_database_operation
+                        }
+                    ),
+                )
+            },
+            enabled = creating,
+            onValueChange = { newType -> typeIndex = typeOptions.indexOf(newType) },
+        )
+
+        DropDownMenuWidget(
+            icon = null,
+            iconPlaceholder = false,
+            title = stringResource(R.string.agent_trigger_scope),
+            description = null,
+            value = selectedScope,
+            options = scopeOptions.map {
+                DropdownOption(
+                    it,
+                    stringResource(
+                        if (it == TriggerScope.SESSION) R.string.agent_trigger_scope_session
+                        else R.string.agent_trigger_scope_global
+                    ),
+                )
+            },
+            onValueChange = { newScope -> scopeIndex = scopeOptions.indexOf(newScope) },
+        )
+        if (selectedScope == TriggerScope.SESSION) {
+            if (sessionList.isEmpty()) {
+                Text(stringResource(R.string.agent_no_sessions_to_bind), Modifier.padding(vertical = 8.dp))
+            } else {
+                DropDownMenuWidget(
+                    icon = null,
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.agent_bind_to_session),
+                    description = null,
+                    value = boundSessionIndex.coerceIn(0, sessionList.lastIndex),
+                    options = sessionList.mapIndexed { index, s ->
+                        DropdownOption(index, s.title.ifBlank { stringResource(R.string.agent_unnamed_session) })
+                    },
+                    onValueChange = { boundSessionIndex = it },
                 )
             }
         }
+
+        when (type) {
+            TriggerType.SCHEDULE -> {
+                DropDownMenuWidget(
+                    icon = null,
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.agent_schedule_method),
+                    description = null,
+                    value = kind,
+                    options = scheduleKinds.map {
+                        DropdownOption(
+                            it,
+                            stringResource(
+                                when (it) {
+                                    ScheduleKind.INTERVAL -> R.string.agent_schedule_interval
+                                    ScheduleKind.DAILY -> R.string.agent_schedule_daily
+                                    ScheduleKind.CRON -> R.string.agent_schedule_cron
+                                    ScheduleKind.ONCE -> R.string.agent_schedule_once
+                                }
+                            ),
+                        )
+                    },
+                    onValueChange = { newKind -> kindIndex = scheduleKinds.indexOf(newKind) },
+                )
+                when (kind) {
+                    ScheduleKind.INTERVAL -> NumberField(stringResource(R.string.agent_interval_seconds), intervalSeconds) { intervalSeconds = it }
+                    ScheduleKind.DAILY -> Row(Modifier.fillMaxWidth()) {
+                        Column(Modifier.weight(1f)) { NumberField(stringResource(R.string.agent_hour_range), dailyHour) { dailyHour = it } }
+                        Spacer(Modifier.width(8.dp))
+                        Column(Modifier.weight(1f)) { NumberField(stringResource(R.string.agent_minute_range), dailyMinute) { dailyMinute = it } }
+                    }
+
+                    ScheduleKind.CRON -> {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = cronExpr,
+                            onValueChange = { cronExpr = it },
+                            label = { Text(stringResource(R.string.agent_cron_field)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    ScheduleKind.ONCE -> {
+                        Text(stringResource(R.string.agent_once_schedule_help), Modifier.padding(vertical = 8.dp))
+                    }
+                }
+            }
+
+            TriggerType.MESSAGE -> {
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = contentRegex,
+                    onValueChange = { contentRegex = it },
+                    label = { Text(stringResource(R.string.agent_message_content_regex)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = talkerRegex,
+                    onValueChange = { talkerRegex = it },
+                    label = { Text(stringResource(R.string.agent_talker_regex)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = msgTypes,
+                    onValueChange = { msgTypes = it },
+                    label = { Text(stringResource(R.string.agent_message_type_codes)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                DropDownMenuWidget(
+                    icon = null,
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.agent_message_direction),
+                    description = null,
+                    value = directions[directionIndex],
+                    options = directions.map {
+                        DropdownOption(
+                            it,
+                            stringResource(
+                                when (it) {
+                                    MessageDirection.RECEIVED -> R.string.agent_direction_received
+                                    MessageDirection.SENT -> R.string.agent_direction_sent
+                                    MessageDirection.BOTH -> R.string.agent_direction_both
+                                }
+                            ),
+                        )
+                    },
+                    onValueChange = { newDirection -> directionIndex = directions.indexOf(newDirection) },
+                )
+                SwitchWidget(
+                    title = stringResource(R.string.agent_filter_own_messages),
+                    description = stringResource(R.string.agent_filter_own_messages_summary),
+                    checked = filterOwn,
+                    onCheckedChange = { filterOwn = it },
+                )
+                BufferFields(
+                    debounceSec, maxEvents, maxWaitSec, cooldownSec,
+                    { debounceSec = it }, { maxEvents = it }, { maxWaitSec = it }, { cooldownSec = it })
+            }
+
+            TriggerType.SQL -> {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = opInsert,
+                        onClick = { opInsert = !opInsert },
+                        label = { Text("INSERT") },
+                    )
+                    FilterChip(
+                        selected = opUpdate,
+                        onClick = { opUpdate = !opUpdate },
+                        label = { Text("UPDATE") },
+                    )
+                    FilterChip(
+                        selected = opQuery,
+                        onClick = { opQuery = !opQuery },
+                        label = { Text("QUERY") },
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = tableRegex,
+                    onValueChange = { tableRegex = it },
+                    label = { Text(stringResource(R.string.agent_table_regex)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = sqlRegex,
+                    onValueChange = { sqlRegex = it },
+                    label = { Text(stringResource(R.string.agent_sql_regex)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = valuesRegex,
+                    onValueChange = { valuesRegex = it },
+                    label = { Text(stringResource(R.string.agent_values_regex)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                BufferFields(
+                    debounceSec, maxEvents, maxWaitSec, cooldownSec,
+                    { debounceSec = it }, { maxEvents = it }, { maxWaitSec = it }, { cooldownSec = it })
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = promptTemplate,
+            onValueChange = { promptTemplate = it },
+            label = { Text(stringResource(R.string.agent_trigger_prompt)) },
+            maxLines = 6,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(16.dp))
+
+        if (!intervalOk) {
+            Text(stringResource(R.string.agent_interval_must_be_positive), Modifier.padding(vertical = 4.dp))
+        }
+        if (!sqlOpsOk) {
+            Text(stringResource(R.string.agent_select_database_operation), Modifier.padding(vertical = 4.dp))
+        }
     }
+
+    AgentConfirmDialog(
+        show = showDeleteConfirm,
+        title = stringResource(R.string.action_delete),
+        message = stringResource(R.string.agent_delete_trigger_confirm),
+        confirmLabel = stringResource(R.string.action_delete),
+        dismissLabel = stringResource(R.string.dialog_cancel),
+        destructive = true,
+        onConfirm = {
+            showDeleteConfirm = false
+            onDelete(existing!!.id)
+        },
+        onDismiss = { showDeleteConfirm = false },
+    )
 }
 
 @Composable
 private fun NumberField(label: String, value: String, onChange: (String) -> Unit) {
-    TextField(
+    OutlinedTextField(
         value = value,
         onValueChange = { v -> onChange(v.filter { it.isDigit() }.take(7)) },
-        label = label,
-        useLabelAsPlaceholder = true,
+        label = { Text(label) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
@@ -487,25 +634,16 @@ private fun BufferFields(
 ) {
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth()) {
-        Column(Modifier.weight(1f)) { NumberField("防抖（秒）", debounceSec, onDebounce) }
+        Column(Modifier.weight(1f)) { NumberField(stringResource(R.string.agent_debounce_seconds), debounceSec, onDebounce) }
         Spacer(Modifier.width(8.dp))
-        Column(Modifier.weight(1f)) { NumberField("上限（条）", maxEvents, onMax) }
+        Column(Modifier.weight(1f)) { NumberField(stringResource(R.string.agent_event_limit), maxEvents, onMax) }
     }
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth()) {
-        Column(Modifier.weight(1f)) { NumberField("最长等待（秒）", maxWaitSec, onWait) }
+        Column(Modifier.weight(1f)) { NumberField(stringResource(R.string.agent_max_wait_seconds), maxWaitSec, onWait) }
         Spacer(Modifier.width(8.dp))
-        Column(Modifier.weight(1f)) { NumberField("冷却（秒）", cooldownSec, onCooldown) }
+        Column(Modifier.weight(1f)) { NumberField(stringResource(R.string.agent_cooldown_seconds), cooldownSec, onCooldown) }
     }
-}
-
-@Composable
-private fun OpToggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    TextButton(
-        text = if (checked) "✓ $label" else label,
-        onClick = { onChange(!checked) },
-        colors = if (checked) ButtonDefaults.textButtonColorsPrimary() else ButtonDefaults.textButtonColors(),
-    )
 }
 
 /** Assembles a [TriggerEntity] from the editor fields, preserving id/scope/session for edits. */

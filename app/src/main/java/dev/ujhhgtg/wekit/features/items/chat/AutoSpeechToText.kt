@@ -7,12 +7,18 @@ import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.collections.LruCache
 import java.lang.reflect.InvocationTargetException
 
-@Feature(name = "自动语音转文字", categories = ["聊天"], description = "自动将语音消息转为文字")
+@Feature(
+    id = "自动语音转文字",
+    nameRes = "feature_auto_speech_to_text_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_auto_speech_to_text_description",
+)
 object AutoSpeechToText : SwitchFeature(),
     WeChatMessageViewApi.ICreateViewListener {
 

@@ -6,23 +6,25 @@ on:
       - master
       - dev
     paths-ignore:
-      - '**/*.md'
       - '**/*.txt'
       - '.editorconfig'
       - '.gitignore'
       - '.idea/**'
-      - 'docs/**'
   pull_request:
     branches:
       - master
+      - dev
     paths-ignore:
-      - '**/*.md'
       - '**/*.txt'
       - '.editorconfig'
       - '.gitignore'
       - '.idea/**'
-      - 'docs/**'
   workflow_dispatch:
+    inputs:
+      publish_extensions:
+        description: Build and publish all extension packs, including the large Arch rootfs
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -60,7 +62,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi
+          targets: aarch64-linux-android
 
       - name: Install Android NDK
         run: |
@@ -70,8 +72,22 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
           NDK_BIN="$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin"
           test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
-          test -x "$NDK_BIN/armv7a-linux-androideabi$MIN_SDK-clang"
           test -x "$NDK_BIN/llvm-strip"
+
+      - name: Prepare PRoot cache key
+        id: proot_cache_inputs
+        run: |
+          echo "commit=$(git -C third_party/proot-static rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "ndk=$(sed -n 's/^ndk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
+          echo "min_sdk=$(sed -n 's/^minSdk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache PRoot build
+        uses: actions/cache@v6
+        with:
+          path: target/proot-static
+          key: proot-${{ runner.os }}-${{ runner.arch }}-${{ steps.proot_cache_inputs.outputs.commit }}-${{ steps.proot_cache_inputs.outputs.ndk }}-${{ steps.proot_cache_inputs.outputs.min_sdk }}-${{ hashFiles('patches/proot/android-ptrace-events.patch', 'third_party/proot-static/tools/build-static-aarch64.sh') }}
+          restore-keys: |
+            proot-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
@@ -91,7 +107,12 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt install -y gcc-multilib
+          sudo apt-get update && sudo apt-get install -y gcc-multilib
+
+      - name: Validate i18n catalogs
+        run: |
+          cargo test -p xtask i18n_check
+          ./x i18n-check
 
       - name: Build native library
         run: |
@@ -124,14 +145,14 @@ jobs:
           set -euo pipefail
           mkdir -p dist/apk
 
-          expected_abis=$(printf '%s\n' arm64-v8a armeabi-v7a)
+          expected_abis=arm64-v8a
           for flavor in standard legacy; do
             apk="app/build/outputs/apk/$flavor/release/app-$flavor-release.apk"
             test -f "$apk"
 
             actual_abis=$(unzip -Z1 "$apk" 'lib/*/*.so' | cut -d/ -f2 | sort -u)
             if [ "$actual_abis" != "$expected_abis" ]; then
-              echo "::error file=$apk::Expected universal arm64-v8a + armeabi-v7a APK, got: $actual_abis"
+              echo "::error file=$apk::Expected arm64-v8a-only APK, got: $actual_abis"
               exit 1
             fi
 
@@ -183,7 +204,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi
+          targets: aarch64-linux-android
 
       - name: Install Android NDK
         run: |
@@ -193,7 +214,6 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
           NDK_BIN="$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin"
           test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
-          test -x "$NDK_BIN/armv7a-linux-androideabi$MIN_SDK-clang"
           test -x "$NDK_BIN/llvm-strip"
 
       - name: Download Release APK artifact
@@ -213,6 +233,352 @@ jobs:
           name: wekit-zygisk
           path: wekit-zygisk/release/*.zip
           if-no-files-found: error
+
+  dex-test:
+    runs-on: ubuntu-latest
+    outputs:
+      reports-available: ${{ steps.report-check.outputs.available }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib jq unzip
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl --fail --location --retry 3 \
+            https://github.com/mgdm/htmlq/releases/download/v0.4.0/htmlq-x86_64-linux.tar.gz \
+            | tar -xz -C "$RUNNER_TEMP/bin"
+          chmod +x "$RUNNER_TEMP/bin/htmlq"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Restore fixed WeChat APKs
+        id: apk-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/wekit-dex-test-apks
+          key: dex-test-apks-v1-${{ runner.os }}-${{ hashFiles('docs/getting-started.md', '.github/scripts/download-dex-test-apks.sh', 'xtask/src/dex_test_ci.rs') }}
+
+      - name: Restore DexKit desktop cache
+        id: dexkit-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .wekit/dex-test/source
+          key: dexkit-desktop-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', 'xtask/src/dex_test.rs') }}
+
+      - name: Generate supported APK manifest
+        run: |
+          ./x dex-test-ci sources \
+            --doc docs/getting-started.md \
+            --output "$RUNNER_TEMP/wekit-dex-test-sources.json"
+          test "$(jq '.sources | length' "$RUNNER_TEMP/wekit-dex-test-sources.json")" -gt 0
+
+      - name: Download supported WeChat APKs
+        id: apks
+        run: |
+          chmod +x .github/scripts/download-dex-test-apks.sh
+          set +e
+          .github/scripts/download-dex-test-apks.sh \
+            "$RUNNER_TEMP/wekit-dex-test-sources.json" \
+            "$RUNNER_TEMP/wekit-dex-test-apks" \
+            --failures-out "$RUNNER_TEMP/wekit-dex-test-download-failures.txt" \
+            > "$RUNNER_TEMP/wekit-dex-test-apks.txt"
+          download_status=$?
+          set -e
+          if [[ -s "$RUNNER_TEMP/wekit-dex-test-download-failures.txt" ]]; then
+            while IFS= read -r failed_apk; do
+              echo "::warning::failed to download $failed_apk; skipping its dex resolution"
+            done < "$RUNNER_TEMP/wekit-dex-test-download-failures.txt"
+          fi
+          if [[ -s "$RUNNER_TEMP/wekit-dex-test-apks.txt" ]]; then
+            mapfile -t downloaded_apks < "$RUNNER_TEMP/wekit-dex-test-apks.txt"
+            echo "apk-count=${#downloaded_apks[@]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "apk-count=0" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ $download_status -ne 0 ]]; then
+            echo "::error::download script failed with status $download_status"
+            exit 1
+          fi
+
+      - name: Run desktop Dex resolution
+        id: dex-resolution
+        if: steps.apks.outcome == 'success' && fromJSON(steps.apks.outputs.apk-count || '0') > 0
+        run: |
+          mapfile -t apks < "$RUNNER_TEMP/wekit-dex-test-apks.txt"
+          args=()
+          for apk in "${apks[@]}"; do
+            args+=(--apk "$apk")
+          done
+          set +e
+          ./x dex-test "${args[@]}" --output-dir dex-test-results/ci
+          status=$?
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          test -n "$(find dex-test-results/ci -mindepth 2 -maxdepth 2 -name summary.json -print -quit)"
+
+      - name: Check Dex resolution reports
+        id: report-check
+        if: always()
+        run: |
+          if test -n "$(find dex-test-results/ci -mindepth 2 -maxdepth 2 -name summary.json -print -quit)"; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload Dex resolution reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wekit-dex-test-reports
+          path: dex-test-results/ci
+          if-no-files-found: warn
+
+      - name: Save fixed WeChat APKs
+        if: always() && steps.apks.outcome == 'success'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/wekit-dex-test-apks
+          key: ${{ steps.apk-cache.outputs.cache-primary-key }}
+
+      - name: Save DexKit desktop cache
+        if: always() && steps.dex-resolution.outcome == 'success'
+        uses: actions/cache/save@v6
+        with:
+          path: .wekit/dex-test/source
+          key: ${{ steps.dexkit-cache.outputs.cache-primary-key }}
+
+      - name: Enforce Dex resolution result
+        if: always()
+        env:
+          DEX_TEST_STATUS: ${{ steps.dex-resolution.outputs.status }}
+        run: |
+          test -n "$DEX_TEST_STATUS"
+          test "$DEX_TEST_STATUS" -eq 0
+
+  release-dex-test:
+    needs: dex-test
+    runs-on: ubuntu-latest
+    if: ${{ always() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.event_name != 'pull_request' && needs.dex-test.outputs.reports-available == 'true' }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Download Dex resolution reports
+        uses: actions/download-artifact@v8
+        with:
+          name: wekit-dex-test-reports
+          path: dex-test-results/ci
+
+      - name: Stage successful Release assets
+        id: stage
+        run: |
+          run_dir=$(dirname "$(find dex-test-results/ci -mindepth 2 -maxdepth 2 -name summary.json -print -quit)")
+          test -n "$run_dir"
+          ./x dex-test-ci stage-release \
+            --run-dir "$run_dir" \
+            --output-dir dist/dex-test-release \
+            --sha "${{ github.sha }}"
+          if [[ -s dist/dex-test-release/assets.txt ]]; then
+            echo "has-assets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-assets=false" >> "$GITHUB_OUTPUT"
+            echo "No host passed; leaving the Dex-Test Release unchanged."
+          fi
+
+      - name: Create or update Dex Test Release
+        if: steps.stage.outputs.has-assets == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view Dex-Test >/dev/null 2>&1; then
+            gh release edit Dex-Test \
+              --title "Dex Test" \
+              --prerelease \
+              --notes-file dist/dex-test-release/release-notes.md
+          else
+            gh release create Dex-Test \
+              --target "${{ github.sha }}" \
+              --title "Dex Test" \
+              --prerelease \
+              --notes-file dist/dex-test-release/release-notes.md
+          fi
+
+          upload=(dist/dex-test-release/summary.json)
+          while IFS= read -r asset; do
+            [[ -n "$asset" ]] && upload+=("dist/dex-test-release/$asset")
+          done < dist/dex-test-release/assets.txt
+          gh release upload Dex-Test "${upload[@]}" --clobber
+
+  build-extensions:
+    runs-on: ubuntu-latest
+    # This dedicated publishing job is the only path that downloads the Arch rootfs.
+    if: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')) || (github.event_name == 'workflow_dispatch' && inputs.publish_extensions) }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: aarch64-linux-android
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: app/src/main/go/wekit-cloudflared/go.mod
+
+      - name: Install system dependencies
+        # glslc compiles the llama.cpp Vulkan shaders for the llama-native pack.
+        run: |
+          sudo apt-get update && sudo apt-get install -y gcc-multilib glslc
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Install Android NDK
+        run: |
+          NDK_VERSION=$(sed -n 's/^ndk = "\(.*\)"/\1/p' gradle/libs.versions.toml)
+          MIN_SDK=$(sed -n 's/^minSdk = "\(.*\)"/\1/p' gradle/libs.versions.toml)
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
+          NDK_BIN="$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
+          test -x "$NDK_BIN/llvm-strip"
+
+      - name: Prepare PRoot cache key
+        id: proot_cache_inputs
+        run: |
+          echo "commit=$(git -C third_party/proot-static rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "ndk=$(sed -n 's/^ndk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
+          echo "min_sdk=$(sed -n 's/^minSdk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache PRoot build
+        uses: actions/cache@v6
+        with:
+          path: target/proot-static
+          key: proot-${{ runner.os }}-${{ runner.arch }}-${{ steps.proot_cache_inputs.outputs.commit }}-${{ steps.proot_cache_inputs.outputs.ndk }}-${{ steps.proot_cache_inputs.outputs.min_sdk }}-${{ hashFiles('patches/proot/android-ptrace-events.patch', 'third_party/proot-static/tools/build-static-aarch64.sh') }}
+          restore-keys: |
+            proot-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Build packs
+        env:
+          WEKIT_ARCH_ROOTFS: ${{ runner.temp }}/arch-pack/ArchLinuxARM-aarch64-rootfs.tar.gz
+        run: |
+          SOURCE=extensions/archlinux-arm64-sources.json
+          ROOTFS_URL=$(jq -r '.rootfs.url' "$SOURCE")
+          ROOTFS_MD5=$(jq -r '.rootfs.md5' "$SOURCE")
+          ROOTFS_SHA256=$(jq -er '.rootfs.sha256 | select(test("^[0-9A-Fa-f]{64}$"))' "$SOURCE")
+          ROOTFS_SIGNATURE_URL=$(jq -r '.rootfs.signature_url' "$SOURCE")
+          SIGNING_FINGERPRINT=$(jq -r '.rootfs.signing_fingerprint' "$SOURCE")
+          mkdir -p "$RUNNER_TEMP/arch-pack"
+          curl --fail --location --retry 3 \
+            "$ROOTFS_URL" \
+            -o "$WEKIT_ARCH_ROOTFS"
+          printf '%s  %s\n' "$ROOTFS_SHA256" "$WEKIT_ARCH_ROOTFS" | sha256sum --check --strict
+          printf '%s  %s\n' "$ROOTFS_MD5" "$WEKIT_ARCH_ROOTFS" | md5sum --check --strict
+          curl --fail --location --retry 3 \
+            "$ROOTFS_SIGNATURE_URL" \
+            -o "$WEKIT_ARCH_ROOTFS.sig"
+          curl --fail --location --retry 3 \
+            "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$SIGNING_FINGERPRINT" \
+            -o "$RUNNER_TEMP/arch-pack/signing-key.asc"
+          test "$(gpg --show-keys --with-colons "$RUNNER_TEMP/arch-pack/signing-key.asc" | awk -F: '$1 == "fpr" { print $10; exit }')" = "$SIGNING_FINGERPRINT"
+          gpg --batch --import "$RUNNER_TEMP/arch-pack/signing-key.asc"
+          gpg --batch --verify "$WEKIT_ARCH_ROOTFS.sig" "$WEKIT_ARCH_ROOTFS"
+          cargo xtask configure
+          cargo xtask build --native-only --abi arm64-v8a
+          cargo xtask extensions pack
+
+      - name: Skip if assets already published
+        id: published
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          skip=true
+          for f in dist/extensions/script-deps-*.dex dist/extensions/cloudflared-*.zip dist/extensions/archlinux-arm64-*.zip dist/extensions/llama-native-*.zip dist/extensions/monet-generator-*.zip dist/extensions/manifest.json; do
+            name=$(basename "$f")
+            if ! gh release view Extensions --json assets -q '.assets[].name' | grep -qx "$name"; then
+              skip=false
+            fi
+          done
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
+      - name: Create Extensions release if missing
+        if: steps.published.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view Extensions >/dev/null 2>&1; then
+            gh release create Extensions \
+              --target "${{ github.sha }}" \
+              --title "Extensions" \
+              --prerelease \
+              --notes "扩展包资产。manifest.json 为最新版本索引, 本体按索引下载并校验 SHA-256。"
+          fi
+
+      - name: Upload pack assets
+        if: steps.published.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload Extensions \
+            dist/extensions/script-deps-*.dex \
+            dist/extensions/cloudflared-*.zip \
+            dist/extensions/archlinux-arm64-*.zip \
+            dist/extensions/llama-native-*.zip \
+            dist/extensions/monet-generator-*.zip \
+            dist/extensions/manifest.json \
+            --clobber
+
+      - name: Attest build provenance
+        if: steps.published.outputs.skip == 'false'
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            dist/extensions/script-deps-*.dex
+            dist/extensions/cloudflared-*.zip
+            dist/extensions/archlinux-arm64-*.zip
+            dist/extensions/llama-native-*.zip
+            dist/extensions/monet-generator-*.zip
+            dist/extensions/manifest.json
 
   release-ci:
     needs: [build, build_zygisk]
@@ -326,12 +692,13 @@ jobs:
           MESSAGE_THREAD_ID: ${{ secrets.TELEGRAM_MESSAGE_THREAD_ID }}
           SHA:               ${{ github.sha }}
           COMMIT_AUTHOR:     ${{ github.event.head_commit.author.name || github.actor }}
+          COMMIT_MESSAGE:    ${{ github.event.head_commit.message || 'Manual Build' }}
           REPO:              ${{ github.repository }}
         run: |
           caption="🎉 *检测到新的 GitHub 推送！*
           *Commit SHA:* \`${SHA}\`
           \`\`\`
-          ${{ github.event.head_commit.message || 'Manual Build' }}
+          ${COMMIT_MESSAGE}
           \`\`\`
           *提交者* \`${COMMIT_AUTHOR}\`
           [查看详情](https://github.com/${REPO}/commit/${SHA})"

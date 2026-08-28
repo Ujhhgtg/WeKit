@@ -27,34 +27,31 @@ val View.allViews: Sequence<View>
         }
     }
 
-fun <T : View> View.findViewsByClassName(className: String): Sequence<T> {
+fun View.findViewsByClassName(className: String): Sequence<View> {
     return allViews
         .filter { it.javaClass.name == className || it.javaClass.simpleName == className }
-        .map { @Suppress("UNCHECKED_CAST") (it as T) }
 }
 
-fun <T : View> View.findViewByClassName(className: String): T? {
-    return findViewsByClassName<T>(className).firstOrNull()
+fun View.findViewByClassName(className: String): View? {
+    return findViewsByClassName(className).firstOrNull()
 }
 
-fun <T : View> View?.findViewsWhich(predicate: (View) -> Boolean): Sequence<T> {
+fun View?.findViewsWhich(predicate: (View) -> Boolean): Sequence<View> {
     if (this == null) return emptySequence()
     return this.allViews
         .filter(predicate)
-        .map { @Suppress("UNCHECKED_CAST") (it as T) }
 }
 
-fun <T : View> View?.findViewWhich(predicate: (View) -> Boolean): T? {
-    return findViewsWhich<T>(predicate).firstOrNull()
+fun View?.findViewWhich(predicate: (View) -> Boolean): View? {
+    return findViewsWhich(predicate).firstOrNull()
 }
 
-fun <T : View> View.findViewByChildIndexes(vararg indexes: Int): T? {
+fun View.findViewByChildIndexes(vararg indexes: Int): View? {
     var current: View = this
     for (index in indexes) {
         current = (current as? ViewGroup)?.getChildAt(index) ?: return null
     }
-    @Suppress("UNCHECKED_CAST")
-    return current as? T
+    return current
 }
 
 fun ListAdapter.iterator(parent: ViewGroup): Iterator<View> =

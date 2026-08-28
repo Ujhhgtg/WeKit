@@ -1,28 +1,31 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
-enum class MomentsContentType(val typeId: Int, val displayName: String) {
-    IMG(1, "图片"),
-    TEXT(2, "文本"),
-    LINK(3, "链接"),
-    MUSIC(4, "音乐"),
-    VIDEO(5, "视频"),
-    COMMODITY(9, "商品"),
-    STICKER(10, "表情"),
-    COMMODITY_OLD(12, "商品 (旧)"),
-    COUPON(13, "卡券"),
-    TV_SHOW(14, "视频号/电视"),
-    LITTLE_VIDEO(15, "微视/短视频"),
-    STREAM_VIDEO(18, "直播流"),
-    ARTICLE_VIDEO(19, "文章视频"),
-    NOTE(26, "笔记"),
-    FINDER_VIDEO(28, "视频号视频"),
-    WE_APP(30, "小程序单页"),
-    LIVE(34, "直播"),
-    FINDER_LONG_VIDEO(36, "视频号长视频"),
-    LITE_APP(41, "轻应用"),
-    RICH_MUSIC(42, "富媒体音乐"),
-    TING_AUDIO(47, "听歌"),
-    LIVE_PHOTO(54, "动态照片");
+import androidx.annotation.StringRes
+import dev.ujhhgtg.wekit.R
+
+enum class MomentsContentType(val typeId: Int, @StringRes val nameRes: Int) {
+    IMG(1, R.string.moments_content_type_image),
+    TEXT(2, R.string.moments_content_type_text),
+    LINK(3, R.string.moments_content_type_link),
+    MUSIC(4, R.string.moments_content_type_music),
+    VIDEO(5, R.string.moments_content_type_video),
+    COMMODITY(9, R.string.moments_content_type_product),
+    STICKER(10, R.string.moments_content_type_sticker),
+    COMMODITY_OLD(12, R.string.moments_content_type_product_old),
+    COUPON(13, R.string.moments_content_type_coupon),
+    TV_SHOW(14, R.string.moments_content_type_channels_tv),
+    LITTLE_VIDEO(15, R.string.moments_content_type_short_video),
+    STREAM_VIDEO(18, R.string.moments_content_type_stream),
+    ARTICLE_VIDEO(19, R.string.moments_content_type_article_video),
+    NOTE(26, R.string.moments_content_type_note),
+    FINDER_VIDEO(28, R.string.moments_content_type_channels_video),
+    WE_APP(30, R.string.moments_content_type_miniapp_page),
+    LIVE(34, R.string.moments_content_type_live),
+    FINDER_LONG_VIDEO(36, R.string.moments_content_type_channels_long_video),
+    LITE_APP(41, R.string.moments_content_type_lite_app),
+    RICH_MUSIC(42, R.string.moments_content_type_rich_music),
+    TING_AUDIO(47, R.string.moments_content_type_listen_audio),
+    LIVE_PHOTO(54, R.string.moments_content_type_live_photo);
 
     companion object {
         // 缓存所有有效的 Type ID，避免每次重复计算

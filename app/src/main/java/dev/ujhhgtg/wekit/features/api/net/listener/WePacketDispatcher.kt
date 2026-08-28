@@ -12,13 +12,19 @@ import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Proxy
 import java.util.concurrent.ConcurrentHashMap
 
-@Feature(name = "数据包拦截与篡改服务", categories = ["API"], description = "响应数据包拦截与篡改")
+@Feature(
+    id = "数据包拦截与篡改服务",
+    nameRes = "feature_we_packet_dispatcher_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_packet_dispatcher_description",
+)
 object WePacketDispatcher : ApiFeature(), IResolveDex {
 
     private const val TAG = "WePacketDispatcher"

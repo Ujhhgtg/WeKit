@@ -6,10 +6,16 @@ import android.content.pm.ResolveInfo
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(name = "隐藏模块应用", categories = ["系统与隐私"], description = "在不影响模块功能的情况下防止微信查询模块安装状态 (实验性)")
+@Feature(
+    id = "隐藏模块应用",
+    nameRes = "feature_hide_module_from_app_list_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_hide_module_from_app_list_description",
+)
 object HideModuleFromAppList : SwitchFeature() {
 
     private const val TAG = "HideModuleFromAppList"

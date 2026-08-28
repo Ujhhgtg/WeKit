@@ -38,9 +38,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import kotlin.math.ceil
 import kotlin.math.min
@@ -135,7 +137,7 @@ fun WeColorPickerDialog(
     val hexError = runCatching { hexText.toColorInt() }.isFailure
 
     AlertDialogContent(
-        title = { Text("选择颜色") },
+        title = { Text(stringResource(R.string.color_picker_title)) },
         text = {
             DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                 Box(
@@ -149,7 +151,7 @@ fun WeColorPickerDialog(
                 )
 
                 ColorSlider(
-                    label = "色相",
+                    label = stringResource(R.string.color_picker_hue),
                     value = hue,
                     onValueChange = { next -> onSliderChange { hue = next } },
                     trackBrush = Brush.horizontalGradient(
@@ -157,7 +159,7 @@ fun WeColorPickerDialog(
                     ),
                 )
                 ColorSlider(
-                    label = "饱和度",
+                    label = stringResource(R.string.color_picker_saturation),
                     value = saturation,
                     onValueChange = { next -> onSliderChange { saturation = next } },
                     trackBrush = Brush.horizontalGradient(
@@ -168,7 +170,7 @@ fun WeColorPickerDialog(
                     ),
                 )
                 ColorSlider(
-                    label = "明度",
+                    label = stringResource(R.string.color_picker_value),
                     value = brightness,
                     onValueChange = { next -> onSliderChange { brightness = next } },
                     trackBrush = Brush.horizontalGradient(
@@ -179,7 +181,7 @@ fun WeColorPickerDialog(
                     ),
                 )
                 ColorSlider(
-                    label = "透明度",
+                    label = stringResource(R.string.color_picker_opacity),
                     value = alpha,
                     onValueChange = { next -> onSliderChange { alpha = next } },
                     trackBrush = Brush.horizontalGradient(
@@ -203,18 +205,22 @@ fun WeColorPickerDialog(
                             alpha = AndroidColor.alpha(parsed) / 255f
                         }
                     },
-                    label = { Text("色值") },
+                    label = { Text(stringResource(R.string.color_picker_hex_value)) },
                     singleLine = true,
                     isError = hexError,
                     supportingText = if (hexError) {
-                        { Text("色值格式不正确 (#AARRGGBB)") }
+                        { Text(stringResource(R.string.color_picker_invalid_argb)) }
                     } else null,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
-        dismissButton = { TextButton(onDismiss) { Text("取消") } },
-        confirmButton = { Button(onClick = { onConfirm(current) }) { Text("确定") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+        confirmButton = {
+            Button(onClick = { onConfirm(current) }) {
+                Text(stringResource(R.string.dialog_confirm))
+            }
+        },
     )
 }
 

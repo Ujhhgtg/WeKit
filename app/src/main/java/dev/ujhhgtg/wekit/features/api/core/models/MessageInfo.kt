@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.utils.serialization.NativeXmlParser
 import dev.ujhhgtg.wekit.utils.serialization.XmlObject
+import dev.ujhhgtg.wekit.utils.serialization.XmlUtils
 import dev.ujhhgtg.wekit.utils.serialization.asInt
 import dev.ujhhgtg.wekit.utils.serialization.asLong
 import dev.ujhhgtg.wekit.utils.serialization.asString
@@ -65,6 +66,11 @@ class MessageInfo(val instance: Any) {
         }
 
     val imagePath by lazy { getFieldByName<String?>(instance, "field_imgPath") }
+    val stickerMd5 by lazy {
+        imagePath?.takeIf { it.isNotBlank() }
+            ?: XmlUtils.extractXmlAttr(content, "md5").takeIf { it.isNotBlank() }
+            ?: XmlUtils.extractXmlTag(content, "md5").takeIf { it.isNotBlank() }
+    }
     /** 微信在没有该列 (或 ContentValues 中无 `lvbuffer` 键) 时会留 null, 因此必须可空 */
     val lvBuffer by lazy { getFieldByName<ByteArray?>(instance, "field_lvbuffer") }
     val talkerId by lazy { getFieldByName<Int>(instance, "field_talkerId") }

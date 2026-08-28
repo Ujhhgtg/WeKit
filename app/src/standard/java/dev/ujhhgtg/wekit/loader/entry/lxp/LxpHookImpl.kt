@@ -2,6 +2,8 @@ package dev.ujhhgtg.wekit.loader.entry.lxp
 
 import android.util.Log
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.HostLocalizedStrings
 import dev.ujhhgtg.wekit.loader.abc.IClassLoaderHelper
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge.IMemberHookCallback
@@ -22,7 +24,7 @@ object LxpHookImpl : IHookBridge, ILoaderService {
 
     override var classLoaderHelper: IClassLoaderHelper? = null
 
-    override val loaderName: String get() = "libxposed API ${self.apiVersion}"
+    override val loaderName: String get() = HostLocalizedStrings.get(R.string.loader_libxposed_api_name, self.apiVersion)
     override val hookBridgeName: String get() = loaderName
     override val frameworkName: String get() = self.frameworkName
     override val frameworkVersion: String get() = self.frameworkVersion

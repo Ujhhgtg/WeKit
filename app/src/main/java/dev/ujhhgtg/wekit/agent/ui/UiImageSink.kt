@@ -17,8 +17,7 @@ import kotlin.coroutines.CoroutineContext
  * position for image content in all three APIs).
  *
  * Installed by [dev.ujhhgtg.wekit.features.api.agent.WeAgentService] around
- * [dev.ujhhgtg.wekit.agent.engine.AgentSessionEngine.runTurn], mirroring
- * [dev.ujhhgtg.wekit.agent.workspace.VfsContext]. Screenshots are intentionally NOT persisted to
+ * [dev.ujhhgtg.wekit.agent.engine.AgentSessionEngine.runTurn]. Screenshots are intentionally NOT persisted to
  * Room — they live only for the current turn (context economy; a stale screenshot is worse than
  * none).
  */

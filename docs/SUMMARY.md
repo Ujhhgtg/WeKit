@@ -6,7 +6,9 @@
 * [🧩 Zygisk 模式](zygisk.md)
 * [⚙️ 配置指南](configuration.md)
 * [🔧 模块设置说明](module-settings.md)
-* [🛠️ 开发指南](development.md)
+* [🛠️ 开发指南](development/README.md)
+  * [DexKit 解析器测试](development/linux-dex-test.md)
+  * [国际化开发指南](development/i18n.md)
 * [❓ 常见问题](faq.md)
 * [🐛 问题反馈指南](bug-report-guide.md)
 * [⭐ 建议反馈指南](feature-request-guide.md)
@@ -155,14 +157,6 @@
 * [设置微信昵称](features/profile/set-profile-nickname.md)
 * [上传透明头像](features/profile/upload-transparent-avatars.md)
 * [移除个性签名限制](features/profile/remove-signature-limits.md)
-
-## 脚本引擎
-
-* [脚本引擎](features/scripting_js/js-scripting-hook.md)
-* [脚本引擎 API 参考](features/scripting_js/js-api-reference.md)
-* [触发器: 收到消息](features/scripting_js/on-message.md)
-* [触发器: 发起请求](features/scripting_js/on-request.md)
-* [触发器: 收到响应](features/scripting_js/on-response.md)
 
 ## 调试
 

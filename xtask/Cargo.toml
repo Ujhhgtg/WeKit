@@ -6,8 +6,14 @@ edition = "2024"
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
+fs2 = "0.4"
+md5 = "0.8"
+regex = "1"
+roxmltree = "0.20"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 sha2 = "0.11"
+time = { version = "0.3", features = ["formatting", "macros"] }
 toml = "1.1"
 walkdir = "2"
 zip = { version = "2.4.2", default-features = false, features = ["deflate"] }

@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel
 
+import androidx.annotation.StringRes
+import androidx.annotation.PluralsRes
 import kotlinx.serialization.Serializable
 
 enum class PanelSource {
@@ -94,11 +96,35 @@ data class VoicePreview(
     val temporary: Boolean,
 )
 
+sealed interface PanelUiText {
+    data class Resource(
+        @param:StringRes val id: Int,
+        val args: List<Any> = emptyList(),
+    ) : PanelUiText
+
+    data class Quantity(
+        @param:PluralsRes val id: Int,
+        val quantity: Int,
+        val args: List<Any> = emptyList(),
+    ) : PanelUiText
+
+    data class Raw(val value: String) : PanelUiText
+}
+
+fun panelUiText(@StringRes id: Int, vararg args: Any): PanelUiText =
+    PanelUiText.Resource(id, args.toList())
+
+fun panelUiQuantity(@PluralsRes id: Int, quantity: Int, vararg args: Any): PanelUiText =
+    PanelUiText.Quantity(id, quantity, args.toList())
+
+fun Throwable.toPanelUiText(@StringRes fallbackId: Int, vararg fallbackArgs: Any): PanelUiText =
+    message?.let(PanelUiText::Raw) ?: panelUiText(fallbackId, *fallbackArgs)
+
 sealed interface PanelUiState<out T> {
     data object Loading : PanelUiState<Nothing>
     data class Content<T>(val value: T) : PanelUiState<T>
-    data class Empty(val message: String) : PanelUiState<Nothing>
-    data class Error(val message: String) : PanelUiState<Nothing>
+    data class Empty(val message: PanelUiText) : PanelUiState<Nothing>
+    data class Error(val message: PanelUiText) : PanelUiState<Nothing>
 }
 
 enum class StickerDestination {
@@ -121,12 +147,12 @@ enum class VoicePackLayout {
     LIST,
 }
 
-enum class LocalSortMode(val label: String) {
-    NAME("名称"),
-    MODIFIED("最近修改"),
-    RECENT("最近使用"),
-    FREQUENT("最常使用"),
-    CUSTOM("自定义");
+enum class LocalSortMode {
+    NAME,
+    MODIFIED,
+    RECENT,
+    FREQUENT,
+    CUSTOM;
 
     fun next(): LocalSortMode = entries[(ordinal + 1) % entries.size]
 }

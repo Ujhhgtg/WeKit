@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -46,6 +47,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Check
 import com.composables.icons.materialsymbols.outlined.Close
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.ui.utils.LocationOnRedIcon
 import org.osmdroid.config.Configuration
@@ -221,7 +223,7 @@ fun OsmLocationPicker(
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
                     ) {
                         Text(
-                            text = "点击地图或下方坐标以选择虚拟位置",
+                            text = stringResource(R.string.location_picker_instruction),
                             style = MaterialTheme.typography.labelMedium,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         )
@@ -284,10 +286,13 @@ private fun OsmPickerHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onDismiss) {
-            Icon(MaterialSymbols.Outlined.Close, contentDescription = "Cancel")
+            Icon(
+                MaterialSymbols.Outlined.Close,
+                contentDescription = stringResource(R.string.dialog_cancel),
+            )
         }
         Text(
-            text = "地图选点",
+            text = stringResource(R.string.location_picker_title),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),
@@ -302,7 +307,7 @@ private fun OsmPickerHeader(
                 modifier = Modifier.size(18.dp),
             )
             Spacer(Modifier.width(4.dp))
-            Text("确定")
+            Text(stringResource(R.string.dialog_confirm))
         }
     }
 }
@@ -319,13 +324,15 @@ private fun OsmCoordinateReadout(
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
         OsmCoordinateChip(
-            label = "纬度",
-            value = point?.let { "%.6f".format(it.latitude) } ?: "N/A",
+            label = stringResource(R.string.location_latitude),
+            value = point?.let { "%.6f".format(it.latitude) }
+                ?: stringResource(R.string.common_not_available),
             onClick = onClick
         )
         OsmCoordinateChip(
-            label = "经度",
-            value = point?.let { "%.6f".format(it.longitude) } ?: "N/A",
+            label = stringResource(R.string.location_longitude),
+            value = point?.let { "%.6f".format(it.longitude) }
+                ?: stringResource(R.string.common_not_available),
             onClick = onClick
         )
     }
@@ -376,7 +383,7 @@ private fun ManualCoordinateDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("手动输入坐标") },
+        title = { Text(stringResource(R.string.location_manual_coordinates_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -386,7 +393,7 @@ private fun ManualCoordinateDialog(
                         val lat = it.toDoubleOrNull()
                         latError = lat == null || lat !in -90.0..90.0
                     },
-                    label = { Text("纬度 (-90 ~ 90)") },
+                    label = { Text(stringResource(R.string.location_latitude_range_label)) },
                     isError = latError,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
@@ -399,7 +406,7 @@ private fun ManualCoordinateDialog(
                         val lng = it.toDoubleOrNull()
                         lngError = lng == null || lng !in -180.0..180.0
                     },
-                    label = { Text("经度 (-180 ~ 180)") },
+                    label = { Text(stringResource(R.string.location_longitude_range_label)) },
                     isError = lngError,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
@@ -424,12 +431,12 @@ private fun ManualCoordinateDialog(
                     }
                 }
             ) {
-                Text("确定")
+                Text(stringResource(R.string.dialog_confirm))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text(stringResource(R.string.dialog_cancel))
             }
         }
     )

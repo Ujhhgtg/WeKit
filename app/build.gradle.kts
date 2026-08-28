@@ -1,3 +1,4 @@
+
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
@@ -46,7 +47,7 @@ android {
 
         ndk {
             // noinspection ChromeOsAbiSupport
-            abiFilters += setOf("arm64-v8a", "armeabi-v7a")
+            abiFilters += "arm64-v8a"
         }
 
         buildConfigField("String", "COMMIT_HASH", "\"${gitHash}\"")
@@ -130,6 +131,9 @@ android {
     }
 
     packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
         resources.excludes += listOf(
             "kotlin/**",
             "**.bin",
@@ -145,7 +149,7 @@ android {
 
     @Suppress("UnstableApiUsage")
     androidResources {
-        localeFilters += setOf("zh")
+        localeFilters += setOf("zh-rCN", "zh-rTW")
         additionalParameters += listOf("--allow-reserved-package-id", "--package-id", "0x69")
     }
 
@@ -196,6 +200,21 @@ val generateMethodHashes = tasks.register<GenerateMethodHashesTask>("generateMet
     namespace.set(libs.versions.namespace.get())
 }
 
+val validateDesktopDexResolvers = tasks.register<ValidateDesktopDexResolversTask>("validateDesktopDexResolvers") {
+    description = "Validate that Dex resolvers can run without a live WeChat host"
+    group = "verification"
+    sourceDir.set(file("src/main/java"))
+    includePaths.set(
+        providers.gradleProperty("dexResolverValidationInclude")
+            .map { it.split(',').map(String::trim).filter(String::isNotEmpty) }
+            .orElse(emptyList()),
+    )
+}
+
+tasks.named("preBuild") {
+    dependsOn(validateDesktopDexResolvers)
+}
+
 val generateNewFeatures = tasks.register<GenerateNewFeaturesTask>("generateNewFeatures") {
     description = "Collect features added within the last 30 days of history"
     group = "wekit"
@@ -205,6 +224,29 @@ val generateNewFeatures = tasks.register<GenerateNewFeaturesTask>("generateNewFe
     namespace.set(libs.versions.namespace.get())
     windowDays.set(30)
     gitHead.set(getGitHash())
+}
+
+val scriptDeps = configurations.create("scriptDeps") {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+
+// R8/D8 fat jar, resolved through the project repositories (google()).
+val r8Tool = configurations.detachedConfiguration(
+    dependencies.create("com.android.tools:r8:8.7.18"),
+)
+
+val generateScriptDepsDex = tasks.register<GenerateScriptDepsDexTask>("generateScriptDepsDex") {
+    group = "wekit"
+    description = "Compile the script-deps extension pack DEX (fastjson2 + okhttp + kotlin-stdlib)"
+    jars.from(scriptDeps)
+    r8Classpath.from(r8Tool)
+    minApi.set(28)
+    // Bump together with compileSdk when it changes.
+    androidJar.set(
+        androidComponents.sdkComponents.bootClasspath.map { jars -> jars.first().asFile.absolutePath },
+    )
+    outputDir.set(layout.buildDirectory.dir("outputs/script-deps"))
 }
 
 // --- end tasks ---
@@ -218,6 +260,7 @@ ksp {
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.dynamicanimation)
     implementation(libs.androidx.appcompat)
     implementation(libs.android.material)
     implementation(libs.androidx.activity)
@@ -225,6 +268,7 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.navigationevent.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.biometric)
@@ -232,11 +276,9 @@ dependencies {
     implementation(libs.aboutlibraries.core)
     implementation(libs.aboutlibraries.compose.m3)
     implementation(libs.androidx.profileinstaller)
-    implementation(libs.miuix.ui)
-    implementation(libs.miuix.icons)
-    implementation(libs.miuix.preference)
     implementation(libs.miuix.blur)
     implementation(libs.miuix.shader)
+    implementation(libs.miuix.nav)
     implementation(libs.materialkolor)
     implementation(libs.coil)
     implementation(libs.coil.compose)
@@ -252,6 +294,7 @@ dependencies {
     implementation(libs.mmkv)
 
     implementation(project(":libs:common:bsh"))
+    implementation(project(":libs:monet-generator-api"))
 
     compileOnly(libs.legacyxposed.api)
     compileOnly(libs.libxposed.api)
@@ -273,9 +316,9 @@ dependencies {
     implementation(libs.okhttp3.okhttp)
     implementation(libs.jsoup)
 
-    implementation(libs.rhino)
-
-    implementation(libs.fastjson2)
+    scriptDeps(libs.alibaba.fastjson2)
+    scriptDeps(libs.okhttp3.okhttp)
+    scriptDeps(kotlin("stdlib"))
 
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
@@ -300,12 +343,48 @@ dependencies {
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.websockets)
     implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.jsch)
 
     implementation(libs.osmdroid.android)
 
     compileOnly(project(":libs:common:stubs"))
+
     testImplementation(libs.junit.jupiter)
+    testImplementation(project(":libs:common:stubs"))
+    testImplementation(libs.legacyxposed.api)
+    testImplementation(libs.libxposed.api)
+    testImplementation(libs.sqlite.jdbc)
     testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+val dexTestWorkerProperties = listOf(
+    "wekit.dexTest.apk",
+    "wekit.dexTest.nativeLibrary",
+    "wekit.dexTest.report",
+    "wekit.dexTest.dexKitVersion",
+    "wekit.dexTest.dexKitRevision",
+    "wekit.dexTest.versionCode",
+    "wekit.dexTest.versionName",
+    "wekit.dexTest.buildTag",
+    "wekit.dexTest.isGooglePlay",
+    "wekit.dexTest.features",
+)
+val dexTestWorker = providers.gradleProperty("dexTestWorker").map(String::toBoolean).orElse(false)
+
+tasks.withType<Test>().configureEach {
+    if (dexTestWorker.get()) {
+        filter {
+            includeTestsMatching("dev.ujhhgtg.wekit.dextest.DexTestWorkerTest")
+        }
+        dexTestWorkerProperties.forEach { propertyName ->
+            systemProperty(propertyName, providers.gradleProperty(propertyName).orNull.orEmpty())
+        }
+        outputs.upToDateWhen { false }
+    } else {
+        filter {
+            excludeTestsMatching("dev.ujhhgtg.wekit.dextest.DexTestWorkerTest")
+        }
+    }
 }
 
 // markwon conflict

@@ -3,12 +3,14 @@ package dev.ujhhgtg.wekit.features.items.system
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 @Feature(
-    name = "禁用「刚刚在看」提醒",
-    categories = ["系统与隐私"],
-    description = "禁用微信启动时弹出的「刚刚在看的「视频号」」继续浏览提示条"
+    id = "禁用「刚刚在看」提醒",
+    nameRes = "feature_disable_resume_watching_toast_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_disable_resume_watching_toast_description",
 )
 object DisableResumeWatchingToast : SwitchFeature(), IResolveDex {
 

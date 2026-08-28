@@ -10,7 +10,9 @@ import com.android.dx.MethodId
 import com.android.dx.TypeId
 import dalvik.system.DexFile
 import dev.ujhhgtg.reflekt.utils.isStatic
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
+import dev.ujhhgtg.wekit.i18n.HostLocalizedStrings
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge.IMemberHookCallback
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge.MemberUnhookHandle
@@ -65,7 +67,7 @@ class ArtHookBridge : IHookBridge {
 
     // ── IHookBridge metadata ──────────────────────────────────────────────────
 
-    override val hookBridgeName: String = "ART 钩子"
+    override val hookBridgeName: String get() = HostLocalizedStrings.get(R.string.loader_art_hook_name)
     override val frameworkName: String = "Zygisk"
     override val frameworkVersion: String = "v1"
     override val frameworkVersionCode: Long = 1

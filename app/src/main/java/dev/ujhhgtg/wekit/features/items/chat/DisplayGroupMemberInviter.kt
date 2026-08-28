@@ -1,12 +1,14 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import android.app.Activity
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoProvider
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.currentWxId
@@ -18,9 +20,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Feature(
-    name = "查看群成员邀请者",
-    categories = ["联系人与群组"],
-    description = "在群成员详情页面添加入口, 可查看该成员的进群邀请者"
+    id = "查看群成员邀请者",
+    nameRes = "feature_display_group_member_inviter_name",
+    categoryIds = [FeatureCategoryIds.CONTACTS_GROUPS],
+    descriptionRes = "feature_display_group_member_inviter_description",
 )
 object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
 
@@ -47,8 +50,8 @@ object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
         return listOf(
             PreferenceItem(
                 key = PREF_KEY,
-                title = "查看进群邀请者",
-                summary = "点击查看",
+                title = activity.localizedChatString(R.string.chat_member_inviter_title),
+                summary = activity.localizedChatString(R.string.chat_contact_tap_to_view),
                 position = 1
             )
         )
@@ -60,15 +63,15 @@ object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
         val groupId = WeCurrentConversationApi.value.takeIf { it.isGroupChatWxId } ?: return true
         val memberId = activity.currentWxId ?: return true
 
-        showToast(activity, "正在查询...")
+        showToast(activity, activity.localizedChatString(R.string.chat_member_inviter_querying))
         CoroutineScope(Dispatchers.IO).launch {
             val inviterId = runCatching { WeDatabaseApi.getGroupMemberInviter(groupId, memberId) }
                 .onFailure { WeLogger.e(TAG, "failed to resolve inviter for $memberId in $groupId", it) }
                 .getOrDefault("")
 
             val message = when {
-                inviterId.isEmpty() -> "无邀请者记录 (可能是群主/前群主/早期成员)"
-                inviterId == memberId -> "该成员为扫码/自行进群"
+                inviterId.isEmpty() -> activity.localizedChatString(R.string.chat_member_inviter_no_record)
+                inviterId == memberId -> activity.localizedChatString(R.string.chat_member_inviter_self_joined)
                 else -> {
                     val inviterName = runCatching { WeDatabaseApi.getDisplayName(inviterId) }
                         .getOrDefault(inviterId)
@@ -81,7 +84,7 @@ object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
                     } else {
                         inviterName
                     }
-                    "邀请者: $nameLabel"
+                    activity.localizedChatString(R.string.chat_member_inviter_result, nameLabel)
                 }
             }
 

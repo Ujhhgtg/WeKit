@@ -12,6 +12,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.reload
 import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.tracked
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.luckypray.dexkit.query.enums.StringMatchType
 import java.util.Collections
@@ -33,9 +34,10 @@ import java.util.concurrent.TimeUnit
  * 方法名调用，同时适配二者（与 [dev.ujhhgtg.wekit.features.items.miniapps.ErudaConsole] 的做法一致）。
  */
 @Feature(
-    name = "WebView 追踪服务",
-    categories = ["API"],
-    description = "追踪主进程内所有 WebView 实例，供 WeAgent 的 builtin-webview 工具调用"
+    id = "WebView 追踪服务",
+    nameRes = "feature_we_web_view_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_web_view_api_description",
 )
 object WeWebViewApi : ApiFeature(), IResolveDex {
 

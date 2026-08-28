@@ -3,9 +3,15 @@ package dev.ujhhgtg.wekit.features.items.system
 import android.os.PowerManager
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-@Feature(name = "省电模式", categories = ["系统与隐私"], description = "通过一些措施, 减少微信耗电量")
+@Feature(
+    id = "省电模式",
+    nameRes = "feature_power_saver_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_power_saver_description",
+)
 object PowerSaver : SwitchFeature() {
 
     override fun onEnable() {

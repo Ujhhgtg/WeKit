@@ -2,29 +2,30 @@ package dev.ujhhgtg.wekit.features.items.batch
 
 import android.content.Context
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -36,9 +37,10 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 @Feature(
-    name = "群发消息",
-    categories = ["批量操作"],
-    description = "编写一条文本或卡片消息, 选择多个好友或群聊后批量发送, 请求会自动间隔以规避服务器风控"
+    id = "群发消息",
+    nameRes = "feature_mass_send_message_name",
+    categoryIds = [FeatureCategoryIds.BATCH],
+    descriptionRes = "feature_mass_send_message_description",
 )
 object MassSendMessage : ClickableFeature() {
 
@@ -49,9 +51,21 @@ object MassSendMessage : ClickableFeature() {
     /** Space out sends to avoid WeChat's server-side rate limiting. */
     private const val SEND_INTERVAL_MS = 800L
 
-    private enum class SendMode(val displayName: String, val hint: String, val label: String) {
-        TEXT("文本消息", "编写要群发的文本消息, 点击「选择对象」挑选发送目标", "消息内容"),
-        CARD("卡片消息 (XML)", "粘贴卡片消息的 appmsg XML, 点击「选择对象」挑选发送目标", "卡片 XML")
+    private enum class SendMode(
+        @StringRes val displayNameRes: Int,
+        @StringRes val hintRes: Int,
+        @StringRes val labelRes: Int,
+    ) {
+        TEXT(
+            R.string.batch_mass_send_text_mode,
+            R.string.batch_mass_send_text_hint,
+            R.string.batch_mass_send_text_label,
+        ),
+        CARD(
+            R.string.batch_mass_send_card_mode,
+            R.string.batch_mass_send_card_hint,
+            R.string.batch_mass_send_card_label,
+        ),
     }
 
     override fun onClick(context: ComponentActivity) {
@@ -76,46 +90,40 @@ object MassSendMessage : ClickableFeature() {
         var mode by remember { mutableStateOf(SendMode.TEXT) }
 
         AlertDialogContent(
-            title = { Text("群发消息") },
+            title = { Text(stringResource(R.string.feature_mass_send_message_name)) },
             text = {
                 DefaultColumn {
                     SendMode.entries.forEach { option ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { mode = option }
-                        ) {
-                            RadioButton(
-                                selected = mode == option,
-                                onClick = { mode = option }
-                            )
-                            Text(option.displayName)
-                        }
+                        RadioButtonWidget(
+                            iconPlaceholder = false,
+                            title = stringResource(option.displayNameRes),
+                            selected = mode == option,
+                            onClick = { mode = option },
+                        )
                     }
-                    Text(mode.hint)
+                    Text(stringResource(mode.hintRes))
                     OutlinedTextField(
                         value = text,
                         onValueChange = { text = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text(mode.label) },
+                        label = { Text(stringResource(mode.labelRes)) },
                         singleLine = false,
                         minLines = 3,
                         maxLines = 8
                     )
                 }
             },
-            dismissButton = { TextButton(onDismiss) { Text("取消") } },
+            dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
             confirmButton = {
                 Button(onClick = {
                     if (text.isBlank()) {
-                        showToast("请输入消息内容")
+                        showToast(context.localizedBatchString(R.string.batch_mass_send_enter_content))
                         return@Button
                     }
 
                     onDismiss()
                     pickRecipientsAndSend(context, contacts, mode, text)
-                }) { Text("选择对象") }
+                }) { Text(stringResource(R.string.batch_mass_send_select_recipients)) }
             }
         )
     }
@@ -128,13 +136,13 @@ object MassSendMessage : ClickableFeature() {
     ) {
         showComposeDialog(context) {
             ContactsSelector(
-                title = "选择群发对象",
+                title = context.localizedBatchString(R.string.batch_mass_send_select_title),
                 contacts = contacts,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast("请选择至少一个对象")
+                        showToast(context.localizedBatchString(R.string.batch_mass_send_select_at_least_one))
                         return@ContactsSelector
                     }
 
@@ -147,7 +155,9 @@ object MassSendMessage : ClickableFeature() {
 
     private fun sendToAll(wxIds: Set<String>, mode: SendMode, text: String) {
         CoroutineScope(Dispatchers.IO).launch {
-            showToastSuspend("正在群发到 ${wxIds.size} 个对象...")
+            showToastSuspend(
+                localizedBatchQuantity(R.plurals.batch_mass_send_progress, wxIds.size, wxIds.size),
+            )
 
             var success = 0
             wxIds.forEachIndexed { index, wxId ->
@@ -165,8 +175,13 @@ object MassSendMessage : ClickableFeature() {
             }
 
             showToastSuspend(
-                if (success == wxIds.size) "已群发到 ${wxIds.size} 个对象"
-                else "已群发到 $success/${wxIds.size} 个对象"
+                localizedBatchQuantity(
+                    if (success == wxIds.size) R.plurals.batch_mass_send_done
+                    else R.plurals.batch_mass_send_partial,
+                    wxIds.size,
+                    success,
+                    wxIds.size,
+                )
             )
         }
     }

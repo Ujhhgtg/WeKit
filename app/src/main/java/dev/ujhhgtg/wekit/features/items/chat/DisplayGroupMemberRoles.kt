@@ -9,39 +9,60 @@ import android.text.style.ReplacementSpan
 import android.view.View
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.Switch
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
+import androidx.compose.material3.ToggleButton
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.WeColorField
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.ColorPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.collections.LruCache
 import dev.ujhhgtg.wekit.utils.unreachable
 import kotlin.math.roundToInt
 
-@Feature(name = "显示群成员身份", categories = ["聊天"], description = "在群聊中显示群成员的身份: 群主, 管理员, 成员")
+@Feature(
+    id = "显示群成员身份",
+    nameRes = "feature_display_group_member_roles_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_display_group_member_roles_description",
+)
 object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
     WeChatMessageViewApi.ICreateViewListener {
 
@@ -75,15 +96,21 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
     private var ownerFg by WePrefs.prefOption("group_role_owner_fg", DEFAULT_OWNER_FG)
     private var adminFg by WePrefs.prefOption("group_role_admin_fg", DEFAULT_ADMIN_FG)
     private var memberFg by WePrefs.prefOption("group_role_member_fg", DEFAULT_MEMBER_FG)
-    private var ownerText by WePrefs.prefOption("group_role_owner_text", "群主")
-    private var adminText by WePrefs.prefOption("group_role_admin_text", "管理员")
-    private var memberText by WePrefs.prefOption("group_role_member_text", "成员")
+    private var ownerText by WePrefs.prefOption("group_role_owner_text", "")
+    private var adminText by WePrefs.prefOption("group_role_admin_text", "")
+    private var memberText by WePrefs.prefOption("group_role_member_text", "")
 
+    private var showOwner by WePrefs.prefOption("group_role_show_owner", true)
+    private var showAdmin by WePrefs.prefOption("group_role_show_admin", true)
     private var showMember by WePrefs.prefOption("group_role_show_member", true)
 
     private fun parseColor(value: String, fallback: String): Int =
         runCatching { value.toColorInt() }.getOrElse { fallback.toColorInt() }
 
+    private fun roleText(value: String, defaultRes: Int): String =
+        value.ifBlank { localizedChatString(defaultRes) }
+
+    @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var ob by remember { mutableStateOf(ownerBg) }
@@ -92,59 +119,151 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
             var of by remember { mutableStateOf(ownerFg) }
             var af by remember { mutableStateOf(adminFg) }
             var mf by remember { mutableStateOf(memberFg) }
-            var ot by remember { mutableStateOf(ownerText) }
-            var at by remember { mutableStateOf(adminText) }
-            var mt by remember { mutableStateOf(memberText) }
+            val ownerDefault = stringResource(R.string.chat_group_role_owner)
+            val adminDefault = stringResource(R.string.chat_group_role_admin)
+            val memberDefault = stringResource(R.string.chat_group_role_member)
+            var ot by remember { mutableStateOf(roleText(ownerText, R.string.chat_group_role_owner)) }
+            var at by remember { mutableStateOf(roleText(adminText, R.string.chat_group_role_admin)) }
+            var mt by remember { mutableStateOf(roleText(memberText, R.string.chat_group_role_member)) }
+            var showOwn by remember { mutableStateOf(showOwner) }
+            var showAdm by remember { mutableStateOf(showAdmin) }
             var showMem by remember { mutableStateOf(showMember) }
+            var selectedRole by remember { mutableIntStateOf(0) }
+
+            val roleLabels = listOf(ownerDefault, adminDefault, memberDefault)
+            val selectedShow = when (selectedRole) {
+                0 -> showOwn
+                1 -> showAdm
+                else -> showMem
+            }
+            val selectedBackground = when (selectedRole) {
+                0 -> ob
+                1 -> ab
+                else -> mb
+            }
+            val selectedForeground = when (selectedRole) {
+                0 -> of
+                1 -> af
+                else -> mf
+            }
+            val backgroundTitle = stringResource(
+                when (selectedRole) {
+                    0 -> R.string.chat_group_role_owner_background
+                    1 -> R.string.chat_group_role_admin_background
+                    else -> R.string.chat_group_role_member_background
+                }
+            )
+            val foregroundTitle = stringResource(
+                when (selectedRole) {
+                    0 -> R.string.chat_group_role_owner_foreground
+                    1 -> R.string.chat_group_role_admin_foreground
+                    else -> R.string.chat_group_role_member_foreground
+                }
+            )
+            val textTitle = stringResource(
+                when (selectedRole) {
+                    0 -> R.string.chat_group_role_owner_text
+                    1 -> R.string.chat_group_role_admin_text
+                    else -> R.string.chat_group_role_member_text
+                }
+            )
+            val selectedText = when (selectedRole) {
+                0 -> ot
+                1 -> at
+                else -> mt
+            }
 
             AlertDialogContent(
-                title = { Text("显示群成员身份") },
+                title = { Text(stringResource(R.string.feature_display_group_member_roles_name)) },
                 text = {
-                    DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
-                        ListItem(
-                            modifier = Modifier.clickable { showMem = !showMem },
-                            trailingContent = { Switch(showMem, null) },
-                            headlineContent = { Text("显示「成员」标签") },
-                        )
-                        WeColorField(
-                            label = "群主 | 背景色",
-                            value = ob,
-                            onValueChange = { ob = it })
-                        WeColorField(
-                            label = "群主 | 前景色",
-                            value = of,
-                            onValueChange = { of = it })
-                        WeColorField(
-                            label = "管理员 | 背景色",
-                            value = ab,
-                            onValueChange = { ab = it })
-                        WeColorField(
-                            label = "管理员 | 前景色",
-                            value = af,
-                            onValueChange = { af = it })
-                        WeColorField(
-                            label = "成员 | 背景色",
-                            value = mb,
-                            onValueChange = { mb = it })
-                        WeColorField(
-                            label = "成员 | 前景色",
-                            value = mf,
-                            onValueChange = { mf = it })
-                        TextField(
-                            label = { Text("群主 | 文本") },
-                            value = ot,
-                            onValueChange = { ot = it })
-                        TextField(
-                            label = { Text("管理员 | 文本") },
-                            value = at,
-                            onValueChange = { at = it })
-                        TextField(
-                            label = { Text("成员 | 文本") },
-                            value = mt,
-                            onValueChange = { mt = it })
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+                                ButtonGroupDefaults.ConnectedSpaceBetween
+                            ),
+                        ) {
+                            roleLabels.forEachIndexed { index, label ->
+                                ToggleButton(
+                                    checked = selectedRole == index,
+                                    onCheckedChange = { selectedRole = index },
+                                    shapes = when (index) {
+                                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                        roleLabels.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .semantics { role = Role.RadioButton },
+                                ) {
+                                    Text(label, maxLines = 1)
+                                }
+                            }
+                        }
+
+                        SegmentedColumn(
+                            title = roleLabels[selectedRole],
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item {
+                                SwitchWidget(
+                                    title = stringResource(R.string.chat_group_role_show_label),
+                                    checked = selectedShow,
+                                    onCheckedChange = {
+                                        when (selectedRole) {
+                                            0 -> showOwn = it
+                                            1 -> showAdm = it
+                                            else -> showMem = it
+                                        }
+                                    },
+                                )
+                            }
+                            item(animatedVisibility = selectedShow) {
+                                ColorPickerWidget(
+                                    title = backgroundTitle,
+                                    value = selectedBackground,
+                                    onValueChange = {
+                                        when (selectedRole) {
+                                            0 -> ob = it
+                                            1 -> ab = it
+                                            else -> mb = it
+                                        }
+                                    },
+                                )
+                            }
+                            item(animatedVisibility = selectedShow) {
+                                ColorPickerWidget(
+                                    title = foregroundTitle,
+                                    value = selectedForeground,
+                                    onValueChange = {
+                                        when (selectedRole) {
+                                            0 -> of = it
+                                            1 -> af = it
+                                            else -> mf = it
+                                        }
+                                    },
+                                )
+                            }
+                            item(animatedVisibility = selectedShow) {
+                                BaseSupportingWidget(title = textTitle) {
+                                    InlineRoleTextField(
+                                        value = selectedText,
+                                        onValueChange = {
+                                            when (selectedRole) {
+                                                0 -> ot = it
+                                                1 -> at = it
+                                                else -> mt = it
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                        }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         ownerBg = ob
@@ -153,12 +272,14 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
                         ownerFg = of
                         adminFg = af
                         memberFg = mf
+                        showOwner = showOwn
+                        showAdmin = showAdm
                         showMember = showMem
-                        ownerText = ot
-                        adminText = at
-                        memberText = mt
+                        ownerText = ot.takeUnless { it == ownerDefault }.orEmpty()
+                        adminText = at.takeUnless { it == adminDefault }.orEmpty()
+                        memberText = mt.takeUnless { it == memberDefault }.orEmpty()
                         onDismiss()
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.action_save)) }
                 })
         }
     }
@@ -195,9 +316,8 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
             return@getOrPut if (senderIsGroupManager) 2 else 3
         }
 
-        // "成员" badge is optional; when hidden, leave the name untouched so downstream
-        // hooks (e.g. LimitGroupMemberNicknameLength) see no role ReplacementSpan prefix.
-        if (role == 3 && !showMember) return
+        // Hidden badges leave the name untouched so downstream hooks see no role span prefix.
+        if (role == 1 && !showOwner || role == 2 && !showAdmin || role == 3 && !showMember) return
 
         val tag = view.tag
         val textView = tag.reflekt()
@@ -210,9 +330,9 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
         val displayName = textView.text
 
         val roleText = when (role) {
-            1 -> ownerText
-            2 -> adminText
-            3 -> memberText
+            1 -> roleText(ownerText, R.string.chat_group_role_owner)
+            2 -> roleText(adminText, R.string.chat_group_role_admin)
+            3 -> roleText(memberText, R.string.chat_group_role_member)
             else -> unreachable()
         }
 
@@ -249,6 +369,19 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
 
         textView.text = sb
     }
+}
+
+/** Single-line inline text field filling a [BaseSupportingWidget] supporting slot. */
+@Composable
+private fun InlineRoleTextField(value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+    )
 }
 
 private class RoundedBackgroundSpan(

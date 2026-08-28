@@ -65,29 +65,11 @@ extract "$ZIPFILE" 'webroot/js/app.js'        "$MODPATH"
 extract "$ZIPFILE" 'webroot/js/kernelsu.js'   "$MODPATH"
 mv "$TMPDIR/sepolicy.rule" "$MODPATH"
 
-HAS32BIT=false
-if [ -n "$(getprop ro.product.cpu.abilist32)" ] || [ -n "$(getprop ro.system.product.cpu.abilist32)" ]; then
-  HAS32BIT=true
-fi
-
 mkdir "$MODPATH/zygisk"
 
-if [ "$ARCH" = "arm64" ]; then
-  if [ "$HAS32BIT" = true ]; then
-    extract "$ZIPFILE" "lib/armeabi-v7a/lib$SONAME.so" "$MODPATH/zygisk" true
-    mv "$MODPATH/zygisk/lib$SONAME.so" "$MODPATH/zygisk/armeabi-v7a.so"
-  fi
-
-  ui_print "- Extracting arm64 libraries"
-  extract "$ZIPFILE" "lib/arm64-v8a/lib$SONAME.so" "$MODPATH/zygisk" true
-  mv "$MODPATH/zygisk/lib$SONAME.so" "$MODPATH/zygisk/arm64-v8a.so"
-elif [ "$ARCH" = "arm" ]; then
-  ui_print "- Extracting arm libraries"
-  extract "$ZIPFILE" "lib/armeabi-v7a/lib$SONAME.so" "$MODPATH/zygisk" true
-  mv "$MODPATH/zygisk/lib$SONAME.so" "$MODPATH/zygisk/armeabi-v7a.so"
-else
-  abort "! Unsupported platform: $ARCH"
-fi
+ui_print "- Extracting arm64 libraries"
+extract "$ZIPFILE" "lib/arm64-v8a/lib$SONAME.so" "$MODPATH/zygisk" true
+mv "$MODPATH/zygisk/lib$SONAME.so" "$MODPATH/zygisk/arm64-v8a.so"
 
 # Extract each APK, then derive the DEX payload required by the
 # InMemoryDexClassLoader bootstrap. Keeping DEX only inside the APK avoids

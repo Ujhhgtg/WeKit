@@ -13,49 +13,55 @@ import android.widget.ImageView
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.WeColorField
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.ColorPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 
 @Feature(
-    name = "资料卡居中",
-    categories = ["界面美化", "个人资料"],
-    description = "居中「我」界面的资料卡",
+    id = "资料卡居中",
+    nameRes = "feature_center_profile_card_name",
+    categoryIds = [FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.PROFILE],
+    descriptionRes = "feature_center_profile_card_description",
 )
 object CenterProfileCard : ClickableFeature(), IResolveDex {
 
@@ -69,6 +75,9 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
     private const val DEFAULT_SIGNATURE_TOP_MARGIN_DP = 4
     private const val DEFAULT_LIGHT_BG = "#FFFFFFFF"
     private const val DEFAULT_DARK_BG = "#FF191919"
+
+    private const val MIN_LAYOUT_DP = 0
+    private const val MAX_LAYOUT_DP = 200
 
     private const val KEY_AVATAR_TOP_MARGIN = "account_info_center_avatar_top_margin"
     private const val KEY_AVATAR_SIZE = "account_info_center_avatar_size"
@@ -117,11 +126,26 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var avatarTopMargin by remember { mutableStateOf(avatarTopMarginPref.toString()) }
-            var avatarSize by remember { mutableStateOf(avatarSizePref.toString()) }
-            var nameTopMargin by remember { mutableStateOf(nameTopMarginPref.toString()) }
-            var aliasTopMargin by remember { mutableStateOf(aliasTopMarginPref.toString()) }
-            var signatureTopMargin by remember { mutableStateOf(signatureTopMarginPref.toString()) }
+            var avatarTopMargin by remember {
+                mutableIntStateOf(avatarTopMarginPref.coerceIn(MIN_LAYOUT_DP, MAX_LAYOUT_DP))
+            }
+            var avatarSize by remember {
+                mutableIntStateOf(avatarSizePref.coerceIn(MIN_LAYOUT_DP, MAX_LAYOUT_DP))
+            }
+            var nameTopMargin by remember {
+                mutableIntStateOf(nameTopMarginPref.coerceIn(MIN_LAYOUT_DP, MAX_LAYOUT_DP))
+            }
+            var aliasTopMargin by remember {
+                mutableIntStateOf(aliasTopMarginPref.coerceIn(MIN_LAYOUT_DP, MAX_LAYOUT_DP))
+            }
+            var signatureTopMargin by remember {
+                mutableIntStateOf(signatureTopMarginPref.coerceIn(MIN_LAYOUT_DP, MAX_LAYOUT_DP))
+            }
+            var avatarTopMarginChanged by remember { mutableStateOf(false) }
+            var avatarSizeChanged by remember { mutableStateOf(false) }
+            var nameTopMarginChanged by remember { mutableStateOf(false) }
+            var aliasTopMarginChanged by remember { mutableStateOf(false) }
+            var signatureTopMarginChanged by remember { mutableStateOf(false) }
             var lightBg by remember { mutableStateOf(lightBgPref) }
             var darkBg by remember { mutableStateOf(darkBgPref) }
             var showName by remember { mutableStateOf(showNamePref) }
@@ -132,140 +156,187 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
             var signatureText by remember { mutableStateOf(signatureTextPref) }
 
             AlertDialogContent(
-                title = { Text("资料卡居中") },
+                title = { Text(stringResource(R.string.beautify_profile_card_title)) },
                 text = {
-                    DefaultColumn(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .verticalScroll(rememberScrollState()),
                     ) {
-                        Text(
-                            "内容可见性",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { showName = !showName },
-                            trailingContent = { Switch(showName, null) },
-                            headlineContent = { Text("显示昵称") },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { showAlias = !showAlias },
-                            trailingContent = { Switch(showAlias, null) },
-                            headlineContent = { Text("显示微信号") },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { showSignature = !showSignature },
-                            trailingContent = { Switch(showSignature, null) },
-                            headlineContent = { Text("显示签名") },
-                        )
+                        SegmentedColumn(
+                            title = stringResource(R.string.beautify_profile_card_visibility),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.beautify_profile_card_show_nickname),
+                                    checked = showName,
+                                    onCheckedChange = { showName = it },
+                                )
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.beautify_profile_card_show_wechat_id),
+                                    checked = showAlias,
+                                    onCheckedChange = { showAlias = it },
+                                )
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.beautify_profile_card_show_signature),
+                                    checked = showSignature,
+                                    onCheckedChange = { showSignature = it },
+                                )
+                            }
+                        }
 
-                        Text(
-                            "文本替换设定",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        OutlinedTextField(
-                            value = nameText,
-                            onValueChange = { nameText = it },
-                            label = { Text("自定义昵称（留空使用原文）") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        OutlinedTextField(
-                            value = aliasText,
-                            onValueChange = { aliasText = it },
-                            label = { Text("自定义微信号（留空使用原文）") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        OutlinedTextField(
-                            value = signatureText,
-                            onValueChange = { signatureText = it },
-                            label = { Text("自定义签名（留空使用原文）") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                        SegmentedColumn(
+                            title = stringResource(R.string.beautify_profile_card_text_replacements),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.beautify_profile_card_custom_nickname),
+                                ) {
+                                    InlineTextField(value = nameText, onValueChange = { nameText = it })
+                                }
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.beautify_profile_card_custom_wechat_id),
+                                ) {
+                                    InlineTextField(value = aliasText, onValueChange = { aliasText = it })
+                                }
+                            }
+                            item {
+                                BaseSupportingWidget(
+                                    title = stringResource(R.string.beautify_profile_card_custom_signature),
+                                ) {
+                                    InlineTextField(value = signatureText, onValueChange = { signatureText = it })
+                                }
+                            }
+                        }
 
-                        Text(
-                            "布局与尺寸配置",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        OutlinedTextField(
-                            value = avatarTopMargin,
-                            onValueChange = { avatarTopMargin = it.filter(Char::isDigit) },
-                            label = { Text("头像顶部边距 dp") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        OutlinedTextField(
-                            value = avatarSize,
-                            onValueChange = { avatarSize = it.filter(Char::isDigit) },
-                            label = { Text("头像大小 dp") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        OutlinedTextField(
-                            value = nameTopMargin,
-                            onValueChange = { nameTopMargin = it.filter(Char::isDigit) },
-                            label = { Text("昵称顶部边距 dp") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        OutlinedTextField(
-                            value = aliasTopMargin,
-                            onValueChange = { aliasTopMargin = it.filter(Char::isDigit) },
-                            label = { Text("微信号顶部边距 dp") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        OutlinedTextField(
-                            value = signatureTopMargin,
-                            onValueChange = { signatureTopMargin = it.filter(Char::isDigit) },
-                            label = { Text("签名顶部边距 dp") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                        SegmentedColumn(
+                            title = stringResource(R.string.beautify_profile_card_layout),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item {
+                                BaseItemContainer {
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.beautify_profile_card_avatar_top_margin),
+                                        value = avatarTopMargin,
+                                        startInt = MIN_LAYOUT_DP,
+                                        endInt = MAX_LAYOUT_DP,
+                                        stepSize = 1,
+                                        valueSuffix = "dp",
+                                        onValueChange = {
+                                            avatarTopMargin = it
+                                            avatarTopMarginChanged = true
+                                        },
+                                    )
+                                }
+                            }
+                            item {
+                                BaseItemContainer {
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.beautify_profile_card_avatar_size),
+                                        value = avatarSize,
+                                        startInt = MIN_LAYOUT_DP,
+                                        endInt = MAX_LAYOUT_DP,
+                                        stepSize = 1,
+                                        valueSuffix = "dp",
+                                        onValueChange = {
+                                            avatarSize = it
+                                            avatarSizeChanged = true
+                                        },
+                                    )
+                                }
+                            }
+                            item {
+                                BaseItemContainer {
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.beautify_profile_card_nickname_top_margin),
+                                        value = nameTopMargin,
+                                        startInt = MIN_LAYOUT_DP,
+                                        endInt = MAX_LAYOUT_DP,
+                                        stepSize = 1,
+                                        valueSuffix = "dp",
+                                        onValueChange = {
+                                            nameTopMargin = it
+                                            nameTopMarginChanged = true
+                                        },
+                                    )
+                                }
+                            }
+                            item {
+                                BaseItemContainer {
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.beautify_profile_card_wechat_id_top_margin),
+                                        value = aliasTopMargin,
+                                        startInt = MIN_LAYOUT_DP,
+                                        endInt = MAX_LAYOUT_DP,
+                                        stepSize = 1,
+                                        valueSuffix = "dp",
+                                        onValueChange = {
+                                            aliasTopMargin = it
+                                            aliasTopMarginChanged = true
+                                        },
+                                    )
+                                }
+                            }
+                            item {
+                                BaseItemContainer {
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.beautify_profile_card_signature_top_margin),
+                                        value = signatureTopMargin,
+                                        startInt = MIN_LAYOUT_DP,
+                                        endInt = MAX_LAYOUT_DP,
+                                        stepSize = 1,
+                                        valueSuffix = "dp",
+                                        onValueChange = {
+                                            signatureTopMargin = it
+                                            signatureTopMarginChanged = true
+                                        },
+                                    )
+                                }
+                            }
+                        }
 
-                        Text(
-                            "背景颜色配置",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        WeColorField(
-                            value = lightBg,
-                            onValueChange = { lightBg = it },
-                            label = "亮色背景",
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        WeColorField(
-                            value = darkBg,
-                            onValueChange = { darkBg = it },
-                            label = "暗色背景",
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                        SegmentedColumn(
+                            title = stringResource(R.string.beautify_profile_card_background_colors),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            item {
+                                ColorPickerWidget(
+                                    title = stringResource(R.string.beautify_profile_card_light_background),
+                                    value = lightBg,
+                                    onValueChange = { lightBg = it },
+                                )
+                            }
+                            item {
+                                ColorPickerWidget(
+                                    title = stringResource(R.string.beautify_profile_card_dark_background),
+                                    value = darkBg,
+                                    onValueChange = { darkBg = it },
+                                )
+                            }
+                        }
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text("取消") }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
                     Button(onClick = {
-                        avatarTopMarginPref = avatarTopMargin.toPositiveInt(DEFAULT_AVATAR_TOP_MARGIN_DP)
-                        avatarSizePref = avatarSize.toPositiveInt(DEFAULT_AVATAR_SIZE_DP).coerceAtLeast(1)
-                        nameTopMarginPref = nameTopMargin.toPositiveInt(DEFAULT_NAME_TOP_MARGIN_DP)
-                        aliasTopMarginPref = aliasTopMargin.toPositiveInt(DEFAULT_ALIAS_TOP_MARGIN_DP)
-                        signatureTopMarginPref = signatureTopMargin.toPositiveInt(DEFAULT_SIGNATURE_TOP_MARGIN_DP)
+                        if (avatarTopMarginChanged) avatarTopMarginPref = avatarTopMargin
+                        if (avatarSizeChanged) avatarSizePref = avatarSize.coerceAtLeast(1)
+                        if (nameTopMarginChanged) nameTopMarginPref = nameTopMargin
+                        if (aliasTopMarginChanged) aliasTopMarginPref = aliasTopMargin
+                        if (signatureTopMarginChanged) signatureTopMarginPref = signatureTopMargin
                         lightBgPref = lightBg.takeIfValidColor(DEFAULT_LIGHT_BG)
                         darkBgPref = darkBg.takeIfValidColor(DEFAULT_DARK_BG)
                         showNamePref = showName
@@ -276,11 +347,24 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                         signatureTextPref = signatureText.trim()
                         onDismiss()
                     }) {
-                        Text("保存")
+                        Text(stringResource(R.string.action_save))
                     }
                 },
             )
         }
+    }
+
+    /** Single-line inline text field filling a [BaseSupportingWidget] supporting slot. */
+    @Composable
+    private fun InlineTextField(value: String, onValueChange: (String) -> Unit) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+        )
     }
 
     private fun applyCenterCard(root: ViewGroup) {
@@ -381,21 +465,24 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
     }
 
     private fun collectSource(root: ViewGroup): AccountInfoSource {
-        val avatarImage = root.findViewsWhich<ImageView> { view ->
+        val avatarImage = root.findViewsWhich { view ->
             view is ImageView && view.isVisible && view.drawable != null
-        }.maxByOrNull { it.visibleArea() } ?: error("failed to find avatar image view")
+        }.map { it as ImageView }.maxByOrNull { it.visibleArea() } ?: error("failed to find avatar image view")
 
         val self = WeDatabaseApi.getFriend(WeApi.selfWxId)
 
         val name = nameTextPref.ifBlank { self?.nickname ?: "" }
         val customWxId = if (aliasTextPref.isNotBlank()) {
-            "微信号: $aliasTextPref"
+            root.context.localizedBeautifyString(R.string.beautify_profile_card_wechat_id_value, aliasTextPref)
         } else {
             val alias = WeApi.selfCustomWxId
-            if (alias.isNotBlank()) "微信号: $alias" else ""
+            if (alias.isNotBlank()) root.context.localizedBeautifyString(R.string.beautify_profile_card_wechat_id_value, alias) else ""
         }
         val signature = signatureTextPref.ifBlank {
-            WeDatabaseApi.getSelfProfileField(SelfProfileField.SIGNATURE, "(暂时无法自动获取签名, 请手动在功能设置内填入)").toString()
+            WeDatabaseApi.getSelfProfileField(
+                SelfProfileField.SIGNATURE,
+                root.context.localizedBeautifyString(R.string.beautify_profile_card_signature_unavailable),
+            ).toString()
         }
 
         return AccountInfoSource(
@@ -459,10 +546,6 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
 
     private fun parseColor(value: String, fallback: Int): Int {
         return runCatching { value.toColorInt() }.getOrDefault(fallback)
-    }
-
-    private fun String.toPositiveInt(defaultValue: Int): Int {
-        return toIntOrNull()?.coerceAtLeast(0) ?: defaultValue
     }
 
     private fun String.takeIfValidColor(defaultValue: String): String {

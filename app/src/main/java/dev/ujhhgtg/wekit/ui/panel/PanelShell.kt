@@ -63,7 +63,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -93,9 +93,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -108,9 +109,11 @@ import com.composables.icons.materialsymbols.outlined.Arrow_back
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Refresh
 import com.composables.icons.materialsymbols.outlined.Search
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiState
+import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiText
 import dev.ujhhgtg.wekit.ui.utils.CommonContextWrapper
-import dev.ujhhgtg.wekit.ui.utils.InjectedUiTheme
+import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 import kotlinx.coroutines.delay
 
@@ -255,10 +258,7 @@ fun showPanelDialog(
     dialog.setContentView(
         ComposeView(wrapped).apply {
             setContent {
-                CompositionLocalProvider(
-                    LocalContext provides wrapped,
-                    LocalPanelDialogScope provides scope,
-                ) {
+                CompositionLocalProvider(LocalPanelDialogScope provides scope) {
                     InjectedUiTheme {
                         Box(
                             modifier = Modifier
@@ -308,12 +308,12 @@ internal fun <T> PanelImportModePrompt(
     onSelect: (T) -> Unit,
 ) {
     PanelFullOverlay(onDismiss) {
-        Text("选择导入方式", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.panel_import_mode_title), style = MaterialTheme.typography.titleMedium)
         options.forEach { option ->
             ListItem(
                 modifier = Modifier.clickable { onSelect(option.mode) },
                 colors = panelListItemColors(),
-                headlineContent = { Text(option.title) },
+                content = { Text(option.title) },
                 supportingContent = { Text(option.description) },
                 leadingContent = { Icon(option.icon, null) },
             )
@@ -511,7 +511,7 @@ fun <T> PanelShell(
                             PanelHeaderAction(refreshAction, Alignment.End, "panel-header-refresh")
                         }
                         IconButton(onClick = onDismiss) {
-                            Icon(MaterialSymbols.Outlined.Close, "关闭")
+                            Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.dialog_close))
                         }
                     }
                 }
@@ -718,7 +718,7 @@ private fun PanelActionSearchField(
                         .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = progress)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(MaterialSymbols.Outlined.Search, "关闭搜索")
+                    Icon(MaterialSymbols.Outlined.Search, stringResource(R.string.panel_search_close))
                 }
             }
             BasicTextField(
@@ -814,7 +814,7 @@ fun <T> PanelStateContent(
 }
 
 @Composable
-private fun PanelMessage(message: String, onRetry: (() -> Unit)? = null) {
+private fun PanelMessage(message: PanelUiText, onRetry: (() -> Unit)? = null) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -822,9 +822,9 @@ private fun PanelMessage(message: String, onRetry: (() -> Unit)? = null) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(message.resolve(), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (onRetry != null) TextButton(onClick = onRetry) { Text("重试") }
+        if (onRetry != null) TextButton(onClick = onRetry) { Text(stringResource(R.string.panel_action_retry)) }
     }
 }
 
@@ -854,12 +854,13 @@ fun PanelTextPrompt(
     title: String,
     label: String,
     initialValue: String = "",
-    confirmText: String = "确定",
+    confirmText: String? = null,
     allowBlank: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
     var value by remember(initialValue) { mutableStateOf(initialValue) }
+    val resolvedConfirmText = confirmText ?: stringResource(R.string.dialog_confirm)
     PanelOverlay(onDismiss = onDismiss) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
@@ -871,9 +872,9 @@ fun PanelTextPrompt(
         )
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f))
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
             TextButton(onClick = { onConfirm(value.trim()) }, enabled = allowBlank || value.isNotBlank()) {
-                Text(confirmText)
+                Text(resolvedConfirmText)
             }
         }
     }
@@ -892,9 +893,9 @@ fun PanelNumberPrompt(
     var value by remember(initialValue) { mutableStateOf(initialValue.toString()) }
     val parsed = value.toLongOrNull()
     val error = when {
-        value.isBlank() || parsed == null -> "请输入有效的整数"
-        parsed < minValue -> "不能小于 $minValue"
-        parsed > maxValue -> "不能大于 $maxValue"
+        value.isBlank() || parsed == null -> stringResource(R.string.panel_number_invalid)
+        parsed < minValue -> stringResource(R.string.panel_number_below_min, minValue)
+        parsed > maxValue -> stringResource(R.string.panel_number_above_max, maxValue)
         else -> null
     }
     PanelOverlay(onDismiss = onDismiss) {
@@ -911,8 +912,10 @@ fun PanelNumberPrompt(
         )
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f))
-            TextButton(onClick = onDismiss) { Text("取消") }
-            TextButton(onClick = { parsed?.let(onConfirm) }, enabled = error == null) { Text("确定") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+            TextButton(onClick = { parsed?.let(onConfirm) }, enabled = error == null) {
+                Text(stringResource(R.string.dialog_confirm))
+            }
         }
     }
 }
@@ -921,25 +924,26 @@ fun PanelNumberPrompt(
 fun PanelConfirmation(
     title: String,
     message: String,
-    confirmText: String = "确定",
+    confirmText: String? = null,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
+    val resolvedConfirmText = confirmText ?: stringResource(R.string.dialog_confirm)
     PanelOverlay(onDismiss = onDismiss) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f))
-            TextButton(onClick = onDismiss) { Text("取消") }
-            TextButton(onClick = onConfirm) { Text(confirmText) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+            TextButton(onClick = onConfirm) { Text(resolvedConfirmText) }
         }
     }
 }
 
 @Composable
-fun PanelProgressOverlay(message: String, progress: Float? = null) {
+fun PanelProgressOverlay(message: PanelUiText, progress: Float? = null) {
     PanelFullOverlay(onDismiss = {}, allowImplicitDismiss = false) {
-        Text(message, style = MaterialTheme.typography.titleMedium)
+        Text(message.resolve(), style = MaterialTheme.typography.titleMedium)
         if (progress == null) {
             CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
         } else {
@@ -1035,3 +1039,10 @@ private fun PanelOverlay(
     onDismiss: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) = PanelFullOverlay(onDismiss, content = content)
+
+@Composable
+internal fun PanelUiText.resolve(): String = when (this) {
+    is PanelUiText.Raw -> value
+    is PanelUiText.Resource -> stringResource(id, *args.toTypedArray())
+    is PanelUiText.Quantity -> pluralStringResource(id, quantity, *args.toTypedArray())
+}

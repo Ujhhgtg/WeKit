@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Parcel
 import com.tencent.mm.api.IEmojiInfo
 import com.tencent.mm.opensdk.modelmsg.WXFileObject
 import com.tencent.mm.opensdk.modelmsg.WXMediaMessage
@@ -23,18 +24,20 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isBuiltin
 import dev.ujhhgtg.reflekt.utils.makeAccessible
-import dev.ujhhgtg.reflekt.utils.toClass
-import dev.ujhhgtg.wekit.constants.WeChatVersions
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
+import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi.cacheFile
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi.downloadFile
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
+import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -52,6 +55,7 @@ import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlTag
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.matchers.base.AccessFlagsMatcher
+import org.luckypray.dexkit.result.FieldUsingType
 import java.io.InputStream
 import java.io.OutputStream
 import java.lang.reflect.Constructor
@@ -59,14 +63,17 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.nio.file.attribute.FileTime
 import java.util.UUID
 import kotlin.concurrent.thread
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.copyTo
+import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.io.path.fileSize
@@ -81,7 +88,12 @@ import kotlin.random.Random
 
 
 @SuppressLint("DiscouragedApi")
-@Feature(name = "消息发送服务", categories = ["API"], description = "提供文本、图片、文件、语音消息发送能力")
+@Feature(
+    id = "消息发送服务",
+    nameRes = "feature_we_message_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_message_api_description",
+)
 object WeMessageApi : ApiFeature(), IResolveDex {
 
     // -------------------------------------------------------------------------------------
@@ -213,7 +225,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
     val methodMsgInfoStorageInsertMessage by dexMethod {
         matcher {
-            declaredClass(classMsgInfoStorage.clazz)
+            declaredClass(classMsgInfoStorage.data.name)
             usingEqStrings("MsgInfo processAddMsg insert db error")
         }
     }
@@ -238,7 +250,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
     val methodGetIsTransformed by dexMethod {
         matcher {
-            declaredClass(classMsgInfo.clazz)
+            declaredClass(classMsgInfo.data.name)
             usingNumbers(64, 0)
             usingFields {
                 add {
@@ -248,6 +260,31 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             returnType = "boolean"
         }
     }
+
+    // -------------------------------------------------------------------------------------
+    // 原生引用文本发送
+    // -------------------------------------------------------------------------------------
+    private val methodQuoteCompose by dexMethod {
+        matcher {
+            declaredClass = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
+            returnType = "boolean"
+            usingEqStrings(
+                "MicroMsg.msgquote.PluginMsgQuote",
+                "sendQuoteMsg result:%s msgId:%s result:%s",
+                "msg is revoked!",
+            )
+            usingNumbers(57)
+        }
+    }
+    private val classQuoteMsgItem by dexClass()
+    private val classQuoteRelation by dexClass()
+    private val methodQuoteNormalizeType by dexMethod()
+    private val methodQuoteMsgSource by dexMethod()
+    private val methodQuoteStorageGetter by dexMethod()
+    private val methodQuoteRelationInsert by dexMethod()
+    private val fieldQuoteAppTitle by dexField()
+    private val fieldQuoteAppType by dexField()
+    private val fieldQuoteAppItem by dexField()
 
     // -------------------------------------------------------------------------------------
     // 图片发送组件
@@ -323,7 +360,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
     private val methodMmKernelGetStorage by dexMethod(allowMultiple = true) {
         matcher {
-            declaredClass(classMmKernel.clazz)
+            declaredClass(classMmKernel.data.name)
             modifiers = Modifier.PUBLIC or Modifier.STATIC
             paramCount = 0
             usingStrings("mCoreStorage not initialized!")
@@ -465,6 +502,80 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
     @SuppressLint("NonUniqueDexKitData")
     override fun resolveDex(dexKit: DexKitBridge) {
+        val quoteCompose = methodQuoteCompose.data
+        val quoteMsgItem = dexKit.findClass {
+            matcher { className = "com.tencent.mm.plugin.msgquote.model.MsgQuoteItem" }
+        }.single()
+        classQuoteMsgItem.setDescriptor(quoteMsgItem)
+
+        val appMessageName = classAppMessage.data.name
+        val quoteWrites = quoteCompose.usingFields
+            .filter { it.usingType == FieldUsingType.Write }
+            .map { it.field }
+            .distinctBy { it.descriptor }
+        fieldQuoteAppTitle.setDescriptor(
+            quoteWrites.single {
+                it.className == appMessageName && it.typeName == "java.lang.String"
+            }
+        )
+        fieldQuoteAppType.setDescriptor(
+            quoteWrites.single {
+                it.className == appMessageName && it.typeName == "int"
+            }
+        )
+        fieldQuoteAppItem.setDescriptor(
+            quoteWrites.single {
+                it.className == appMessageName && it.typeName == quoteMsgItem.name
+            }
+        )
+
+        methodQuoteNormalizeType.setDescriptor(
+            quoteCompose.invokes.distinctBy { it.descriptor }.single {
+                Modifier.isStatic(it.modifiers) &&
+                    it.paramTypeNames == listOf("int") &&
+                    it.returnTypeName == "int"
+            }
+        )
+
+        val msgInfoName = classMsgInfo.data.name
+        methodQuoteMsgSource.setDescriptor(
+            quoteCompose.invokes.distinctBy { it.descriptor }.single {
+                !Modifier.isStatic(it.modifiers) &&
+                    it.paramTypeNames == listOf(msgInfoName) &&
+                    it.returnTypeName == "java.lang.String"
+            }
+        )
+
+        val quoteRelation = dexKit.findClass {
+            matcher { usingStrings("MsgQute{field_msgId=", "field_quotedMsgTalker=") }
+        }.single()
+        classQuoteRelation.setDescriptor(quoteRelation)
+        val quoteStorage = dexKit.findClass {
+            matcher {
+                usingStrings(
+                    "MicroMsg.msgquote.MsgQuoteStorage",
+                    "getMsgQuteByMsgId:%s",
+                )
+            }
+        }.single()
+        methodQuoteRelationInsert.setDescriptor(
+            quoteStorage.methods.single { candidate ->
+                candidate.paramTypeNames == listOf(quoteRelation.name) &&
+                    candidate.returnTypeName == "boolean" &&
+                    candidate.usingFields.any {
+                        it.usingType == FieldUsingType.Write &&
+                            it.field.name == "field_status"
+                    }
+            }
+        )
+        methodQuoteStorageGetter.setDescriptor(
+            quoteCompose.invokes.distinctBy { it.descriptor }.single {
+                !Modifier.isStatic(it.modifiers) &&
+                    it.paramCount == 0 &&
+                    it.returnTypeName == quoteStorage.name
+            }
+        )
+
         classImageSender.find(dexKit, allowFailure = true) {
             matcher {
                 usingStrings(
@@ -476,61 +587,112 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
         methodImageSendEntry.find(dexKit) {
             matcher {
-                declaredClass(classImageSender.clazz)
+                declaredClass(classImageSender.data.name)
                 modifiers = Modifier.PUBLIC or Modifier.STATIC or Modifier.FINAL
                 paramCount(4, 5)
                 usingEqStrings("send_mid_size", "send_hevc_mid_size")
             }
         }
 
-        val taskClassName = methodImageSendEntry.method.parameterTypes[1]
-        classImageTask.setDescriptor(taskClassName.name)
+        val taskClassName = methodImageSendEntry.data.paramTypeNames[1]
+        classImageTask.setDescriptor(taskClassName)
 
-        if (HostInfo.versionCode >= WeChatVersions.MM_8_0_67 && !HostInfo.isHostGooglePlay ||
-            HostInfo.versionCode >= WeChatVersions.MM_8_0_66_PLAY && HostInfo.isHostGooglePlay
-        ) {
-            methodImgUploadFeatureServiceSendImage.find(dexKit) {
-                matcher {
-                    declaredClass {
-                        usingEqStrings("MicroMsg.ImgUpload.MsgImgFeatureService", "taskListener", "params")
-                    }
-
-                    paramCount(1)
-                    usingEqStrings("params")
-                }
-            }
-
-            methodAppInfoSetAppId.find(dexKit) {
-                matcher {
-                    declaredClass {
-                        usingEqStrings("appinfo", "appid", "version", "appname", "isforceupdate", "messageaction", "messageext", "mediatagname")
-                    }
-
-                    paramTypes(BString)
-                    usingNumbers(0)
-                }
-            }
-
-            ctorNetSceneUploadMsgImg.setPlaceholderDescriptor()
-        } else {
-            methodImgUploadFeatureServiceSendImage.setPlaceholderDescriptor()
-
-            methodAppInfoSetAppId.setPlaceholderDescriptor()
-
-            ctorNetSceneUploadMsgImg.find(dexKit) {
-                searchPackages("com.tencent.mm.modelimage")
-                matcher {
-                    name = "<init>"
-                    declaredClass {
-                        usingEqStrings("MicroMsg.NetSceneUploadMsgImg", "/cgi-bin/micromsg-bin/uploadmsgimg")
-                    }
-                    paramTypes(int, BString, BString, BString, int, null, int, BString, BString, bool, int)
-                }
+        val imageFeatureServiceNewPathProbes = dexKit.findMethod {
+            matcher {
+                usingEqStrings("sendRawImgAsyncWithPreBuild[", "send_group_id")
             }
         }
 
-        val targetInterface = classVoiceServiceImpl.clazz.interfaces.first {
-            !it.isBuiltin && !it.name.startsWith("ki0.")
+        when (imageFeatureServiceNewPathProbes.size) {
+            1 -> {
+                methodImgUploadFeatureServiceNewPathProbe.setDescriptor(
+                    imageFeatureServiceNewPathProbes.single()
+                )
+                methodImgUploadFeatureServiceSendImage.find(dexKit) {
+                    matcher {
+                        declaredClass {
+                            usingEqStrings(
+                                "MicroMsg.ImgUpload.MsgImgFeatureService",
+                                "taskListener",
+                                "params",
+                            )
+                        }
+                        paramCount(1)
+                        usingEqStrings("params")
+                    }
+                }
+                methodAppInfoSetAppId.find(dexKit) {
+                    matcher {
+                        declaredClass {
+                            usingEqStrings(
+                                "appinfo",
+                                "appid",
+                                "version",
+                                "appname",
+                                "isforceupdate",
+                                "messageaction",
+                                "messageext",
+                                "mediatagname",
+                            )
+                        }
+                        paramTypes(BString)
+                        usingNumbers(0)
+                    }
+                }
+                ctorNetSceneUploadMsgImg.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "new image feature service path is active",
+                )
+            }
+
+            0 -> {
+                methodImgUploadFeatureServiceNewPathProbe.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "send_group_id image path is absent; using legacy NetSceneUploadMsgImg",
+                )
+                methodImgUploadFeatureServiceSendImage.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "legacy NetSceneUploadMsgImg path is active",
+                )
+                methodAppInfoSetAppId.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "legacy NetSceneUploadMsgImg path is active",
+                )
+                ctorNetSceneUploadMsgImg.find(dexKit) {
+                    searchPackages("com.tencent.mm.modelimage")
+                    matcher {
+                        name = "<init>"
+                        declaredClass {
+                            usingEqStrings(
+                                "MicroMsg.NetSceneUploadMsgImg",
+                                "/cgi-bin/micromsg-bin/uploadmsgimg",
+                            )
+                        }
+                        paramTypes(
+                            int,
+                            BString,
+                            BString,
+                            BString,
+                            int,
+                            null,
+                            int,
+                            BString,
+                            BString,
+                            bool,
+                            int,
+                        )
+                    }
+                }
+            }
+
+            else -> error(
+                "multiple send_group_id image path probes found: " +
+                    imageFeatureServiceNewPathProbes.joinToString { it.descriptor }
+            )
+        }
+
+        val targetInterface = classVoiceServiceImpl.data.interfaces.first {
+            !it.name.startsWith("ki0.")
         }
         classVoiceServiceInterface.setDescriptor(targetInterface.name)
     }
@@ -587,7 +749,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                 usingEqStrings("MicroMsg.MsgInfoStorage", "build new index last %d")
             }
             paramTypes(BString, long)
-            returnType(classMsgInfo.clazz)
+            returnType(classMsgInfo.data.name)
             usingEqStrings("msgSvrId=?")
         }
     }
@@ -616,6 +778,12 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
+    private fun getMsgInfoByMsgId(msgId: Long): MessageInfo? {
+        return WeDatabaseApi.rawQuery("SELECT * FROM message WHERE msgId=?", arrayOf(msgId)).use {
+            if (it.moveToFirst()) MessageInfo(convertMsgInfoInstanceFromCursor(it)) else null
+        }
+    }
+
     /**
      * @param talker 会话 username; 传 null 时自动从 message 表反查 (仅覆盖 C2C/群聊)。
      */
@@ -637,41 +805,202 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         return msgInfo
     }
 
+    private fun quoteDisplayName(source: MessageInfo): String {
+        val sender = source.sender
+        if (source.isInGroupChat) {
+            WeDatabaseApi.getGroupMemberDisplayName(source.talker, sender)
+                .takeIf(String::isNotEmpty)
+                ?.let { return it }
+        }
+        return WeDatabaseApi.getDisplayName(sender)
+    }
+
+    private fun quoteSourceContent(source: MessageInfo): String {
+        var value = source.actualContent
+        val textLikeTypes = setOf(1, 11, 21, 31, 36, 301989937, 1107296305)
+        if (source.typeCode !in textLikeTypes) {
+            val xmlStart = value.indexOf('<')
+            if (xmlStart > 0) value = value.substring(xmlStart)
+        }
+        if (source.type == MessageType.QUOTE) {
+            return try {
+                value.substring(0, value.indexOf("<refermsg>")) +
+                    "<refermsg>" + value.substring(value.lastIndexOf("</refermsg>"))
+            } catch (_: Exception) {
+                value
+            }
+        }
+        return try {
+            val recordStart = value.indexOf("<recorditem>")
+            val recordEnd = value.lastIndexOf("</recorditem>")
+            buildString {
+                append(value.substring(0, recordStart.coerceAtLeast(0)))
+                if (recordStart > 0) append("<recorditem>")
+                append(value.substring(recordEnd.coerceAtLeast(0)))
+            }
+        } catch (_: Exception) {
+            value
+        }
+    }
+
+    private fun createNativeQuoteItem(source: MessageInfo): Any {
+        val sourceGenerator = methodQuoteMsgSource.method
+        val generatedMsgSource = sourceGenerator.invoke(
+            WeServiceApi.getServiceByClass(sourceGenerator.declaringClass),
+            source.instance,
+        ) as String?
+        val parcel = Parcel.obtain()
+        return try {
+            parcel.writeInt(methodQuoteNormalizeType.method.invoke(null, source.typeCode) as Int)
+            parcel.writeLong(source.serverId)
+            parcel.writeString(source.talker)
+            parcel.writeString(source.sender)
+            parcel.writeString(quoteDisplayName(source))
+            parcel.writeString(source.msgSource)
+            parcel.writeString(quoteSourceContent(source))
+            parcel.writeString(generatedMsgSource.orEmpty())
+            parcel.writeInt(0)
+            parcel.writeString(extractXmlTag(source.msgSource, "strid"))
+            parcel.writeLong(source.createTime / 1000)
+            parcel.writeString(null)
+            parcel.setDataPosition(0)
+            classQuoteMsgItem.clazz.createInstance(parcel)
+        } finally {
+            parcel.recycle()
+        }
+    }
+
+    private fun insertQuoteRelation(localMsgId: Long, source: MessageInfo): Boolean {
+        val relation = classQuoteRelation.clazz.createInstance()
+        relation.reflekt().apply {
+            setField("field_msgId", localMsgId, superclass = true)
+            setField("field_quotedMsgId", source.id, superclass = true)
+            setField("field_quotedMsgSvrId", source.serverId, superclass = true)
+            setField("field_quotedMsgTalker", source.talker, superclass = true)
+        }
+        val storageGetter = methodQuoteStorageGetter.method
+        val pluginInterface = storageGetter.declaringClass.interfaces.single()
+        val plugin = WeServiceApi.getServiceByClass(pluginInterface)
+        val storage = storageGetter.invoke(plugin)
+        return methodQuoteRelationInsert.method.invoke(storage, relation) as Boolean
+    }
+
+    private fun sendNativeQuote(talker: String, content: String, source: MessageInfo): Boolean {
+        require(talker.isNotEmpty()) { "quote destination is empty" }
+        require(content.isNotEmpty()) { "quote content is empty" }
+        require(source.id > 0L && source.talker.isNotEmpty()) { "quote source is invalid" }
+
+        // Never parse and resend the stored type-57 XML here. Its outer <fromusername>
+        // belongs to the original sender. A fresh AppMessage mirrors ChatFooter's native
+        // quote path, so WeChat creates the new envelope while MsgQuoteItem supplies refermsg.
+        val appMessage = classAppMessage.clazz.createInstance()
+        fieldQuoteAppTitle.field.set(appMessage, content)
+        fieldQuoteAppType.field.setInt(appMessage, 57)
+        fieldQuoteAppItem.field.set(appMessage, createNativeQuoteItem(source))
+
+        val result = WeAppMsgApi.sendAppMsgObject(talker, appMessage)
+        val accepted = result.statusCode == 0 &&
+            (result.localMsgId == null || result.localMsgId > 0L)
+        if (!accepted) {
+            WeLogger.e(
+                TAG,
+                "sendNativeQuote rejected: destination=$talker, sourceMsgId=${source.id}, " +
+                    "sourceMsgSvrId=${source.serverId}, sourceTalker=${source.talker}, " +
+                    "statusCode=${result.statusCode}, localMsgId=${result.localMsgId}",
+            )
+            return false
+        }
+        val relationInserted = result.localMsgId?.takeIf { it > 0L }?.let { localMsgId ->
+            runCatching { insertQuoteRelation(localMsgId, source) }.getOrElse {
+                WeLogger.e(
+                    TAG,
+                    "sendNativeQuote: sent but failed to insert relation for localMsgId=$localMsgId",
+                    it,
+                )
+                false
+            }
+        }
+        WeLogger.i(
+            TAG,
+                "sendNativeQuote: destination=$talker, sourceMsgId=${source.id}, " +
+                "sourceMsgSvrId=${source.serverId}, sourceTalker=${source.talker}, " +
+                "contentLength=${content.length}, statusCode=${result.statusCode}, " +
+                "localMsgId=${result.localMsgId}, relationInserted=$relationInserted",
+        )
+        if (relationInserted == false) {
+            WeLogger.w(TAG, "sendNativeQuote: message accepted without MsgQuote relation")
+        }
+        return accepted
+    }
+
+    fun sendQuoteText(talker: String, quotedMsgSvrId: Long, content: String): Boolean {
+        return try {
+            WeLogger.i(
+                TAG,
+                "sendQuoteText request: destination=$talker, " +
+                    "quotedMsgSvrId=$quotedMsgSvrId, contentLength=${content.length}",
+            )
+            if (quotedMsgSvrId <= 0L) {
+                WeLogger.w(TAG, "sendQuoteText: invalid quotedMsgSvrId=$quotedMsgSvrId")
+                return false
+            }
+            val quoted = getMsgInfoInstanceByMsgSvrId(quotedMsgSvrId)
+            val quotedInfo = MessageInfo(quoted)
+            if (quotedInfo.id <= 0L || quotedInfo.serverId != quotedMsgSvrId || quotedInfo.talker.isEmpty()) {
+                WeLogger.w(
+                    TAG,
+                    "sendQuoteText: source not found for quotedMsgSvrId=$quotedMsgSvrId",
+                )
+                return false
+            }
+            val accepted = sendNativeQuote(talker, content, quotedInfo)
+            WeLogger.i(
+                TAG,
+                "sendQuoteText: destination=$talker, quotedMsgSvrId=$quotedMsgSvrId, " +
+                    "sourceMsgId=${quotedInfo.id}, accepted=$accepted",
+            )
+            accepted
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "sendQuoteText failed", e)
+            false
+        }
+    }
+
+    fun sendQuoteTextByMsgId(talker: String, quotedMsgId: Long, content: String): Boolean {
+        return try {
+            WeLogger.i(
+                TAG,
+                "sendQuoteTextByMsgId request: destination=$talker, " +
+                    "quotedMsgId=$quotedMsgId, contentLength=${content.length}",
+            )
+            if (quotedMsgId <= 0L) {
+                WeLogger.w(TAG, "sendQuoteTextByMsgId: invalid quotedMsgId=$quotedMsgId")
+                return false
+            }
+            val quotedInfo = getMsgInfoByMsgId(quotedMsgId)
+            if (quotedInfo == null || quotedInfo.id <= 0L || quotedInfo.talker.isEmpty()) {
+                WeLogger.w(TAG, "sendQuoteTextByMsgId: source not found for quotedMsgId=$quotedMsgId")
+                return false
+            }
+            val accepted = sendNativeQuote(talker, content, quotedInfo)
+            WeLogger.i(
+                TAG,
+                "sendQuoteTextByMsgId: destination=$talker, sourceMsgId=$quotedMsgId, " +
+                    "accepted=$accepted",
+            )
+            accepted
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "sendQuoteTextByMsgId failed", e)
+            false
+        }
+    }
+
     fun sendQuoteMsgByMsgId(talker: String, msgId: Long, content: String): Boolean {
-        return sendQuoteMsgByMsgSvrId(talker, getMsgSvrIdByMsgId(msgId) ?: return false, content, null)
+        return sendQuoteTextByMsgId(talker, msgId, content)
     }
 
     fun sendQuoteMsgByMsgSvrId(talker: String, msgSvrId: Long, content: String): Boolean {
-        return sendQuoteMsgByMsgSvrId(talker, msgSvrId, content, null)
-    }
-
-    fun sendQuoteMsgByMsgSvrId(talker: String, msgSvrId: Long, content: String, referContent: String?): Boolean {
-        return try {
-            WeLogger.i(TAG, "sending quote message to $talker")
-            val f8 = getMsgInfoInstanceByMsgSvrId(msgSvrId, talker)
-            val mi = MessageInfo(f8)
-            val appmsg = JSONObject()
-            appmsg.put("type", 57)
-            appmsg.put("title", content)
-            val refermsg = JSONObject()
-            refermsg.put("type", mi.typeCode)
-            refermsg.put("svrid", msgSvrId)
-            refermsg.put("fromusr", mi.talker)
-            refermsg.put("chatusr", mi.talker)
-            refermsg.put("displayname", WeDatabaseApi.getDisplayName(mi.talker))
-            refermsg.put("msgsource", "")
-            refermsg.put("content", referContent ?: mi.actualContent)
-            refermsg.put("strid", "")
-            refermsg.put("createtime", mi.createTime)
-            appmsg.put("refermsg", refermsg)
-            val outer = JSONObject()
-            outer.put("msg", JSONObject().put("appmsg", appmsg))
-            val appMsg = classAppMessage.clazz.createInstance(outer.toString())
-            methodSendAppMsg.method.invoke(null, appMsg, "", "", talker, "", null)
-            true
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "sendQuoteMsg failed", e); false
-        }
+        return sendQuoteText(talker, msgSvrId, content)
     }
 
     /**
@@ -1113,14 +1442,13 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
+    private val methodImgUploadFeatureServiceNewPathProbe by dexMethod()
     private val methodImgUploadFeatureServiceSendImage by dexMethod()
     private val methodAppInfoSetAppId by dexMethod()
     private val ctorNetSceneUploadMsgImg by dexConstructor()
 
     fun sendImageByMd5(toUser: String, md5: String, appMsgAppId: String? = null) {
-        if (HostInfo.versionCode >= WeChatVersions.MM_8_0_67 && !HostInfo.isHostGooglePlay ||
-            HostInfo.versionCode >= WeChatVersions.MM_8_0_66_PLAY && HostInfo.isHostGooglePlay
-        ) {
+        if (!methodImgUploadFeatureServiceNewPathProbe.isPlaceholder) {
             val sendImageMethod = methodImgUploadFeatureServiceSendImage.method
             val paramsClass = sendImageMethod.parameterTypes[0]
             val crossParamsClass = paramsClass.reflekt()
@@ -1825,12 +2153,21 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
+    private val methodToggleMessageSelection by dexMethod {
+        matcher {
+            declaredClass(classChattingDataAdapter.data.name)
+            usingNumbers(100)
+            usingEqStrings("msgIdTalker")
+            returnType(bool)
+        }
+    }
+
     private fun triggerDownload(imgLocalId: Long, talker: String): Boolean {
         return try {
             val m = WeServiceApi.methodDownloadImageServiceDownloadImage.method
             val downloadService = m.declaringClass.createInstance()
 
-            val msgIdTalker = "com.tencent.mm.plugin.msg.MsgIdTalker".toClass()
+            val msgIdTalker = methodToggleMessageSelection.method.parameterTypes[0]
                 .createInstance(imgLocalId, talker)
 
             val wClass = m.parameterTypes[5]
@@ -1897,11 +2234,18 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
 
     /**
-     * 根据 md5 解密贴纸, 转为 GIF 并保存到 Download/WeKit/。
+     * 根据 md5 解密贴纸, 转为 GIF 并写入指定文件。
      * @return 保存后的文件路径, 失败返回 null
      */
-    fun saveStickerByMd5(md5: String, fileName: String? = null): String? {
+    fun decodeStickerToFile(md5: String, destination: Path): Path? {
+        var temporary: Path? = null
         return try {
+            if (destination.isRegularFile() && destination.fileSize() > 0L) {
+                Files.setLastModifiedTime(destination, FileTime.fromMillis(System.currentTimeMillis()))
+                return destination
+            }
+
+            destination.parent.createDirectories()
             val emojiInfo = WeServiceApi.getEmojiInfoByMd5(md5)
             val emojiFileEncryptMgr = classEmojiFileEncryptMgr.reflekt()
                 .firstMethod {
@@ -1909,23 +2253,52 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                     parameterCount = 0
                 }
                 .invokeStatic()!!
-            var bytes = emojiFileEncryptMgr.reflekt()
+            val encryptedBytes = emojiFileEncryptMgr.reflekt()
                 .firstMethod {
                     parameters(IEmojiInfo::class)
                     returnType = ByteArray::class
                 }
                 .invoke(emojiInfo) as ByteArray
-            bytes = MMWXGFJNI.nativeWxamToGif(bytes)
+            val gifBytes = MMWXGFJNI.nativeWxamToGif(encryptedBytes)
+            check(gifBytes.isNotEmpty()) { "converted sticker GIF is empty" }
 
-            val outPath = KnownPaths.downloads / (fileName ?: "sticker_${System.currentTimeMillis()}.gif")
-            outPath.deleteIfExists()
-            outPath.outputStream().use { it.write(bytes) }
-            WeLogger.i(TAG, "saved sticker: $outPath")
-            outPath.absolutePathString()
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "saveStickerByMd5 failed", e)
+            temporary = Files.createTempFile(destination.parent, ".${destination.name}.", ".tmp")
+            temporary.outputStream().use { output -> output.write(gifBytes) }
+            check(temporary.isRegularFile() && temporary.fileSize() > 0L) {
+                "temporary sticker GIF is empty"
+            }
+
+            try {
+                Files.move(
+                    temporary,
+                    destination,
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE,
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING)
+            }
+            temporary = null
+            check(destination.isRegularFile() && destination.fileSize() > 0L) {
+                "final sticker GIF is empty"
+            }
+            destination
+        } catch (error: Exception) {
+            WeLogger.e(TAG, "decodeStickerToFile failed for md5=$md5", error)
             null
+        } finally {
+            temporary?.deleteIfExists()
         }
+    }
+
+    /**
+     * 根据 md5 解密贴纸, 转为 GIF 并保存到 Download/WeKit/。
+     * @return 保存后的文件路径, 失败返回 null
+     */
+    fun saveStickerByMd5(md5: String, fileName: String? = null): String? {
+        val outPath = KnownPaths.downloads /
+                (fileName ?: "sticker_${System.currentTimeMillis()}.gif")
+        return decodeStickerToFile(md5, outPath)?.absolutePathString()
     }
 
     /**

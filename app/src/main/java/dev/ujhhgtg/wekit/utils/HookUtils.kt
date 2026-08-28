@@ -33,7 +33,7 @@ class OriginalMethodInvoker internal constructor(
         hookBridge.invokeOriginalMethod(method, thisObject, args ?: originalArgs)
 }
 
-private val currentHookBridge: IHookBridge
+val currentHookBridge: IHookBridge
     get() = checkNotNull(StartupInfo.hookBridge) {
         "hook bridge is unavailable in the current loader"
     }

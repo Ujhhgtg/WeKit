@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.runBlocking
@@ -15,9 +16,10 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
 @Feature(
-    name = "自动转发",
-    categories = ["朋友圈"],
-    description = "浏览或同步朋友圈时, 自动转发指定目标的朋友圈到自己的朋友圈"
+    id = "自动转发",
+    nameRes = "feature_auto_repost_moments_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_auto_repost_moments_description",
 )
 object AutoRepostMoments : AutoMomentsBase(),
     WeDatabaseListenerApi.IInsertListener,

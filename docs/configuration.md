@@ -67,7 +67,6 @@
 /sdcard/Android/data/<宿主包名>/WeKit/
 ├── logs/                     # 运行日志
 ├── assets/                   # 媒体资源 (需手动创建)
-├── scripts_js/               # JavaScript 脚本 (需手动创建)
 ├── scripts_java/             # Java 脚本 (需手动创建)
 ├── stickers/                 # 贴纸包 (需手动创建)
 ├── crashes/                  # 崩溃日志 (需启用「调试/崩溃拦截」)
@@ -79,10 +78,6 @@
 「自定义消息气泡」所用的气泡文件存放于 `<模块数据>/assets/` 目录下, 命名为 `left_bubble.9.png` `right_bubble.9.png`。
 
 #### 脚本目录
-
-##### JavaScript
-
-JavaScript 脚本文件存放于 `<模块数据>/scripts_js/` 目录下, 脚本文件直接置入文件夹内。
 
 ##### Java
 

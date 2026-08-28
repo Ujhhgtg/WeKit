@@ -1,8 +1,11 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
+import android.content.Context
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.SendIcon
 import dev.ujhhgtg.wekit.ui.utils.ShareIcon
@@ -14,9 +17,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Feature(
-    name = "转发 & 一键转发",
-    categories = ["朋友圈"],
-    description = "转发他人的朋友圈, 支持实况图片\n图片/视频会在转发前自动缓存, 无需先点开; 实况视频如转发后空白请先播放一次"
+    id = "转发 & 一键转发",
+    nameRes = "feature_repost_moments_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_repost_moments_description",
 )
 object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
 
@@ -34,7 +38,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         return listOf(
             WeMomentsContextMenuApi.MenuItem(
                 777013,
-                "转发",
+                localizedMomentsString(R.string.moments_repost_menu),
                 ShareIcon,
                 { _, _ -> true },
             ) { moment ->
@@ -46,7 +50,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
             },
             WeMomentsContextMenuApi.MenuItem(
                 777014,
-                "一键转发",
+                localizedMomentsString(R.string.moments_quick_repost_menu),
                 SendIcon,
                 { _, _ -> true },
             ) { moment ->
@@ -68,7 +72,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                 "failed to resolve Moments content: activity=${activity.javaClass.name}, " +
                         "snsInfo=${context.snsInfo?.javaClass?.name}, timeline=${context.timelineObject?.javaClass?.name}"
             )
-            showToast(activity, "朋友圈内容解析失败!")
+            showToast(activity, activity.localizedMomentsString(R.string.moments_repost_parse_failed))
             return
         }
         val contentText = data.contentText
@@ -80,11 +84,11 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                     return
                 }
 
-                showToast(activity, "正在准备图片...")
+                showToast(activity, activity.localizedMomentsString(R.string.moments_repost_preparing_images))
                 CoroutineScope(Dispatchers.Main).launch {
                     val tempPaths = WeMomentsApi.ensureImagePathsForEditor(activity, data.mediaList, data.nativeMediaList)
                     if (tempPaths == null) {
-                        showToastSuspend(activity, "图片下载失败或超时!")
+                        showToastSuspend(activity, activity.localizedMomentsString(R.string.moments_repost_image_download_failed))
                         return@launch
                     }
                     WeMomentsApi.postImagesInUi(activity, tempPaths, contentText)
@@ -92,23 +96,23 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
             }
 
             15, 5 -> { // 视频
-                showToast(activity, "正在准备视频...")
+                showToast(activity, activity.localizedMomentsString(R.string.moments_repost_preparing_video))
                 CoroutineScope(Dispatchers.Main).launch {
                     val video = WeMomentsApi.ensureVideoPaths(activity, data)
                     if (video == null) {
-                        showToastSuspend(activity, "视频下载失败或超时!")
+                        showToastSuspend(activity, activity.localizedMomentsString(R.string.moments_repost_video_download_failed))
                         return@launch
                     }
 
                     WeLogger.i(TAG, "forward video to editor: video=${video.videoPath}, thumb=${video.thumbPath}")
                     val albumVideoPath = WeMomentsApi.saveVideo(activity, video.videoPath)
                     if (albumVideoPath == null) {
-                        showToastSuspend(activity, "视频保存到相册失败!")
+                        showToastSuspend(activity, activity.localizedMomentsString(R.string.moments_repost_video_save_failed))
                         return@launch
                     }
                     WeLogger.i(TAG, "dispatch video album result: video=$albumVideoPath")
                     if (!WeMomentsApi.openMomentVideoEditorFromAlbumResult(activity, contentText, albumVideoPath, context.source)) {
-                        showToastSuspend(activity, "视频自动选择失败!")
+                        showToastSuspend(activity, activity.localizedMomentsString(R.string.moments_repost_video_select_failed))
                     }
                 }
             }
@@ -117,7 +121,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                 WeLogger.i(TAG, "reposting card type ${data.type}")
                 if (!WeMomentsApi.openCardEditor(activity, data)) {
                     WeLogger.i(TAG, "card type ${data.type} not editor-capable")
-                    showToast(activity, "该类型卡片不支持编辑转发!")
+                    showToast(activity, activity.localizedMomentsString(R.string.moments_repost_card_unsupported))
                 }
             }
 
@@ -133,7 +137,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         data: WeMomentsApi.MomentContent
     ) {
         val activity = context.activity
-        showToast(activity, "正在准备实况...")
+        showToast(activity, activity.localizedMomentsString(R.string.moments_repost_preparing_live_photo))
         CoroutineScope(Dispatchers.Main).launch {
             val result = WeMomentsApi.openMomentLivePhotoEditorFromAlbumResult(
                 activity = activity,
@@ -141,8 +145,11 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                 content = data,
                 source = context.source
             )
-            if (!result.success && result.message.isNotBlank()) {
-                showToastSuspend(activity, result.message)
+            if (!result.success) {
+                showToastSuspend(
+                    activity,
+                    activity.localizedRepostResult(result),
+                )
             }
         }
     }
@@ -156,15 +163,21 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                 "failed to resolve Moments content for quick repost: activity=${activity.javaClass.name}, " +
                         "snsInfo=${context.snsInfo?.javaClass?.name}, timeline=${context.timelineObject?.javaClass?.name}"
             )
-            showToast(activity, "朋友圈内容解析失败!")
+            showToast(activity, activity.localizedMomentsString(R.string.moments_repost_parse_failed))
             return
         }
 
-        showToast(activity, "正在一键转发...")
+        showToast(activity, activity.localizedMomentsString(R.string.moments_quick_repost_preparing))
 
         CoroutineScope(Dispatchers.Main).launch {
             val result = WeMomentsApi.quickRepostEnsuringCached(data)
-            showToastSuspend(activity, result.message)
+            showToastSuspend(
+                activity,
+                activity.localizedRepostResult(result),
+            )
         }
     }
+
+    private fun Context.localizedRepostResult(result: WeMomentsApi.ActionResult): String =
+        result.messageRes?.let(::localizedMomentsString) ?: result.message
 }

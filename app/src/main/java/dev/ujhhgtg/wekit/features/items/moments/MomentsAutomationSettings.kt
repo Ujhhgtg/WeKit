@@ -1,25 +1,30 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
 import android.content.Context
-import androidx.compose.foundation.clickable
+import androidx.annotation.StringRes
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -27,21 +32,27 @@ import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.items.AtomicJsonConfigStore
 import dev.ujhhgtg.wekit.features.items.AutomationContactSettingsSelector
-import dev.ujhhgtg.wekit.features.items.AutomationKeywordControls
+import dev.ujhhgtg.wekit.features.items.AutomationKeywordMode
 import dev.ujhhgtg.wekit.features.items.AutomationKeywordRule
-import dev.ujhhgtg.wekit.features.items.AutomationRuleHeader
-import dev.ujhhgtg.wekit.features.items.AutomationScrollableColumn
-import dev.ujhhgtg.wekit.features.items.AutomationSettingsError
-import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeControls
 import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.items.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.items.automationKeywordSummary
 import dev.ujhhgtg.wekit.features.items.formatAutomationMinute
+import dev.ujhhgtg.wekit.features.items.payment.PaymentErrorRow
+import dev.ujhhgtg.wekit.features.items.payment.PaymentNavigationRow
+import dev.ujhhgtg.wekit.features.items.payment.PaymentRuleRow
+import dev.ujhhgtg.wekit.features.items.payment.PaymentTextEditDialog
+import dev.ujhhgtg.wekit.features.items.payment.PaymentTextEditMode
+import dev.ujhhgtg.wekit.features.items.payment.keywordItems
+import dev.ujhhgtg.wekit.features.items.payment.timeRangeItems
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -168,7 +179,7 @@ private data class StoredMomentAutomationConfig(
 )
 
 internal class MomentsAutomationSettings private constructor(
-    private val featureName: String,
+    @StringRes private val featureNameRes: Int,
     private val fileName: String,
     private val logTag: String,
     private val includeAction: Boolean,
@@ -219,22 +230,26 @@ internal class MomentsAutomationSettings private constructor(
     fun showMainDialog(context: Context, onSettingsChanged: () -> Unit) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text(featureName) },
+                title = { Text(stringResource(featureNameRes)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable { showGlobalDialog(context, onSettingsChanged) },
-                            headlineContent = { Text("全局设置") },
-                            supportingContent = { Text("配置默认处理条件与执行方式") }
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { showContactSelector(context, onSettingsChanged) },
-                            headlineContent = { Text("分联系人设置") },
-                            supportingContent = { Text("为单个好友覆盖全局设置") }
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.moments_automation_global_settings),
+                                description = stringResource(R.string.moments_automation_global_summary),
+                                onClick = { showGlobalDialog(context, onSettingsChanged) },
+                            )
+                        }
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.moments_automation_contact_settings),
+                                description = stringResource(R.string.moments_automation_contact_summary),
+                                onClick = { showContactSelector(context, onSettingsChanged) },
+                            )
+                        }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("关闭") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.action_close)) } }
             )
         }
     }
@@ -242,22 +257,29 @@ internal class MomentsAutomationSettings private constructor(
     private fun showGlobalDialog(context: Context, onSettingsChanged: () -> Unit) {
         showComposeDialog(context) {
             var draft by remember { mutableStateOf(store.get().global) }
-            val validationError = validate(draft)
+            var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+            val validationError = validate(localizedContext, draft)
+            val editMode = editText
+            if (editMode != null) {
+                PaymentTextEditDialog(editMode, onClose = { editText = null })
+                return@showComposeDialog
+            }
             AlertDialogContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(),
-                title = { Text("全局设置") },
+                title = { Text(stringResource(R.string.moments_automation_global_settings)) },
                 text = {
                     RuleSetEditor(
-                        context = context,
                         rules = draft,
                         overriddenKeys = null,
                         parentLabel = "",
                         validationError = validationError,
                         onActivate = {},
                         onReset = {},
-                        onChange = { _, updated -> draft = updated }
+                        onChange = { _, updated -> draft = updated },
+                        onEditText = { editText = it },
                     )
                 },
                 confirmButton = {
@@ -266,12 +288,12 @@ internal class MomentsAutomationSettings private constructor(
                         onClick = {
                             store.update { it.copy(version = CONFIG_VERSION, global = draft) }
                             onSettingsChanged()
-                            showToast("全局设置已保存")
+                            showToast(localizedContext.getString(R.string.moments_automation_global_saved))
                             onDismiss()
                         }
-                    ) { Text("确定") }
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }
@@ -280,13 +302,22 @@ internal class MomentsAutomationSettings private constructor(
         showComposeDialog(context) {
             var revision by remember { mutableIntStateOf(0) }
             val contacts = remember { loadContacts() }
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             AutomationContactSettingsSelector(
-                title = "分联系人设置",
+                title = stringResource(R.string.moments_automation_contact_settings),
                 contacts = contacts,
                 selectionKey = revision,
                 subtitle = { contact ->
                     val count = contactOverrides(contact.wxId).overriddenCount(includeAction)
-                    if (count == 0) "跟随全局设置" else "已覆盖 $count 项"
+                    if (count == 0) {
+                        localizedContext.getString(R.string.moments_automation_follow_global)
+                    } else {
+                        localizedContext.resources.getQuantityString(
+                            R.plurals.moments_automation_overridden_count,
+                            count,
+                            count,
+                        )
+                    }
                 },
                 isConfigured = { contact ->
                     contactOverrides(contact.wxId).overriddenCount(includeAction) > 0
@@ -318,8 +349,15 @@ internal class MomentsAutomationSettings private constructor(
     ) {
         showComposeDialog(context) {
             var draft by remember { mutableStateOf(initial) }
+            var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
             val effective = parent.apply(draft)
-            val validationError = validate(effective, draft.keys())
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+            val validationError = validate(localizedContext, effective, draft.keys())
+            val editMode = editText
+            if (editMode != null) {
+                PaymentTextEditDialog(editMode, onClose = { editText = null })
+                return@showComposeDialog
+            }
             AlertDialogContent(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -327,14 +365,14 @@ internal class MomentsAutomationSettings private constructor(
                 title = { Text(title) },
                 text = {
                     RuleSetEditor(
-                        context = context,
                         rules = effective,
                         overriddenKeys = draft.keys(),
-                        parentLabel = "全局设置",
+                        parentLabel = localizedContext.getString(R.string.moments_automation_global_settings),
                         validationError = validationError,
                         onActivate = { draft = draft.withRule(it, effective) },
                         onReset = { draft = draft.withoutRule(it) },
-                        onChange = { key, updated -> draft = draft.withRule(key, updated) }
+                        onChange = { key, updated -> draft = draft.withRule(key, updated) },
+                        onEditText = { editText = it },
                     )
                 },
                 confirmButton = {
@@ -342,67 +380,76 @@ internal class MomentsAutomationSettings private constructor(
                         enabled = validationError == null,
                         onClick = {
                             onSave(draft)
-                            showToast("设置已保存")
+                            showToast(localizedContext.getString(R.string.settings_saved))
                             onDismiss()
                         }
-                    ) { Text("确定") }
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }
 
     @Composable
     private fun RuleSetEditor(
-        context: Context,
         rules: MomentAutomationRuleSet,
         overriddenKeys: Set<RuleKey>?,
         parentLabel: String,
         validationError: String?,
         onActivate: (RuleKey) -> Unit,
         onReset: (RuleKey) -> Unit,
-        onChange: (RuleKey, MomentAutomationRuleSet) -> Unit
+        onChange: (RuleKey, MomentAutomationRuleSet) -> Unit,
+        onEditText: (PaymentTextEditMode) -> Unit,
     ) {
         val isGlobal = overriddenKeys == null
         fun overridden(key: RuleKey): Boolean? = overriddenKeys?.let { key in it }
         fun editable(key: RuleKey): Boolean = overriddenKeys == null || key in overriddenKeys
 
-        AutomationScrollableColumn {
-            AutomationRuleHeader(
-                title = if (featureName == "自动点赞") "默认自动点赞" else "默认自动转发",
+        Column(
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+        ) {
+            SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+            item(key = "process") { PaymentRuleRow(
+                title = stringResource(
+                    if (includeAction) R.string.moments_automation_default_auto_like
+                    else R.string.moments_automation_default_auto_repost
+                ),
                 summary = when {
-                    isGlobal && rules.process.enabled -> "默认处理所有好友, 分联系人设置可单独关闭"
-                    isGlobal -> "默认不处理任何好友, 分联系人设置可单独开启"
-                    rules.process.enabled -> "处理该好友的朋友圈"
-                    else -> "跳过该好友的朋友圈"
+                    isGlobal && rules.process.enabled -> stringResource(R.string.moments_automation_process_all)
+                    isGlobal -> stringResource(R.string.moments_automation_process_none)
+                    rules.process.enabled -> stringResource(R.string.moments_automation_process_contact)
+                    else -> stringResource(R.string.moments_automation_skip_contact)
                 },
-                enabled = rules.process.enabled,
-                isOverridden = overridden(RuleKey.PROCESS),
+                checked = rules.process.enabled,
+                overridden = overridden(RuleKey.PROCESS),
                 parentLabel = parentLabel,
                 onActivate = { onActivate(RuleKey.PROCESS) },
                 onReset = { onReset(RuleKey.PROCESS) },
-                onEnabledChange = {
+                onCheckedChange = {
                     onChange(RuleKey.PROCESS, rules.copy(process = rules.process.copy(enabled = it)))
                 }
-            )
+            ) }
 
             if (includeAction) {
-                AutomationRuleHeader(
-                    title = "操作类型",
-                    summary = if (!rules.action.enabled) "使用默认点赞操作" else if (rules.action.action == MomentAutomationAction.LIKE) "点赞" else "取消点赞",
-                    enabled = rules.action.enabled,
-                    isOverridden = overridden(RuleKey.ACTION),
+                item(key = "action") { PaymentRuleRow(
+                    title = stringResource(R.string.moments_automation_action_type),
+                    summary = stringResource(
+                        if (!rules.action.enabled) R.string.moments_automation_default_like_action
+                        else if (rules.action.action == MomentAutomationAction.LIKE) R.string.moments_automation_like
+                        else R.string.moments_automation_unlike
+                    ),
+                    checked = rules.action.enabled,
+                    overridden = overridden(RuleKey.ACTION),
                     parentLabel = parentLabel,
                     onActivate = { onActivate(RuleKey.ACTION) },
                     onReset = { onReset(RuleKey.ACTION) },
-                    onEnabledChange = {
+                    onCheckedChange = {
                         onChange(RuleKey.ACTION, rules.copy(action = rules.action.copy(enabled = it)))
                     }
-                )
-                if (rules.action.enabled) {
-                    Column(Modifier.selectableGroup()) {
-                        ChoiceRow(
-                            title = "点赞",
+                ) }
+                item(key = "action_like", animatedVisibility = rules.action.enabled) {
+                        RadioButtonWidget(iconPlaceholder = false,
+                            title = stringResource(R.string.moments_automation_like),
                             selected = rules.action.action == MomentAutomationAction.LIKE,
                             enabled = editable(RuleKey.ACTION),
                             onClick = {
@@ -412,8 +459,10 @@ internal class MomentsAutomationSettings private constructor(
                                 )
                             }
                         )
-                        ChoiceRow(
-                            title = "取消点赞",
+                }
+                item(key = "action_unlike", animatedVisibility = rules.action.enabled) {
+                        RadioButtonWidget(iconPlaceholder = false,
+                            title = stringResource(R.string.moments_automation_unlike),
                             selected = rules.action.action == MomentAutomationAction.UNLIKE,
                             enabled = editable(RuleKey.ACTION),
                             onClick = {
@@ -423,30 +472,28 @@ internal class MomentsAutomationSettings private constructor(
                                 )
                             }
                         )
-                    }
                 }
             }
 
-            AutomationRuleHeader(
-                title = "处理模式",
+            item(key = "mode") { PaymentRuleRow(
+                title = stringResource(R.string.moments_automation_processing_mode),
                 summary = when {
-                    !rules.mode.enabled -> "仅在刷到时处理"
-                    rules.mode.mode == MomentAutomationMode.WHEN_SEEN -> "刷到时即时处理"
-                    else -> "本地缓存全量处理"
+                    !rules.mode.enabled -> stringResource(R.string.moments_automation_when_seen_only)
+                    rules.mode.mode == MomentAutomationMode.WHEN_SEEN -> stringResource(R.string.moments_automation_when_seen)
+                    else -> stringResource(R.string.moments_automation_all_cached)
                 },
-                enabled = rules.mode.enabled,
-                isOverridden = overridden(RuleKey.MODE),
+                checked = rules.mode.enabled,
+                overridden = overridden(RuleKey.MODE),
                 parentLabel = parentLabel,
                 onActivate = { onActivate(RuleKey.MODE) },
                 onReset = { onReset(RuleKey.MODE) },
-                onEnabledChange = {
+                onCheckedChange = {
                     onChange(RuleKey.MODE, rules.copy(mode = rules.mode.copy(enabled = it)))
                 }
-            )
-            if (rules.mode.enabled) {
-                Column(Modifier.selectableGroup()) {
-                    ChoiceRow(
-                        title = "刷到时即时处理",
+            ) }
+            item(key = "mode_seen", animatedVisibility = rules.mode.enabled) {
+                    RadioButtonWidget(iconPlaceholder = false,
+                        title = stringResource(R.string.moments_automation_when_seen),
                         selected = rules.mode.mode == MomentAutomationMode.WHEN_SEEN,
                         enabled = editable(RuleKey.MODE),
                         onClick = {
@@ -456,9 +503,11 @@ internal class MomentsAutomationSettings private constructor(
                             )
                         }
                     )
-                    ChoiceRow(
-                        title = "本地缓存全量处理",
-                        summary = "需启用「朋友圈/自动刷新」",
+            }
+            item(key = "mode_all", animatedVisibility = rules.mode.enabled) {
+                    RadioButtonWidget(iconPlaceholder = false,
+                        title = stringResource(R.string.moments_automation_all_cached),
+                        description = stringResource(R.string.moments_automation_all_cached_requires_refresh),
                         selected = rules.mode.mode == MomentAutomationMode.ALL_LOADED,
                         enabled = editable(RuleKey.MODE),
                         onClick = {
@@ -468,22 +517,24 @@ internal class MomentsAutomationSettings private constructor(
                             )
                         }
                     )
-                }
             }
 
-            AutomationRuleHeader(
-                title = "操作间隔",
-                summary = if (rules.interval.enabled) "至少间隔 ${rules.interval.milliseconds.ifBlank { "0" }} ms" else "不额外等待",
-                enabled = rules.interval.enabled,
-                isOverridden = overridden(RuleKey.INTERVAL),
+            item(key = "interval") { PaymentRuleRow(
+                title = stringResource(R.string.moments_automation_interval),
+                summary = if (rules.interval.enabled) {
+                    stringResource(R.string.moments_automation_interval_value, rules.interval.milliseconds.ifBlank { "0" })
+                } else stringResource(R.string.moments_automation_no_extra_wait),
+                checked = rules.interval.enabled,
+                overridden = overridden(RuleKey.INTERVAL),
                 parentLabel = parentLabel,
                 onActivate = { onActivate(RuleKey.INTERVAL) },
                 onReset = { onReset(RuleKey.INTERVAL) },
-                onEnabledChange = {
+                onCheckedChange = {
                     onChange(RuleKey.INTERVAL, rules.copy(interval = rules.interval.copy(enabled = it)))
                 }
-            )
-            if (rules.interval.enabled) {
+            ) }
+            item(key = "interval_value", animatedVisibility = rules.interval.enabled) {
+                BaseSupportingWidget(title = stringResource(R.string.moments_automation_interval_ms)) {
                 OutlinedTextField(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -496,73 +547,80 @@ internal class MomentsAutomationSettings private constructor(
                             rules.copy(interval = rules.interval.copy(milliseconds = it.filter(Char::isDigit).take(7)))
                         )
                     },
-                    label = { Text("间隔 (毫秒)") },
+                    label = { Text(stringResource(R.string.moments_automation_interval_ms)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
+                }
             }
 
-            AutomationRuleHeader(
-                title = "生效时间段",
+            item(key = "time_range") { PaymentRuleRow(
+                title = stringResource(R.string.moments_automation_time_range),
                 summary = if (rules.timeRange.enabled) {
                     "${formatAutomationMinute(rules.timeRange.startMinute)} - ${formatAutomationMinute(rules.timeRange.endMinute)}"
-                } else "不限制执行时间",
-                enabled = rules.timeRange.enabled,
-                isOverridden = overridden(RuleKey.TIME_RANGE),
+                } else stringResource(R.string.moments_automation_time_unrestricted),
+                checked = rules.timeRange.enabled,
+                overridden = overridden(RuleKey.TIME_RANGE),
                 parentLabel = parentLabel,
                 onActivate = { onActivate(RuleKey.TIME_RANGE) },
                 onReset = { onReset(RuleKey.TIME_RANGE) },
-                onEnabledChange = {
+                onCheckedChange = {
                     onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = rules.timeRange.copy(enabled = it)))
                 }
+            ) }
+            timeRangeItems(
+                rule = rules.timeRange,
+                editable = editable(RuleKey.TIME_RANGE),
+                visible = rules.timeRange.enabled,
+                onChange = { onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = it)) },
             )
-            if (rules.timeRange.enabled) {
-                AutomationTimeRangeControls(
-                    rule = rules.timeRange,
-                    editable = editable(RuleKey.TIME_RANGE),
-                    onChange = { onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = it)) }
-                )
-            }
 
-            AutomationRuleHeader(
-                title = "内容关键词",
-                summary = automationKeywordSummary(rules.keyword, "不限制朋友圈文案"),
-                enabled = rules.keyword.enabled,
-                isOverridden = overridden(RuleKey.KEYWORD),
+            item(key = "keyword") { PaymentRuleRow(
+                title = stringResource(R.string.moments_automation_content_keywords),
+                summary = automationKeywordSummary(rules.keyword, stringResource(R.string.moments_automation_keyword_unrestricted)),
+                checked = rules.keyword.enabled,
+                overridden = overridden(RuleKey.KEYWORD),
                 parentLabel = parentLabel,
                 onActivate = { onActivate(RuleKey.KEYWORD) },
                 onReset = { onReset(RuleKey.KEYWORD) },
-                onEnabledChange = {
+                onCheckedChange = {
                     onChange(RuleKey.KEYWORD, rules.copy(keyword = rules.keyword.copy(enabled = it)))
                 }
+            ) }
+            keywordItems(
+                keyPrefix = "keyword",
+                rule = rules.keyword,
+                editable = editable(RuleKey.KEYWORD),
+                visible = rules.keyword.enabled,
+                modes = AutomationKeywordMode.entries,
+                onChange = { onChange(RuleKey.KEYWORD, rules.copy(keyword = it)) },
+                onEditText = onEditText,
             )
-            if (rules.keyword.enabled) {
-                AutomationKeywordControls(
-                    rule = rules.keyword,
-                    editable = editable(RuleKey.KEYWORD),
-                    onChange = { onChange(RuleKey.KEYWORD, rules.copy(keyword = it)) }
-                )
-            }
 
-            AutomationRuleHeader(
-                title = "朋友圈类型",
-                summary = if (rules.contentType.enabled) "已选择 ${rules.contentType.typeIds.size} 种类型" else "不限制朋友圈类型",
-                enabled = rules.contentType.enabled,
-                isOverridden = overridden(RuleKey.CONTENT_TYPE),
+            item(key = "content_type") { PaymentRuleRow(
+                title = stringResource(R.string.moments_automation_content_type),
+                summary = if (rules.contentType.enabled) {
+                    pluralStringResource(R.plurals.moments_automation_selected_type_count, rules.contentType.typeIds.size, rules.contentType.typeIds.size)
+                } else stringResource(R.string.moments_automation_type_unrestricted),
+                checked = rules.contentType.enabled,
+                overridden = overridden(RuleKey.CONTENT_TYPE),
                 parentLabel = parentLabel,
                 onActivate = { onActivate(RuleKey.CONTENT_TYPE) },
                 onReset = { onReset(RuleKey.CONTENT_TYPE) },
-                onEnabledChange = {
+                onCheckedChange = {
                     onChange(
                         RuleKey.CONTENT_TYPE,
                         rules.copy(contentType = rules.contentType.copy(enabled = it))
                     )
                 }
-            )
-            if (rules.contentType.enabled) {
-                MomentsContentType.entries.forEach { type ->
-                    ListItem(
-                        modifier = Modifier.clickable(enabled = editable(RuleKey.CONTENT_TYPE)) {
+            ) }
+            MomentsContentType.entries.forEach { type ->
+                item(key = "content_type_${type.typeId}", animatedVisibility = rules.contentType.enabled) {
+                    BaseWidget(
+                        iconPlaceholder = false,
+                        title = stringResource(type.nameRes),
+                        enabled = editable(RuleKey.CONTENT_TYPE),
+                        onClick = {
                             val updated = rules.contentType.typeIds.toMutableSet()
                             if (!updated.add(type.typeId)) updated.remove(type.typeId)
                             onChange(
@@ -570,34 +628,36 @@ internal class MomentsAutomationSettings private constructor(
                                 rules.copy(contentType = rules.contentType.copy(typeIds = updated))
                             )
                         },
-                        leadingContent = {
+                        trailingContent = {
                             Checkbox(
                                 checked = type.typeId in rules.contentType.typeIds,
                                 enabled = editable(RuleKey.CONTENT_TYPE),
                                 onCheckedChange = null
                             )
                         },
-                        headlineContent = { Text(type.displayName) }
                     )
                 }
             }
 
-            AutomationRuleHeader(
-                title = "最大发布时间",
-                summary = if (rules.maximumAge.enabled) "仅处理 ${rules.maximumAge.maximumHours.ifBlank { "0" }} 小时内发布的朋友圈" else "不限制发布时间",
-                enabled = rules.maximumAge.enabled,
-                isOverridden = overridden(RuleKey.MAXIMUM_AGE),
+            item(key = "maximum_age") { PaymentRuleRow(
+                title = stringResource(R.string.moments_automation_maximum_age),
+                summary = if (rules.maximumAge.enabled) {
+                    stringResource(R.string.moments_automation_maximum_age_value, rules.maximumAge.maximumHours.ifBlank { "0" })
+                } else stringResource(R.string.moments_automation_age_unrestricted),
+                checked = rules.maximumAge.enabled,
+                overridden = overridden(RuleKey.MAXIMUM_AGE),
                 parentLabel = parentLabel,
                 onActivate = { onActivate(RuleKey.MAXIMUM_AGE) },
                 onReset = { onReset(RuleKey.MAXIMUM_AGE) },
-                onEnabledChange = {
+                onCheckedChange = {
                     onChange(
                         RuleKey.MAXIMUM_AGE,
                         rules.copy(maximumAge = rules.maximumAge.copy(enabled = it))
                     )
                 }
-            )
-            if (rules.maximumAge.enabled) {
+            ) }
+            item(key = "maximum_age_value", animatedVisibility = rules.maximumAge.enabled) {
+                BaseSupportingWidget(title = stringResource(R.string.moments_automation_maximum_age_hours)) {
                 OutlinedTextField(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -614,32 +674,18 @@ internal class MomentsAutomationSettings private constructor(
                             )
                         )
                     },
-                    label = { Text("最大发布时间 (小时)") },
+                    label = { Text(stringResource(R.string.moments_automation_maximum_age_hours)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
+                }
             }
 
-            AutomationSettingsError(validationError)
+            validationError?.let { error ->
+                item(key = "validation_error") { PaymentErrorRow(error) }
+            }
+            }
         }
-    }
-
-    @Composable
-    private fun ChoiceRow(
-        title: String,
-        summary: String? = null,
-        selected: Boolean,
-        enabled: Boolean,
-        onClick: () -> Unit
-    ) {
-        ListItem(
-            modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
-            leadingContent = {
-                RadioButton(selected = selected, enabled = enabled, onClick = null)
-            },
-            headlineContent = { Text(title) },
-            supportingContent = summary?.let { value -> { Text(value) } }
-        )
     }
 
     private fun MomentAutomationRuleSet.apply(overrides: MomentAutomationOverrides?): MomentAutomationRuleSet {
@@ -692,21 +738,25 @@ internal class MomentsAutomationSettings private constructor(
         RuleKey.MAXIMUM_AGE -> copy(maximumAge = null)
     }
 
-    private fun validate(rules: MomentAutomationRuleSet, keys: Set<RuleKey>? = null): String? {
+    private fun validate(context: Context, rules: MomentAutomationRuleSet, keys: Set<RuleKey>? = null): String? {
         fun validates(key: RuleKey) = keys == null || key in keys
         if (validates(RuleKey.INTERVAL) && rules.interval.enabled) {
             val value = rules.interval.milliseconds.toLongOrNull()
-                ?: return "请输入有效的操作间隔"
-            if (value !in 0L..MAX_ACTION_DELAY_MS) return "操作间隔不能超过 $MAX_ACTION_DELAY_MS 毫秒"
+                ?: return context.getString(R.string.moments_automation_invalid_interval)
+            if (value !in 0L..MAX_ACTION_DELAY_MS) {
+                return context.getString(R.string.moments_automation_interval_too_large, MAX_ACTION_DELAY_MS)
+            }
         }
         if (validates(RuleKey.KEYWORD)) {
-            rules.keyword.validationError("内容关键词")?.let { return it }
+            rules.keyword.validationError(context.getString(R.string.moments_automation_content_keywords))?.let { return it }
         }
         if (validates(RuleKey.CONTENT_TYPE) && rules.contentType.enabled && rules.contentType.typeIds.isEmpty()) {
-            return "请至少选择一种朋友圈类型"
+            return context.getString(R.string.moments_automation_select_type)
         }
         if (validates(RuleKey.MAXIMUM_AGE) && rules.maximumAge.enabled) {
-            if (rules.maximumAge.maximumHours.toLongOrNull() == null) return "请输入有效的最大发布时间"
+            if (rules.maximumAge.maximumHours.toLongOrNull() == null) {
+                return context.getString(R.string.moments_automation_invalid_maximum_age)
+            }
         }
         return null
     }
@@ -761,13 +811,13 @@ internal class MomentsAutomationSettings private constructor(
         val contacts = selected.associateWith {
             MomentAutomationOverrides(process = AutomationToggleRule(enabled = useWhitelist))
         }
-        WeLogger.i(logTag, "migrated legacy $featureName settings")
+        WeLogger.i(logTag, "migrated legacy settings")
         return StoredMomentAutomationConfig(global = global, contacts = contacts)
     }
 
     companion object {
         val Like = MomentsAutomationSettings(
-            featureName = "自动点赞",
+            featureNameRes = R.string.feature_auto_like_moments_name,
             fileName = "auto_like_moments_settings.json",
             logTag = "AutoLikeMomentsSettings",
             includeAction = true,
@@ -788,7 +838,7 @@ internal class MomentsAutomationSettings private constructor(
         )
 
         val Repost = MomentsAutomationSettings(
-            featureName = "自动转发",
+            featureNameRes = R.string.feature_auto_repost_moments_name,
             fileName = "auto_repost_moments_settings.json",
             logTag = "AutoRepostMomentsSettings",
             includeAction = false,

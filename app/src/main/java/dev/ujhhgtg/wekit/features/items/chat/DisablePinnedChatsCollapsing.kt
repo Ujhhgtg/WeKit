@@ -4,9 +4,15 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-@Feature(name = "禁用置顶聊天折叠", categories = ["聊天"], description = "隐藏「折叠置顶聊天」选项\n启用本功能后, 需重启微信 2 次以使更改完全生效")
+@Feature(
+    id = "禁用置顶聊天折叠",
+    nameRes = "feature_disable_pinned_chats_collapsing_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_disable_pinned_chats_collapsing_description",
+)
 object DisablePinnedChatsCollapsing : SwitchFeature(), IResolveDex {
 
     private val methodAddCollapseChatItem by dexMethod {
@@ -25,11 +31,15 @@ object DisablePinnedChatsCollapsing : SwitchFeature(), IResolveDex {
 
     override fun onEnable() {
         methodAddCollapseChatItem.hookBefore {
-            WeDatabaseApi.execStatement("DELETE FROM rconversation WHERE username = 'message_fold'")
+            if (WeDatabaseApi.isReady) {
+                WeDatabaseApi.execStatement("DELETE FROM rconversation WHERE username = 'message_fold'")
+            }
             result = null
         }
         methodIfShouldAddCollapseChatItem.hookBefore {
-            WeDatabaseApi.execStatement("DELETE FROM rconversation WHERE username = 'message_fold'")
+            if (WeDatabaseApi.isReady) {
+                WeDatabaseApi.execStatement("DELETE FROM rconversation WHERE username = 'message_fold'")
+            }
             result = false
         }
     }

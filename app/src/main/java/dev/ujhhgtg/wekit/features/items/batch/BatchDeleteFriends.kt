@@ -3,10 +3,14 @@ package dev.ujhhgtg.wekit.features.items.batch
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeContactApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
@@ -21,9 +25,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Feature(
-    name = "批量删除好友",
-    categories = ["批量操作"],
-    description = "选择多个好友后一次性删除, 请求会自动间隔以规避服务器风控"
+    id = "批量删除好友",
+    nameRes = "feature_batch_delete_friends_name",
+    categoryIds = [FeatureCategoryIds.BATCH],
+    descriptionRes = "feature_batch_delete_friends_description",
 )
 object BatchDeleteFriends : ClickableFeature() {
 
@@ -39,13 +44,13 @@ object BatchDeleteFriends : ClickableFeature() {
 
         showComposeDialog(context) {
             ContactsSelector(
-                title = "选择要删除的好友",
+                title = context.localizedBatchString(R.string.batch_delete_friends_select),
                 contacts = friends,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast("请选择至少一个好友")
+                        showToast(context.localizedBatchString(R.string.batch_select_at_least_one_friend))
                         return@ContactsSelector
                     }
 
@@ -59,18 +64,26 @@ object BatchDeleteFriends : ClickableFeature() {
     private fun confirmAndDelete(context: Context, wxIds: Set<String>) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("确认删除") },
-                text = { Text("确定要删除选中的 ${wxIds.size} 位好友吗? 此操作不可逆! 可选择同时将其拉黑.") },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                title = { Text(stringResource(R.string.batch_delete_friends_confirm_title)) },
+                text = {
+                    Text(
+                        pluralStringResource(
+                            R.plurals.batch_delete_friends_confirm_message,
+                            wxIds.size,
+                            wxIds.size,
+                        ),
+                    )
+                },
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
                     Button(onClick = {
                         onDismiss()
                         deleteFriends(wxIds, WeContactApi.DeleteMode.BLOCK_AND_DELETE)
-                    }) { Text("拉黑并删除") }
+                    }) { Text(stringResource(R.string.batch_delete_friends_block_and_delete)) }
                     Button(onClick = {
                         onDismiss()
                         deleteFriends(wxIds, WeContactApi.DeleteMode.DELETE_ONLY)
-                    }) { Text("删除") }
+                    }) { Text(stringResource(R.string.action_delete)) }
                 }
             )
         }
@@ -78,7 +91,13 @@ object BatchDeleteFriends : ClickableFeature() {
 
     private fun deleteFriends(wxIds: Set<String>, mode: WeContactApi.DeleteMode) {
         CoroutineScope(Dispatchers.IO).launch {
-            showToastSuspend("正在删除 ${wxIds.size} 位好友...")
+            showToastSuspend(
+                localizedBatchQuantity(
+                    R.plurals.batch_delete_friends_progress,
+                    wxIds.size,
+                    wxIds.size,
+                ),
+            )
 
             var success = 0
             wxIds.forEachIndexed { index, wxId ->
@@ -88,8 +107,13 @@ object BatchDeleteFriends : ClickableFeature() {
             }
 
             showToastSuspend(
-                if (success == wxIds.size) "已删除 ${wxIds.size} 位好友"
-                else "已删除 $success/${wxIds.size} 位好友"
+                localizedBatchQuantity(
+                    if (success == wxIds.size) R.plurals.batch_delete_friends_done
+                    else R.plurals.batch_delete_friends_partial,
+                    wxIds.size,
+                    success,
+                    wxIds.size,
+                )
             )
         }
     }

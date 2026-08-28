@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.SnsCommentActionProto
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.moments.AntiMomentCommentsDelete.INTERCEPTED_FLAG
 import dev.ujhhgtg.wekit.features.items.moments.AntiMomentCommentsDelete.INTERCEPT_MARKER
@@ -18,7 +19,12 @@ import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.StrArr
 import dev.ujhhgtg.wekit.utils.reflection.int
 
-@Feature(name = "朋友圈评论防撤回", categories = ["朋友圈"], description = "拦截朋友圈评论删除并添加标记")
+@Feature(
+    id = "朋友圈评论防撤回",
+    nameRes = "feature_anti_moment_comments_delete_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_anti_moment_comments_delete_description",
+)
 object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
 
     private const val TAG = "AntiMomentCommentsDelete"

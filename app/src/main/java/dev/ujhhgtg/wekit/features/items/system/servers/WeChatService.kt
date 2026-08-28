@@ -197,7 +197,7 @@ object WeChatService {
         else Result.Error("Failed to send XML message")
 
     fun sendQuoteMessage(toUser: String, msgSvrId: Long, content: String): Result<Unit> =
-        if (WeMessageApi.sendQuoteMsgByMsgId(toUser, msgSvrId, content)) Result.Success(Unit)
+        if (WeMessageApi.sendQuoteText(toUser, msgSvrId, content)) Result.Success(Unit)
         else Result.Error("Failed to send quote message")
 
     fun sendCipherMessage(toUser: String, title: String, content: String): Result<Unit> {

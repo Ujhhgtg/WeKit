@@ -5,22 +5,18 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.os.Process
-import android.os.UserManager
 
 inline val Context.isDarkMode
     get() = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
 
-inline val Context.androidUserId: Long
-    get() {
-        val userManager = getSystemService<UserManager>()
-        val userHandle = Process.myUserHandle()
-        return userManager.getSerialNumberForUser(userHandle)
-    }
+inline val androidUserId: Int
+    get() = Process.myUid() / 100_000
 
 // it is the caller's responsibility to ensure the class is a service
 inline fun <reified T : Any> Context.getSystemService(): T =
     getSystemService(T::class.java)!!
 
+// kotlin doesnt support property:get tailrec, idk why
 inline val Context.baseActivity get() = _baseActivity(this)
 
 @Suppress("FunctionName")

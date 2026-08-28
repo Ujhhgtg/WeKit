@@ -8,14 +8,16 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
 @Feature(
-    name = "自动点赞",
-    categories = ["朋友圈"],
-    description = "浏览朋友圈时自动点赞"
+    id = "自动点赞",
+    nameRes = "feature_auto_like_moments_name",
+    categoryIds = [FeatureCategoryIds.MOMENTS],
+    descriptionRes = "feature_auto_like_moments_description",
 )
 object AutoLikeMoments : AutoMomentsBase(),
     WeDatabaseListenerApi.IInsertListener,

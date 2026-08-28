@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.service
 
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
@@ -94,12 +96,12 @@ object FunBoxServiceClient {
             if (!response.isSuccessful) throw HttpStatusException(response.code, response.message)
             val bytes = response.body.bytes()
             WeLogger.d(TAG, "operation=$operation responseBytes=${bytes.size}")
-            require(bytes.isNotEmpty()) { "服务器未返回数据" }
+            require(bytes.isNotEmpty()) { localizedChatString(R.string.chat_funbox_server_empty) }
             val responseEnvelope = FunBoxBinaryReader(bytes)
             val encrypted = responseEnvelope.bytes()
             val status = responseEnvelope.int()
             WeLogger.d(TAG, "operation=$operation envelopeStatus=$status encryptedBytes=${encrypted.size}")
-            check(status == 0) { "服务器返回错误,代码:$status" }
+            check(status == 0) { localizedChatString(R.string.chat_funbox_server_error_code, status) }
             val decodedPayload = FunBoxCrypto.teaDecrypt(sessionKey, encrypted)
             return decode(FunBoxBinaryReader(decodedPayload))
         }
@@ -182,7 +184,7 @@ object FunBoxServiceClient {
         WeLogger.i(TAG, "resolving API host excluded=${excludedHost != null}")
         val resolved = resolveCandidates()
         val host = resolved.first.firstOrNull { candidate -> candidate != excludedHost && probeApi(candidate) }
-            ?: error("无法连接 FunBox API 服务")
+            ?: error(localizedChatString(R.string.chat_funbox_api_unreachable))
         WePrefs.putString(API_CACHE_KEY, host)
         WeLogger.i(TAG, "selected API host=$host")
         return host
@@ -196,7 +198,7 @@ object FunBoxServiceClient {
         WeLogger.i(TAG, "resolving object host excluded=${excludedHost != null}")
         val resolved = resolveCandidates()
         val host = resolved.second.firstOrNull { candidate -> candidate != excludedHost && probeObject(candidate) }
-            ?: error("无法连接 FunBox 对象服务")
+            ?: error(localizedChatString(R.string.chat_funbox_object_service_unreachable))
         WePrefs.putString(OBJECT_CACHE_KEY, host)
         WeLogger.i(TAG, "selected object host=$host")
         return host
@@ -207,7 +209,7 @@ object FunBoxServiceClient {
         val resolverUrl = "https://223.5.5.5/resolve?name=$RESOLVER_NAME&type=TXT"
         val body = client.newCall(Request.Builder().url(resolverUrl).get().build()).execute().use { response ->
             WeLogger.d(TAG, "resolver HTTP ${response.code}")
-            check(response.isSuccessful) { "域名解析失败: HTTP ${response.code}" }
+            check(response.isSuccessful) { localizedChatString(R.string.chat_funbox_resolver_failed, response.code) }
             response.body.string()
         }
         val answer = DefaultJson.parseToJsonElement(body).jsonObject["Answer"]?.jsonArray
@@ -217,7 +219,7 @@ object FunBoxServiceClient {
             ?.filter { it.isNotBlank() }
             ?.joinToString("")
             ?.takeIf { it.isNotBlank() }
-            ?: error("域名解析未返回服务地址")
+            ?: error(localizedChatString(R.string.chat_funbox_resolver_empty))
         val decoded = String(Base64.getDecoder().decode(answer))
         val json = DefaultJson.parseToJsonElement(decoded).jsonObject
         val api = json["vapi"]!!.jsonArray.map { it.jsonPrimitive.content }

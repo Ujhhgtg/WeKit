@@ -26,7 +26,7 @@ updates retain it; uninstall removes it without touching app data.
 The installer exports `MODULE_HOT_INSTALL_REQUEST=true`, the hot-install
 request used by compatible KernelSU-family root managers. On such a manager an
 updated module is activated without a device reboot. Stop and restart WeChat
-after the update: the Zygisk companion opens the shared universal payload for
+after the update: the Zygisk companion opens the shared payload for
 every newly specialized WeChat process, so it receives the updated APK.
 
 This does not replace code in an already running WeChat process. Root managers
@@ -36,18 +36,18 @@ restart requirements.
 ## Build
 
 ```bash
-# Build the standard universal APK, both Zygisk loader ABIs, and the installable debug ZIP.
+# Build the standard arm64-v8a APK, Zygisk loader, and installable debug ZIP.
 ./x zygisk build
 
 # Build a release ZIP.
 ./x zygisk build --release
 
-# Only compile the Zygisk native loader(s).
+# Only compile the Zygisk native loader.
 ./x zygisk native --abi arm64-v8a
 
-# Reuse an existing universal APK output, or explicitly select one.
+# Reuse an existing APK output, or explicitly select one.
 ./x zygisk build --skip-apk-build
-./x zygisk build --skip-apk-build --apk path/to/universal.apk
+./x zygisk build --skip-apk-build --apk path/to/wekit-arm64.apk
 
 # Build and install with adb; omit --root to let install_module.sh detect it.
 ./x zygisk flash --device SERIAL --root ksu --reboot
@@ -56,9 +56,8 @@ restart requirements.
 ./x zygisk flash --skip-build
 ```
 
-`./x zygisk build` defaults to a debug standard universal APK payload and both
-supported Zygisk loader ABIs (`arm64-v8a` and `armeabi-v7a`). The ZIP is output
-to `release/`.
+`./x zygisk build` defaults to a debug standard `arm64-v8a` APK payload and an
+`arm64-v8a` Zygisk loader. The ZIP is output to `release/`.
 Run `./x zygisk --help` or `./x zygisk <subcommand> --help` for every option.
 
 ## Development environment

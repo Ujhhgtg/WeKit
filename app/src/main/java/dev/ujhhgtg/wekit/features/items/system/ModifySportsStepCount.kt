@@ -16,12 +16,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.utils.createInstance
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -30,7 +33,12 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-@Feature(name = "修改运动步数", categories = ["系统与隐私"], description = "修改微信获取到的或手动上传运动步数")
+@Feature(
+    id = "修改运动步数",
+    nameRes = "feature_modify_sports_step_count_name",
+    categoryIds = [FeatureCategoryIds.SYSTEM_PRIVACY],
+    descriptionRes = "feature_modify_sports_step_count_description",
+)
 object ModifySportsStepCount : ClickableFeature(), IResolveDex {
 
     enum class PassiveMode { FIXED, MULTIPLIER }
@@ -78,7 +86,7 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
             val activeIsEmpty = activeInput.isEmpty()
 
             AlertDialogContent(
-                title = { Text("修改运动步数") },
+                title = { Text(stringResource(R.string.feature_modify_sports_step_count_name)) },
                 text = {
                     DefaultColumn {
                         // 被动模式: 固定 / 倍率
@@ -86,7 +94,7 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("被动上传模式", modifier = Modifier.weight(1f))
+                            Text(stringResource(R.string.system_sports_passive_mode), modifier = Modifier.weight(1f))
                             SingleChoiceSegmentedButtonRow {
                                 PassiveMode.entries.forEachIndexed { index, mode ->
                                     SegmentedButton(
@@ -96,7 +104,12 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                                             index, PassiveMode.entries.size
                                         )
                                     ) {
-                                        Text(if (mode == PassiveMode.FIXED) "固定" else "倍率")
+                                        Text(
+                                            stringResource(
+                                                if (mode == PassiveMode.FIXED) R.string.system_sports_fixed
+                                                else R.string.system_sports_multiplier
+                                            )
+                                        )
                                     }
                                 }
                             }
@@ -109,7 +122,7 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                             onValueChange = {
                                 passiveInput = it.filter { c -> c.isDigit() }.trim()
                             },
-                            label = { Text("被动上传值 (固定值或倍率)") }
+                            label = { Text(stringResource(R.string.system_sports_passive_value)) }
                         )
 
                         // 主动值 + 立即上传
@@ -124,23 +137,29 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                                 onValueChange = {
                                     activeInput = it.filter { c -> c.isDigit() }.trim()
                                 },
-                                label = { Text("主动上传值") },
+                                label = { Text(stringResource(R.string.system_sports_active_value)) },
                             )
                             Button(
                                 enabled = !activeIsEmpty,
                                 onClick = {
                                     val count = activeInput.toLongOrNull() ?: run {
-                                        showToast("格式不正确!")
+                                        showToast(localizedSystemString(R.string.system_invalid_format))
                                         return@Button
                                     }
                                     val sportsMan =
                                         methodUploadSteps.method.declaringClass.createInstance()
                                     val ok =
                                         methodUploadSteps.method.invoke(sportsMan, count) as Boolean
-                                    showToast(context, "已上传! 返回结果: ${if (ok) "成功" else "失败"}")
+                                    val result = localizedSystemString(
+                                        if (ok) R.string.system_success else R.string.system_failure
+                                    )
+                                    showToast(
+                                        context,
+                                        context.localizedSystemString(R.string.system_sports_upload_result, result)
+                                    )
                                 }
                             ) {
-                                Text("上传")
+                                Text(stringResource(R.string.system_sports_upload))
                             }
                         }
                     }
@@ -151,12 +170,12 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                         passiveValue = passiveInput.toLongOrNull() ?: -1L
                         onDismiss()
                     }) {
-                        Text("保存")
+                        Text(stringResource(R.string.action_save))
                     }
                 },
                 dismissButton = {
                     TextButton(onDismiss) {
-                        Text("取消")
+                        Text(stringResource(R.string.dialog_cancel))
                     }
                 }
             )
@@ -167,19 +186,19 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
         if (newState) {
             showComposeDialog(context) {
                 AlertDialogContent(
-                    title = { Text(text = "警告") },
-                    text = { Text(text = "此功能可能导致账号异常, 确定要启用吗?") },
+                    title = { Text(text = stringResource(R.string.warning)) },
+                    text = { Text(text = stringResource(R.string.system_risky_feature_warning)) },
                     confirmButton = {
                         Button(onClick = {
                             applyToggle(true)
                             onDismiss()
                         }) {
-                            Text("确定")
+                            Text(stringResource(R.string.dialog_confirm))
                         }
                     },
                     dismissButton = {
                         TextButton(onDismiss) {
-                            Text("取消")
+                            Text(stringResource(R.string.dialog_cancel))
                         }
                     }
                 )

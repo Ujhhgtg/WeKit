@@ -9,11 +9,17 @@ import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 
-@Feature(name = "移除个性签名限制", categories = ["个人资料"], description = "允许大于 30 字与包含特殊字符的个性签名")
+@Feature(
+    id = "移除个性签名限制",
+    nameRes = "feature_remove_signature_limits_name",
+    categoryIds = [FeatureCategoryIds.PROFILE],
+    descriptionRes = "feature_remove_signature_limits_description",
+)
 object RemoveSignatureLimits : SwitchFeature(), IResolveDex {
 
     private lateinit var stringMatchesMethodUnhook: HookHandle

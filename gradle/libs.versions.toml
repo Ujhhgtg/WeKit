@@ -1,46 +1,51 @@
 [versions]
-agp = "9.3.0"
+agp = "9.3.1"
 coil = "3.5.0"
-compose-bom = "2026.06.01"
+compose-bom = "2026.08.00"
 dexkit = "2.2.0"
-appcompat = "1.7.1"
+appcompat = "1.8.0"
 composablehorizons-symbols = "2.2.1"
-fastjson2 = "2.0.62"
-junitJupiter = "6.1.2"
+junitJupiter = "6.1.3"
 lifecycle-runtime = "2.11.0"
 material = "1.14.0"
 activity = "1.13.0"
+navigationevent = "1.1.2"
 kotlin = "2.4.10"
 androidx-core-ktx = "1.19.0"
-mmkv = "2.4.0"
+mmkv = "2.4.1"
 osmdroid = "6.1.20"
 profileinstaller = "1.4.1"
-rhino = "45f29f6"
 serialization = "1.11.0"
 lombok = "1.18.46"
 google-protobuf = "4.35.1"
-ksp = "2.3.10"
-okhttp = "5.4.0"
+ksp = "2.3.11"
+okhttp = "5.5.0"
+fastjson2 = "2.0.64"
 hidden-api-bypass = "6.1"
-runtime = "1.11.4"
-# noinspection GradleDependency
-compose-material3 = "1.5.0-alpha19" # DO NOT UPDATE. RIPPLE EFFECT BROKE AGAIN. TOUCH EFFECT BROKE TOO. FUCK. YOU. GOOGLE.
+runtime = "1.12.0"
+compose-material3 = "1.5.0-alpha26"
 libsu = "6.0.0"
 libxposed = "102.0.0"
 aboutlibraries = "15.0.4"
 kotlinpoet = "2.3.0"
 biometric = "1.2.0-alpha05"
 browser = "1.10.0"
-miuix = "0.9.3"
+miuix = "0.9.4-rc01"
 materialkolor = "5.0.0"
 markwon = "4.6.2"
 annotation = "1.10.0"
-mcp-server = "0.14.0"
-mcp-client = "0.14.0"
-jsoup = "1.22.2"
+mcp-server = "0.15.0"
+mcp-client = "0.15.0"
+jsoup = "1.23.1"
 room = "2.8.4"
-ktor = "3.5.1"
+ktor = "3.5.2"
 dexmaker = "2.28.6"
+dynamicanimation = "1.1.0"
+jsch = "2.28.6"
+sqliteJdbc = "3.50.3.0"
+arsclib = "1.4.0"
+apksig = "9.2.1"
+bouncycastle = "1.79"
 
 # noinspection UnusedVersionCatalogEntry
 namespace = "dev.ujhhgtg.wekit"
@@ -60,7 +65,6 @@ ndk = "30.0.14904198"
 [libraries]
 androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "annotation" }
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
-#androidx-compose-material3 = { module = "androidx.compose.material3:material3" } # use local-maven version
 androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "compose-material3" }
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle-runtime" }
@@ -69,18 +73,17 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 android-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
+androidx-navigationevent-compose = { module = "androidx.navigationevent:navigationevent-compose", version.ref = "navigationevent" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidx-core-ktx" }
+androidx-dynamicanimation = { module = "androidx.dynamicanimation:dynamicanimation", version.ref = "dynamicanimation" }
 androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 androidx-browser = { module = "androidx.browser:browser", version.ref = "browser" }
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
 composablehorizons-material-symbols-outlined = { module = "com.composables:icons-material-symbols-outlined-cmp", version.ref = "composablehorizons-symbols" }
 composablehorizons-material-symbols-filled = { module = "com.composables:icons-material-symbols-outlined-filled-cmp", version.ref = "composablehorizons-symbols" }
-fastjson2 = { module = "com.alibaba.fastjson2:fastjson2", version.ref = "fastjson2" }
-miuix-ui = { module = "top.yukonga.miuix.kmp:miuix-ui-android", version.ref = "miuix" }
-miuix-icons = { module = "top.yukonga.miuix.kmp:miuix-icons-android", version.ref = "miuix" }
-miuix-preference = { module = "top.yukonga.miuix.kmp:miuix-preference-android", version.ref = "miuix" }
 miuix-blur = { module = "top.yukonga.miuix.kmp:miuix-blur-android", version.ref = "miuix" }
 miuix-shader = { module = "top.yukonga.miuix.kmp:miuix-shader-android", version.ref = "miuix" }
+miuix-nav = { module = "top.yukonga.miuix.kmp:miuix-nav-android", version.ref = "miuix" }
 materialkolor = { module = "com.materialkolor:material-kolor", version.ref = "materialkolor" }
 coil = { module = "io.coil-kt.coil3:coil", version.ref = "coil" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
@@ -89,6 +92,7 @@ coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version
 
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
 
 markwon-core = { module = "io.noties.markwon:core", version.ref = "markwon" }
 markwon-ext-strikethrough = { module = "io.noties.markwon:ext-strikethrough", version.ref = "markwon" }
@@ -104,20 +108,20 @@ lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 google-protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "google-protobuf" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 okhttp3-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+alibaba-fastjson2 = { module = "com.alibaba.fastjson2:fastjson2", version.ref = "fastjson2" }
 
 legacyxposed-api = { module = "de.robv.android.xposed:api", version = "82" }
 dexkit = { module = "org.luckypray:dexkit", version.ref = "dexkit" }
 dexmaker = { module = "com.linkedin.dexmaker:dexmaker", version.ref = "dexmaker" }
-#arsclib = { module = "io.github.reandroid:ARSCLib", version.ref = "arsclib" }
-#apksig = { module = "com.android.tools.build:apksig", version.ref = "apksig" }
-#bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
-#bouncycastle-pkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
+arsclib = { module = "io.github.reandroid:ARSCLib", version.ref = "arsclib" }
+apksig = { module = "com.android.tools.build:apksig", version.ref = "apksig" }
+bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+bouncycastle-pkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hidden-api-bypass" }
 libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsu" }
 libxposed-api = { module = "io.github.libxposed:api", version.ref = "libxposed" }
 libxposed-service = { module = "io.github.libxposed:service", version.ref = "libxposed" }
 
-rhino = { module = "com.github.Ujhhgtg.rhino:rhino", version.ref = "rhino" }
 ksp = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
 kotlinpoet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlinpoet" }
 
@@ -138,6 +142,7 @@ ktor-client-core = { module = "io.ktor:ktor-client-core" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio" }
 ktor-client-websockets = { module = "io.ktor:ktor-client-websockets" }
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json" }
+jsch = { module = "com.github.mwiede:jsch", version.ref = "jsch" }
 
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
 

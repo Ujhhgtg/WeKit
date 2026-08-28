@@ -4,8 +4,14 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 
-@Feature(name = "微信主屏幕美化服务", categories = ["API"], description = "提供美化微信主屏幕的能力")
+@Feature(
+    id = "微信主屏幕美化服务",
+    nameRes = "feature_we_main_activity_beautify_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_main_activity_beautify_api_description",
+)
 object WeMainActivityBeautifyApi : ApiFeature(), IResolveDex {
 
     val methodDoOnCreate by dexMethod {

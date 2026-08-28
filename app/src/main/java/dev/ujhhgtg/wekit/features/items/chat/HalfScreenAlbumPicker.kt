@@ -1,6 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import android.app.Activity
+import android.content.Intent
+import android.content.res.Configuration
+import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Point
 import android.os.Build
@@ -8,44 +11,43 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.view.ViewTreeObserver
+import android.view.WindowInsetsController
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.Slider
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
-import dev.ujhhgtg.wekit.features.items.chat.HalfScreenAlbumPicker.PUSHED_SHEETS
-import dev.ujhhgtg.wekit.features.items.chat.HalfScreenAlbumPicker.applySlideOutTransition
-import dev.ujhhgtg.wekit.features.items.chat.HalfScreenAlbumPicker.hookOrientationRequests
-import dev.ujhhgtg.wekit.features.items.chat.HalfScreenAlbumPicker.installTransitionCapture
-import dev.ujhhgtg.wekit.features.items.chat.HalfScreenAlbumPicker.isChatSheet
-import dev.ujhhgtg.wekit.features.items.chat.HalfScreenAlbumPicker.removeTransitionCapture
-import dev.ujhhgtg.wekit.features.items.chat.HalfScreenAlbumPicker.slideInTransition
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
-import kotlin.math.roundToInt
 
 @Feature(
-    name = "半屏相册选择器",
-    categories = ["聊天"],
-    description = "将聊天「+」面板的相册选择器、图片预览和搜索页显示为半屏卡片, 上方可看到聊天内容 (图片编辑器保持全屏)"
+    id = "半屏相册选择器",
+    nameRes = "feature_half_screen_album_picker_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_half_screen_album_picker_description",
 )
 object HalfScreenAlbumPicker : ClickableFeature() {
 
@@ -54,8 +56,8 @@ object HalfScreenAlbumPicker : ClickableFeature() {
     private const val ALBUM_PREVIEW_UI = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
     private const val IMAGE_PREVIEW_UI = "com.tencent.mm.plugin.gallery.ui.ImagePreviewUI"
     private const val SMART_GALLERY_UI = "com.tencent.mm.plugin.gallery.ui.SmartGalleryUI"
+    private const val GALLERY_ENTRY_UI = "com.tencent.mm.plugin.gallery.ui.GalleryEntryUI"
     private const val MM_FRAGMENT_ACTIVITY = "com.tencent.mm.ui.MMFragmentActivity"
-    private const val EXTRA_RECENT_PHOTO_QUICK_SEND = "key_from_c2c_recently_quickly_send"
 
     /** The grid picker plus the two screens pushed on top of it. All three become sheets. */
     private val SHEET_ACTIVITIES = setOf(ALBUM_PREVIEW_UI, IMAGE_PREVIEW_UI, SMART_GALLERY_UI)
@@ -186,6 +188,7 @@ object HalfScreenAlbumPicker : ClickableFeature() {
 
         hookOrientationRequests()
         hookCloseTransitionCapture()
+        hookTrampolineRedirectAfterFirstFrame()
     }
 
     /**
@@ -345,9 +348,11 @@ object HalfScreenAlbumPicker : ClickableFeature() {
 
     /**
      * Every hook bails unless this is the chat "+" panel's picker or one of the two sheets it
-     * pushes, so anything unrecognized falls through to stock WeChat behavior. The recent-photo
-     * bubble is also left untouched: it launches ImagePreviewUI directly through GalleryEntryUI,
-     * rather than from the picker, and WeChat marks that immediate-preview route explicitly.
+     * pushes, so anything unrecognized falls through to stock WeChat behavior. The direct
+     * GalleryEntryUI launches that skip the picker — the recent-photo bubble and the system
+     * camera's post-capture preview — are chat sheets too (they carry the same
+     * query_source_type); [hookTrampolineRedirectAfterFirstFrame] makes sure their redirecting
+     * trampoline has drawn a frame before the sheet launches.
      */
     private fun isChatSheet(activity: Activity): Boolean {
         // Subclasses that do not override onCreate inherit the onCreate hooks: MediaTabAlbumUI and
@@ -363,13 +368,66 @@ object HalfScreenAlbumPicker : ClickableFeature() {
         // so SmartGalleryUI is reachable from every picker route — Moments, favorites, webview
         // chooseImage, emoji, avatars. Only the chat ones set a query_source_type we accept.
         val sourceType = activity.intent?.getIntExtra("query_source_type", -1) ?: return false
-        if (sourceType !in CHAT_QUERY_SOURCE_TYPES) return false
+        return sourceType in CHAT_QUERY_SOURCE_TYPES
+    }
 
-        // The "you might want to send" bubble goes straight to ImagePreviewUI. Treating it as a
-        // sheet forces it through the window-translucency and sheet-transition path intended for
-        // a picker-pushed preview, turning a native fast path into a visibly delayed launch.
-        return activity.javaClass.name != IMAGE_PREVIEW_UI ||
-            activity.intent?.getBooleanExtra(EXTRA_RECENT_PHOTO_QUICK_SEND, false) != true
+    /**
+     * Holds off GalleryEntryUI's immediate redirect until the trampoline has drawn its first
+     * frame.
+     *
+     * GalleryEntryUI is a blank translucent window with no content; its onResume redirects to a
+     * sheet before it has produced a single frame. This happens on two direct chat routes: the
+     * "你可能要发送的照片" bubble, and the system camera's post-capture preview
+     * (`preview_image` + `isTakePhoto`, launched after the user confirms in the system camera).
+     * The sheet hook then converts the target to translucent while that never-drawn window sits
+     * below it, and Android's launch transition adds the below window as a participant it has to
+     * wait for; with nothing ever triggering its draw, the whole launch is held for the
+     * transition's multi-second collection timeout. The picker-pushed preview is unaffected
+     * because AlbumPreviewUI has long been drawn by the time it opens ImagePreviewUI.
+     *
+     * Deferring the redirect by one frame makes every trampoline route structurally identical to
+     * the picker route: the caller is already drawn, so the synchronous translucent conversion in
+     * the sheet's onCreate completes immediately, the chat stays visible above the sheet through
+     * the enter transition, and the normal close transition is restored.
+     */
+    private fun hookTrampolineRedirectAfterFirstFrame() {
+        GALLERY_ENTRY_UI.toClass().reflekt().firstMethod {
+            name = "startActivityForResult"
+            parameters(Intent::class.java, int)
+        }.hookBefore {
+            val entry = thisObject as Activity
+            val intent = args[0] as Intent
+            val requestCode = args[1] as Int
+
+            // Only the chat half-screen sheet routes matter: the target becomes translucent, so
+            // the never-drawn trampoline below it stalls the launch transition. GalleryEntryUI's
+            // other redirects (opaque screens) cover the trampoline and never hit the stall, so
+            // they keep WeChat's stock launch.
+            val targetClass = intent.component?.className ?: return@hookBefore
+            if (targetClass !in SHEET_ACTIVITIES) return@hookBefore
+            if (intent.getIntExtra("query_source_type", -1) !in CHAT_QUERY_SOURCE_TYPES) {
+                return@hookBefore
+            }
+
+            val decor = entry.window.decorView
+            // Already laid out (and therefore drawn at least once): launch straight away. This
+            // also covers a reused GalleryEntryUI instance reaching this method again.
+            if (decor.isLaidOut) return@hookBefore
+
+            // Skip the immediate redirect; retry once the trampoline's first frame has been
+            // submitted. The re-entered startActivityForResult then sees the laid-out decor and
+            // passes through to the original method.
+            result = null
+            decor.viewTreeObserver.addOnPreDrawListener(
+                object : ViewTreeObserver.OnPreDrawListener {
+                    override fun onPreDraw(): Boolean {
+                        decor.viewTreeObserver.removeOnPreDrawListener(this)
+                        decor.post { entry.startActivityForResult(intent, requestCode) }
+                        return true
+                    }
+                }
+            )
+        }
     }
 
     /**
@@ -486,9 +544,9 @@ object HalfScreenAlbumPicker : ClickableFeature() {
     }
 
     /**
-     * Keeps two pieces of WeChat's full-screen chrome corrected for the life of the sheet, off a
-     * single layout listener. Both are (re-)applied *after* onCreate returns, so a one-shot fix
-     * in the onCreate hook would not survive:
+     * Keeps WeChat's full-screen chrome corrected for the life of the sheet, off a single layout
+     * listener. All of these are (re-)applied *after* onCreate returns, so a one-shot fix in the
+     * onCreate hook would not survive:
      *
      *  - **Top padding.** MMActivity picks its EdgeToEdgeWrapperLayout branch independently of
      *    `fixStatusbar`, and that wrapper pads from window insets. A bottom-anchored sheet does
@@ -499,8 +557,14 @@ object HalfScreenAlbumPicker : ClickableFeature() {
      *    clearing it during onCreate does nothing. Left set, the status bar hides across the whole
      *    screen and the chat above the sheet loses it too. (No-op for AlbumPreviewUI, which never
      *    sets the flag.)
+     *  - **Status bar.** ImagePreviewUI paints its status bar dark (it is a full-screen photo
+     *    viewer by default), but the sheet does not extend under the system bar, so that dark
+     *    color would sit above the exposed chat. Reset the system bar to transparent so the chat's
+     *    own status bar area shows through, and make the bar icons follow night mode so they stay
+     *    visible against it. WeChat re-applies its color late (256 ms after onCreate), hence the
+     *    per-layout correction.
      *
-     * Both checks are guarded on the current value, so each settles after one extra layout pass
+     * Each check is guarded on the current value, so it settles after one extra layout pass
      * rather than looping.
      */
     @Suppress("DEPRECATION")
@@ -512,6 +576,17 @@ object HalfScreenAlbumPicker : ClickableFeature() {
         }.onFailure {
             WeLogger.w(TAG, "could not reach mWrappingFrame", it)
         }.getOrNull()
+
+        val statusBarStripClass = runCatching {
+            Class.forName("com.tencent.mm.ui.statusbar.DrawStatusBarFrameLayout")
+        }.getOrNull()
+        val statusBarStrip = statusBarStripClass?.let { cls ->
+            runCatching { activity.window.decorView.findFirstViewByClass(cls) }.getOrNull()
+        }
+        val statusBarStripSetColor = statusBarStripClass?.getMethod(
+            "setStatusBarColor",
+            Int::class.javaPrimitiveType
+        )
 
         activity.window.decorView.viewTreeObserver.addOnGlobalLayoutListener {
             if (wrappingFrame != null && wrappingFrame.paddingTop != 0) {
@@ -527,7 +602,62 @@ object HalfScreenAlbumPicker : ClickableFeature() {
             if (activity.window.attributes.flags and fullscreen != 0) {
                 activity.window.clearFlags(fullscreen)
             }
+
+            val window = activity.window
+            if (window.statusBarColor != Color.TRANSPARENT) {
+                // API 26-29 only honors the color when the window claims the system bar.
+                if (window.attributes.flags and
+                    WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS == 0
+                ) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+                }
+                window.statusBarColor = Color.TRANSPARENT
+            }
+
+            val lightStatusBar =
+                activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK !=
+                    Configuration.UI_MODE_NIGHT_YES
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val appearance = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                val controller = window.insetsController
+                if (controller != null) {
+                    val hasLightBar = controller.systemBarsAppearance and appearance != 0
+                    if (hasLightBar != lightStatusBar) {
+                        controller.setSystemBarsAppearance(
+                            if (lightStatusBar) appearance else 0,
+                            appearance
+                        )
+                    }
+                }
+            } else {
+                val flag = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                val decor = window.decorView
+                val hasFlag = decor.systemUiVisibility and flag != 0
+                if (hasFlag != lightStatusBar) {
+                    decor.systemUiVisibility = if (lightStatusBar) {
+                        decor.systemUiVisibility or flag
+                    } else {
+                        decor.systemUiVisibility and flag.inv()
+                    }
+                }
+            }
+
+            // WeChat paints its own status bar strip inside the decor (DrawStatusBarFrameLayout);
+            // the sheet does not sit under the system bar, so keep that strip transparent too.
+            if (statusBarStrip != null && statusBarStripSetColor != null) {
+                runCatching { statusBarStripSetColor.invoke(statusBarStrip, Color.TRANSPARENT) }
+                    .onFailure { WeLogger.w(TAG, "could not clear status bar strip", it) }
+            }
         }
+    }
+
+    private fun View.findFirstViewByClass(cls: Class<*>): View? {
+        if (cls.isInstance(this)) return this
+        if (this !is ViewGroup) return null
+        for (i in 0 until childCount) {
+            getChildAt(i).findFirstViewByClass(cls)?.let { return it }
+        }
+        return null
     }
 
     /** Full display height, so the percentage means what the slider says. */
@@ -541,32 +671,33 @@ object HalfScreenAlbumPicker : ClickableFeature() {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var heightInput by remember { mutableFloatStateOf(heightPercent.toFloat()) }
+            var height by remember {
+                mutableIntStateOf(heightPercent.coerceIn(MIN_HEIGHT_PERCENT, MAX_HEIGHT_PERCENT))
+            }
 
             AlertDialogContent(
-                title = { Text("半屏相册选择器") },
+                title = { Text(stringResource(R.string.feature_half_screen_album_picker_name)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            headlineContent = { Text("高度占比: ${heightInput.roundToInt()}%") },
-                            supportingContent = {
-                                Slider(
-                                    value = heightInput,
-                                    onValueChange = { heightInput = it },
-                                    valueRange = MIN_HEIGHT_PERCENT.toFloat()..MAX_HEIGHT_PERCENT.toFloat(),
-                                    steps = MAX_HEIGHT_PERCENT - MIN_HEIGHT_PERCENT - 1
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            BaseItemContainer {
+                                IntNumberPickerWidget(
+                                    title = stringResource(R.string.chat_half_screen_album_height_label),
+                                    value = height,
+                                    startInt = MIN_HEIGHT_PERCENT,
+                                    endInt = MAX_HEIGHT_PERCENT,
+                                    stepSize = 1,
+                                    valueSuffix = "%",
+                                    onValueChange = {
+                                        height = it
+                                        heightPercent = it
+                                    },
                                 )
                             }
-                        )
+                        }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } },
-                confirmButton = {
-                    Button(onClick = {
-                        heightPercent = heightInput.roundToInt()
-                        onDismiss()
-                    }) { Text("确定") }
-                }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
             )
         }
     }

@@ -41,3 +41,15 @@ inline val StrArr get() = Array<String>::class.java
 inline val ObjArr get() = Array<Any>::class.java
 
 inline val any get() = Any::class.java
+
+fun Class<*>.boxed(): Class<*> = when (this) {
+    byte -> BByte
+    short -> BShort
+    int -> BInt
+    long -> BLong
+    float -> BFloat
+    double -> BDouble
+    bool -> BBool
+    char -> BChar
+    else -> this
+}

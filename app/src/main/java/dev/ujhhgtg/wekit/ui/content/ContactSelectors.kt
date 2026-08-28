@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.ui.content
 
 import android.icu.text.Transliterator
 import android.os.Build
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -45,12 +46,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -59,6 +63,7 @@ import com.composables.icons.materialsymbols.outlined.Compare_arrows
 import com.composables.icons.materialsymbols.outlined.Deselect
 import com.composables.icons.materialsymbols.outlined.Expand_less
 import com.composables.icons.materialsymbols.outlined.Expand_more
+import com.composables.icons.materialsymbols.outlined.Folder
 import com.composables.icons.materialsymbols.outlined.Groups
 import com.composables.icons.materialsymbols.outlined.Label
 import com.composables.icons.materialsymbols.outlined.Person
@@ -68,12 +73,17 @@ import com.composables.icons.materialsymbols.outlined.Select_all
 import com.composables.icons.materialsymbols.outlined.Sort_by_alpha
 import com.composables.icons.materialsymbols.outlined.Swap_vert
 import com.composables.icons.materialsymbols.outlined.Tag
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.core.models.WeContact
 import dev.ujhhgtg.wekit.features.api.core.models.WeGroup
 import dev.ujhhgtg.wekit.features.api.core.models.WeOfficialAccount
+import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation
+import dev.ujhhgtg.wekit.features.items.chat.ConversationGrouping
+import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.Dispatchers
@@ -84,21 +94,45 @@ import java.text.Collator
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
-enum class FilterType(val displayName: String) {
-    ALL("全部"),
-    FRIENDS("好友"),
-    GROUPS("群聊"),
-    OFFICIAL_ACCOUNTS("公众号"),
-    OTHERS("其他")
+private const val SELECTED_SECTION_KEY = "\u0000selected"
+private const val NEWEST_SECTION_KEY = "\u0000newest"
+private const val OLDEST_SECTION_KEY = "\u0000oldest"
+
+enum class FilterType(@StringRes val displayNameRes: Int) {
+    ALL(R.string.contact_filter_all),
+    FRIENDS(R.string.contact_filter_friends),
+    GROUPS(R.string.contact_filter_groups),
+    OFFICIAL_ACCOUNTS(R.string.contact_filter_official_accounts),
+    OTHERS(R.string.contact_filter_others),
 }
 
-enum class SortMode(val displayName: String, val icon: ImageVector) {
-    ALPHABETICAL("A-Z", MaterialSymbols.Outlined.Sort_by_alpha),
-    LAST_MESSAGE_TIME("新-旧", MaterialSymbols.Outlined.Schedule);
+private enum class ContactFilterMode(val icon: ImageVector, @StringRes val nameRes: Int) {
+    LABELS(MaterialSymbols.Outlined.Label, R.string.contact_filter_mode_labels),
+    AGGREGATION(MaterialSymbols.Outlined.Folder, R.string.contact_filter_mode_aggregation),
+    GROUPING(MaterialSymbols.Outlined.Groups, R.string.contact_filter_mode_grouping),
+}
 
-    fun displayName(reversed: Boolean): String = when (this) {
-        ALPHABETICAL -> if (reversed) "Z-A" else "A-Z"
-        LAST_MESSAGE_TIME -> if (reversed) "旧-新" else "新-旧"
+private var persistedContactFilterMode by WePrefs.prefOption(
+    "contact_selector_filter_mode",
+    ContactFilterMode.LABELS.name,
+)
+
+private data class ContactFilterOption(
+    val id: String,
+    val name: String,
+    val wxIds: Set<String>,
+)
+
+enum class SortMode(val icon: ImageVector) {
+    ALPHABETICAL(MaterialSymbols.Outlined.Sort_by_alpha),
+    LAST_MESSAGE_TIME(MaterialSymbols.Outlined.Schedule);
+
+    @StringRes
+    fun displayNameRes(reversed: Boolean): Int = when (this) {
+        ALPHABETICAL -> if (reversed) R.string.contact_sort_alphabetical_descending
+        else R.string.contact_sort_alphabetical_ascending
+        LAST_MESSAGE_TIME -> if (reversed) R.string.contact_sort_oldest_first
+        else R.string.contact_sort_newest_first
     }
 }
 
@@ -117,7 +151,7 @@ fun BaseContactSelector(
     selectionKey: Any,
     isSelected: (IWeContact) -> Boolean,
     showConfirmButton: Boolean = true,
-    dismissButtonText: String = "取消",
+    dismissButtonText: String? = null,
     avatarModelProvider: ((IWeContact) -> Any)? = { it.avatarUrl },
     subtitleProvider: ((IWeContact) -> String)? = { it.wxId },
     leadingControl: @Composable (LazyItemScope.(IWeContact) -> Unit)? = null,
@@ -127,9 +161,12 @@ fun BaseContactSelector(
     onDeselectAll: ((List<IWeContact>) -> Unit)? = null,
     onInvertSelection: ((List<IWeContact>) -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    val localizedContext = LocalWeKitLocalizedContext.current
+    val currentLocalizedContext = rememberUpdatedState(localizedContext)
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
-    val alphabet = remember { listOf("已选") + ('A'..'Z').map { it.toString() } + "#" }
+    val alphabet = remember { listOf(SELECTED_SECTION_KEY) + ('A'..'Z').map { it.toString() } + "#" }
 
     val transliterator = remember {
         try {
@@ -175,6 +212,8 @@ fun BaseContactSelector(
     var officialAccountWxIds by remember { mutableStateOf(emptySet<String>()) }
     var allLabels by remember { mutableStateOf(emptyList<WeContactLabelApi.ContactLabel>()) }
     var labelContactsMap by remember { mutableStateOf(emptyMap<String, Set<String>>()) }
+    var aggregationOptions by remember { mutableStateOf(emptyList<ContactFilterOption>()) }
+    var groupingOptions by remember { mutableStateOf(emptyList<ContactFilterOption>()) }
     var isFiltersLoaded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -192,6 +231,24 @@ fun BaseContactSelector(
                     val labelMap = labels.associate { label ->
                         label.labelName to WeContactLabelApi.getContactsByLabelId(label.labelId).toSet()
                     }
+                    val aggregation = if (ConversationAggregation.isEnabled) {
+                        ConversationAggregation.aggregationFolders().map { folder ->
+                            ContactFilterOption(
+                                id = folder.id,
+                                name = folder.name,
+                                wxIds = ConversationAggregation.folderMembers(folder.id).toSet(),
+                            )
+                        }
+                    } else {
+                        emptyList()
+                    }
+                    val grouping = if (ConversationGrouping.isEnabled) {
+                        ConversationGrouping.groupFilterOptions(currentLocalizedContext.value).map { group ->
+                            ContactFilterOption(group.id, group.name, group.members.toSet())
+                        }
+                    } else {
+                        emptyList()
+                    }
 
                     withContext(Dispatchers.Main) {
                         friendWxIds = friends
@@ -199,11 +256,17 @@ fun BaseContactSelector(
                         officialAccountWxIds = officialAccounts
                         allLabels = labels
                         labelContactsMap = labelMap
+                        aggregationOptions = aggregation
+                        groupingOptions = grouping
                         isFiltersLoaded = true
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        showToast("数据库尚未初始化, 筛选将不可用!")
+                        val currentResources = currentLocalizedContext.value
+                        showToast(
+                            context,
+                            currentResources.getString(R.string.contact_filter_database_unavailable),
+                        )
                         isFiltersLoaded = true
                     }
                 }
@@ -217,7 +280,21 @@ fun BaseContactSelector(
     }
 
     var selectedType by remember { mutableStateOf(FilterType.ALL) }
+    var filterMode by remember {
+        val persistedMode = ContactFilterMode.entries.firstOrNull {
+            it.name == persistedContactFilterMode
+        }
+        mutableStateOf(
+            when (persistedMode) {
+                ContactFilterMode.AGGREGATION -> if (ConversationAggregation.isEnabled) persistedMode else ContactFilterMode.LABELS
+                ContactFilterMode.GROUPING -> if (ConversationGrouping.isEnabled) persistedMode else ContactFilterMode.LABELS
+                ContactFilterMode.LABELS, null -> ContactFilterMode.LABELS
+            }
+        )
+    }
     var selectedLabelName by remember { mutableStateOf<String?>(null) }
+    var selectedAggregationId by remember { mutableStateOf<String?>(null) }
+    var selectedGroupingId by remember { mutableStateOf<String?>(null) }
 
     var filtersExpanded by remember { mutableStateOf(true) }
 
@@ -245,7 +322,11 @@ fun BaseContactSelector(
             // getLastMessageTimes() 内部吞掉异常后返回空表, 所以空结果也当作失败:
             // 否则会静默按"所有会话时间相同"排出一个随意的顺序, 而且缓存住之后再也不会重试。
             if (times.isNullOrEmpty()) {
-                showToast("数据库尚未初始化, 无法按时间排序!")
+                val currentResources = currentLocalizedContext.value
+                showToast(
+                    context,
+                    currentResources.getString(R.string.contact_sort_database_unavailable),
+                )
             } else {
                 lastMessageTimes = times
                 sortMode = SortMode.LAST_MESSAGE_TIME
@@ -325,9 +406,25 @@ fun BaseContactSelector(
             allContacts.any { it.wxId in wxIds }
         }
     }
-    val showLabelFilterRow = remember(availableLabels, isFiltersLoaded) { isFiltersLoaded && availableLabels.isNotEmpty() }
+    val availableAggregationOptions = remember(allContacts, aggregationOptions) {
+        aggregationOptions.filter { option -> allContacts.any { it.wxId in option.wxIds } }
+    }
+    val availableGroupingOptions = remember(allContacts, groupingOptions) {
+        groupingOptions.filter { option -> allContacts.any { it.wxId in option.wxIds } }
+    }
+    val availableFilterModes = remember(isFiltersLoaded) {
+        if (!isFiltersLoaded) emptyList()
+        else ContactFilterMode.entries.filter { mode ->
+            mode == ContactFilterMode.LABELS || when (mode) {
+                ContactFilterMode.AGGREGATION -> ConversationAggregation.isEnabled
+                ContactFilterMode.GROUPING -> ConversationGrouping.isEnabled
+                ContactFilterMode.LABELS -> true
+            }
+        }
+    }
+    val showFilterModeRow = availableFilterModes.isNotEmpty()
 
-    val displayedContacts = remember(filteredContacts, selectedType, selectedLabelName, friendWxIds, groupWxIds, officialAccountWxIds, labelContactsMap) {
+    val displayedContacts = remember(filteredContacts, selectedType, filterMode, selectedLabelName, selectedAggregationId, selectedGroupingId, friendWxIds, groupWxIds, officialAccountWxIds, labelContactsMap, aggregationOptions, groupingOptions) {
         filteredContacts.filter { contact ->
             val isGroup = contact is WeGroup || contact.wxId.endsWith("@chatroom") || contact.wxId in groupWxIds
             val isOfficial = contact is WeOfficialAccount || contact.wxId.startsWith("gh_") || contact.wxId in officialAccountWxIds
@@ -341,14 +438,13 @@ fun BaseContactSelector(
                 FilterType.OTHERS -> !isFriend && !isGroup && !isOfficial
             }
 
-            val matchesLabel = if (selectedLabelName == null) {
-                true
-            } else {
-                val labelWxIds = labelContactsMap[selectedLabelName] ?: emptySet()
-                contact.wxId in labelWxIds
+            val matchesMode = when (filterMode) {
+                ContactFilterMode.LABELS -> selectedLabelName == null || contact.wxId in (labelContactsMap[selectedLabelName] ?: emptySet())
+                ContactFilterMode.AGGREGATION -> selectedAggregationId == null || contact.wxId in (aggregationOptions.firstOrNull { it.id == selectedAggregationId }?.wxIds ?: emptySet())
+                ContactFilterMode.GROUPING -> selectedGroupingId == null || contact.wxId in (groupingOptions.firstOrNull { it.id == selectedGroupingId }?.wxIds ?: emptySet())
             }
 
-            matchesType && matchesLabel
+            matchesType && matchesMode
         }
     }
 
@@ -362,17 +458,19 @@ fun BaseContactSelector(
             }
             val (selected, rest) = sorted.partition { isSelected(it) }
             linkedMapOf<String, List<IWeContact>>().apply {
-                if (selected.isNotEmpty()) put("已选", selected)
-                if (rest.isNotEmpty()) put(if (sortReversed) "旧-新" else "新-旧", rest)
+                if (selected.isNotEmpty()) put(SELECTED_SECTION_KEY, selected)
+                if (rest.isNotEmpty()) {
+                    put(if (sortReversed) OLDEST_SECTION_KEY else NEWEST_SECTION_KEY, rest)
+                }
             }
         } else {
             displayedContacts.groupBy { contact ->
-                if (isSelected(contact)) "已选" else initialOf(contact.displayName)
+                if (isSelected(contact)) SELECTED_SECTION_KEY else initialOf(contact.displayName)
             }.toSortedMap { c1, c2 ->
                 when {
                     c1 == c2 -> 0
-                    c1 == "已选" -> -1
-                    c2 == "已选" -> 1
+                    c1 == SELECTED_SECTION_KEY -> -1
+                    c2 == SELECTED_SECTION_KEY -> 1
                     c1 == "#" -> 1
                     c2 == "#" -> -1
                     else -> if (sortReversed) c2.compareTo(c1) else c1.compareTo(c2)
@@ -410,8 +508,13 @@ fun BaseContactSelector(
                         value = searchQuery,
                         onValueChange = onSearchQueryChange,
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("搜索昵称或微信号") },
-                        leadingIcon = { Icon(MaterialSymbols.Outlined.Search, contentDescription = "Search") },
+                        placeholder = { Text(stringResource(R.string.contact_search_hint)) },
+                        leadingIcon = {
+                            Icon(
+                                MaterialSymbols.Outlined.Search,
+                                contentDescription = stringResource(R.string.contact_search_content_description),
+                            )
+                        },
                         singleLine = true
                     )
                     IconButton(onClick = { filtersExpanded = !filtersExpanded }) {
@@ -421,7 +524,10 @@ fun BaseContactSelector(
                             } else {
                                 MaterialSymbols.Outlined.Expand_more
                             },
-                            contentDescription = if (filtersExpanded) "折叠筛选" else "展开筛选"
+                            contentDescription = stringResource(
+                                if (filtersExpanded) R.string.contact_filters_collapse
+                                else R.string.contact_filters_expand,
+                            ),
                         )
                     }
                 }
@@ -444,10 +550,19 @@ fun BaseContactSelector(
                                 items(availableTypes) { type ->
                                     val isSelected = selectedType == type
                                     val count = typeCounts[type] ?: 0
+                                    val displayName = stringResource(type.displayNameRes)
                                     FilterChip(
                                         selected = isSelected,
                                         onClick = { selectedType = type },
-                                        label = { Text("${type.displayName} ($count)") },
+                                        label = {
+                                            Text(
+                                                stringResource(
+                                                    R.string.contact_filter_with_count,
+                                                    displayName,
+                                                    count,
+                                                ),
+                                            )
+                                        },
                                         leadingIcon = {
                                             Icon(
                                                 imageVector = when (type) {
@@ -457,7 +572,7 @@ fun BaseContactSelector(
                                                     FilterType.OFFICIAL_ACCOUNTS -> MaterialSymbols.Outlined.Chat
                                                     FilterType.OTHERS -> MaterialSymbols.Outlined.Tag
                                                 },
-                                                contentDescription = type.displayName,
+                                                contentDescription = displayName,
                                                 modifier = Modifier.size(16.dp)
                                             )
                                         }
@@ -466,7 +581,7 @@ fun BaseContactSelector(
                             }
                         }
 
-                        if (showLabelFilterRow) {
+                        if (showFilterModeRow) {
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 contentPadding = PaddingValues(horizontal = 4.dp),
@@ -476,31 +591,96 @@ fun BaseContactSelector(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 item {
-                                    Icon(
-                                        imageVector = MaterialSymbols.Outlined.Label,
-                                        contentDescription = "标签",
-                                        modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    val modeIndex = availableFilterModes.indexOf(filterMode).coerceAtLeast(0)
+                                    val hasMoreModes = availableFilterModes.size > 1
+                                    FilterChip(
+                                        selected = true,
+                                        onClick = {
+                                            if (!hasMoreModes) {
+                                                showToast(
+                                                    context,
+                                                    localizedContext.getString(R.string.contact_filter_mode_enable_more),
+                                                )
+                                            } else {
+                                                filterMode = availableFilterModes[(modeIndex + 1) % availableFilterModes.size]
+                                                persistedContactFilterMode = filterMode.name
+                                                selectedLabelName = null
+                                                selectedAggregationId = null
+                                                selectedGroupingId = null
+                                            }
+                                        },
+                                        label = { Text(stringResource(filterMode.nameRes)) },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = filterMode.icon,
+                                                contentDescription = stringResource(filterMode.nameRes),
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                        },
                                     )
                                 }
 
-                                item {
-                                    val isSelected = selectedLabelName == null
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { selectedLabelName = null },
-                                        label = { Text("全部") }
-                                    )
-                                }
+                                if (filterMode == ContactFilterMode.LABELS) {
+                                    item {
+                                        val isSelected = selectedLabelName == null
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { selectedLabelName = null },
+                                            label = { Text(stringResource(R.string.contact_label_filter_all)) }
+                                        )
+                                    }
 
-                                items(availableLabels) { label ->
-                                    val isSelected = selectedLabelName == label.labelName
-                                    val labelCount = labelCounts[label.labelName] ?: 0
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { selectedLabelName = if (isSelected) null else label.labelName },
-                                        label = { Text("${label.labelName} ($labelCount)") }
-                                    )
+                                    items(availableLabels) { label ->
+                                        val isSelected = selectedLabelName == label.labelName
+                                        val labelCount = labelCounts[label.labelName] ?: 0
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { selectedLabelName = if (isSelected) null else label.labelName },
+                                            label = {
+                                                Text(stringResource(R.string.contact_label_with_count, label.labelName, labelCount))
+                                            }
+                                        )
+                                    }
+                                } else {
+                                    val options = if (filterMode == ContactFilterMode.AGGREGATION) {
+                                        availableAggregationOptions
+                                    } else {
+                                        availableGroupingOptions
+                                    }
+                                    item {
+                                        val isSelected = if (filterMode == ContactFilterMode.AGGREGATION) {
+                                            selectedAggregationId == null
+                                        } else {
+                                            selectedGroupingId == null
+                                        }
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = {
+                                                if (filterMode == ContactFilterMode.AGGREGATION) {
+                                                    selectedAggregationId = null
+                                                } else {
+                                                    selectedGroupingId = null
+                                                }
+                                            },
+                                            label = { Text(stringResource(R.string.contact_label_filter_all)) },
+                                        )
+                                    }
+                                    items(options, key = { it.id }) { option ->
+                                        val selectedId = if (filterMode == ContactFilterMode.AGGREGATION) selectedAggregationId else selectedGroupingId
+                                        val isSelected = selectedId == option.id
+                                        val count = filteredContacts.count { it.wxId in option.wxIds }
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = {
+                                                if (filterMode == ContactFilterMode.AGGREGATION) {
+                                                    selectedAggregationId = if (isSelected) null else option.id
+                                                } else {
+                                                    selectedGroupingId = if (isSelected) null else option.id
+                                                }
+                                            },
+                                            label = { Text(stringResource(R.string.contact_label_with_count, option.name, count)) },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -514,11 +694,12 @@ fun BaseContactSelector(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             SortMode.entries.forEach { mode ->
+                                val displayName = stringResource(mode.displayNameRes(sortReversed))
                                 FilterChip(
                                     selected = sortMode == mode,
                                     enabled = !isSortLoading,
                                     onClick = { switchSortMode(mode) },
-                                    label = { Text(mode.displayName(sortReversed)) },
+                                    label = { Text(displayName) },
                                     leadingIcon = {
                                         if (isSortLoading && mode == SortMode.LAST_MESSAGE_TIME) {
                                             CircularProgressIndicator(
@@ -528,7 +709,7 @@ fun BaseContactSelector(
                                         } else {
                                             Icon(
                                                 imageVector = mode.icon,
-                                                contentDescription = mode.displayName(sortReversed),
+                                                contentDescription = displayName,
                                                 modifier = Modifier.size(16.dp)
                                             )
                                         }
@@ -543,7 +724,7 @@ fun BaseContactSelector(
                                 label = {
                                     Icon(
                                         imageVector = MaterialSymbols.Outlined.Swap_vert,
-                                        contentDescription = "切换排序方向",
+                                        contentDescription = stringResource(R.string.contact_sort_direction_toggle),
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -563,11 +744,11 @@ fun BaseContactSelector(
                                     FilterChip(
                                         selected = false,
                                         onClick = { it(displayedContacts) },
-                                        label = { Text("全选") },
+                                        label = { Text(stringResource(R.string.contact_select_all)) },
                                         leadingIcon = {
                                             Icon(
                                                 imageVector = MaterialSymbols.Outlined.Select_all,
-                                                contentDescription = "全选",
+                                                contentDescription = stringResource(R.string.contact_select_all),
                                                 modifier = Modifier.size(16.dp)
                                             )
                                         }
@@ -577,11 +758,11 @@ fun BaseContactSelector(
                                     FilterChip(
                                         selected = false,
                                         onClick = { it(displayedContacts) },
-                                        label = { Text("全不选") },
+                                        label = { Text(stringResource(R.string.contact_deselect_all)) },
                                         leadingIcon = {
                                             Icon(
                                                 imageVector = MaterialSymbols.Outlined.Deselect,
-                                                contentDescription = "全不选",
+                                                contentDescription = stringResource(R.string.contact_deselect_all),
                                                 modifier = Modifier.size(16.dp)
                                             )
                                         }
@@ -591,11 +772,11 @@ fun BaseContactSelector(
                                     FilterChip(
                                         selected = false,
                                         onClick = { it(displayedContacts) },
-                                        label = { Text("反选") },
+                                        label = { Text(stringResource(R.string.contact_invert_selection)) },
                                         leadingIcon = {
                                             Icon(
                                                 imageVector = MaterialSymbols.Outlined.Compare_arrows,
-                                                contentDescription = "反选",
+                                                contentDescription = stringResource(R.string.contact_invert_selection),
                                                 modifier = Modifier.size(16.dp)
                                             )
                                         }
@@ -616,7 +797,7 @@ fun BaseContactSelector(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "无匹配的联系人",
+                            text = stringResource(R.string.contact_no_matches),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -639,7 +820,12 @@ fun BaseContactSelector(
                                         color = MaterialTheme.colorScheme.surfaceContainerHighest
                                     ) {
                                         Text(
-                                            text = if (letter == "已选") "已选" else letter,
+                                            text = when (letter) {
+                                                SELECTED_SECTION_KEY -> stringResource(R.string.contact_selected_section)
+                                                NEWEST_SECTION_KEY -> stringResource(R.string.contact_sort_newest_first)
+                                                OLDEST_SECTION_KEY -> stringResource(R.string.contact_sort_oldest_first)
+                                                else -> letter
+                                            },
                                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                                             style = MaterialTheme.typography.titleSmall,
                                             color = MaterialTheme.colorScheme.primary
@@ -705,14 +891,14 @@ fun BaseContactSelector(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             val displayAlphabet = if (sortReversed) {
-                                listOf("已选") + ('A'..'Z').map { it.toString() }.reversed() + "#"
+                                listOf(SELECTED_SECTION_KEY) + ('A'..'Z').map { it.toString() }.reversed() + "#"
                             } else {
                                 alphabet
                             }
                             if (sortMode == SortMode.ALPHABETICAL) displayAlphabet.forEach { letter ->
                                 val isAvailable = groupedContacts.containsKey(letter)
                                 Text(
-                                    text = if (letter == "已选") "✓" else letter,
+                                    text = if (letter == SELECTED_SECTION_KEY) "✓" else letter,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = if (isAvailable) {
                                         MaterialTheme.colorScheme.primary
@@ -721,10 +907,10 @@ fun BaseContactSelector(
                                     },
                                     modifier = Modifier
                                         .clickable {
-                                            val targetIndex = if (letter == "已选") {
-                                                sectionIndices["已选"]
+                                            val targetIndex = if (letter == SELECTED_SECTION_KEY) {
+                                                sectionIndices[SELECTED_SECTION_KEY]
                                             } else {
-                                                val letterKeys = sectionIndices.keys.filter { it != "已选" }
+                                                val letterKeys = sectionIndices.keys.filter { it != SELECTED_SECTION_KEY }
                                                 val targetLetter = if (sortReversed) {
                                                     letterKeys.firstOrNull { it.first() <= letter.first() }
                                                 } else {
@@ -747,7 +933,9 @@ fun BaseContactSelector(
             }
         },
         dismissButton = {
-            TextButton(onDismiss) { Text(dismissButtonText) }
+            TextButton(onDismiss) {
+                Text(dismissButtonText ?: stringResource(R.string.dialog_cancel))
+            }
         },
         confirmButton = if (showConfirmButton) {
             {
@@ -785,7 +973,7 @@ fun SingleContactSelector(
         onSearchQueryChange = { searchQuery = it },
         filteredContacts = filteredContacts,
         allContacts = contacts,
-        confirmButtonText = "确定",
+        confirmButtonText = stringResource(R.string.dialog_confirm),
         confirmButtonEnabled = selectedWxId != null,
         onDismiss = onDismiss,
         onConfirm = { onConfirm(selectedWxId!!) },
@@ -826,7 +1014,7 @@ fun ContactsSelector(
         onSearchQueryChange = { searchQuery = it },
         filteredContacts = filteredContacts,
         allContacts = contacts,
-        confirmButtonText = "确定 (${selectedWxIds.size})",
+        confirmButtonText = stringResource(R.string.contact_confirm_selected_count, selectedWxIds.size),
         confirmButtonEnabled = true,
         onDismiss = onDismiss,
         onConfirm = { onConfirm(selectedWxIds) },

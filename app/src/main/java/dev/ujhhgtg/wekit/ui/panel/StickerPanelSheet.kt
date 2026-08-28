@@ -39,7 +39,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
+import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -69,6 +70,8 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -98,17 +101,23 @@ import com.composables.icons.materialsymbols.outlined.Sync
 import com.composables.icons.materialsymbols.outlined.Travel_explore
 import com.composables.icons.materialsymbols.outlined.Upload
 import com.composables.icons.materialsymbols.outlined.Upload_file
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.items.chat.panel.LocalSortMode
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSource
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiState
+import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiText
 import dev.ujhhgtg.wekit.features.items.chat.panel.RECENT_PACK_ID
 import dev.ujhhgtg.wekit.features.items.chat.panel.StickerDestination
 import dev.ujhhgtg.wekit.features.items.chat.panel.StickerItem
 import dev.ujhhgtg.wekit.features.items.chat.panel.StickerPack
 import dev.ujhhgtg.wekit.features.items.chat.panel.StickerPackLayout
 import dev.ujhhgtg.wekit.features.items.chat.panel.parallelForEachWithProgress
+import dev.ujhhgtg.wekit.features.items.chat.panel.panelUiText
+import dev.ujhhgtg.wekit.features.items.chat.panel.panelUiQuantity
+import dev.ujhhgtg.wekit.features.items.chat.panel.toPanelUiText
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.StickerOnlineSourceRecoveryProgress
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.StickerOnlineSourceRecoveryResult
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramInstalledStickerSet
@@ -237,9 +246,6 @@ private data class TelegramBatchImportProgress(
     val itemProgress: TelegramStickerImportProgress? = null,
 )
 
-private const val SIMILARITY_SEARCH_PRIVACY_MESSAGE =
-    "所选图片的完整内容将上传至第三方 FunBox API。图片可能包含个人信息或其他隐私内容，确定继续吗？"
-
 fun showStickerPanelSheet(
     context: Context,
     actions: StickerPanelActions = StickerPanelActions(),
@@ -279,6 +285,8 @@ private fun StickerPanelContent(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val localizedContext = LocalWeKitLocalizedContext.current
+    val currentLocalizedContext by rememberUpdatedState(localizedContext)
     val scope = rememberCoroutineScope()
     val rememberedNavigation = remember {
         PanelNavigationMemory.sticker.takeIf { PanelSettings.rememberPanelNavigation }
@@ -312,14 +320,22 @@ private fun StickerPanelContent(
     var showingMyUploads by remember { mutableStateOf(rememberedNavigation?.showingMyUploads == true) }
     var selectedOnlinePackId by remember { mutableStateOf(rememberedNavigation?.selectedOnlinePackId) }
     var pendingOnlinePackId by remember { mutableStateOf(rememberedNavigation?.selectedOnlinePackId) }
-    var onlineItemsState by remember { mutableStateOf<PanelUiState<List<StickerItem>>>(PanelUiState.Empty("选择一个在线表情包")) }
+    var onlineItemsState by remember {
+        mutableStateOf<PanelUiState<List<StickerItem>>>(
+            PanelUiState.Empty(panelUiText(R.string.sticker_panel_select_online_pack)),
+        )
+    }
     var onlineItemsRequest by remember { mutableIntStateOf(0) }
-    var searchState by remember { mutableStateOf<PanelUiState<List<StickerItem>>>(PanelUiState.Empty("输入关键词搜索在线表情")) }
+    var searchState by remember {
+        mutableStateOf<PanelUiState<List<StickerItem>>>(
+            PanelUiState.Empty(panelUiText(R.string.sticker_panel_search_prompt)),
+        )
+    }
     var searchRequest by remember { mutableIntStateOf(0) }
     var similaritySearchActive by remember { mutableStateOf(false) }
     var prompt by remember { mutableStateOf<StickerPrompt?>(null) }
-    var operationMessage by remember { mutableStateOf<String?>(null) }
-    var progressMessage by remember { mutableStateOf<String?>(null) }
+    var operationMessage by remember { mutableStateOf<PanelUiText?>(null) }
+    var progressMessage by remember { mutableStateOf<PanelUiText?>(null) }
     var weChatImportProgress by remember { mutableStateOf<WeChatStickerImportProgress?>(null) }
     var weChatImportJob by remember { mutableStateOf<Job?>(null) }
     var telegramNamePrompt by remember { mutableStateOf(false) }
@@ -398,9 +414,9 @@ private fun StickerPanelContent(
             } catch (error: Throwable) {
                 if (request != localRequest) return@launch
                 if (showFullLoadingState) {
-                    localState = PanelUiState.Error(error.message ?: "本地表情加载失败")
+                    localState = PanelUiState.Error(error.toPanelUiText(R.string.sticker_panel_error_local_load))
                 } else {
-                    operationMessage = error.message ?: "本地表情刷新失败"
+                    operationMessage = error.toPanelUiText(R.string.sticker_panel_error_local_refresh)
                 }
             }
         }
@@ -415,9 +431,11 @@ private fun StickerPanelContent(
             onlineItemsState = result.fold(
                 {
                     val unique = it.distinctBy(::stickerSelectionKey)
-                    if (unique.isEmpty()) PanelUiState.Empty("这个表情包还是空的") else PanelUiState.Content(unique)
+                    if (unique.isEmpty()) {
+                        PanelUiState.Empty(panelUiText(R.string.sticker_panel_empty_pack))
+                    } else PanelUiState.Content(unique)
                 },
-                { PanelUiState.Error(it.message ?: "表情加载失败") },
+                { PanelUiState.Error(it.toPanelUiText(R.string.sticker_panel_error_item_load)) },
             )
         }
     }
@@ -438,8 +456,8 @@ private fun StickerPanelContent(
                         if (requestedPack == null) {
                             selectedOnlinePackId = null
                             onlineItemsRequest++
-                            onlineItemsState = PanelUiState.Empty("选择一个在线表情包")
-                            operationMessage = "未找到该表情所属的在线表情包"
+                            onlineItemsState = PanelUiState.Empty(panelUiText(R.string.sticker_panel_select_online_pack))
+                            operationMessage = panelUiText(R.string.sticker_panel_error_owner_pack_not_found)
                         } else {
                             selectedOnlinePackId = requestedPack.id
                             scope.launch { onlineItemGridState.scrollToItem(0) }
@@ -448,13 +466,13 @@ private fun StickerPanelContent(
                     } else if (selectedOnlinePackId !in packs.map(StickerPack::id)) {
                         selectedOnlinePackId = null
                         onlineItemsRequest++
-                        onlineItemsState = PanelUiState.Empty("选择一个在线表情包")
+                        onlineItemsState = PanelUiState.Empty(panelUiText(R.string.sticker_panel_select_online_pack))
                     }
-                    if (packs.isEmpty()) PanelUiState.Empty("暂无在线表情包")
+                    if (packs.isEmpty()) PanelUiState.Empty(panelUiText(R.string.sticker_panel_empty_no_online_pack))
                     else PanelUiState.Content(packs)
                 },
                 onFailure = {
-                    PanelUiState.Error(it.message ?: "在线表情包加载失败")
+                    PanelUiState.Error(it.toPanelUiText(R.string.sticker_panel_error_online_pack_load))
                 },
             )
         }
@@ -479,7 +497,7 @@ private fun StickerPanelContent(
         } else {
             selectedOnlinePackId = null
             onlineItemsRequest++
-            onlineItemsState = PanelUiState.Empty("选择一个在线表情包")
+            onlineItemsState = PanelUiState.Empty(panelUiText(R.string.sticker_panel_select_online_pack))
             pendingOnlinePackId = packId
             loadOnlinePacks()
         }
@@ -487,7 +505,7 @@ private fun StickerPanelContent(
 
     fun openOnlinePackForSticker(sticker: StickerItem) {
         val packId = sticker.packId.takeIf(String::isNotBlank) ?: run {
-            operationMessage = "无法确定该表情所属的在线表情包"
+            operationMessage = panelUiText(R.string.sticker_panel_error_owner_pack_unknown)
             return
         }
         openOnlinePack(packId)
@@ -508,18 +526,18 @@ private fun StickerPanelContent(
                         if (requestedPack == null) {
                             selectedOnlinePackId = null
                             onlineItemsRequest++
-                            onlineItemsState = PanelUiState.Empty("选择一个在线表情包")
-                            operationMessage = "未找到该表情所属的在线表情包"
+                            onlineItemsState = PanelUiState.Empty(panelUiText(R.string.sticker_panel_select_online_pack))
+                            operationMessage = panelUiText(R.string.sticker_panel_error_owner_pack_not_found)
                         } else {
                             selectedOnlinePackId = requestedPack.id
                             scope.launch { onlineItemGridState.scrollToItem(0) }
                             loadOnlinePack(requestedPack)
                         }
                     }
-                    if (packs.isEmpty()) PanelUiState.Empty("还没有上传表情包")
+                    if (packs.isEmpty()) PanelUiState.Empty(panelUiText(R.string.sticker_panel_empty_no_uploads))
                     else PanelUiState.Content(packs)
                 },
-                onFailure = { PanelUiState.Error(it.message ?: "我的上传加载失败") },
+                onFailure = { PanelUiState.Error(it.toPanelUiText(R.string.sticker_panel_error_my_uploads_load)) },
             )
         }
     }
@@ -533,9 +551,9 @@ private fun StickerPanelContent(
     suspend fun runOnlineSave(
         packId: String,
         items: List<StickerItem>,
-        title: String,
+        title: PanelUiText,
         overwrite: Boolean,
-        completedVerb: String,
+        update: Boolean,
     ) {
         val uniqueItems = items.distinctBy(::stickerSelectionKey)
         if (uniqueItems.isEmpty()) return
@@ -552,13 +570,24 @@ private fun StickerPanelContent(
         )
         refreshLocal()
         operationMessage = if (failed == 0) {
-            "已$completedVerb $succeeded 个表情"
+            panelUiText(
+                if (update) R.string.sticker_panel_updated_count else R.string.sticker_panel_saved_count,
+                succeeded,
+            )
         } else {
-            "${completedVerb}完成：成功 $succeeded 个，失败 $failed 个"
+            panelUiText(
+                if (update) R.string.sticker_panel_update_result else R.string.sticker_panel_save_result,
+                succeeded,
+                failed,
+            )
         }
     }
 
-    fun startOnlineSave(packId: String, items: List<StickerItem>, title: String = "正在保存表情包") {
+    fun startOnlineSave(
+        packId: String,
+        items: List<StickerItem>,
+        title: PanelUiText = panelUiText(R.string.sticker_panel_progress_save),
+    ) {
         val uniqueItems = items.distinctBy(::stickerSelectionKey)
         if (uniqueItems.isEmpty()) return
         stopOnlineSave()
@@ -566,7 +595,7 @@ private fun StickerPanelContent(
         selectedStickerKeys = emptySet()
         onlineSaveJob = scope.launch {
             try {
-                runOnlineSave(packId, uniqueItems, title, overwrite = false, completedVerb = "保存")
+                runOnlineSave(packId, uniqueItems, title, overwrite = false, update = false)
             } finally {
                 onlineSaveProgress = null
                 onlineSaveJob = null
@@ -579,7 +608,10 @@ private fun StickerPanelContent(
         stopOnlineSave()
         multiSelectMode = false
         selectedStickerKeys = emptySet()
-        onlineSaveProgress = PanelSaveProgress("正在获取在线表情包“${pack.title}”", 1)
+        onlineSaveProgress = PanelSaveProgress(
+            panelUiText(R.string.sticker_panel_progress_fetch_pack, pack.title),
+            1,
+        )
         onlineSaveJob = scope.launch {
             try {
                 val onlinePack = StickerPack(
@@ -588,19 +620,19 @@ private fun StickerPanelContent(
                     source = PanelSource.ONLINE,
                 )
                 val items = actions.loadOnlineItems(onlinePack).getOrElse { error ->
-                    operationMessage = error.message ?: "在线表情包加载失败"
+                    operationMessage = error.toPanelUiText(R.string.sticker_panel_error_online_pack_load)
                     return@launch
                 }
                 if (items.isEmpty()) {
-                    operationMessage = "在线表情包中没有可更新的表情"
+                    operationMessage = panelUiText(R.string.sticker_panel_empty_no_update_items)
                     return@launch
                 }
                 runOnlineSave(
                     packId = pack.id,
                     items = items,
-                    title = "正在更新表情包“${pack.title}”",
+                    title = panelUiText(R.string.sticker_panel_progress_update_pack, pack.title),
                     overwrite = true,
-                    completedVerb = "更新",
+                    update = true,
                 )
             } finally {
                 onlineSaveProgress = null
@@ -615,7 +647,7 @@ private fun StickerPanelContent(
         sourceRecoveryProgress = StickerOnlineSourceRecoveryProgress(
             completed = 0,
             total = packs.size,
-            message = "正在准备恢复在线包来源",
+            message = localizedContext.getString(R.string.sticker_panel_progress_prepare_recovery),
         )
         sourceRecoveryJob = scope.launch {
             try {
@@ -624,13 +656,15 @@ private fun StickerPanelContent(
                 }
                 operationMessage = result.fold(
                     onSuccess = {
-                        buildString {
-                            append("已恢复 ${it.recovered}/${it.selected} 个本地包的在线来源")
-                            if (it.alreadyLinked > 0) append("，${it.alreadyLinked} 个已有来源")
-                            if (it.unmatched > 0) append("，${it.unmatched} 个未匹配")
-                        }
+                        panelUiText(
+                            R.string.sticker_panel_source_recovery_result,
+                            it.recovered,
+                            it.selected,
+                            it.alreadyLinked,
+                            it.unmatched,
+                        )
                     },
-                    onFailure = { it.message ?: "在线包来源恢复失败" },
+                    onFailure = { it.toPanelUiText(R.string.sticker_panel_error_source_recovery) },
                 )
                 if ((result.getOrNull()?.recovered ?: 0) > 0) refreshLocal()
             } finally {
@@ -646,7 +680,11 @@ private fun StickerPanelContent(
         scope.launch {
             val result = onSend(item)
             sending = false
-            showToastSuspend(context, result.exceptionOrNull()?.message ?: "表情发送成功")
+            showToastSuspend(
+                context,
+                result.exceptionOrNull()?.message
+                    ?: currentLocalizedContext.getString(R.string.sticker_panel_send_success),
+            )
             if (result.isSuccess) {
                 refreshLocal()
                 if (PanelSettings.panelAutoClose) onDismiss()
@@ -663,7 +701,7 @@ private fun StickerPanelContent(
         scope.launch {
             val imageBytes = loadImage().getOrElse { error ->
                 if (request == searchRequest) {
-                    searchState = PanelUiState.Error(error.message ?: "无法读取搜索图片")
+                    searchState = PanelUiState.Error(error.toPanelUiText(R.string.sticker_panel_error_search_image))
                 }
                 return@launch
             }
@@ -671,8 +709,11 @@ private fun StickerPanelContent(
             val result = actions.searchSimilar(imageBytes)
             if (request != searchRequest) return@launch
             searchState = result.fold(
-                { if (it.isEmpty()) PanelUiState.Empty("没有找到相似表情") else PanelUiState.Content(it) },
-                { PanelUiState.Error(it.message ?: "相似表情搜索失败") },
+                {
+                    if (it.isEmpty()) PanelUiState.Empty(panelUiText(R.string.sticker_panel_empty_no_similar))
+                    else PanelUiState.Content(it)
+                },
+                { PanelUiState.Error(it.toPanelUiText(R.string.sticker_panel_error_similar_search)) },
             )
         }
     }
@@ -681,12 +722,13 @@ private fun StickerPanelContent(
         searchRequest++
         similaritySearchActive = false
         onlineQuery = ""
-        searchState = PanelUiState.Empty("输入关键词搜索在线表情")
+        searchState = PanelUiState.Empty(panelUiText(R.string.sticker_panel_search_prompt))
     }
 
-    LaunchedEffect(operationMessage) {
+    val resolvedOperationMessage = operationMessage?.resolve()
+    LaunchedEffect(operationMessage, resolvedOperationMessage) {
         val message = operationMessage ?: return@LaunchedEffect
-        showToastSuspend(context, message)
+        showToastSuspend(context, requireNotNull(resolvedOperationMessage))
         operationMessage = null
     }
 
@@ -757,13 +799,13 @@ private fun StickerPanelContent(
         if (items.isEmpty()) return
         showPanelPackPicker(
             context = context,
-            title = "保存到表情包",
-            createLabel = "新建表情包",
-            itemCountLabel = { count -> "$count 个表情" },
+            title = localizedContext.getString(R.string.sticker_panel_save_to_pack),
+            createLabel = localizedContext.getString(R.string.sticker_panel_new_pack),
+            itemCountLabel = { count -> localizedContext.resources.getQuantityString(R.plurals.sticker_count, count, count) },
             packIcon = MaterialSymbols.Outlined.Folder,
             packs = editablePacks.map { PanelPackChoice(it.id, it.title, it.itemCount) },
             onCreatePack = actions.createPack,
-            onSelect = { packId -> startOnlineSave(packId, items, "正在保存表情") },
+            onSelect = { packId -> startOnlineSave(packId, items) },
         )
     }
 
@@ -771,35 +813,35 @@ private fun StickerPanelContent(
         if (items.isEmpty()) return
         scope.launch {
             val packId = actions.ensurePack(pack.title).getOrElse {
-                operationMessage = it.message ?: "无法创建本地表情包"
+                operationMessage = it.toPanelUiText(R.string.sticker_panel_error_create_local_pack)
                 return@launch
             }
             actions.setOnlinePackSource(packId, pack.id).onFailure {
-                operationMessage = it.message ?: "无法记录在线表情包来源"
+                operationMessage = it.toPanelUiText(R.string.sticker_panel_error_link_online_source)
                 return@launch
             }
-            startOnlineSave(packId, items, "正在保存表情包“${pack.title}”")
+            startOnlineSave(packId, items, panelUiText(R.string.sticker_panel_progress_save_pack, pack.title))
         }
     }
 
     val rail = buildList {
-        add(PanelRailItem(StickerDestination.RECENT, MaterialSymbols.Outlined.History, "最近使用"))
-        add(PanelRailItem(StickerDestination.PACKS, MaterialSymbols.Outlined.Folder, "本地表情包"))
-        add(PanelRailItem(StickerDestination.SEARCH, MaterialSymbols.Outlined.Manage_search, "本地搜索"))
-        add(PanelRailItem(StickerDestination.ONLINE, MaterialSymbols.Outlined.Cloud, "在线表情包"))
-        add(PanelRailItem(StickerDestination.ONLINE_SEARCH, MaterialSymbols.Outlined.Travel_explore, "在线搜索"))
-        add(PanelRailItem(StickerDestination.SETTINGS, MaterialSymbols.Outlined.Settings, "设置"))
+        add(PanelRailItem(StickerDestination.RECENT, MaterialSymbols.Outlined.History, stringResource(R.string.panel_recent)))
+        add(PanelRailItem(StickerDestination.PACKS, MaterialSymbols.Outlined.Folder, stringResource(R.string.sticker_panel_local_packs)))
+        add(PanelRailItem(StickerDestination.SEARCH, MaterialSymbols.Outlined.Manage_search, stringResource(R.string.panel_local_search)))
+        add(PanelRailItem(StickerDestination.ONLINE, MaterialSymbols.Outlined.Cloud, stringResource(R.string.sticker_panel_online_packs)))
+        add(PanelRailItem(StickerDestination.ONLINE_SEARCH, MaterialSymbols.Outlined.Travel_explore, stringResource(R.string.panel_online_search)))
+        add(PanelRailItem(StickerDestination.SETTINGS, MaterialSymbols.Outlined.Settings, stringResource(R.string.panel_settings)))
     }
 
     val title = when (destination) {
-        StickerDestination.RECENT -> "最近使用"
-        StickerDestination.SEARCH -> "本地搜索"
-        StickerDestination.PACKS -> localDetailPack?.title ?: "本地表情包"
+        StickerDestination.RECENT -> stringResource(R.string.panel_recent)
+        StickerDestination.SEARCH -> stringResource(R.string.panel_local_search)
+        StickerDestination.PACKS -> localDetailPack?.title ?: stringResource(R.string.sticker_panel_local_packs)
         StickerDestination.ONLINE -> selectedOnlinePack?.title
-            ?: if (showingMyUploads) "我的上传" else "在线表情包"
+            ?: stringResource(if (showingMyUploads) R.string.sticker_panel_my_uploads else R.string.sticker_panel_online_packs)
 
-        StickerDestination.ONLINE_SEARCH -> "在线搜索"
-        StickerDestination.SETTINGS -> "设置"
+        StickerDestination.ONLINE_SEARCH -> stringResource(R.string.panel_online_search)
+        StickerDestination.SETTINGS -> stringResource(R.string.panel_settings)
     }
     fun cancelReorder() {
         reorderTarget = null
@@ -814,7 +856,7 @@ private fun StickerPanelContent(
                 PanelSettings.stickerPackSortMode = mode
                 if (mode == LocalSortMode.CUSTOM && !PanelSettings.stickerPackCustomSortHintShown) {
                     PanelSettings.stickerPackCustomSortHintShown = true
-                    scope.launch { showToastSuspend(context, "长按「自定义」字样开始排序") }
+                    scope.launch { showToastSuspend(context, currentLocalizedContext.getString(R.string.panel_sort_custom_hint)) }
                 }
             }
 
@@ -823,7 +865,7 @@ private fun StickerPanelContent(
                 PanelSettings.stickerItemSortMode = mode
                 if (mode == LocalSortMode.CUSTOM && !PanelSettings.stickerItemCustomSortHintShown) {
                     PanelSettings.stickerItemCustomSortHintShown = true
-                    scope.launch { showToastSuspend(context, "长按「自定义」字样开始排序") }
+                    scope.launch { showToastSuspend(context, currentLocalizedContext.getString(R.string.panel_sort_custom_hint)) }
                 }
             }
         }
@@ -859,15 +901,15 @@ private fun StickerPanelContent(
                     StickerReorderTarget.PACKS -> actions.savePackOrder(requested)
                     StickerReorderTarget.ITEMS -> packId?.let {
                         actions.saveItemOrder(it, requested)
-                    } ?: Result.failure(IllegalStateException("未选择表情包"))
+                    } ?: Result.failure(IllegalStateException(currentLocalizedContext.getString(R.string.sticker_panel_error_no_pack_selected)))
                 }
             }
             if (result.isSuccess) {
                 cancelReorder()
                 refreshLocal()
-                operationMessage = "已保存自定义顺序"
+                operationMessage = panelUiText(R.string.panel_sort_saved)
             } else {
-                operationMessage = result.exceptionOrNull()?.message ?: "保存排序失败"
+                operationMessage = result.exceptionOrNull()?.toPanelUiText(R.string.panel_sort_save_failed)
             }
         }
     }
@@ -880,7 +922,7 @@ private fun StickerPanelContent(
             selectedKeys = selectedStickerKeys,
             key = ::stickerSelectionKey,
             terminalIcon = if (deletingLocalItems) MaterialSymbols.Outlined.Delete else MaterialSymbols.Outlined.Save,
-            terminalLabel = if (deletingLocalItems) "删除" else "保存",
+            terminalLabel = stringResource(if (deletingLocalItems) R.string.panel_action_delete else R.string.action_save),
             onClose = {
                 multiSelectMode = false
                 selectedStickerKeys = emptySet()
@@ -894,11 +936,11 @@ private fun StickerPanelContent(
     } else when (destination) {
         StickerDestination.PACKS -> if (localCatalogVisible) {
             buildList {
-                add(PanelAction(MaterialSymbols.Outlined.Add, "新建表情包") { prompt = StickerPrompt.CreatePack })
-                add(PanelAction(MaterialSymbols.Outlined.Upload_file, "导入") {
+                add(PanelAction(MaterialSymbols.Outlined.Add, stringResource(R.string.sticker_panel_new_pack)) { prompt = StickerPrompt.CreatePack })
+                add(PanelAction(MaterialSymbols.Outlined.Upload_file, stringResource(R.string.panel_action_import)) {
                     prompt = StickerPrompt.Import(null)
                 })
-                add(PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onClick = ::refreshLocal))
+                add(PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh), onClick = ::refreshLocal))
                 add(
                     panelLocalSortAction(
                         mode = localPackSortMode,
@@ -910,34 +952,34 @@ private fun StickerPanelContent(
             }
         } else buildList {
             if (localPackLayout != StickerPackLayout.TABS) {
-                add(PanelAction(MaterialSymbols.Outlined.Arrow_back, "返回") { localPackDetailId = null })
+                add(PanelAction(MaterialSymbols.Outlined.Arrow_back, stringResource(R.string.panel_action_back)) { localPackDetailId = null })
             } else {
-                add(PanelAction(MaterialSymbols.Outlined.Add, "新建表情包") { prompt = StickerPrompt.CreatePack })
+                add(PanelAction(MaterialSymbols.Outlined.Add, stringResource(R.string.sticker_panel_new_pack)) { prompt = StickerPrompt.CreatePack })
             }
-            add(PanelAction(MaterialSymbols.Outlined.Edit, "重命名", localActionPack != null) {
+            add(PanelAction(MaterialSymbols.Outlined.Edit, stringResource(R.string.panel_action_rename), localActionPack != null) {
                 localActionPack?.let { prompt = StickerPrompt.RenamePack(it) }
             })
-            add(PanelAction(MaterialSymbols.Outlined.Delete, "删除", localActionPack != null) {
+            add(PanelAction(MaterialSymbols.Outlined.Delete, stringResource(R.string.panel_action_delete), localActionPack != null) {
                 localActionPack?.let { prompt = StickerPrompt.DeletePack(it) }
             })
-            add(PanelAction(MaterialSymbols.Outlined.Upload_file, "导入") {
+            add(PanelAction(MaterialSymbols.Outlined.Upload_file, stringResource(R.string.panel_action_import)) {
                 prompt = StickerPrompt.Import(localActionPack)
             })
-            add(PanelAction(MaterialSymbols.Outlined.Upload, "上传", localActionPack != null) {
+            add(PanelAction(MaterialSymbols.Outlined.Upload, stringResource(R.string.panel_action_upload), localActionPack != null) {
                 localActionPack?.let { prompt = StickerPrompt.UploadPack(it) }
             })
             if (localPackLayout != StickerPackLayout.TABS) {
-                add(PanelAction(MaterialSymbols.Outlined.Select_all, "多选", !localActionPack?.items.isNullOrEmpty()) {
+                add(PanelAction(MaterialSymbols.Outlined.Select_all, stringResource(R.string.panel_action_multi_select), !localActionPack?.items.isNullOrEmpty()) {
                     multiSelectMode = true
                     selectedStickerKeys = emptySet()
                 })
             }
-            add(PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onClick = ::refreshLocal))
+            add(PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh), onClick = ::refreshLocal))
             localActionPack?.onlineSourcePackId?.let { sourcePackId ->
-                add(PanelAction(MaterialSymbols.Outlined.Open_in_new, "查看在线表情包") {
+                add(PanelAction(MaterialSymbols.Outlined.Open_in_new, stringResource(R.string.sticker_panel_view_online_pack)) {
                     openOnlinePack(sourcePackId)
                 })
-                add(PanelAction(MaterialSymbols.Outlined.Sync, "从在线表情包更新") {
+                add(PanelAction(MaterialSymbols.Outlined.Sync, stringResource(R.string.sticker_panel_update_from_online)) {
                     updateLocalPackFromOnline(localActionPack)
                 })
             }
@@ -954,8 +996,8 @@ private fun StickerPanelContent(
         StickerDestination.ONLINE -> when (selectedOnlinePack) {
             null if !showingMyUploads -> {
                 listOf(
-                    PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onClick = ::loadOnlinePacks),
-                    PanelAction(MaterialSymbols.Outlined.Person, "我的上传") {
+                    PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh), onClick = ::loadOnlinePacks),
+                    PanelAction(MaterialSymbols.Outlined.Person, stringResource(R.string.sticker_panel_my_uploads)) {
                         showingMyUploads = true
                         selectedOnlinePackId = null
                         loadMyUploads()
@@ -963,9 +1005,9 @@ private fun StickerPanelContent(
                     PanelAction(
                         icon = MaterialSymbols.Outlined.Sort,
                         label = when (onlineSortMode) {
-                            1 -> "上传时间"
-                            2 -> "下载次数"
-                            else -> "默认"
+                            1 -> stringResource(R.string.sticker_panel_sort_upload_time)
+                            2 -> stringResource(R.string.sticker_panel_sort_download_count)
+                            else -> stringResource(R.string.sticker_panel_sort_default)
                         },
                         showLabel = true,
                     ) {
@@ -976,29 +1018,29 @@ private fun StickerPanelContent(
             }
             null -> {
                 listOf(
-                    PanelAction(MaterialSymbols.Outlined.Arrow_back, "返回") {
+                    PanelAction(MaterialSymbols.Outlined.Arrow_back, stringResource(R.string.panel_action_back)) {
                         showingMyUploads = false
                         myUploadsRequest++
                         if (onlinePacksState == PanelUiState.Loading) loadOnlinePacks()
                     },
-                    PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onClick = ::loadMyUploads),
+                    PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh), onClick = ::loadMyUploads),
                 )
             }
             else -> {
                 listOf(
-                    PanelAction(MaterialSymbols.Outlined.Arrow_back, "返回") {
+                    PanelAction(MaterialSymbols.Outlined.Arrow_back, stringResource(R.string.panel_action_back)) {
                         selectedOnlinePackId = null
                         onlineItemsRequest++
-                        onlineItemsState = PanelUiState.Empty("选择一个在线表情包")
+                        onlineItemsState = PanelUiState.Empty(panelUiText(R.string.sticker_panel_select_online_pack))
                     },
-                    PanelAction(MaterialSymbols.Outlined.Refresh, "刷新") {
+                    PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh)) {
                         loadOnlinePack(selectedOnlinePack)
                     },
-                    PanelAction(MaterialSymbols.Outlined.Select_all, "多选", onlineItems.isNotEmpty()) {
+                    PanelAction(MaterialSymbols.Outlined.Select_all, stringResource(R.string.panel_action_multi_select), onlineItems.isNotEmpty()) {
                         multiSelectMode = true
                         selectedStickerKeys = emptySet()
                     },
-                    PanelAction(MaterialSymbols.Outlined.Save, "保存", onlineItems.isNotEmpty()) {
+                    PanelAction(MaterialSymbols.Outlined.Save, stringResource(R.string.action_save), onlineItems.isNotEmpty()) {
                         saveWholeOnlinePack(selectedOnlinePack, onlineItems)
                     },
                 )
@@ -1013,7 +1055,10 @@ private fun StickerPanelContent(
         destination == StickerDestination.PACKS -> PanelActionSearch(
             expanded = localPackFilterExpanded,
             value = localPackFilterQuery,
-            label = if (localCatalogVisible) "筛选本地表情包" else "筛选当前表情包",
+            label = stringResource(
+                if (localCatalogVisible) R.string.sticker_panel_filter_local_packs
+                else R.string.sticker_panel_filter_current_pack,
+            ),
             actionIndex = (panelActions.size - 1).coerceAtLeast(0),
             onValueChange = { localPackFilterQuery = it },
             onExpandedChange = { localPackFilterExpanded = it },
@@ -1023,7 +1068,7 @@ private fun StickerPanelContent(
             PanelActionSearch(
                 expanded = onlinePackSearchExpanded,
                 value = onlinePackQuery,
-                label = "筛选在线表情包",
+                label = stringResource(R.string.sticker_panel_filter_online_packs),
                 actionIndex = 2,
                 onValueChange = { onlinePackQuery = it },
                 onExpandedChange = { onlinePackSearchExpanded = it },
@@ -1060,7 +1105,7 @@ private fun StickerPanelContent(
                     destination == StickerDestination.ONLINE && selectedOnlinePack != null -> {
                         selectedOnlinePackId = null
                         onlineItemsRequest++
-                        onlineItemsState = PanelUiState.Empty("选择一个在线表情包")
+                        onlineItemsState = PanelUiState.Empty(panelUiText(R.string.sticker_panel_select_online_pack))
                     }
 
                     destination == StickerDestination.ONLINE && showingMyUploads -> {
@@ -1101,7 +1146,7 @@ private fun StickerPanelContent(
                 StickerDestination.RECENT -> PanelStateContent(localState, ::refreshLocal) {
                     StickerGridOrEmpty(
                         stickers = recentItems,
-                        message = "还没有发送过表情",
+                        message = stringResource(R.string.sticker_panel_empty_never_sent),
                         onSend = ::send,
                         onLongPress = { previewSticker = it },
                         onPreviewGestureEnd = { previewSticker = null },
@@ -1114,7 +1159,10 @@ private fun StickerPanelContent(
                         onQueryChange = { query = it },
                         results = localSearchResults,
                         onSearch = null,
-                        emptyMessage = if (query.isBlank()) "输入文件名或表情包名称" else "没有找到本地表情",
+                        emptyMessage = stringResource(
+                            if (query.isBlank()) R.string.sticker_panel_local_search_hint
+                            else R.string.sticker_panel_empty_no_local_sticker,
+                        ),
                         onSend = ::send,
                         onLongPress = { previewSticker = it },
                         onPreviewGestureEnd = { previewSticker = null },
@@ -1176,7 +1224,7 @@ private fun StickerPanelContent(
                             onlinePackQuery.isBlank() || pack.title.contains(onlinePackQuery, ignoreCase = true)
                         }
                         if (visiblePacks.isEmpty() && onlinePackQuery.isNotBlank()) {
-                            PanelEmptyAction("没有找到在线表情包")
+                            PanelEmptyAction(stringResource(R.string.sticker_panel_empty_no_online_pack_match))
                         } else {
                             StickerPackCatalog(
                                 packs = visiblePacks,
@@ -1203,7 +1251,7 @@ private fun StickerPanelContent(
                     ) {
                         StickerGridOrEmpty(
                             stickers = it,
-                            message = "暂无表情",
+                            message = stringResource(R.string.sticker_panel_empty_stickers),
                             onSend = ::send,
                             onLongPress = { sticker -> previewSticker = sticker },
                             onPreviewGestureEnd = { previewSticker = null },
@@ -1233,7 +1281,10 @@ private fun StickerPanelContent(
                         onlineQuery = it
                         searchRequest++
                         searchState = PanelUiState.Empty(
-                            if (it.isBlank()) "输入关键词搜索在线表情" else "点击搜索查找在线表情",
+                            PanelUiText.Resource(
+                                if (it.isBlank()) R.string.sticker_panel_search_prompt
+                                else R.string.sticker_panel_search_action_hint,
+                            ),
                         )
                     },
                     results = (searchState as? PanelUiState.Content)?.value.orEmpty(),
@@ -1246,8 +1297,11 @@ private fun StickerPanelContent(
                             val result = actions.searchOnline(requestedQuery)
                             if (request != searchRequest || requestedQuery != onlineQuery) return@launch
                             searchState = result.fold(
-                                { if (it.isEmpty()) PanelUiState.Empty("没有找到在线表情") else PanelUiState.Content(it) },
-                                { PanelUiState.Error(it.message ?: "在线搜索失败") },
+                                {
+                                    if (it.isEmpty()) PanelUiState.Empty(panelUiText(R.string.sticker_panel_empty_no_online_sticker))
+                                    else PanelUiState.Content(it)
+                                },
+                                { PanelUiState.Error(it.toPanelUiText(R.string.sticker_panel_error_online_search)) },
                             )
                         }
                     },
@@ -1256,12 +1310,12 @@ private fun StickerPanelContent(
                         actions.pickSimilarityImage { result ->
                             result.fold(
                                 onSuccess = { prompt = StickerPrompt.ConfirmSimilarityBytes(it) },
-                                onFailure = { operationMessage = it.message ?: "无法读取所选图片" },
+                                onFailure = { operationMessage = it.toPanelUiText(R.string.sticker_panel_error_selected_image) },
                             )
                         }
                     }),
                     state = searchState,
-                    emptyMessage = "输入关键词搜索在线表情",
+                    emptyMessage = stringResource(R.string.sticker_panel_search_prompt),
                     onSend = ::send,
                     onLongPress = { previewSticker = it },
                     onPreviewGestureEnd = { previewSticker = null },
@@ -1286,7 +1340,7 @@ private fun StickerPanelContent(
                     },
                     onRecoverOnlinePackSources = {
                         if (editablePacks.isEmpty()) {
-                            operationMessage = "没有可恢复来源的本地表情包"
+                            operationMessage = panelUiText(R.string.sticker_panel_empty_no_recoverable_pack)
                         } else {
                             selectedSourceRecoveryPackIds = editablePacks
                                 .filter { it.onlineSourcePackId == null }
@@ -1299,7 +1353,9 @@ private fun StickerPanelContent(
             }
         }
 
-        uploadProgress?.let { PanelProgressOverlay("正在上传表情包", it) }
+        uploadProgress?.let {
+            PanelProgressOverlay(panelUiText(R.string.sticker_panel_progress_upload), it)
+        }
         progressMessage?.let { PanelProgressOverlay(it) }
         weChatImportProgress?.let { progress ->
             WeChatStickerImportProgressOverlay(
@@ -1331,11 +1387,13 @@ private fun StickerPanelContent(
                 },
             )
         }
-        if (telegramDiscoveryLoading) PanelProgressOverlay("正在读取 Telegram 表情包列表...")
+        if (telegramDiscoveryLoading) {
+            PanelProgressOverlay(panelUiText(R.string.sticker_panel_progress_read_telegram_sets))
+        }
         onlineSaveProgress?.let { progress ->
             PanelSaveProgressOverlay(progress, onCancel = ::stopOnlineSave)
         }
-        if (sending) PanelProgressOverlay("正在发送表情...")
+        if (sending) PanelProgressOverlay(panelUiText(R.string.sticker_panel_progress_send))
 
         previewSticker?.let { item ->
             StickerPreviewOverlay(
@@ -1364,7 +1422,10 @@ private fun StickerPanelContent(
                         val result = withContext(Dispatchers.IO) {
                             actions.setPackCover(item.localPath)
                         }
-                        operationMessage = result.exceptionOrNull()?.message ?: "已设置为封面"
+                        operationMessage = result.fold(
+                            onSuccess = { panelUiText(R.string.sticker_panel_cover_set) },
+                            onFailure = { it.toPanelUiText(R.string.sticker_panel_error_set_cover) },
+                        )
                         if (result.isSuccess) refreshLocal()
                     }
                 }) else null,
@@ -1390,9 +1451,9 @@ private fun StickerPanelContent(
                     if (mode == StickerImportMode.WECHAT_CUSTOM) {
                         showPanelPackPicker(
                             context = context,
-                            title = "导入微信原生表情",
-                            createLabel = "新建表情包",
-                            itemCountLabel = { count -> "$count 个表情" },
+                            title = localizedContext.getString(R.string.sticker_wechat_import_title),
+                            createLabel = localizedContext.getString(R.string.sticker_panel_new_pack),
+                            itemCountLabel = { count -> localizedContext.resources.getQuantityString(R.plurals.sticker_count, count, count) },
                             packIcon = MaterialSymbols.Outlined.Folder,
                             packs = editablePacks.map { PanelPackChoice(it.id, it.title, it.itemCount) },
                             onCreatePack = actions.createPack,
@@ -1409,8 +1470,8 @@ private fun StickerPanelContent(
                                         }
                                         weChatImportProgress = null
                                         operationMessage = result.fold(
-                                            onSuccess = { it },
-                                            onFailure = { it.message ?: "微信原生表情导入失败" },
+                                            onSuccess = { PanelUiText.Raw(it) },
+                                            onFailure = { it.toPanelUiText(R.string.sticker_panel_error_wechat_import) },
                                         )
                                         if (result.isSuccess) refreshLocal()
                                     } finally {
@@ -1422,7 +1483,7 @@ private fun StickerPanelContent(
                         )
                     } else if (mode == StickerImportMode.TELEGRAM_SINGLE || mode == StickerImportMode.TELEGRAM_BATCH) {
                         if (!PanelSettings.isValidTelegramBotToken(PanelSettings.telegramBotToken)) {
-                            scope.launch { showToastSuspend(context, "请先在设置中填写 Telegram Bot Token") }
+                            scope.launch { showToastSuspend(context, currentLocalizedContext.getString(R.string.sticker_telegram_token_required)) }
                         } else if (mode == StickerImportMode.TELEGRAM_BATCH) {
                             telegramSourcePrompt = true
                         } else {
@@ -1431,15 +1492,18 @@ private fun StickerPanelContent(
                     } else {
                         val pack = currentPrompt.pack
                         if (pack == null) {
-                            scope.launch { showToastSuspend(context, "请先新建或选择一个本地表情包") }
+                            scope.launch { showToastSuspend(context, currentLocalizedContext.getString(R.string.sticker_local_pack_required)) }
                         } else {
                             actions.importSticker(
                                 pack.id,
                                 mode,
-                                { progressMessage = "正在导入表情..." },
+                                { progressMessage = panelUiText(R.string.sticker_panel_progress_import) },
                                 { result ->
                                     progressMessage = null
-                                    operationMessage = result.exceptionOrNull()?.message ?: "表情导入完成"
+                                    operationMessage = result.fold(
+                                        onSuccess = { panelUiText(R.string.sticker_panel_import_complete) },
+                                        onFailure = { it.toPanelUiText(R.string.sticker_panel_error_import) },
+                                    )
                                     if (result.isSuccess) refreshLocal()
                                 },
                             )
@@ -1449,55 +1513,69 @@ private fun StickerPanelContent(
             )
 
             StickerPrompt.CreatePack -> PanelTextPrompt(
-                title = "新建表情包",
-                label = "表情包名称",
-                confirmText = "创建",
+                title = stringResource(R.string.sticker_panel_new_pack),
+                label = stringResource(R.string.sticker_pack_name),
+                confirmText = stringResource(R.string.panel_action_create),
                 onDismiss = { prompt = null },
                 onConfirm = { name ->
                     scope.launch {
                         val result = withContext(Dispatchers.IO) { actions.createPack(name) }
                         prompt = null
-                        operationMessage = result.exceptionOrNull()?.message ?: "表情包已创建"
+                        operationMessage = result.fold(
+                            onSuccess = { panelUiText(R.string.sticker_panel_pack_created) },
+                            onFailure = { it.toPanelUiText(R.string.panel_pack_create_failed) },
+                        )
                         if (result.isSuccess) refreshLocal()
                     }
                 },
             )
 
             is StickerPrompt.RenamePack -> PanelTextPrompt(
-                title = "重命名表情包",
-                label = "表情包名称",
+                title = stringResource(R.string.sticker_panel_rename_pack),
+                label = stringResource(R.string.sticker_pack_name),
                 initialValue = currentPrompt.pack.title,
-                confirmText = "保存",
+                confirmText = stringResource(R.string.action_save),
                 onDismiss = { prompt = null },
                 onConfirm = { name ->
                     scope.launch {
                         val result = withContext(Dispatchers.IO) { actions.renamePack(currentPrompt.pack.id, name) }
                         prompt = null
-                        operationMessage = result.exceptionOrNull()?.message ?: "表情包已重命名"
+                        operationMessage = result.fold(
+                            onSuccess = { panelUiText(R.string.sticker_panel_pack_renamed) },
+                            onFailure = { it.toPanelUiText(R.string.sticker_panel_error_rename_pack) },
+                        )
                         if (result.isSuccess) refreshLocal()
                     }
                 },
             )
 
             is StickerPrompt.DeletePack -> PanelConfirmation(
-                title = "删除表情包",
-                message = "删除“${currentPrompt.pack.title}”及其中的所有表情？",
-                confirmText = "删除",
+                title = stringResource(R.string.sticker_panel_delete_pack),
+                message = stringResource(R.string.sticker_panel_delete_pack_message, currentPrompt.pack.title),
+                confirmText = stringResource(R.string.panel_action_delete),
                 onDismiss = { prompt = null },
                 onConfirm = {
                     scope.launch {
                         val result = withContext(Dispatchers.IO) { actions.deletePack(currentPrompt.pack.id) }
                         prompt = null
-                        operationMessage = result.exceptionOrNull()?.message ?: "表情包已删除"
+                        operationMessage = result.fold(
+                            onSuccess = { panelUiText(R.string.sticker_panel_pack_deleted) },
+                            onFailure = { it.toPanelUiText(R.string.sticker_panel_error_delete_pack) },
+                        )
                         if (result.isSuccess) refreshLocal()
                     }
                 },
             )
 
             is StickerPrompt.UploadPack -> PanelConfirmation(
-                title = "上传表情包",
-                message = "将“${currentPrompt.pack.title}”中的 ${currentPrompt.pack.items.size} 个表情上传到 FunBox？",
-                confirmText = "上传",
+                title = stringResource(R.string.sticker_panel_upload_pack),
+                message = pluralStringResource(
+                    R.plurals.sticker_panel_upload_pack_message,
+                    currentPrompt.pack.items.size,
+                    currentPrompt.pack.title,
+                    currentPrompt.pack.items.size,
+                ),
+                confirmText = stringResource(R.string.panel_action_upload),
                 onDismiss = { prompt = null },
                 onConfirm = {
                     val pack = currentPrompt.pack
@@ -1506,16 +1584,19 @@ private fun StickerPanelContent(
                     scope.launch {
                         val result = actions.uploadPack(pack) { uploadProgress = it.coerceIn(0f, 1f) }
                         uploadProgress = null
-                        operationMessage = result.fold({ it }, { it.message ?: "上传失败" })
+                        operationMessage = result.fold(
+                            onSuccess = { PanelUiText.Raw(it) },
+                            onFailure = { it.toPanelUiText(R.string.sticker_panel_error_upload) },
+                        )
                     }
                 },
             )
 
             is StickerPrompt.SetStickerTitle -> PanelTextPrompt(
-                title = "设置名称",
-                label = "表情名称",
+                title = stringResource(R.string.sticker_panel_set_name),
+                label = stringResource(R.string.sticker_item_name),
                 initialValue = currentPrompt.item.customTitle.orEmpty(),
-                confirmText = "保存",
+                confirmText = stringResource(R.string.action_save),
                 allowBlank = true,
                 onDismiss = { prompt = null },
                 onConfirm = { title ->
@@ -1523,33 +1604,47 @@ private fun StickerPanelContent(
                         val path = currentPrompt.item.localPath ?: return@launch
                         val result = withContext(Dispatchers.IO) { actions.setCustomTitle(path, title) }
                         prompt = null
-                        operationMessage = result.exceptionOrNull()?.message
-                            ?: if (title.isBlank()) "已清除表情名称" else "表情名称已保存"
+                        operationMessage = result.fold(
+                            onSuccess = {
+                                panelUiText(
+                                    if (title.isBlank()) R.string.sticker_panel_title_cleared
+                                    else R.string.sticker_panel_title_saved,
+                                )
+                            },
+                            onFailure = { it.toPanelUiText(R.string.sticker_panel_error_set_name) },
+                        )
                         if (result.isSuccess) refreshLocal()
                     }
                 },
             )
 
             is StickerPrompt.DeleteSticker -> PanelConfirmation(
-                title = "删除表情",
-                message = "从本地表情包中删除这个表情？",
-                confirmText = "删除",
+                title = stringResource(R.string.sticker_panel_delete_item),
+                message = stringResource(R.string.sticker_panel_delete_item_message),
+                confirmText = stringResource(R.string.panel_action_delete),
                 onDismiss = { prompt = null },
                 onConfirm = {
                     scope.launch {
                         val path = currentPrompt.item.localPath ?: return@launch
                         val result = withContext(Dispatchers.IO) { actions.deleteSticker(path) }
                         prompt = null
-                        operationMessage = result.exceptionOrNull()?.message ?: "表情已删除"
+                        operationMessage = result.fold(
+                            onSuccess = { panelUiText(R.string.sticker_panel_item_deleted) },
+                            onFailure = { it.toPanelUiText(R.string.sticker_panel_error_delete_item) },
+                        )
                         if (result.isSuccess) refreshLocal()
                     }
                 },
             )
 
             is StickerPrompt.DeleteStickers -> PanelConfirmation(
-                title = "删除表情",
-                message = "从本地表情包中删除选中的 ${currentPrompt.items.size} 个表情？",
-                confirmText = "删除",
+                title = stringResource(R.string.sticker_panel_delete_item),
+                message = pluralStringResource(
+                    R.plurals.sticker_panel_delete_selected_message,
+                    currentPrompt.items.size,
+                    currentPrompt.items.size,
+                ),
+                confirmText = stringResource(R.string.panel_action_delete),
                 onDismiss = { prompt = null },
                 onConfirm = {
                     scope.launch {
@@ -1557,8 +1652,8 @@ private fun StickerPanelContent(
                         val result = withContext(Dispatchers.IO) { actions.deleteStickers(paths) }
                         prompt = null
                         operationMessage = result.fold(
-                            onSuccess = { "已删除 $it 个表情" },
-                            onFailure = { it.message ?: "表情删除失败" },
+                            onSuccess = { panelUiText(R.string.sticker_panel_deleted_count, it) },
+                            onFailure = { it.toPanelUiText(R.string.sticker_panel_error_delete_items) },
                         )
                         if (result.isSuccess) {
                             multiSelectMode = false
@@ -1570,9 +1665,9 @@ private fun StickerPanelContent(
             )
 
             is StickerPrompt.ConfirmSimilaritySticker -> PanelConfirmation(
-                title = "搜索相似表情",
-                message = SIMILARITY_SEARCH_PRIVACY_MESSAGE,
-                confirmText = "上传并搜索",
+                title = stringResource(R.string.sticker_panel_search_similar),
+                message = stringResource(R.string.sticker_similarity_privacy_message),
+                confirmText = stringResource(R.string.sticker_panel_upload_and_search),
                 onDismiss = { prompt = null },
                 onConfirm = {
                     val item = currentPrompt.item
@@ -1582,9 +1677,9 @@ private fun StickerPanelContent(
             )
 
             is StickerPrompt.ConfirmSimilarityBytes -> PanelConfirmation(
-                title = "搜索相似表情",
-                message = SIMILARITY_SEARCH_PRIVACY_MESSAGE,
-                confirmText = "上传并搜索",
+                title = stringResource(R.string.sticker_panel_search_similar),
+                message = stringResource(R.string.sticker_similarity_privacy_message),
+                confirmText = stringResource(R.string.sticker_panel_upload_and_search),
                 onDismiss = { prompt = null },
                 onConfirm = {
                     val bytes = currentPrompt.bytes
@@ -1608,13 +1703,16 @@ private fun StickerPanelContent(
                         telegramProgress = null
                         operationMessage = result.fold(
                             onSuccess = {
-                                buildString {
-                                    append("已导入 ${it.imported} 个表情到「${it.packName}」")
-                                    if (it.unchanged > 0) append("，${it.unchanged} 个无需更新")
-                                    if (it.failed > 0) append("，${it.failed} 个失败")
-                                }
+                                panelUiQuantity(
+                                    R.plurals.sticker_telegram_import_result,
+                                    it.imported,
+                                    it.imported,
+                                    it.packName,
+                                    it.unchanged,
+                                    it.failed,
+                                )
                             },
-                            onFailure = { it.message ?: "Telegram 表情包导入失败" },
+                            onFailure = { it.toPanelUiText(R.string.sticker_panel_error_telegram_import) },
                         )
                         if (result.isSuccess) refreshLocal()
                     } finally {
@@ -1650,7 +1748,7 @@ private fun StickerPanelContent(
                                     }
                                     val uniqueSets = sets.distinctBy { it.name.lowercase() }
                                     if (uniqueSets.isEmpty()) {
-                                        operationMessage = "所选数据库中没有可导入的 Telegram 表情包"
+                                        operationMessage = panelUiText(R.string.sticker_telegram_empty_database)
                                     } else {
                                         selectedTelegramSetNames = uniqueSets
                                             .mapNotNullTo(linkedSetOf()) { set ->
@@ -1665,7 +1763,7 @@ private fun StickerPanelContent(
                         },
                         onFailure = {
                             telegramDiscoveryLoading = false
-                            operationMessage = it.message ?: "读取 Telegram 数据库失败"
+                            operationMessage = it.toPanelUiText(R.string.sticker_panel_error_telegram_database)
                         },
                     )
                 }
@@ -1675,7 +1773,7 @@ private fun StickerPanelContent(
         if (zygiskInstancePickerVisible) {
             var instances by remember { mutableStateOf<List<String>?>(null) }
             var selectedPackage by remember { mutableStateOf<String?>(null) }
-            var discoveryError by remember { mutableStateOf<String?>(null) }
+            var discoveryError by remember { mutableStateOf<PanelUiText?>(null) }
             var reading by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) {
                 val result = withContext(Dispatchers.IO) {
@@ -1686,17 +1784,17 @@ private fun StickerPanelContent(
                         instances = pkgs
                         selectedPackage = pkgs.singleOrNull()
                     },
-                    onFailure = { discoveryError = it.message ?: "扫描 Telegram 实例失败" },
+                    onFailure = { discoveryError = it.toPanelUiText(R.string.sticker_panel_error_telegram_discovery) },
                 )
             }
             PanelFullOverlay(
                 onDismiss = { if (!reading) zygiskInstancePickerVisible = false },
                 allowImplicitDismiss = !reading,
             ) {
-                Text("选择 Telegram 实例", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.sticker_telegram_instance_title), style = MaterialTheme.typography.titleMedium)
                 when {
                     discoveryError != null -> Text(
-                        requireNotNull(discoveryError),
+                        requireNotNull(discoveryError).resolve(),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(top = 8.dp),
@@ -1710,7 +1808,7 @@ private fun StickerPanelContent(
                         requireNotNull(instances).forEach { pkg ->
                             ListItem(
                                 modifier = Modifier.clickable { selectedPackage = pkg },
-                                headlineContent = { Text(pkg) },
+                                content = { Text(pkg) },
                                 leadingContent = {
                                     RadioButton(
                                         selected = selectedPackage == pkg,
@@ -1730,7 +1828,7 @@ private fun StickerPanelContent(
                     TextButton(
                         onClick = { zygiskInstancePickerVisible = false },
                         enabled = !reading,
-                    ) { Text("取消") }
+                    ) { Text(stringResource(R.string.dialog_cancel)) }
                     TextButton(
                         onClick = {
                             val pkg = selectedPackage ?: return@TextButton
@@ -1756,7 +1854,7 @@ private fun StickerPanelContent(
                                                 }
                                                 val uniqueSets = sets.distinctBy { it.name.lowercase() }
                                                 if (uniqueSets.isEmpty()) {
-                                                    operationMessage = "所选数据库中没有可导入的 Telegram 表情包"
+                                                    operationMessage = panelUiText(R.string.sticker_telegram_empty_database)
                                                 } else {
                                                     selectedTelegramSetNames = uniqueSets
                                                         .mapNotNullTo(linkedSetOf()) { set ->
@@ -1770,26 +1868,26 @@ private fun StickerPanelContent(
                                         }
                                     },
                                     onFailure = {
-                                        operationMessage = it.message ?: "读取 Telegram 数据库失败"
+                                        operationMessage = it.toPanelUiText(R.string.sticker_panel_error_telegram_database)
                                     },
                                 )
                             }
                         },
                         enabled = selectedPackage != null && instances != null && !reading,
-                    ) { Text("确定") }
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
                 }
             }
         }
 
         telegramDiscoveredSets?.let { sets ->
             PanelListSelectionPrompt(
-                title = "选择 Telegram 表情包",
-                description = "已导入的表情包默认不选中；重新选择可以继续或更新导入。",
+                title = stringResource(R.string.sticker_telegram_pack_selection_title),
+                description = stringResource(R.string.sticker_telegram_pack_selection_description),
                 items = sets,
                 selectedKeys = selectedTelegramSetNames,
                 key = TelegramInstalledStickerSet::name,
                 headlineText = TelegramInstalledStickerSet::title,
-                supportingText = TelegramInstalledStickerSet::name,
+                supportingText = { it.name },
                 onSelectionChange = { selectedTelegramSetNames = it },
                 onDismiss = {
                     telegramDiscoveredSets = null
@@ -1824,15 +1922,16 @@ private fun StickerPanelContent(
                                     onFailure = { failures += set.title to it },
                                 )
                             }
-                            operationMessage = buildString {
-                                append("已导入 $succeeded 个 Telegram 表情包")
-                                if (failures.isNotEmpty()) {
-                                    append("，${failures.size} 个失败")
-                                    failures.firstOrNull()?.let { (title, error) ->
-                                        append("；$title: ${error.message ?: "未知错误"}")
-                                    }
-                                }
-                            }
+                            val firstFailure = failures.firstOrNull()
+                            operationMessage = panelUiQuantity(
+                                R.plurals.sticker_telegram_batch_result,
+                                succeeded,
+                                succeeded,
+                                failures.size,
+                                firstFailure?.first.orEmpty(),
+                                firstFailure?.second?.message
+                                    ?: currentLocalizedContext.getString(R.string.panel_unknown_error),
+                            )
                             if (succeeded > 0) refreshLocal()
                         } finally {
                             telegramBatchProgress = null
@@ -1845,19 +1944,21 @@ private fun StickerPanelContent(
 
         if (sourceRecoverySelectionVisible) {
             PanelListSelectionPrompt(
-                title = "选择本地表情包",
-                description = "选择要尝试恢复在线来源元数据的本地表情包。",
+                title = stringResource(R.string.sticker_source_recovery_selection_title),
+                description = stringResource(R.string.sticker_source_recovery_selection_description),
                 items = editablePacks,
                 selectedKeys = selectedSourceRecoveryPackIds,
                 key = StickerPack::id,
                 headlineText = StickerPack::title,
                 supportingText = { pack ->
                     buildString {
-                        append("${pack.itemCount} 个表情")
-                        if (pack.onlineSourcePackId != null) append(" · 已有在线来源")
+                        append(pluralStringResource(R.plurals.sticker_count, pack.itemCount, pack.itemCount))
+                        if (pack.onlineSourcePackId != null) {
+                            append(stringResource(R.string.sticker_source_already_linked_suffix))
+                        }
                     }
                 },
-                confirmText = "开始恢复",
+                confirmText = stringResource(R.string.sticker_source_recovery_start),
                 onSelectionChange = { selectedSourceRecoveryPackIds = it },
                 onDismiss = {
                     sourceRecoverySelectionVisible = false
@@ -2147,7 +2248,7 @@ private fun SearchStickerContent(
         PanelSearchField(
             value = query,
             onValueChange = onQueryChange,
-            label = "搜索",
+            label = stringResource(R.string.search_hint),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
@@ -2158,7 +2259,10 @@ private fun SearchStickerContent(
                     Icon(
                         if (imageSearchActive) MaterialSymbols.Outlined.Close
                         else MaterialSymbols.Outlined.Image_search,
-                        if (imageSearchActive) "清除以图搜图结果" else "选择图片搜索相似表情",
+                        stringResource(
+                            if (imageSearchActive) R.string.sticker_similarity_clear
+                            else R.string.sticker_similarity_choose_image,
+                        ),
                     )
                 }
             }),
@@ -2220,14 +2324,21 @@ private fun LocalPacksContent(
             }
             Box(Modifier.weight(1f)) {
             if (selectedPack == null) {
-                PanelEmptyAction("暂无本地表情包", "新建表情包后即可导入")
+                PanelEmptyAction(
+                    stringResource(R.string.sticker_panel_empty_local_packs),
+                    stringResource(R.string.sticker_panel_empty_local_packs_hint),
+                )
             } else if (selectedPack.items.isEmpty()) {
-                if (filterActive) PanelEmptyAction("当前表情包没有匹配的表情")
-                else PanelEmptyAction("这个表情包还是空的", "导入表情", onImport)
+                if (filterActive) PanelEmptyAction(stringResource(R.string.sticker_panel_empty_no_item_match))
+                else PanelEmptyAction(
+                    stringResource(R.string.sticker_panel_empty_pack),
+                    stringResource(R.string.sticker_panel_import_stickers),
+                    onImport,
+                )
             } else {
                     StickerGridOrEmpty(
                         stickers = selectedPack.items,
-                        message = "暂无表情",
+                        message = stringResource(R.string.sticker_panel_empty_stickers),
                         onSend = onSend,
                         onLongPress = onLongPress,
                         onPreviewGestureEnd = onPreviewGestureEnd,
@@ -2237,8 +2348,11 @@ private fun LocalPacksContent(
         }
     } else if (selectedPack == null) {
         if (packs.isEmpty()) {
-            if (filterActive) PanelEmptyAction("没有找到本地表情包")
-            else PanelEmptyAction("暂无本地表情包", "新建表情包后即可导入")
+            if (filterActive) PanelEmptyAction(stringResource(R.string.sticker_panel_empty_no_local_pack_match))
+            else PanelEmptyAction(
+                stringResource(R.string.sticker_panel_empty_local_packs),
+                stringResource(R.string.sticker_panel_empty_local_packs_hint),
+            )
         } else {
             StickerPackCatalog(
                 packs = packs,
@@ -2250,12 +2364,16 @@ private fun LocalPacksContent(
             )
         }
     } else if (selectedPack.items.isEmpty()) {
-        if (filterActive) PanelEmptyAction("当前表情包没有匹配的表情")
-        else PanelEmptyAction("这个表情包还是空的", "导入表情", onImport)
+        if (filterActive) PanelEmptyAction(stringResource(R.string.sticker_panel_empty_no_item_match))
+        else PanelEmptyAction(
+            stringResource(R.string.sticker_panel_empty_pack),
+            stringResource(R.string.sticker_panel_import_stickers),
+            onImport,
+        )
     } else {
         StickerGridOrEmpty(
             stickers = selectedPack.items,
-            message = "暂无表情",
+            message = stringResource(R.string.sticker_panel_empty_stickers),
             onSend = onSend,
             onLongPress = onLongPress,
             onPreviewGestureEnd = onPreviewGestureEnd,
@@ -2274,7 +2392,7 @@ private fun StickerPackReorderContent(
     packs: List<StickerPack>,
     onMove: (Int, Int) -> Unit,
 ) {
-    PanelReorderableList(
+    ReorderableList(
         items = packs,
         itemKey = StickerPack::id,
         onMove = onMove,
@@ -2282,10 +2400,10 @@ private fun StickerPackReorderContent(
     ) { pack, dragHandleModifier ->
         ListItem(
             colors = panelListItemColors(),
-            headlineContent = {
+            content = {
                 Text(pack.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
-            supportingContent = { Text("${pack.itemCount} 个表情") },
+            supportingContent = { Text(pluralStringResource(R.plurals.sticker_count, pack.itemCount, pack.itemCount)) },
             leadingContent = { StickerPackThumbnail(pack, Modifier.size(48.dp)) },
             trailingContent = {
                 Box(
@@ -2296,7 +2414,7 @@ private fun StickerPackReorderContent(
                 ) {
                     Icon(
                         MaterialSymbols.Outlined.Drag_handle,
-                        contentDescription = "拖动 ${pack.title}",
+                        contentDescription = stringResource(R.string.sticker_drag_pack, pack.title),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -2311,7 +2429,7 @@ private fun StickerItemReorderContent(
     onMove: (Int, Int) -> Unit,
 ) {
     val context = LocalContext.current
-    PanelReorderableList(
+    ReorderableList(
         items = stickers,
         itemKey = { requireNotNull(it.localPath) },
         onMove = onMove,
@@ -2319,7 +2437,7 @@ private fun StickerItemReorderContent(
     ) { sticker, dragHandleModifier ->
         ListItem(
             colors = panelListItemColors(),
-            headlineContent = {
+            content = {
                 Text(
                     sticker.customTitle?.takeIf(String::isNotBlank) ?: sticker.title,
                     maxLines = 1,
@@ -2327,7 +2445,7 @@ private fun StickerItemReorderContent(
                 )
             },
             supportingContent = {
-                Text("已发送 ${sticker.sendCount} 次")
+                Text(pluralStringResource(R.plurals.sticker_sent_count, sticker.sendCount.toInt(), sticker.sendCount))
             },
             leadingContent = {
                 Box(
@@ -2352,7 +2470,7 @@ private fun StickerItemReorderContent(
                 ) {
                     Icon(
                         MaterialSymbols.Outlined.Drag_handle,
-                        contentDescription = "拖动 ${sticker.title}",
+                        contentDescription = stringResource(R.string.sticker_drag_item, sticker.title),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -2439,7 +2557,7 @@ private fun StickerPackCatalog(
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             Text(
-                                text = pack.badge ?: "${pack.itemCount} 个",
+                                text = pack.badge ?: stringResource(R.string.sticker_count_short, pack.itemCount),
                                 modifier = Modifier
                                     .widthIn(max = metadataMaxWidth)
                                     .padding(start = 12.dp),
@@ -2524,7 +2642,7 @@ private fun StickerAsyncImage(
                 ) {
                     Icon(
                         MaterialSymbols.Outlined.Close,
-                        contentDescription = "缩略图加载失败",
+                        contentDescription = stringResource(R.string.sticker_thumbnail_load_failed),
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(30.dp),
                     )
@@ -2591,15 +2709,15 @@ private fun StickerPreviewOverlay(
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.Center,
             ) {
-                TextButton(onClick = onSend) { Text("发送") }
-                TextButton(onClick = onSearchSimilar) { Text("搜索相似") }
-                if (onOpenPack != null) TextButton(onClick = onOpenPack) { Text("查看表情包") }
-                if (onSave != null) TextButton(onClick = onSave) { Text("保存到本地") }
-                if (onSetTitle != null) TextButton(onClick = onSetTitle) { Text("设置名称") }
-                if (onSetCover != null) TextButton(onClick = onSetCover) { Text("设置为封面") }
+                TextButton(onClick = onSend) { Text(stringResource(R.string.panel_action_send)) }
+                TextButton(onClick = onSearchSimilar) { Text(stringResource(R.string.sticker_panel_search_similar_short)) }
+                if (onOpenPack != null) TextButton(onClick = onOpenPack) { Text(stringResource(R.string.sticker_panel_view_pack)) }
+                if (onSave != null) TextButton(onClick = onSave) { Text(stringResource(R.string.sticker_panel_save_to_local)) }
+                if (onSetTitle != null) TextButton(onClick = onSetTitle) { Text(stringResource(R.string.sticker_panel_set_name)) }
+                if (onSetCover != null) TextButton(onClick = onSetCover) { Text(stringResource(R.string.sticker_panel_set_cover)) }
                 if (onDelete != null) {
                     TextButton(onClick = onDelete) {
-                        Text("删除", color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.panel_action_delete), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -2638,8 +2756,8 @@ private fun StickerImportPrompt(
                 add(
                     PanelImportOption(
                         mode = StickerImportMode.WECHAT_CUSTOM,
-                        title = "从微信「添加的单个表情」导入",
-                        description = "选择或新建本地表情包后导入",
+                        title = stringResource(R.string.sticker_import_wechat_title),
+                        description = stringResource(R.string.sticker_import_wechat_description),
                         icon = MaterialSymbols.Outlined.Sync,
                     ),
                 )
@@ -2648,16 +2766,16 @@ private fun StickerImportPrompt(
                 add(
                     PanelImportOption(
                         mode = StickerImportMode.MULTIPLE_FILES,
-                        title = "选择多个图片文件",
-                        description = "从系统文件选择器一次选择一个或多个文件",
+                        title = stringResource(R.string.sticker_import_files_title),
+                        description = stringResource(R.string.sticker_import_files_description),
                         icon = MaterialSymbols.Outlined.Upload_file,
                     ),
                 )
                 add(
                     PanelImportOption(
                         mode = StickerImportMode.DIRECTORY,
-                        title = "导入整个目录",
-                        description = "递归导入所选目录内支持的图片文件",
+                        title = stringResource(R.string.panel_import_directory_title),
+                        description = stringResource(R.string.sticker_import_directory_description),
                         icon = MaterialSymbols.Outlined.Folder,
                     ),
                 )
@@ -2666,16 +2784,16 @@ private fun StickerImportPrompt(
                 add(
                     PanelImportOption(
                         mode = StickerImportMode.TELEGRAM_SINGLE,
-                        title = "从 Telegram 导入单个包",
-                        description = "输入表情包名称或链接并创建新的本地表情包",
+                        title = stringResource(R.string.sticker_telegram_single_title),
+                        description = stringResource(R.string.sticker_telegram_single_description),
                         icon = TelegramIcon,
                     ),
                 )
                 add(
                     PanelImportOption(
                         mode = StickerImportMode.TELEGRAM_BATCH,
-                        title = "从 Telegram 实例批量导入包",
-                        description = "从 Telegram 数据库选择多个已安装的表情包",
+                        title = stringResource(R.string.sticker_telegram_batch_title),
+                        description = stringResource(R.string.sticker_telegram_batch_description),
                         icon = TelegramIcon,
                     ),
                 )
@@ -2694,20 +2812,20 @@ private fun TelegramStickerSetPrompt(
     var input by remember { mutableStateOf("") }
     val extracted = TelegramStickerPackRepository.extractStickerSetName(input)
     PanelFullOverlay(onDismiss = onDismiss) {
-        Text("从 Telegram 导入单个包", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.sticker_telegram_single_title), style = MaterialTheme.typography.titleMedium)
         Text(
-            "输入表情包名称，或 t.me/addstickers 链接。Telegram 表情包会创建为新的本地包。",
+            stringResource(R.string.sticker_telegram_single_help),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
         OutlinedTextField(
             value = input,
             onValueChange = { input = it },
-            label = { Text("表情包名称或链接") },
+            label = { Text(stringResource(R.string.sticker_telegram_input_label)) },
             supportingText = when {
                 input.isBlank() -> null
-                extracted == null -> ({ Text("请输入有效的 Telegram 表情包名称或链接") })
-                input.trim() != extracted -> ({ Text("将导入：$extracted") })
+                extracted == null -> ({ Text(stringResource(R.string.sticker_telegram_input_invalid)) })
+                input.trim() != extracted -> ({ Text(stringResource(R.string.sticker_telegram_will_import, extracted)) })
                 else -> null
             },
             isError = input.isNotBlank() && extracted == null,
@@ -2716,11 +2834,11 @@ private fun TelegramStickerSetPrompt(
         )
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f))
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
             TextButton(
                 onClick = { extracted?.let(onConfirm) },
                 enabled = extracted != null,
-            ) { Text("确定") }
+            ) { Text(stringResource(R.string.dialog_confirm)) }
         }
     }
 }
@@ -2734,14 +2852,14 @@ private fun TelegramDatabaseSourcePrompt(
         options = listOf(
             PanelImportOption(
                 mode = TelegramDatabaseSource.ROOT,
-                title = "使用 Root 权限直接读取 Telegram 数据库",
-                description = "跳转到 WeKit 模块应用扫描实例并解析数据库",
+                title = stringResource(R.string.sticker_telegram_source_root_title),
+                description = stringResource(R.string.sticker_telegram_source_root_description),
                 icon = TelegramIcon,
             ),
             PanelImportOption(
                 mode = TelegramDatabaseSource.MANUAL,
-                title = "手动选择 Telegram 数据库 (cache4.db)",
-                description = "从系统文件选择器读取一个 Telegram 数据库",
+                title = stringResource(R.string.sticker_telegram_source_manual_title),
+                description = stringResource(R.string.sticker_telegram_source_manual_description),
                 icon = MaterialSymbols.Outlined.Folder,
             ),
         ),
@@ -2758,12 +2876,13 @@ private fun <T> PanelListSelectionPrompt(
     selectedKeys: Set<String>,
     key: (T) -> String,
     headlineText: (T) -> String,
-    supportingText: ((T) -> String?)? = null,
-    confirmText: String = "确定",
+    supportingText: (@Composable (T) -> String?)? = null,
+    confirmText: String? = null,
     onSelectionChange: (Set<String>) -> Unit,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
+    val resolvedConfirmText = confirmText ?: stringResource(R.string.dialog_confirm)
     PanelFullOverlay(onDismiss = onDismiss) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         Text(
@@ -2777,15 +2896,15 @@ private fun <T> PanelListSelectionPrompt(
         ) {
             TextButton(
                 onClick = { onSelectionChange(items.mapTo(linkedSetOf(), key)) },
-            ) { Text("全选") }
-            TextButton(onClick = { onSelectionChange(emptySet()) }) { Text("全不选") }
+            ) { Text(stringResource(R.string.panel_action_select_all)) }
+            TextButton(onClick = { onSelectionChange(emptySet()) }) { Text(stringResource(R.string.panel_action_select_none)) }
             TextButton(
                 onClick = {
                     onSelectionChange(
                         invertPanelSelection(selectedKeys, items, key),
                     )
                 },
-            ) { Text("反选") }
+            ) { Text(stringResource(R.string.panel_action_invert_selection)) }
             TextButton(
                 onClick = {
                     onSelectionChange(
@@ -2793,7 +2912,7 @@ private fun <T> PanelListSelectionPrompt(
                     )
                 },
                 enabled = selectedKeys.size > 1,
-            ) { Text("连选") }
+            ) { Text(stringResource(R.string.panel_action_select_range)) }
         }
         LazyColumn(
             modifier = Modifier
@@ -2811,7 +2930,7 @@ private fun <T> PanelListSelectionPrompt(
                         )
                     },
                     colors = panelListItemColors(),
-                    headlineContent = { Text(headlineText(item)) },
+                    content = { Text(headlineText(item)) },
                     supportingContent = supportingText?.let { text ->
                         { text(item)?.let { Text(it) } }
                     },
@@ -2829,10 +2948,10 @@ private fun <T> PanelListSelectionPrompt(
             }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("已选择 ${selectedKeys.size}/${items.size}", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.panel_selection_count, selectedKeys.size, items.size), style = MaterialTheme.typography.bodySmall)
             Box(Modifier.weight(1f))
-            TextButton(onClick = onDismiss) { Text("取消") }
-            TextButton(onClick = onConfirm, enabled = selectedKeys.isNotEmpty()) { Text(confirmText) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+            TextButton(onClick = onConfirm, enabled = selectedKeys.isNotEmpty()) { Text(resolvedConfirmText) }
         }
     }
 }
@@ -2843,7 +2962,7 @@ private fun StickerOnlineSourceRecoveryProgressOverlay(
     onCancel: () -> Unit,
 ) {
     PanelFullOverlay(onDismiss = {}, allowImplicitDismiss = false) {
-        Text("正在恢复在线表情包来源", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.sticker_panel_progress_recover_sources), style = MaterialTheme.typography.titleMedium)
         LinearProgressIndicator(
             progress = { progress.completed.toFloat() / progress.total.coerceAtLeast(1) },
             modifier = Modifier.fillMaxWidth(),
@@ -2857,7 +2976,7 @@ private fun StickerOnlineSourceRecoveryProgressOverlay(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
         ) {
-            TextButton(onClick = onCancel) { Text("中断") }
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.panel_action_interrupt)) }
         }
     }
 }
@@ -2869,15 +2988,20 @@ private fun TelegramBatchImportProgressOverlay(
 ) {
     val itemProgress = progress.itemProgress
     val itemFraction = itemProgress?.let { it.completed.toFloat() / it.total.coerceAtLeast(1) } ?: 0f
-    val overallProgress = ((progress.packIndex - 1) + itemFraction) / progress.packTotal.coerceAtLeast(1)
+    val overallProgress = (progress.packIndex - 1 + itemFraction) / progress.packTotal.coerceAtLeast(1)
     PanelFullOverlay(onDismiss = {}, allowImplicitDismiss = false) {
-        Text("正在批量导入 Telegram 表情包", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.sticker_telegram_batch_progress_title), style = MaterialTheme.typography.titleMedium)
         LinearProgressIndicator(
             progress = { overallProgress.coerceIn(0f, 1f) },
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            "第 ${progress.packIndex}/${progress.packTotal} 个 · ${progress.packTitle}",
+            stringResource(
+                R.string.sticker_telegram_batch_pack_progress,
+                progress.packIndex,
+                progress.packTotal,
+                progress.packTitle,
+            ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -2886,8 +3010,8 @@ private fun TelegramBatchImportProgressOverlay(
                 buildString {
                     append(
                         when (itemProgress.phase) {
-                            TelegramStickerImportPhase.DOWNLOAD -> "下载"
-                            TelegramStickerImportPhase.CONVERSION -> "转换"
+                            TelegramStickerImportPhase.DOWNLOAD -> stringResource(R.string.sticker_telegram_phase_download)
+                            TelegramStickerImportPhase.CONVERSION -> stringResource(R.string.sticker_telegram_phase_conversion)
                         },
                     )
                     append(" ${itemProgress.completed}/${itemProgress.total}")
@@ -2901,7 +3025,7 @@ private fun TelegramBatchImportProgressOverlay(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
         ) {
-            TextButton(onClick = onCancel) { Text("中断") }
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.panel_action_interrupt)) }
         }
     }
 }
@@ -2914,8 +3038,8 @@ private fun TelegramImportProgressOverlay(
     PanelFullOverlay(onDismiss = onCancel, allowImplicitDismiss = false) {
         Text(
             when (progress.phase) {
-                TelegramStickerImportPhase.DOWNLOAD -> "正在下载 Telegram 表情包"
-                TelegramStickerImportPhase.CONVERSION -> "正在转换 Telegram 表情"
+                TelegramStickerImportPhase.DOWNLOAD -> stringResource(R.string.sticker_telegram_progress_download)
+                TelegramStickerImportPhase.CONVERSION -> stringResource(R.string.sticker_telegram_progress_conversion)
             },
             style = MaterialTheme.typography.titleMedium,
         )
@@ -2925,7 +3049,7 @@ private fun TelegramImportProgressOverlay(
         )
         Text(
             buildString {
-                append("已完成 ${progress.completed}/${progress.total}")
+                append(stringResource(R.string.panel_progress_completed, progress.completed, progress.total))
                 progress.currentItem?.takeIf(String::isNotBlank)?.let { append(" · $it") }
             },
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -2936,7 +3060,7 @@ private fun TelegramImportProgressOverlay(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onCancel) { Text("中断") }
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.panel_action_interrupt)) }
         }
     }
 }
@@ -2949,20 +3073,22 @@ private fun WeChatStickerImportProgressOverlay(
     PanelFullOverlay(onDismiss = onCancel, allowImplicitDismiss = false) {
         when (progress.phase) {
             WeChatStickerImportPhase.SCANNING -> {
-                Text("正在读取微信表情数据库", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.sticker_wechat_progress_read_database), style = MaterialTheme.typography.titleMedium)
                 CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
             }
 
             WeChatStickerImportPhase.IMPORTING -> {
-                Text("正在导入微信原生表情", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.sticker_wechat_progress_import), style = MaterialTheme.typography.titleMedium)
                 LinearProgressIndicator(
                     progress = { progress.processed.toFloat() / progress.total.coerceAtLeast(1) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
                     buildString {
-                        append("已处理 ${progress.processed}/${progress.total}")
-                        if (progress.failed > 0) append("，失败 ${progress.failed}")
+                        append(stringResource(R.string.panel_progress_processed, progress.processed, progress.total))
+                        if (progress.failed > 0) {
+                            append(stringResource(R.string.panel_progress_failed_suffix, progress.failed))
+                        }
                     },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
@@ -2974,7 +3100,7 @@ private fun WeChatStickerImportProgressOverlay(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onCancel) { Text("中断") }
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.panel_action_interrupt)) }
         }
     }
 }
@@ -3036,15 +3162,15 @@ private fun StickerSettingsContent(
                 ListItem(
                     modifier = Modifier.clickable { tgsFrameRatePrompt = true },
                     colors = panelListItemColors(),
-                    headlineContent = { Text("TGS → GIF 帧率") },
-                    supportingContent = { Text("$tgsGifFrameRate FPS · 点击修改") },
+                    content = { Text(stringResource(R.string.sticker_setting_tgs_gif_fps)) },
+                    supportingContent = { Text(stringResource(R.string.sticker_setting_tgs_gif_fps_summary, tgsGifFrameRate)) },
                 )
             }
             item {
                 ListItem(
                     colors = panelListItemColors(),
-                    headlineContent = { Text("自动移除视频贴纸圆角遮罩") },
-                    supportingContent = { Text("仅影响从 Telegram 导入的 WEBM 表情") },
+                    content = { Text(stringResource(R.string.sticker_setting_remove_video_mask)) },
+                    supportingContent = { Text(stringResource(R.string.sticker_setting_remove_video_mask_summary)) },
                     trailingContent = {
                         Switch(
                             checked = removeRoundedVideoMask,
@@ -3059,8 +3185,8 @@ private fun StickerSettingsContent(
             item {
                 ListItem(
                     colors = panelListItemColors(),
-                    headlineContent = { Text("移动预览松手后自动关闭") },
-                    supportingContent = { Text("长按表情并移动手指后，松手时关闭大图预览") },
+                    content = { Text(stringResource(R.string.sticker_setting_close_preview_after_scrub)) },
+                    supportingContent = { Text(stringResource(R.string.sticker_setting_close_preview_after_scrub_summary)) },
                     trailingContent = {
                         Switch(
                             checked = closePreviewAfterScrub,
@@ -3075,8 +3201,8 @@ private fun StickerSettingsContent(
             item {
                 ListItem(
                     colors = panelListItemColors(),
-                    headlineContent = { Text("在线表情预览使用原图") },
-                    supportingContent = { Text("关闭后，大图预览将优先使用缩略图") },
+                    content = { Text(stringResource(R.string.sticker_setting_online_preview_original)) },
+                    supportingContent = { Text(stringResource(R.string.sticker_setting_online_preview_original_summary)) },
                     trailingContent = {
                         Switch(
                             checked = onlinePreviewUseOriginal,
@@ -3093,29 +3219,29 @@ private fun StickerSettingsContent(
                 ListItem(
                     modifier = Modifier.clickable(onClick = onRecoverOnlinePackSources),
                     colors = panelListItemColors(),
-                    headlineContent = { Text("恢复在线表情包来源") },
-                    supportingContent = { Text("为旧版下载的本地表情包尝试恢复在线来源元数据") },
+                    content = { Text(stringResource(R.string.sticker_setting_recover_sources)) },
+                    supportingContent = { Text(stringResource(R.string.sticker_setting_recover_sources_summary)) },
                 )
             }
             item {
                 PanelDropdownSetting(
-                    title = "本地表情包一级界面",
+                    title = stringResource(R.string.sticker_setting_local_layout),
                     selected = localPackLayout,
                     options = listOf(
-                        StickerPackLayout.TABS to "Tab 栏",
-                        StickerPackLayout.GRID to "网格",
-                        StickerPackLayout.LIST to "列表",
+                        StickerPackLayout.TABS to stringResource(R.string.panel_layout_tabs),
+                        StickerPackLayout.GRID to stringResource(R.string.panel_layout_grid),
+                        StickerPackLayout.LIST to stringResource(R.string.panel_layout_list),
                     ),
                     onSelected = onLocalPackLayoutChange,
                 )
             }
             item {
                 PanelDropdownSetting(
-                    title = "在线表情包一级界面",
+                    title = stringResource(R.string.sticker_setting_online_layout),
                     selected = onlinePackLayout,
                     options = listOf(
-                        StickerPackLayout.GRID to "网格",
-                        StickerPackLayout.LIST to "列表",
+                        StickerPackLayout.GRID to stringResource(R.string.panel_layout_grid),
+                        StickerPackLayout.LIST to stringResource(R.string.panel_layout_list),
                     ),
                     onSelected = onOnlinePackLayoutChange,
                 )
@@ -3124,8 +3250,8 @@ private fun StickerSettingsContent(
                 ListItem(
                     modifier = Modifier.clickable { numberPrompt = true },
                     colors = panelListItemColors(),
-                    headlineContent = { Text("每行表情数量") },
-                    supportingContent = { Text("$columns · 点击输入自定义数量") },
+                    content = { Text(stringResource(R.string.sticker_setting_columns)) },
+                    supportingContent = { Text(stringResource(R.string.panel_setting_custom_number_summary, columns)) },
                 )
                 Slider(
                     value = columns.coerceIn(2, 10).toFloat(),
@@ -3183,8 +3309,8 @@ private fun StickerSettingsContent(
             },
         )
         if (tgsFrameRatePrompt) PanelNumberPrompt(
-            title = "TGS → GIF 帧率",
-            label = "帧率（1-60 FPS）",
+            title = stringResource(R.string.sticker_setting_tgs_gif_fps),
+            label = stringResource(R.string.sticker_setting_fps_range),
             initialValue = tgsGifFrameRate.toLong(),
             minValue = PanelSettings.MIN_TGS_GIF_FRAME_RATE.toLong(),
             maxValue = PanelSettings.MAX_TGS_GIF_FRAME_RATE.toLong(),
@@ -3196,8 +3322,8 @@ private fun StickerSettingsContent(
             },
         )
         if (numberPrompt) PanelNumberPrompt(
-            title = "每行表情数量",
-            label = "数量（1-15）",
+            title = stringResource(R.string.sticker_setting_columns),
+            label = stringResource(R.string.panel_number_range_1_15),
             initialValue = columns.toLong(),
             minValue = 1,
             maxValue = 15,
@@ -3209,8 +3335,8 @@ private fun StickerSettingsContent(
             },
         )
         if (historyPrompt) PanelNumberPrompt(
-            title = "最大历史数量",
-            label = "数量（至少 1）",
+            title = stringResource(R.string.panel_setting_max_history),
+            label = stringResource(R.string.panel_number_at_least_one),
             initialValue = maxHistory,
             minValue = 1,
             onDismiss = { historyPrompt = false },
@@ -3221,8 +3347,8 @@ private fun StickerSettingsContent(
             },
         )
         if (downloadConcurrencyPrompt) PanelNumberPrompt(
-            title = "下载并发",
-            label = "任务数（1-32）",
+            title = stringResource(R.string.panel_setting_download_concurrency),
+            label = stringResource(R.string.panel_task_range_1_32),
             initialValue = downloadConcurrency.toLong(),
             minValue = PanelSettings.MIN_PANEL_CONCURRENCY.toLong(),
             maxValue = PanelSettings.MAX_PANEL_DOWNLOAD_CONCURRENCY.toLong(),
@@ -3234,8 +3360,8 @@ private fun StickerSettingsContent(
             },
         )
         if (conversionConcurrencyPrompt) PanelNumberPrompt(
-            title = "转换并发",
-            label = "任务数（1-8）",
+            title = stringResource(R.string.panel_setting_conversion_concurrency),
+            label = stringResource(R.string.panel_task_range_1_8),
             initialValue = conversionConcurrency.toLong(),
             minValue = PanelSettings.MIN_PANEL_CONCURRENCY.toLong(),
             maxValue = PanelSettings.MAX_PANEL_CONVERSION_CONCURRENCY.toLong(),

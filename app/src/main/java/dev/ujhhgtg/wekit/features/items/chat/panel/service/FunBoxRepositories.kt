@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.service
 
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneExample
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSource
@@ -8,15 +10,34 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.StickerPack
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceItem
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePack
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceProviderPage
+import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.asPath
+import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import java.nio.file.Files
 import java.security.MessageDigest
+import java.util.LinkedHashMap
 
 private val funBoxClientWxId: String
     get() = PanelSettings.effectiveFunBoxApiClientWxId
 
 object FunBoxStickerRepository {
+    private val embeddedCatalog by lazy {
+        runCatching {
+            val resources = HostInfo.application.resources
+            ResourcesInjector.injectModuleRes(resources)
+            resources.openRawResource(R.raw.funbox_sticker_catalog_snapshot)
+                .bufferedReader()
+                .use { reader ->
+                    DefaultJson.decodeFromString<List<FunBoxStickerPackSnapshot>>(reader.readText())
+                }
+                .map(FunBoxStickerPackSnapshot::toStickerPack)
+        }
+    }
+
     suspend fun loadCatalog(): Result<List<StickerPack>> {
         WeLogger.d(TAG, "catalog load start")
         val request = FunBoxBinaryWriter().apply { string(funBoxClientWxId) }.build()
@@ -37,11 +58,17 @@ object FunBoxStickerRepository {
                     title = title,
                     cover = thumbId,
                     source = PanelSource.ONLINE,
-                    badge = "点击 $clickCount · 下载 $downloadCount",
+                    badge = localizedChatString(R.string.chat_funbox_click_download_badge, clickCount, downloadCount),
                     uploadTime = uploadTime,
                     downloadCount = downloadCount,
                 )
             }
+        }.map { serverCatalog ->
+            val snapshotCatalog = embeddedCatalog.getOrElse { error ->
+                WeLogger.e(TAG, "embedded catalog load failed", error)
+                emptyList()
+            }
+            mergeCatalog(snapshotCatalog, serverCatalog)
         }
         return resolvePackCovers(result).logNetworkResult(TAG, "catalog load") { "packs=${it.size}" }
     }
@@ -67,7 +94,7 @@ object FunBoxStickerRepository {
                     title = title,
                     cover = thumbId,
                     source = PanelSource.ONLINE,
-                    badge = "状态 $reviewState · 点击 $clickCount · 下载 $downloadCount",
+                    badge = localizedChatString(R.string.chat_funbox_status_click_download_badge, reviewState, clickCount, downloadCount),
                     uploadTime = uploadTime,
                     downloadCount = downloadCount,
                 )
@@ -86,14 +113,14 @@ object FunBoxStickerRepository {
             val status = response.int()
             val items = response.objects(::decodeSticker)
             val message = response.string()
-            check(status == 0) { message.ifBlank { "表情包加载失败" } }
+            check(status == 0) { message.ifBlank { localizedChatString(R.string.chat_funbox_sticker_pack_load_failed) } }
             items.map { it.copy(packId = pack.id) }
         }
         return resolveStickerThumbnails(result).logNetworkResult(TAG, "pack contents load") { "items=${it.size}" }
     }
 
     suspend fun searchSimilar(imageBytes: ByteArray): Result<List<StickerItem>> {
-        require(imageBytes.isNotEmpty()) { "图片内容为空" }
+        require(imageBytes.isNotEmpty()) { localizedChatString(R.string.chat_funbox_image_empty) }
         val request = FunBoxBinaryWriter().apply { bytes(imageBytes) }.build()
         WeLogger.d(TAG, "similarity search start imageBytes=${imageBytes.size}")
         val result = FunBoxServiceClient.call(OP_STICKER_SIMILARITY, request) { response ->
@@ -108,7 +135,7 @@ object FunBoxStickerRepository {
                     thumbnailUrl = thumbId,
                     source = PanelSource.ONLINE,
                     packId = packId,
-                    title = "相似度 ${(score * 100).toInt()}%",
+                    title = localizedChatString(R.string.chat_funbox_similarity, (score * 100).toInt()),
                 )
             }
         }
@@ -116,7 +143,7 @@ object FunBoxStickerRepository {
     }
 
     suspend fun searchText(query: String): Result<List<StickerItem>> {
-        require(query.isNotBlank()) { "搜索内容不能为空" }
+        require(query.isNotBlank()) { localizedChatString(R.string.chat_funbox_search_empty) }
         WeLogger.d(TAG, "text search start")
         val request = FunBoxBinaryWriter().apply {
             string(funBoxClientWxId)
@@ -130,7 +157,7 @@ object FunBoxStickerRepository {
 
     suspend fun uploadPack(pack: StickerPack, onProgress: (Float) -> Unit): Result<String> = runCatching {
         val localPaths = pack.items.mapNotNull { it.localPath }.map { it.asPath }
-        require(localPaths.isNotEmpty()) { "表情包为空" }
+        require(localPaths.isNotEmpty()) { localizedChatString(R.string.chat_funbox_sticker_pack_empty) }
         WeLogger.d(TAG, "pack upload start items=${localPaths.size}")
         val hashes = localPaths.map { md5(Files.readAllBytes(it)) }
         val preflight = FunBoxServiceClient.call(
@@ -142,9 +169,9 @@ object FunBoxStickerRepository {
         ) { response ->
             UploadSession(response.int(), response.string(), response.string(), response.string())
         }.getOrThrow()
-        check(preflight.status != 2) { preflight.message.ifBlank { "表情包上传被拒绝" } }
+        check(preflight.status != 2) { preflight.message.ifBlank { localizedChatString(R.string.chat_funbox_sticker_upload_rejected) } }
         if (preflight.status == 3) {
-            error(preflight.message.ifBlank { "服务器要求确认重复表情，请调整表情包内容后重试" })
+            error(preflight.message.ifBlank { localizedChatString(R.string.chat_funbox_sticker_duplicate_confirmation_required) })
         }
         val archive = buildUploadArchive(localPaths)
         val session = FunBoxServiceClient.call(
@@ -161,8 +188,8 @@ object FunBoxStickerRepository {
         ) { response ->
             UploadSession(response.int(), response.string(), response.string(), response.string())
         }.getOrThrow()
-        if (session.status == 2) return@runCatching "上传完成，请等待审核通过"
-        check(session.status == 0) { session.message.ifBlank { "无法创建上传会话" } }
+        if (session.status == 2) return@runCatching localizedChatString(R.string.chat_funbox_upload_pending_review)
+        check(session.status == 0) { session.message.ifBlank { localizedChatString(R.string.chat_funbox_upload_session_create_failed) } }
         val chunks = (0..archive.size / UPLOAD_CHUNK_BYTES).map { index ->
             val start = index * UPLOAD_CHUNK_BYTES
             archive.copyOfRange(start, minOf(start + UPLOAD_CHUNK_BYTES, archive.size))
@@ -187,10 +214,10 @@ object FunBoxStickerRepository {
                     uploaded = true
                     return@repeat
                 }
-                lastFailure = result.exceptionOrNull() ?: IllegalStateException(response?.message ?: "分块上传失败")
+                lastFailure = result.exceptionOrNull() ?: IllegalStateException(response?.message ?: localizedChatString(R.string.chat_funbox_chunk_upload_failed))
                 if (attempt == 3) throw lastFailure
             }
-            check(uploaded) { lastFailure?.message ?: "分块上传失败" }
+            check(uploaded) { lastFailure?.message ?: localizedChatString(R.string.chat_funbox_chunk_upload_failed) }
             onProgress((index + 1f) / chunks.size)
         }
         val confirmation = FunBoxServiceClient.call(
@@ -201,8 +228,8 @@ object FunBoxStickerRepository {
                 strings(localPaths.indices.map(Int::toString))
             }.build(),
         ) { response -> StatusResponse(response.int(), response.string(), response.bytes()) }.getOrThrow()
-        check(confirmation.status == 0) { confirmation.message.ifBlank { "上传确认失败" } }
-        "上传完成，请等待审核通过"
+        check(confirmation.status == 0) { confirmation.message.ifBlank { localizedChatString(R.string.chat_funbox_upload_confirm_failed) } }
+        localizedChatString(R.string.chat_funbox_upload_pending_review)
     }.logNetworkResult(TAG, "pack upload") { "completed" }
 
     private fun decodeSticker(item: FunBoxBinaryReader): StickerItem {
@@ -219,6 +246,16 @@ object FunBoxStickerRepository {
             source = PanelSource.ONLINE,
             packId = packId,
         )
+    }
+
+    private fun mergeCatalog(
+        snapshotCatalog: List<StickerPack>,
+        serverCatalog: List<StickerPack>,
+    ): List<StickerPack> {
+        val mergedById = LinkedHashMap<String, StickerPack>(snapshotCatalog.size + serverCatalog.size)
+        snapshotCatalog.forEach { mergedById[it.id] = it }
+        serverCatalog.forEach { mergedById[it.id] = it }
+        return mergedById.values.toList()
     }
 
     private suspend fun resolvePackCovers(result: Result<List<StickerPack>>): Result<List<StickerPack>> {
@@ -255,7 +292,7 @@ object FunBoxStickerRepository {
         val output = java.io.ByteArrayOutputStream()
         java.util.zip.ZipOutputStream(output).use { zip ->
             paths.forEachIndexed { index, path ->
-                require(Files.isRegularFile(path)) { "表情文件不存在: $path" }
+                require(Files.isRegularFile(path)) { localizedChatString(R.string.chat_funbox_sticker_file_missing, path) }
                 zip.putNextEntry(java.util.zip.ZipEntry(index.toString()))
                 Files.copy(path, zip)
                 zip.closeEntry()
@@ -303,6 +340,30 @@ object FunBoxStickerRepository {
     private const val TAG = "FunBoxStickerRepository"
 }
 
+@Serializable
+private data class FunBoxStickerPackSnapshot(
+    val id: String,
+    val title: String,
+    @SerialName("thumb_id")
+    val thumbId: String,
+    @SerialName("click_count")
+    val clickCount: Int,
+    @SerialName("download_count")
+    val downloadCount: Int,
+    @SerialName("updated_at")
+    val updatedAt: Long,
+) {
+    fun toStickerPack() = StickerPack(
+        id = id,
+        title = title,
+        cover = thumbId,
+        source = PanelSource.ONLINE,
+        badge = localizedChatString(R.string.chat_funbox_click_download_badge, clickCount, downloadCount),
+        uploadTime = updatedAt,
+        downloadCount = downloadCount,
+    )
+}
+
 object FunBoxVoiceRepository {
     suspend fun browseSharedVoices(parent: VoiceItem?, page: Int): Result<VoiceProviderPage> {
         WeLogger.d(TAG, "shared browse start page=$page root=${parent == null}")
@@ -323,14 +384,14 @@ object FunBoxVoiceRepository {
                 )
             }
         } else {
-            val packId = parent.metadata["packId"] ?: return Result.failure(IllegalArgumentException("无效语音包"))
+            val packId = parent.metadata["packId"] ?: return Result.failure(IllegalArgumentException(localizedChatString(R.string.chat_funbox_voice_pack_invalid)))
             loadSharedPack(packId).map { VoiceProviderPage(it, page, false) }
         }
         return result.logNetworkResult(TAG, "shared browse") { "page=${it.page} items=${it.items.size}" }
     }
 
     suspend fun searchSharedVoices(query: String, page: Int): Result<VoiceProviderPage> {
-        require(query.isNotBlank()) { "搜索内容不能为空" }
+        require(query.isNotBlank()) { localizedChatString(R.string.chat_funbox_search_empty) }
         WeLogger.d(TAG, "shared search start page=$page")
         val request = FunBoxBinaryWriter().apply {
             string(funBoxClientWxId)
@@ -367,7 +428,7 @@ object FunBoxVoiceRepository {
             val status = response.int()
             val message = response.string()
             val items = response.objects(::decodeSharedVoice)
-            check(status == 0) { message.ifBlank { "语音包加载失败" } }
+            check(status == 0) { message.ifBlank { localizedChatString(R.string.chat_funbox_voice_pack_load_failed) } }
             items
         }.logNetworkResult(TAG, "shared-pack contents load") { "items=${it.size}" }
     }
@@ -423,7 +484,7 @@ object FunBoxVoiceRepository {
             val status = response.int()
             val message = response.string()
             response.bytes()
-            check(status == 0) { message.ifBlank { "操作失败" } }
+            check(status == 0) { message.ifBlank { localizedChatString(R.string.chat_funbox_operation_failed) } }
             message
         }.logNetworkResult(TAG, "shared mutation operation=$operation") { "completed" }
 
@@ -431,7 +492,7 @@ object FunBoxVoiceRepository {
         FunBoxServiceClient.call(operation, payload) { response ->
             val status = response.int()
             val message = response.string()
-            check(status == 0) { message.ifBlank { "操作失败" } }
+            check(status == 0) { message.ifBlank { localizedChatString(R.string.chat_funbox_operation_failed) } }
             message
         }.logNetworkResult(TAG, "shared mutation operation=$operation") { "completed" }
 
@@ -448,10 +509,10 @@ object FunBoxVoiceRepository {
             source = PanelSource.SHARED,
             itemCount = count,
             badge = when (state) {
-                0 -> "草稿"
-                1 -> "审核中"
-                2 -> "已发布"
-                3 -> "已拒绝"
+                0 -> localizedChatString(R.string.chat_funbox_status_draft)
+                1 -> localizedChatString(R.string.chat_funbox_status_under_review)
+                2 -> localizedChatString(R.string.chat_funbox_status_published)
+                3 -> localizedChatString(R.string.chat_funbox_status_rejected)
                 else -> state.toString()
             },
         )
@@ -486,9 +547,9 @@ object FunBoxVoiceRepository {
 
 object FunBoxCloneVoiceRepository {
     suspend fun synthesize(text: String, voiceBytes: ByteArray, fileName: String): Result<ByteArray> {
-        require(text.isNotBlank()) { "转换文字不能为空" }
-        require(text.codePointCount(0, text.length) <= 256) { "转换文字不能超过 256 个字符" }
-        require(voiceBytes.isNotEmpty()) { "音色文件不可读" }
+        require(text.isNotBlank()) { localizedChatString(R.string.chat_funbox_conversion_text_empty) }
+        require(text.codePointCount(0, text.length) <= 256) { localizedChatString(R.string.chat_funbox_conversion_text_too_long, 256) }
+        require(voiceBytes.isNotEmpty()) { localizedChatString(R.string.chat_voice_tone_unreadable) }
         WeLogger.d(TAG, "clone synthesis start voiceBytes=${voiceBytes.size}")
         val request = FunBoxBinaryWriter().apply {
             string(funBoxClientWxId)
@@ -500,7 +561,7 @@ object FunBoxCloneVoiceRepository {
             val status = response.int()
             val message = response.string()
             val audio = response.bytes()
-            check(status == 0 && audio.isNotEmpty()) { message.ifBlank { "克隆语音合成失败" } }
+            check(status == 0 && audio.isNotEmpty()) { message.ifBlank { localizedChatString(R.string.chat_funbox_clone_synthesis_failed) } }
             audio
         }.logNetworkResult(TAG, "clone synthesis") { "audioBytes=${it.size}" }
     }
@@ -520,7 +581,7 @@ object FunBoxCloneVoiceRepository {
             val status = response.int()
             val message = response.string()
             val audio = response.bytes()
-            check(status == 0 && audio.isNotEmpty()) { message.ifBlank { "读取语音示例失败" } }
+            check(status == 0 && audio.isNotEmpty()) { message.ifBlank { localizedChatString(R.string.chat_funbox_voice_example_load_failed) } }
             audio
         }.logNetworkResult(TAG, "clone example audio load") { "audioBytes=${it.size}" }
     }
@@ -532,7 +593,7 @@ object FunBoxCloneVoiceRepository {
             val status = response.int()
             val message = response.string()
             val names = response.strings()
-            check(status == 0) { message.ifBlank { "读取语音示例失败" } }
+            check(status == 0) { message.ifBlank { localizedChatString(R.string.chat_funbox_voice_example_load_failed) } }
             names
         }.logNetworkResult(TAG, "clone example list") { "items=${it.size}" }
     }

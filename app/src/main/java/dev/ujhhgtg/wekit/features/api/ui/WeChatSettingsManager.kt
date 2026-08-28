@@ -41,7 +41,7 @@ class WeChatSettingsManager(
     private val mGetSwitchProperty: String
 ) {
     private val registeredItems = CopyOnWriteArrayList<ItemRegistration>()
-    private val stringPool = ConcurrentHashMap<Int, String>()
+    private val stringPool = ConcurrentHashMap<Int, () -> String>()
     private var dynamicResIdCounter = -2000
     private var itemIndexCounter = 0
 
@@ -71,6 +71,8 @@ class WeChatSettingsManager(
         var key: String = ""
         var title: String = ""
         var groupTitle: String? = null
+        internal var titleProvider: (() -> String)? = null
+        internal var groupTitleProvider: (() -> String)? = null
         var pageClass: Class<*>? = null
         var parentClass: Class<*>? = null
         var childClass: Class<*>? = null
@@ -85,7 +87,7 @@ class WeChatSettingsManager(
 
     private class ItemRegistration(val spec: SettingItemSpec, val proxyClass: Class<*>)
 
-    private fun allocateString(value: String): Int {
+    private fun allocateString(value: () -> String): Int {
         val id = dynamicResIdCounter--
         stringPool[id] = value
         return id
@@ -94,8 +96,9 @@ class WeChatSettingsManager(
     fun createItem(init: SettingItemSpec.() -> Unit): Class<*> {
         val spec = SettingItemSpec().apply(init)
         requireNotNull(spec.pageClass) { "${spec.title} does not have a page class" }
-        val titleResId = allocateString(spec.title)
-        val groupResId = spec.groupTitle?.let { allocateString(it) } ?: titleResId
+        val titleResId = allocateString(spec.titleProvider ?: { spec.title })
+        val groupResId = (spec.groupTitleProvider ?: spec.groupTitle?.let { value -> { value } })
+            ?.let(::allocateString) ?: titleResId
 
         val targetBaseClass = if (spec.isSwitch) classBaseSettingSwitchItem else classBaseSettingItem
 
@@ -118,7 +121,9 @@ class WeChatSettingsManager(
                 }
 
                 mGetNameResId -> titleResId
-                mGetGroupNameResId -> if (spec.groupTitle != null) groupResId else null
+                mGetGroupNameResId -> if (spec.groupTitle != null || spec.groupTitleProvider != null) {
+                    groupResId
+                } else null
 
                 // 处理开关独有方法
                 mGetSwitchState if spec.isSwitch -> {
@@ -229,11 +234,11 @@ class WeChatSettingsManager(
             contextGetStringUnhook = Context::class.reflekt()
                 .firstMethod { name = "getString"; parameters(Int::class) }
                 .hookBeforeDirectly {
-                    stringPool[args[0] as Int]?.let { result = it }
+                    stringPool[args[0] as Int]?.let { result = it() }
                 }
 
             resourcesGetStringUnhook = methodResourceHelperGetStringById.hookBeforeDirectly {
-                stringPool[args[1] as Int]?.let { result = it }
+                stringPool[args[1] as Int]?.let { result = it() }
             }
         }
     }

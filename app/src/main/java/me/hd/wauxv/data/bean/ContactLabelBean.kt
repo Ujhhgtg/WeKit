@@ -1,8 +1,9 @@
 package me.hd.wauxv.data.bean
 
 import androidx.annotation.Keep
-import com.alibaba.fastjson2.JSONObject
 import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 @Suppress("unused")
 @Keep
@@ -19,9 +20,9 @@ class ContactLabelBean(
     fun getOrigin(): Any = error("not implemented")
 
     override fun toString(): String {
-        val json = JSONObject()
-        json["id"] = origin.labelId
-        json["name"] = origin.labelName
-        return json.toString()
+        return buildJsonObject {
+            put("id", origin.labelId)
+            put("name", origin.labelName)
+        }.toString()
     }
 }

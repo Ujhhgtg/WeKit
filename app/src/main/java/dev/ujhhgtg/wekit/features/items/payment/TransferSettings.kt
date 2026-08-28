@@ -1,33 +1,33 @@
 package dev.ujhhgtg.wekit.features.items.payment
 
 import android.content.Context
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.items.AtomicJsonConfigStore
 import dev.ujhhgtg.wekit.features.items.AutomationContactSettingsSelector
-import dev.ujhhgtg.wekit.features.items.AutomationKeywordControls
+import dev.ujhhgtg.wekit.features.items.AutomationKeywordMode
 import dev.ujhhgtg.wekit.features.items.AutomationKeywordRule
-import dev.ujhhgtg.wekit.features.items.AutomationRuleHeader
-import dev.ujhhgtg.wekit.features.items.AutomationScrollableColumn
-import dev.ujhhgtg.wekit.features.items.AutomationSettingsError
-import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeControls
 import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.items.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.items.automationKeywordSummary
@@ -35,8 +35,8 @@ import dev.ujhhgtg.wekit.features.items.formatAutomationMinute
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -172,45 +172,58 @@ internal object TransferSettings {
     fun showMainDialog(context: Context) {
         showComposeDialog(context) {
             AlertDialogContent(
-                title = { Text("自动接收转账") },
+                title = { Text(stringResource(R.string.feature_auto_accept_transfers_name)) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable { showGlobalDialog(context) },
-                            headlineContent = { Text("全局设置") },
-                            supportingContent = { Text("配置默认接收条件与接收后的操作") }
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { showContactSelector(context) },
-                            headlineContent = { Text("分联系人设置") },
-                            supportingContent = { Text("为联系人、群聊或群成员覆盖全局设置") }
-                        )
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.automation_global_settings),
+                                description = stringResource(R.string.payment_transfer_global_summary),
+                                onClick = { showGlobalDialog(context) },
+                            )
+                        }
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.automation_contact_settings),
+                                description = stringResource(R.string.automation_contact_settings_summary),
+                                onClick = { showContactSelector(context) },
+                            )
+                        }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("关闭") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }
 
     private fun showGlobalDialog(context: Context) {
         showComposeDialog(context) {
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             var draft by remember { mutableStateOf(store.get().global) }
-            val validationError = validate(draft)
+            var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
+            val validationError = validate(localizedContext, draft)
+
+            val editMode = editText
+            if (editMode != null) {
+                PaymentTextEditDialog(editMode, onClose = { editText = null })
+                return@showComposeDialog
+            }
+
             AlertDialogContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(),
-                title = { Text("全局设置") },
+                title = { Text(stringResource(R.string.automation_global_settings)) },
                 text = {
                     RuleSetEditor(
-                        context = context,
                         rules = draft,
                         overriddenKeys = null,
                         parentLabel = "",
                         validationError = validationError,
                         onActivate = {},
                         onReset = {},
-                        onChange = { _, updated -> draft = updated }
+                        onChange = { _, updated -> draft = updated },
+                        onEditText = { editText = it },
                     )
                 },
                 confirmButton = {
@@ -218,32 +231,38 @@ internal object TransferSettings {
                         enabled = validationError == null,
                         onClick = {
                             store.update { it.copy(version = CONFIG_VERSION, global = draft) }
-                            showToast("全局设置已保存")
+                            showToast(localizedContext.getString(R.string.automation_global_settings_saved))
                             onDismiss()
                         }
-                    ) { Text("确定") }
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }
 
     private fun showContactSelector(context: Context) {
         showComposeDialog(context) {
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             var revision by remember { mutableIntStateOf(0) }
             val contacts = remember { loadContacts() }
             AutomationContactSettingsSelector(
-                title = "分联系人设置",
+                title = stringResource(R.string.automation_contact_settings),
                 contacts = contacts,
                 selectionKey = revision,
                 subtitle = { contact ->
                     val own = contactOverrides(contact.wxId).overriddenCount()
                     val members = memberOverridesCount(contact.wxId)
                     when {
-                        contact.wxId.isGroupChatWxId && own + members > 0 -> "群聊设置 - 已配置"
-                        contact.wxId.isGroupChatWxId -> "群聊设置"
-                        own > 0 -> "已覆盖 $own 项"
-                        else -> "跟随全局设置"
+                        contact.wxId.isGroupChatWxId && own + members > 0 ->
+                            localizedContext.getString(R.string.automation_group_configured)
+                        contact.wxId.isGroupChatWxId -> localizedContext.getString(R.string.automation_group_settings)
+                        own > 0 -> localizedContext.resources.getQuantityString(
+                            R.plurals.automation_overrides,
+                            own,
+                            own,
+                        )
+                        else -> localizedContext.getString(R.string.automation_follow_global)
                     }
                 },
                 isConfigured = { contact ->
@@ -257,8 +276,8 @@ internal object TransferSettings {
                     } else {
                         showOverrideDialog(
                             context = context,
-                            title = contact.displayName.ifBlank { contact.wxId },
-                            parentLabel = "全局设置",
+                            title = PaymentUiText.Raw(contact.displayName.ifBlank { contact.wxId }),
+                            parentLabelRes = R.string.automation_global_settings,
                             parent = store.get().global,
                             initial = contactOverrides(contact.wxId),
                             onSave = {
@@ -281,48 +300,65 @@ internal object TransferSettings {
             AlertDialogContent(
                 title = { Text(groupName) },
                 text = {
-                    DefaultColumn {
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                showOverrideDialog(
-                                    context = context,
-                                    title = "群聊全局设置",
-                                    parentLabel = "全局设置",
-                                    parent = store.get().global,
-                                    initial = contactOverrides(groupId),
-                                    onSave = {
-                                        setContactOverrides(groupId, it)
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.automation_group_global_settings),
+                                description = if (groupOverrideCount == 0) {
+                                    stringResource(R.string.automation_follow_global)
+                                } else {
+                                    pluralStringResource(
+                                        R.plurals.automation_overrides,
+                                        groupOverrideCount,
+                                        groupOverrideCount,
+                                    )
+                                },
+                                onClick = {
+                                    showOverrideDialog(
+                                        context = context,
+                                        title = PaymentUiText.Resource(R.string.automation_group_global_settings),
+                                        parentLabelRes = R.string.automation_global_settings,
+                                        parent = store.get().global,
+                                        initial = contactOverrides(groupId),
+                                        onSave = {
+                                            setContactOverrides(groupId, it)
+                                            revision++
+                                            onUpdated()
+                                        }
+                                    )
+                                },
+                            )
+                        }
+                        item {
+                            PaymentNavigationRow(
+                                title = stringResource(R.string.automation_group_member_settings),
+                                description = if (memberCount == 0) {
+                                    stringResource(R.string.automation_all_members_follow_group)
+                                } else {
+                                    pluralStringResource(
+                                        R.plurals.automation_configured_members,
+                                        memberCount,
+                                        memberCount,
+                                    )
+                                },
+                                onClick = {
+                                    showGroupMemberSelector(context, groupId) {
                                         revision++
                                         onUpdated()
                                     }
-                                )
-                            },
-                            headlineContent = { Text("群聊全局设置") },
-                            supportingContent = {
-                                Text(if (groupOverrideCount == 0) "跟随全局设置" else "已覆盖 $groupOverrideCount 项")
-                            }
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable {
-                                showGroupMemberSelector(context, groupId) {
-                                    revision++
-                                    onUpdated()
-                                }
-                            },
-                            headlineContent = { Text("群聊分群成员设置") },
-                            supportingContent = {
-                                Text(if (memberCount == 0) "所有成员跟随群聊全局设置" else "已配置 $memberCount 个成员")
-                            }
-                        )
+                                },
+                            )
+                        }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("关闭") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }
 
     private fun showGroupMemberSelector(context: Context, groupId: String, onUpdated: () -> Unit) {
         showComposeDialog(context) {
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             var revision by remember { mutableIntStateOf(0) }
             val members = remember(groupId) {
                 runCatching { WeDatabaseApi.getGroupMembers(groupId) }
@@ -331,12 +367,20 @@ internal object TransferSettings {
             }
             val groupName = remember(groupId) { WeDatabaseApi.getDisplayName(groupId) }
             AutomationContactSettingsSelector(
-                title = "$groupName - 分群成员设置",
+                title = stringResource(R.string.automation_group_member_settings_title, groupName),
                 contacts = members,
                 selectionKey = revision,
                 subtitle = { member ->
                     val count = groupMemberOverrides(groupId, member.wxId).overriddenCount()
-                    if (count == 0) "跟随群聊全局设置" else "已覆盖 $count 项"
+                    if (count == 0) {
+                        localizedContext.getString(R.string.automation_follow_group_global)
+                    } else {
+                        localizedContext.resources.getQuantityString(
+                            R.plurals.automation_overrides,
+                            count,
+                            count,
+                        )
+                    }
                 },
                 isConfigured = { member ->
                     groupMemberOverrides(groupId, member.wxId).overriddenCount() > 0
@@ -345,8 +389,8 @@ internal object TransferSettings {
                 onOpen = { member ->
                     showOverrideDialog(
                         context = context,
-                        title = member.displayName.ifBlank { member.wxId },
-                        parentLabel = "群聊全局设置",
+                        title = PaymentUiText.Raw(member.displayName.ifBlank { member.wxId }),
+                        parentLabelRes = R.string.automation_group_global_settings,
                         parent = store.get().global.apply(contactOverrides(groupId)),
                         initial = groupMemberOverrides(groupId, member.wxId),
                         onSave = {
@@ -362,31 +406,40 @@ internal object TransferSettings {
 
     private fun showOverrideDialog(
         context: Context,
-        title: String,
-        parentLabel: String,
+        title: PaymentUiText,
+        @androidx.annotation.StringRes parentLabelRes: Int,
         parent: RuleSet,
         initial: RuleOverrides,
         onSave: (RuleOverrides) -> Unit
     ) {
         showComposeDialog(context) {
+            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             var draft by remember { mutableStateOf(initial) }
+            var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
             val effective = parent.apply(draft)
-            val validationError = validate(effective, draft.keys())
+            val validationError = validate(localizedContext, effective, draft.keys())
+
+            val editMode = editText
+            if (editMode != null) {
+                PaymentTextEditDialog(editMode, onClose = { editText = null })
+                return@showComposeDialog
+            }
+
             AlertDialogContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(),
-                title = { Text(title) },
+                title = { Text(title.resolve()) },
                 text = {
                     RuleSetEditor(
-                        context = context,
                         rules = effective,
                         overriddenKeys = draft.keys(),
-                        parentLabel = parentLabel,
+                        parentLabel = stringResource(parentLabelRes),
                         validationError = validationError,
                         onActivate = { draft = draft.withRule(it, effective) },
                         onReset = { draft = draft.withoutRule(it) },
-                        onChange = { key, updated -> draft = draft.withRule(key, updated) }
+                        onChange = { key, updated -> draft = draft.withRule(key, updated) },
+                        onEditText = { editText = it },
                     )
                 },
                 confirmButton = {
@@ -394,240 +447,281 @@ internal object TransferSettings {
                         enabled = validationError == null,
                         onClick = {
                             onSave(draft)
-                            showToast("设置已保存")
+                            showToast(localizedContext.getString(R.string.settings_saved))
                             onDismiss()
                         }
-                    ) { Text("确定") }
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }
 
     @Composable
     private fun RuleSetEditor(
-        context: Context,
         rules: RuleSet,
         overriddenKeys: Set<RuleKey>?,
         parentLabel: String,
         validationError: String?,
         onActivate: (RuleKey) -> Unit,
         onReset: (RuleKey) -> Unit,
-        onChange: (RuleKey, RuleSet) -> Unit
+        onChange: (RuleKey, RuleSet) -> Unit,
+        onEditText: (PaymentTextEditMode) -> Unit
     ) {
         val isGlobal = overriddenKeys == null
         fun overridden(key: RuleKey): Boolean? = overriddenKeys?.let { key in it }
         fun editable(key: RuleKey): Boolean = overriddenKeys == null || key in overriddenKeys
 
-        AutomationScrollableColumn {
-            AutomationRuleHeader(
-                title = "默认接收转账",
-                summary = when {
-                    isGlobal && rules.accept.enabled -> "默认接收所有联系人的转账, 分联系人设置可单独关闭"
-                    isGlobal -> "默认不接收任何联系人的转账, 分联系人设置可单独开启"
-                    rules.accept.enabled -> "在当前范围内接收转账"
-                    else -> "在当前范围内跳过转账"
-                },
-                enabled = rules.accept.enabled,
-                isOverridden = overridden(RuleKey.ACCEPT),
-                parentLabel = parentLabel,
-                onActivate = { onActivate(RuleKey.ACCEPT) },
-                onReset = { onReset(RuleKey.ACCEPT) },
-                onEnabledChange = {
-                    onChange(RuleKey.ACCEPT, rules.copy(accept = rules.accept.copy(enabled = it)))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+        ) {
+            SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                item(key = "accept") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_transfer_default_accept),
+                        summary = when {
+                            isGlobal && rules.accept.enabled -> stringResource(R.string.payment_transfer_default_all)
+                            isGlobal -> stringResource(R.string.payment_transfer_default_none)
+                            rules.accept.enabled -> stringResource(R.string.payment_transfer_accept_scope)
+                            else -> stringResource(R.string.payment_transfer_skip_scope)
+                        },
+                        checked = rules.accept.enabled,
+                        overridden = overridden(RuleKey.ACCEPT),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.ACCEPT) },
+                        onReset = { onReset(RuleKey.ACCEPT) },
+                        onCheckedChange = {
+                            onChange(RuleKey.ACCEPT, rules.copy(accept = rules.accept.copy(enabled = it)))
+                        },
+                    )
                 }
-            )
 
-            AutomationRuleHeader(
-                title = "时间段接收转账",
-                summary = if (rules.timeRange.enabled) {
-                    "${formatAutomationMinute(rules.timeRange.startMinute)} - ${formatAutomationMinute(rules.timeRange.endMinute)}"
-                } else "不限制接收时间",
-                enabled = rules.timeRange.enabled,
-                isOverridden = overridden(RuleKey.TIME_RANGE),
-                parentLabel = parentLabel,
-                onActivate = { onActivate(RuleKey.TIME_RANGE) },
-                onReset = { onReset(RuleKey.TIME_RANGE) },
-                onEnabledChange = {
-                    onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = rules.timeRange.copy(enabled = it)))
+                item(key = "time_range") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_transfer_time_range),
+                        summary = if (rules.timeRange.enabled) {
+                            "${formatAutomationMinute(rules.timeRange.startMinute)} - ${formatAutomationMinute(rules.timeRange.endMinute)}"
+                        } else stringResource(R.string.payment_transfer_time_unrestricted),
+                        checked = rules.timeRange.enabled,
+                        overridden = overridden(RuleKey.TIME_RANGE),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.TIME_RANGE) },
+                        onReset = { onReset(RuleKey.TIME_RANGE) },
+                        onCheckedChange = {
+                            onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = rules.timeRange.copy(enabled = it)))
+                        },
+                    )
                 }
-            )
-            if (rules.timeRange.enabled) {
-                AutomationTimeRangeControls(
+                timeRangeItems(
                     rule = rules.timeRange,
                     editable = editable(RuleKey.TIME_RANGE),
-                    onChange = { onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = it)) }
+                    visible = rules.timeRange.enabled,
+                    onChange = { onChange(RuleKey.TIME_RANGE, rules.copy(timeRange = it)) },
                 )
-            }
 
-            AutomationRuleHeader(
-                title = "转账金额范围",
-                summary = amountSummary(rules.amountRange),
-                enabled = rules.amountRange.enabled,
-                isOverridden = overridden(RuleKey.AMOUNT_RANGE),
-                parentLabel = parentLabel,
-                onActivate = { onActivate(RuleKey.AMOUNT_RANGE) },
-                onReset = { onReset(RuleKey.AMOUNT_RANGE) },
-                onEnabledChange = {
-                    onChange(RuleKey.AMOUNT_RANGE, rules.copy(amountRange = rules.amountRange.copy(enabled = it)))
-                }
-            )
-            if (rules.amountRange.enabled) {
-                OutlinedTextField(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    value = rules.amountRange.minimumYuan,
-                    enabled = editable(RuleKey.AMOUNT_RANGE),
-                    onValueChange = {
-                        onChange(
-                            RuleKey.AMOUNT_RANGE,
-                            rules.copy(amountRange = rules.amountRange.copy(minimumYuan = sanitizeAmount(it)))
-                        )
-                    },
-                    label = { Text("最低金额 (元, 可留空)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    value = rules.amountRange.maximumYuan,
-                    enabled = editable(RuleKey.AMOUNT_RANGE),
-                    onValueChange = {
-                        onChange(
-                            RuleKey.AMOUNT_RANGE,
-                            rules.copy(amountRange = rules.amountRange.copy(maximumYuan = sanitizeAmount(it)))
-                        )
-                    },
-                    label = { Text("最高金额 (元, 可留空)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true
-                )
-            }
-
-            AutomationRuleHeader(
-                title = "转账备注关键词",
-                summary = automationKeywordSummary(rules.memoKeyword, "不限制转账备注"),
-                enabled = rules.memoKeyword.enabled,
-                isOverridden = overridden(RuleKey.MEMO_KEYWORD),
-                parentLabel = parentLabel,
-                onActivate = { onActivate(RuleKey.MEMO_KEYWORD) },
-                onReset = { onReset(RuleKey.MEMO_KEYWORD) },
-                onEnabledChange = {
-                    onChange(
-                        RuleKey.MEMO_KEYWORD,
-                        rules.copy(memoKeyword = rules.memoKeyword.copy(enabled = it))
+                item(key = "amount_range") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_transfer_amount_range),
+                        summary = amountSummary(rules.amountRange),
+                        checked = rules.amountRange.enabled,
+                        overridden = overridden(RuleKey.AMOUNT_RANGE),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.AMOUNT_RANGE) },
+                        onReset = { onReset(RuleKey.AMOUNT_RANGE) },
+                        onCheckedChange = {
+                            onChange(RuleKey.AMOUNT_RANGE, rules.copy(amountRange = rules.amountRange.copy(enabled = it)))
+                        },
                     )
                 }
-            )
-            if (rules.memoKeyword.enabled) {
-                AutomationKeywordControls(
-                    rule = rules.memoKeyword,
-                    editable = editable(RuleKey.MEMO_KEYWORD),
-                    onChange = { onChange(RuleKey.MEMO_KEYWORD, rules.copy(memoKeyword = it)) }
-                )
-            }
-
-            AutomationRuleHeader(
-                title = "接收延迟",
-                summary = if (rules.delay.enabled) {
-                    "基础 ${rules.delay.baseMs.ifBlank { "0" }} ms, 随机偏移 ±${rules.delay.randomRangeMs.ifBlank { "0" }} ms"
-                } else "立即接收转账",
-                enabled = rules.delay.enabled,
-                isOverridden = overridden(RuleKey.DELAY),
-                parentLabel = parentLabel,
-                onActivate = { onActivate(RuleKey.DELAY) },
-                onReset = { onReset(RuleKey.DELAY) },
-                onEnabledChange = {
-                    onChange(RuleKey.DELAY, rules.copy(delay = rules.delay.copy(enabled = it)))
-                }
-            )
-            if (rules.delay.enabled) {
-                OutlinedTextField(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    value = rules.delay.baseMs,
-                    enabled = editable(RuleKey.DELAY),
-                    onValueChange = {
-                        onChange(
-                            RuleKey.DELAY,
-                            rules.copy(delay = rules.delay.copy(baseMs = it.filter(Char::isDigit).take(MAX_DELAY_DIGITS)))
-                        )
-                    },
-                    label = { Text("基础延迟 (毫秒)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    value = rules.delay.randomRangeMs,
-                    enabled = editable(RuleKey.DELAY),
-                    onValueChange = {
-                        onChange(
-                            RuleKey.DELAY,
-                            rules.copy(
-                                delay = rules.delay.copy(
-                                    randomRangeMs = it.filter(Char::isDigit).take(MAX_DELAY_DIGITS)
+                item(key = "amount_minimum", animatedVisibility = rules.amountRange.enabled) {
+                    val minimumTitle = stringResource(R.string.payment_transfer_minimum_amount)
+                    PaymentValueRow(
+                        title = minimumTitle,
+                        value = rules.amountRange.minimumYuan,
+                        enabled = editable(RuleKey.AMOUNT_RANGE),
+                        valueHint = stringResource(R.string.unrestricted),
+                        onClick = {
+                            onEditText(
+                                PaymentTextEditMode(
+                                    title = minimumTitle,
+                                    initial = rules.amountRange.minimumYuan,
+                                    keyboardType = KeyboardType.Decimal,
+                                    filter = ::sanitizeAmount,
+                                    onCommit = {
+                                        onChange(
+                                            RuleKey.AMOUNT_RANGE,
+                                            rules.copy(amountRange = rules.amountRange.copy(minimumYuan = it))
+                                        )
+                                    },
                                 )
                             )
-                        )
-                    },
-                    label = { Text("随机偏移范围 (±毫秒)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-            }
-
-            AutomationRuleHeader(
-                title = "接收后通知",
-                summary = if (rules.notification.enabled) "显示收到的金额与来源" else "不显示通知",
-                enabled = rules.notification.enabled,
-                isOverridden = overridden(RuleKey.NOTIFICATION),
-                parentLabel = parentLabel,
-                onActivate = { onActivate(RuleKey.NOTIFICATION) },
-                onReset = { onReset(RuleKey.NOTIFICATION) },
-                onEnabledChange = {
-                    onChange(
-                        RuleKey.NOTIFICATION,
-                        rules.copy(notification = rules.notification.copy(enabled = it))
+                        },
                     )
                 }
-            )
-
-            AutomationRuleHeader(
-                title = "接收后自动回复",
-                summary = if (rules.autoReply.enabled) "成功后向来源会话发送消息" else "不自动回复",
-                enabled = rules.autoReply.enabled,
-                isOverridden = overridden(RuleKey.AUTO_REPLY),
-                parentLabel = parentLabel,
-                onActivate = { onActivate(RuleKey.AUTO_REPLY) },
-                onReset = { onReset(RuleKey.AUTO_REPLY) },
-                onEnabledChange = {
-                    onChange(RuleKey.AUTO_REPLY, rules.copy(autoReply = rules.autoReply.copy(enabled = it)))
+                item(key = "amount_maximum", animatedVisibility = rules.amountRange.enabled) {
+                    val maximumTitle = stringResource(R.string.payment_transfer_maximum_amount)
+                    PaymentValueRow(
+                        title = maximumTitle,
+                        value = rules.amountRange.maximumYuan,
+                        enabled = editable(RuleKey.AMOUNT_RANGE),
+                        valueHint = stringResource(R.string.unrestricted),
+                        onClick = {
+                            onEditText(
+                                PaymentTextEditMode(
+                                    title = maximumTitle,
+                                    initial = rules.amountRange.maximumYuan,
+                                    keyboardType = KeyboardType.Decimal,
+                                    filter = ::sanitizeAmount,
+                                    onCommit = {
+                                        onChange(
+                                            RuleKey.AMOUNT_RANGE,
+                                            rules.copy(amountRange = rules.amountRange.copy(maximumYuan = it))
+                                        )
+                                    },
+                                )
+                            )
+                        },
+                    )
                 }
-            )
-            if (rules.autoReply.enabled) {
-                OutlinedTextField(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    value = rules.autoReply.text,
-                    enabled = editable(RuleKey.AUTO_REPLY),
-                    onValueChange = {
-                        onChange(RuleKey.AUTO_REPLY, rules.copy(autoReply = rules.autoReply.copy(text = it)))
-                    },
-                    label = { Text("回复内容") },
-                    supportingText = { Text($$"使用 $amount 表示转账金额") },
-                    singleLine = true
-                )
-            }
 
-            AutomationSettingsError(validationError)
+                item(key = "memo_keyword") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_transfer_memo_keywords),
+                        summary = automationKeywordSummary(
+                            rules.memoKeyword,
+                            stringResource(R.string.payment_transfer_memo_unrestricted),
+                        ),
+                        checked = rules.memoKeyword.enabled,
+                        overridden = overridden(RuleKey.MEMO_KEYWORD),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.MEMO_KEYWORD) },
+                        onReset = { onReset(RuleKey.MEMO_KEYWORD) },
+                        onCheckedChange = {
+                            onChange(
+                                RuleKey.MEMO_KEYWORD,
+                                rules.copy(memoKeyword = rules.memoKeyword.copy(enabled = it))
+                            )
+                        },
+                    )
+                }
+                keywordItems(
+                    keyPrefix = "memo_keyword",
+                    rule = rules.memoKeyword,
+                    editable = editable(RuleKey.MEMO_KEYWORD),
+                    visible = rules.memoKeyword.enabled,
+                    modes = AutomationKeywordMode.entries,
+                    onChange = { onChange(RuleKey.MEMO_KEYWORD, rules.copy(memoKeyword = it)) },
+                    onEditText = onEditText,
+                )
+
+                item(key = "delay") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_transfer_delay),
+                        summary = if (rules.delay.enabled) {
+                            stringResource(
+                                R.string.automation_delay_summary,
+                                rules.delay.baseMs.ifBlank { "0" },
+                                rules.delay.randomRangeMs.ifBlank { "0" },
+                            )
+                        } else stringResource(R.string.payment_transfer_immediate),
+                        checked = rules.delay.enabled,
+                        overridden = overridden(RuleKey.DELAY),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.DELAY) },
+                        onReset = { onReset(RuleKey.DELAY) },
+                        onCheckedChange = {
+                            onChange(RuleKey.DELAY, rules.copy(delay = rules.delay.copy(enabled = it)))
+                        },
+                    )
+                }
+                delayItems(
+                    baseMs = rules.delay.baseMs,
+                    randomRangeMs = rules.delay.randomRangeMs,
+                    editable = editable(RuleKey.DELAY),
+                    visible = rules.delay.enabled,
+                    maxDigits = MAX_DELAY_DIGITS,
+                    onBaseChange = {
+                        onChange(RuleKey.DELAY, rules.copy(delay = rules.delay.copy(baseMs = it)))
+                    },
+                    onRandomRangeChange = {
+                        onChange(RuleKey.DELAY, rules.copy(delay = rules.delay.copy(randomRangeMs = it)))
+                    },
+                    onEditText = onEditText,
+                )
+
+                item(key = "notification") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_transfer_notification),
+                        summary = stringResource(
+                            if (rules.notification.enabled) {
+                                R.string.payment_transfer_notification_enabled
+                            } else {
+                                R.string.automation_notification_disabled
+                            }
+                        ),
+                        checked = rules.notification.enabled,
+                        overridden = overridden(RuleKey.NOTIFICATION),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.NOTIFICATION) },
+                        onReset = { onReset(RuleKey.NOTIFICATION) },
+                        onCheckedChange = {
+                            onChange(
+                                RuleKey.NOTIFICATION,
+                                rules.copy(notification = rules.notification.copy(enabled = it))
+                            )
+                        },
+                    )
+                }
+
+                item(key = "auto_reply") {
+                    PaymentRuleRow(
+                        title = stringResource(R.string.payment_transfer_auto_reply),
+                        summary = stringResource(
+                            if (rules.autoReply.enabled) {
+                                R.string.automation_auto_reply_enabled
+                            } else {
+                                R.string.automation_auto_reply_disabled
+                            }
+                        ),
+                        checked = rules.autoReply.enabled,
+                        overridden = overridden(RuleKey.AUTO_REPLY),
+                        parentLabel = parentLabel,
+                        onActivate = { onActivate(RuleKey.AUTO_REPLY) },
+                        onReset = { onReset(RuleKey.AUTO_REPLY) },
+                        onCheckedChange = {
+                            onChange(RuleKey.AUTO_REPLY, rules.copy(autoReply = rules.autoReply.copy(enabled = it)))
+                        },
+                    )
+                }
+                item(key = "auto_reply_text", animatedVisibility = rules.autoReply.enabled) {
+                    val replyTitle = stringResource(R.string.automation_reply_content)
+                    val amountPlaceholder = stringResource(R.string.payment_transfer_amount_placeholder)
+                    PaymentValueRow(
+                        title = replyTitle,
+                        value = rules.autoReply.text,
+                        enabled = editable(RuleKey.AUTO_REPLY),
+                        valueHint = amountPlaceholder,
+                        onClick = {
+                            onEditText(
+                                PaymentTextEditMode(
+                                    title = replyTitle,
+                                    initial = rules.autoReply.text,
+                                    supportingText = amountPlaceholder,
+                                    onCommit = {
+                                        onChange(RuleKey.AUTO_REPLY, rules.copy(autoReply = rules.autoReply.copy(text = it)))
+                                    },
+                                )
+                            )
+                        },
+                    )
+                }
+
+                if (validationError != null) {
+                    item(key = "validation_error") { PaymentErrorRow(validationError) }
+                }
+            }
         }
     }
 
@@ -674,36 +768,50 @@ internal object TransferSettings {
         RuleKey.AUTO_REPLY -> copy(autoReply = null)
     }
 
-    private fun validate(rules: RuleSet, keys: Set<RuleKey>? = null): String? {
+    private fun validate(context: Context, rules: RuleSet, keys: Set<RuleKey>? = null): String? {
         fun validates(key: RuleKey) = keys == null || key in keys
         if (validates(RuleKey.AMOUNT_RANGE) && rules.amountRange.enabled) {
             val minimumText = rules.amountRange.minimumYuan
             val maximumText = rules.amountRange.maximumYuan
-            if (minimumText.isBlank() && maximumText.isBlank()) return "请至少填写一个金额边界"
+            if (minimumText.isBlank() && maximumText.isBlank()) {
+                return context.getString(R.string.payment_transfer_amount_boundary_required)
+            }
             val minimum = minimumText.toCentsOrNull()
             val maximum = maximumText.toCentsOrNull()
-            if (minimumText.isNotBlank() && minimum == null) return "请输入有效的最低金额"
-            if (maximumText.isNotBlank() && maximum == null) return "请输入有效的最高金额"
-            if (minimum != null && maximum != null && minimum > maximum) return "最低金额不能高于最高金额"
+            if (minimumText.isNotBlank() && minimum == null) {
+                return context.getString(R.string.payment_transfer_invalid_minimum)
+            }
+            if (maximumText.isNotBlank() && maximum == null) {
+                return context.getString(R.string.payment_transfer_invalid_maximum)
+            }
+            if (minimum != null && maximum != null && minimum > maximum) {
+                return context.getString(R.string.payment_transfer_minimum_above_maximum)
+            }
         }
         if (validates(RuleKey.MEMO_KEYWORD)) {
-            rules.memoKeyword.validationError("转账备注关键词")?.let { return it }
+            rules.memoKeyword.validationError(context.getString(R.string.payment_transfer_memo_keywords))?.let { return it }
         }
         if (validates(RuleKey.DELAY) && rules.delay.enabled) {
-            if (rules.delay.baseMs.toLongOrNull() == null) return "请输入有效的基础延迟"
-            if (rules.delay.randomRangeMs.toLongOrNull() == null) return "请输入有效的随机偏移范围"
+            if (rules.delay.baseMs.toLongOrNull() == null) {
+                return context.getString(R.string.automation_invalid_base_delay)
+            }
+            if (rules.delay.randomRangeMs.toLongOrNull() == null) {
+                return context.getString(R.string.automation_invalid_random_delay)
+            }
         }
         if (validates(RuleKey.AUTO_REPLY) && rules.autoReply.enabled && rules.autoReply.text.isBlank()) {
-            return "自动回复内容不能为空"
+            return context.getString(R.string.automation_reply_required)
         }
         return null
     }
 
+    @Composable
     private fun amountSummary(rule: AmountRangeRule): String {
-        if (!rule.enabled) return "不限制转账金额"
-        val minimum = rule.minimumYuan.ifBlank { "不限" }
-        val maximum = rule.maximumYuan.ifBlank { "不限" }
-        return "$minimum - $maximum 元"
+        if (!rule.enabled) return stringResource(R.string.payment_transfer_amount_unrestricted)
+        val unrestricted = stringResource(R.string.unrestricted)
+        val minimum = rule.minimumYuan.ifBlank { unrestricted }
+        val maximum = rule.maximumYuan.ifBlank { unrestricted }
+        return stringResource(R.string.payment_transfer_amount_summary, minimum, maximum)
     }
 
     private fun sanitizeAmount(value: String): String {

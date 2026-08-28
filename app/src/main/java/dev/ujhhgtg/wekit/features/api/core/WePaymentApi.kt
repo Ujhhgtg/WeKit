@@ -5,9 +5,15 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@Feature(name = "支付服务", categories = ["API"], description = "提供转账确认与退还能力")
+@Feature(
+    id = "支付服务",
+    nameRes = "feature_we_payment_api_name",
+    categoryIds = [FeatureCategoryIds.API],
+    descriptionRes = "feature_we_payment_api_description",
+)
 object WePaymentApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WePaymentApi"

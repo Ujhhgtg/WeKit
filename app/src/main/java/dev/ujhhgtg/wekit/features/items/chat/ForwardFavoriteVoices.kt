@@ -5,13 +5,16 @@ import android.content.Context
 import android.content.DialogInterface
 import android.view.View
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.FavInfoProto
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -31,9 +34,10 @@ import kotlin.io.path.absolutePathString
 import kotlin.io.path.div
 
 @Feature(
-    name = "转发收藏语音",
-    categories = ["聊天"],
-    description = "允许从聊天菜单的「收藏」和「我」的收藏页转发语音"
+    id = "转发收藏语音",
+    nameRes = "feature_forward_favorite_voices_name",
+    categoryIds = [FeatureCategoryIds.CHAT],
+    descriptionRes = "feature_forward_favorite_voices_description",
 )
 object ForwardFavoriteVoices : SwitchFeature() {
 
@@ -57,29 +61,28 @@ object ForwardFavoriteVoices : SwitchFeature() {
 
             showComposeDialog(ctx) {
                 AlertDialogContent(
-                    title = { Text("转发收藏语音") },
+                    title = { Text(stringResource(R.string.feature_forward_favorite_voices_name)) },
                     text = {
                         Text(
-                            "确定发送以下文件?\n" +
-                                    voice.filePath
+                            stringResource(R.string.chat_forward_favorite_voice_confirm, voice.filePath)
                         )
                     },
-                    dismissButton = { TextButton(onDismiss) { Text("取消") } },
+                    dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                     confirmButton = {
                         TextButton({
                             copyToClipboard(ctx, voice.filePath)
-                            showToast(ctx, "已复制")
-                        }) { Text("复制路径") }
+                            showToast(ctx, ctx.localizedChatString(R.string.chat_path_copied))
+                        }) { Text(stringResource(R.string.chat_copy_path)) }
                         Button({
                             WeMessageApi.sendVoice(
                                 WeCurrentConversationApi.value,
                                 voice.filePath,
                                 voice.durationMs
                             )
-                            showToast(ctx, "已发送")
+                            showToast(ctx, ctx.localizedChatString(R.string.chat_sent))
                             onDismiss()
                             getTopMostActivity()?.finish()
-                        }) { Text("确定") }
+                        }) { Text(stringResource(R.string.dialog_confirm)) }
                     })
             }
 
@@ -137,9 +140,9 @@ object ForwardFavoriteVoices : SwitchFeature() {
                 showToast(
                     context,
                     when (successCount) {
-                        recipients.size if recipients.size == 1 -> "已发送"
-                        recipients.size -> "已转发到 ${recipients.size} 个对象"
-                        else -> "已转发 $successCount/${recipients.size} 个对象"
+                        recipients.size if recipients.size == 1 -> context.localizedChatString(R.string.chat_sent)
+                        recipients.size -> context.localizedChatQuantity(R.plurals.chat_forwarded_to_recipients, recipients.size, recipients.size)
+                        else -> context.localizedChatQuantity(R.plurals.chat_forwarded_partial_recipients, recipients.size, successCount, recipients.size)
                     }
                 )
             }
