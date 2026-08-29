@@ -501,7 +501,7 @@ jobs:
           cache-dependency-path: app/src/main/go/wekit-cloudflared/go.sum
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: false
 
