@@ -7,10 +7,13 @@ import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AbsListView
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -51,8 +54,10 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -103,6 +108,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
@@ -128,6 +134,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
     )
 
     private var useFloating by prefOption("nav_bar_use_floating", true)
+    private var autoHideOnScroll by prefOption("nav_bar_auto_hide_on_scroll", false)
     private var useBackdrop by prefOption("nav_bar_use_backdrop", true)
     private var animatePageChange by prefOption("nav_bar_animate_page_change", true)
     private var showFinderBadge by prefOption("nav_bar_show_finder_badge", true)
@@ -148,6 +155,12 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
     // Matches the double-tap threshold WeChat's own tab listener (f8/r8) uses.
     private const val DOUBLE_TAP_WINDOW_MS = 300L
+
+    // Matches NagramXF's CubicBezierInterpolator.EASE_OUT_QUINT, the curve of its
+    // scroll-hide animator for the floating bottom bar.
+    private val SCROLL_HIDE_EASING = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
+    private const val SCROLL_HIDE_DURATION_MS = 300
+    private const val SCROLL_HIDE_MIN_SCALE = 0.85f
 
     private fun normalizedTabOrder(rawOrder: String = tabOrder): List<NavItem> {
         val orderedIndices = rawOrder.split(",")
@@ -200,12 +213,13 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
         }
 
         val visibleWechatIndices = visibleTabItems.map(NavItem::wechatIndex)
+        val homePagerIndex = visibleWechatIndices.indexOf(0)
         val remapProgrammaticTab = ThreadLocal.withInitial { false }
         val animateNextPageChange = ThreadLocal.withInitial { false }
         val allowLogicalTabCount = ThreadLocal.withInitial { false }
         val callbackPagerIndex = ThreadLocal<Int?>()
 
-        val tabsAdapterClass = "com.tencent.mm.ui.MainTabUI\$TabsAdapter".toClass()
+        val tabsAdapterClass = $$"com.tencent.mm.ui.MainTabUI$TabsAdapter".toClass()
         tabsAdapterClass.reflekt().apply {
             firstMethod { name = "getCount" }.hookAfter(priority = 100) {
                 result = if (allowLogicalTabCount.get() == true) TAB_ITEMS.size else visibleTabItems.size
@@ -391,6 +405,13 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
 
                     selectedPageIndexState.intValue = position
                     scrollOffsetState.floatValue = positionOffset
+
+                    // Leaving the conversation page always restores the bar and invalidates
+                    // the scroll-direction tracker, so returning to the list starts fresh.
+                    if (position != homePagerIndex) {
+                        barScrollHiddenState.value = false
+                        scrollUpdated = false
+                    }
                 }
 
             tabsAdapter.reflekt()
@@ -548,14 +569,39 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                             ) {
                                 val bottomCenter = Modifier.align(Alignment.BottomCenter)
 
+                                // NagramXF-style scroll auto-hide: slide below the screen,
+                                // shrink to 85% and fade out, reversing when the list scrolls
+                                // up again. barHeightPx includes the bottom padding because
+                                // onSizeChanged observes the padded bounds, so translating by
+                                // it moves the bar fully off screen.
+                                val autoHideProgress by animateFloatAsState(
+                                    targetValue = if (barScrollHiddenState.value) 1f else 0f,
+                                    animationSpec = tween(
+                                        SCROLL_HIDE_DURATION_MS,
+                                        easing = SCROLL_HIDE_EASING
+                                    ),
+                                    label = "navAutoHide"
+                                )
+                                val barHeightPx = remember { mutableIntStateOf(0) }
+                                val bottomPadding =
+                                    12.dp + WindowInsets.navigationBars.asPaddingValues()
+                                        .calculateBottomPadding()
+
                                 CompositionLocalProvider(LocalDensity provides scaledDensity) {
                                     FloatingBottomBar(
                                         items = visibleTabItems,
                                         modifier = bottomCenter
-                                            .padding(
-                                                bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues()
-                                                    .calculateBottomPadding()
-                                            ),
+                                            .onSizeChanged { barHeightPx.intValue = it.height }
+                                            .padding(bottom = bottomPadding)
+                                            .graphicsLayer {
+                                                val progress = autoHideProgress
+                                                translationY = progress * barHeightPx.intValue
+                                                alpha = 1f - progress
+                                                val scale =
+                                                    1f - (1f - SCROLL_HIDE_MIN_SCALE) * progress
+                                                scaleX = scale
+                                                scaleY = scale
+                                            },
                                         selectedIndex = { targetIndex },
                                         onSelected = { index ->
                                             view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
@@ -721,6 +767,63 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             result = null
         }
 
+        // Scroll auto-hide: observe the home conversation list. ConversationListView extends
+        // ListView and installs itself as its own OnScrollListener, so instead of replacing
+        // that listener (which would break WeChat's own handling) we hook its listener
+        // methods directly. They fire on every item-scroll position change, drag or fling.
+        val conversationListViewClass = "com.tencent.mm.ui.conversation.ConversationListView".toClass()
+        conversationListViewClass.reflekt().apply {
+            firstMethod {
+                name = "onScroll"
+                parameters { it.size == 4 }
+            }.hookAfter {
+                // Same gating as NagramXF: hide on any downward movement, but only show
+                // again while the finger is actively dragging the list up (touch scroll);
+                // a settling downward fling must not resurrect the bar.
+                if (!autoHideOnScroll) return@hookAfter
+                val list = thisObject as AbsListView
+                val firstPosition = args[1] as Int
+                val firstViewTop = list.getChildAt(0)?.top ?: return@hookAfter
+
+                val goingDown: Boolean
+                val changed: Boolean
+                if (scrollPrevPosition == firstPosition) {
+                    val topDelta = scrollPrevTop - firstViewTop
+                    goingDown = firstViewTop < scrollPrevTop
+                    changed = abs(topDelta) > 1
+                } else {
+                    goingDown = firstPosition > scrollPrevPosition
+                    changed = true
+                }
+                // WeChat bounces the list back when it overshoots its top limit — a fast
+                // scroll into the top, or pulling out the recent-mini-programs panel,
+                // springs back on release. That spring-back moves content up and reads as
+                // a downward scroll. Unlike a real downward scroll it never follows a
+                // downward drag: the finger is off the glass and the list stays on the
+                // same first item, so suppress exactly that combination.
+                if (scrollingManually && goingDown) dragSawDownward = true
+                val isOverscrollBounceBack = goingDown && !scrollingManually &&
+                    !dragSawDownward && firstPosition == scrollPrevPosition
+                if (changed && scrollUpdated && (goingDown || scrollingManually) &&
+                    !isOverscrollBounceBack
+                ) {
+                    barScrollHiddenState.value = goingDown
+                }
+                scrollPrevPosition = firstPosition
+                scrollPrevTop = firstViewTop
+                scrollUpdated = true
+            }
+
+            firstMethod {
+                name = "onScrollStateChanged"
+                parameters { it.size == 2 }
+            }.hookAfter {
+                scrollingManually =
+                    args[1] as Int == AbsListView.OnScrollListener.SCROLL_STATE_TOUCH_SCROLL
+                if (scrollingManually) dragSawDownward = false
+            }
+        }
+
         // Suppress FrostedContentView's bottom blur overlay in floating mode.
         //
         // In WeChat 8.0.69, MainUI.q0() (onResume) calls:
@@ -743,6 +846,23 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
     private val finderUnreadCountState = mutableIntStateOf(0)
     private val showFinderDotState = mutableStateOf(false)
     private val contactUnreadCountState = mutableIntStateOf(0)
+
+    // True while the bar should be hidden by the conversation-list scroll auto-hide.
+    private val barScrollHiddenState = mutableStateOf(false)
+
+    // Conversation-list scroll tracking, mirroring NagramXF's DialogsActivity logic:
+    // direction is derived from the first visible item's position/top delta, and the
+    // bar only reappears while the finger is actively dragging up — so it never pops
+    // back the moment a downward fling settles. All touched from the main thread only.
+    private var scrollPrevPosition = -1
+    private var scrollPrevTop = 0
+    private var scrollUpdated = false
+    private var scrollingManually = false
+
+    // Whether the current touch drag has scrolled the list downward yet, reset on each new
+    // drag. A downward fling that follows a downward drag is a genuine user scroll, while a
+    // downward motion during a fling that never had one is WeChat's top overscroll bounce.
+    private var dragSawDownward = false
 
     /**
      * Non-consuming long-press modifier. Fires [block] when the pointer is held down long enough,
@@ -769,6 +889,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var useFloatingInput by remember { mutableStateOf(useFloating) }
+            var autoHideOnScrollInput by remember { mutableStateOf(autoHideOnScroll) }
             var useBackdropInput by remember { mutableStateOf(useBackdrop) }
             var animatePageChangeInput by remember { mutableStateOf(animatePageChange) }
             var showFinderBadgeInput by remember { mutableStateOf(showFinderBadge) }
@@ -819,6 +940,19 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     onCheckedChange = {
                                         useFloatingInput = it
                                         useFloating = it
+                                    },
+                                )
+                            }
+                            item(animatedVisibility = useFloatingInput) {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_auto_hide_bar),
+                                    description = stringResource(R.string.nav_auto_hide_bar_summary),
+                                    checked = autoHideOnScrollInput,
+                                    onCheckedChange = {
+                                        autoHideOnScrollInput = it
+                                        autoHideOnScroll = it
+                                        if (!it) barScrollHiddenState.value = false
                                     },
                                 )
                             }

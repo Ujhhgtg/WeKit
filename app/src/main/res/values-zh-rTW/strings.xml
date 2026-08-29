@@ -1211,6 +1211,8 @@
     <string name="nav_page_animation">啓用頁面切換動畫</string>
     <string name="nav_page_animation_summary">點擊標籤時滑動切換頁面，而非直接跳轉</string>
     <string name="nav_use_floating_bar">使用懸浮底欄</string>
+    <string name="nav_auto_hide_bar">自動隱藏底欄</string>
+    <string name="nav_auto_hide_bar_summary">在主頁對話列表向下滑動時帶動畫隱藏底欄，向上滑動恢復</string>
     <string name="nav_use_liquid_glass">啓用液態玻璃效果</string>
     <string name="nav_dynamic_gravity_highlight">動態重力高光</string>
     <string name="nav_dynamic_gravity_highlight_summary">根據設備姿態旋轉玻璃高光，會持續使用旋轉傳感器</string>

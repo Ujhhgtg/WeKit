@@ -1214,6 +1214,8 @@
     <string name="nav_page_animation">启用页面切换动画</string>
     <string name="nav_page_animation_summary">点击标签时滑动切换页面，而非直接跳转</string>
     <string name="nav_use_floating_bar">使用悬浮底栏</string>
+    <string name="nav_auto_hide_bar">自动隐藏底栏</string>
+    <string name="nav_auto_hide_bar_summary">在主页对话列表向下滑动时带动画隐藏底栏，向上滑动恢复</string>
     <string name="nav_use_liquid_glass">启用液态玻璃效果</string>
     <string name="nav_dynamic_gravity_highlight">动态重力高光</string>
     <string name="nav_dynamic_gravity_highlight_summary">根据设备姿态旋转玻璃高光，会持续使用旋转传感器</string>
