@@ -510,6 +510,18 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y gcc-multilib glslc
 
+      - name: Free disk space and report
+        # This job is much heavier than a plain APK build (cold PRoot build,
+        # Chaquopy runtime, native packs), and the hosted runner has died
+        # silently mid-"Build packs"; keep as much headroom as possible.
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+            "$AGENT_TOOLSDIRECTORY/Python" || true
+          sudo docker image prune -af >/dev/null 2>&1 || true
+          sudo apt-get clean
+          df -h /
+
       - name: Grant execute permission
         run: chmod +x gradlew
 
