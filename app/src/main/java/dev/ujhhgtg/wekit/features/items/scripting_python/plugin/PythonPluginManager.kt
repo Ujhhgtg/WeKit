@@ -1,11 +1,11 @@
 package dev.ujhhgtg.wekit.features.items.scripting_python.plugin
 
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.features.items.scripting_python.PythonScriptingFeature
+import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLimits
 import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLoader
 import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeMissingException
-import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLimits
 import dev.ujhhgtg.wekit.features.items.scripting_python.services.PythonPluginHostImpl
-import dev.ujhhgtg.wekit.features.items.scripting_python.PythonScriptingFeature
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.python.api.PythonPluginRequest
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -18,6 +18,7 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
+import java.util.zip.ZipFile
 import kotlin.io.path.div
 
 object PythonPluginManager {
@@ -164,6 +165,119 @@ object PythonPluginManager {
 
     fun deactivateAll() = mutableRecords.value.keys.forEach(::deactivate)
 
+    fun isValidPluginId(id: String): Boolean = idPattern.matches(id)
+
+    fun createPlugin(id: String, name: String, version: String, author: String, description: String): String =
+        synchronized(discoveryLock) {
+            require(isValidPluginId(id)) { "Invalid plugin ID: $id" }
+            require(name.isNotBlank() && version.isNotBlank()) { "Plugin name and version are required" }
+            val root = File(scriptsDirectory, id)
+            require(!root.exists()) { "Plugin already exists: $id" }
+            root.mkdirs()
+            try {
+                val manifest = PythonPluginManifest(
+                    schema = 1,
+                    id = id,
+                    name = name.trim(),
+                    version = version.trim(),
+                    author = author.trim(),
+                    description = description.trim(),
+                    entry = "main",
+                )
+                File(root, "plugin.json").writeText(json.encodeToString(manifest))
+                File(root, "main.py").writeText(ENTRY_SKELETON)
+            } catch (error: Throwable) {
+                root.deleteRecursively()
+                throw error
+            }
+            discover()
+            id
+        }
+
+    fun importPlugin(archive: File): String = synchronized(discoveryLock) {
+        ZipFile(archive).use { zip ->
+            val manifestEntry = zip.entries().asSequence()
+                .filterNot { it.isDirectory }
+                .firstOrNull {
+                    val name = it.name
+                    name == "plugin.json" ||
+                        (name.endsWith("/plugin.json") && !name.dropLast("/plugin.json".length).contains('/'))
+                } ?: throw IllegalArgumentException("No plugin.json found in the archive")
+            val prefix = manifestEntry.name.takeIf { it.contains('/') }?.substringBefore('/')?.plus("/") ?: ""
+            val manifest =
+                json.decodeFromString<PythonPluginManifest>(zip.getInputStream(manifestEntry).readBytes().decodeToString())
+            require(manifest.schema == 1) { "Unsupported plugin schema: ${manifest.schema}" }
+            require(isValidPluginId(manifest.id)) { "Invalid plugin ID: ${manifest.id}" }
+            val destination = File(scriptsDirectory, manifest.id)
+            require(!destination.exists()) { "Plugin already exists: ${manifest.id}" }
+
+            val staging = File(scriptsDirectory, ".importing-${System.nanoTime()}")
+            try {
+                zip.entries().asSequence()
+                    .filterNot { it.isDirectory }
+                    .filter { it.name == manifestEntry.name || it.name.startsWith(prefix) }
+                    .filterNot { it.name.contains("__MACOSX") || it.name.endsWith(".DS_Store") }
+                    .forEach { entry ->
+                        if (entry.size >= 0) {
+                            require(entry.size <= PythonRuntimeLimits.MAX_PLUGIN_FILE_BYTES) {
+                                "Plugin file is too large: ${entry.name}"
+                            }
+                        }
+                        val target = File(staging, entry.name.removePrefix(prefix))
+                        require(target.canonicalPath.startsWith(staging.canonicalPath + File.separator)) {
+                            "Archive entry escapes its directory: ${entry.name}"
+                        }
+                        target.parentFile!!.mkdirs()
+                        zip.getInputStream(entry).use { input -> target.outputStream().use(input::copyTo) }
+                    }
+                if (!staging.renameTo(destination)) {
+                    staging.copyRecursively(destination)
+                    staging.deleteRecursively()
+                }
+                try {
+                    validate(destination)
+                } catch (error: Throwable) {
+                    destination.deleteRecursively()
+                    throw error
+                }
+                discover()
+                manifest.id
+            } catch (error: Throwable) {
+                staging.deleteRecursively()
+                throw error
+            }
+        }
+    }
+
+    fun updatePluginInfo(pluginId: String, manifest: PythonPluginManifest) {
+        synchronized(discoveryLock) {
+            require(manifest.id == pluginId && manifest.schema == 1) { "Plugin manifest identity cannot change" }
+            require(manifest.name.isNotBlank() && manifest.version.isNotBlank()) {
+                "Plugin name and version are required"
+            }
+            File(scriptsDirectory, pluginId).resolve("plugin.json").writeText(json.encodeToString(manifest))
+            discover()
+        }
+        // Info edits are only allowed while the plugin is not ACTIVE, but a desired-enabled record
+        // may still hold a previously activated scope or a FAILED/RUNTIME_MISSING attempt; reload
+        // so the saved manifest takes effect immediately instead of lingering as stale state.
+        if (mutableRecords.value[pluginId]?.desiredEnabled == true) reload(pluginId)
+    }
+
+    fun deletePlugin(pluginId: String) {
+        deactivate(pluginId)
+        synchronized(discoveryLock) {
+            val root = mutableRecords.value[pluginId]?.root ?: File(scriptsDirectory, pluginId)
+            root.deleteRecursively()
+            File(dataDirectory, pluginId).deleteRecursively()
+            File(cacheDirectory, pluginId).deleteRecursively()
+            WePrefs.remove(preferenceKey(pluginId))
+            PythonCrashGuard.clear(pluginId)
+            lifecycleLocks.remove(pluginId)
+            mutableRecords.update { it - pluginId }
+        }
+    }
+
     private fun validate(root: File): PythonPluginManifest {
         require(!Files.isSymbolicLink(root.toPath())) { "Plugin root cannot be a symlink" }
         root.walkTopDown().forEach { file ->
@@ -216,4 +330,14 @@ object PythonPluginManager {
     private fun preferenceKey(pluginId: String) = "python.plugin.$pluginId.enabled"
 
     private const val TRUST_WARNING_KEY = "python.trust_warning.accepted"
+
+    private const val ENTRY_SKELETON = """from __future__ import annotations
+
+from wekit.runtime import PluginContext
+
+
+def setup(ctx: PluginContext) -> None:
+    # TODO: write your plugin logic here; see the demo plugin for the full API surface.
+    ctx.log.info("plugin loading")
+"""
 }

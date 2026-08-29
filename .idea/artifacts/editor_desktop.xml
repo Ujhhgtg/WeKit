@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="editor-desktop">
+    <output-path>$PROJECT_DIR$/libs/common/scripta/editor/build/libs</output-path>
+    <root id="archive" name="editor-desktop.jar">
+      <element id="module-output" name="scripta.editor.desktopMain" />
+    </root>
+  </artifact>
+</component>

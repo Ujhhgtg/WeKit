@@ -11,8 +11,10 @@ import android.provider.DocumentsContract
 import android.system.Os
 import android.system.OsConstants
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.Keep
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -24,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,10 +48,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Add
+import com.composables.icons.materialsymbols.outlined.Archive
 import com.composables.icons.materialsymbols.outlined.Bug_report
 import com.composables.icons.materialsymbols.outlined.Content_copy
 import com.composables.icons.materialsymbols.outlined.Delete
-import com.composables.icons.materialsymbols.outlined.Download
+import com.composables.icons.materialsymbols.outlined.Delete_forever
 import com.composables.icons.materialsymbols.outlined.Edit
 import com.composables.icons.materialsymbols.outlined.Folder
 import com.composables.icons.materialsymbols.outlined.Refresh
@@ -64,13 +69,17 @@ import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.extensions.PythonRuntimePack
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginManager
+import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginManifest
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginRecord
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginStatus
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonCrashGuard
 import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLoader
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
+import dev.ujhhgtg.wekit.ui.agent.settings.AgentActionRow
 import dev.ujhhgtg.wekit.ui.agent.settings.AgentConfirmDialog
+import dev.ujhhgtg.wekit.ui.agent.settings.AgentListActionButton
 import dev.ujhhgtg.wekit.ui.agent.settings.AgentSettingsScaffold
 import dev.ujhhgtg.wekit.ui.agent.settings.rememberCreationBackGuard
 import dev.ujhhgtg.wekit.ui.animation.predictiveback.weKitNavTransition
@@ -78,6 +87,7 @@ import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
+import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
 import dev.ujhhgtg.wekit.ui.content.m3AppBarColor
 import dev.ujhhgtg.wekit.ui.content.m3BackdropLayer
@@ -118,6 +128,7 @@ class PythonScriptsSettingsActivity : ComponentActivity() {
 @Serializable
 private sealed interface PythonSettingsRoute : NavKey {
     @Serializable data object Home : PythonSettingsRoute
+    @Serializable data class PluginInfo(val pluginId: String?) : PythonSettingsRoute
     @Serializable data class Detail(val pluginId: String) : PythonSettingsRoute
     @Serializable data class Edit(val pluginId: String) : PythonSettingsRoute
     @Serializable data class Diagnostics(val pluginId: String) : PythonSettingsRoute
@@ -135,14 +146,23 @@ private fun PythonSettingsRoot(activity: ComponentActivity, onFinish: () -> Unit
             effects = rememberM3NavEffects(),
         ) {
             entry<PythonSettingsRoute.Home> {
-                PythonHomeScreen(activity, onFinish) { navigator.push(PythonSettingsRoute.Detail(it)) }
+                PythonHomeScreen(
+                    activity,
+                    onFinish,
+                    { navigator.push(PythonSettingsRoute.PluginInfo(null)) },
+                ) { navigator.push(PythonSettingsRoute.Detail(it)) }
+            }
+            entry<PythonSettingsRoute.PluginInfo>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
+                PythonPluginInfoScreen(route.pluginId, navigator::pop)
             }
             entry<PythonSettingsRoute.Detail>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
                 PythonDetailScreen(
                     route.pluginId,
                     navigator::pop,
+                    { navigator.push(PythonSettingsRoute.PluginInfo(route.pluginId)) },
                     { navigator.push(PythonSettingsRoute.Edit(route.pluginId)) },
                     { navigator.push(PythonSettingsRoute.Diagnostics(route.pluginId)) },
+                    navigator::pop,
                 )
             }
             entry<PythonSettingsRoute.Edit>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
@@ -156,12 +176,49 @@ private fun PythonSettingsRoot(activity: ComponentActivity, onFinish: () -> Unit
 }
 
 @Composable
-private fun PythonHomeScreen(activity: ComponentActivity, onBack: () -> Unit, openPlugin: (String) -> Unit) {
+private fun PythonHomeScreen(
+    activity: ComponentActivity,
+    onBack: () -> Unit,
+    onNewPlugin: () -> Unit,
+    openPlugin: (String) -> Unit,
+) {
     val records by PythonPluginManager.records.collectAsState()
     val runtime by PythonRuntimeLoader.status.collectAsState()
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val localizedContext = LocalWeKitLocalizedContext.current
     var pendingTrustPlugin by remember { mutableStateOf<String?>(null) }
+    var showImportWarning by remember { mutableStateOf(false) }
+    var importing by remember { mutableStateOf(false) }
+    val importSuccessText = stringResource(R.string.python_import_success)
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { PythonPluginManager.discover() } }
+
+    val importZipLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            importing = true
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val temp = java.io.File(context.cacheDir, "plugin-import-${System.currentTimeMillis()}.zip")
+                    try {
+                        context.contentResolver.openInputStream(uri)!!.use { input ->
+                            temp.outputStream().use(input::copyTo)
+                        }
+                        PythonPluginManager.importPlugin(temp)
+                    } finally {
+                        temp.delete()
+                    }
+                }
+            }
+            importing = false
+            result.fold(
+                onSuccess = { showToast(context, importSuccessText) },
+                onFailure = {
+                    showToast(context, localizedContext.getString(R.string.python_import_failed, it.message ?: ""))
+                },
+            )
+        }
+    }
 
     AgentSettingsScaffold(stringResource(R.string.python_scripts_title), onBack) {
         item {
@@ -170,12 +227,6 @@ private fun PythonHomeScreen(activity: ComponentActivity, onBack: () -> Unit, op
                     BaseWidget(
                         title = stringResource(R.string.extensions_pack_python_runtime_name),
                         description = runtime.state.name + (runtime.version?.let { " · $it" } ?: ""),
-                    )
-                }
-                item {
-                    BaseWidget(
-                        title = stringResource(R.string.python_runtime_install),
-                        icon = MaterialSymbols.Outlined.Download,
                         onClick = { ExtensionPackDialogs.openExtensions(activity, PythonRuntimePack, false) },
                     )
                 }
@@ -183,6 +234,22 @@ private fun PythonHomeScreen(activity: ComponentActivity, onBack: () -> Unit, op
         }
         item {
             SegmentedColumn(title = stringResource(R.string.python_plugins_section)) {
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.python_new_plugin),
+                        icon = MaterialSymbols.Outlined.Add,
+                        enabled = !importing,
+                        onClick = onNewPlugin,
+                    )
+                }
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.python_import_plugin),
+                        icon = MaterialSymbols.Outlined.Archive,
+                        enabled = !importing,
+                        onClick = { showImportWarning = true },
+                    )
+                }
                 if (records.isEmpty()) {
                     item { BaseWidget(title = stringResource(R.string.python_plugins_empty)) }
                 } else {
@@ -233,35 +300,273 @@ private fun PythonHomeScreen(activity: ComponentActivity, onBack: () -> Unit, op
         dismissLabel = stringResource(R.string.dialog_cancel),
         destructive = true,
         onConfirm = {
-            val pluginId = pendingTrustPlugin ?: return@AgentConfirmDialog
+            val enabledPluginId = pendingTrustPlugin ?: return@AgentConfirmDialog
             pendingTrustPlugin = null
             PythonPluginManager.acceptTrustWarning()
             coroutineScope.launch(Dispatchers.IO) {
-                PythonPluginManager.setDesiredEnabled(pluginId, true)
+                PythonPluginManager.setDesiredEnabled(enabledPluginId, true)
             }
         },
         onDismiss = { pendingTrustPlugin = null },
     )
+    // 导入的 zip 携带任意代码，无论之前是否接受过警告，每次导入都要重新确认。
+    AgentConfirmDialog(
+        show = showImportWarning,
+        title = stringResource(R.string.python_security_warning_title),
+        message = stringResource(R.string.python_security_warning),
+        confirmLabel = stringResource(R.string.dialog_confirm),
+        dismissLabel = stringResource(R.string.dialog_cancel),
+        destructive = true,
+        onConfirm = {
+            showImportWarning = false
+            importZipLauncher.launch(
+                arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"),
+            )
+        },
+        onDismiss = { showImportWarning = false },
+    )
+}
+
+/**
+ * Create (pluginId == null) / basic-info edit page for a plugin, mirroring
+ * [dev.ujhhgtg.wekit.ui.agent.settings.ModelProviderDetailScreen]: draft fields + one save action
+ * in creation mode, instant-apply per row in edit mode. The plugin ID doubles as its directory
+ * name, so it is only editable before creation.
+ */
+@Composable
+private fun PythonPluginInfoScreen(pluginId: String?, onBack: () -> Unit) {
+    val creating = pluginId == null
+    val records by PythonPluginManager.records.collectAsState()
+    val manifest = pluginId?.let(records::get)?.manifest
+    if (!creating && manifest == null) return
+    val scope = rememberCoroutineScope()
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    var draftId by remember { mutableStateOf("") }
+    var draftName by remember { mutableStateOf("") }
+    var draftVersion by remember { mutableStateOf("1.0.0") }
+    var draftAuthor by remember { mutableStateOf("") }
+    var draftDescription by remember { mutableStateOf("") }
+    var saving by remember { mutableStateOf(false) }
+
+    val savable = PythonPluginManager.isValidPluginId(draftId.trim()) &&
+        draftName.isNotBlank() && draftVersion.isNotBlank()
+    val guardedBack = rememberCreationBackGuard(creating && savable, onBack)
+    val confirmLabel = stringResource(R.string.dialog_confirm)
+    val cancelLabel = stringResource(R.string.dialog_cancel)
+
+    fun commitInfo(transform: (PythonPluginManifest) -> PythonPluginManifest) {
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { PythonPluginManager.updatePluginInfo(pluginId!!, transform(manifest!!)) }
+            }
+            result.onFailure {
+                showToast(localizedContext.getString(R.string.python_manifest_save_failed, it.message ?: ""))
+            }
+        }
+    }
+
+    AgentSettingsScaffold(
+        title = if (creating) stringResource(R.string.python_new_plugin) else manifest?.name ?: pluginId.orEmpty(),
+        onBack = guardedBack,
+    ) {
+        item {
+            SegmentedColumn(title = stringResource(R.string.python_plugin_info_section)) {
+                if (creating) {
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.python_plugin_id_label),
+                            value = draftId,
+                            onValueChange = { draftId = it },
+                            dialogTitle = stringResource(R.string.python_plugin_id_label),
+                            confirmLabel = confirmLabel,
+                            dismissLabel = cancelLabel,
+                            valueHint = stringResource(R.string.python_plugin_id_hint),
+                            filter = { it.trim() },
+                        )
+                    }
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.python_plugin_name_label),
+                            value = draftName,
+                            onValueChange = { draftName = it },
+                            dialogTitle = stringResource(R.string.python_plugin_name_label),
+                            confirmLabel = confirmLabel,
+                            dismissLabel = cancelLabel,
+                        )
+                    }
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.python_plugin_version_label),
+                            value = draftVersion,
+                            onValueChange = { draftVersion = it },
+                            dialogTitle = stringResource(R.string.python_plugin_version_label),
+                            confirmLabel = confirmLabel,
+                            dismissLabel = cancelLabel,
+                        )
+                    }
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.python_plugin_author_label),
+                            value = draftAuthor,
+                            onValueChange = { draftAuthor = it },
+                            dialogTitle = stringResource(R.string.python_plugin_author_label),
+                            confirmLabel = confirmLabel,
+                            dismissLabel = cancelLabel,
+                        )
+                    }
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.python_plugin_description_label),
+                            value = draftDescription,
+                            onValueChange = { draftDescription = it },
+                            dialogTitle = stringResource(R.string.python_plugin_description_label),
+                            confirmLabel = confirmLabel,
+                            dismissLabel = cancelLabel,
+                            singleLine = false,
+                        )
+                    }
+                } else {
+                    val m = manifest!!
+                    item { BaseWidget(title = stringResource(R.string.python_plugin_id_label), description = pluginId) }
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.python_plugin_name_label),
+                            value = m.name,
+                            onValueChange = { value -> commitInfo { info -> info.copy(name = value.trim()) } },
+                            dialogTitle = stringResource(R.string.python_plugin_name_label),
+                            confirmLabel = confirmLabel,
+                            dismissLabel = cancelLabel,
+                        )
+                    }
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.python_plugin_version_label),
+                            value = m.version,
+                            onValueChange = { value -> commitInfo { info -> info.copy(version = value.trim()) } },
+                            dialogTitle = stringResource(R.string.python_plugin_version_label),
+                            confirmLabel = confirmLabel,
+                            dismissLabel = cancelLabel,
+                        )
+                    }
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.python_plugin_author_label),
+                            value = m.author,
+                            onValueChange = { value -> commitInfo { info -> info.copy(author = value.trim()) } },
+                            dialogTitle = stringResource(R.string.python_plugin_author_label),
+                            confirmLabel = confirmLabel,
+                            dismissLabel = cancelLabel,
+                        )
+                    }
+                    item {
+                        TextFieldDialogWidget(
+                            title = stringResource(R.string.python_plugin_description_label),
+                            value = m.description,
+                            onValueChange = { value -> commitInfo { info -> info.copy(description = value.trim()) } },
+                            dialogTitle = stringResource(R.string.python_plugin_description_label),
+                            confirmLabel = confirmLabel,
+                            dismissLabel = cancelLabel,
+                            singleLine = false,
+                        )
+                    }
+                }
+            }
+        }
+        if (creating) {
+            item {
+                AgentActionRow {
+                    AgentListActionButton(
+                        label = stringResource(R.string.action_save),
+                        icon = MaterialSymbols.Outlined.Save,
+                        loading = saving,
+                        enabled = savable,
+                        onClick = {
+                            saving = true
+                            scope.launch {
+                                val result = withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        PythonPluginManager.createPlugin(
+                                            draftId.trim(),
+                                            draftName.trim(),
+                                            draftVersion.trim(),
+                                            draftAuthor.trim(),
+                                            draftDescription.trim(),
+                                        )
+                                    }
+                                }
+                                saving = false
+                                result.fold(
+                                    onSuccess = { onBack() },
+                                    onFailure = {
+                                        showToast(
+                                            localizedContext.getString(
+                                                R.string.python_manifest_save_failed,
+                                                it.message ?: "",
+                                            ),
+                                        )
+                                    },
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
 private fun PythonDetailScreen(
     pluginId: String,
     onBack: () -> Unit,
+    openInfoEdit: () -> Unit,
     openEditor: () -> Unit,
     openDiagnostics: () -> Unit,
+    onDeleted: () -> Unit,
 ) {
     val records by PythonPluginManager.records.collectAsState()
     val record = records[pluginId] ?: return
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val localizedContext = LocalWeKitLocalizedContext.current
+    var pendingTrustPlugin by remember { mutableStateOf<String?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val inFlight = record.status == PythonPluginStatus.LOADING ||
         record.status == PythonPluginStatus.UNLOADING
+    // 基本信息写入 plugin.json,插件运行中禁止编辑;开关本身保持可用以便停用。
+    val infoEditable = !inFlight && record.status != PythonPluginStatus.ACTIVE
     AgentSettingsScaffold(record.manifest?.name ?: pluginId, onBack) {
         item {
             SegmentedColumn(title = stringResource(R.string.python_plugin_info_section)) {
-                item { BaseWidget(title = pluginId, description = record.description()) }
+                item {
+                    SwitchWidget(
+                        title = record.manifest?.name ?: record.id,
+                        description = record.description(),
+                        checked = record.desiredEnabled,
+                        enabled = record.manifest != null && !inFlight,
+                        trailingDivider = true,
+                        onClick = {
+                            if (infoEditable) {
+                                openInfoEdit()
+                            } else {
+                                showToast(
+                                    context,
+                                    localizedContext.getString(R.string.python_edit_info_locked),
+                                )
+                            }
+                        },
+                        onCheckedChange = { enabled ->
+                            if (enabled && !PythonPluginManager.isTrustWarningAccepted()) {
+                                pendingTrustPlugin = pluginId
+                            } else {
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    PythonPluginManager.setDesiredEnabled(pluginId, enabled)
+                                }
+                            }
+                        },
+                    )
+                }
                 item {
                     BaseWidget(
                         title = stringResource(R.string.python_edit_entry),
@@ -317,6 +622,15 @@ private fun PythonDetailScreen(
                 }
                 item {
                     BaseWidget(
+                        title = stringResource(R.string.python_delete_plugin),
+                        icon = MaterialSymbols.Outlined.Delete_forever,
+                        isError = true,
+                        enabled = !inFlight,
+                        onClick = { confirmDelete = true },
+                    )
+                }
+                item {
+                    BaseWidget(
                         title = stringResource(R.string.python_restart_wechat),
                         icon = MaterialSymbols.Outlined.Restart_alt,
                         onClick = { Process.killProcess(Process.myPid()) },
@@ -339,6 +653,48 @@ private fun PythonDetailScreen(
             }
         },
         onDismiss = { confirmClear = false },
+    )
+    AgentConfirmDialog(
+        show = confirmDelete,
+        title = stringResource(R.string.python_delete_plugin),
+        message = stringResource(R.string.python_delete_plugin_confirm),
+        confirmLabel = stringResource(R.string.python_delete_plugin),
+        dismissLabel = stringResource(R.string.dialog_cancel),
+        destructive = true,
+        onConfirm = {
+            confirmDelete = false
+            coroutineScope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching { PythonPluginManager.deletePlugin(pluginId) }
+                }
+                result.fold(
+                    onSuccess = { onDeleted() },
+                    onFailure = {
+                        showToast(
+                            context,
+                            localizedContext.getString(R.string.python_delete_failed, it.message ?: ""),
+                        )
+                    },
+                )
+            }
+        },
+        onDismiss = { confirmDelete = false },
+    )
+    AgentConfirmDialog(
+        show = pendingTrustPlugin != null,
+        title = stringResource(R.string.python_security_warning_title),
+        message = stringResource(R.string.python_security_warning),
+        confirmLabel = stringResource(R.string.dialog_confirm),
+        dismissLabel = stringResource(R.string.dialog_cancel),
+        destructive = true,
+        onConfirm = {
+            pendingTrustPlugin = null
+            PythonPluginManager.acceptTrustWarning()
+            coroutineScope.launch(Dispatchers.IO) {
+                PythonPluginManager.setDesiredEnabled(pluginId, true)
+            }
+        },
+        onDismiss = { pendingTrustPlugin = null },
     )
 }
 
