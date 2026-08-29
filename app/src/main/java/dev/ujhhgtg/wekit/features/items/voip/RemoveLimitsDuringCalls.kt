@@ -27,10 +27,12 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
             methodCheckAppBrandVoiceUsing,
             methodCheckAppBrandVoiceUsing2,
             methodMultiTalkCallBack,
+            methodMultiTalkCallBackV2,
             methodVoipCallBack,
             methodIpCallCallBack,
             methodFlutterLinkVoipCallBack
         ).forEach {
+            if (it.isPlaceholder) return@forEach
             it.hookBefore {
                 result = false
             }
@@ -108,8 +110,40 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val methodMultiTalkCallBack by dexMethod {
+    // 8.0.77 moved the multitalk action listener out of
+    // com.tencent.mm.plugin.multitalk.model (MultiTalkManager$18) into
+    // com.tencent.mm.voipmp.v2 (VoIPMPCoreV2$multiTalkActionListener$1),
+    // so this resolver has no result on 8.0.77 and the next one has no
+    // result before it.
+    private val methodMultiTalkCallBack by dexMethod(allowFailure = true) {
         searchPackages("com.tencent.mm.plugin.multitalk.model")
+        matcher {
+            declaredClass {
+                addAnnotation {
+                    type("dalvik.annotation.Signature")
+                    addElement {
+                        name = "value"
+                        arrayValue {
+                            add { stringValue("Lcom/tencent/mm/sdk/event/IListener<") }
+                            add { stringValue("Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;") }
+                            add { stringValue(">;") }
+                        }
+                    }
+                }
+            }
+            name = "callback"
+            paramCount = 1
+            returnType = "boolean"
+        }
+    }
+
+    private val methodMultiTalkCallBackV2 by dexMethod(allowFailure = true) {
+        searchPackages("com.tencent.mm.voipmp.v2")
+        // searchPackages is prefix-matched and would also hit the
+        // MultiTalkSelectContactUI listener in the multitalk.ui subpackage,
+        // which must not be hooked (its pre-8.0.77 counterpart in
+        // com.tencent.mm.plugin.multitalk.ui was never matched either).
+        excludePackages("com.tencent.mm.voipmp.v2.multitalk")
         matcher {
             declaredClass {
                 addAnnotation {
