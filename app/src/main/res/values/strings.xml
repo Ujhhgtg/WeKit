@@ -660,6 +660,8 @@
     <string name="feature_conversation_grouping_description">Add a Tab bar to the top of the homepage to group conversations\nIt is recommended to also enable "Interface Beautification/Hide the "Recent" Page on the Homepage"</string>
     <string name="feature_custom_chat_input_bar_placeholder_text_name">Custom input box placeholder text</string>
     <string name="feature_custom_chat_input_bar_placeholder_text_description">Customize the placeholder text displayed in the chat input box\nStatistics are automatically cleared every day</string>
+    <string name="feature_disable_chat_background_dimming_name">Disable chat background dimming</string>
+    <string name="feature_disable_chat_background_dimming_description">Stop dark mode from dimming the chat background image</string>
     <string name="feature_disable_message_collapsing_name">Disable message folding</string>
     <string name="feature_disable_message_collapsing_description">Prevent chat messages from being collapsed</string>
     <string name="feature_disable_pat_name">Disable nudges</string>

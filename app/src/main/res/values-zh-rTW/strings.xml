@@ -621,6 +621,8 @@
     <string name="feature_conversation_grouping_description">向主頁頂部添加 Tab 欄, 將對話分組\n建議同時啓用「界面美化/隱藏主頁下滑「最近」頁」</string>
     <string name="feature_custom_chat_input_bar_placeholder_text_name">自定義輸入框佔位符文本</string>
     <string name="feature_custom_chat_input_bar_placeholder_text_description">自定義聊天輸入框中顯示的佔位符文本\n統計信息每天自動清除</string>
+    <string name="feature_disable_chat_background_dimming_name">禁用聊天背景壓暗</string>
+    <string name="feature_disable_chat_background_dimming_description">深色模式下不再壓暗聊天背景圖片</string>
     <string name="feature_disable_message_collapsing_name">禁用消息摺疊</string>
     <string name="feature_disable_message_collapsing_description">阻止聊天消息被摺疊</string>
     <string name="feature_disable_pat_name">禁用拍一拍</string>
