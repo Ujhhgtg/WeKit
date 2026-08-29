@@ -285,6 +285,7 @@ dependencies {
     implementation(libs.miuix.blur)
     implementation(libs.miuix.shader)
     implementation(libs.miuix.nav)
+    implementation(libs.scripta.editor)
     implementation(libs.materialkolor)
     implementation(libs.coil)
     implementation(libs.coil.compose)
@@ -357,7 +358,7 @@ dependencies {
 
     testImplementation(libs.junit.jupiter)
     testImplementation(project(":libs:common:stubs"))
-    testImplementation(project(":extensions:monet-generator"))
+    testImplementation(project(":extension-packs:monet-generator"))
     testImplementation(libs.legacyxposed.api)
     testImplementation(libs.libxposed.api)
     testImplementation(libs.sqlite.jdbc)

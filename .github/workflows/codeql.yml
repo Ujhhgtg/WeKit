@@ -72,7 +72,8 @@ jobs:
         run: |
           git submodule update --init --recursive -- \
             libs/common/bsh \
-            libs/common/reflekt
+            libs/common/reflekt \
+            libs/common/scripta
 
       - name: Set up JDK 21
         if: matrix.language == 'java-kotlin'

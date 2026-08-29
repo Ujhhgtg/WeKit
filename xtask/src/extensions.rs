@@ -1121,7 +1121,7 @@ fn build_monet_generator_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry>
     };
     let status = Command::new(gradlew)
         .args([
-            ":extensions:monet-generator:generateMonetGeneratorDex",
+            ":extension-packs:monet-generator:generateMonetGeneratorDex",
             "--quiet",
         ])
         .current_dir(root)
@@ -1129,12 +1129,12 @@ fn build_monet_generator_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry>
         .context("failed to spawn gradlew")?;
     anyhow::ensure!(
         status.success(),
-        ":extensions:monet-generator:generateMonetGeneratorDex failed"
+        ":extension-packs:monet-generator:generateMonetGeneratorDex failed"
     );
 
     let inputs = [(
         "classes.dex",
-        root.join("extensions/monet-generator/build/outputs/extension-dex/classes.dex"),
+        root.join("extension-packs/monet-generator/build/outputs/extension-dex/classes.dex"),
     )]
     .into_iter()
     .map(|(name, path)| (name.to_string(), path))

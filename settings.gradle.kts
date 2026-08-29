@@ -1,4 +1,9 @@
 enableFeaturePreview("NO_IMPLICIT_LOOKUP_IN_PARENT_PROJECTS")
+// Required while the scripta composite build is present: its settings enables typesafe project
+// accessors, which makes Gradle generate accessors for this build too. A project literally named
+// "extensions" would generate getExtensions(), clashing with ExtensionAware.getExtensions()
+// (AbstractMethodError) — hence the module lives in extension-packs/.
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
     repositories {
@@ -64,6 +69,10 @@ plugins {
 
 rootProject.name = "wekit"
 
+// Composite build: scripta code editor (not published to Maven Central; keep its own
+// toolchain, plugins and version catalog).
+includeBuild("libs/common/scripta")
+
 include(
     ":app",
     ":libs:common:annotation-scanner",
@@ -72,5 +81,5 @@ include(
     ":libs:common:reflekt",
     ":libs:monet-generator-api",
     ":libs:python-runtime-api",
-    ":extensions:monet-generator"
+    ":extension-packs:monet-generator"
 )

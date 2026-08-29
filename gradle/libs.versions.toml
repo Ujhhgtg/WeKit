@@ -127,6 +127,7 @@ okhttp3-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp
 alibaba-fastjson2 = { module = "com.alibaba.fastjson2:fastjson2", version.ref = "fastjson2" }
 
 legacyxposed-api = { module = "de.robv.android.xposed:api", version = "82" }
+scripta-editor = { module = "scripta:editor" }
 dexkit = { module = "org.luckypray:dexkit", version.ref = "dexkit" }
 dexmaker = { module = "com.linkedin.dexmaker:dexmaker", version.ref = "dexmaker" }
 arsclib = { module = "io.github.reandroid:ARSCLib", version.ref = "arsclib" }

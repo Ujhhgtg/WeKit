@@ -554,6 +554,11 @@
     <string name="python_diagnostics_copy">Copy diagnostics</string>
     <string name="python_traceback">Traceback</string>
     <string name="python_saved">Saved</string>
+    <string name="python_save_failed">Save failed</string>
+    <string name="python_editor_soft_wrap">Soft wrap</string>
+    <string name="python_discard_changes_title">Discard changes?</string>
+    <string name="python_discard_changes_message">The edited script has not been saved yet. If you discard it, your changes will be lost.</string>
+    <string name="python_discard_changes_confirm">Discard</string>
     <string name="python_diag_runtime">Runtime</string>
     <string name="python_diag_runtime_pack">Runtime pack</string>
     <string name="python_diag_environment">Environment</string>

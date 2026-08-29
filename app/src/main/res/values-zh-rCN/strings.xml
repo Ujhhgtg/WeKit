@@ -516,6 +516,11 @@
     <string name="python_diagnostics_copy">复制诊断信息</string>
     <string name="python_traceback">回溯</string>
     <string name="python_saved">已保存</string>
+    <string name="python_save_failed">保存失败</string>
+    <string name="python_editor_soft_wrap">自动换行</string>
+    <string name="python_discard_changes_title">放弃更改？</string>
+    <string name="python_discard_changes_message">编辑后的脚本尚未保存，放弃后将丢失更改。</string>
+    <string name="python_discard_changes_confirm">放弃</string>
     <string name="python_diag_runtime">运行时</string>
     <string name="python_diag_runtime_pack">运行时包</string>
     <string name="python_diag_environment">环境</string>

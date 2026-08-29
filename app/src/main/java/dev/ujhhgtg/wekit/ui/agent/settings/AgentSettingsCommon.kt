@@ -195,17 +195,24 @@ fun AgentConfirmDialog(
  * Back guard shared by the detail screens' creation mode: while [guardActive] (a savable but
  * unsaved draft), every back attempt — scaffold back button or system gesture — opens a
  * confirm-discard dialog instead of leaving; otherwise back passes straight through. Returns the
- * guarded callback to hand to [AgentSettingsScaffold]'s onBack.
+ * guarded callback to hand to [AgentSettingsScaffold]'s onBack. Dialog copy defaults to the
+ * creation wording; override the labels for other guard kinds (e.g. discarding edits).
  */
 @Composable
-fun rememberCreationBackGuard(guardActive: Boolean, onBack: () -> Unit): () -> Unit {
+fun rememberCreationBackGuard(
+    guardActive: Boolean,
+    onBack: () -> Unit,
+    dialogTitle: String = stringResource(R.string.agent_discard_creation_title),
+    dialogMessage: String = stringResource(R.string.agent_discard_creation_message),
+    confirmLabel: String = stringResource(R.string.agent_discard_creation_confirm),
+): () -> Unit {
     var showDiscard by remember { mutableStateOf(false) }
     BackHandler(enabled = guardActive) { showDiscard = true }
     AgentConfirmDialog(
         show = showDiscard,
-        title = stringResource(R.string.agent_discard_creation_title),
-        message = stringResource(R.string.agent_discard_creation_message),
-        confirmLabel = stringResource(R.string.agent_discard_creation_confirm),
+        title = dialogTitle,
+        message = dialogMessage,
+        confirmLabel = confirmLabel,
         dismissLabel = stringResource(R.string.dialog_cancel),
         destructive = true,
         onConfirm = {

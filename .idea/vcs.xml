@@ -4,6 +4,7 @@
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/libs/common/bsh" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/libs/common/reflekt" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/common/scripta" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/third_party/OpenCL-Headers" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/third_party/SPIRV-Headers" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/third_party/Vulkan-Hpp" vcs="Git" />

@@ -22,16 +22,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -44,7 +53,14 @@ import com.composables.icons.materialsymbols.outlined.Edit
 import com.composables.icons.materialsymbols.outlined.Folder
 import com.composables.icons.materialsymbols.outlined.Refresh
 import com.composables.icons.materialsymbols.outlined.Restart_alt
+import com.composables.icons.materialsymbols.outlined.Save
+import com.composables.icons.materialsymbols.outlined.Wrap_text
+import top.yukonga.scripta.editor.CodeEditor
+import top.yukonga.scripta.editor.EditorColors
+import top.yukonga.scripta.editor.EditorLanguage
+import top.yukonga.scripta.editor.rememberCodeEditorController
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.extensions.PythonRuntimePack
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginManager
@@ -56,11 +72,16 @@ import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
 import dev.ujhhgtg.wekit.ui.agent.settings.AgentConfirmDialog
 import dev.ujhhgtg.wekit.ui.agent.settings.AgentSettingsScaffold
+import dev.ujhhgtg.wekit.ui.agent.settings.rememberCreationBackGuard
 import dev.ujhhgtg.wekit.ui.animation.predictiveback.weKitNavTransition
+import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
-import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
+import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
+import dev.ujhhgtg.wekit.ui.content.m3AppBarColor
+import dev.ujhhgtg.wekit.ui.content.m3BackdropLayer
+import dev.ujhhgtg.wekit.ui.content.rememberMaterial3BlurBackdrop
 import dev.ujhhgtg.wekit.ui.navigation.LocalNavigator
 import dev.ujhhgtg.wekit.ui.navigation.Navigator
 import dev.ujhhgtg.wekit.ui.navigation.rememberM3NavEffects
@@ -329,41 +350,116 @@ private fun PythonEditorScreen(pluginId: String, onBack: () -> Unit) {
     val entryPath = java.io.File(record.root, entry.replace('.', java.io.File.separatorChar))
     val sourceFile = java.io.File(entryPath.path + ".py").takeIf { it.isFile }
         ?: java.io.File(entryPath, "__init__.py")
-    var text by remember(pluginId) { mutableStateOf("") }
-    var feedback by remember(pluginId) { mutableStateOf<String?>(null) }
+    val controller = rememberCodeEditorController()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    var saving by remember { mutableStateOf(false) }
+    var softWrap by rememberSaveable { mutableStateOf(Preferences.pythonEditorSoftWrap) }
+    val savedText = stringResource(R.string.python_saved)
+    val saveFailedText = stringResource(R.string.python_save_failed)
+    val discardTitle = stringResource(R.string.python_discard_changes_title)
+    val discardMessage = stringResource(R.string.python_discard_changes_message)
+    val discardConfirm = stringResource(R.string.python_discard_changes_confirm)
+    val guardedBack = rememberCreationBackGuard(
+        controller.isModified,
+        onBack,
+        dialogTitle = discardTitle,
+        dialogMessage = discardMessage,
+        confirmLabel = discardConfirm,
+    )
     LaunchedEffect(sourceFile) {
-        text = withContext(Dispatchers.IO) { sourceFile.readText() }
+        controller.setDocument(withContext(Dispatchers.IO) { sourceFile.readText() })
     }
-    AgentSettingsScaffold(stringResource(R.string.python_edit_entry), onBack) {
-        item {
-            BaseItemContainer {
-                Column(Modifier.padding(16.dp)) {
-                    OutlinedTextField(
-                        value = text,
-                        onValueChange = { text = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 14,
-                    )
-                    feedback?.let { Text(it, Modifier.padding(top = 8.dp)) }
-                    Button(
+
+    // 编辑器内部自行滚动并消费底部系统栏 / IME insets：只给顶部留出固定顶栏，底部不加 padding。
+    // backdrop 捕获层必须只包内容——若连顶栏一起捕获，顶栏模糊会采样到自己的输出，
+    // AGSL 着色器无限嵌套，渲染线程栈溢出（SIGSEGV）。
+    val barBackdrop = rememberMaterial3BlurBackdrop()
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        topBar = {
+            TopAppBar(
+                modifier = Modifier.m3AppBarBlur(barBackdrop),
+                title = { Text(stringResource(R.string.python_edit_entry)) },
+                navigationIcon = {
+                    Row {
+                        ExpressiveBackButton(onClick = guardedBack)
+                        Spacer(modifier = Modifier.size(16.dp))
+                    }
+                },
+                actions = {
+                    IconButton(
                         onClick = {
+                            softWrap = !softWrap
+                            Preferences.pythonEditorSoftWrap = softWrap
+                        },
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = if (softWrap) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                            contentColor = if (softWrap) {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            } else {
+                                LocalContentColor.current
+                            },
+                        ),
+                    ) {
+                        Icon(
+                            imageVector = MaterialSymbols.Outlined.Wrap_text,
+                            contentDescription = stringResource(R.string.python_editor_soft_wrap),
+                        )
+                    }
+                    IconButton(
+                        enabled = controller.isModified && !saving,
+                        onClick = {
+                            val version = controller.documentVersion
+                            val text = controller.getText(controller.lineEnding)
+                            saving = true
                             scope.launch {
                                 val result = withContext(Dispatchers.IO) {
                                     runCatching { sourceFile.writeText(text) }
                                 }
-                                feedback = result.fold(
-                                    onSuccess = { context.getString(R.string.python_saved) },
-                                    onFailure = { it.message },
+                                saving = false
+                                result.fold(
+                                    onSuccess = {
+                                        controller.markSaved(version)
+                                        showToast(context, savedText)
+                                    },
+                                    onFailure = { showToast(context, it.message ?: saveFailedText) },
                                 )
                             }
                         },
-                        modifier = Modifier.padding(top = 12.dp),
-                    ) { Text(stringResource(R.string.python_save_entry)) }
-                }
-            }
-        }
+                    ) {
+                        if (saving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = MaterialSymbols.Outlined.Save,
+                                contentDescription = stringResource(R.string.python_save_entry),
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = barBackdrop.m3AppBarColor(),
+                    scrolledContainerColor = barBackdrop.m3AppBarColor(),
+                ),
+            )
+        },
+    ) { innerPadding ->
+        CodeEditor(
+            controller = controller,
+            language = EditorLanguage.PlainText,
+            highlighter = remember { PythonHighlighter() },
+            colors = if (ThemeSettings.themeMode.resolve()) EditorColors.Default else EditorColors.Light,
+            softWrap = softWrap,
+            modifier = Modifier
+                .fillMaxSize()
+                .m3BackdropLayer(barBackdrop)
+                .padding(top = innerPadding.calculateTopPadding()),
+        )
     }
 }
 

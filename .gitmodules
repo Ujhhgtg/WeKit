@@ -20,3 +20,7 @@
 [submodule "third_party/OpenCL-Headers"]
 	path = third_party/OpenCL-Headers
 	url = https://github.com/KhronosGroup/OpenCL-Headers
+[submodule "libs/common/scripta"]
+	path = libs/common/scripta
+	url = https://github.com/YuKongA/scripta.git
+	branch = main

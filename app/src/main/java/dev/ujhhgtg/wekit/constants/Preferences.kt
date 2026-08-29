@@ -28,6 +28,9 @@ object Preferences {
     const val THEME_SEED_COLOR = "settings_theme_seed_color"
     const val THEME_APPLY_TO_WECHAT = "settings_theme_apply_to_wechat"
 
+    // Python entry-script editor
+    const val PYTHON_EDITOR_SOFT_WRAP = "python_editor_soft_wrap"
+
     var verboseLog by prefOption(VERBOSE_LOG, false)
     var noDexResolve by prefOption(NO_DEX_RESOLVE, false)
     var showStartupToast by prefOption(SHOW_STARTUP_TOAST, false)
@@ -40,4 +43,6 @@ object Preferences {
 //    var useActivityInsteadOfDialog: Boolean
 //        get() = false
 //        set(value) { WePrefs.putBool(USE_ACTIVITY_INSTEAD_OF_DIALOG, value) }
+
+    var pythonEditorSoftWrap by prefOption(PYTHON_EDITOR_SOFT_WRAP, false)
 }
