@@ -262,9 +262,8 @@ object WeAgentService : TriggerManager.TriggerHost {
     // -----------------------------------------------------------------------------------------
 
     private suspend fun initialize() {
-        // Warm the DB, seed providers, load settings.
+        // Warm the DB, load settings.
         WeAgentDatabase.instance
-        WeAgentRepository.seedBuiltinProviders()
         LocalLlamaSync.schedule()
         linuxEnvironmentManager.initialize()
         WeAgentSettings.load()

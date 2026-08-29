@@ -201,8 +201,6 @@
     <string name="agent_send_queue_after_turn">Queue (send after this turn)</string>
     <string name="agent_send_steer_next_request">Steer (insert before the next request)</string>
     <string name="agent_section_tools">Tools</string>
-    <string name="agent_builtin_tools_title">Built-in tools</string>
-    <string name="agent_builtin_tools_summary">Set permissions individually for WeChat actions, database SQL, files, and skills</string>
     <string name="agent_mcp_servers_title">MCP servers</string>
     <string name="agent_mcp_servers_summary">Add Streamable HTTP and SSE servers</string>
     <string name="agent_dynamic_tools_title">Dynamic tool discovery</string>
@@ -231,7 +229,6 @@
     <string name="external_service_brave_name" translatable="false">Brave Search</string>
     <string name="external_service_brave_description">Privacy-focused web search; requires a Brave Search API key (api.search.brave.com)</string>
     <string name="external_service_api_key" translatable="false">API Key</string>
-    <string name="agent_tool_count_summary">%1$s · %2$d tools</string>
     <string name="agent_no_provider_tools">This provider has no available tools.</string>
     <string name="agent_permission_level_request_approval">Request approval</string>
     <string name="agent_permission_level_auto_edit">Auto edit</string>
@@ -250,15 +247,6 @@
     <string name="agent_provider_type_gemini_generate_content" translatable="false">Gemini generateContent (legacy)</string>
     <string name="agent_provider_type_gemini_interactions" translatable="false">Gemini Interactions</string>
     <string name="agent_provider_type_local_llama" translatable="false">Local LLM Inference</string>
-    <string name="agent_builtin_provider_wechat">WeChat operations</string>
-    <string name="agent_builtin_provider_wechat_sql">Database SQL</string>
-    <string name="agent_builtin_provider_files">Files and skills</string>
-    <string name="agent_builtin_provider_jvm">JVM reflection</string>
-    <string name="agent_builtin_provider_ui">Interface tools</string>
-    <string name="agent_builtin_provider_webview" translatable="false">WebView</string>
-    <string name="agent_builtin_provider_triggers">Triggers</string>
-    <string name="agent_builtin_provider_environment">Environment information</string>
-    <string name="agent_builtin_provider_network">Network</string>
     <string name="features_search_hint">Search features</string>
     <string name="features_clear_search">Clear search</string>
     <string name="features_no_results">No matching features</string>

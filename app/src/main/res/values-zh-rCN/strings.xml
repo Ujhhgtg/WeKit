@@ -185,8 +185,6 @@
     <string name="agent_send_queue_after_turn">队列（本轮结束后发送）</string>
     <string name="agent_send_steer_next_request">引导（下次请求前插入）</string>
     <string name="agent_section_tools">工具</string>
-    <string name="agent_builtin_tools_title">内置工具</string>
-    <string name="agent_builtin_tools_summary">微信操作 / 数据库 SQL / 文件与技能，逐项设置权限</string>
     <string name="agent_mcp_servers_title">MCP 服务器</string>
     <string name="agent_mcp_servers_summary">添加 Streamable HTTP / SSE 服务器</string>
     <string name="agent_dynamic_tools_title">动态工具发现</string>
@@ -212,7 +210,6 @@
     <string name="accessibility_hide">隐藏</string>
     <string name="external_service_exa_description">AI 语义搜索，需要 Exa API Key（exa.ai）</string>
     <string name="external_service_brave_description">隐私优先的网络搜索，需要 Brave Search API Key（api.search.brave.com）</string>
-    <string name="agent_tool_count_summary">%1$s · %2$d 个工具</string>
     <string name="agent_no_provider_tools">该提供方暂无可用工具。</string>
     <string name="agent_permission_level_request_approval">请求批准</string>
     <string name="agent_permission_level_auto_edit">自动编辑</string>
@@ -224,14 +221,6 @@
     <string name="agent_add_provider">添加提供方</string>
     <string name="agent_add_model_provider">添加模型提供方</string>
     <string name="agent_provider_api_type">接口类型</string>
-    <string name="agent_builtin_provider_wechat">微信操作</string>
-    <string name="agent_builtin_provider_wechat_sql">数据库 SQL</string>
-    <string name="agent_builtin_provider_files">文件与技能</string>
-    <string name="agent_builtin_provider_jvm">JVM 反射</string>
-    <string name="agent_builtin_provider_ui">界面工具</string>
-    <string name="agent_builtin_provider_triggers">触发器</string>
-    <string name="agent_builtin_provider_environment">环境信息</string>
-    <string name="agent_builtin_provider_network">网络</string>
     <string name="features_search_hint">搜索功能</string>
     <string name="features_clear_search">清除搜索</string>
     <string name="features_no_results">未匹配到任何相关功能</string>

@@ -18,7 +18,6 @@ import com.composables.icons.materialsymbols.outlined.Auto_stories
 import com.composables.icons.materialsymbols.outlined.Bolt
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Cloud
-import com.composables.icons.materialsymbols.outlined.Construction
 import com.composables.icons.materialsymbols.outlined.Edit_note
 import com.composables.icons.materialsymbols.outlined.Extension
 import com.composables.icons.materialsymbols.outlined.Terminal
@@ -158,16 +157,6 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsRoute) -> Unit) {
         // ---------- 工具 ----------
         item {
             SegmentedColumn(title = stringResource(R.string.agent_section_tools)) {
-                item {
-                    BaseWidget(
-                        icon = MaterialSymbols.Outlined.Construction,
-                        iconPlaceholder = false,
-                        title = stringResource(R.string.agent_builtin_tools_title),
-                        description = stringResource(R.string.agent_builtin_tools_summary),
-                        onClick = { onOpen(AgentSettingsRoute.BuiltinTools) },
-                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    )
-                }
                 item {
                     BaseWidget(
                         icon = MaterialSymbols.Outlined.Extension,

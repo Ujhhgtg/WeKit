@@ -27,8 +27,6 @@ import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentSessionState
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentSessionTransition
 import dev.ujhhgtg.wekit.agent.environment.toSnapshot
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
-import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
-import dev.ujhhgtg.wekit.agent.tool.ProviderKind
 import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.flow.Flow
@@ -70,32 +68,6 @@ object WeAgentRepository {
                 executedAt = java.time.Instant.now(),
             )
         )
-    }
-
-    /**
-     * Idempotent first-run/every-launch seeding: ensures the builtin provider row exists
-     * (builtin-wechat / builtin-wechat-sql / builtin-fs / …), so the settings UI can list them.
-     */
-    suspend fun seedBuiltinProviders() {
-        runCatching {
-            val providerDao = db.providerDao()
-
-            for (provider in BuiltinToolProvider.all) {
-                if (providerDao.getById(provider.id) == null) {
-                    providerDao.upsert(
-                        ProviderEntity(
-                            id = provider.id,
-                            kind = ProviderKind.BUILTIN,
-                            name = provider.name,
-                            transport = null,
-                            endpointUrl = null,
-                            headersJson = null,
-                            enabled = true,
-                        )
-                    )
-                }
-            }
-        }.onFailure { WeLogger.e(TAG, "seedBuiltinProviders failed", it) }
     }
 
     // --- Passthrough flows for UI (settings) ---

@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.agent.model.local.LocalLlama
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
-import dev.ujhhgtg.wekit.ui.agent.settings.BuiltinProvidersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ExternalServicesScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.McpServerDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.McpServersScreen
@@ -24,11 +23,8 @@ import dev.ujhhgtg.wekit.ui.agent.settings.ModelProviderDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ModelProvidersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.PromptsScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.SkillsScreen
-import dev.ujhhgtg.wekit.ui.agent.settings.ToolListScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.TriggersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.WeAgentHomeScreen
-import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderDisplayName
-import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderTools
 import dev.ujhhgtg.wekit.ui.navigation.LocalNavigator
 import dev.ujhhgtg.wekit.ui.navigation.Navigator
 import dev.ujhhgtg.wekit.ui.navigation.rememberM3NavEffects
@@ -82,10 +78,6 @@ sealed interface AgentSettingsRoute : NavKey {
     data class ModelProviderDetail(val providerId: String) : AgentSettingsRoute
     @Serializable
     data class ModelDetail(val providerId: String, val modelId: String) : AgentSettingsRoute
-    @Serializable
-    data object BuiltinTools : AgentSettingsRoute
-    @Serializable
-    data class BuiltinProviderTools(val providerId: String) : AgentSettingsRoute
     @Serializable
     data object McpServers : AgentSettingsRoute
     @Serializable
@@ -149,19 +141,6 @@ private fun WeAgentSettingsRoot(onFinish: () -> Unit) {
             }
             entry<AgentSettingsRoute.ModelDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
                 ModelDetailScreen(providerId = key.providerId, modelId = key.modelId, onBack = { navigator.pop() })
-            }
-            entry<AgentSettingsRoute.BuiltinTools>(swipeDismiss = NavSwipeDirection.LeftToRight) {
-                BuiltinProvidersScreen(
-                    onBack = { navigator.pop() },
-                    onOpenProvider = { navigator.push(AgentSettingsRoute.BuiltinProviderTools(it)) },
-                )
-            }
-            entry<AgentSettingsRoute.BuiltinProviderTools>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
-                ToolListScreen(
-                    title = builtinProviderDisplayName(key.providerId),
-                    tools = builtinProviderTools(key.providerId),
-                    onBack = { navigator.pop() },
-                )
             }
             entry<AgentSettingsRoute.McpServers>(swipeDismiss = NavSwipeDirection.LeftToRight) {
                 McpServersScreen(
