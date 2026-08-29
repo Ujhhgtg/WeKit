@@ -430,10 +430,44 @@ jobs:
           done < dist/dex-test-release/assets.txt
           gh release upload Dex-Test --repo Ujhhgtg/WeKit "${upload[@]}" --clobber
 
+  extensions-changes:
+    runs-on: ubuntu-latest
+    if: github.repository == 'Ujhhgtg/WeKit-Dev' && github.event_name == 'push'
+    outputs:
+      changed: ${{ steps.filter.outputs.extensions }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect extension pack input changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            extensions:
+              - 'extension-packs/**'
+              - 'extensions/**'
+              - 'libs/python-runtime-api/**'
+              - 'app/src/main/go/**'
+              - 'app/src/main/rust/**'
+              - 'patches/proot/**'
+              - 'third_party/proot-static'
+              - 'xtask/**'
+              - 'buildSrc/**'
+              - 'gradle/**'
+              - 'settings.gradle.kts'
+              - 'app/build.gradle.kts'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '.github/workflows/ci.yml'
+
   build-extensions:
+    needs: extensions-changes
     runs-on: ubuntu-latest
     # This dedicated publishing job is the only path that downloads the Arch rootfs.
-    if: ${{ (github.repository == 'Ujhhgtg/WeKit-Dev' && github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && inputs.publish_extensions) }}
+    if: ${{ always() && ((github.event_name == 'workflow_dispatch' && inputs.publish_extensions) || needs.extensions-changes.outputs.changed == 'true' || needs.extensions-changes.result == 'failure') }}
     concurrency:
       group: extensions-release
       cancel-in-progress: false
@@ -509,7 +543,7 @@ jobs:
         env:
           WEKIT_ARCH_ROOTFS: ${{ runner.temp }}/arch-pack/ArchLinuxARM-aarch64-rootfs.tar.gz
         run: |
-          SOURCE=extensions/archlinux-arm64-sources.json
+          SOURCE=extension-packs/archlinux-arm64-sources.json
           ROOTFS_URL=$(jq -r '.rootfs.url' "$SOURCE")
           ROOTFS_MD5=$(jq -r '.rootfs.md5' "$SOURCE")
           ROOTFS_SHA256=$(jq -er '.rootfs.sha256 | select(test("^[0-9A-Fa-f]{64}$"))' "$SOURCE")

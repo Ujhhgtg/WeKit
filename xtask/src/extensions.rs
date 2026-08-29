@@ -243,7 +243,7 @@ pub fn run(root: &Path, args: &ExtensionsArgs) -> Result<()> {
 }
 
 fn read_arch_sources(root: &Path) -> Result<ArchSources> {
-    let path = root.join("extensions/archlinux-arm64-sources.json");
+    let path = root.join("extension-packs/archlinux-arm64-sources.json");
     parse_arch_sources(&fs::read(&path)?)
 }
 
@@ -458,7 +458,7 @@ fn build_python_runtime(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
     let status = Command::new(gradlew)
         .args([
             "-p",
-            "extensions/python-runtime",
+            "extension-packs/python-runtime",
             ":runtime:extractChaquopyTarget",
             "--quiet",
             repo_property.as_str(),
@@ -479,7 +479,7 @@ fn build_python_runtime(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
     let status = Command::new(gradlew)
         .args([
             "-p",
-            "extensions/python-runtime",
+            "extension-packs/python-runtime",
             ":runtime:assembleRelease",
             "--quiet",
             repo_property.as_str(),
@@ -494,7 +494,7 @@ fn build_python_runtime(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
     anyhow::ensure!(status.success(), "Python runtime build failed");
 
     let runtime_apk = root.join(
-        "extensions/python-runtime/runtime/build/outputs/apk/release/runtime-release-unsigned.apk",
+        "extension-packs/python-runtime/runtime/build/outputs/apk/release/runtime-release-unsigned.apk",
     );
     anyhow::ensure!(runtime_apk.is_file(), "Python runtime APK was not produced");
     let runtime_container = dist.join("python-runtime-unversioned.apk");
@@ -873,7 +873,7 @@ fn build_patched_chaquopy_bridge(root: &Path, catalog: &toml::Value) -> Result<P
         "compile patched Chaquopy bridge source",
     )?;
 
-    let target = root.join("extensions/python-runtime/runtime/build/chaquopyTarget");
+    let target = root.join("extension-packs/python-runtime/runtime/build/chaquopyTarget");
     let include_python = target
         .join("include")
         .join(format!("python{python_version}"));
@@ -934,7 +934,7 @@ fn build_runtime_multidex_probe(root: &Path, catalog: &toml::Value) -> Result<Pa
         Command::new("javac")
             .args(["--release", "8", "-Xlint:-options", "-d"])
             .arg(&classes)
-            .arg(root.join("extensions/python-runtime/multidex/RuntimeMultidexProbe.java")),
+            .arg(root.join("extension-packs/python-runtime/multidex/RuntimeMultidexProbe.java")),
         "compile runtime multi-DEX probe",
     )?;
 
@@ -1064,12 +1064,12 @@ fn build_python_sdk_artifact(root: &Path, dist: &Path) -> Result<()> {
     let mut zip = ZipWriter::new(File::create(&output)?);
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
     for (prefix, directory) in [
-        ("stubs", root.join("extensions/python-runtime/stubs")),
+        ("stubs", root.join("extension-packs/python-runtime/stubs")),
         (
             "stubs",
-            root.join("extensions/python-runtime/runtime/build/generated/dexkitBindings/stubs"),
+            root.join("extension-packs/python-runtime/runtime/build/generated/dexkitBindings/stubs"),
         ),
-        ("examples", root.join("extensions/python-runtime/examples")),
+        ("examples", root.join("extension-packs/python-runtime/examples")),
     ] {
         for entry in walkdir::WalkDir::new(&directory) {
             let entry = entry?;
@@ -1698,7 +1698,7 @@ mod tests {
     #[test]
     fn arch_source_descriptor_requires_valid_sha256() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-        let path = root.join("extensions/archlinux-arm64-sources.json");
+        let path = root.join("extension-packs/archlinux-arm64-sources.json");
         let mut json: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
         json["rootfs"]["sha256"] = serde_json::Value::String("not-a-sha256".into());
         let error = parse_arch_sources(&serde_json::to_vec(&json).unwrap()).unwrap_err();
