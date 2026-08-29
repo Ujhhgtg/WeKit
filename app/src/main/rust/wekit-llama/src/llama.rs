@@ -194,6 +194,8 @@ pub struct Engine<'a> {
     backend: &'a LlamaBackend,
     n_ctx: u32,
     threads: i32,
+    /// Q8_0 KV cache allowed (off for the OpenCL backend — no flash attention).
+    kv_quant: bool,
     temp: f32,
     top_p: f32,
     top_k: i32,
@@ -205,6 +207,9 @@ pub struct Engine<'a> {
 struct ModelAttempt {
     model: LlamaModel,
     placement: BackendPlacement,
+    /// Whether contexts may quantize the KV cache (Q8_0). Quantized V cache
+    /// requires flash attention, which the OpenCL backend does not support.
+    kv_quant: bool,
 }
 
 fn device_label(device: &LlamaBackendDevice) -> String {
@@ -318,9 +323,9 @@ fn load_model_attempt(
     cfg: &EngineConfig,
     attempt: Backend,
 ) -> Result<ModelAttempt, String> {
-    let (params, probe_params, gpu_devices) = if attempt == Backend::Auto {
+    let (params, probe_params, gpu_devices, kv_quant) = if attempt == Backend::Auto {
         let mut params = Box::pin(LlamaModelParams::default().with_use_mmap(true));
-        let mut probe_params = context_params(cfg.n_ctx, cfg.threads);
+        let mut probe_params = context_params(cfg.n_ctx, cfg.threads, true);
         let model_path = CString::new(cfg.model_path.as_str())
             .map_err(|_| "model path contains a NUL byte".to_owned())?;
         let mut margins = vec![AUTO_FIT_MARGIN_BYTES; llama_cpp_2::max_devices()];
@@ -340,13 +345,15 @@ fn load_model_attempt(
                 cfg.n_ctx, fitted.n_ctx
             ));
         }
-        (params, probe_params, registered_gpu_devices())
+        (params, probe_params, registered_gpu_devices(), true)
     } else {
         let (params, gpu_devices) = fixed_model_params(attempt)?;
+        let kv_quant = attempt != Backend::Opencl;
         (
             Box::pin(params),
-            context_params(cfg.n_ctx, cfg.threads),
+            context_params(cfg.n_ctx, cfg.threads, kv_quant),
             gpu_devices,
+            kv_quant,
         )
     };
     let model = LlamaModel::load_from_file(backend, &cfg.model_path, params.as_ref().get_ref())
@@ -358,22 +365,31 @@ fn load_model_attempt(
     );
     let placement =
         placement_from_loaded_model(attempt, params.as_ref().get_ref(), &model, &gpu_devices);
-    Ok(ModelAttempt { model, placement })
+    Ok(ModelAttempt {
+        model,
+        placement,
+        kv_quant,
+    })
 }
 
-/// Per-request context parameters (Q8_0 KV cache; quantized V requires flash
-/// attention, which llama.cpp enables by default via `AUTO` on the CPU and
-/// Vulkan backends this project ships). `no_perf = false` because llama.cpp
-/// now defaults it to `true`, which would zero `ctx.timings()` — and with it
-/// the server's tokens/s accounting.
-fn context_params(n_ctx: u32, threads: i32) -> LlamaContextParams {
-    LlamaContextParams::default()
+/// Per-request context parameters. `kv_quant` requests the Q8_0 KV cache;
+/// quantized V cache requires flash attention, so it must be off for the
+/// OpenCL backend (which does not support FA). `no_perf = false` because
+/// llama.cpp now defaults it to `true`, which would zero `ctx.timings()` —
+/// and with it the server's tokens/s accounting.
+fn context_params(n_ctx: u32, threads: i32, kv_quant: bool) -> LlamaContextParams {
+    let params = LlamaContextParams::default()
         .with_n_ctx(NonZeroU32::new(n_ctx))
         .with_n_threads(threads)
         .with_n_threads_batch(threads)
-        .with_type_k(KvCacheType::Q8_0)
-        .with_type_v(KvCacheType::Q8_0)
-        .with_no_perf(false)
+        .with_no_perf(false);
+    if kv_quant {
+        params
+            .with_type_k(KvCacheType::Q8_0)
+            .with_type_v(KvCacheType::Q8_0)
+    } else {
+        params
+    }
 }
 
 impl<'a> Engine<'a> {
@@ -387,6 +403,7 @@ impl<'a> Engine<'a> {
         let ModelAttempt {
             model,
             mut placement,
+            kv_quant,
         } = if cfg.backend == Backend::Auto {
             match load_model_attempt(backend, cfg, Backend::Auto) {
                 Ok(loaded) => loaded,
@@ -422,6 +439,7 @@ impl<'a> Engine<'a> {
             backend,
             n_ctx: cfg.n_ctx,
             threads: cfg.threads,
+            kv_quant,
             temp: cfg.temp,
             top_p: cfg.top_p,
             top_k: cfg.top_k,
@@ -606,7 +624,10 @@ impl<'a> Engine<'a> {
     /// Fresh per-request context; cannot fail after the load-time probe.
     fn new_ctx(&self) -> LlamaContext<'_> {
         self.model
-            .new_context(self.backend, context_params(self.n_ctx, self.threads))
+            .new_context(
+                self.backend,
+                context_params(self.n_ctx, self.threads, self.kv_quant),
+            )
             .unwrap_or_else(|e| panic!("context creation failed: {e}"))
     }
 
