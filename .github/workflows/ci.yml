@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - dev
     paths-ignore:
       - '**/*.txt'
       - '.editorconfig'
@@ -13,7 +12,6 @@ on:
   pull_request:
     branches:
       - master
-      - dev
     paths-ignore:
       - '**/*.txt'
       - '.editorconfig'
@@ -33,13 +31,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     if: |
-      github.event_name == 'workflow_dispatch' || 
+      (github.event_name == 'workflow_dispatch' && github.repository == 'Ujhhgtg/WeKit-Dev') ||
       (
         !startsWith(github.event.head_commit.message, '[skip ci]') && 
         (
-          github.ref == 'refs/heads/master' ||
-          github.ref == 'refs/heads/dev' ||
-          github.event_name == 'pull_request'
+          github.event_name == 'pull_request' ||
+          (github.repository == 'Ujhhgtg/WeKit-Dev' && github.ref == 'refs/heads/master')
         )
       )
     steps:
@@ -236,6 +233,7 @@ jobs:
 
   dex-test:
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.repository == 'Ujhhgtg/WeKit-Dev'
     outputs:
       reports-available: ${{ steps.report-check.outputs.available }}
     steps:
@@ -374,7 +372,7 @@ jobs:
   release-dex-test:
     needs: dex-test
     runs-on: ubuntu-latest
-    if: ${{ always() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.event_name != 'pull_request' && needs.dex-test.outputs.reports-available == 'true' }}
+    if: ${{ always() && github.repository == 'Ujhhgtg/WeKit-Dev' && github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.dex-test.outputs.reports-available == 'true' }}
     permissions:
       contents: write
     steps:
@@ -408,19 +406,19 @@ jobs:
             echo "No host passed; leaving the Dex-Test Release unchanged."
           fi
 
-      - name: Create or update Dex Test Release
+      - name: Create or update Dex Test release
         if: steps.stage.outputs.has-assets == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          if gh release view Dex-Test >/dev/null 2>&1; then
-            gh release edit Dex-Test \
+          if gh release view Dex-Test --repo Ujhhgtg/WeKit >/dev/null 2>&1; then
+            gh release edit Dex-Test --repo Ujhhgtg/WeKit \
               --title "Dex Test" \
               --prerelease \
               --notes-file dist/dex-test-release/release-notes.md
           else
             gh release create Dex-Test \
-              --target "${{ github.sha }}" \
+              --repo Ujhhgtg/WeKit \
               --title "Dex Test" \
               --prerelease \
               --notes-file dist/dex-test-release/release-notes.md
@@ -430,19 +428,17 @@ jobs:
           while IFS= read -r asset; do
             [[ -n "$asset" ]] && upload+=("dist/dex-test-release/$asset")
           done < dist/dex-test-release/assets.txt
-          gh release upload Dex-Test "${upload[@]}" --clobber
+          gh release upload Dex-Test --repo Ujhhgtg/WeKit "${upload[@]}" --clobber
 
   build-extensions:
     runs-on: ubuntu-latest
     # This dedicated publishing job is the only path that downloads the Arch rootfs.
-    if: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')) || (github.event_name == 'workflow_dispatch' && inputs.publish_extensions) }}
+    if: ${{ (github.repository == 'Ujhhgtg/WeKit-Dev' && github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && inputs.publish_extensions) }}
     concurrency:
       group: extensions-release
       cancel-in-progress: false
     permissions:
       contents: write
-      id-token: write
-      attestations: write
 
     steps:
       - name: Checkout
@@ -541,7 +537,7 @@ jobs:
       - name: Skip if assets already published
         id: published
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           current_assets=$(
             for f in dist/extensions/*; do
@@ -549,7 +545,7 @@ jobs:
             done | sort
           )
           published_assets=$(
-            gh api "repos/${{ github.repository }}/releases/tags/Extensions" \
+            gh api "repos/Ujhhgtg/WeKit/releases/tags/Extensions" \
               --jq '.assets[] | [.name, .digest] | @tsv' 2>/dev/null | sort || true
           )
           if [[ "$current_assets" == "$published_assets" ]]; then
@@ -562,11 +558,11 @@ jobs:
       - name: Create Extensions release if missing
         if: steps.published.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          if ! gh release view Extensions >/dev/null 2>&1; then
+          if ! gh release view Extensions --repo Ujhhgtg/WeKit >/dev/null 2>&1; then
             gh release create Extensions \
-              --target "${{ github.sha }}" \
+              --repo Ujhhgtg/WeKit \
               --title "Extensions" \
               --prerelease \
               --notes "扩展包资产。manifest.json 为最新版本索引, 本体按索引下载并校验 SHA-256。"
@@ -575,7 +571,7 @@ jobs:
       - name: Upload pack assets
         if: steps.published.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           shopt -s nullglob
           pack_assets=()
@@ -583,20 +579,20 @@ jobs:
             [[ "$asset" == dist/extensions/manifest.json ]] || pack_assets+=("$asset")
           done
           (( ${#pack_assets[@]} > 0 ))
-          gh release upload Extensions \
+          gh release upload Extensions --repo Ujhhgtg/WeKit \
             "${pack_assets[@]}" \
             --clobber
-          gh release upload Extensions dist/extensions/manifest.json --clobber
+          gh release upload Extensions --repo Ujhhgtg/WeKit dist/extensions/manifest.json --clobber
 
       - name: Remove stale pack assets
         if: steps.published.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           shopt -s nullglob
           current_files=(dist/extensions/*)
           (( ${#current_files[@]} > 0 ))
-          published_assets=$(gh release view Extensions --json assets --jq '.assets[].name')
+          published_assets=$(gh release view Extensions --repo Ujhhgtg/WeKit --json assets --jq '.assets[].name')
 
           while IFS= read -r published_asset; do
             [[ -z "$published_asset" ]] && continue
@@ -608,20 +604,14 @@ jobs:
               fi
             done
             if [[ "$keep" == false ]]; then
-              gh release delete-asset Extensions "$published_asset" --yes
+              gh release delete-asset Extensions --repo Ujhhgtg/WeKit "$published_asset" --yes
             fi
           done <<< "$published_assets"
-
-      - name: Attest build provenance
-        if: steps.published.outputs.skip == 'false'
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: dist/extensions/*
 
   release-ci:
     needs: [build, build_zygisk]
     runs-on: ubuntu-latest
-    if: ${{ always() && needs.build.result == 'success' && github.ref == 'refs/heads/master' }}
+    if: ${{ always() && needs.build.result == 'success' && github.repository == 'Ujhhgtg/WeKit-Dev' && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     permissions:
       contents: write
 
@@ -647,10 +637,10 @@ jobs:
 
       - name: Delete existing CI release (if exists)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          gh release delete CI --yes || true
-          gh api -X DELETE repos/${{ github.repository }}/git/refs/tags/CI || true
+          gh release delete CI --repo Ujhhgtg/WeKit --yes || true
+          gh api -X DELETE repos/Ujhhgtg/WeKit/git/refs/tags/CI || true
 
       - name: Generate update.json
         run: |
@@ -668,30 +658,33 @@ jobs:
           echo "Generated update.json:"
           cat artifacts/update.json
 
-      - name: Create CI release and upload artifacts
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: CI
-          name: CI
-          body: |
-            本 Release 始终包含最新的 CI 构建产物, 便于未登录 GitHub 的用户下载模块或模块内置更新器更新
-            
-            提交 SHA: `${{ github.sha }}`
-
-            提交消息:
-            ```
-            ${{ github.event.head_commit.message || '手动构建' }}
-            ```
-          files: |
-            artifacts/*
-          prerelease: true
+      - name: Create CI release on WeKit and upload artifacts
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          {
+            echo "本 Release 始终包含最新的 CI 构建产物, 便于未登录 GitHub 的用户下载模块或模块内置更新器更新"
+            echo ""
+            echo "提交 SHA: \`${COMMIT_SHA}\`"
+            echo ""
+            echo "提交消息:"
+            echo '```'
+            echo "${COMMIT_MESSAGE}"
+            echo '```'
+          } > "$RUNNER_TEMP/ci-notes.md"
+
+          gh release create CI \
+            --repo Ujhhgtg/WeKit \
+            --title "CI" \
+            --notes-file "$RUNNER_TEMP/ci-notes.md" \
+            artifacts/*
 
   upload-telegram:
     needs: [build, build_zygisk]
     runs-on: ubuntu-latest
-    if: ${{ always() && needs.build.result == 'success' && github.ref == 'refs/heads/master' }}
+    if: ${{ always() && needs.build.result == 'success' && github.repository == 'Ujhhgtg/WeKit-Dev' && github.event_name == 'workflow_dispatch' }}
     services:
       telegram-bot-api:
         image: aiogram/telegram-bot-api:latest
