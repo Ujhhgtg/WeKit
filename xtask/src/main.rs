@@ -128,7 +128,8 @@ enum Cmd {
     /// Pass --native-only to compile only the Rust .so and copy it to jniLibs/.
     Build(BuildArgs),
 
-    /// Build the pinned cloudflared C bridge and copy it to jniLibs.
+    /// Build the pinned cloudflared C bridge for the cloudflared extension
+    /// pack (the pack zip is built from target/cloudflared).
     CloudflaredBuild(NativeArgs),
 
     /// Install and launch the app on a connected device or emulator.
@@ -1089,19 +1090,6 @@ pub(crate) fn task_build_cloudflared(abi_args: &[String]) -> Result<()> {
                 spec.android_name
             );
         }
-
-        let so_dst_dir = jni_libs_dir(&root).join(spec.android_name);
-        fs::create_dir_all(&so_dst_dir)
-            .with_context(|| format!("could not create {}", so_dst_dir.display()))?;
-        let so_dst = so_dst_dir.join("libwekit_cloudflared.so");
-        fs::copy(&so_src, &so_dst).with_context(|| {
-            format!("could not copy {} → {}", so_src.display(), so_dst.display())
-        })?;
-        println!(
-            "cloudflared-build:  {} → {}",
-            so_src.display(),
-            so_dst.display()
-        );
     }
     Ok(())
 }
