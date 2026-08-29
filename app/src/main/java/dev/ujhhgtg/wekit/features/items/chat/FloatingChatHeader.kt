@@ -263,6 +263,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** 每个会话页布局对应的顶部"选择到这里"按钮, inflate 后缓存, 失效则重找。 */
     private val quickSelectUpViews = WeakHashMap<View, View>()
 
+    /** 每个会话页布局对应的"N条新消息"角标, 缓存后每次使用前重新验证特征。 */
+    private val newMsgChipViews = WeakHashMap<View, View>()
+
     /** 每个会话页布局对应的内容区宿主 (包含 ChattingScrollLayout 的那个直接子 View)。 */
     private val contentHosts = WeakHashMap<View, View>()
 
@@ -852,6 +855,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         suppressTipsBarDimFor(layout)
         applyChatListPadding(layout, header)
         val quickSelectCovered = applyQuickSelectOffset(layout, header)
+        applyNewMsgChipOffset(layout, header)
         val covered = (if (quickSelectCovered) RECONCILE_QUICK_SELECT else 0) or
             if (tipsCovered) RECONCILE_TIPS else 0
         val tracker = layoutTrackers[layout] ?: return covered
@@ -2562,6 +2566,49 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         return true
     }
 
+    /**
+     * 右上角"N条新消息"角标 (HistoryMsgTongue, ss.xml 的 bm4): ChattingContent 直接子 View 里
+     * top|end 的 wrap_content 小浮层, 与"选择到这里"按钮同理, 标题栏悬浮后内容区顶到屏幕
+     * 上方, 角标会落在标题卡背后。这里把处于 top|end 态的角标推到标题卡 (或已悬浮的
+     * 置顶消息卡) 下沿 + 卡片间距。微信的 HistoryMsgTongueComponent 会按状态重设它的
+     * gravity/topMargin, 每帧重算即可覆盖; 角标切到底部态后不再命中特征, 边距交还给微信。
+     */
+    private fun applyNewMsgChipOffset(layout: View, header: View) {
+        if (headerTopOffsets[layout] == null) return
+        val content = chatContent(layout) as? ViewGroup ?: return
+        val chip = newMsgChipView(content, layout) ?: return
+        val density = layout.resources.displayMetrics.density
+        val gapPx = (extraGapDp * density).toInt()
+        val titleBottomPx = statusBarOffset(layout) +
+            header.height + (topGapDp * density).toInt()
+        // 置顶消息卡等悬浮覆盖卡存在时角标排到它们下方, 不与卡片重叠
+        val targetPx = (overlayCardBottoms[layout] ?: titleBottomPx) + gapPx
+        // ChattingScrollLayout 滚动时用 translationY 移动内容区, 要一起算进角标的屏幕位置
+        val contentTopPx = content.offsetTopIn(layout) + content.translationY.roundToInt()
+        val marginTop = (targetPx - contentTopPx).coerceAtLeast(0)
+        val lp = chip.layoutParams as? FrameLayout.LayoutParams ?: return
+        if (lp.topMargin != marginTop) {
+            lp.topMargin = marginTop
+            chip.requestLayout()
+            WeLogger.d(TAG, "new message chip top margin -> $marginTop")
+        }
+    }
+
+    private fun newMsgChipView(content: ViewGroup, layout: View): View? {
+        // 角标会随状态切换 gravity (top|end ↔ bottom|end), 缓存命中也要重新验证特征
+        newMsgChipViews[layout]?.takeIf { it.parent === content && it.isNewMsgChip() }
+            ?.let { return it }
+        newMsgChipViews.remove(layout)
+        for (i in 0 until content.childCount) {
+            val child = content.getChildAt(i)
+            if (child.isNewMsgChip()) {
+                newMsgChipViews[layout] = child
+                return child
+            }
+        }
+        return null
+    }
+
     private fun chatContent(layout: View): View? {
         chatContents[layout]?.takeIf { it.isAttachedToWindow }?.let { return it }
         val found = layout.allViews.firstOrNull {
@@ -2618,6 +2665,24 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             lp.height != ViewGroup.LayoutParams.WRAP_CONTENT
         ) return false
         return lp.topMargin > 0
+    }
+
+    /**
+     * 结构特征: 内容区直接子 View 里 top|end 的 wrap_content LinearLayout (ss.xml 的 bm4),
+     * 内含 TextView。8.0.65–8.0.77 的聊天布局里它是该位置唯一的这类子 View
+     * (bk8 是 match_parent 宽, bm2 是 bottom|right)。
+     */
+    @SuppressLint("RtlHardcoded")
+    private fun View.isNewMsgChip(): Boolean {
+        val lp = layoutParams as? FrameLayout.LayoutParams ?: return false
+        val topRight = Gravity.TOP or Gravity.RIGHT
+        val topEnd = Gravity.TOP or Gravity.END
+        if (lp.gravity != topRight && lp.gravity != topEnd) return false
+        if (lp.width != ViewGroup.LayoutParams.WRAP_CONTENT ||
+            lp.height != ViewGroup.LayoutParams.WRAP_CONTENT
+        ) return false
+        if (this !is LinearLayout) return false
+        return allViews.any { it is TextView }
     }
 
     private fun View.chatRecycler(): View? {
