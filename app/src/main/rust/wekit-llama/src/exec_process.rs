@@ -15,6 +15,7 @@ use std::time::{Duration, Instant};
 use serde_json::Value;
 
 use crate::loge;
+use crate::logi;
 use crate::server;
 use crate::server::HttpServerConfig;
 
@@ -132,10 +133,37 @@ pub fn spawn_server(
     cfg: ExecServerConfig,
     on_event: Arc<dyn Fn(ChildEvent) + Send + Sync>,
 ) -> Result<SpawnedServer, String> {
-    spawn_with_builder(on_event, READY_TIMEOUT, move |status_fd| {
+    let child_log_path = child_log_path(&cfg.native_library);
+    logi!(
+        "LocalLlama: spawning llama child (model {}, backend {}); child stderr/stdout log: {}",
+        cfg.server.engine.model_path,
+        cfg.server.engine.backend.as_str(),
+        child_log_path
+    );
+    spawn_with_builder(on_event, READY_TIMEOUT, &child_log_path, move |status_fd| {
         let environment = std::env::vars_os().collect::<Vec<_>>();
         build_exec_command_from_env(&cfg, status_fd, environment)
     })
+    .inspect(|spawned| {
+        logi!(
+            "LocalLlama: llama child ready: pid {}, port {}",
+            spawned.pid,
+            spawned.port
+        );
+    })
+}
+
+/// Diagnostics sink for the exec child's stdout/stderr: next to the native
+/// library, or `/dev/null` when the library path has no parent directory.
+fn child_log_path(native_library: &str) -> String {
+    std::path::Path::new(native_library)
+        .parent()
+        .map(|dir| {
+            dir.join("wekit_llama_child.log")
+                .to_string_lossy()
+                .into_owned()
+        })
+        .unwrap_or_else(|| "/dev/null".to_owned())
 }
 
 #[doc(hidden)]
@@ -169,7 +197,7 @@ fn spawn_test_shell_inner(
     ready_timeout: Duration,
 ) -> Result<SpawnedServer, String> {
     let script = script.to_owned();
-    spawn_with_builder(on_event, ready_timeout, move |status_fd| {
+    spawn_with_builder(on_event, ready_timeout, "/dev/null", move |status_fd| {
         prepare_command(
             "/bin/sh",
             vec![
@@ -188,13 +216,18 @@ fn spawn_test_shell_inner(
 #[cfg(not(target_os = "android"))]
 pub fn spawn_test_program(program: &str) -> Result<SpawnedServer, String> {
     let program = program.to_owned();
-    spawn_with_builder(Arc::new(|_| {}), READY_TIMEOUT, move |_| {
-        prepare_command(
-            &program,
-            vec![program.clone()],
-            std::env::vars_os().collect(),
-        )
-    })
+    spawn_with_builder(
+        Arc::new(|_| {}),
+        READY_TIMEOUT,
+        "/dev/null",
+        move |_| {
+            prepare_command(
+                &program,
+                vec![program.clone()],
+                std::env::vars_os().collect(),
+            )
+        },
+    )
 }
 
 #[cfg(not(target_os = "android"))]
@@ -230,6 +263,7 @@ where
 fn spawn_with_builder(
     on_event: Arc<dyn Fn(ChildEvent) + Send + Sync>,
     ready_timeout: Duration,
+    child_log_path: &str,
     build: impl FnOnce(i32) -> Result<PreparedExec, String>,
 ) -> Result<SpawnedServer, String> {
     let fds = status_pipe()?;
@@ -240,6 +274,10 @@ fn spawn_with_builder(
             return Err(error);
         }
     };
+    // Resolved before fork: the post-fork child may only run
+    // async-signal-safe code, which rules out allocation.
+    let child_log_cpath =
+        CString::new(child_log_path).unwrap_or_else(|_| CString::new("/dev/null").unwrap());
     let close_fds = match snapshot_open_fds() {
         Ok(open_fds) => open_fds
             .into_iter()
@@ -270,7 +308,15 @@ fn spawn_with_builder(
         return Err(format!("fork failed: {error}"));
     }
     if pid == 0 {
-        child_exec(fds[0], fds[1], &close_fds, &command, &argv_ptrs, &env_ptrs);
+        child_exec(
+            fds[0],
+            fds[1],
+            &close_fds,
+            &command,
+            &argv_ptrs,
+            &env_ptrs,
+            &child_log_cpath,
+        );
     }
 
     unsafe { libc::close(fds[1]) };
@@ -323,6 +369,7 @@ fn child_exec(
     command: &PreparedExec,
     argv_ptrs: &[*const libc::c_char],
     env_ptrs: &[*const libc::c_char],
+    log_path: &std::ffi::CStr,
 ) -> ! {
     unsafe {
         libc::close(parent_fd);
@@ -346,13 +393,22 @@ fn child_exec(
         }
         libc::setpriority(libc::PRIO_PROCESS, 0, 19);
 
-        let null_fd = libc::open(c"/dev/null".as_ptr(), libc::O_RDWR);
-        if null_fd >= 0 {
-            libc::dup2(null_fd, 0);
-            libc::dup2(null_fd, 1);
-            libc::dup2(null_fd, 2);
-            if null_fd > 2 {
-                libc::close(null_fd);
+        // Child stdout/stderr go to the diagnostics log file (fall back to
+        // /dev/null) so llama.cpp logs and pre-exec failures survive.
+        let mut log_fd = libc::open(
+            log_path.as_ptr(),
+            libc::O_WRONLY | libc::O_CREAT | libc::O_APPEND,
+            0o600,
+        );
+        if log_fd < 0 {
+            log_fd = libc::open(c"/dev/null".as_ptr(), libc::O_RDWR);
+        }
+        if log_fd >= 0 {
+            libc::dup2(log_fd, 0);
+            libc::dup2(log_fd, 1);
+            libc::dup2(log_fd, 2);
+            if log_fd > 2 {
+                libc::close(log_fd);
             }
         }
 
@@ -532,8 +588,20 @@ pub fn notify_idle_exit() {
 }
 
 pub fn run_server_process(cfg: HttpServerConfig, status_fd: i32) -> Result<(), String> {
+    logi!(
+        "LocalLlama: child server starting: model {}, n_ctx {}, backend {}, threads {}, \
+         idle_timeout {}s, status fd {}",
+        cfg.engine.model_path,
+        cfg.engine.n_ctx,
+        cfg.engine.backend.as_str(),
+        cfg.engine.threads,
+        cfg.engine.idle_timeout_secs,
+        status_fd
+    );
+    spawn_fd_watchdog(status_fd);
     IDLE_PIPE_FD.store(status_fd, Ordering::SeqCst);
     std::panic::set_hook(Box::new(move |info| {
+        loge!("LocalLlama: child panic: {info}");
         pipe_write(status_fd, &error_line(&format!("panic: {info}")));
     }));
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -546,15 +614,18 @@ pub fn run_server_process(cfg: HttpServerConfig, status_fd: i32) -> Result<(), S
     let server_fd = status_fd;
     runtime.spawn(async move {
         let exit_code = match server::serve(cfg, move |port| {
+            logi!("LocalLlama: child ready on port {port}");
             let _ = ready_tx.send(port);
         })
         .await
         {
             Ok(()) => {
+                logi!("LocalLlama: child server stopped");
                 pipe_write(server_fd, &exiting_line("server stopped"));
                 0
             }
             Err(error) => {
+                loge!("LocalLlama: child server failed: {error}");
                 pipe_write(server_fd, &error_line(&error));
                 1
             }
@@ -568,6 +639,51 @@ pub fn run_server_process(cfg: HttpServerConfig, status_fd: i32) -> Result<(), S
         pipe_write(status_fd, &ready_line(port));
         std::future::pending::<Result<(), String>>().await
     })
+}
+
+/// Child-side diagnostic: watches the status pipe's write end for closure.
+/// `POLLNVAL` means the fd was closed by something *inside this process*;
+/// `POLLERR`/`POLLHUP` mean the parent's read end went away. Logs the moment
+/// it happens (with uptime) so the child-side activity log pinpoints what was
+/// running when the pipe closed.
+fn spawn_fd_watchdog(status_fd: i32) {
+    let started = Instant::now();
+    let _ = thread::Builder::new()
+        .name("wekit-llama-fdwatch".to_owned())
+        .spawn(move || {
+            let mut last_revents: i16 = 0;
+            loop {
+                let mut poll_fd = libc::pollfd {
+                    fd: status_fd,
+                    events: 0,
+                    revents: 0,
+                };
+                let count = unsafe { libc::poll(&mut poll_fd, 1, 500) };
+                if count < 0 {
+                    continue;
+                }
+                let revents = poll_fd.revents;
+                if revents == last_revents {
+                    continue;
+                }
+                last_revents = revents;
+                if revents & libc::POLLNVAL != 0 {
+                    logi!(
+                        "LocalLlama: child status fd {status_fd} was CLOSED by something inside \
+                         the child at uptime {}s",
+                        started.elapsed().as_secs()
+                    );
+                    return;
+                }
+                if revents & (libc::POLLERR | libc::POLLHUP) != 0 {
+                    logi!(
+                        "LocalLlama: child status fd {status_fd} lost its parent read end \
+                         (revents {revents:#06x}) at uptime {}s",
+                        started.elapsed().as_secs()
+                    );
+                }
+            }
+        });
 }
 
 fn watch_child(mut reader: LineReader, pid: i32, on_event: Arc<dyn Fn(ChildEvent) + Send + Sync>) {
@@ -844,10 +960,7 @@ mod tests {
                 "{\"idleTimeoutSec\":600,\"temperature\":0.6,\"topP\":0.95,\"topK\":20}",
             ]
         );
-        assert_eq!(
-            env_value(&command.env, "CLASSPATH"),
-            Some("/data/app/wekit/base.apk")
-        );
+        assert_eq!(env_value(&command.env, "CLASSPATH"), Some("/data/app/wekit/base.apk"));
         assert_eq!(env_value(&command.env, "ANDROID_ROOT"), Some("/system"));
     }
 

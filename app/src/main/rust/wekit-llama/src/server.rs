@@ -35,6 +35,7 @@ use tokio_stream::StreamExt;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::llama::{Engine, EngineConfig, GenEvent, GenStats};
+use crate::logi;
 use crate::parse::{OutEvent, THINK_CLOSE, ThinkToolParser};
 use crate::template;
 use crate::truncate::{effective_max_tokens, prompt_token_budget, truncate_messages};
@@ -86,6 +87,18 @@ pub async fn serve(
         port,
         cfg.engine.idle_timeout_secs,
     ));
+    let backend = &state.core.backend_info;
+    logi!(
+        "LocalLlama: model '{}' loaded (requested {}, active {}, devices {:?}, \
+         gpu layers {}/{}) on 127.0.0.1:{}",
+        state.core.model_id,
+        backend.requested,
+        backend.active,
+        backend.devices,
+        backend.gpu_layers,
+        backend.total_layers,
+        port
+    );
     on_ready(port);
     tokio::spawn(idle_watch(state.clone()));
 
@@ -257,6 +270,14 @@ impl ServerState {
     /// Post-completion bookkeeping: context footprint + tokens/s EMA
     /// (alpha 0.5, seeded by the first request's value).
     fn record(&self, stats: &GenStats) {
+        logi!(
+            "LocalLlama: request completed: prompt {} tok, completion {} tok, tps {:.1}, ctx {}/{}",
+            stats.prompt_tokens,
+            stats.completion_tokens,
+            stats.tps,
+            stats.prompt_tokens + stats.completion_tokens,
+            self.core.n_ctx
+        );
         self.touch();
         self.ctx_used.store(
             stats.prompt_tokens + stats.completion_tokens,
@@ -467,6 +488,12 @@ async fn chat_completions(
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
     };
     let tools = req.tools.as_deref();
+    logi!(
+        "LocalLlama: chat request: {} messages, stream {}, max_tokens {requested_max_tokens}, \
+         prompt budget {budget}",
+        req.messages.len(),
+        req.stream.unwrap_or(false)
+    );
 
     // Truncation counting and rendering both need the engine; the same lock
     // then serializes generation (single-session server).
@@ -492,6 +519,11 @@ async fn chat_completions(
         Ok(max_tokens) => max_tokens,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
     };
+    logi!(
+        "LocalLlama: generation starting: prompt {prompt_tokens} tok, max_tokens {max_tokens}, \
+         thinking {}",
+        effort.enable_thinking
+    );
 
     let id = format!("chatcmpl-{:x}", unix_nanos());
     let model = st.core.model_id.clone();
@@ -763,6 +795,7 @@ async fn idle_watch(st: Arc<ServerState>) {
         tick.tick().await;
         let last = st.last_request_at.load(Ordering::Relaxed);
         if unix_now().saturating_sub(last) > st.idle_timeout_secs {
+            logi!("LocalLlama: idle timeout reached, exiting child server");
             // app_process mode reports the exit over the control pipe first;
             // the direct CLI just exits.
             crate::exec_process::notify_idle_exit();

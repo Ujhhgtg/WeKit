@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.model.local
 
+import android.util.Log
 import androidx.annotation.Keep
 import java.io.FileOutputStream
 import kotlin.system.exitProcess
@@ -9,10 +10,12 @@ import kotlinx.serialization.json.JsonPrimitive
 /** Minimal app_process entry point for the isolated local llama server. */
 @Keep
 object LlamaServerProcess {
+    private const val TAG = "WeKit"
 
     @JvmStatic
     fun main(args: Array<String>) {
         val inheritedStatusFd = args.getOrNull(1)?.toIntOrNull()
+        Log.i(TAG, "LocalLlama: child main: ${args.joinToString()}")
         try {
             require(args.size == 7) { "expected 7 arguments, got ${args.size}" }
             require(args[0] == "1") { "unsupported schema: ${args[0]}" }
@@ -25,6 +28,7 @@ object LlamaServerProcess {
             val configJson = args[6]
 
             System.load(nativeLibraryPath)
+            Log.i(TAG, "LocalLlama: child native lib loaded, calling runServerProcess")
             val exitCode = LlamaServerNative.runServerProcess(
                 modelPath,
                 nCtx,
@@ -32,8 +36,10 @@ object LlamaServerProcess {
                 configJson,
                 statusFd,
             )
+            Log.i(TAG, "LocalLlama: child runServerProcess returned $exitCode")
             exitProcess(exitCode)
         } catch (error: Throwable) {
+            Log.e(TAG, "LocalLlama: child main failed", error)
             if (inheritedStatusFd != null && inheritedStatusFd >= 0) {
                 val line = JsonObject(
                     mapOf(
