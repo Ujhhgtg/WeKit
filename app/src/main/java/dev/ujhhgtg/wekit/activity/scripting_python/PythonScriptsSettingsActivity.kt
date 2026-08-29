@@ -58,6 +58,7 @@ import com.composables.icons.materialsymbols.outlined.Edit
 import com.composables.icons.materialsymbols.outlined.Folder
 import com.composables.icons.materialsymbols.outlined.Refresh
 import com.composables.icons.materialsymbols.outlined.Restart_alt
+import com.composables.icons.materialsymbols.outlined.Upload
 import com.composables.icons.materialsymbols.outlined.Save
 import com.composables.icons.materialsymbols.outlined.Wrap_text
 import top.yukonga.scripta.editor.CodeEditor
@@ -532,6 +533,26 @@ private fun PythonDetailScreen(
     var pendingTrustPlugin by remember { mutableStateOf<String?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    val exportSuccessText = stringResource(R.string.python_export_success)
+    val exportZipLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            coroutineScope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openOutputStream(uri, "w")!!.use { output ->
+                            PythonPluginManager.exportPlugin(pluginId, output)
+                        }
+                    }
+                }
+                result.fold(
+                    onSuccess = { showToast(context, exportSuccessText) },
+                    onFailure = {
+                        showToast(context, localizedContext.getString(R.string.python_export_failed, it.message ?: ""))
+                    },
+                )
+            }
+        }
     val inFlight = record.status == PythonPluginStatus.LOADING ||
         record.status == PythonPluginStatus.UNLOADING
     // 基本信息写入 plugin.json,插件运行中禁止编辑;开关本身保持可用以便停用。
@@ -609,6 +630,13 @@ private fun PythonDetailScreen(
                         title = stringResource(R.string.python_view_diagnostics),
                         icon = MaterialSymbols.Outlined.Bug_report,
                         onClick = openDiagnostics,
+                    )
+                }
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.python_export_plugin),
+                        icon = MaterialSymbols.Outlined.Upload,
+                        onClick = { exportZipLauncher.launch("$pluginId.zip") },
                     )
                 }
                 item {

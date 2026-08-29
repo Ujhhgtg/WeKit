@@ -527,6 +527,7 @@
     <string name="python_diag_not_mounted">未挂载</string>
     <string name="python_new_plugin">新建插件</string>
     <string name="python_import_plugin">从 ZIP 导入</string>
+    <string name="python_export_plugin">导出为 ZIP</string>
     <string name="python_plugin_id_label">插件 ID</string>
     <string name="python_plugin_id_hint">仅限小写字母、数字、点、下划线和连字符</string>
     <string name="python_plugin_name_label">名称</string>
@@ -537,6 +538,8 @@
     <string name="python_edit_info_locked">插件运行中，请先停用再编辑</string>
     <string name="python_import_success">插件导入成功</string>
     <string name="python_import_failed">导入失败：%1$s</string>
+    <string name="python_export_success">插件导出成功</string>
+    <string name="python_export_failed">导出失败：%1$s</string>
     <string name="python_delete_plugin">删除插件</string>
     <string name="python_delete_plugin_confirm">将永久删除该插件的脚本与数据，且无法恢复。确定删除？</string>
     <string name="python_delete_failed">插件删除失败：%1$s</string>

@@ -526,6 +526,7 @@
     <string name="python_diag_not_mounted">未掛載</string>
     <string name="python_new_plugin">新增外掛</string>
     <string name="python_import_plugin">從 ZIP 匯入</string>
+    <string name="python_export_plugin">匯出為 ZIP</string>
     <string name="python_plugin_id_label">外掛 ID</string>
     <string name="python_plugin_id_hint">僅限小寫字母、數字、點、底線與連字號</string>
     <string name="python_plugin_name_label">名稱</string>
@@ -536,6 +537,8 @@
     <string name="python_edit_info_locked">外掛執行中，請先停用再編輯</string>
     <string name="python_import_success">外掛匯入成功</string>
     <string name="python_import_failed">匯入失敗：%1$s</string>
+    <string name="python_export_success">外掛匯出成功</string>
+    <string name="python_export_failed">匯出失敗：%1$s</string>
     <string name="python_delete_plugin">刪除外掛</string>
     <string name="python_delete_plugin_confirm">將永久刪除此外掛的腳本與資料，且無法復原。確定刪除？</string>
     <string name="python_delete_failed">外掛刪除失敗：%1$s</string>

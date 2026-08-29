@@ -565,6 +565,7 @@
     <string name="python_diag_not_mounted">Not mounted</string>
     <string name="python_new_plugin">New plugin</string>
     <string name="python_import_plugin">Import from zip</string>
+    <string name="python_export_plugin">Export to zip</string>
     <string name="python_plugin_id_label">Plugin ID</string>
     <string name="python_plugin_id_hint">Lowercase letters, digits, dots, underscores and hyphens</string>
     <string name="python_plugin_name_label">Name</string>
@@ -575,6 +576,8 @@
     <string name="python_edit_info_locked">Stop the plugin before editing its info</string>
     <string name="python_import_success">Plugin imported</string>
     <string name="python_import_failed">Import failed: %1$s</string>
+    <string name="python_export_success">Plugin exported</string>
+    <string name="python_export_failed">Export failed: %1$s</string>
     <string name="python_delete_plugin">Delete plugin</string>
     <string name="python_delete_plugin_confirm">Permanently delete this plugin\'s scripts and data? This cannot be undone.</string>
     <string name="python_delete_failed">Failed to delete plugin: %1$s</string>

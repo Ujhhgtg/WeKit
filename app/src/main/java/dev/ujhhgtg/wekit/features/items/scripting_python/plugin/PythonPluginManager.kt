@@ -16,9 +16,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.OutputStream
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
+import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
 import kotlin.io.path.div
 
 object PythonPluginManager {
@@ -245,6 +248,18 @@ object PythonPluginManager {
             } catch (error: Throwable) {
                 staging.deleteRecursively()
                 throw error
+            }
+        }
+    }
+
+    fun exportPlugin(pluginId: String, output: OutputStream) = synchronized(discoveryLock) {
+        val root = File(scriptsDirectory, pluginId)
+        require(root.isDirectory) { "Plugin not found: $pluginId" }
+        ZipOutputStream(output.buffered()).use { zip ->
+            root.walkTopDown().filter(File::isFile).forEach { file ->
+                zip.putNextEntry(ZipEntry(file.toRelativeString(root).replace(File.separatorChar, '/')))
+                file.inputStream().use { it.copyTo(zip) }
+                zip.closeEntry()
             }
         }
     }
