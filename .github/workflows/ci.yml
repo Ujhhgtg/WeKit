@@ -500,6 +500,11 @@ jobs:
           cache: true
           cache-dependency-path: app/src/main/go/wekit-cloudflared/go.sum
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: false
+
       - name: Install system dependencies
         # glslc compiles the llama.cpp Vulkan shaders for the llama-native pack.
         run: |
