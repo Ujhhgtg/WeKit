@@ -520,6 +520,11 @@ jobs:
             "$AGENT_TOOLSDIRECTORY/Python" || true
           sudo docker image prune -af >/dev/null 2>&1 || true
           sudo apt-get clean
+          # Headroom against OOM during the llama.cpp/native compile bursts.
+          sudo fallocate -l 6G /mnt/swapfile || true
+          sudo chmod 600 /mnt/swapfile || true
+          sudo mkswap /mnt/swapfile >/dev/null 2>&1 || true
+          sudo swapon /mnt/swapfile || true
           df -h /
 
       - name: Grant execute permission
@@ -542,8 +547,9 @@ jobs:
           echo "ndk=$(sed -n 's/^ndk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
           echo "min_sdk=$(sed -n 's/^minSdk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
 
-      - name: Cache PRoot build
-        uses: actions/cache@v6
+      - name: Restore PRoot build
+        id: proot_cache
+        uses: actions/cache/restore@v6
         with:
           path: target/proot-static
           key: proot-${{ runner.os }}-${{ runner.arch }}-${{ steps.proot_cache_inputs.outputs.commit }}-${{ steps.proot_cache_inputs.outputs.ndk }}-${{ steps.proot_cache_inputs.outputs.min_sdk }}-${{ hashFiles('patches/proot/android-ptrace-events.patch', 'third_party/proot-static/tools/build-static-aarch64.sh') }}
@@ -556,7 +562,7 @@ jobs:
           cache-on-failure: true
           workspaces: . -> target
 
-      - name: Build packs
+      - name: Download and verify Arch rootfs
         env:
           WEKIT_ARCH_ROOTFS: ${{ runner.temp }}/arch-pack/ArchLinuxARM-aarch64-rootfs.tar.gz
         run: |
@@ -581,9 +587,25 @@ jobs:
           test "$(gpg --show-keys --with-colons "$RUNNER_TEMP/arch-pack/signing-key.asc" | awk -F: '$1 == "fpr" { print $10; exit }')" = "$SIGNING_FINGERPRINT"
           gpg --batch --import "$RUNNER_TEMP/arch-pack/signing-key.asc"
           gpg --batch --verify "$WEKIT_ARCH_ROOTFS.sig" "$WEKIT_ARCH_ROOTFS"
+
+      - name: Build native library and proot
+        id: native_build
+        run: |
           cargo xtask configure
           cargo xtask build --native-only --abi arm64-v8a
-          cargo xtask extensions pack
+
+      - name: Save PRoot build
+        # Save explicitly and early: the hosted runner has died silently
+        # during "Pack extensions", and the post-save of actions/cache never
+        # ran then, leaving every retry with a ~30 min cold PRoot build.
+        if: always() && steps.native_build.outcome == 'success'
+        uses: actions/cache/save@v6
+        with:
+          path: target/proot-static
+          key: ${{ steps.proot_cache.outputs.cache-primary-key }}
+
+      - name: Pack extensions
+        run: cargo xtask extensions pack
 
       - name: Skip if assets already published
         id: published
