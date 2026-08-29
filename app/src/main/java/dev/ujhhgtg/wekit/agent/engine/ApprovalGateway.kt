@@ -4,12 +4,37 @@ import dev.ujhhgtg.wekit.agent.model.LlmMessage
 import dev.ujhhgtg.wekit.agent.model.LlmRequest
 import dev.ujhhgtg.wekit.agent.model.LlmRole
 import dev.ujhhgtg.wekit.agent.model.LlmStreamEvent
-import dev.ujhhgtg.wekit.agent.tool.ToolMode
+import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
+import dev.ujhhgtg.wekit.agent.tool.ProviderKind
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+
+/** How the current [PermissionLevel] wants a single tool call to be approved. */
+enum class ApprovalBehavior { AUTO, MANUAL, SMART }
+
+/**
+ * Resolves the approval behavior for a tool call under [level]. Side-effect-free tools always run
+ * directly. Side-effecting tools are gated per level — manual decision under REQUEST_APPROVAL,
+ * manual except the builtin `edit` under AUTO_EDIT, small-model review under AUTO_APPROVAL, direct
+ * execution under FULL_ACCESS. AUTO_EDIT's edit carve-out is builtin-only: an MCP server controls
+ * what its tools are *named*, so a remote tool called "edit" must not slip through.
+ */
+fun behaviorFor(
+    level: PermissionLevel,
+    sideEffect: Boolean,
+    providerKind: ProviderKind,
+    bareName: String,
+): ApprovalBehavior = when {
+    level == PermissionLevel.FULL_ACCESS || !sideEffect -> ApprovalBehavior.AUTO
+    level == PermissionLevel.AUTO_EDIT ->
+        if (providerKind == ProviderKind.BUILTIN && bareName == "edit") ApprovalBehavior.AUTO
+        else ApprovalBehavior.MANUAL
+    level == PermissionLevel.AUTO_APPROVAL -> ApprovalBehavior.SMART
+    else -> ApprovalBehavior.MANUAL
+}
 
 /** Outcome of an approval decision for a single tool call. */
 sealed interface ApprovalDecision {
@@ -42,25 +67,24 @@ fun interface ManualApprovalHandler {
 }
 
 /**
- * Resolves a tool call's [ToolMode] into an [ApprovalDecision]. ENABLED allows immediately; DISABLED
- * should never reach here (hidden from the model); MANUAL_APPROVAL suspends on [manualHandler];
- * SMART_APPROVAL fires an independent small-model request (§2.2) that does not share the session
- * context nor count toward its request budget.
+ * Resolves a tool call into an [ApprovalDecision] from the precomputed [ApprovalBehavior] (see
+ * [behaviorFor]). AUTO allows immediately; MANUAL suspends on [manualHandler]; SMART fires an
+ * independent small-model request (§2.2) that does not share the session context nor count toward
+ * its request budget.
  */
 class ApprovalGateway(
     private val manualHandler: ManualApprovalHandler,
     private val smallModel: SmallModelRef?,
 ) {
     suspend fun decide(
-        mode: ToolMode,
+        behavior: ApprovalBehavior,
         toolName: String,
         providerName: String,
         argumentsJson: String,
         modelExplanation: String?,
-    ): ApprovalDecision = when (mode) {
-        ToolMode.ENABLED -> ApprovalDecision.Allowed
-        ToolMode.DISABLED -> ApprovalDecision.Denied("Tool is disabled", bySmartReview = false)
-        ToolMode.MANUAL_APPROVAL -> {
+    ): ApprovalDecision = when (behavior) {
+        ApprovalBehavior.AUTO -> ApprovalDecision.Allowed
+        ApprovalBehavior.MANUAL -> {
             val pending = PendingApproval(toolName, providerName, argumentsJson, modelExplanation)
             when (val res = manualHandler.requestApproval(pending)) {
                 is ManualApprovalResult.Approved -> ApprovalDecision.Allowed
@@ -69,7 +93,7 @@ class ApprovalGateway(
             }
         }
 
-        ToolMode.SMART_APPROVAL -> smartReview(toolName, argumentsJson, modelExplanation)
+        ApprovalBehavior.SMART -> smartReview(toolName, argumentsJson, modelExplanation)
     }
 
     /**
@@ -95,7 +119,7 @@ class ApprovalGateway(
         val model = smallModel ?: run {
             WeLogger.w(TAG, "smart approval configured but no small model; denying")
             return ApprovalDecision.Denied(
-                "用户为该工具启用了「智能审批」但未配置审批小模型。请让用户在 WeAgent 设置中配置审批小模型或切换审批模式。",
+                "当前权限等级为「自动审批」，但未配置审批小模型。请让用户在 WeAgent 设置中配置审批小模型，或调整权限等级。",
                 bySmartReview = true
             )
         }

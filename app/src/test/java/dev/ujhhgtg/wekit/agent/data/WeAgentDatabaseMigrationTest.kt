@@ -60,6 +60,27 @@ class WeAgentDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun `migration 14 to 15 adds session permission level and drops per-tool permissions`() {
+        DriverManager.getConnection("jdbc:sqlite::memory:").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute("CREATE TABLE sessions (id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, modelId TEXT, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL)")
+                statement.execute("CREATE TABLE tool_permissions (providerId TEXT NOT NULL, toolName TEXT NOT NULL, mode TEXT NOT NULL, PRIMARY KEY(providerId, toolName))")
+                statement.execute("INSERT INTO sessions VALUES ('session', 'Title', 'model', 1, 2)")
+                statement.execute("INSERT INTO tool_permissions VALUES ('builtin-fs', 'read_file', 'ENABLED')")
+                WeAgentDatabase.migration14To15Sql.forEach(statement::execute)
+            }
+
+            connection.createStatement().use { statement ->
+                statement.executeQuery("SELECT permissionLevel FROM sessions WHERE id = 'session'").use { rows ->
+                    assertTrue(rows.next())
+                    assertEquals(null, rows.getString(1))
+                }
+                assertFalse(statement.tableExists("tool_permissions"))
+            }
+        }
+    }
+
     private fun java.sql.Statement.count(table: String, where: String = "1"): Int =
         executeQuery("SELECT COUNT(*) FROM $table WHERE $where").use { rows -> rows.next(); rows.getInt(1) }
 

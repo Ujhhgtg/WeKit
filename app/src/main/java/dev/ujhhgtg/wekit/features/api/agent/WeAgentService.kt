@@ -35,7 +35,9 @@ import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaModels
 import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaSync
 import dev.ujhhgtg.wekit.agent.net.ExternalServiceId
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
+import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
+import dev.ujhhgtg.wekit.agent.trigger.TriggerManager
 import dev.ujhhgtg.wekit.agent.ui.UiImageSink
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.ballState
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.handleEvent
@@ -75,14 +77,14 @@ import kotlinx.coroutines.withContext
  * [ballState]/[pendingApproval] and calls [sendMessage]/[newSession]/[switchSession]/… — all heavy
  * logic lives here.
  */
-object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHost {
+object WeAgentService : TriggerManager.TriggerHost {
 
     private const val TAG = "WeAgentService"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // Permission resolution + persistence are unified in the repository.
-    private val registry = ToolRegistry(permissions = WeAgentRepository, providers = BuiltinToolProvider.all)
+    // Visibility gating + session-level permission are unified outside the registry.
+    private val registry = ToolRegistry(BuiltinToolProvider.all)
 
     val linuxEnvironmentManager = LinuxEnvironmentManager(highRiskApproval = ::requestHighRiskApproval)
 
@@ -99,14 +101,15 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     val toolBridgeServer = ToolBridgeServer(
         registry = registry,
         executorFactory = { sessionId ->
-            ToolCallExecutor(registry, ApprovalGateway(manualApprovalHandler, resolveSmallModel(sessionId)))
+            ToolCallExecutor(registry, ApprovalGateway(manualApprovalHandler, resolveSmallModel(sessionId)),
+                permissionLevel = { resolvePermissionLevel(sessionId) })
         },
         scope = scope,
         audit = WeAgentRepository::appendBridgeToolAudit,
     )
 
     /** Trigger runtime (schedule + message/SQL event triggers). Started in [init]. */
-    val triggerManager = dev.ujhhgtg.wekit.agent.trigger.TriggerManager(scope, this)
+    val triggerManager = TriggerManager(scope, this)
 
     // --- UI state (Compose snapshot) ---
 
@@ -156,6 +159,12 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     /** Current session's bound model / system-prompt ids, for the input-bar + menu. */
     val currentModelId = mutableStateOf<String?>(null)
     val currentSystemPromptId = mutableStateOf<String?>(null)
+
+    /**
+     * Current session's bound permission level, for the input-bar permission menu. Null = "默认"
+     * (follow the settings default, resolved per tool call).
+     */
+    val currentPermissionLevel = mutableStateOf<PermissionLevel?>(null)
 
     /** Current session's explicit Linux environment binding; null follows the global default. */
     val currentLinuxEnvironmentId = mutableStateOf<String?>(null)
@@ -253,9 +262,9 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     // -----------------------------------------------------------------------------------------
 
     private suspend fun initialize() {
-        // Warm the DB, seed permissions, load settings.
+        // Warm the DB, seed providers, load settings.
         WeAgentDatabase.instance
-        WeAgentRepository.seedAndLoad()
+        WeAgentRepository.seedBuiltinProviders()
         LocalLlamaSync.schedule()
         linuxEnvironmentManager.initialize()
         WeAgentSettings.load()
@@ -398,6 +407,8 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             if (currentSessionId.value != id) return@withContext false
             currentModelId.value = session?.modelId
             if (currentSessionId.value != id) return@withContext false
+            currentPermissionLevel.value = session?.permissionLevel
+            if (currentSessionId.value != id) return@withContext false
             currentSystemPromptId.value = session?.systemPromptId
             if (currentSessionId.value != id) return@withContext false
             currentLinuxEnvironmentId.value = session?.linuxEnvironmentId
@@ -470,6 +481,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
                 currentUsage.value = null
                 currentContextWindow.value = null
                 currentModelId.value = null
+                currentPermissionLevel.value = null
                 currentSystemPromptId.value = null
                 currentLinuxEnvironmentId.value = null
                 pendingApproval.value = null
@@ -515,6 +527,23 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         currentSessionId.value?.let { WeAgentRepository.updateSessionModel(it, modelId) }
         withContext(Dispatchers.Main) { currentModelId.value = modelId }
     }
+
+    /**
+     * Binds (or clears, level=null → "默认") the current session's tool permission level. Takes
+     * effect immediately: tool calls resolve the level at call time, not per turn.
+     */
+    fun setSessionPermissionLevel(level: PermissionLevel?) = scope.launch {
+        currentSessionId.value?.let { WeAgentRepository.updateSessionPermissionLevel(it, level) }
+        withContext(Dispatchers.Main) { currentPermissionLevel.value = level }
+    }
+
+    /**
+     * The session's effective permission level, resolved per tool call: the session binding wins,
+     * otherwise the settings default. Called on the engine's IO dispatcher.
+     */
+    private suspend fun resolvePermissionLevel(sessionId: String): PermissionLevel =
+        WeAgentRepository.getSession(sessionId)?.permissionLevel
+            ?: WeAgentSettings.defaultPermissionLevel()
 
     fun setSessionSystemPrompt(systemPromptId: String?) = scope.launch {
         currentSessionId.value?.let { WeAgentRepository.updateSessionSystemPrompt(it, systemPromptId) }
@@ -913,7 +942,10 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             smallModel = resolveSmallModel(sessionId),
         )
         val sink = RoomHistorySink(sessionId)
-        return AgentSessionEngine(registry, approval, composer, sink)
+        return AgentSessionEngine(
+            registry, approval, composer, sink,
+            permissionLevel = { resolvePermissionLevel(sessionId) },
+        )
     }
 
     /**

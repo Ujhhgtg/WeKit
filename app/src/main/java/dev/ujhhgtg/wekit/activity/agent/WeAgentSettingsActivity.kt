@@ -24,7 +24,7 @@ import dev.ujhhgtg.wekit.ui.agent.settings.ModelProviderDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ModelProvidersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.PromptsScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.SkillsScreen
-import dev.ujhhgtg.wekit.ui.agent.settings.ToolPermissionListScreen
+import dev.ujhhgtg.wekit.ui.agent.settings.ToolListScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.TriggersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.WeAgentHomeScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.builtinProviderDisplayName
@@ -85,7 +85,7 @@ sealed interface AgentSettingsRoute : NavKey {
     @Serializable
     data object BuiltinTools : AgentSettingsRoute
     @Serializable
-    data class BuiltinToolPermissions(val providerId: String) : AgentSettingsRoute
+    data class BuiltinProviderTools(val providerId: String) : AgentSettingsRoute
     @Serializable
     data object McpServers : AgentSettingsRoute
     @Serializable
@@ -153,13 +153,12 @@ private fun WeAgentSettingsRoot(onFinish: () -> Unit) {
             entry<AgentSettingsRoute.BuiltinTools>(swipeDismiss = NavSwipeDirection.LeftToRight) {
                 BuiltinProvidersScreen(
                     onBack = { navigator.pop() },
-                    onOpenProvider = { navigator.push(AgentSettingsRoute.BuiltinToolPermissions(it)) },
+                    onOpenProvider = { navigator.push(AgentSettingsRoute.BuiltinProviderTools(it)) },
                 )
             }
-            entry<AgentSettingsRoute.BuiltinToolPermissions>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
-                ToolPermissionListScreen(
+            entry<AgentSettingsRoute.BuiltinProviderTools>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
+                ToolListScreen(
                     title = builtinProviderDisplayName(key.providerId),
-                    providerId = key.providerId,
                     tools = builtinProviderTools(key.providerId),
                     onBack = { navigator.pop() },
                 )

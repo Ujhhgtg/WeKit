@@ -4,7 +4,6 @@ import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.agent.data.entity.McpTransport
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
 import dev.ujhhgtg.wekit.agent.tool.ProviderTool
-import dev.ujhhgtg.wekit.agent.tool.ToolMode
 import dev.ujhhgtg.wekit.agent.tool.ToolProvider
 import dev.ujhhgtg.wekit.utils.WeLogger
 import io.ktor.client.HttpClient
@@ -142,13 +141,11 @@ class McpToolProvider(
                 name = tool.name,
                 description = tool.description ?: "",
                 jsonSchema = buildSchema(tool.inputSchema.properties, tool.inputSchema.required),
-                // Remote tools default to MANUAL_APPROVAL, like side-effecting built-ins. Adding a
-                // server trusts it to be reachable, not to be handed unattended execution: the
-                // server alone decides what each tool does, and its name/description go verbatim
-                // into the model's context, so with a MESSAGE trigger someone else's chat message
-                // could otherwise drive a destructive tool with no approval card. Promote per tool
-                // in 设置 → MCP 服务器.
-                factoryDefaultMode = ToolMode.MANUAL_APPROVAL,
+                // Remote tools count as side-effecting, like side-effecting built-ins: the server
+                // alone decides what each tool does, and its name/description go verbatim into the
+                // model's context — so with a MESSAGE trigger someone else's chat message could
+                // otherwise drive a destructive tool with no approval card under permissive levels.
+                sideEffect = true,
             )
         }
 

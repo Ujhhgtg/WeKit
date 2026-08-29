@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.agent.model.LlmRole
 import dev.ujhhgtg.wekit.agent.model.LlmStreamEvent
 import dev.ujhhgtg.wekit.agent.model.LlmToolCall
 import dev.ujhhgtg.wekit.agent.model.LlmToolSpec
+import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.agent.tool.ToolLoadingMode
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
 import dev.ujhhgtg.wekit.agent.tool.WireTool
@@ -71,8 +72,10 @@ class AgentSessionEngine(
     private val approvalGateway: ApprovalGateway,
     private val promptComposer: PromptComposer,
     private val historySink: HistorySink,
+    /** Resolves the session's permission level per tool call, so level changes apply immediately. */
+    private val permissionLevel: suspend () -> PermissionLevel,
 ) {
-    private val toolCallExecutor = ToolCallExecutor(registry, approvalGateway)
+    private val toolCallExecutor = ToolCallExecutor(registry, approvalGateway, permissionLevel)
     /**
      * Persists conversation state as the loop advances. Implemented over Room by WeAgentService;
      * kept as an interface so the engine has no direct DB dependency and stays testable.

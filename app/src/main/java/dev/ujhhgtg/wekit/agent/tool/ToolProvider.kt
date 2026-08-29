@@ -28,12 +28,13 @@ interface ToolProvider {
 enum class ProviderKind { BUILTIN, MCP }
 
 /**
- * A tool as advertised by a [ToolProvider], before permission resolution. [factoryDefaultMode]
- * is the out-of-the-box mode used only to seed the permission table for a never-seen tool.
+ * A tool as advertised by a [ToolProvider]. [sideEffect] drives the session permission level's
+ * approval behavior: side-effect-free tools run directly in every level, side-effecting tools are
+ * gated (manually or by smart review) unless the session grants full access.
  */
 data class ProviderTool(
     val name: String,
     val description: String,
     val jsonSchema: JsonObject,
-    val factoryDefaultMode: ToolMode,
+    val sideEffect: Boolean,
 )

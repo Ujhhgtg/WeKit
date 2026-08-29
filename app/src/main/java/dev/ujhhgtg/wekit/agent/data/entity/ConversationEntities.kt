@@ -3,8 +3,8 @@ package dev.ujhhgtg.wekit.agent.data.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
-import dev.ujhhgtg.wekit.agent.tool.ToolMode
 import java.time.Instant
 
 // ---------------------------------------------------------------------------
@@ -24,6 +24,13 @@ data class SessionEntity(
      * to existing sessions instead of snapshotting the model at creation.
      */
     val modelId: String?,
+    /**
+     * Session-level tool permission (§3.1), or null for "默认" — meaning follow
+     * [dev.ujhhgtg.wekit.agent.data.WeAgentSettings.defaultPermissionLevel] resolved at call time.
+     * Null lets changing the global default apply to existing sessions instead of snapshotting the
+     * level at creation.
+     */
+    val permissionLevel: PermissionLevel? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
     /**
@@ -116,7 +123,7 @@ data class BridgeToolAuditEntity(
 )
 
 // ---------------------------------------------------------------------------
-// Tool providers & permissions (§10)
+// Tool providers (§10)
 // ---------------------------------------------------------------------------
 
 enum class McpTransport { STREAMABLE_HTTP, SSE }
@@ -130,11 +137,4 @@ data class ProviderEntity(
     val endpointUrl: String?,
     val headersJson: String?,
     val enabled: Boolean,
-)
-
-@Entity(tableName = "tool_permissions", primaryKeys = ["providerId", "toolName"])
-data class ToolPermissionEntity(
-    val providerId: String,
-    val toolName: String,
-    val mode: ToolMode,
 )

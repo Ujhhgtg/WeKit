@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.agent.engine
 import dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus
 import dev.ujhhgtg.wekit.agent.model.LlmJson
 import dev.ujhhgtg.wekit.agent.model.LlmToolCall
-import dev.ujhhgtg.wekit.agent.tool.ToolMode
+import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
 import dev.ujhhgtg.wekit.agent.tool.ToolVisibility
 import dev.ujhhgtg.wekit.agent.tool.ToolCallOrigin
@@ -20,6 +20,12 @@ class ToolExecutionContext(val callId: String) : AbstractCoroutineContextElement
 class ToolCallExecutor(
     private val registry: ToolRegistry,
     private val approvalGateway: ApprovalGateway,
+    /**
+     * Resolves the permission level at CALL time, not at executor construction: the requirement is
+     * that a level change takes effect immediately, including on tool calls later in a turn that is
+     * already running.
+     */
+    private val permissionLevel: suspend () -> PermissionLevel,
 ) {
     data class Context(
         val modelExplanation: String? = null,
@@ -43,15 +49,17 @@ class ToolCallExecutor(
         if (!ToolRegistry.isCallAllowed(tool.provider.kind, tool.exposedName, tool.bareName, context.origin)) {
             return Result("Tool is not available through the environment bridge: ${tool.exposedName}", ApprovalStatus.AUTO_ALLOWED, tool.provider.id, false)
         }
-        if (tool.mode == ToolMode.MANUAL_APPROVAL) context.onAwaitingApproval(call.name)
+        val level = permissionLevel()
+        val behavior = behaviorFor(level, tool.sideEffect, tool.provider.kind, tool.bareName)
+        if (behavior == ApprovalBehavior.MANUAL) context.onAwaitingApproval(call.name)
         return when (val decision = approvalGateway.decide(
-            tool.mode, tool.exposedName, tool.provider.name, call.argumentsJson, context.modelExplanation,
+            behavior, tool.exposedName, tool.provider.name, call.argumentsJson, context.modelExplanation,
         )) {
             is ApprovalDecision.Allowed -> {
-                val status = when (tool.mode) {
-                    ToolMode.MANUAL_APPROVAL -> ApprovalStatus.USER_APPROVED
-                    ToolMode.SMART_APPROVAL -> ApprovalStatus.AI_APPROVED
-                    else -> ApprovalStatus.AUTO_ALLOWED
+                val status = when (behavior) {
+                    ApprovalBehavior.MANUAL -> ApprovalStatus.USER_APPROVED
+                    ApprovalBehavior.SMART -> ApprovalStatus.AI_APPROVED
+                    ApprovalBehavior.AUTO -> ApprovalStatus.AUTO_ALLOWED
                 }
                 val execution = runCatching {
                     withContext(ToolExecutionContext(call.id)) { registry.execute(tool, args) }

@@ -10,7 +10,6 @@ import dev.ujhhgtg.wekit.agent.data.entity.MessageEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SessionEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ToolCallEntity
-import dev.ujhhgtg.wekit.agent.data.entity.ToolPermissionEntity
 import dev.ujhhgtg.wekit.agent.data.entity.BridgeToolAuditEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -157,32 +156,4 @@ interface ProviderDao {
 
     @Query("DELETE FROM providers WHERE id = :id")
     suspend fun deleteById(id: String)
-}
-
-@Dao
-interface ToolPermissionDao {
-    @Query("SELECT * FROM tool_permissions ORDER BY providerId, toolName COLLATE NOCASE")
-    fun observeAll(): Flow<List<ToolPermissionEntity>>
-
-    @Query("SELECT * FROM tool_permissions ORDER BY providerId, toolName COLLATE NOCASE")
-    suspend fun getAll(): List<ToolPermissionEntity>
-
-    @Query("SELECT * FROM tool_permissions WHERE providerId = :providerId ORDER BY toolName COLLATE NOCASE")
-    suspend fun getForProvider(providerId: String): List<ToolPermissionEntity>
-
-    @Query("SELECT mode FROM tool_permissions WHERE providerId = :providerId AND toolName = :toolName")
-    suspend fun getMode(providerId: String, toolName: String): dev.ujhhgtg.wekit.agent.tool.ToolMode?
-
-    @Upsert
-    suspend fun upsert(permission: ToolPermissionEntity)
-
-    @Upsert
-    suspend fun upsertAll(permissions: List<ToolPermissionEntity>)
-
-    /** Seed factory defaults only for tools not already present (never clobber user overrides). */
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertIfAbsent(permissions: List<ToolPermissionEntity>)
-
-    @Query("DELETE FROM tool_permissions WHERE providerId = :providerId")
-    suspend fun deleteForProvider(providerId: String)
 }

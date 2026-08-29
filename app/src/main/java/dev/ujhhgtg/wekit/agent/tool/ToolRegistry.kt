@@ -8,15 +8,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
-/**
- * Resolves the factory-defaulted, user-overridable [ToolMode] for a given provider + tool.
- * Backed by the Room `tool_permissions` table at runtime (Phase 2); a permissive default impl is
- * used when persistence is unavailable.
- */
-fun interface ToolPermissionSource {
-    fun modeFor(providerId: String, toolName: String, factoryDefault: ToolMode): ToolMode
-}
-
 /** How tools are advertised to the model for a request (§3.3). */
 enum class ToolLoadingMode { STATIC, DYNAMIC }
 
@@ -47,26 +38,26 @@ data class ToolVisibility(
 }
 
 /**
- * A tool as it will be sent to the model, after permission resolution and name qualification.
+ * A tool as it will be sent to the model, after visibility gating and name qualification.
  * [exposedName] is what the model calls; it maps back to a concrete [provider] + [bareName].
  */
 data class WireTool(
     val exposedName: String,
     val description: String,
     val jsonSchema: JsonObject,
-    val mode: ToolMode,
+    val sideEffect: Boolean,
     val provider: ToolProvider,
     val bareName: String,
 )
 
 /**
- * The heart of §3: unifies the builtin provider and every connected MCP provider, applies the
- * four-state permission model, and produces the request-time tool list in either static-injection
- * or dynamic-discovery mode. Not tied to a single conversation — the engine holds per-turn
- * discovery state separately (see [discoveredThisTurn]).
+ * The heart of §3: unifies the builtin provider and every connected MCP provider and produces the
+ * request-time tool list in either static-injection or dynamic-discovery mode. Not tied to a single
+ * conversation — the engine holds per-turn discovery state separately (see [discoveredThisTurn]).
+ * Approval gating is NOT applied here: it is a per-session permission level (§3.1), resolved at
+ * call time by the engine's [dev.ujhhgtg.wekit.agent.engine.ApprovalGateway].
  */
 class ToolRegistry(
-    private val permissions: ToolPermissionSource,
     providers: List<ToolProvider> = BuiltinToolProvider.all,
 ) {
     private val providers = providers.toMutableList()
@@ -83,23 +74,21 @@ class ToolRegistry(
         if (provider.kind == ProviderKind.BUILTIN) bare else "mcp__${provider.id}__$bare"
 
     /**
-     * Every non-disabled, available tool across providers, with resolved modes. [visibility] gates
-     * the conditionally-advertised builtin tools for this turn (see [ToolVisibility]); providers
-     * themselves list everything they own, so gating lives in exactly one place.
+     * Every available tool across providers. [visibility] gates the conditionally-advertised builtin
+     * tools for this turn (see [ToolVisibility]); providers themselves list everything they own, so
+     * gating lives in exactly one place.
      */
     fun resolveVisibleTools(visibility: ToolVisibility = ToolVisibility.fromGlobals()): List<WireTool> = buildList {
         for (provider in providers) {
             if (!provider.isAvailable) continue
             for (tool in provider.listTools()) {
                 if (!isAdvertised(provider, tool.name, visibility)) continue
-                val mode = permissions.modeFor(provider.id, tool.name, tool.factoryDefaultMode)
-                if (mode == ToolMode.DISABLED) continue
                 add(
                     WireTool(
                         exposedName = exposedName(provider, tool.name),
                         description = tool.description,
                         jsonSchema = tool.jsonSchema,
-                        mode = mode,
+                        sideEffect = tool.sideEffect,
                         provider = provider,
                         bareName = tool.name,
                     )
@@ -110,8 +99,8 @@ class ToolRegistry(
 
     /**
      * Whether a builtin tool is advertised at all under [visibility]. Non-builtin (MCP) providers are
-     * never gated this way. Kept name-based so gating never touches permission seeding — the rows are
-     * still seeded, the tools are simply not offered to the model this turn.
+     * never gated this way. Kept name-based so gating never touches anything else — the tools are
+     * simply not offered to the model this turn.
      */
     private fun isAdvertised(provider: ToolProvider, bareName: String, visibility: ToolVisibility): Boolean {
         if (provider.kind != ProviderKind.BUILTIN) return true
@@ -146,7 +135,7 @@ class ToolRegistry(
     ): WireTool? = resolveVisibleTools(visibility).firstOrNull { it.exposedName == exposedName }
 
     /**
-     * Execute a resolved tool. Permission gating is the engine's responsibility; this performs the
+     * Execute a resolved tool. Approval gating is the engine's responsibility; this performs the
      * actual call once approved. [DISCOVER_TOOLS_NAME] is handled by the engine, not here.
      */
     suspend fun execute(tool: WireTool, arguments: JsonObject): String =
@@ -160,7 +149,7 @@ class ToolRegistry(
                 "action=list_tools returns tools (optionally filtered by provider) with full JSON schemas; " +
                 "action=search_tools fuzzy-matches name/description by keyword. Returned tools become callable.",
         jsonSchema = DISCOVER_TOOLS_SCHEMA,
-        mode = ToolMode.ENABLED,
+        sideEffect = false,
         // Meta-tool: handled by the engine (ToolDiscovery), never executed via this provider — the
         // field is only for display, so any built-in provider works.
         provider = providers.first { it.kind == ProviderKind.BUILTIN },

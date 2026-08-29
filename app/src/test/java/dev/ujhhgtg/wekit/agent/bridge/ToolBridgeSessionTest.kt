@@ -9,8 +9,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus
 import dev.ujhhgtg.wekit.agent.ui.UiImageSink
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
 import dev.ujhhgtg.wekit.agent.tool.ProviderTool
-import dev.ujhhgtg.wekit.agent.tool.ToolMode
-import dev.ujhhgtg.wekit.agent.tool.ToolPermissionSource
+import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.agent.tool.ToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
 import dev.ujhhgtg.wekit.agent.tool.ToolVisibility
@@ -37,10 +36,10 @@ class ToolBridgeSessionTest {
         "edit", "exec", "discover_tools", "terminal_start", "load_skill", "read_only",
     ))
     private val mcp = provider(ProviderKind.MCP, "remote", listOf("lookup"))
-    private val registry = ToolRegistry(ToolPermissionSource { _, _, mode -> mode }, listOf(builtin, mcp))
+    private val registry = ToolRegistry(listOf(builtin, mcp))
     private val executor = ToolCallExecutor(registry, ApprovalGateway(
         ManualApprovalHandler { ManualApprovalResult.Approved }, null,
-    ))
+    ), permissionLevel = { PermissionLevel.REQUEST_APPROVAL })
 
     @Test
     fun `list exposes only non-file non-terminal direct and qualified mcp tools`() = runBlocking {
@@ -57,13 +56,10 @@ class ToolBridgeSessionTest {
             ProviderKind.MCP, "reserved",
             listOf("edit", "exec", "discover_tools", "terminal_custom", "lookup"),
         )
-        val scopedRegistry = ToolRegistry(
-            ToolPermissionSource { _, _, mode -> mode },
-            listOf(builtin, mcpWithReservedNames),
-        )
+        val scopedRegistry = ToolRegistry(listOf(builtin, mcpWithReservedNames))
         val scopedExecutor = ToolCallExecutor(scopedRegistry, ApprovalGateway(
             ManualApprovalHandler { ManualApprovalResult.Approved }, null,
-        ))
+        ), permissionLevel = { PermissionLevel.REQUEST_APPROVAL })
         val session = ToolBridgeSession(
             scopedRegistry, scopedExecutor, ToolVisibility(true), EmptyCoroutineContext,
             "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH), "owner", {}, "native", null,
@@ -136,7 +132,7 @@ class ToolBridgeSessionTest {
     fun `audit failure does not suppress denied tool result`() = runBlocking {
         var auditAttempts = 0
         var executions = 0
-        val provider = provider(ProviderKind.BUILTIN, "denied", listOf("read_only"), ToolMode.MANUAL_APPROVAL) {
+        val provider = provider(ProviderKind.BUILTIN, "denied", listOf("read_only"), sideEffect = true) {
             executions++
             "unexpected"
         }
@@ -190,7 +186,7 @@ class ToolBridgeSessionTest {
         var observedAgentContext: AgentSessionContext? = null
         var observedImageSink: UiImageSink? = null
         val contextProvider = object : ToolProvider by builtin {
-            override fun listTools() = listOf(ProviderTool("inspect", "inspect", JsonObject(emptyMap()), ToolMode.ENABLED))
+            override fun listTools() = listOf(ProviderTool("inspect", "inspect", JsonObject(emptyMap()), sideEffect = false))
             override suspend fun execute(toolName: String, arguments: JsonObject): String {
                 val context = currentCoroutineContext()
                 observedJob = context[Job]
@@ -200,10 +196,10 @@ class ToolBridgeSessionTest {
                 return "ok"
             }
         }
-        val contextRegistry = ToolRegistry(ToolPermissionSource { _, _, mode -> mode }, listOf(contextProvider))
+        val contextRegistry = ToolRegistry(listOf(contextProvider))
         val contextExecutor = ToolCallExecutor(contextRegistry, ApprovalGateway(
             ManualApprovalHandler { ManualApprovalResult.Approved }, null,
-        ))
+        ), permissionLevel = { PermissionLevel.REQUEST_APPROVAL })
         val session = ToolBridgeSession(
             contextRegistry, contextExecutor, ToolVisibility(true),
             completedParent + agentContext + imageSink,
@@ -261,8 +257,9 @@ class ToolBridgeSessionTest {
         approval: ManualApprovalResult,
         audit: suspend (ToolBridgeSession.AuditEntry) -> Unit,
     ): ToolBridgeSession {
-        val registry = ToolRegistry(ToolPermissionSource { _, _, mode -> mode }, listOf(provider))
-        val executor = ToolCallExecutor(registry, ApprovalGateway(ManualApprovalHandler { approval }, null))
+        val registry = ToolRegistry(listOf(provider))
+        val executor = ToolCallExecutor(registry, ApprovalGateway(ManualApprovalHandler { approval }, null),
+            permissionLevel = { PermissionLevel.REQUEST_APPROVAL })
         return ToolBridgeSession(
             registry, executor, ToolVisibility(true), EmptyCoroutineContext,
             "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH), "owner", audit, "native", null,
@@ -273,14 +270,14 @@ class ToolBridgeSessionTest {
         kind: ProviderKind,
         id: String,
         names: List<String>,
-        mode: ToolMode = ToolMode.ENABLED,
+        sideEffect: Boolean = false,
         execute: suspend (String) -> String = { it },
     ) = object : ToolProvider {
         override val id = id
         override val name = id
         override val kind = kind
         override val isAvailable = true
-        override fun listTools() = names.map { ProviderTool(it, "$it description", JsonObject(emptyMap()), mode) }
+        override fun listTools() = names.map { ProviderTool(it, "$it description", JsonObject(emptyMap()), sideEffect) }
         override suspend fun execute(toolName: String, arguments: JsonObject) = execute(toolName)
     }
 }

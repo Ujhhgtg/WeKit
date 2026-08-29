@@ -218,6 +218,7 @@
     <string name="agent_triggers_summary">Wake the AI on schedules, new messages, or database events with conversation and global triggers</string>
     <string name="agent_section_defaults">Defaults</string>
     <string name="agent_default_model_title">Default model</string>
+    <string name="agent_default_permission_level_title">Default permission level</string>
     <string name="agent_use_first_model">(Use the first model)</string>
     <string name="agent_default_system_prompt_title">Default system prompt</string>
     <string name="common_none_parenthesized">(None)</string>
@@ -232,10 +233,10 @@
     <string name="external_service_api_key" translatable="false">API Key</string>
     <string name="agent_tool_count_summary">%1$s · %2$d tools</string>
     <string name="agent_no_provider_tools">This provider has no available tools.</string>
-    <string name="agent_tool_mode_enabled">Allow directly</string>
-    <string name="agent_tool_mode_manual_approval">Manual approval</string>
-    <string name="agent_tool_mode_smart_approval">Smart approval</string>
-    <string name="agent_tool_mode_disabled">Disabled</string>
+    <string name="agent_permission_level_request_approval">Request approval</string>
+    <string name="agent_permission_level_auto_edit">Auto edit</string>
+    <string name="agent_permission_level_auto_approval">Auto approval</string>
+    <string name="agent_permission_level_full_access">Full access</string>
     <string name="action_add">Add</string>
     <string name="common_name">Name</string>
     <string name="agent_provider_summary">%1$s · %2$s</string>
@@ -1126,7 +1127,7 @@
     <string name="agent_connection_summary">%1$s · Tap to refresh tools</string>
     <string name="agent_mcp_status_error">%1$s · %2$s</string>
     <string name="agent_delete_server">Delete this server</string>
-    <string name="agent_tool_permissions_title">Tool permissions</string>
+    <string name="agent_tools_title">Tools</string>
     <string name="agent_mcp_tools_empty">Not connected or no tools are available. Connect first to configure each tool’s permissions here.</string>
     <string name="agent_mcp_state_disconnected">Disconnected</string>
     <string name="agent_mcp_state_connecting">Connecting</string>
@@ -3735,9 +3736,9 @@
     <string name="agent_panel_send">Send</string>
     <string name="agent_panel_default">Default</string>
     <string name="agent_panel_none">None</string>
-    <string name="agent_panel_not_selected">Not selected</string>
     <string name="agent_panel_quick_actions">Quick actions</string>
     <string name="agent_panel_model">Model</string>
+    <string name="agent_panel_permission">Permission</string>
     <string name="agent_panel_environment">Environment</string>
     <string name="agent_panel_system_prompt">System prompt</string>
     <string name="agent_panel_preset_prompt">Preset prompt</string>

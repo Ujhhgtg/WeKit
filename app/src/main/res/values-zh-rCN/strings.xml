@@ -202,6 +202,7 @@
     <string name="agent_triggers_summary">定时 / 新消息 / 数据库事件自动唤起 AI，支持会话级与全局触发器</string>
     <string name="agent_section_defaults">默认</string>
     <string name="agent_default_model_title">默认模型</string>
+    <string name="agent_default_permission_level_title">默认权限等级</string>
     <string name="agent_use_first_model">（使用第一个模型）</string>
     <string name="agent_default_system_prompt_title">默认系统提示词</string>
     <string name="common_none_parenthesized">（无）</string>
@@ -213,10 +214,10 @@
     <string name="external_service_brave_description">隐私优先的网络搜索，需要 Brave Search API Key（api.search.brave.com）</string>
     <string name="agent_tool_count_summary">%1$s · %2$d 个工具</string>
     <string name="agent_no_provider_tools">该提供方暂无可用工具。</string>
-    <string name="agent_tool_mode_enabled">直接允许</string>
-    <string name="agent_tool_mode_manual_approval">手动审批</string>
-    <string name="agent_tool_mode_smart_approval">智能审批</string>
-    <string name="agent_tool_mode_disabled">禁用</string>
+    <string name="agent_permission_level_request_approval">请求批准</string>
+    <string name="agent_permission_level_auto_edit">自动编辑</string>
+    <string name="agent_permission_level_auto_approval">自动审批</string>
+    <string name="agent_permission_level_full_access">完全访问</string>
     <string name="action_add">添加</string>
     <string name="common_name">名称</string>
     <string name="agent_provider_summary">%1$s · %2$s</string>
@@ -1086,7 +1087,7 @@
     <string name="agent_connection_summary">%1$s · 点击刷新工具</string>
     <string name="agent_mcp_status_error">%1$s · %2$s</string>
     <string name="agent_delete_server">删除此服务器</string>
-    <string name="agent_tool_permissions_title">工具权限</string>
+    <string name="agent_tools_title">工具</string>
     <string name="agent_mcp_tools_empty">未连接或无工具。连接后可在此设置每个工具的权限。</string>
     <string name="agent_mcp_state_disconnected">未连接</string>
     <string name="agent_mcp_state_connecting">连接中</string>
@@ -3768,9 +3769,9 @@
     <string name="agent_panel_send">发送</string>
     <string name="agent_panel_default">默认</string>
     <string name="agent_panel_none">无</string>
-    <string name="agent_panel_not_selected">未选择</string>
     <string name="agent_panel_quick_actions">快捷操作</string>
     <string name="agent_panel_model">模型</string>
+    <string name="agent_panel_permission">权限</string>
     <string name="agent_panel_system_prompt">系统提示词</string>
     <string name="agent_panel_preset_prompt">预设提示词</string>
     <string name="agent_panel_tap_to_choose">点击选择</string>

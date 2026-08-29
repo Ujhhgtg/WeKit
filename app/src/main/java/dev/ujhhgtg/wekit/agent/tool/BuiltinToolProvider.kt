@@ -6,8 +6,8 @@ import dev.ujhhgtg.wekit.features.core.AgentTool
 import kotlinx.serialization.json.JsonObject
 
 /**
- * The built-in tool providers (§3.4), split by the `@AgentTool(group=…)` tag into three fixed
- * providers so the settings UI can present them separately and permissions are stored per provider:
+ * The built-in tool providers (§3.4), split by the `@AgentTool(group=…)` tag into fixed providers
+ * so the settings UI can present them separately:
  *
  *  - `builtin-wechat`      — WeChat operations (send/read/group/moments/…)
  *  - `builtin-wechat-sql`  — raw database SQL (query / execute)
@@ -27,10 +27,6 @@ class BuiltinToolProvider(
 
     private val byName: Map<String, AgentToolDescriptor> = descriptors.associateBy { it.name }
 
-    /** Tool name + factory-default mode, for permission seeding. */
-    fun seedInfos(): List<BuiltinToolInfo> =
-        descriptors.map { BuiltinToolInfo(it.name, ToolMode.defaultFor(it.sideEffect)) }
-
     /**
      * Every tool this provider owns. Conditional vision gating is
      * NOT applied here — it is per-turn state and is applied by
@@ -48,7 +44,7 @@ class BuiltinToolProvider(
                     name = d.name,
                     description = if (notice != null) "${d.description}\n\n⚠ $notice" else d.description,
                     jsonSchema = d.buildJsonSchema(),
-                    factoryDefaultMode = ToolMode.defaultFor(d.sideEffect),
+                    sideEffect = d.sideEffect,
                 )
             }
 
@@ -65,8 +61,6 @@ class BuiltinToolProvider(
             "Tool '$toolName' failed: ${e.message ?: e.javaClass.simpleName}"
         }
     }
-
-    data class BuiltinToolInfo(val name: String, val defaultMode: ToolMode)
 
     companion object {
         const val WECHAT_ID = AgentTool.BUILTIN_WECHAT

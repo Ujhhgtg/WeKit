@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.ui.agent.settings
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -35,7 +34,6 @@ import dev.ujhhgtg.wekit.agent.mcp.McpConnectionState
 import dev.ujhhgtg.wekit.agent.mcp.McpProviderStatus
 import dev.ujhhgtg.wekit.agent.mcp.McpToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
-import dev.ujhhgtg.wekit.agent.tool.ToolMode
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
@@ -148,8 +146,6 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    val perms by WeAgentRepository.observeToolPermissions().collectAsState(initial = emptyList())
-    val permMap = perms.associate { it.providerId to it.toolName to it.mode }
 
     val liveProviders by McpClientManager.providers.collectAsState()
     val status = rememberMcpStatus(liveProviders.firstOrNull { it.id == activeId })
@@ -293,21 +289,13 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
                     )
                 }
             } else {
-                item { McpSectionTitle(stringResource(R.string.agent_tool_permissions_title)) }
+                item { McpSectionTitle(stringResource(R.string.agent_tools_title)) }
                 lazySegmentedItems(tools, key = { "${activeId}_${it.name}" }) { t ->
-                    Column(Modifier.padding(horizontal = 16.dp)) {
-                        DropDownMenuWidget(
-                            icon = null,
-                            iconPlaceholder = false,
-                            title = t.name,
-                            description = null,
-                            value = permMap[activeId to t.name] ?: t.factoryDefaultMode,
-                            options = MODE_ORDER.map { DropdownOption(it, it.toolModeLabel()) },
-                            onValueChange = { newMode ->
-                                scope.launch { WeAgentRepository.setToolMode(activeId, t.name, newMode) }
-                            },
-                        )
-                    }
+                    BaseWidget(
+                        iconPlaceholder = false,
+                        title = t.name,
+                        description = t.description.ifBlank { null },
+                    )
                 }
             }
         }

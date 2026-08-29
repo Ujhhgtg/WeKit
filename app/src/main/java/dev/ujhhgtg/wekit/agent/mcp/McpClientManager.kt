@@ -33,7 +33,7 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 object McpClientManager {
 
-    private val TAG = "McpClientManager"
+    private const val TAG = "McpClientManager"
 
     private val httpClient: HttpClient by lazy {
         HttpClient(CIO) { install(SSE) }
@@ -115,7 +115,6 @@ object McpClientManager {
                 provider.connect()
                 if (provider.state == McpConnectionState.CONNECTED) {
                     attempt = 0
-                    seedPermissions(provider)
                     onProvidersChanged?.invoke()
                 } else {
                     attempt++
@@ -125,12 +124,6 @@ object McpClientManager {
                 }
             }
         }
-    }
-
-    private suspend fun seedPermissions(provider: McpToolProvider) {
-        runCatching {
-            WeAgentRepository.seedMcpTools(provider.id, provider.listTools().map { it.name })
-        }.onFailure { WeLogger.w(TAG, "seedMcpTools failed for '${provider.name}'", it) }
     }
 
     private fun removeProvider(id: String) {
@@ -155,7 +148,6 @@ object McpClientManager {
         if (provider.state != McpConnectionState.CONNECTED) {
             provider.connect()
             if (provider.state != McpConnectionState.CONNECTED) return false
-            seedPermissions(provider)
             onProvidersChanged?.invoke()
             return true // connect() already refreshed tools/list
         }

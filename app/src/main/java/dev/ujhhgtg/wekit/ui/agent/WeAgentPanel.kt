@@ -84,6 +84,8 @@ import com.composables.icons.materialsymbols.outlined.Menu
 import com.composables.icons.materialsymbols.outlined.Menu_open
 import com.composables.icons.materialsymbols.outlined.Send
 import com.composables.icons.materialsymbols.outlined.Settings
+import com.composables.icons.materialsymbols.outlined.Shield
+import com.composables.icons.materialsymbols.outlined.Smart_toy
 import com.composables.icons.materialsymbols.outlined.Star
 import com.composables.icons.materialsymbols.outlined.Stop
 import com.composables.icons.materialsymbols.outlinedfilled.Star
@@ -91,6 +93,7 @@ import dev.ujhhgtg.wekit.activity.agent.WeAgentSettingsActivity
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
+import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.ChatRow
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
@@ -481,15 +484,17 @@ private fun InputBar(
                 minLines = 2,
                 maxLines = 6,
             )
-            // Action row: [+] left, [Send](./Interrupt) right.
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                PlusMenu(onInsertPreset = onInsertPreset)
-                Spacer(Modifier.weight(1f))
+                // Action row: [+] [Model] [Permission] left, [Send](./Interrupt) right.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ModelMenuButton()
+                    PermissionMenuButton()
+                    PlusMenu(onInsertPreset = onInsertPreset)
+                    Spacer(Modifier.weight(1f))
                 if (isRunning) {
                     IconButton(onClick = { WeAgentService.cancelTurn() }) {
                         Icon(
@@ -513,22 +518,21 @@ private fun InputBar(
 }
 
 /** State for which submenu (if any) of the [PlusMenu] is currently open. */
-private enum class PlusSubmenu { NONE, MODEL, ENVIRONMENT, PROFILE, PRESET }
+private enum class PlusSubmenu { NONE, ENVIRONMENT, PROFILE, PRESET }
 
 /**
- * The nested "+" quick-action menu. The root lists the current selections; tapping model/environment/
- * profile/preset opens a submenu.
+ * The nested "+" quick-action menu. The root lists the current selections; tapping environment/
+ * profile/preset opens a submenu. Model and permission live on sibling buttons
+ * ([ModelMenuButton]/[PermissionMenuButton]) next to the "+".
  */
 @Composable
 private fun PlusMenu(onInsertPreset: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var submenu by remember { mutableStateOf(PlusSubmenu.NONE) }
 
-    val models = WeAgentService.availableModels
     val systemPrompts = WeAgentService.availableSystemPrompts
     val environments = WeAgentService.availableLinuxEnvironments
     val presets = WeAgentService.availablePresets
-    val currentModelId by WeAgentService.currentModelId
     val currentSystemPromptId by WeAgentService.currentSystemPromptId
     val currentEnvironmentId by WeAgentService.currentLinuxEnvironmentId
     val currentSessionId by WeAgentService.currentSessionId
@@ -539,13 +543,8 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
     val environmentLocked = WeAgentService.ballState.value == WeAgentService.BallState.RUNNING ||
         WeAgentService.ballState.value == WeAgentService.BallState.PENDING_APPROVAL
 
-    // A null model id means "默认": the session follows the settings default model, resolved at turn
-    // time (mirrors environment/systemPrompt). Show "默认" for null rather than "未选择".
     val defaultLabel = stringResource(R.string.agent_panel_default)
     val noneLabel = stringResource(R.string.agent_panel_none)
-    val modelLabel = if (currentModelId == null) defaultLabel
-    else models.firstOrNull { it.id == currentModelId }?.label
-        ?: stringResource(R.string.agent_panel_not_selected)
     val environmentLabel = environments.firstOrNull { it.id == (currentEnvironmentId ?: effectiveEnvironmentId) }
         ?.let { "${it.name} (${it.type})" } ?: defaultLabel
     val systemPromptLabel = when (currentSystemPromptId) {
@@ -572,10 +571,6 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
             when (submenu) {
                 PlusSubmenu.NONE -> {
                     DropdownMenuItem(
-                        text = { NestedRow(stringResource(R.string.agent_panel_model), modelLabel) },
-                        onClick = { submenu = PlusSubmenu.MODEL },
-                    )
-                    DropdownMenuItem(
                         text = { NestedRow(stringResource(R.string.agent_panel_environment), environmentLabel) },
                         enabled = !environmentLocked,
                         onClick = { submenu = PlusSubmenu.ENVIRONMENT },
@@ -595,32 +590,6 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
                         },
                         onClick = { submenu = PlusSubmenu.PRESET },
                     )
-                }
-
-                PlusSubmenu.MODEL -> {
-                    SubmenuHeader(stringResource(R.string.agent_panel_model)) { submenu = PlusSubmenu.NONE }
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                if (currentModelId == null) {
-                                    stringResource(R.string.agent_panel_checked_value, defaultLabel)
-                                } else defaultLabel,
-                            )
-                        },
-                        onClick = { WeAgentService.setSessionModel(null); close() },
-                    )
-                    if (models.isEmpty()) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.agent_panel_add_model_first)) },
-                            onClick = ::close,
-                        )
-                    }
-                    models.forEach { m ->
-                        DropdownMenuItem(
-                            text = { Text(m.label + if (m.id == currentModelId) "  ✓" else "") },
-                            onClick = { WeAgentService.setSessionModel(m.id); close() },
-                        )
-                    }
                 }
 
                 PlusSubmenu.ENVIRONMENT -> {
@@ -689,6 +658,100 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
         }
     }
 }
+
+/**
+ * Standalone model picker next to the "+" button, using the same Smart_toy mark as the WeAgent
+ * entry in the WeChat chat toolbar. A null session model means "默认": the session follows the
+ * settings default model, resolved at turn time.
+ */
+@Composable
+private fun ModelMenuButton() {
+    var expanded by remember { mutableStateOf(false) }
+    val models = WeAgentService.availableModels
+    val currentModelId by WeAgentService.currentModelId
+    val defaultLabel = stringResource(R.string.agent_panel_default)
+
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(
+                MaterialSymbols.Outlined.Smart_toy,
+                contentDescription = stringResource(R.string.agent_panel_model),
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        if (currentModelId == null) {
+                            stringResource(R.string.agent_panel_checked_value, defaultLabel)
+                        } else defaultLabel,
+                    )
+                },
+                onClick = { WeAgentService.setSessionModel(null); expanded = false },
+            )
+            if (models.isEmpty()) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.agent_panel_add_model_first)) },
+                    onClick = { expanded = false },
+                )
+            }
+            models.forEach { m ->
+                DropdownMenuItem(
+                    text = { Text(m.label + if (m.id == currentModelId) "  ✓" else "") },
+                    onClick = { WeAgentService.setSessionModel(m.id); expanded = false },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Standalone session permission picker next to the model button. A null session level means
+ * "默认" (follow the settings default). Changes take effect immediately — tool calls resolve the
+ * level at call time.
+ */
+@Composable
+private fun PermissionMenuButton() {
+    var expanded by remember { mutableStateOf(false) }
+    val currentLevel by WeAgentService.currentPermissionLevel
+    val defaultLabel = stringResource(R.string.agent_panel_default)
+
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(
+                MaterialSymbols.Outlined.Shield,
+                contentDescription = stringResource(R.string.agent_panel_permission),
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        if (currentLevel == null) {
+                            stringResource(R.string.agent_panel_checked_value, defaultLabel)
+                        } else defaultLabel,
+                    )
+                },
+                onClick = { WeAgentService.setSessionPermissionLevel(null); expanded = false },
+            )
+            PermissionLevel.entries.forEach { level ->
+                DropdownMenuItem(
+                    text = { Text(level.panelLabel() + if (level == currentLevel) "  ✓" else "") },
+                    onClick = { WeAgentService.setSessionPermissionLevel(level); expanded = false },
+                )
+            }
+        }
+    }
+}
+
+/** Localized label for a [PermissionLevel] in the permission menu. */
+@Composable
+private fun PermissionLevel.panelLabel(): String = stringResource(when (this) {
+    PermissionLevel.REQUEST_APPROVAL -> R.string.agent_permission_level_request_approval
+    PermissionLevel.AUTO_EDIT -> R.string.agent_permission_level_auto_edit
+    PermissionLevel.AUTO_APPROVAL -> R.string.agent_permission_level_auto_approval
+    PermissionLevel.FULL_ACCESS -> R.string.agent_permission_level_full_access
+})
 
 /** A root menu row showing a label on the left and the current value on the right. */
 @Composable

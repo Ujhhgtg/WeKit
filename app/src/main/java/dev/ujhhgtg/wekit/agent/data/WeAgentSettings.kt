@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.agent.data
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings.load
 import dev.ujhhgtg.wekit.agent.data.entity.SettingEntity
 import dev.ujhhgtg.wekit.agent.model.local.LocalLlama
+import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.agent.tool.ToolLoadingMode
 import java.util.concurrent.ConcurrentHashMap
 
@@ -21,6 +22,7 @@ object WeAgentSettings {
     const val KEY_SMALL_MODEL_ID = "small_model_id"                  // §5.4 ("" = same as main)
     const val KEY_DEFAULT_MODEL_ID = "default_model_id"             // new-session default
     const val KEY_DEFAULT_SYSTEM_PROMPT_ID = "default_system_prompt_id" // new-session default binding
+    const val KEY_DEFAULT_PERMISSION_LEVEL = "default_permission_level" // §3.1 session permission default
     const val KEY_DEFAULT_LINUX_ENVIRONMENT_ID = "default_linux_environment_id"
     const val KEY_NATIVE_LINUX_WORKING_DIRECTORY = "native_linux_working_directory"
     const val KEY_NATIVE_LINUX_ENVIRONMENT_VARIABLES = "native_linux_environment_variables"
@@ -81,6 +83,17 @@ object WeAgentSettings {
     suspend fun smallModelId(): String? = get(KEY_SMALL_MODEL_ID)?.takeIf { it.isNotBlank() }
 
     suspend fun defaultModelId(): String? = get(KEY_DEFAULT_MODEL_ID)?.takeIf { it.isNotBlank() }
+
+    /**
+     * The default session permission level for sessions that don't bind one explicitly (§3.1).
+     * REQUEST_APPROVAL preserves the historical factory behavior: side-effect-free tools run
+     * directly, side-effecting tools wait for a manual decision.
+     */
+    suspend fun defaultPermissionLevel(): PermissionLevel =
+        get(KEY_DEFAULT_PERMISSION_LEVEL)?.let { stored ->
+            PermissionLevel.entries.firstOrNull { it.name == stored }
+        } ?: PermissionLevel.REQUEST_APPROVAL
+
     suspend fun defaultSystemPromptId(): String? = get(KEY_DEFAULT_SYSTEM_PROMPT_ID)?.takeIf { it.isNotBlank() }
     suspend fun nativeLinuxWorkingDirectory(): String? = get(KEY_NATIVE_LINUX_WORKING_DIRECTORY)?.takeIf { it.isNotBlank() }
     suspend fun nativeLinuxEnvironmentVariables(): String = get(KEY_NATIVE_LINUX_ENVIRONMENT_VARIABLES) ?: "{}"
