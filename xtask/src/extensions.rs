@@ -781,15 +781,34 @@ fn build_patched_chaquopy_bridge(root: &Path, catalog: &toml::Value) -> Result<P
         .context("failed to inspect the Chaquopy source cache")?
         .success();
     if !has_revision {
-        run_extension_command(
-            Command::new("git").args(["-C"]).arg(&upstream).args([
-                "fetch",
-                "--depth=1",
-                "origin",
-                revision,
-            ]),
-            "fetch pinned Chaquopy revision",
-        )?;
+        // GitHub's git backend intermittently answers "not our ref" to
+        // shallow fetches by SHA; retry a few times, then fall back to a
+        // full ref fetch, which carries every commit reachable from the
+        // branches (the pinned revision lives on master).
+        let mut fetched = false;
+        for _ in 0..3 {
+            if Command::new("git")
+                .args(["-C"])
+                .arg(&upstream)
+                .args(["fetch", "--depth=1", "origin", revision])
+                .status()
+                .context("failed to fetch the pinned Chaquopy revision")?
+                .success()
+            {
+                fetched = true;
+                break;
+            }
+        }
+        if !fetched {
+            run_extension_command(
+                Command::new("git").args(["-C"]).arg(&upstream).args([
+                    "fetch",
+                    "origin",
+                    "+refs/heads/*:refs/remotes/origin/*",
+                ]),
+                "fetch full Chaquopy history",
+            )?;
+        }
     }
 
     if source.exists() {
