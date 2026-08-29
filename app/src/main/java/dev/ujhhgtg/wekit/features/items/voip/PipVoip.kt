@@ -15,9 +15,9 @@ import android.widget.FrameLayout
 import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
 import androidx.core.os.BundleCompat
-import com.tencent.mm.plugin.multitalk.ui.MultiTalkMainUI
 import com.tencent.mm.plugin.voip.ui.VideoActivity
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.PipVoipActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
@@ -69,6 +69,8 @@ object PipVoip : SwitchFeature(), IResolveDex {
     override val nameRes = R.string.feature_pip_voip_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP)
     override val descriptionRes = R.string.feature_pip_voip_description
+
+    private const val MULTITALK_MAIN_UI = "com.tencent.mm.plugin.multitalk.ui.MultiTalkMainUI"
 
     private const val TAG = "PipVoip"
     private const val HANGUP_SCENE = 4103
@@ -762,14 +764,14 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
         fieldMultiTalkViewModel.find(dexKit) {
             matcher {
-                declaredClass(MultiTalkMainUI::class.java)
+                declaredClass = MULTITALK_MAIN_UI
                 type(classMultiTalkViewModel.data.name)
             }
         }
 
         methodMultiTalkMinimize.find(dexKit) {
             matcher {
-                declaredClass(MultiTalkMainUI::class.java)
+                declaredClass = MULTITALK_MAIN_UI
                 paramCount = 0
                 returnType = "void"
                 usingEqStrings("onMiniMultiTalk")
@@ -778,7 +780,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
         methodMultiTalkExit.find(dexKit) {
             matcher {
-                declaredClass(MultiTalkMainUI::class.java)
+                declaredClass = MULTITALK_MAIN_UI
                 paramCount = 0
                 returnType = "void"
                 usingEqStrings("onExitMultiTalk")
@@ -841,7 +843,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
                     usingEqStrings("onMicClick, cur state: ")
                 }
                 addReadMethod {
-                    declaredClass(MultiTalkMainUI::class.java)
+                    declaredClass = MULTITALK_MAIN_UI
                     usingEqStrings("mMultiTalkGroupMemberList", "usrName")
                 }
             }
@@ -904,22 +906,20 @@ object PipVoip : SwitchFeature(), IResolveDex {
 
         val multiTalkAvailable = !classMultiTalkViewModel.isPlaceholder
         if (multiTalkAvailable) {
-            MultiTalkMainUI::class.reflekt()
-                .firstMethod {
+            MULTITALK_MAIN_UI.toClass().reflekt().apply {
+                firstMethod {
                     name = "onCreate"
                     parameterCount = 1
-                }
-                .hookAfter {
+                }.hookAfter {
                     val activity = thisObject as Activity
                     sessions[activity] = GroupSession(activity)
                 }
 
-            MultiTalkMainUI::class.reflekt()
-                .firstMethod {
+                firstMethod {
                     name = "onDestroy"
                     parameterCount = 0
-                }
-                .hookBefore { removeSession(thisObject as Activity) }
+                }.hookBefore { removeSession(thisObject as Activity) }
+            }
         }
 
         VideoActivity::class.reflekt()
@@ -936,10 +936,10 @@ object PipVoip : SwitchFeature(), IResolveDex {
                 parameterCount = 0
             }
             .hookBefore {
-                when (val activity = thisObject) {
+                when (val activity = thisObject!!) {
                     is VideoActivity -> currentSession().enterPip()
 
-                    is MultiTalkMainUI -> if (multiTalkAvailable) {
+                    (activity.javaClass.name == MULTITALK_MAIN_UI) -> if (multiTalkAvailable) {
                         activitySession()?.enterPip()
                             ?: WeLogger.w(TAG, "no session for $activity, leaving wechat alone")
                     }
