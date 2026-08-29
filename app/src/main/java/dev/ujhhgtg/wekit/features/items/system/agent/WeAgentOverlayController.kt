@@ -221,6 +221,11 @@ object WeAgentOverlayController {
             gravity = Gravity.CENTER
             width = WindowManager.LayoutParams.MATCH_PARENT
             height = WindowManager.LayoutParams.MATCH_PARENT
+            // Unspecified soft-input mode degrades to pan, which only lifts the window enough to
+            // expose the focused text field's cursor and leaves the send button under the IME.
+            // Resizing shrinks the window above the keyboard; imePadding() in WeAgentPanel covers
+            // devices where overlay windows are not resized.
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
         val owner = LifecycleOwnerProvider.lifecycleOwner
         val view = WeAgentPanelHost(HostInfo.application).apply {

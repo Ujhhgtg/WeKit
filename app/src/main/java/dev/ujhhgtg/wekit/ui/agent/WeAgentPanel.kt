@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -122,10 +123,13 @@ fun WeAgentPanel(
         onDispose { onBackHandlerChanged(null) }
     }
 
-    // Scrim + centered card.
+    // Scrim + centered card. imePadding lifts the whole panel above the soft keyboard on devices
+    // that don't resize the overlay window despite SOFT_INPUT_ADJUST_RESIZE (a no-op if they do,
+    // since a resized window reports no overlapping IME inset).
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
             .background(Color.Black.copy(alpha = 0.4f))
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center,
