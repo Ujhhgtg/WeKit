@@ -892,6 +892,7 @@
     <string name="feature_remove_official_account_ads_description">清除公众号信息流中的广告内容\n（订阅号信息流 / 推荐流 / 聚合页的广告投放位）</string>
     <string name="feature_use_legacy_official_accounts_view_name">恢复旧版公众号列表</string>
     <string name="feature_use_legacy_official_accounts_view_description">!!! 仅适用于旧版本微信 !!!\n新版本已在代码中移除旧 UI, 无法继续使用本功能</string>
+    <string name="official_accounts_legacy_ui_missing">当前微信版本不存在旧版公众号页面 (NewBizConversationUI), 此功能不可用</string>
     <string name="feature_use_multi_web_view_for_official_accounts_name">允许公众号网页多开</string>
     <string name="feature_use_multi_web_view_for_official_accounts_description">为公众号时间线预加载网页启用多任务</string>
     <string name="feature_allow_private_chat_receive_outgoing_red_packets_name">允许领取私聊红包</string>

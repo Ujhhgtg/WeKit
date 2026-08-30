@@ -8,10 +8,12 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.HostLocalizedStrings
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.android.showToast
 
 object PreventXposedDetection : SwitchFeature(), IResolveDex {
 
@@ -31,7 +33,13 @@ object PreventXposedDetection : SwitchFeature(), IResolveDex {
     }
 
     override fun onEnable() {
-        if (methodCheckStackTraceElements.isPlaceholder || HostInfo.isHostGooglePlay) return
+        if (HostInfo.isHostGooglePlay) {
+            showToast(HostLocalizedStrings.get(R.string.system_prevent_xposed_google_play_warning))
+            applyToggle(false)
+            return
+        }
+
+        if (methodCheckStackTraceElements.isPlaceholder) return
 
         methodCheckStackTraceElements.hookBefore {
             result = false

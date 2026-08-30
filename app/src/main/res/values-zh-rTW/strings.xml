@@ -890,6 +890,7 @@
     <string name="feature_remove_official_account_ads_description">清除公衆號信息流中的廣告內容\n（訂閱號信息流 / 推薦流 / 聚合頁的廣告投放位）</string>
     <string name="feature_use_legacy_official_accounts_view_name">恢復舊版公衆號列表</string>
     <string name="feature_use_legacy_official_accounts_view_description">!!! 僅適用於舊版本微信 !!!\n新版本已在代碼中移除舊 UI, 無法繼續使用本功能</string>
+    <string name="official_accounts_legacy_ui_missing">當前微信版本不存在舊版公衆號頁面 (NewBizConversationUI), 此功能不可用</string>
     <string name="feature_use_multi_web_view_for_official_accounts_name">允許公衆號網頁多開</string>
     <string name="feature_use_multi_web_view_for_official_accounts_description">爲公衆號時間線預加載網頁啓用多任務</string>
     <string name="feature_allow_private_chat_receive_outgoing_red_packets_name">允許領取私聊紅包</string>

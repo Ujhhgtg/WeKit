@@ -929,6 +929,7 @@
     <string name="feature_remove_official_account_ads_description">Clear the advertising content in the Official Account information flow\n(subscription account information flow/recommendation flow/advertising placement on the aggregation page)</string>
     <string name="feature_use_legacy_official_accounts_view_name">Restore legacy Official Account list</string>
     <string name="feature_use_legacy_official_accounts_view_description">!!! Only applicable to the old version of WeChat !!!\nThe new version has removed the old UI in the code, and this function can no longer be used.</string>
+    <string name="official_accounts_legacy_ui_missing">The legacy Official Account UI (NewBizConversationUI) does not exist in this WeChat version, so this feature is unavailable.</string>
     <string name="feature_use_multi_web_view_for_official_accounts_name">Open multiple Official Account pages</string>
     <string name="feature_use_multi_web_view_for_official_accounts_description">Enable multitasking for preloading web pages for official account timelines</string>
     <string name="feature_allow_private_chat_receive_outgoing_red_packets_name">Open your own private-chat red packets</string>
