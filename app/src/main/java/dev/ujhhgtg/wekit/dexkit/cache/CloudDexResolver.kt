@@ -66,15 +66,14 @@ internal object CloudDexResolver {
             CloudDexReport.select(
                 jsonText = reportText,
                 host = host,
-                items = items.map { item ->
-                    val feature = item as BaseFeature
-                    CurrentDexItem(
-                        className = item.javaClass.name,
-                        technicalId = feature.technicalId,
-                        methodHash = DexCacheManager.methodHash(item),
-                        delegateKeys = item.dexDelegates.mapTo(linkedSetOf()) { it.key },
-                    )
-                },
+            items = items.map { item ->
+                val feature = item as BaseFeature
+                CurrentDexItem(
+                    technicalId = feature.technicalId,
+                    methodHash = DexCacheManager.methodHash(item),
+                    delegateKeys = item.dexDelegates.mapTo(linkedSetOf()) { it.key },
+                )
+            },
             )
         } catch (error: SerializationException) {
             WeLogger.e(TAG, "cloud Dex report is malformed", error)

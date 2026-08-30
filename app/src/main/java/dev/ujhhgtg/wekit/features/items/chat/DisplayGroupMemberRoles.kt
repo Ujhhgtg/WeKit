@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonGroupDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
@@ -108,7 +107,6 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
     private fun roleText(value: String, defaultRes: Int): String =
         value.ifBlank { localizedChatString(defaultRes) }
 
-    @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var ob by remember { mutableStateOf(ownerBg) }

@@ -134,6 +134,78 @@ class DexResolverSourceScannerTest {
         assertEquals(6, source.sourceLinesByBlock[block]!![block.text.indexOf("classOwner.clazz")])
     }
 
+    @Test
+    fun extractsTechnicalIdFromResolverDeclaration() {
+        val source = scanDexResolverSource(
+            "Sample.kt",
+            """
+                package sample
+                object Sample : BaseFeature(), IResolveDex {
+                    override val technicalId = "防撤回"
+                    private val method by dexMethod { matcher { name = "m" } }
+                }
+            """.trimIndent(),
+        )!!
+
+        assertEquals("防撤回", source.technicalId)
+    }
+
+    @Test
+    fun technicalIdIsNullOrMissingOrNonLiteral() {
+        assertEquals(
+            null,
+            scanDexResolverSource(
+                "Missing.kt",
+                """
+                    object Sample : IResolveDex {
+                        private val method by dexMethod { matcher { name = "m" } }
+                    }
+                """.trimIndent(),
+            )!!.technicalId,
+        )
+        assertEquals(
+            null,
+            scanDexResolverSource(
+                "NonLiteral.kt",
+                """
+                    object Sample : IResolveDex {
+                        override val technicalId = BuildConfig.ID
+                        private val method by dexMethod { matcher { name = "m" } }
+                    }
+                """.trimIndent(),
+            )!!.technicalId,
+        )
+        assertEquals(
+            null,
+            scanDexResolverSource(
+                "Nested.kt",
+                """
+                    object Sample : IResolveDex {
+                        fun install() {
+                            val log = "technicalId = \"spoiled\""
+                        }
+                        private val method by dexMethod { matcher { name = "m" } }
+                    }
+                """.trimIndent(),
+            )!!.technicalId,
+        )
+    }
+
+    @Test
+    fun unescapesTechnicalIdLiteral() {
+        val source = scanDexResolverSource(
+            "Sample.kt",
+            """
+                object Sample : IResolveDex {
+                    override val technicalId = "a\"b\\c"
+                    private val method by dexMethod { matcher { name = "m" } }
+                }
+            """.trimIndent(),
+        )!!
+
+        assertEquals("""a"b\c""", source.technicalId)
+    }
+
     private companion object {
         val sampleSource =
             """

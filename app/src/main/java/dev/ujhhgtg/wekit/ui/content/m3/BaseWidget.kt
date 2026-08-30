@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -75,7 +74,6 @@ val LocalSegmentedItemShape = compositionLocalOf<Shape> { RoundedCornerShape(Cor
  * @param foreContent A composable slot for content displayed alongside/over the headline.
  * @param trailingContent A composable slot for trailing content, e.g. switches, checkboxes, or arrows.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BaseWidget(
     modifier: Modifier = Modifier,

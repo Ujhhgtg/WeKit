@@ -176,12 +176,12 @@ object DexCacheManager {
 
     /**
      * 获取 resolveDex 方法编译时生成的哈希，用于检测实现变化。
+     * 以 technicalId 为 key，与宿主 R8 混淆后的类名解耦。
      */
     internal fun methodHash(item: IResolveDex): String {
-        val className = item.javaClass.name
-        val hash = GeneratedMethodHashes.HASHES[className]
+        val hash = GeneratedMethodHashes.HASHES[(item as BaseFeature).technicalId]
         if (hash.isNullOrBlank())
-            error("failed to retrieve method hash for item $className; this shouldn't happen")
+            error("failed to retrieve method hash for item ${item.technicalId}; this shouldn't happen")
         return hash
     }
 }

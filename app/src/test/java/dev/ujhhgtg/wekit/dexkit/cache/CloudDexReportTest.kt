@@ -7,13 +7,11 @@ import org.junit.jupiter.api.Test
 class CloudDexReportTest {
     private val host = CloudDexHost("8.0.69", 3040, false)
     private val firstItem = CurrentDexItem(
-        className = "dev.ujhhgtg.wekit.FirstFeature",
         technicalId = "FirstFeature",
         methodHash = "first-hash",
         delegateKeys = setOf("FirstFeature:class", "FirstFeature:method"),
     )
     private val secondItem = CurrentDexItem(
-        className = "dev.ujhhgtg.wekit.SecondFeature",
         technicalId = "SecondFeature",
         methodHash = "second-hash",
         delegateKeys = setOf("SecondFeature:method"),
@@ -128,7 +126,7 @@ class CloudDexReportTest {
     @Test
     fun extraReportDataDoesNotRejectCurrentItem() {
         val report = validReport()
-            .replace("\"schemaVersion\": 1", "\"schemaVersion\": 1, \"future\": true")
+            .replace("\"schemaVersion\": 2", "\"schemaVersion\": 2, \"future\": true")
             .replace(
                 firstMethodDelegate(),
                 firstMethodDelegate() + ",\n            {\"key\": \"FirstFeature:removed\", \"status\": \"SUCCESS\", \"descriptor\": \"extra\", \"isPlaceholder\": false}",
@@ -146,9 +144,23 @@ class CloudDexReportTest {
     }
 
     @Test
+    fun classNameIsNotUsedForMatching() {
+        val report = validReport().replace(
+            featureBlock("FirstFeature", "first-hash", firstDelegates()),
+            featureBlock("FirstFeature", "first-hash", firstDelegates())
+                .replace("\"technicalId\": \"FirstFeature\"", "\"technicalId\": \"RenamedFeature\""),
+        )
+
+        val selection = CloudDexReport.select(report, host, listOf(firstItem, secondItem))
+
+        assertEquals(listOf("SecondFeature"), selection.entries.map { it.technicalId })
+        assertEquals(1, selection.rejectedCount)
+    }
+
+    @Test
     fun incompatibleWholeReportIsRejected() {
         val reports = listOf(
-            validReport().replace("\"schemaVersion\": 1", "\"schemaVersion\": 2"),
+            validReport().replace("\"schemaVersion\": 2", "\"schemaVersion\": 3"),
             validReport().replaceFirst("\"outcome\": \"PASS\"", "\"outcome\": \"FAIL\""),
             validReport().replace("\"versionName\": \"8.0.69\"", "\"versionName\": \"8.0.68\""),
             validReport().replace("\"versionCode\": 3040", "\"versionCode\": 3020"),
@@ -164,7 +176,7 @@ class CloudDexReportTest {
 
     private fun validReport(): String = """
         {
-          "schemaVersion": 1,
+          "schemaVersion": 2,
           "outcome": "PASS",
           "versionCode": 3040,
           "versionName": "8.0.69",
@@ -179,6 +191,7 @@ class CloudDexReportTest {
     private fun featureBlock(name: String, hash: String, delegates: String): String = """
         {
           "className": "dev.ujhhgtg.wekit.$name",
+          "technicalId": "$name",
           "displayName": "$name",
           "methodHash": "$hash",
           "outcome": "PASS",

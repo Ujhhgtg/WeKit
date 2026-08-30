@@ -89,6 +89,8 @@ struct DelegateReport {
 struct FeatureReport {
     class_name: String,
     display_name: String,
+    #[serde(default)]
+    technical_id: Option<String>,
     method_hash: String,
     outcome: String,
     elapsed_millis: i64,
@@ -678,7 +680,7 @@ fn read_report(path: &Path) -> Result<ApkReport> {
 
 fn infrastructure_report(apk: &Path, native: &DexKitNative, error: &anyhow::Error) -> ApkReport {
     ApkReport {
-        schema_version: 1,
+        schema_version: 2,
         worker_pid: 0,
         apk_path: apk.to_string_lossy().to_string(),
         file_name: apk

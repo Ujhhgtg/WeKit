@@ -11,6 +11,11 @@ internal data class ResolveSourceBlock(
 internal data class DexResolverSource(
     val file: File,
     val qualifiedClassName: String,
+    /**
+     * 从类体直接成员提取的 `technicalId` 字符串字面量；缺失或非字面量时为 null，
+     * 由 [GenerateMethodHashesTask] 负责校验并大声失败。
+     */
+    val technicalId: String?,
     val blocks: List<ResolveSourceBlock>,
     internal val sourceLinesByBlock: Map<ResolveSourceBlock, IntArray> = emptyMap(),
 )
@@ -78,6 +83,11 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
         }
     }
 
+    val technicalId = clean.findAllCode(TECHNICAL_ID)
+        .firstOrNull(::isDirectMember)
+        ?.groupValues?.get(1)
+        ?.unescapeKotlinLiteral()
+
     val separatorRegex = Regex("""\b(val|fun|private|public|internal|class|object|override)\b""")
     clean.findAllCode(INLINE_DELEGATE).filter(::isDirectMember).forEach { match ->
         val startScan = match.range.last + 1
@@ -94,7 +104,7 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
         error("Class $fullClassName implements IResolveDex but has neither a resolveDex() body nor any inline dex blocks.")
     }
 
-    return DexResolverSource(file, fullClassName, blocks.sortedBy { it.startLine }, sourceLinesByBlock)
+    return DexResolverSource(file, fullClassName, technicalId, blocks.sortedBy { it.startLine }, sourceLinesByBlock)
 }
 
 internal fun findDesktopIncompatibleAccesses(source: DexResolverSource): List<DesktopResolverViolation> =
@@ -124,6 +134,40 @@ private fun String.toResolveBlockKind(): ResolveBlockKind = when (this) {
 private val INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\b""")
 private val LIVE_HOST_ACCESS = Regex("""\b(?:class|method|field|ctor)[A-Za-z0-9_]*\.(clazz|method|field|constructor)\b""")
 private val HOST_VERSION_ACCESS = Regex("""\bHostInfo\.(versionCode|versionName|isHostGooglePlay)\b""")
+private val TECHNICAL_ID = Regex("""\btechnicalId\s*=\s*"((?:[^"\\\n]|\\.)*)"""")
+
+private fun String.unescapeKotlinLiteral(): String {
+    val literal = this
+    val result = StringBuilder(literal.length)
+    var i = 0
+    while (i < literal.length) {
+        val char = literal[i]
+        if (char != '\\' || i + 1 >= literal.length) {
+            result.append(char)
+            i++
+            continue
+        }
+        when (val next = literal[i + 1]) {
+            'n' -> result.append('\n')
+            't' -> result.append('\t')
+            'r' -> result.append('\r')
+            'b' -> result.append('\b')
+            'u' -> {
+                val hex = literal.substring(i + 2, (i + 6).coerceAtMost(literal.length))
+                val codePoint = hex.toIntOrNull(16)
+                if (hex.length == 4 && codePoint != null) {
+                    result.append(codePoint.toChar())
+                    i += 4
+                } else {
+                    result.append('u')
+                }
+            }
+            else -> result.append(next)
+        }
+        i += 2
+    }
+    return result.toString()
+}
 
 private class ScannedSource(
     val text: String,

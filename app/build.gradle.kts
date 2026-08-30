@@ -399,13 +399,6 @@ tasks.withType<Test>().configureEach {
 // markwon conflict
 configurations.all {
     exclude(group = "org.jetbrains", module = "annotations-java5")
-
-//    resolutionStrategy {
-//        force("androidx.compose.ui:ui:1.12.0-beta01")
-//        force("androidx.compose.ui:ui-android:1.12.0-beta01")
-//        force("androidx.compose.material3:material3:1.5.0-alpha21")
-//        force("androidx.compose.material3:material3-android:1.5.0-alpha21")
-//    }
 }
 
 tasks.withType<KotlinJvmCompile>().configureEach {

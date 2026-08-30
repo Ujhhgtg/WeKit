@@ -35,6 +35,10 @@ private const val PLACEHOLDER_DESCRIPTOR =
 /**
  * 所有 Dex 委托的公共基类，用于统一缓存读写与桌面测试诊断。
  * 每个委托负责自己的序列化/反序列化。
+ *
+ * [key] 仅需在单个 Feature 内唯一，但必须跨构建稳定：缓存与云报告都以它做字段名。
+ * 因此不能包含运行时类名（R8 混淆后每次构建都会变）——`property.name` 是编译进
+ * 代码的字符串常量，不受混淆影响。
  */
 sealed class BaseDexDelegate(val key: String) {
     internal lateinit var owner: BaseFeature
@@ -574,7 +578,7 @@ class DexConstructorDelegate internal constructor(
  */
 fun dexConstructor(): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexConstructorDelegate>> =
     PropertyDelegateProvider { item, property ->
-        val key = "${item::class.simpleName}:${property.name}"
+        val key = property.name
         DexConstructorDelegate(key).also { item.registerDexDelegate(it) }
     }
 
@@ -583,7 +587,7 @@ fun dexConstructor(): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<Bas
  */
 fun dexClass(): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexClassDelegate>> =
     PropertyDelegateProvider { item, property ->
-        val key = "${item::class.simpleName}:${property.name}"
+        val key = property.name
         DexClassDelegate(key).also { item.registerDexDelegate(it) }
     }
 
@@ -592,7 +596,7 @@ fun dexClass(): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeatu
  */
 fun dexField(): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexFieldDelegate>> =
     PropertyDelegateProvider { item, property ->
-        val key = "${item::class.simpleName}:${property.name}"
+        val key = property.name
         DexFieldDelegate(key).also { item.registerDexDelegate(it) }
     }
 
@@ -601,7 +605,7 @@ fun dexField(): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeatu
  */
 fun dexMethod(): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexMethodDelegate>> =
     PropertyDelegateProvider { item, property ->
-        val key = "${item::class.simpleName}:${property.name}"
+        val key = property.name
         DexMethodDelegate(key).also { item.registerDexDelegate(it) }
     }
 
@@ -647,7 +651,7 @@ fun dexConstructor(
     block: FindMethod.() -> Unit
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexConstructorDelegate>> =
     PropertyDelegateProvider { item, property ->
-        val key = "${item::class.simpleName}:${property.name}"
+        val key = property.name
         DexConstructorDelegate(key) { delegate, dexKit ->
             delegate.find(dexKit, allowMultiple, throwOnFailure, resultIndex, block)
         }.also { item.registerDexDelegate(it) }
@@ -663,7 +667,7 @@ fun dexClass(
     block: FindClass.() -> Unit
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexClassDelegate>> =
     PropertyDelegateProvider { item, property ->
-        val key = "${item::class.simpleName}:${property.name}"
+        val key = property.name
         DexClassDelegate(key) { delegate, dexKit ->
             delegate.find(dexKit, allowMultiple, allowFailure, multipleIndex, block)
         }.also { item.registerDexDelegate(it) }
@@ -679,7 +683,7 @@ fun dexField(
     block: FindField.() -> Unit
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexFieldDelegate>> =
     PropertyDelegateProvider { item, property ->
-        val key = "${item::class.simpleName}:${property.name}"
+        val key = property.name
         DexFieldDelegate(key) { delegate, dexKit ->
             delegate.find(dexKit, allowMultiple, allowFailure, resultIndex, block)
         }.also { item.registerDexDelegate(it) }
@@ -695,7 +699,7 @@ fun dexMethod(
     block: FindMethod.() -> Unit
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexMethodDelegate>> =
     PropertyDelegateProvider { item, property ->
-        val key = "${item::class.simpleName}:${property.name}"
+        val key = property.name
         DexMethodDelegate(key) { delegate, dexKit ->
             delegate.find(dexKit, allowMultiple, allowFailure, resultIndex, block)
         }.also { item.registerDexDelegate(it) }

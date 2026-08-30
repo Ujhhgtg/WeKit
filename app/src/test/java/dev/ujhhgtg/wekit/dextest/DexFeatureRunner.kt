@@ -26,7 +26,7 @@ internal fun runDexFeature(
         return DexTestFeatureReport(
             className = entry.className,
             displayName = entry.className,
-            methodHash = GeneratedMethodHashes.HASHES[entry.className].orEmpty(),
+            methodHash = "",
             outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
             elapsedMillis = started.elapsedNow().inWholeMilliseconds,
             featureError = error.toDexTestError(),
@@ -46,7 +46,8 @@ internal fun runDexFeature(
         ?: return DexTestFeatureReport(
             className = entry.className,
             displayName = displayName(feature),
-            methodHash = GeneratedMethodHashes.HASHES[entry.className].orEmpty(),
+            technicalId = feature.technicalId,
+            methodHash = GeneratedMethodHashes.HASHES[feature.technicalId].orEmpty(),
             outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
             elapsedMillis = started.elapsedNow().inWholeMilliseconds,
             featureError = DexTestError(message = "${entry.className} does not implement IResolveDex"),
@@ -86,7 +87,8 @@ internal fun runDexFeature(
     return DexTestFeatureReport(
         className = entry.className,
         displayName = displayName(feature),
-        methodHash = GeneratedMethodHashes.HASHES[entry.className].orEmpty(),
+        technicalId = feature.technicalId,
+        methodHash = GeneratedMethodHashes.HASHES[feature.technicalId].orEmpty(),
         outcome = featureOutcome(delegates, error),
         elapsedMillis = started.elapsedNow().inWholeMilliseconds,
         delegates = delegates,

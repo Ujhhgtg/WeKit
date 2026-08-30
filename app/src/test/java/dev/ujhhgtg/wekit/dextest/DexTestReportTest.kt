@@ -49,6 +49,7 @@ class DexTestReportTest {
                 DexTestFeatureReport(
                     className = "Fixture",
                     displayName = "测试/Fixture",
+                    technicalId = "Fixture",
                     outcome = DexTestFeatureOutcome.PASS,
                     elapsedMillis = 1,
                     delegates = listOf(delegate),

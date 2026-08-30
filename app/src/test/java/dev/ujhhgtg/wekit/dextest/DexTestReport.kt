@@ -10,7 +10,7 @@ import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-internal const val DEX_TEST_SCHEMA_VERSION = 1
+internal const val DEX_TEST_SCHEMA_VERSION = 2
 
 internal val DexTestJson = Json {
     encodeDefaults = true
@@ -41,6 +41,10 @@ internal data class DexTestDelegateReport(
 internal data class DexTestFeatureReport(
     val className: String,
     val displayName: String,
+    /**
+     * 设备端云缓存按此字段匹配 feature；仅在类加载失败时为空字符串（该类 outcome 必然 FAIL，不会进入发布资产）。
+     */
+    val technicalId: String = "",
     val methodHash: String = "",
     val outcome: DexTestFeatureOutcome,
     val elapsedMillis: Long,

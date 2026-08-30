@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ButtonGroupDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
@@ -364,7 +363,6 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
         return "${rawId}${cjkChars}@chatroom"
     }
 
-    @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     private fun showSplitCallDialog(context: Activity, wxId: String) {
         showComposeDialog(context) {
             var repeatCount by remember { mutableStateOf("1") }

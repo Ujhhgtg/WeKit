@@ -10,7 +10,6 @@ internal data class CloudDexHost(
 )
 
 internal data class CurrentDexItem(
-    val className: String,
     val technicalId: String,
     val methodHash: String,
     val delegateKeys: Set<String>,
@@ -45,9 +44,9 @@ internal object CloudDexReport {
         require(report.versionCode == host.versionCode) { "cloud report version code does not match host" }
         require(report.isGooglePlay == host.isGooglePlay) { "cloud report channel does not match host" }
 
-        val featuresByClass = report.features.groupBy(Feature::className)
+        val featuresById = report.features.groupBy(Feature::technicalId)
         val entries = items.mapNotNull { item ->
-            val features = featuresByClass[item.className]
+            val features = featuresById[item.technicalId]
             if (features?.size != 1) return@mapNotNull null
 
             val feature = features.single()
@@ -78,7 +77,7 @@ internal object CloudDexReport {
         return CloudDexSelection(entries, items.size - entries.size)
     }
 
-    private const val SCHEMA_VERSION = 1
+    private const val SCHEMA_VERSION = 2
     private const val APK_PASS = "PASS"
     private val FEATURE_PASS_OUTCOMES = setOf("PASS", "PASS_WITH_EXPECTED_FAILURES")
 
@@ -101,7 +100,7 @@ private data class Report(
 
 @Serializable
 private data class Feature(
-    val className: String,
+    val technicalId: String,
     val methodHash: String,
     val outcome: String,
     val delegates: List<Delegate>,

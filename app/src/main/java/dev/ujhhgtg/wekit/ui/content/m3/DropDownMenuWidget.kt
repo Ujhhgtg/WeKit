@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuPopup
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.SelectableDropdownMenuItem
 import androidx.compose.material3.Text
@@ -26,7 +25,6 @@ import kotlin.math.roundToInt
 
 data class DropdownOption<T>(val value: T, val label: String)
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun <T> ExpressiveOptionDropdown(
     expanded: Boolean,
@@ -52,7 +50,6 @@ fun <T> ExpressiveOptionDropdown(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun <T> DropDownMenuWidget(
     icon: ImageVector? = null,

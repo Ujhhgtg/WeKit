@@ -23,13 +23,33 @@ abstract class GenerateMethodHashesTask : DefaultTask() {
         val outDir = outputDir.get().asFile
         val outputFile = outDir.resolve("${namespace.get().replace(".", "/")}/dexkit/cache/GeneratedMethodHashes.kt")
 
-        val hashMap = srcDir.walkTopDown()
+        val sources = srcDir.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .mapNotNull(::scanDexResolverSource)
-            .associate { source ->
-                val body = source.blocks.joinToString("\n") { it.text }
-                source.qualifiedClassName to md5(body)
-            }
+            .toList()
+
+        val missingTechnicalId = sources.filter { it.technicalId == null }
+        if (missingTechnicalId.isNotEmpty()) {
+            error(
+                "Dex resolver classes without a technicalId string literal: " +
+                    missingTechnicalId.joinToString { it.qualifiedClassName },
+            )
+        }
+        val duplicateTechnicalIds = sources
+            .groupBy { it.technicalId!! }
+            .filterValues { it.size > 1 }
+        if (duplicateTechnicalIds.isNotEmpty()) {
+            error(
+                "Duplicated technicalId across Dex resolver classes: " +
+                    duplicateTechnicalIds.entries.joinToString { (id, resolvers) ->
+                        "$id -> [${resolvers.joinToString { it.qualifiedClassName }}]"
+                    },
+            )
+        }
+
+        val hashMap = sources.associate { source ->
+            source.technicalId!! to md5(source.blocks.joinToString("\n") { it.text })
+        }
 
         outputFile.parentFile.mkdirs()
         outputFile.writeText(
@@ -37,12 +57,14 @@ abstract class GenerateMethodHashesTask : DefaultTask() {
             package ${namespace.get()}.dexkit.cache
 
             object GeneratedMethodHashes {
-                val HASHES = mapOf(${hashMap.entries.sortedBy { it.key }.joinToString(", \n") { "\"${it.key}\" to \"${it.value}\"" }})
+                val HASHES = mapOf(${hashMap.entries.sortedBy { it.key }.joinToString(", \n") { "\"${it.key.kotlinLiteral()}\" to \"${it.value}\"" }})
             }
             """.trimIndent(),
         )
     }
 }
+
+private fun String.kotlinLiteral(): String = replace("\\", "\\\\").replace("\"", "\\\"")
 
 private fun md5(input: String): String =
     MessageDigest.getInstance("MD5").digest(input.toByteArray()).joinToString("") { "%02x".format(it) }

@@ -6,6 +6,16 @@ import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.api.net.abc.IWePacketInterceptor
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.features.items.official_accounts.RemoveOfficialAccountAds.AD_CARD_PREFIX
+import dev.ujhhgtg.wekit.features.items.official_accounts.RemoveOfficialAccountAds.AD_INFO_FIELD
+import dev.ujhhgtg.wekit.features.items.official_accounts.RemoveOfficialAccountAds.CAPTURE_MODE
+import dev.ujhhgtg.wekit.features.items.official_accounts.RemoveOfficialAccountAds.DIAG_ALL_URIS
+import dev.ujhhgtg.wekit.features.items.official_accounts.RemoveOfficialAccountAds.URI_BATCH_GET_MSG_LIST
+import dev.ujhhgtg.wekit.features.items.official_accounts.RemoveOfficialAccountAds.URI_BIZ_MSG_RESORT
+import dev.ujhhgtg.wekit.features.items.official_accounts.RemoveOfficialAccountAds.URI_RECOMMEND_FEEDS
+import dev.ujhhgtg.wekit.features.items.official_accounts.RemoveOfficialAccountAds.neutralizeEmbeddedAdJson
+import dev.ujhhgtg.wekit.features.items.official_accounts.RemoveOfficialAccountAds.removeAdItems
+import dev.ujhhgtg.wekit.features.items.official_accounts.RemoveOfficialAccountAds.stripAdCreatives
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.json.JSONArray
 import org.json.JSONObject
@@ -207,7 +217,9 @@ object RemoveOfficialAccountAds : SwitchFeature(), IWePacketInterceptor {
         when (node) {
             is JSONObject -> {
                 for (key in node.keys().asSequence().toList()) {
-                    when (val v = node.opt(key)) {
+                    // TODO: this ': Any?' workaround is used due to a kotlinc 2.4 regression
+                    // ommitting this triggers a false-positive warning
+                    when (val v: Any? = node.opt(key)) {
                         is String -> {
                             val inner = v.asAdControlJsonOrNull()
                             if (inner != null && neutralizeAdKeys(inner)) {
@@ -307,7 +319,8 @@ object RemoveOfficialAccountAds : SwitchFeature(), IWePacketInterceptor {
         var removed = 0
         when (node) {
             is JSONObject -> for (key in node.keys().asSequence().toList()) {
-                when (val v = node.opt(key)) {
+                // TODO: same as above
+                when (val v: Any? = node.opt(key)) {
                     is JSONArray -> {
                         if (v.length() > 0 && (0 until v.length()).any { isAdItem(v.opt(it)) }) {
                             val kept = JSONArray()

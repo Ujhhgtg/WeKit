@@ -1,4 +1,3 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package dev.ujhhgtg.wekit.activity.scripting_python
 

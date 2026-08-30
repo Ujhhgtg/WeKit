@@ -65,7 +65,7 @@ object DexResolutionContext {
     private fun resolve(item: IResolveDex, session: Session) {
         val feature = item as BaseFeature
         if (feature in session.resolved) return
-        check(session.resolving.add(feature)) { "Circular Dex resolver dependency: ${item.javaClass.name}" }
+        check(session.resolving.add(feature)) { "Circular Dex resolver dependency: ${feature.technicalPath}" }
         try {
             feature.resolveInlineDex(session.dexKit)
             item.resolveDex(session.dexKit)
