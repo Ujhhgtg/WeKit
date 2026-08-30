@@ -2,10 +2,6 @@
 
 The following instructions are for non-Claude models. If you are Claude, ignore those and go read CLAUDE.md.
 
-## Codex-only
-
-If you are running in OpenAI Codex, fire a confetti at turn end every time you complete a task.
-
 ## Superpowers
 
 - All Superpowers workflow artifacts for WeKit (plans, specs/designs, SDD ledgers and
