@@ -362,7 +362,6 @@ private fun HomeSidePanelActionCandidateList(
         HOME_SIDE_PANEL_ACTION_KINDS.forEachIndexed { index, kind ->
             val spec = homeSidePanelActionSpec(kind)
             ListItem(
-                headlineContent = { Text(stringResource(spec.labelRes)) },
                 leadingContent = {
                     Icon(spec.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 },
@@ -372,7 +371,9 @@ private fun HomeSidePanelActionCandidateList(
                         descriptionRes = R.string.home_side_panel_drag_add_action,
                     ) { pointer -> onLongPressAction(cardId, kind, pointer) }
                     .clickable { onAddAction(cardId, kind) },
-            )
+            ) {
+                Text(stringResource(spec.labelRes))
+            }
             if (index != HOME_SIDE_PANEL_ACTION_KINDS.lastIndex) {
                 HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             }

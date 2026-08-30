@@ -228,7 +228,6 @@ internal fun HomeSidePanelWeatherSettings(
                 settings.searchResults.forEachIndexed { index, city ->
                     val selected = city.cityNum == settings.selectedCity.cityNum
                     ListItem(
-                        headlineContent = { Text(city.city + city.district.orEmpty()) },
                         supportingContent = { Text("${city.province} · ${city.cityNum}") },
                         trailingContent = { RadioButton(selected = selected, onClick = null) },
                         colors = ListItemDefaults.colors(
@@ -243,7 +242,9 @@ internal fun HomeSidePanelWeatherSettings(
                             .clickable(enabled = !settings.actionInProgress) {
                                 panelState.updateWeatherCity(card.id, city)
                             },
-                    )
+                    ) {
+                        Text(city.city + city.district.orEmpty())
+                    }
                     if (index != settings.searchResults.lastIndex) {
                         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                     }

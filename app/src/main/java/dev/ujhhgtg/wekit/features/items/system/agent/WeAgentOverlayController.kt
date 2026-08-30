@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.system.agent
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PixelFormat
 import android.os.Build
@@ -16,15 +17,16 @@ import androidx.compose.ui.platform.ComposeView
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.OverlayMode
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
+import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController.shouldBeVisible
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.agent.WeAgentBall
 import dev.ujhhgtg.wekit.ui.agent.WeAgentPanel
-import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
+import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getSystemService
@@ -39,6 +41,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
  * The overlay lives in WeChat's process, so the effective `SYSTEM_ALERT_WINDOW` grant is WeChat's;
  * we gate mounting on [Settings.canDrawOverlays] and toast guidance if it's missing.
  */
+@SuppressLint("StaticFieldLeak")
 object WeAgentOverlayController {
 
     private const val TAG = "WeAgentOverlayController"
@@ -225,6 +228,7 @@ object WeAgentOverlayController {
             // expose the focused text field's cursor and leaves the send button under the IME.
             // Resizing shrinks the window above the keyboard; imePadding() in WeAgentPanel covers
             // devices where overlay windows are not resized.
+            @Suppress("DEPRECATION")
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
         val owner = LifecycleOwnerProvider.lifecycleOwner

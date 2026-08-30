@@ -1,3 +1,4 @@
+@file:Suppress("AvoidDuplicateDependencies")
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -136,6 +137,9 @@ android {
     }
 
     packaging {
+        dex {
+            useLegacyPackaging = true
+        }
         jniLibs {
             useLegacyPackaging = true
         }
@@ -311,13 +315,7 @@ dependencies {
     implementation(project(":libs:common:reflekt"))
     implementation(libs.libsu.core)
     implementation(libs.dexmaker)
-//    implementation(libs.arsclib)
-//    implementation(libs.apksig)
-//    implementation(libs.bouncycastle.prov)
-//    implementation(libs.bouncycastle.pkix)
-    @Suppress("AvoidDuplicateDependencies")
     implementation(project(":libs:common:annotation-scanner"))
-    @Suppress("AvoidDuplicateDependencies")
     ksp(project(":libs:common:annotation-scanner"))
 
     implementation(libs.okhttp3.okhttp)

@@ -22,5 +22,5 @@
 	url = https://github.com/KhronosGroup/OpenCL-Headers
 [submodule "libs/common/scripta"]
 	path = libs/common/scripta
-	url = https://github.com/YuKongA/scripta.git
+	url = https://github.com/Ujhhgtg/scripta
 	branch = main
