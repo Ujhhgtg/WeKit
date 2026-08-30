@@ -65,46 +65,6 @@ The following instructions are for Claude models. If you are non-Claude, ignore 
   `DexCacheManager.kt` against WeChat APKs on the Linux desktop. Test only the supported host
   range **8.0.65–8.0.77**; APKs outside that range are useful for investigation but must not be
   treated as compatibility gates for the project.
-- Test each supported APK version separately, including separate normal and Google Play APKs
-  when both are available. Each APK runs in its own JVM worker and must carry its own version code,
-  version name, build tag, and Google Play metadata.
-- Reports belong under `dex-test-results/<run-id>/` (or an explicitly supplied output directory),
-  never under Gradle's `build/reports/`. Preserve the per-APK JSON reports and aggregate summary.
-- Resolution classification is strict: an `allowFailure = true` delegate that receives its
-  placeholder is `EXPECTED_FAILURE`; an unhandled resolver exception is `UNEXPECTED_FAILURE`;
-  delegates that remain pending after that exception are `BLOCKED` and must record the triggering
-  delegate; a resolver returning with pending delegates is `INCOMPLETE`.
-- A desktop resolution pass does not prove hook-time behavior on a physical device. Initialization,
-  worker, native-library, APK metadata, report, unexpected, blocked, or incomplete failures must
-  remain visible and make the command fail.
-- DexKit desktop testing is intentionally expensive. After a supported-version run has passed,
-  do not rerun it for unrelated changes when no Dex declarations or resolution steps changed.
-  Rerun the affected supported APK versions after changing `dexMethod`, `dexClass`, `dexField`,
-  inline matchers, or the corresponding `resolveDex`/`resolveInlineDex` logic.
-- Before reporting a Dex resolver change as complete, run the affected desktop tests plus any
-  relevant existing or qualifying Gradle tests (as defined under Testing Strategy), `./x build`,
-  and `git diff --check`.
-
-### Host compatibility path selection
-
-- Prefer structure-based compatibility over host-version checks. In Dex resolution, first probe
-  one stable class, method, field, or constructor that exists only on the newer path. If that probe
-  produces zero results, record its expected placeholder and fall back to the older path. If it is
-  present, keep every other required target on that path strict. Multiple results, matcher errors,
-  and failures after the probe must remain visible failures; they are not fallback conditions.
-- At hook time or when invoking resolved host members, choose the path from the actual resolved
-  structure. Use the new-path probe's `isPlaceholder`, inspect the resolved member's reflection
-  signature, or test another directly relevant runtime property. Do not repeat the resolver's
-  compatibility decision with a host-version comparison.
-- If old and new hosts expose the same semantic member with only a signature difference, accept
-  the confirmed signatures structurally (for example, `paramCount(10, 11)`). When invocation
-  arguments differ, inspect `Method.parameterCount` or `Constructor.parameterCount` and construct
-  the arguments from that actual signature.
-- Avoid branches based on the WeChat host's `versionCode`, `versionName`, hard-coded WeChat version
-  strings, or equivalent version constants. If a host-version check is genuinely unavoidable, ask
-  the user for explicit confirmation before adding or retaining it. Distinguishing a Google Play
-  build through `isHostGooglePlay`/`isGooglePlay` is **not** a host-version check and does not require
-  that confirmation.
 
 ## Key Conventions
 
