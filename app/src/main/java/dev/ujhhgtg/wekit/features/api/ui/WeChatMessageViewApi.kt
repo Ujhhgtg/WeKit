@@ -170,6 +170,18 @@ object WeChatMessageViewApi : ApiFeature(), IResolveDex {
             .get()!!
     }
 
+    /** Returns every (view, message) pair currently bound whose message satisfies [matcher]. */
+    fun findBoundViews(matcher: (MessageInfo) -> Boolean): List<Pair<View, MessageInfo>> {
+        synchronized(currentBindings) {
+            return currentBindings.entries
+                .filter { matcher(it.value) }
+                .map { it.key to it.value }
+        }
+    }
+
+    fun getBoundMessage(view: View): MessageInfo? =
+        synchronized(currentBindings) { currentBindings[view] }
+
     fun getMsgInfoFromParam(param: HookParam): MessageInfo {
         val chattingDataAdapter = param.thisObject!!.reflekt()
             .firstField { type = WeMessageApi.classChattingDataAdapter.clazz }

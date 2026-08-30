@@ -1842,9 +1842,15 @@
     <string name="chat_add_folder_manual_summary">Manual folder</string>
     <string name="chat_anti_recall_outgoing">Prevent recalls of your own messages</string>
     <string name="chat_anti_recall_outgoing_description">Also apply to messages you sent (this option is currently broken; do not use it)</string>
-    <string name="chat_anti_recall_pattern">Notice format</string>
-    <string name="chat_anti_recall_placeholders" formatted="false">Available placeholders: $sender, $sendTime, $recallTime, $content</string>
-    <string name="chat_anti_recall_time_format">Time format</string>
+    <string name="chat_anti_recall_migrate">Migrate legacy recall notices</string>
+    <string name="chat_anti_recall_migrate_description">Convert legacy system-message recall notices to the new style and remove them; reopen a conversation to see the result</string>
+    <string name="chat_anti_recall_migrating">Migrating…</string>
+    <string name="chat_anti_recall_migrated">Migrated %1$d notices; %2$d messages could not be located</string>
+    <string name="chat_anti_recall_migration_failed">Migration failed</string>
+    <string name="chat_anti_recall_badge_type">Badge type</string>
+    <string name="chat_anti_recall_badge_type_icon">Icon</string>
+    <string name="chat_anti_recall_badge_type_text">Text</string>
+    <string name="chat_anti_recall_badge_text_content">Recalled</string>
     <string name="chat_placeholder_content">Placeholder text</string>
     <string name="chat_placeholder_insert_hint">Tap to insert a placeholder:</string>
     <string name="chat_fake_voice_duration_millis">Voice duration (milliseconds)</string>

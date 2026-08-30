@@ -1792,9 +1792,15 @@
     <string name="chat_add_folder_manual_summary">手動文件夾</string>
     <string name="chat_anti_recall_outgoing">防撤回自己的消息</string>
     <string name="chat_anti_recall_outgoing_description">是否對自己發出的消息也生效（這個功能現在是壞的，別用）</string>
-    <string name="chat_anti_recall_pattern">提示格式</string>
-    <string name="chat_anti_recall_placeholders" formatted="false">可使用佔位符 $sender、$sendTime、$recallTime、$content</string>
-    <string name="chat_anti_recall_time_format">時間格式</string>
+    <string name="chat_anti_recall_migrate">遷移舊版撤回提示</string>
+    <string name="chat_anti_recall_migrate_description">將舊版以系統訊息插入的撤回提示遷移為新樣式，並刪除舊提示；重新進入會話後生效</string>
+    <string name="chat_anti_recall_migrating">正在遷移…</string>
+    <string name="chat_anti_recall_migrated">已遷移 %1$d 條提示，%2$d 條無法定位原訊息</string>
+    <string name="chat_anti_recall_migration_failed">遷移失敗</string>
+    <string name="chat_anti_recall_badge_type">徽標類型</string>
+    <string name="chat_anti_recall_badge_type_icon">圖標</string>
+    <string name="chat_anti_recall_badge_type_text">文本</string>
+    <string name="chat_anti_recall_badge_text_content">已撤回</string>
     <string name="chat_placeholder_content">佔位符文本內容</string>
     <string name="chat_placeholder_insert_hint">點擊插入佔位符：</string>
     <string name="chat_fake_voice_duration_millis">語音時長（毫秒）</string>
