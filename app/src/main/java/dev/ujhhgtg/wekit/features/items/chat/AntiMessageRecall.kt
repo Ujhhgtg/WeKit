@@ -25,7 +25,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
+import androidx.core.view.isVisible
+import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeXmlParserApi
@@ -56,7 +61,7 @@ import kotlinx.coroutines.launch
 import java.util.Collections
 import java.util.WeakHashMap
 
-object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListener,
+object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfterParseListener,
     WeChatMessageViewApi.ICreateViewListener {
 
     override val technicalId = "防撤回"
@@ -81,6 +86,15 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
     // clobbering other features' animations (e.g. MessageEntranceAnimation).
     private val dimmedRows = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
     private val badges = Collections.synchronizedMap(WeakHashMap<View, RecallBadge>())
+
+    // Scenes currently recalling a self-sent message, keyed by the NetSceneRevokeMsg instance, so
+    // the scene-end hook can tell which message row the host is about to destroy.
+    private val pendingRecallMsgs = Collections.synchronizedMap(WeakHashMap<Any, MessageInfo>())
+
+    // Unique to NetSceneRevokeMsg's notice converter across the supported host range; anchors the
+    // scene class without hard-coding its obfuscated name.
+    private const val REVOKE_INVOKE_MESSAGE_XML =
+        "<sysmsg type=\"invokeMessage\"><invokeMessage><text><![CDATA[%s]]></text><timestamp><![CDATA[%s]]></timestamp><link><text><![CDATA[%s]]></text></link><preContent><![CDATA[%s]]></preContent><type><![CDATA[%s]]></type><msgSource><![CDATA[%s]]></msgSource></invokeMessage></sysmsg>"
 
     private const val TYPE_KEY = $$".sysmsg.$type"
     private const val RECORD_SEPARATOR = "\u001F"
@@ -108,10 +122,84 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
 
     private fun encodeKey(talker: String, serverId: Long) = "$talker$RECORD_SEPARATOR$serverId"
 
+    // NetSceneRevokeMsg (scene 594, /cgi-bin/micromsg-bin/revokemsg): recalling a message sent from
+    // this device never parses a revoke sysmsg — the scene rewrites the message row in place at
+    // scene end (notice converter, isSend reset, row update), so the XML parser hook never sees it.
+    // The constructor receives the target message; capture it for the scene-end hook.
+    private val methodRevokeMsgSceneInit by dexConstructor {
+        matcher {
+            declaredClass {
+                usingEqStrings(REVOKE_INVOKE_MESSAGE_XML)
+            }
+            paramCount = 3
+        }
+    }
+
+    private val methodRevokeMsgSceneEnd by dexMethod {
+        matcher {
+            declaredClass {
+                usingEqStrings(REVOKE_INVOKE_MESSAGE_XML)
+            }
+            name = "onGYNetEnd"
+            paramCount = 6
+        }
+    }
+
     override fun onEnable() {
         recalledKeyCache = recalledRecords
         WeXmlParserApi.addListener(this)
         WeChatMessageViewApi.addListener(this)
+
+        methodRevokeMsgSceneInit.hookBefore {
+            val captured = MessageInfo(args[0]!!)
+            pendingRecallMsgs[thisObject!!] = captured
+        }
+
+        methodRevokeMsgSceneEnd.hookBefore {
+            if (!recallOutgoing) {
+                WeLogger.i(TAG, "revoke scene end skipped: recall outgoing disabled")
+                return@hookBefore
+            }
+            val msgInfo = pendingRecallMsgs.remove(thisObject!!)
+            if (msgInfo == null) {
+                WeLogger.i(TAG, "revoke scene end skipped: no captured message")
+                return@hookBefore
+            }
+            // Recall rejected (e.g. the 2-minute window expired): keep WeChat's own failure path,
+            // the message row was never rewritten anyway.
+            val errType = args[1] as Int
+            val errCode = args[2] as Int
+            if (errType != 0 || errCode != 0) {
+                WeLogger.i(TAG, "revoke scene end skipped: scene failed")
+                return@hookBefore
+            }
+            if (!msgInfo.isSelfSender) {
+                WeLogger.i(TAG, "revoke scene end skipped: not self sender")
+                return@hookBefore
+            }
+
+            // Resolve the scene queue wrapper first: if that fails we bail out without recording,
+            // so the original body keeps running and the recall just behaves unblocked.
+            val sceneEndField = thisObject!!.reflekt().firstField {
+                type { it.isInterface && it.declaredMethods.any { m -> m.name == "onSceneEnd" } }
+            }
+            val sceneWrapper = sceneEndField.get(thisObject!!)!!
+            @Suppress("UNCHECKED_CAST")
+            val sceneWrapperType = sceneEndField.self.type as Class<Any>
+            val sceneEnd = sceneWrapperType.reflekt()
+                .firstMethod { name = "onSceneEnd"; parameterCount = 4 }
+
+            // Replicate the trailing queue completion of the skipped body so the NetScene queue and
+            // the chat UI (progress dialog dismissal, refresh) finish the scene normally.
+            sceneEnd.invoke(sceneWrapper, errType, errCode, args[3], thisObject)
+
+            val key = encodeKey(msgInfo.talker, msgInfo.serverId)
+            recalledKeyCache = recalledKeyCache + key
+            recalledRecords = recalledKeyCache
+            WeLogger.i(TAG, "kept recalled self message: $key")
+            refreshBoundViews(msgInfo)
+            result = null
+        }
     }
 
     override fun onDisable() {
@@ -209,15 +297,17 @@ object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListene
 
     // The chat row has a stable structure (verified via debugViewTree dumps):
     // root container → first exact android.widget.LinearLayout (avatar + content row) → first
-    // exact android.widget.LinearLayout beneath it (the message content column) → the first view
-    // tagged with a viewitems holder class (the bubble itself, whatever the message type is).
+    // exact android.widget.LinearLayout beneath it (the message content column) → the first
+    // VISIBLE view tagged with a viewitems holder class (the bubble itself, whatever the message
+    // type is). Visibility matters: self-sent rows keep hidden send-status views (failure icon,
+    // delivered tick) that carry the same holder tag as the bubble but precede it in DFS order.
     private fun findBubbleView(view: View): View? {
         val contentRow = findContentRow(view) ?: return null
         val contentColumn = contentRow.findViewWhich {
             it !== contentRow && it.javaClass == LinearLayout::class.java
         } ?: return null
         return contentColumn.findViewWhich {
-            it !== contentColumn && isTaggedBubbleView(it)
+            it !== contentColumn && it.isVisible && isTaggedBubbleView(it)
         }
     }
 

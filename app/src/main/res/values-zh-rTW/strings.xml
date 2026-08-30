@@ -1791,7 +1791,7 @@
     <string name="chat_add_folder_automatic_summary">自動歸攏，不可手動添加</string>
     <string name="chat_add_folder_manual_summary">手動文件夾</string>
     <string name="chat_anti_recall_outgoing">防撤回自己的消息</string>
-    <string name="chat_anti_recall_outgoing_description">是否對自己發出的消息也生效（這個功能現在是壞的，別用）</string>
+    <string name="chat_anti_recall_outgoing_description">是否對自己發出的消息也生效</string>
     <string name="chat_anti_recall_migrate">遷移舊版撤回提示</string>
     <string name="chat_anti_recall_migrate_description">將舊版以系統訊息插入的撤回提示遷移為新樣式，並刪除舊提示；重新進入會話後生效</string>
     <string name="chat_anti_recall_migrating">正在遷移…</string>
