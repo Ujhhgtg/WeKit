@@ -1,6 +1,6 @@
 [versions]
 agp = "9.3.0"
-coil = "3.5.0"
+coil = "3.6.0"
 compose-bom = "2026.06.01"
 dexkit = "2.2.0"
 appcompat = "1.7.1"
