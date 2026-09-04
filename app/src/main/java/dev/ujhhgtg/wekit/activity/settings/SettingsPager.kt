@@ -535,22 +535,6 @@ private fun ThemeSection() {
         }
 
         item {
-            var nativeSettingsIntegration by remember {
-                mutableStateOf(Preferences.nativeSettingsIntegration)
-            }
-            SwitchWidget(
-                title = stringResource(R.string.settings_native_integration_title),
-                description = stringResource(R.string.settings_native_integration_summary),
-                checked = nativeSettingsIntegration,
-                onCheckedChange = { enabled ->
-                    nativeSettingsIntegration = enabled
-                    Preferences.nativeSettingsIntegration = enabled
-                },
-                icon = MaterialSymbols.Outlined.Extension,
-            )
-        }
-
-        item {
             DropDownMenuWidget(
                 title = stringResource(R.string.settings_theme_mode_title),
                 description = null,

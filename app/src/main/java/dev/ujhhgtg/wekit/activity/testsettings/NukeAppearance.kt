@@ -27,7 +27,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeAnimatedVisibility
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeButton
@@ -67,9 +66,6 @@ private val nukePresetColors = listOf(
 @Composable
 internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
     var showColorDialog by remember { mutableStateOf(false) }
-    var nativeSettingsIntegration by remember {
-        mutableStateOf(Preferences.nativeSettingsIntegration)
-    }
     val context = LocalContext.current
     val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val scope = rememberCoroutineScope()
@@ -103,23 +99,6 @@ internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
                     selected = ThemeSettings.uiEngine,
                     optionLabel = { engineLabels.getValue(it) },
                     onSelected = ThemeSettings::updateUiEngine,
-                )
-                NukePreferenceRow(
-                    title = stringResource(R.string.settings_native_integration_title),
-                    description = stringResource(R.string.settings_native_integration_summary),
-                    trailing = {
-                        NukeSwitch(
-                            checked = nativeSettingsIntegration,
-                            onCheckedChange = { enabled ->
-                                nativeSettingsIntegration = enabled
-                                Preferences.nativeSettingsIntegration = enabled
-                            },
-                        )
-                    },
-                    onClick = {
-                        nativeSettingsIntegration = !nativeSettingsIntegration
-                        Preferences.nativeSettingsIntegration = nativeSettingsIntegration
-                    },
                 )
             }
         }
