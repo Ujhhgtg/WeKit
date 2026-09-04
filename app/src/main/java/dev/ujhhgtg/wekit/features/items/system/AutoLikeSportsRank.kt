@@ -198,8 +198,8 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex,
                             SwitchWidget(
                                 iconPlaceholder = false,
                                 title = stringResource(
-                                    if (useWhitelistState) R.string.chat_auto_cache_whitelist_selected
-                                    else R.string.chat_auto_cache_blacklist_selected
+                                    if (useWhitelistState) R.string.filter_list_whitelist_selected
+                                    else R.string.filter_list_blacklist_selected
                                 ),
                                 description = stringResource(
                                     if (useWhitelistState) R.string.sports_rank_whitelist_description
@@ -216,17 +216,17 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex,
                             BaseWidget(
                                 iconPlaceholder = false,
                                 title = stringResource(
-                                    if (useWhitelistState) R.string.chat_auto_cache_configure_whitelist
-                                    else R.string.chat_auto_cache_configure_blacklist
+                                    if (useWhitelistState) R.string.filter_list_configure_whitelist
+                                    else R.string.filter_list_configure_blacklist
                                 ),
-                                description = stringResource(R.string.chat_auto_cache_select_contacts_hint),
+                                description = stringResource(R.string.filter_list_select_contacts_hint),
                                 onClick = {
                                     val currentList = if (useWhitelistState) whitelist else blacklist
                                     showComposeDialog(context) {
                                         ContactsSelector(
                                             title = stringResource(
-                                                if (useWhitelistState) R.string.chat_auto_cache_select_whitelist
-                                                else R.string.chat_auto_cache_select_blacklist
+                                                if (useWhitelistState) R.string.filter_list_select_whitelist
+                                                else R.string.filter_list_select_blacklist
                                             ),
                                             contacts = WeDatabaseApi.getFriends(),
                                             initialSelectedWxIds = currentList,

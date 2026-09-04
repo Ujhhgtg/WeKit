@@ -632,6 +632,8 @@
     <string name="feature_auto_cache_files_description">Monitor the received file messages, and automatically trigger WeChat internal download after the other party completes the upload and cache it locally.</string>
     <string name="feature_auto_cache_images_name">Automatically cache images</string>
     <string name="feature_auto_cache_images_description">Monitor the received image messages, automatically trigger WeChat to download from CDN, and cache the original image locally.</string>
+    <string name="feature_block_at_all_notifications_name">Block group @all notifications</string>
+    <string name="feature_block_at_all_notifications_description">Suppress @all notifications according to a group blacklist or whitelist</string>
     <string name="feature_auto_enable_send_as_media_group_name">Automatically enable merged media sending</string>
     <string name="feature_auto_enable_send_as_media_group_description">Automatically check the "Merge and display after sending" option when sending media</string>
     <string name="feature_auto_enable_send_original_media_name">Automatically enable sending original images</string>
@@ -1891,17 +1893,24 @@
     <string name="chat_auto_cache_files_blacklist_description">Skip file caching for selected contacts</string>
     <string name="chat_auto_cache_images_whitelist_description">Cache images only for selected contacts</string>
     <string name="chat_auto_cache_images_blacklist_description">Skip image caching for selected contacts</string>
-    <string name="chat_auto_cache_whitelist_selected">Blacklist [→ Whitelist ←]</string>
-    <string name="chat_auto_cache_blacklist_selected">[→ Blacklist ←] Whitelist</string>
-    <string name="chat_auto_cache_select_whitelist">Select whitelist</string>
-    <string name="chat_auto_cache_select_blacklist">Select blacklist</string>
-    <plurals name="chat_auto_cache_contacts_saved">
+    <string name="filter_list_whitelist_selected">Blacklist [→ Whitelist ←]</string>
+    <string name="filter_list_blacklist_selected">[→ Blacklist ←] Whitelist</string>
+    <string name="filter_list_select_whitelist">Select whitelist</string>
+    <string name="filter_list_select_blacklist">Select blacklist</string>
+    <plurals name="filter_list_contacts_saved">
         <item quantity="one">Saved %1$d contact. Restart WeChat for the change to take effect.</item>
         <item quantity="other">Saved %1$d contacts. Restart WeChat for the change to take effect.</item>
     </plurals>
-    <string name="chat_auto_cache_select_contacts_hint">Tap to select contacts</string>
-    <string name="chat_auto_cache_configure_whitelist">Configure whitelist</string>
-    <string name="chat_auto_cache_configure_blacklist">Configure blacklist</string>
+    <string name="filter_list_select_contacts_hint">Tap to select contacts</string>
+    <string name="filter_list_configure_whitelist">Configure whitelist</string>
+    <string name="filter_list_configure_blacklist">Configure blacklist</string>
+    <string name="chat_block_at_all_whitelist_description">Allow @all notifications only from selected groups; suppress all other groups</string>
+    <string name="chat_block_at_all_blacklist_description">Suppress @all notifications from selected groups</string>
+    <string name="chat_block_at_all_select_groups_hint">Tap to select groups</string>
+    <plurals name="chat_block_at_all_groups_saved">
+        <item quantity="one">Saved %d group</item>
+        <item quantity="other">Saved %d groups</item>
+    </plurals>
     <string name="sports_rank_min_score">Minimum step count</string>
     <string name="sports_rank_whitelist_description">Like only friends on the whitelist</string>
     <string name="sports_rank_blacklist_description">Skip friends on the blacklist</string>

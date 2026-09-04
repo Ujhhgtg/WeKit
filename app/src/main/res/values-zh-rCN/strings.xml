@@ -595,6 +595,8 @@
     <string name="feature_auto_cache_files_description">监听接收到的文件消息, 在对方上传完成后自动触发微信内部下载将其缓存到本地</string>
     <string name="feature_auto_cache_images_name">自动缓存图片</string>
     <string name="feature_auto_cache_images_description">监听接收到的图片消息, 自动触发微信从 CDN 下载, 将原图缓存到本地</string>
+    <string name="feature_block_at_all_notifications_name">屏蔽群聊 @所有人</string>
+    <string name="feature_block_at_all_notifications_description">按群聊黑名单或白名单屏蔽 @所有人 通知</string>
     <string name="feature_auto_enable_send_as_media_group_name">自动启用合并发送媒体</string>
     <string name="feature_auto_enable_send_as_media_group_description">发送媒体时自动勾选「发送后合并展示」选项</string>
     <string name="feature_auto_enable_send_original_media_name">自动启用发送原图</string>
@@ -1845,16 +1847,22 @@
     <string name="chat_auto_cache_files_blacklist_description">对选中联系人跳过缓存文件</string>
     <string name="chat_auto_cache_images_whitelist_description">仅对选中联系人缓存图片</string>
     <string name="chat_auto_cache_images_blacklist_description">对选中联系人跳过缓存图片</string>
-    <string name="chat_auto_cache_whitelist_selected">黑名单 [→ 白名单 ←]</string>
-    <string name="chat_auto_cache_blacklist_selected">[→ 黑名单 ←] 白名单</string>
-    <string name="chat_auto_cache_select_whitelist">选择白名单</string>
-    <string name="chat_auto_cache_select_blacklist">选择黑名单</string>
-    <plurals name="chat_auto_cache_contacts_saved">
+    <string name="filter_list_whitelist_selected">黑名单 [→ 白名单 ←]</string>
+    <string name="filter_list_blacklist_selected">[→ 黑名单 ←] 白名单</string>
+    <string name="filter_list_select_whitelist">选择白名单</string>
+    <string name="filter_list_select_blacklist">选择黑名单</string>
+    <plurals name="filter_list_contacts_saved">
         <item quantity="other">已保存 %1$d 个联系人，重启微信以使更改生效</item>
     </plurals>
-    <string name="chat_auto_cache_select_contacts_hint">点击选择联系人</string>
-    <string name="chat_auto_cache_configure_whitelist">配置白名单</string>
-    <string name="chat_auto_cache_configure_blacklist">配置黑名单</string>
+    <string name="filter_list_select_contacts_hint">点击选择联系人</string>
+    <string name="filter_list_configure_whitelist">配置白名单</string>
+    <string name="filter_list_configure_blacklist">配置黑名单</string>
+    <string name="chat_block_at_all_whitelist_description">仅放行所选群聊的 @所有人 通知，屏蔽其他群聊</string>
+    <string name="chat_block_at_all_blacklist_description">屏蔽所选群聊的 @所有人 通知</string>
+    <string name="chat_block_at_all_select_groups_hint">点击选择群聊</string>
+    <plurals name="chat_block_at_all_groups_saved">
+        <item quantity="other">已保存 %d 个群聊</item>
+    </plurals>
     <string name="sports_rank_min_score">最低步数</string>
     <string name="sports_rank_whitelist_description">仅为白名单中的好友点赞</string>
     <string name="sports_rank_blacklist_description">跳过黑名单中的好友</string>

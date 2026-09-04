@@ -98,7 +98,7 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
                         item {
                             SwitchWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(if (useWhitelistState) R.string.chat_auto_cache_whitelist_selected else R.string.chat_auto_cache_blacklist_selected),
+                                title = stringResource(if (useWhitelistState) R.string.filter_list_whitelist_selected else R.string.filter_list_blacklist_selected),
                                 description = stringResource(if (useWhitelistState) R.string.chat_auto_cache_images_whitelist_description else R.string.chat_auto_cache_images_blacklist_description),
                                 checked = useWhitelistState,
                                 onCheckedChange = {
@@ -110,15 +110,15 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
                         item {
                             BaseWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(if (useWhitelistState) R.string.chat_auto_cache_configure_whitelist else R.string.chat_auto_cache_configure_blacklist),
-                                description = stringResource(R.string.chat_auto_cache_select_contacts_hint),
+                                title = stringResource(if (useWhitelistState) R.string.filter_list_configure_whitelist else R.string.filter_list_configure_blacklist),
+                                description = stringResource(R.string.filter_list_select_contacts_hint),
                                 onClick = {
                                 val contacts = WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()
                                 val currentList = if (useWhitelistState) whitelist else blacklist
 
                                 showComposeDialog(context) {
                                     ContactsSelector(
-                                        title = stringResource(if (useWhitelistState) R.string.chat_auto_cache_select_whitelist else R.string.chat_auto_cache_select_blacklist),
+                                        title = stringResource(if (useWhitelistState) R.string.filter_list_select_whitelist else R.string.filter_list_select_blacklist),
                                         contacts = contacts,
                                         initialSelectedWxIds = currentList,
                                         onDismiss = onDismiss
@@ -128,7 +128,7 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
                                         } else {
                                             blacklist = selectedIds
                                         }
-                                        showToast(localizedChatQuantity(R.plurals.chat_auto_cache_contacts_saved, selectedIds.size, selectedIds.size))
+                                        showToast(localizedChatQuantity(R.plurals.filter_list_contacts_saved, selectedIds.size, selectedIds.size))
                                         onDismiss()
                                     }
                                 }

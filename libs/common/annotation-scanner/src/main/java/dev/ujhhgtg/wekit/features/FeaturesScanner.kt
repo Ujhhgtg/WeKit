@@ -35,7 +35,13 @@ class FeaturesKspProvider : SymbolProcessorProvider {
         FeaturesScanner(environment.codeGenerator, environment.logger)
 }
 
-/** Generates runtime registries for source Feature and ExtensionPack objects. */
+/**
+ * Generates runtime registries for source Feature and ExtensionPack objects.
+ *
+ * Multiple Feature objects may share one source file. They are registered independently while
+ * [FeaturesProvider.SOURCE_KEY_BY_FEATURE] maps each object back to the same source key, so the
+ * file-based new-feature timestamp remains shared without imposing a one-object-per-file layout.
+ */
 class FeaturesScanner(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
@@ -66,18 +72,6 @@ class FeaturesScanner(
             logger.error("No ExtensionPack objects were discovered in app sources")
             return emptyList()
         }
-
-        features.groupBy { it.containingFile!! }
-            .filterValues { it.size > 1 }
-            .forEach { (file, duplicates) ->
-                duplicates.forEach { symbol ->
-                    logger.error(
-                        "Feature source ${file.filePath} declares multiple Feature objects: " +
-                            duplicates.joinToString { it.qualifiedName!!.asString() },
-                        symbol,
-                    )
-                }
-            }
 
         generateFeaturesProvider(features)
         generateDexResolutionRegistry(features.filter { it.isSubtypeOf(RESOLVER_INTERFACE) })
