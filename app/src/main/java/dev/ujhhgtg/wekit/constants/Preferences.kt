@@ -10,6 +10,8 @@ object Preferences {
     const val RESET_DEX_ON_HOT_UPDATE = "reset_dex_on_hot_upd"
     const val MATCH_GENERIC_WXID_EXP = "match_generic_wxid"
     const val UI_LANGUAGE = "ui_language"
+    const val NATIVE_SETTINGS_INTEGRATION = "native_settings_integration"
+    const val NATIVE_SETTINGS_SHOW_DESCRIPTIONS = "native_settings_show_descriptions"
 
     // Settings UI theming
     const val THEME_MODE = "settings_theme_mode"
@@ -35,6 +37,8 @@ object Preferences {
     var noDexResolve by prefOption(NO_DEX_RESOLVE, false)
     var showStartupToast by prefOption(SHOW_STARTUP_TOAST, false)
     var resetDexCacheOnHotUpdate by prefOption(RESET_DEX_ON_HOT_UPDATE, false)
+    var nativeSettingsIntegration by prefOption(NATIVE_SETTINGS_INTEGRATION, false)
+    var nativeSettingsShowDescriptions by prefOption(NATIVE_SETTINGS_SHOW_DESCRIPTIONS, false)
 
     // ALWAYS check whether sender is group chat!!!
     var matchGenericWxIdExp by prefOption(MATCH_GENERIC_WXID_EXP, true)

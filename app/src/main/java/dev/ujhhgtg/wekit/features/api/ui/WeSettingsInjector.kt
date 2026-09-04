@@ -7,8 +7,6 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import com.tencent.mm.plugin.setting.ui.setting.SettingsUI
-import com.tencent.mm.plugin.setting.ui.setting_new.base.BaseSettingPrefUI
-import com.tencent.mm.plugin.setting.ui.setting_new.base.BaseSettingUI
 import com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingAdditionHeaderSearch
 import com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo
 import com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupMain
@@ -21,16 +19,23 @@ import dev.ujhhgtg.reflekt.utils.isBuiltin
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
+import dev.ujhhgtg.wekit.activity.settings.FEATURE_CATEGORIES
 import dev.ujhhgtg.wekit.constants.PackageNames
+import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
+import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.features.core.FeaturesProvider
+import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.bool
@@ -99,6 +104,14 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
             usingEqStrings("SettingLocation(parentGroup=", ", frontItem=")
         }
     }
+    private val classSettingSwitchConvert by dexClass(allowFailure = true) {
+        matcher {
+            usingEqStrings(
+                "com/tencent/mm/plugin/setting/ui/setting_new/type/converts/SettingSwitchConvert",
+                "onBindViewHolder",
+            )
+        }
+    }
     private val methodSettingGroupAccountInfoGetStringId by dexMethod(allowFailure = true) {
         matcher {
             declaredClass = "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
@@ -117,11 +130,6 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
         matcher {
             declaredClass = "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupPersonalInfo"
             returnType = "java.lang.Integer"
-        }
-    }
-    private val methodResourceHelperGetStringById by dexMethod(allowFailure = true) {
-        matcher {
-            usingEqStrings("MicroMsg.ResourceHelper", "get string, resId %d, but context is null")
         }
     }
 //    private val methodPluginHelperLaunchIntent by dexMethod(allowFailure = true) {
@@ -162,6 +170,9 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
 
     private const val PREFS_KEY = "wekit_settings_entry"
     private const val PREFERENCE_CLASS_NAME = "com.tencent.mm.ui.base.preference.Preference"
+    private const val NATIVE_ROOT_KEY = "SettingGroup_Main_WeKit"
+    private const val DESCRIPTION_METHOD_SOURCE_CLASS =
+        "com.tencent.mm.plugin.setting.ui.setting_new.settings.notify.content.SettingSwitchNotifyContentDisplayName"
 
     @SuppressLint("NonUniqueDexKitData")
     override fun resolveDex(dexKit: DexKitBridge) {
@@ -318,6 +329,7 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
     private lateinit var mGetSettingLocation: String
     private lateinit var mGetNameResId: String
     private lateinit var mGetGroupNameResId: String
+    private lateinit var mGetDescriptionResId: String
     private lateinit var mGetSwitchState: String
     private lateinit var mGetSwitchProperty: String
 
@@ -338,6 +350,12 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
                             m.name != methodSettingGroupAccountInfoReturns1.method.name
                 }.name
             mGetGroupNameResId = methodSettingGroupPersonalInfoGetGroupNameResId.method.name
+            mGetDescriptionResId = DESCRIPTION_METHOD_SOURCE_CLASS.toClassOrNull()!!
+                .reflekt()
+                .firstMethod {
+                    parameterCount = 0
+                    returnType = Int::class.javaObjectType
+                }.name
             mGetSwitchState = classBaseSettingSwitchItem.reflekt().firstMethod {
                 modifiers(Modifier.ABSTRACT)
                 returnType = bool
@@ -353,7 +371,7 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
             // play 8.0.69 (3022): E6, N6, U6, A6, B6, D6, ...
             WeLogger.d(
                 TAG,
-                "resolved all method names: $mGetPageGroupItemClass, $mGetLevel, $mOnClick, $mGetKey, $mGetSettingLocation, $mGetNameResId, $mGetGroupNameResId, " +
+                "resolved all method names: $mGetPageGroupItemClass, $mGetLevel, $mOnClick, $mGetKey, $mGetSettingLocation, $mGetNameResId, $mGetGroupNameResId, $mGetDescriptionResId, " +
                         "$mGetSwitchState, $mGetSwitchProperty"
             )
         }
@@ -369,32 +387,134 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
         resolveMethodNames()
 
         val settingsManager = WeChatSettingsManager(
-            classBaseSettingItem.clazz, classBaseSettingSwitchItem.clazz, classSettingLocation.clazz, classSettingItemClassesProvider.clazz,
-            BaseSettingPrefUI::class.java, BaseSettingUI::class.java, methodResourceHelperGetStringById.method,
-            mGetPageGroupItemClass, mGetLevel, mOnClick, mGetKey, mGetSettingLocation, mGetNameResId, mGetGroupNameResId, mGetSwitchState, mGetSwitchProperty
+            classBaseSettingItem.clazz, SettingGroupAccountInfo::class.java.superclass!!,
+            classBaseSettingSwitchItem.clazz, classSettingLocation.clazz, classSettingItemClassesProvider.clazz,
+            classSettingSwitchConvert.clazz,
+            mGetPageGroupItemClass, mGetLevel, mOnClick, mGetKey, mGetSettingLocation, mGetNameResId, mGetGroupNameResId,
+            mGetDescriptionResId, mGetSwitchState, mGetSwitchProperty
         )
 
-        settingsManager.createItem {
-            key = "SettingGroup_Main_WeKitTest1"
-            titleProvider = {
-                LocalizedContextFactory.create(
-                    HostInfo.application,
-                    WeKitLocaleController.resolvedLocale,
-                    LocaleResourceMode.InjectedHost,
-                ).getString(R.string.noncompose_wekit_settings_entry)
-            }
+        val nativeRootClass = settingsManager.createItem {
+            key = NATIVE_ROOT_KEY
+            titleResId = R.string.noncompose_wekit_settings_entry
+            groupTitleResId = R.string.noncompose_wekit_settings_group
+            isGroup = true
             level = 1
-            groupTitleProvider = {
-                LocalizedContextFactory.create(
-                    HostInfo.application,
-                    WeKitLocaleController.resolvedLocale,
-                    LocaleResourceMode.InjectedHost,
-                ).getString(R.string.noncompose_wekit_settings_group)
-            }
             pageClass = SettingGroupMain::class.java
             parentClass = SettingAdditionHeaderSearch::class.java
             childClass = SettingGroupPersonalInfo::class.java
-            onClick = { openSettingsDialog(it) }
+            onClick = { activity ->
+                if (Preferences.nativeSettingsIntegration) {
+                    false
+                } else {
+                    openSettingsDialog(activity)
+                    true
+                }
+            }
+        }
+
+        val nativeIntegrationClass = settingsManager.createItem {
+            key = "${NATIVE_ROOT_KEY}_NativeIntegration"
+            titleResId = R.string.settings_native_integration_title
+            groupTitleResId = R.string.settings_section_interface
+            isSwitch = true
+            level = 2
+            pageClass = nativeRootClass
+            switchState = { Preferences.nativeSettingsIntegration }
+            onSwitchChanged = { _, enabled ->
+                Preferences.nativeSettingsIntegration = enabled
+                true
+            }
+        }
+
+        var previousRootItem = settingsManager.createItem {
+            key = "${NATIVE_ROOT_KEY}_ShowDescriptions"
+            titleResId = R.string.settings_native_show_feature_descriptions_title
+            isSwitch = true
+            level = 2
+            pageClass = nativeRootClass
+            parentClass = nativeIntegrationClass
+            switchState = { Preferences.nativeSettingsShowDescriptions }
+            onSwitchChanged = { _, enabled ->
+                Preferences.nativeSettingsShowDescriptions = enabled
+                true
+            }
+        }
+
+        val nativeCategories = FEATURE_CATEGORIES.map { category ->
+            val features = FeaturesProvider.ALL_FEATURES
+                .asSequence()
+                .filterIsInstance<SwitchFeature>()
+                .filter { category.id in it.categoryIds }
+                .toList()
+            category to features
+        }
+
+        nativeCategories.forEachIndexed { categoryIndex, (category, features) ->
+            val categoryClass = settingsManager.createItem {
+                key = "${NATIVE_ROOT_KEY}_${category.id}"
+                titleResId = category.titleRes
+                if (categoryIndex == 0) {
+                    groupTitleResId = R.string.nav_features
+                }
+                isGroup = true
+                level = 2
+                pageClass = nativeRootClass
+                parentClass = previousRootItem
+            }
+            previousRootItem = categoryClass
+
+            var previousFeatureClass: Class<*>? = null
+            features.forEach { feature ->
+                val clickableFeature = feature as? ClickableFeature
+                previousFeatureClass = settingsManager.createItem {
+                    key = "${NATIVE_ROOT_KEY}_${category.id}_${feature.technicalId}"
+                    titleResId = feature.nameRes
+                    descriptionResIdProvider = {
+                        if (Preferences.nativeSettingsShowDescriptions) {
+                            feature.descriptionRes
+                        } else {
+                            null
+                        }
+                    }
+                    isSwitch = clickableFeature?.noSwitchWidget != true
+                    level = 3
+                    pageClass = categoryClass
+                    parentClass = previousFeatureClass
+                    if (clickableFeature != null) {
+                        onClick = { activity ->
+                            TransparentActivity.launchAutoFinish(activity) {
+                                runCatching {
+                                    clickableFeature.onClick(this)
+                                }.onFailure {
+                                    WeLogger.e(
+                                        TAG,
+                                        "native settings click failed for ${feature.technicalPath}",
+                                        it,
+                                    )
+                                }
+                            }
+                            true
+                        }
+                    }
+                    if (isSwitch) {
+                        switchState = {
+                            WePrefs.getBoolOrDef(
+                                feature.technicalId,
+                                feature.defaultEnabled,
+                            )
+                        }
+                        onSwitchBound = feature::setToggleCompletionCallback
+                        onSwitchChanged = { activity, enabled ->
+                            val accepted = feature.onBeforeToggle(enabled, activity)
+                            if (accepted) {
+                                feature.applyToggle(enabled)
+                            }
+                            accepted
+                        }
+                    }
+                }
+            }
         }
 
         settingsManager.install()

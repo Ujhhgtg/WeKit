@@ -336,6 +336,9 @@
     <string name="settings_open_source_licenses_title">开放源代码许可</string>
     <string name="settings_open_source_licenses_summary">本项目使用的开放源代码库许可</string>
     <string name="settings_ui_engine_title">UI 组件引擎</string>
+    <string name="settings_native_integration_title">微信原生设置集成</string>
+    <string name="settings_native_integration_summary">从微信设置进入 WeKit 时使用微信原生设置页面</string>
+    <string name="settings_native_show_feature_descriptions_title">显示功能描述</string>
     <string name="settings_theme_mode_title">主题模式</string>
     <string name="theme_mode_system">跟随系统</string>
     <string name="theme_mode_light">浅色模式</string>

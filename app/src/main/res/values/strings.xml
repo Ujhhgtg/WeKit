@@ -366,6 +366,9 @@
     <string name="settings_open_source_licenses_title">Open-source licenses</string>
     <string name="settings_open_source_licenses_summary">Licenses of the open-source libraries used by this project</string>
     <string name="settings_ui_engine_title">UI component engine</string>
+    <string name="settings_native_integration_title">Native WeChat settings integration</string>
+    <string name="settings_native_integration_summary">Open WeKit from WeChat Settings using native WeChat settings pages</string>
+    <string name="settings_native_show_feature_descriptions_title">Show feature descriptions</string>
     <string name="settings_theme_mode_title">Theme mode</string>
     <string name="theme_mode_system">Follow system</string>
     <string name="theme_mode_light">Light mode</string>

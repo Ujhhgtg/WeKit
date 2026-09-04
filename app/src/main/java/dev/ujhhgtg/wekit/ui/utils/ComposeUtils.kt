@@ -16,6 +16,7 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
 import dev.ujhhgtg.wekit.ui.content.nukex.NukeModuleTheme
@@ -33,12 +34,14 @@ fun showComposeDialog(
     directlyDismissable: Boolean = true,
     content: @Composable ShowComposeDialogScope.() -> Unit
 ) {
+    val transparentActivity = context.resolveWindowContext() as? TransparentActivity
     val context = CommonContextWrapper(context)
 
     val dialog = ComponentDialog(
         context,
         android.R.style.Theme_DeviceDefault_Light_Dialog_NoActionBar_MinWidth
     )
+    transparentActivity?.registerHostedDialog(dialog)
 
     dialog.apply {
         window!!.apply {
