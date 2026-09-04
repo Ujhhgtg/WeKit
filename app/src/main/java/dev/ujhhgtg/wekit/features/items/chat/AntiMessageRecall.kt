@@ -9,7 +9,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
@@ -82,9 +81,11 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
     @Volatile
     private var recalledKeyCache: Set<String> = emptySet()
 
-    // Rows currently dimmed by us, so a rebind restores only those rows' alpha instead of
-    // clobbering other features' animations (e.g. MessageEntranceAnimation).
-    private val dimmedRows = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
+    // Content views currently dimmed by us, keyed by their bound row, so a rebind restores the
+    // exact view we changed instead of clobbering other features' animations (e.g.
+    // MessageEntranceAnimation).
+    private val dimmedContentViews =
+        Collections.synchronizedMap(WeakHashMap<View, View>())
     private val badges = Collections.synchronizedMap(WeakHashMap<View, RecallBadge>())
 
     // Scenes currently recalling a self-sent message, keyed by the NetSceneRevokeMsg instance, so
@@ -275,50 +276,46 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
     // ── recalled-message styling ──────────────────────────────────────────────
 
     private fun applyRecallStyle(view: View, msgInfo: MessageInfo) {
-        findContentRow(view)?.let {
-            it.alpha = RECALL_ALPHA
-            dimmedRows.add(it)
-        }
+        val contentView = findMessageContent(view) ?: return
+        val previous = dimmedContentViews.put(view, contentView)
+        if (previous != null && previous !== contentView) previous.alpha = 1f
+        contentView.alpha = RECALL_ALPHA
 
-        attachRecallBadge(view, msgInfo.isSelfSender)
+        attachRecallBadge(view, msgInfo.isSelfSender, contentView)
     }
 
     private fun clearRecallStyle(view: View) {
-        val contentRow = findContentRow(view) ?: return
-        if (dimmedRows.remove(contentRow)) {
-            contentRow.alpha = 1f
-        }
+        dimmedContentViews.remove(view)?.alpha = 1f
         removeRecallBadge(view)
     }
 
-    private fun findContentRow(view: View): View? {
-        return view.findViewWhich { it.javaClass == LinearLayout::class.java }
-    }
-
-    // The chat row has a stable structure (verified via debugViewTree dumps):
-    // root container → first exact android.widget.LinearLayout (avatar + content row) → first
-    // exact android.widget.LinearLayout beneath it (the message content column) → the first
-    // VISIBLE view tagged with a viewitems holder class (the bubble itself, whatever the message
-    // type is). Visibility matters: self-sent rows keep hidden send-status views (failure icon,
-    // delivered tick) that carry the same holder tag as the bubble but precede it in DFS order.
-    private fun findBubbleView(view: View): View? {
-        val contentRow = findContentRow(view) ?: return null
-        val contentColumn = contentRow.findViewWhich {
-            it !== contentRow && it.javaClass == LinearLayout::class.java
-        } ?: return null
-        return contentColumn.findViewWhich {
-            it !== contentColumn && it.isVisible && isTaggedBubbleView(it)
+    // Every classic chat holder in the supported host range inherits getMainContainerView(), and
+    // most holders override it with the semantic bubble/card container. Some Mvvm holders leave
+    // the inherited clickArea null and attach their ItemDataTag to the dynamically-created content
+    // view instead, so fall back to the first visible tagged view across the whole row. Searching
+    // the whole row avoids depending on message-specific LinearLayout ordering while visibility
+    // excludes hidden send-status views that can carry the same tag.
+    private fun findMessageContent(view: View): View? {
+        val holder = view.tag!!
+        val mainContainer = holder.reflekt()
+            .firstMethod {
+                name = "getMainContainerView"
+                parameterCount = 0
+                superclass()
+            }
+            .invoke() as? View
+        return mainContainer ?: view.findViewWhich {
+            it.isVisible && isTaggedBubbleView(it)
         }
     }
 
     private fun isTaggedBubbleView(view: View): Boolean =
         view.tag?.javaClass?.name?.startsWith("com.tencent.mm.ui.chatting.viewitems") == true
 
-    private fun attachRecallBadge(row: View, isSelfSender: Boolean) {
+    private fun attachRecallBadge(row: View, isSelfSender: Boolean, anchor: View) {
         if (badges.containsKey(row)) return
 
         val rowGroup = row as? ViewGroup ?: return
-        val anchor = findBubbleView(row) ?: return
         val context = row.context
         val dark = context.isDarkMode
         val iconColor = if (dark) badgeIconDark else badgeIconLight
@@ -379,7 +376,7 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
         if (!row.isAttachedToWindow || row.width == 0) return
         var anchor = badge.anchor
         if (!anchor.isAttachedToWindow || anchor.width == 0) {
-            anchor = findBubbleView(row) ?: return
+            anchor = findMessageContent(row) ?: return
             badge.anchor = anchor
         }
         val badgeView = badge.view
