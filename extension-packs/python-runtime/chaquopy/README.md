@@ -12,12 +12,6 @@ loader. `ChaquopyRuntimeBackend` calls the operation with
 `ClassLoaders.HYBRID` immediately after `Python.start` and before loading the
 WeKit SDK or any plugin.
 
-The patch also adds `java.chaquopy.set_jclass_pythonizer` at Chaquopy's central
-`jclass` cache boundary. WeKit registers its additive pythonizer before plugin
-bootstrap, so both newly created and cached proxy classes obtained through
-direct Java imports receive snake-case aliases and JavaBean properties exactly
-once. Canonical Java lookup keeps its original precedence.
-
 `xtask extensions pack` builds `java/chaquopy.so` from that pinned source and
 patch with Cython 3.0.11, the Android NDK
 version from WeKit's version catalog, API 28, `ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON`,

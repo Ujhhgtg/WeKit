@@ -14,12 +14,6 @@ This produces `dist/extensions/python-runtime-<content-hash>.apk` and `wekit-pyt
 
 `RuntimeEntrypoint` first loads the manifest-ordered native libraries by absolute path. It then creates `WeKitAndroidPlatform`, the integration replacement for Chaquopy 17.0 revision `e01057c72fdd737f202bd1be1de85af51e06cad0`'s `AndroidPlatform`: native loading is skipped because it has already completed, assets come from the injected runtime APK, bootstrap assets retain Chaquopy's original layout, and `java.android.importer.nativeLibraryDir` is set to the mounted version's extracted native directory. The documented Chaquopy patch changes the native `FindClass` cache and `dynamic_proxy` loader to the supplied `ClassLoaders.HYBRID`; callback and Python-created threads also set and restore that loader as TCCL. Runtime DEX still uses `ClassLoaders.MODULE` as its parent.
 
-The same patch installs a callback in Chaquopy's central `jclass` path. Every
-Java proxy returned by a direct Java import is therefore pythonized once: the
-canonical Java members remain available, while snake-case aliases and
-non-conflicting JavaBean properties are added automatically. Plugins do not
-need to call `ctx.jvm.pythonize` or use a wrapper object.
-
 ## Plugins
 
 Plugins live in `WeKit/scripts_python/<reverse-dns-id>/` and contain `plugin.json` plus an entry module. New plugins are disabled by default. Enabling one starts the process-local runtime on demand and calls `setup(ctx)` in a private `_wekit_plugins.<encoded-id>` namespace. `ctx.defer`, hook tokens and task handles are released in LIFO order during disable or reload.

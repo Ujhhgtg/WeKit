@@ -35,7 +35,6 @@ from ._types import (
     TaskHost,
 )
 from .dexkit import ClassMatcher, DexKitBinding, FieldMatcher, MethodMatcher
-from .pythonize import pythonize
 
 _config: RuntimeConfig | None = None
 _instances: dict[str, tuple[str, PluginContext, _Scope]] = {}
@@ -426,9 +425,6 @@ class _Jvm:
 
     def proxy(self, name: str) -> type[Any]:
         return jclass(name)
-
-    def pythonize(self, java_class: type[Any]) -> type[Any]:
-        return pythonize(java_class)
 
 
 class _LogStream(TextIOBase):
