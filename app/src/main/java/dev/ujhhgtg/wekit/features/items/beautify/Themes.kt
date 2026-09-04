@@ -76,6 +76,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
+import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.Themes.THEMES_PATH
@@ -1449,6 +1450,7 @@ object Themes : ClickableFeature(), IResolveDex {
 
     override fun onEnable() {
         loadCurrentTheme()
+        WeConversationListViewApi.addListener(recyclerConversationBindListener)
         registerEjImageHooks()
         hookB() // BackgroundBanHook
         hookC() // BounceViewHook
@@ -1462,6 +1464,10 @@ object Themes : ClickableFeature(), IResolveDex {
         hookK() // SplashHook
         hookL() // TextColorBanHook
         hookPreference() // C0465dy PreferenceHook
+    }
+
+    override fun onDisable() {
+        WeConversationListViewApi.removeListener(recyclerConversationBindListener)
     }
 
     /** P5.b —— View.setBackgroundDrawable 拦截（C0838j 17） */
@@ -2208,6 +2214,72 @@ object Themes : ClickableFeature(), IResolveDex {
         }
     }
 
+    private val recyclerConversationBindListener =
+        WeConversationListViewApi.IBindViewListener { _, row, conversation, context ->
+            if (context.backend == WeConversationListViewApi.Backend.RECYCLER_VIEW) {
+                applyConversationRowTheme(row, conversation)
+            }
+        }
+
+    @SuppressLint("SetTextI18n")
+    private fun applyConversationRowTheme(row: View, conversation: Any?) {
+        if (row.context.javaClass.name != "com.tencent.mm.ui.LauncherUI" || row !is ViewGroup) {
+            return
+        }
+        val tag = row.tag ?: return
+        val isTop = fieldValueOfType(
+            tag,
+            Boolean::class.javaPrimitiveType!!,
+        ) as? Boolean ?: return
+        val nicknameTv = row.findViewWithTag<View>("nickname_tv") as? TextView
+        val updateTimeTv = row.findViewWithTag<View>("update_time_tv") as? TextView
+        val lastMsgTv = row.findViewWithTag<View>("last_msg_tv") as? TextView
+        val unreadNumIv = viewByPath(row, 0, 0, 2) as? ImageView
+        val unreadNumTv = viewByPath(row, 0, 0, 1) as? TextView
+        if (conversation != null) callMethod(conversation, "convertTo")
+        row.backgroundTintList = ColorStateList.valueOf(0)
+        setThemedBackground(
+            row.getChildAt(0),
+            themedDrawable(
+                if (isTop) "home/conversation_top_item_background.png"
+                else "home/conversation_item_background.png"
+            )
+        )
+        themeColor("home.conversation_item.red_tip", 0).takeIf { it != 0 }?.let { c ->
+            unreadNumIv?.backgroundTintList = ColorStateList.valueOf(c)
+        }
+        themedDrawable("home/conversation_item_unread_badge.png")?.let { d ->
+            if (unreadNumTv != null) {
+                val text = unreadNumTv.text
+                if ((text == null || text.isEmpty()) && unreadNumTv.isVisible) {
+                    unreadNumTv.text = "99+"
+                }
+                unreadNumTv.background = d
+                themeColor("home.conversation_item.unread_badge_text", 0)
+                    .takeIf { it != 0 }?.let { unreadNumTv.setTextColor(it) }
+            }
+        }
+        themeColor("home.conversation_item.primary_text", 0).takeIf { it != 0 }?.let { c ->
+            nicknameTv?.let { callMethod(it, "setTextColor", c) }
+        }
+        themeColor("home.conversation_item.secondary_text", 0).takeIf { it != 0 }?.let { c ->
+            updateTimeTv?.let { callMethod(it, "setTextColor", c) }
+            lastMsgTv?.let { callMethod(it, "setTextColor", c) }
+        }
+        val lastChild = row.getChildAt(row.childCount - 1) as? ViewGroup
+        if (lastChild != null) {
+            setNullBgRecursivelyWithTv(lastChild)
+            if (row.findViewWithTag<View>(VIEW_TAG_HIDDEN) == null) {
+                val list = mutableListOf<View>()
+                collectHeightOneViews(row, list)
+                list.firstOrNull()?.let { hidden ->
+                    hidden.alpha = 0f
+                    row.setTag(VIEW_TAG_HIDDEN, hidden)
+                }
+            }
+        }
+    }
+
     /** P5.e —— ConversationUIHook */
     @SuppressLint("SetTextI18n")
     private fun hookE() {
@@ -2215,67 +2287,9 @@ object Themes : ClickableFeature(), IResolveDex {
         HeaderViewListAdapter::class.reflekt()
             .firstMethod { name = "getView" }.hookAfter {
                 val view = result as? View ?: return@hookAfter
-                if (view.context.javaClass.name != "com.tencent.mm.ui.LauncherUI" ||
-                    view !is ViewGroup
-                ) {
-                    return@hookAfter
-                }
-                val tag = view.tag ?: return@hookAfter
-                val isTop = fieldValueOfType(
-                    tag,
-                    Boolean::class.javaPrimitiveType!!
-                ) as? Boolean ?: return@hookAfter
-                val nicknameTv = view.findViewWithTag<View>("nickname_tv") as? TextView
-                val updateTimeTv = view.findViewWithTag<View>("update_time_tv") as? TextView
-                val lastMsgTv = view.findViewWithTag<View>("last_msg_tv") as? TextView
-                val unreadNumIv = viewByPath(view, 0, 0, 2) as? ImageView
-                val unreadNumTv = viewByPath(view, 0, 0, 1) as? TextView
                 val item = (thisObject as? HeaderViewListAdapter)
                     ?.getItem(args.getOrNull(0) as? Int ?: 0)
-                if (item != null) callMethod(item, "convertTo")
-                view.backgroundTintList = ColorStateList.valueOf(0)
-                setThemedBackground(
-                    view.getChildAt(0),
-                    themedDrawable(
-                        if (isTop) "home/conversation_top_item_background.png"
-                        else "home/conversation_item_background.png"
-                    )
-                )
-                themeColor("home.conversation_item.red_tip", 0).takeIf { it != 0 }?.let { c ->
-                    unreadNumIv?.backgroundTintList = ColorStateList.valueOf(c)
-                }
-                themedDrawable("home/conversation_item_unread_badge.png")?.let { d ->
-                    if (unreadNumTv != null) {
-                        val text = unreadNumTv.text
-                        if ((text == null || text.isEmpty()) &&
-                            unreadNumTv.isVisible
-                        ) {
-                            unreadNumTv.text = "99+"
-                        }
-                        unreadNumTv.background = d
-                        themeColor("home.conversation_item.unread_badge_text", 0)
-                            .takeIf { it != 0 }?.let { unreadNumTv.setTextColor(it) }
-                    }
-                }
-                themeColor("home.conversation_item.primary_text", 0).takeIf { it != 0 }?.let { c ->
-                    nicknameTv?.let { callMethod(it, "setTextColor", c) }
-                }
-                themeColor("home.conversation_item.secondary_text", 0).takeIf { it != 0 }?.let { c ->
-                    updateTimeTv?.let { callMethod(it, "setTextColor", c) }
-                    lastMsgTv?.let { callMethod(it, "setTextColor", c) }
-                }
-                val lastChild = view.getChildAt(view.childCount - 1) as? ViewGroup
-                if (lastChild != null) {
-                    setNullBgRecursivelyWithTv(lastChild)
-                    if (view.findViewWithTag<View>(VIEW_TAG_HIDDEN) == null) {
-                        val list = mutableListOf<View>()
-                        collectHeightOneViews(view, list)
-                        list.firstOrNull()?.let { hidden ->
-                            hidden.alpha = 0f
-                            view.setTag(VIEW_TAG_HIDDEN, hidden)
-                        }
-                    }
-                }
+                applyConversationRowTheme(view, item)
             }
 
         // C0540fd 0 —— getEmptyFooter
@@ -2397,6 +2411,32 @@ object Themes : ClickableFeature(), IResolveDex {
                     (if (!banner.context.isDarkMode) -285212673 else -301989888).toDrawable()
                 )
             }
+
+        if (!WeConversationListViewApi.classConversationRecyclerView.isPlaceholder) {
+            WeConversationListViewApi.classConversationRecyclerView.clazz.constructors.forEach { ctor ->
+                ctor.hookAfter {
+                    setNullBg(thisObject as View)
+                }
+            }
+            WeConversationListViewApi.methodRecyclerAttachViewToParent.hookAfter {
+                val recyclerView = thisObject!!
+                for (field in recyclerView.javaClass.fields) {
+                    if (field.type != View::class.java) continue
+                    val view = runCatching { field.get(recyclerView) }.getOrNull() as? View ?: continue
+                    if (view.javaClass != View::class.java) continue
+                    val lp = view.layoutParams
+                    if (lp is FrameLayout.LayoutParams && lp.width == -1) setNullBg(view)
+                }
+            }
+            WeConversationListViewApi.methodRecyclerSetFoldBanner.hookAfter {
+                val banner = args[0] as ViewGroup
+                setNullBgRecursivelyWithTv(banner)
+                setThemedBackground(
+                    banner,
+                    (if (!banner.context.isDarkMode) -285212673 else -301989888).toDrawable(),
+                )
+            }
+        }
     }
 
     /** P5.f —— HomeUIHook */

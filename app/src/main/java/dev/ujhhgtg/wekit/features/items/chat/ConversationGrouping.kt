@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import android.content.Context
-import android.widget.ListView
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.Animatable
@@ -126,18 +125,18 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     private const val ALL_TAB_ID = "${GROUP_PREFIX}all"
 
     private enum class GroupingBackend(val value: String) {
-        QUERY_REWRITE("query_rewrite"),
-        ADAPTER_FILTER("adapter_filter");
+        ADAPTER_FILTER("adapter_filter"),
+        QUERY_REWRITE("query_rewrite");
 
         companion object {
             fun from(value: String): GroupingBackend =
-                entries.firstOrNull { it.value == value } ?: QUERY_REWRITE
+                entries.firstOrNull { it.value == value } ?: ADAPTER_FILTER
         }
     }
 
     private var groupingBackendValue by WePrefs.prefOption(
         "conversation_grouping_backend",
-        GroupingBackend.QUERY_REWRITE.value,
+        GroupingBackend.ADAPTER_FILTER.value,
     )
 
     private val groupingBackend: GroupingBackend
@@ -165,9 +164,11 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         val rawToVisible: IntArray,
     )
     private data class AdapterMethods(
+        val adapterClass: Class<*>,
         val getCount: Method,
         val getItem: Method,
-        val getView: Method,
+        val bindingMethods: List<Method>,
+        val positionArgumentIndex: Int,
         val storage: AdapterStorage,
     )
     private data class AdapterItemFields(
@@ -181,6 +182,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     private val adapterItemFields = ConcurrentHashMap<Class<*>, AdapterItemFields>()
     private val snapshotFailuresLogged = ConcurrentHashMap.newKeySet<Class<*>>()
     private val bindingAdapter = ThreadLocal<Any?>()
+    private val recyclerAttachedState = ThreadLocal<Boolean?>()
     private val adapterPositionProvider = WeConversationListViewApi.IAdapterPositionProvider { adapter, rawPosition ->
         adapterPositionSnapshot(adapter, rawPosition)
     }
@@ -200,17 +202,14 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         }
 
         methodOnTabCreate.hookAfter {
-            val convListView = thisObject!!.reflekt()
-                .firstField {
-                    type = "com.tencent.mm.ui.conversation.ConversationListView"
-                }
-                .get()!! as ListView
+            val mainUi = thisObject!!
+            val conversationHostView = WeConversationListViewApi.hostView(mainUi)
 
-            val composeView = ComposeView(convListView.context).apply {
+            val composeView = ComposeView(conversationHostView.context).apply {
                 val lifecycleOwner = LifecycleOwnerProvider.lifecycleOwner
                 setLifecycleOwner(lifecycleOwner)
 
-                val context = convListView.context
+                val context = conversationHostView.context
 
                 // These values get lost when ComposeView becomes invisible, so we have to lift them
                 // out of the Composable.
@@ -281,7 +280,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                     }
                 }
             }
-            convListView.addHeaderView(composeView)
+            WeConversationListViewApi.addHeaderView(mainUi, composeView)
         }
         if (groupingBackend == GroupingBackend.ADAPTER_FILTER) {
             WeConversationListViewApi.addPositionProvider(adapterPositionProvider)
@@ -291,32 +290,49 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     override fun onDisable() {
         WeConversationListViewApi.removePositionProvider(adapterPositionProvider)
         bindingAdapter.remove()
+        recyclerAttachedState.remove()
         clearAdapterCaches()
         snapshotFailuresLogged.clear()
     }
 
     private fun hookConversationListAdapter() {
-        val viewHooks = listOf(
+        val methods = listOf(
             WeConversationListViewApi.methodLegacyGetView to AdapterStorage.LEGACY_CURSOR,
             WeConversationListViewApi.methodMvvmGetView to AdapterStorage.MVVM_LIST,
         ).filterNot { (delegate, _) -> delegate.isPlaceholder }
-        if (viewHooks.isEmpty()) {
-            error("conversation adapter filter targets were not resolved")
-        }
-        adapterMethods = viewHooks.map { (delegate, storage) ->
+        adapterMethods = methods.map { (delegate, storage) ->
             val getView = delegate.method
             val owner = getView.declaringClass.reflekt()
             AdapterMethods(
+                adapterClass = getView.declaringClass,
                 getCount = owner.firstMethod { name = "getCount"; parameterCount = 0 }.self,
                 getItem = owner.firstMethod { name = "getItem"; parameterCount = 1 }.self,
-                getView = getView,
+                bindingMethods = listOf(getView),
+                positionArgumentIndex = 0,
                 storage = storage,
             )
+        }
+        if (!WeConversationListViewApi.classConversationRecyclerAdapter.isPlaceholder) {
+            adapterMethods += AdapterMethods(
+                adapterClass = WeConversationListViewApi.classConversationRecyclerAdapter.clazz,
+                getCount = WeConversationListViewApi.methodRecyclerItemCount.method,
+                getItem = WeConversationListViewApi.methodAdapterGetItem.method,
+                bindingMethods = listOf(
+                    WeConversationListViewApi.methodRecyclerBind.method,
+                    WeConversationListViewApi.methodRecyclerBindPayloads.method,
+                ),
+                positionArgumentIndex = 1,
+                storage = AdapterStorage.MVVM_LIST,
+            )
+        }
+        if (adapterMethods.isEmpty()) {
+            error("conversation adapter filter targets were not resolved")
         }
         adapterMethods.forEach { methods ->
             methods.getCount.hookAfter {
                 if (groupingBackend != GroupingBackend.ADAPTER_FILTER) return@hookAfter
                 if (isAllTab(activeAdapterGroup.id)) return@hookAfter
+                if (!methods.adapterClass.isInstance(thisObject)) return@hookAfter
                 val adapter = thisObject!!
                 val boundCache = if (bindingAdapter.get() === adapter) {
                     synchronized(adapterCaches) { adapterCaches[adapter] }
@@ -329,19 +345,51 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 }
                 rebuildAdapterCache(adapter, result as Int)?.let { result = it.visiblePositions.size }
             }
-            methods.getView.hookBefore(priority = 100) {
+            methods.bindingMethods.forEach { bindingMethod ->
+                bindingMethod.hookBefore(priority = 100) {
+                    if (groupingBackend != GroupingBackend.ADAPTER_FILTER) return@hookBefore
+                    if (isAllTab(activeAdapterGroup.id)) return@hookBefore
+                    if (!methods.adapterClass.isInstance(thisObject)) return@hookBefore
+                    val adapter = thisObject!!
+                    val argumentIndex = methods.positionArgumentIndex
+                    val position = args[argumentIndex] as Int
+                    val cache = synchronized(adapterCaches) {
+                        adapterCaches[adapter]
+                    } ?: return@hookBefore
+                    bindingAdapter.set(adapter)
+                    if (position in cache.visiblePositions.indices) {
+                        args[argumentIndex] = cache.visiblePositions[position]
+                    }
+                }
+                bindingMethod.hookAfter(priority = 100) {
+                    if (bindingAdapter.get() === thisObject) bindingAdapter.remove()
+                }
+            }
+        }
+
+        if (!WeConversationListViewApi.methodRecyclerDataChanged.isPlaceholder) {
+            WeConversationListViewApi.methodRecyclerDataChanged.hookBefore(priority = 100) {
                 if (groupingBackend != GroupingBackend.ADAPTER_FILTER) return@hookBefore
                 if (isAllTab(activeAdapterGroup.id)) return@hookBefore
                 val adapter = thisObject!!
-                val position = args[0] as Int
-                val cache = synchronized(adapterCaches) { adapterCaches[adapter] } ?: return@hookBefore
-                bindingAdapter.set(adapter)
-                if (position in cache.visiblePositions.indices) {
-                    args[0] = cache.visiblePositions[position]
+                clearAdapterCaches()
+                val attached = WeConversationListViewApi.fieldRecyclerAttached.field
+                    .getBoolean(adapter)
+                recyclerAttachedState.set(attached)
+                if (attached) {
+                    WeConversationListViewApi.fieldRecyclerAttached.field
+                        .setBoolean(adapter, false)
                 }
             }
-            methods.getView.hookAfter(priority = 100) {
-                if (bindingAdapter.get() === thisObject) bindingAdapter.remove()
+            WeConversationListViewApi.methodRecyclerDataChanged.hookAfter(priority = 100) {
+                val attached = recyclerAttachedState.get() ?: return@hookAfter
+                recyclerAttachedState.remove()
+                val adapter = thisObject!!
+                WeConversationListViewApi.fieldRecyclerAttached.field
+                    .setBoolean(adapter, attached)
+                if (attached) {
+                    WeConversationListViewApi.notifyAdapterChanged(adapter)
+                }
             }
         }
     }
@@ -418,7 +466,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     }
 
     private fun adapterMethods(adapter: Any): AdapterMethods =
-        adapterMethods.first { it.getView.declaringClass.isInstance(adapter) }
+        adapterMethods.first { it.adapterClass.isInstance(adapter) }
 
     private fun adapterItemMatches(item: Any?, group: ChatGroup): Boolean {
         if (isAllTab(group.id)) return true
@@ -470,18 +518,6 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 title = { Text(stringResource(R.string.conversation_grouping_backend_title)) },
                 text = {
                     SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
-                        item(key = GroupingBackend.QUERY_REWRITE.value) {
-                            RadioButtonWidget(
-                                iconPlaceholder = false,
-                                title = stringResource(R.string.conversation_grouping_backend_query),
-                                description = stringResource(R.string.conversation_grouping_backend_query_description),
-                                selected = selected == GroupingBackend.QUERY_REWRITE,
-                                onClick = {
-                                    selected = GroupingBackend.QUERY_REWRITE
-                                    selectGroupingBackend(GroupingBackend.QUERY_REWRITE)
-                                },
-                            )
-                        }
                         item(key = GroupingBackend.ADAPTER_FILTER.value) {
                             RadioButtonWidget(
                                 iconPlaceholder = false,
@@ -491,6 +527,18 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                                 onClick = {
                                     selected = GroupingBackend.ADAPTER_FILTER
                                     selectGroupingBackend(GroupingBackend.ADAPTER_FILTER)
+                                },
+                            )
+                        }
+                        item(key = GroupingBackend.QUERY_REWRITE.value) {
+                            RadioButtonWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.conversation_grouping_backend_query),
+                                description = stringResource(R.string.conversation_grouping_backend_query_description),
+                                selected = selected == GroupingBackend.QUERY_REWRITE,
+                                onClick = {
+                                    selected = GroupingBackend.QUERY_REWRITE
+                                    selectGroupingBackend(GroupingBackend.QUERY_REWRITE)
                                 },
                             )
                         }

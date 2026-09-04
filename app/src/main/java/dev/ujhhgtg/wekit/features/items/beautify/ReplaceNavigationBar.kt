@@ -84,6 +84,7 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -784,34 +785,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                 val list = thisObject as AbsListView
                 val firstPosition = args[1] as Int
                 val firstViewTop = list.getChildAt(0)?.top ?: return@hookAfter
-
-                val goingDown: Boolean
-                val changed: Boolean
-                if (scrollPrevPosition == firstPosition) {
-                    val topDelta = scrollPrevTop - firstViewTop
-                    goingDown = firstViewTop < scrollPrevTop
-                    changed = abs(topDelta) > 1
-                } else {
-                    goingDown = firstPosition > scrollPrevPosition
-                    changed = true
-                }
-                // WeChat bounces the list back when it overshoots its top limit — a fast
-                // scroll into the top, or pulling out the recent-mini-programs panel,
-                // springs back on release. That spring-back moves content up and reads as
-                // a downward scroll. Unlike a real downward scroll it never follows a
-                // downward drag: the finger is off the glass and the list stays on the
-                // same first item, so suppress exactly that combination.
-                if (scrollingManually && goingDown) dragSawDownward = true
-                val isOverscrollBounceBack = goingDown && !scrollingManually &&
-                    !dragSawDownward && firstPosition == scrollPrevPosition
-                if (changed && scrollUpdated && (goingDown || scrollingManually) &&
-                    !isOverscrollBounceBack
-                ) {
-                    barScrollHiddenState.value = goingDown
-                }
-                scrollPrevPosition = firstPosition
-                scrollPrevTop = firstViewTop
-                scrollUpdated = true
+                updateConversationScroll(firstPosition, firstViewTop)
             }
 
             firstMethod {
@@ -820,6 +794,24 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             }.hookAfter {
                 scrollingManually =
                     args[1] as Int == AbsListView.OnScrollListener.SCROLL_STATE_TOUCH_SCROLL
+                if (scrollingManually) dragSawDownward = false
+            }
+        }
+
+        val recyclerOnScrolled = WeConversationListViewApi.methodRecyclerOnScrolled
+        if (!recyclerOnScrolled.isPlaceholder) {
+            recyclerOnScrolled.hookAfter {
+                if (!autoHideOnScroll) return@hookAfter
+                val recyclerView = args[0] as ViewGroup
+                val firstPosition =
+                    WeConversationListViewApi.methodRecyclerFirstVisiblePosition.method
+                        .invoke(recyclerView) as Int
+                if (firstPosition < 0) return@hookAfter
+                val firstViewTop = recyclerView.getChildAt(0)?.top ?: return@hookAfter
+                updateConversationScroll(firstPosition, firstViewTop)
+            }
+            WeConversationListViewApi.methodRecyclerOnScrollStateChanged.hookAfter {
+                scrollingManually = args[1] as Int == 1
                 if (scrollingManually) dragSawDownward = false
             }
         }
@@ -863,6 +855,32 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
     // drag. A downward fling that follows a downward drag is a genuine user scroll, while a
     // downward motion during a fling that never had one is WeChat's top overscroll bounce.
     private var dragSawDownward = false
+
+    private fun updateConversationScroll(firstPosition: Int, firstViewTop: Int) {
+        val goingDown: Boolean
+        val changed: Boolean
+        if (scrollPrevPosition == firstPosition) {
+            val topDelta = scrollPrevTop - firstViewTop
+            goingDown = firstViewTop < scrollPrevTop
+            changed = abs(topDelta) > 1
+        } else {
+            goingDown = firstPosition > scrollPrevPosition
+            changed = true
+        }
+        // Pull-down overscroll springs the first row upward after release. Suppress that
+        // bounce unless the same gesture actually dragged the list downward first.
+        if (scrollingManually && goingDown) dragSawDownward = true
+        val isOverscrollBounceBack = goingDown && !scrollingManually &&
+            !dragSawDownward && firstPosition == scrollPrevPosition
+        if (changed && scrollUpdated && (goingDown || scrollingManually) &&
+            !isOverscrollBounceBack
+        ) {
+            barScrollHiddenState.value = goingDown
+        }
+        scrollPrevPosition = firstPosition
+        scrollPrevTop = firstViewTop
+        scrollUpdated = true
+    }
 
     /**
      * Non-consuming long-press modifier. Fires [block] when the pointer is held down long enough,

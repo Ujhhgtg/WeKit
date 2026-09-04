@@ -1,10 +1,12 @@
 package dev.ujhhgtg.wekit.features.items.beautify
 
 import android.view.View
+import android.view.ViewGroup
 import android.widget.AbsListView
 import android.widget.ListView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.ConversationGrouping
@@ -37,5 +39,21 @@ object HideHomeScreenSwipeDownPage : SwitchFeature() {
                     result = null
                 }
             }
+
+        val recyclerAddHeader = WeConversationListViewApi.methodRecyclerAddHeaderView
+        if (!recyclerAddHeader.isPlaceholder) {
+            recyclerAddHeader.hookBefore {
+                val view = args[0] as View
+                if (view.javaClass.simpleName != "TaskBarContainer") return@hookBefore
+                val heightDp = if (!ConversationGrouping.isEnabled) 48 else 94
+                val heightPx = (heightDp * view.resources.displayMetrics.density).toInt()
+                args[0] = View(view.context).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        heightPx,
+                    )
+                }
+            }
+        }
     }
 }
