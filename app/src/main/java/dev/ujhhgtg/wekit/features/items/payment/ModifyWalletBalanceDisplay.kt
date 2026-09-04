@@ -121,7 +121,7 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
                 BALANCE -> balanceExpression
                 LQT -> lqtExpression
                 BUSINESS -> if (WePrefs.default.contains(KEY_EXPRESSION_BUSINESS)) {
-                    businessExpression ?: "0"
+                    businessExpression
                 } else {
                     lqtExpression
                 }
@@ -521,7 +521,7 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
         showComposeDialog(context) {
             var balanceInput by remember { mutableStateOf(balanceExpression) }
             var lqtInput by remember { mutableStateOf(lqtExpression) }
-            var businessInput by remember { mutableStateOf(businessExpression ?: lqtExpression) }
+            var businessInput by remember { mutableStateOf(businessExpression) }
             var balanceEnabled by remember { mutableStateOf(enableBalance) }
             var lqtEnabled by remember { mutableStateOf(enableLqt) }
             var businessEnabled by remember { mutableStateOf(enableBusiness) }
