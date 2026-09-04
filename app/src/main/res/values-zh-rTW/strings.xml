@@ -911,6 +911,8 @@
     <string name="feature_open_history_red_packets_description">在聯繫人與羣組詳情頁面添加選項, 批量掃描當前對話的所有歷史紅包消息並嘗試領取\n點擊可查看當前正在進行的任務</string>
     <string name="feature_remove_signature_limits_name">移除個性簽名限制</string>
     <string name="feature_remove_signature_limits_description">允許大於 30 字與包含特殊字符的個性簽名</string>
+    <string name="feature_remove_text_status_length_limit_name">解除狀態詞長度限制</string>
+    <string name="feature_remove_text_status_length_limit_description">將微信狀態詞的客戶端長度上限從 10 提高到 2000</string>
     <string name="feature_set_profile_nickname_name">設置微信暱稱</string>
     <string name="feature_set_profile_nickname_description">通過發包來更靈活的設置微信暱稱</string>
     <string name="feature_upload_transparent_avatars_name">上傳透明頭像</string>

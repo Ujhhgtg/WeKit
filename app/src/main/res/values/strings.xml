@@ -950,6 +950,8 @@
     <string name="feature_open_history_red_packets_description">Add an option to the contact and group details page to batch scan all historical red packet messages in the current conversation and try to claim them\nClick to view the currently ongoing tasks</string>
     <string name="feature_remove_signature_limits_name">Remove profile signature limits</string>
     <string name="feature_remove_signature_limits_description">Personalized signatures longer than 30 words and containing special characters are allowed</string>
+    <string name="feature_remove_text_status_length_limit_name">Remove status text length limit</string>
+    <string name="feature_remove_text_status_length_limit_description">Raise the client-side WeChat status text limit from 10 to 2000</string>
     <string name="feature_set_profile_nickname_name">Set WeChat nickname</string>
     <string name="feature_set_profile_nickname_description">Set WeChat nickname more flexibly by sending packages</string>
     <string name="feature_upload_transparent_avatars_name">Upload transparent avatar</string>

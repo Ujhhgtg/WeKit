@@ -913,6 +913,8 @@
     <string name="feature_open_history_red_packets_description">在联系人与群组详情页面添加选项, 批量扫描当前对话的所有历史红包消息并尝试领取\n点击可查看当前正在进行的任务</string>
     <string name="feature_remove_signature_limits_name">移除个性签名限制</string>
     <string name="feature_remove_signature_limits_description">允许大于 30 字与包含特殊字符的个性签名</string>
+    <string name="feature_remove_text_status_length_limit_name">解除状态词长度限制</string>
+    <string name="feature_remove_text_status_length_limit_description">将微信状态词的客户端长度上限从 10 提高到 2000</string>
     <string name="feature_set_profile_nickname_name">设置微信昵称</string>
     <string name="feature_set_profile_nickname_description">通过发包来更灵活的设置微信昵称</string>
     <string name="feature_upload_transparent_avatars_name">上传透明头像</string>
