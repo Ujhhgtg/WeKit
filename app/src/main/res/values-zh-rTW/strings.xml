@@ -1305,9 +1305,9 @@
     <string name="conversation_group_saved">已保存</string>
     <string name="conversation_grouping_backend_title">對話分組實現方式</string>
     <string name="conversation_grouping_backend_query">查詢改寫</string>
-    <string name="conversation_grouping_backend_query_description">在微信數據庫查詢層過濾對話。</string>
+    <string name="conversation_grouping_backend_query_description">在微信數據庫查詢層過濾對話</string>
     <string name="conversation_grouping_backend_adapter">適配器過濾</string>
-    <string name="conversation_grouping_backend_adapter_description">在內存中的對話適配器中過濾。</string>
+    <string name="conversation_grouping_backend_adapter_description">在內存中的對話適配器中過濾</string>
     <string name="fab_default_scan">掃一掃</string>
     <string name="fab_default_moments">朋友圈</string>
     <string name="fab_default_wallet">錢包</string>
