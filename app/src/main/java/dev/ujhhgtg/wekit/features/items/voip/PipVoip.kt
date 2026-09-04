@@ -332,12 +332,28 @@ object PipVoip : SwitchFeature(), IResolveDex {
         override fun toggleMic() {
             val controller = audioController ?: error("voipmp audio controller is unavailable")
             val muted = !micMuted
-            val recorder = methodVoipMpAudioCapturer.method.invoke(controller)
-                ?.let { fieldVoipMpRecorder.field.get(it) }
-            if (recorder == null) {
-                WeLogger.w(TAG, "no active voipmp recorder, mic state left untouched")
+            val audioCapturer = methodVoipMpAudioCapturer.method.invoke(controller)
+                ?: error("voipmp audio capturer is unavailable")
+
+            if (!methodVoipMpUnmuteMic.isPlaceholder) {
+                val methodName = if (muted) {
+                    methodVoipMpMuteMic.method.name
+                } else {
+                    methodVoipMpUnmuteMic.method.name
+                }
+                audioCapturer.reflekt().firstMethod {
+                    name = methodName
+                    parameterCount = 0
+                }.invoke()
+                fieldVoipMpMicMuted.field.setBoolean(controller, muted)
+                val backendSelector =
+                    methodVoipMpAudioBackendSelector.method.invoke(controller)!!
+                methodVoipMpCaptureMuteChanged.method.invoke(backendSelector, muted)
                 return
             }
+
+            val recorder = fieldVoipMpRecorder.field.get(audioCapturer)
+                ?: error("voipmp recorder is unavailable")
             methodVoipMpSwitchMute.method.invoke(recorder, muted)
             fieldVoipMpMicMuted.field.setBoolean(controller, muted)
             sendAppCmd(
@@ -503,24 +519,24 @@ object PipVoip : SwitchFeature(), IResolveDex {
         }
     }
 
-    /** `VoIPMPAudioController.muteMicrophone()`，同时用来定位音频控制器类 */
+    /** VoIPMP 音频控制器；8.0.78 起录音后端从控制器中拆出。 */
+    private val classVoipMpAudioController by dexClass()
+
+    /**
+     * 旧结构是控制器上的 `boolean muteMicrophone()`，新结构是录音接口实现上的
+     * `void muteMicrophone()`；返回类型是两条结构兼容路径的探针。
+     */
     private val methodVoipMpMuteMic by dexMethod {
         matcher {
             paramCount = 0
-            returnType = "boolean"
             usingEqStrings("MicroMsg.VoIPMPAudioCapturer", "muteMicrophone")
         }
     }
 
-    private val fieldVoipMpMicMuted by dexField {
-        matcher {
-            declaredClass(methodVoipMpMuteMic.data.declaredClassName)
-            type = "boolean"
-            addWriteMethod {
-                usingEqStrings("MicroMsg.VoIPMPAudioCapturer", "muteMicrophone")
-            }
-        }
-    }
+    /** 新结构录音接口实现上的 `unMuteMicrophone()`；旧结构把它内联在 ZIDL 中。 */
+    private val methodVoipMpUnmuteMic by dexMethod()
+
+    private val fieldVoipMpMicMuted by dexField()
 
     private val classVoipMpAudioCapturer by dexClass {
         matcher {
@@ -528,13 +544,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val methodVoipMpAudioCapturer by dexMethod {
-        matcher {
-            declaredClass(methodVoipMpMuteMic.data.declaredClassName)
-            paramCount = 0
-            returnType(classVoipMpAudioCapturer.data.interfaces.single().name)
-        }
-    }
+    private val methodVoipMpAudioCapturer by dexMethod()
 
     /** `MMPcmRecorder.switchMute(mute)` */
     private val methodVoipMpSwitchMute by dexMethod {
@@ -551,6 +561,13 @@ object PipVoip : SwitchFeature(), IResolveDex {
             type(methodVoipMpSwitchMute.data.declaredClassName)
         }
     }
+
+    /** 8.0.78 起负责 Oboe/legacy 录音后端切换与状态协调。 */
+    private val classVoipMpAudioBackendSelector by dexClass()
+
+    private val methodVoipMpAudioBackendSelector by dexMethod()
+
+    private val methodVoipMpCaptureMuteChanged by dexMethod()
 
     // ---------------------------------------------------------- 旧版 FlutterVoip
 
@@ -727,6 +744,98 @@ object PipVoip : SwitchFeature(), IResolveDex {
     }
 
     override fun resolveDex(dexKit: DexKitBridge) {
+        when (methodVoipMpMuteMic.data.returnTypeName) {
+            "boolean" -> {
+                classVoipMpAudioController.setDescriptor(
+                    methodVoipMpMuteMic.data.declaredClassName
+                )
+                methodVoipMpUnmuteMic.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "legacy VoIPMP audio controller inlines unmuteMicrophone",
+                )
+                classVoipMpAudioBackendSelector.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "legacy VoIPMP audio controller has no audio backend selector",
+                )
+                methodVoipMpAudioBackendSelector.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "legacy VoIPMP audio controller has no audio backend selector",
+                )
+                methodVoipMpCaptureMuteChanged.setPlaceholderDescriptor(
+                    expectedFailure = true,
+                    reason = "legacy VoIPMP audio controller has no audio backend selector",
+                )
+            }
+
+            "void" -> {
+                classVoipMpAudioController.find(dexKit) {
+                    matcher {
+                        usingEqStrings(
+                            "MicroMsg.VoIPMP.VoIPMPAudioController",
+                            "stopRecord, curRecorder ",
+                        )
+                    }
+                }
+                methodVoipMpUnmuteMic.find(dexKit) {
+                    matcher {
+                        declaredClass(methodVoipMpMuteMic.data.declaredClassName)
+                        paramCount = 0
+                        returnType = "void"
+                        usingEqStrings("MicroMsg.VoIPMPAudioCapturer", "unMuteMicrophone")
+                    }
+                }
+                methodVoipMpCaptureMuteChanged.find(dexKit) {
+                    matcher {
+                        paramTypes("boolean")
+                        returnType = "void"
+                        usingEqStrings("[OBOE_QUALITY_DIAG] onCaptureMuteChanged: muted=")
+                    }
+                }
+                classVoipMpAudioBackendSelector.setDescriptor(
+                    methodVoipMpCaptureMuteChanged.data.declaredClassName
+                )
+                methodVoipMpAudioBackendSelector.find(dexKit) {
+                    matcher {
+                        declaredClass(classVoipMpAudioController.data.name)
+                        paramCount = 0
+                        returnType(classVoipMpAudioBackendSelector.data.name)
+                    }
+                }
+            }
+
+            else -> error(
+                "unsupported VoIPMP mute method return type: " +
+                    methodVoipMpMuteMic.data.returnTypeName
+            )
+        }
+
+        fieldVoipMpMicMuted.find(dexKit) {
+            matcher {
+                declaredClass(classVoipMpAudioController.data.name)
+                type = "boolean"
+                if (methodVoipMpUnmuteMic.isPlaceholder) {
+                    addWriteMethod {
+                        usingEqStrings("MicroMsg.VoIPMPAudioCapturer", "muteMicrophone")
+                    }
+                } else {
+                    addReadMethod {
+                        usingEqStrings(
+                            "MicroMsg.VoIPMP.VoIPMPAudioController",
+                            "stopRecord, curRecorder ",
+                        )
+                    }
+                }
+            }
+        }
+
+        methodVoipMpAudioCapturer.find(dexKit) {
+            matcher {
+                declaredClass(classVoipMpAudioController.data.name)
+                paramCount = 0
+                returnType(classVoipMpAudioCapturer.data.interfaces.single().name)
+            }
+        }
+
         val multiTalkViewModels = dexKit.findClass {
             matcher {
                 usingEqStrings(
@@ -895,7 +1004,7 @@ object PipVoip : SwitchFeature(), IResolveDex {
         // 新版实现的音频控制器是进程内单例，构造时抓一份，用来读/切麦克风状态。
         // 抓不到也只是画中画里控不了麦克风，不该影响别的
         runCatching {
-            methodVoipMpMuteMic.method.declaringClass.reflekt().firstConstructor().hookAfter {
+            classVoipMpAudioController.clazz.reflekt().firstConstructor().hookAfter {
                 audioController = thisObject
                 WeLogger.d(TAG, "captured voipmp audio controller")
             }

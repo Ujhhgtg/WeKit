@@ -15,6 +15,7 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import org.luckypray.dexkit.DexKitBridge
 
 object ForceTabletMode : SwitchFeature(), IResolveDex {
 
@@ -23,11 +24,7 @@ object ForceTabletMode : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_force_tablet_mode_description
 
-    private val methodIsTablet by dexMethod {
-        matcher {
-            usingEqStrings("Lenovo TB-9707F", "eebbk")
-        }
-    }
+    private val methodIsTablet by dexMethod()
 //    private val methodIsTablet2 by dexMethod {
 //        matcher {
 //            usingEqStrings("MicroMsg.UIUtils", "isRoyoleFoldableDevice!!!")
@@ -43,6 +40,33 @@ object ForceTabletMode : SwitchFeature(), IResolveDex {
 //            usingEqStrings("MicroMsg.CgiCheckLoginAsPad", "/cgi-bin/micromsg-bin/checkloginaspad")
 //        }
 //    }
+
+    override fun resolveDex(dexKit: DexKitBridge) {
+        val modernTabletMethods = dexKit.findMethod {
+            matcher {
+                returnType = "boolean"
+                usingEqStrings(
+                    "MicroMsg.UIUtils",
+                    "inTabletEnv, no tablet condition matched, return false",
+                )
+            }
+        }
+
+        when (modernTabletMethods.size) {
+            1 -> methodIsTablet.setDescriptor(modernTabletMethods.single())
+            0 -> methodIsTablet.find(dexKit) {
+                matcher {
+                    returnType = "boolean"
+                    usingEqStrings("Lenovo TB-9707F", "eebbk")
+                }
+            }
+
+            else -> error(
+                "multiple modern tablet environment methods found: " +
+                    modernTabletMethods.joinToString { it.descriptor }
+            )
+        }
+    }
 
     override fun onEnable() {
         methodIsTablet.hookAfter {
