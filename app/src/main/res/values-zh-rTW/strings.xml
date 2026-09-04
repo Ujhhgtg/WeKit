@@ -910,7 +910,7 @@
     <string name="feature_modify_wallet_balance_display_name">修改顯示餘額</string>
     <string name="feature_modify_wallet_balance_display_description">僞裝錢包餘額文字</string>
     <string name="feature_open_history_red_packets_name">撿漏歷史紅包</string>
-    <string name="feature_open_history_red_packets_description">在聯繫人與羣組詳情頁面添加選項, 批量掃描當前對話的所有歷史紅包消息並嘗試領取\n點擊可查看當前正在進行的任務</string>
+    <string name="feature_open_history_red_packets_description">在聯繫人與羣組詳情頁面添加選項, 掃描當前對話 24 小時內的紅包消息並嘗試領取</string>
     <string name="feature_remove_signature_limits_name">移除個性簽名限制</string>
     <string name="feature_remove_signature_limits_description">允許大於 30 字與包含特殊字符的個性簽名</string>
     <string name="feature_remove_text_status_length_limit_name">解除狀態詞長度限制</string>
@@ -3446,23 +3446,18 @@
     <string name="payment_red_packet_count_details">數量: %1$d/%2$d</string>
     <string name="payment_red_packet_remaining">剩餘: %1$.2f元</string>
     <string name="payment_history_title">歷史紅包撿漏</string>
-    <string name="payment_history_already_running">已有正在進行的撿漏任務!</string>
-    <string name="payment_history_not_running">當前沒有正在進行的撿漏任務!</string>
     <string name="payment_history_scan_started">開始掃描會話歷史消息...</string>
     <string name="payment_history_scan_expired_complete">已掃描完 24 小時內的消息, 更早的紅包已過期, 停止掃描</string>
     <string name="payment_history_scan_complete">所有歷史消息掃描完畢</string>
     <string name="payment_history_scan_failed">掃描異常終止: %1$s</string>
     <string name="payment_history_found">發現歷史紅包 [%1$s], 嘗試領包...</string>
     <string name="payment_history_found_unnamed">發現歷史紅包 [&lt;未命名&gt;], 嘗試領包...</string>
-    <string name="payment_history_stopped">已手動終止撿漏任務</string>
     <string name="payment_history_open_request_failed">紅包 [%1$s] 拆開請求異常</string>
     <string name="payment_history_receive_failed">紅包 [%1$s] 領取失敗 (retcode=%2$d)</string>
     <string name="payment_history_receive_success">紅包 [%1$s] 領取成功: ¥%2$.2f</string>
     <string name="payment_history_expired">紅包 [%1$s] 領取完畢: 已過期</string>
     <string name="payment_history_empty">紅包 [%1$s] 領取完畢: 已被領完</string>
     <string name="payment_history_unknown_status">紅包 [%1$s] 狀態未知 (status=%2$d)</string>
-    <string name="payment_history_background">後臺</string>
-    <string name="payment_history_stop">終止</string>
     <string name="payment_red_packet_global_summary">配置默認搶紅包條件與搶到後的操作</string>
     <string name="payment_red_packet_default_grab">默認搶紅包</string>
     <string name="payment_red_packet_default_all">默認搶所有聯繫人, 分聯繫人設置可單獨關閉</string>

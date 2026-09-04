@@ -949,7 +949,7 @@
     <string name="feature_modify_wallet_balance_display_name">Modify displayed balance</string>
     <string name="feature_modify_wallet_balance_display_description">Disguise wallet balance text</string>
     <string name="feature_open_history_red_packets_name">Scan historical red packets</string>
-    <string name="feature_open_history_red_packets_description">Add an option to the contact and group details page to batch scan all historical red packet messages in the current conversation and try to claim them\nClick to view the currently ongoing tasks</string>
+    <string name="feature_open_history_red_packets_description">Add an option to the contact and group details page to scan red packet messages from the last 24 hours in the current conversation and try to claim them</string>
     <string name="feature_remove_signature_limits_name">Remove profile signature limits</string>
     <string name="feature_remove_signature_limits_description">Personalized signatures longer than 30 words and containing special characters are allowed</string>
     <string name="feature_remove_text_status_length_limit_name">Remove status text length limit</string>
@@ -3420,23 +3420,18 @@
     <string name="payment_red_packet_remaining">Remaining: ¥%1$.2f</string>
 
     <string name="payment_history_title">Historical red packet recovery</string>
-    <string name="payment_history_already_running">A recovery task is already running!</string>
-    <string name="payment_history_not_running">No recovery task is currently running!</string>
     <string name="payment_history_scan_started">Scanning conversation history…</string>
     <string name="payment_history_scan_expired_complete">Scanned all messages from the last 24 hours. Older red packets have expired; stopping.</string>
     <string name="payment_history_scan_complete">Finished scanning all historical messages</string>
     <string name="payment_history_scan_failed">Scan stopped unexpectedly: %1$s</string>
     <string name="payment_history_found">Found historical red packet [%1$s]; attempting to receive it…</string>
     <string name="payment_history_found_unnamed">Found historical red packet [&lt;unnamed&gt;]; attempting to receive it…</string>
-    <string name="payment_history_stopped">Recovery task stopped manually</string>
     <string name="payment_history_open_request_failed">Red packet [%1$s]: open request failed</string>
     <string name="payment_history_receive_failed">Red packet [%1$s]: receive failed (retcode=%2$d)</string>
     <string name="payment_history_receive_success">Red packet [%1$s]: received ¥%2$.2f</string>
     <string name="payment_history_expired">Red packet [%1$s]: expired</string>
     <string name="payment_history_empty">Red packet [%1$s]: already fully claimed</string>
     <string name="payment_history_unknown_status">Red packet [%1$s]: unknown status (status=%2$d)</string>
-    <string name="payment_history_background">Background</string>
-    <string name="payment_history_stop">Stop</string>
 
     <string name="payment_red_packet_global_summary">Configure the default claiming conditions and post-claim actions</string>
     <string name="payment_red_packet_default_grab">Claim red packets by default</string>

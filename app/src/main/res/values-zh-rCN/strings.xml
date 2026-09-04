@@ -912,7 +912,7 @@
     <string name="feature_modify_wallet_balance_display_name">修改显示余额</string>
     <string name="feature_modify_wallet_balance_display_description">伪装钱包余额文字</string>
     <string name="feature_open_history_red_packets_name">捡漏历史红包</string>
-    <string name="feature_open_history_red_packets_description">在联系人与群组详情页面添加选项, 批量扫描当前对话的所有历史红包消息并尝试领取\n点击可查看当前正在进行的任务</string>
+    <string name="feature_open_history_red_packets_description">在联系人与群组详情页面添加选项, 扫描当前对话 24 小时内的红包消息并尝试领取</string>
     <string name="feature_remove_signature_limits_name">移除个性签名限制</string>
     <string name="feature_remove_signature_limits_description">允许大于 30 字与包含特殊字符的个性签名</string>
     <string name="feature_remove_text_status_length_limit_name">解除状态词长度限制</string>
@@ -3461,23 +3461,18 @@
     <string name="payment_red_packet_count_details">数量: %1$d/%2$d</string>
     <string name="payment_red_packet_remaining">剩余: %1$.2f元</string>
     <string name="payment_history_title">历史红包捡漏</string>
-    <string name="payment_history_already_running">已有正在进行的捡漏任务!</string>
-    <string name="payment_history_not_running">当前没有正在进行的捡漏任务!</string>
     <string name="payment_history_scan_started">开始扫描会话历史消息...</string>
     <string name="payment_history_scan_expired_complete">已扫描完 24 小时内的消息, 更早的红包已过期, 停止扫描</string>
     <string name="payment_history_scan_complete">所有历史消息扫描完毕</string>
     <string name="payment_history_scan_failed">扫描异常终止: %1$s</string>
     <string name="payment_history_found">发现历史红包 [%1$s], 尝试领包...</string>
     <string name="payment_history_found_unnamed">发现历史红包 [&lt;未命名&gt;], 尝试领包...</string>
-    <string name="payment_history_stopped">已手动终止捡漏任务</string>
     <string name="payment_history_open_request_failed">红包 [%1$s] 拆开请求异常</string>
     <string name="payment_history_receive_failed">红包 [%1$s] 领取失败 (retcode=%2$d)</string>
     <string name="payment_history_receive_success">红包 [%1$s] 领取成功: ¥%2$.2f</string>
     <string name="payment_history_expired">红包 [%1$s] 领取完毕: 已过期</string>
     <string name="payment_history_empty">红包 [%1$s] 领取完毕: 已被领完</string>
     <string name="payment_history_unknown_status">红包 [%1$s] 状态未知 (status=%2$d)</string>
-    <string name="payment_history_background">后台</string>
-    <string name="payment_history_stop">终止</string>
     <string name="payment_red_packet_global_summary">配置默认抢红包条件与抢到后的操作</string>
     <string name="payment_red_packet_default_grab">默认抢红包</string>
     <string name="payment_red_packet_default_all">默认抢所有联系人, 分联系人设置可单独关闭</string>
