@@ -483,20 +483,33 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
             WePrefs.putString(KEY_BUSINESS, WePrefs.getString(LEGACY_BUSINESS)!!)
 
         var migrated = false
-        if (!WePrefs.default.contains(KEY_EXPRESSION_BALANCE)) {
+        if (shouldMigrateWalletExpression(
+                hasExpression = WePrefs.default.contains(KEY_EXPRESSION_BALANCE),
+                hasLegacyAmount = WePrefs.default.contains(KEY_BALANCE),
+                hasLegacyMode = WePrefs.default.contains(KEY_MODE_BALANCE),
+            )
+        ) {
             val configured = WePrefs.getStringOrDef(KEY_BALANCE, "0.00")
             val mode = resolveMode(KEY_MODE_BALANCE, configured, MODE_FIXED)
             WePrefs.putString(KEY_EXPRESSION_BALANCE, migrateExpression(configured, mode))
             migrated = true
         }
-        if (!WePrefs.default.contains(KEY_EXPRESSION_LQT)) {
+        if (shouldMigrateWalletExpression(
+                hasExpression = WePrefs.default.contains(KEY_EXPRESSION_LQT),
+                hasLegacyAmount = WePrefs.default.contains(KEY_LQT),
+                hasLegacyMode = WePrefs.default.contains(KEY_MODE_LQT),
+            )
+        ) {
             val configured = WePrefs.getStringOrDef(KEY_LQT, "0.00")
             val mode = resolveMode(KEY_MODE_LQT, configured, MODE_FIXED)
             WePrefs.putString(KEY_EXPRESSION_LQT, migrateExpression(configured, mode))
             migrated = true
         }
-        if (!WePrefs.default.contains(KEY_EXPRESSION_BUSINESS) &&
-            (WePrefs.default.contains(KEY_BUSINESS) || WePrefs.default.contains(KEY_MODE_BUSINESS))
+        if (shouldMigrateWalletExpression(
+                hasExpression = WePrefs.default.contains(KEY_EXPRESSION_BUSINESS),
+                hasLegacyAmount = WePrefs.default.contains(KEY_BUSINESS),
+                hasLegacyMode = WePrefs.default.contains(KEY_MODE_BUSINESS),
+            )
         ) {
             val lqtConfigured = WePrefs.getStringOrDef(KEY_LQT, "0.00")
             val configured = WePrefs.getString(KEY_BUSINESS) ?: lqtConfigured
@@ -645,3 +658,9 @@ internal fun migrateWalletBalanceExpression(configured: String, mode: String): S
         else -> normalized
     }
 }
+
+internal fun shouldMigrateWalletExpression(
+    hasExpression: Boolean,
+    hasLegacyAmount: Boolean,
+    hasLegacyMode: Boolean,
+): Boolean = !hasExpression && (hasLegacyAmount || hasLegacyMode)

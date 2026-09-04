@@ -21,4 +21,16 @@ class WalletBalanceExpressionMigrationTest {
         assertEquals("value + 1234.57", migrateWalletBalanceExpression("￥1,234.567", "increase"))
         assertEquals("0", migrateWalletBalanceExpression("not an amount", "fixed"))
     }
+
+    @Test
+    fun `does not migrate a fresh target without legacy settings`() {
+        assertEquals(false, shouldMigrateWalletExpression(false, false, false))
+    }
+
+    @Test
+    fun `migrates legacy amount or mode only when no expression exists`() {
+        assertEquals(true, shouldMigrateWalletExpression(false, true, false))
+        assertEquals(true, shouldMigrateWalletExpression(false, false, true))
+        assertEquals(false, shouldMigrateWalletExpression(true, true, true))
+    }
 }
