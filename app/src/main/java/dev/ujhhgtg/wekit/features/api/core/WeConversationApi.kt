@@ -35,13 +35,13 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 //    private const val ATTR_FLAG_8071_8072_RED_PACKET_BITS = 33280
 //    private const val TABLE_RCONVERSATION = "rconversation"
 //    private const val TABLE_ECS_CONVERSATION_RECORD = "EcsConversationRecord"
-    internal val classConversationStorage by dexClass {
+    val classConversationStorage by dexClass {
         searchPackages("com.tencent.mm.storage")
         matcher {
             usingEqStrings("rconversation", "PRAGMA table_info( rconversation)")
         }
     }
-    internal val methodUpdateUnreadByTalker by dexMethod {
+    val methodUpdateUnreadByTalker by dexMethod {
         matcher {
             declaredClass(classConversationStorage.data.name)
             usingEqStrings("MicroMsg.ConversationStorage", "updateUnreadByTalker %s")
@@ -105,7 +105,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 //            paramTypes(methodGetConvByName.method.returnType, String::class.java)
 //        }
 //    }
-    internal val methodChatroomStorageGetMemberCount by dexMethod {
+    val methodChatroomStorageGetMemberCount by dexMethod {
         searchPackages("com.tencent.mm.storage")
         matcher {
             usingEqStrings("MicroMsg.ChatroomStorage", "[getMemberCount] cost:%sms")

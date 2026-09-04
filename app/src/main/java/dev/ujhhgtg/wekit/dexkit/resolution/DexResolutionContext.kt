@@ -35,7 +35,7 @@ object DexResolutionContext {
     val host: DexHostMetadata
         get() = current.get()?.host ?: error("Dex resolution context is not active")
 
-    internal fun ensureResolved(delegate: dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate) {
+    fun ensureResolved(delegate: dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate) {
         if (delegate.getDescriptorString() != null) return
         val owner = delegate.owner as IResolveDex
         val session = current.get() ?: error("Dex resolution context is not active")
@@ -43,7 +43,7 @@ object DexResolutionContext {
         resolve(owner, session)
     }
 
-    internal fun <T> withResolutionContext(
+    fun <T> withResolutionContext(
         dexKit: DexKitBridge,
         host: DexHostMetadata,
         block: () -> T,
@@ -58,7 +58,7 @@ object DexResolutionContext {
         }
     }
 
-    internal fun resolve(item: IResolveDex) {
+    fun resolve(item: IResolveDex) {
         resolve(item, current.get() ?: error("Dex resolution context is not active"))
     }
 

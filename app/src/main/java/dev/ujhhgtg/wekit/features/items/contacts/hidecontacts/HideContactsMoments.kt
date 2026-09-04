@@ -12,7 +12,7 @@ import java.util.LinkedList
 private const val TAG = "HideContacts.Moments"
 
 /** Every Moments-side surface a hidden contact can leak through. */
-internal fun HideContacts.installMomentsHooks() {
+fun HideContacts.installMomentsHooks() {
     installMomentsRedDotHook()
     installMomentsInlineEntryHook()
 }

@@ -7,7 +7,7 @@ import bsh.Primitive
 import java.util.ArrayList
 import java.util.concurrent.ConcurrentHashMap
 
-internal class ScriptsDrmBypassHook : BshHook {
+class ScriptsDrmBypassHook : BshHook {
     private val interpreters = ConcurrentHashMap.newKeySet<Interpreter>()
 
     fun registerInterpreter(interpreter: Interpreter) {

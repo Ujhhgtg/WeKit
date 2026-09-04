@@ -4,7 +4,7 @@ import androidx.annotation.StringRes
 import dev.ujhhgtg.wekit.R
 
 @get:StringRes
-internal val ReadReceiptsTunnelErrorCode.messageRes: Int
+val ReadReceiptsTunnelErrorCode.messageRes: Int
     get() = when (this) {
         ReadReceiptsTunnelErrorCode.VISIBLE_SETTINGS_REQUIRED ->
             R.string.read_receipts_error_visible_settings_required
@@ -29,7 +29,7 @@ internal val ReadReceiptsTunnelErrorCode.messageRes: Int
     }
 
 @get:StringRes
-internal val ReadReceiptsTunnelState.notificationDetailRes: Int
+val ReadReceiptsTunnelState.notificationDetailRes: Int
     get() = when (this) {
         ReadReceiptsTunnelState.STOPPED -> R.string.read_receipts_state_stopped
         ReadReceiptsTunnelState.STARTING -> R.string.read_receipts_state_starting

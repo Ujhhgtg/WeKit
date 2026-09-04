@@ -8,19 +8,19 @@ import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.utils.HostInfo
 
-internal fun localizedContactsString(@StringRes id: Int, vararg formatArgs: Any): String =
+fun localizedContactsString(@StringRes id: Int, vararg formatArgs: Any): String =
     HostInfo.application.localizedContactsString(id, *formatArgs)
 
-internal fun Context.localizedContactsString(@StringRes id: Int, vararg formatArgs: Any): String =
+fun Context.localizedContactsString(@StringRes id: Int, vararg formatArgs: Any): String =
     contactsLocalizedContext().getString(id, *formatArgs)
 
-internal fun localizedContactsQuantity(
+fun localizedContactsQuantity(
     @PluralsRes id: Int,
     quantity: Int,
     vararg formatArgs: Any,
 ): String = HostInfo.application.localizedContactsQuantity(id, quantity, *formatArgs)
 
-internal fun Context.localizedContactsQuantity(
+fun Context.localizedContactsQuantity(
     @PluralsRes id: Int,
     quantity: Int,
     vararg formatArgs: Any,

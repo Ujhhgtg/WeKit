@@ -86,10 +86,10 @@ import kotlin.io.path.div
 private const val CONFIG_VERSION = 1
 
 @Serializable
-internal enum class AutoReplyType { TEXT, IMAGE, VIDEO, VOICE }
+enum class AutoReplyType { TEXT, IMAGE, VIDEO, VOICE }
 
 @Serializable
-internal data class AutoReplyRule(
+data class AutoReplyRule(
     val type: AutoReplyType = AutoReplyType.TEXT,
     val text: String = "",
     val path: String = "",
@@ -97,7 +97,7 @@ internal data class AutoReplyRule(
 )
 
 @Serializable
-internal data class AutoReplyTask(
+data class AutoReplyTask(
     val name: String = "",
     val enabled: Boolean = true,
     val keyword: AutomationKeywordRule = AutomationKeywordRule(ignoreCase = true),
@@ -108,14 +108,14 @@ internal data class AutoReplyTask(
 )
 
 @Serializable
-internal data class AutoReplyRuleSet(
+data class AutoReplyRuleSet(
     val enabled: AutomationToggleRule = AutomationToggleRule(),
     val timeRange: AutomationTimeRangeRule = AutomationTimeRangeRule(),
     val tasks: List<AutoReplyTask> = emptyList(),
 )
 
 @Serializable
-internal data class AutoReplyRuleOverrides(
+data class AutoReplyRuleOverrides(
     val enabled: AutomationToggleRule? = null,
     val timeRange: AutomationTimeRangeRule? = null,
     val tasks: List<AutoReplyTask>? = null,
@@ -132,7 +132,7 @@ private data class StoredConfig(
 )
 
 /** 聊天自动回复分层配置（全局 → 联系人 → 群成员），模式与 RedPacketSettings 一致。 */
-internal object AutoReplySettings {
+object AutoReplySettings {
     private const val TAG = "AutoReplySettings"
 
     private val configFile by lazy { KnownPaths.moduleData / "auto_reply_settings.json" }

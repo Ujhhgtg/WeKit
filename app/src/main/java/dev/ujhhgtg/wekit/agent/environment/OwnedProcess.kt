@@ -5,7 +5,7 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicLong
 
-internal interface OwnedProcessHandle : AutoCloseable {
+interface OwnedProcessHandle : AutoCloseable {
     val outputStream: OutputStream
     val inputStream: InputStream
     val errorStream: InputStream
@@ -13,9 +13,9 @@ internal interface OwnedProcessHandle : AutoCloseable {
     suspend fun terminateGroup(graceMillis: Long = ProcessTermination.TERM_GRACE_MILLIS)
 }
 
-internal typealias OwnedProcessStarter = (List<String>, Map<String, String>, String) -> OwnedProcessHandle
+typealias OwnedProcessStarter = (List<String>, Map<String, String>, String) -> OwnedProcessHandle
 
-internal class OwnedProcess private constructor(
+class OwnedProcess private constructor(
     handle: Long,
     val pid: Int,
     val pgid: Int,

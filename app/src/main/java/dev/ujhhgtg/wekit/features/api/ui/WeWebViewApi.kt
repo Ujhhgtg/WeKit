@@ -56,7 +56,7 @@ object WeWebViewApi : ApiFeature(), IResolveDex {
     /** A snapshot of all currently-live tracked WebViews (dead entries already evicted by GC). */
     fun snapshot(): List<Any> = synchronized(lock) { tracked.filterNotNull() }
 
-    internal val xwebOnPageFinished by dexMethod {
+    val xwebOnPageFinished by dexMethod {
         searchPackages("com.tencent.mm.plugin.appbrand.page")
         matcher {
             declaredClass {
@@ -72,7 +72,7 @@ object WeWebViewApi : ApiFeature(), IResolveDex {
             returnType = "void"
         }
     }
-    internal val androidOnPageFinished by dexMethod {
+    val androidOnPageFinished by dexMethod {
         searchPackages("com.tencent.mm.plugin.appbrand.page")
         matcher {
             declaredClass {

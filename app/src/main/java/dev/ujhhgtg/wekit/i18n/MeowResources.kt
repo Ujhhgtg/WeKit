@@ -5,14 +5,14 @@ import android.content.ContextWrapper
 import android.content.res.Resources
 import dev.ujhhgtg.wekit.R
 
-internal object MeowResourceFilter {
+object MeowResourceFilter {
     private val weKitPackageId = R.string.res_inject_success ushr 24
 
     fun isWeKitResource(id: Int): Boolean = id ushr 24 == weKitPackageId
 }
 
 @Suppress("DEPRECATION")
-internal class MeowResources(
+class MeowResources(
     private val delegate: Resources,
 ) : Resources(delegate.assets, delegate.displayMetrics, delegate.configuration) {
     override fun getText(id: Int): CharSequence =
@@ -73,7 +73,7 @@ internal class MeowResources(
         }
 }
 
-internal class MeowResourcesContext(
+class MeowResourcesContext(
     base: Context,
 ) : ContextWrapper(base) {
     private val meowResources = MeowResources(base.resources)

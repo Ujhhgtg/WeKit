@@ -11,7 +11,7 @@ import com.composables.icons.materialsymbols.outlined.Select_all
 import dev.ujhhgtg.wekit.R
 
 @Composable
-internal fun <T> panelMultiSelectActions(
+fun <T> panelMultiSelectActions(
     items: List<T>,
     selectedKeys: Set<String>,
     key: (T) -> String,
@@ -61,7 +61,7 @@ internal fun <T> panelMultiSelectActions(
     },
 )
 
-internal fun <T> invertPanelSelection(
+fun <T> invertPanelSelection(
     current: Set<String>,
     items: List<T>,
     key: (T) -> String,
@@ -70,7 +70,7 @@ internal fun <T> invertPanelSelection(
     return candidates.filterNotTo(linkedSetOf()) { it in current }
 }
 
-internal fun <T> closePanelSelectionRange(
+fun <T> closePanelSelectionRange(
     current: Set<String>,
     items: List<T>,
     key: (T) -> String,

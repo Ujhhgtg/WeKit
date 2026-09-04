@@ -4,12 +4,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-internal data class DragItemBounds(
+data class DragItemBounds(
     val start: Float,
     val end: Float,
 )
 
-internal fun insertionIndex(
+fun insertionIndex(
     position: Float,
     bounds: List<DragItemBounds>,
 ): Int {
@@ -17,13 +17,13 @@ internal fun insertionIndex(
     return if (before >= 0) before else bounds.size
 }
 
-internal enum class HomeSidePanelPointerLifecycleDecision {
+enum class HomeSidePanelPointerLifecycleDecision {
     Continue,
     Finish,
     Cancel,
 }
 
-internal fun homeSidePanelPointerLifecycleDecision(
+fun homeSidePanelPointerLifecycleDecision(
     previousPressed: Boolean,
     pressed: Boolean,
     consumedAtInitialPass: Boolean,
@@ -33,17 +33,17 @@ internal fun homeSidePanelPointerLifecycleDecision(
     else -> HomeSidePanelPointerLifecycleDecision.Finish
 }
 
-internal fun normalizedMoveDestination(
+fun normalizedMoveDestination(
     sourceIndex: Int,
     insertionIndex: Int,
 ): Int = if (insertionIndex > sourceIndex) insertionIndex - 1 else insertionIndex
 
-internal data class RootDragPosition(
+data class RootDragPosition(
     val x: Float,
     val y: Float,
 )
 
-internal data class RootDragBounds(
+data class RootDragBounds(
     val left: Float,
     val top: Float,
     val right: Float,
@@ -56,12 +56,12 @@ internal data class RootDragBounds(
         position.x in left..right && position.y in top..bottom
 }
 
-internal enum class HomeSidePanelDragAxis {
+enum class HomeSidePanelDragAxis {
     Horizontal,
     Vertical,
 }
 
-internal sealed interface HomeSidePanelDragPayload {
+sealed interface HomeSidePanelDragPayload {
     data class ExistingCard(val cardId: String) : HomeSidePanelDragPayload
     data class NewCard(val type: HomeSidePanelCardType) : HomeSidePanelDragPayload
     data class ExistingAction(
@@ -75,13 +75,13 @@ internal sealed interface HomeSidePanelDragPayload {
     ) : HomeSidePanelDragPayload
 }
 
-internal sealed interface HomeSidePanelExistingDragSource {
+sealed interface HomeSidePanelExistingDragSource {
     data object CardBackground : HomeSidePanelExistingDragSource
     data object VirtualAdd : HomeSidePanelExistingDragSource
     data class Action(val actionId: String) : HomeSidePanelExistingDragSource
 }
 
-internal fun homeSidePanelExistingDragPayload(
+fun homeSidePanelExistingDragPayload(
     cardId: String,
     source: HomeSidePanelExistingDragSource,
 ): HomeSidePanelDragPayload = when (source) {
@@ -93,7 +93,7 @@ internal fun homeSidePanelExistingDragPayload(
         HomeSidePanelDragPayload.ExistingAction(cardId, source.actionId)
 }
 
-internal sealed interface HomeSidePanelDragTarget {
+sealed interface HomeSidePanelDragTarget {
     data class Card(val insertionIndex: Int) : HomeSidePanelDragTarget
     data class Action(
         val cardId: String,
@@ -101,7 +101,7 @@ internal sealed interface HomeSidePanelDragTarget {
     ) : HomeSidePanelDragTarget
 }
 
-internal sealed interface HomeSidePanelDragCommit {
+sealed interface HomeSidePanelDragCommit {
     data class MoveCard(
         val cardId: String,
         val insertionIndex: Int,
@@ -125,7 +125,7 @@ internal sealed interface HomeSidePanelDragCommit {
     ) : HomeSidePanelDragCommit
 }
 
-internal fun HomeSidePanelEditSession.applyHomeSidePanelDragCommit(
+fun HomeSidePanelEditSession.applyHomeSidePanelDragCommit(
     commit: HomeSidePanelDragCommit,
 ): String? = when (commit) {
     is HomeSidePanelDragCommit.MoveCard -> {
@@ -162,7 +162,7 @@ internal fun HomeSidePanelEditSession.applyHomeSidePanelDragCommit(
         addAction(commit.cardId, commit.kind, commit.insertionIndex)
 }
 
-internal data class HomeSidePanelDragSnapshot(
+data class HomeSidePanelDragSnapshot(
     val payload: HomeSidePanelDragPayload,
     val pointerId: Long,
     val rootPosition: RootDragPosition,
@@ -174,7 +174,7 @@ internal data class HomeSidePanelDragSnapshot(
     val targetChangeToken: Long,
 )
 
-internal fun HomeSidePanelDragSnapshot.visualCardInsertionIndex(
+fun HomeSidePanelDragSnapshot.visualCardInsertionIndex(
     cards: List<HomeSidePanelCardConfig>,
 ): Int? {
     val insertionIndex = (target as? HomeSidePanelDragTarget.Card)?.insertionIndex ?: return null
@@ -194,7 +194,7 @@ internal fun HomeSidePanelDragSnapshot.visualCardInsertionIndex(
     }
 }
 
-internal fun HomeSidePanelDragSnapshot.visualActionInsertionIndex(
+fun HomeSidePanelDragSnapshot.visualActionInsertionIndex(
     cardId: String,
     actions: List<HomeSidePanelActionConfig>,
 ): Int? {
@@ -220,7 +220,7 @@ internal fun HomeSidePanelDragSnapshot.visualActionInsertionIndex(
     }
 }
 
-internal class HomeSidePanelDragState(
+class HomeSidePanelDragState(
     private val onDragActiveChanged: (Boolean) -> Unit = {},
 ) {
     private data class RegisteredBounds(

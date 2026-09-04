@@ -49,7 +49,7 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import java.time.LocalDateTime
 
-internal data class HomeSidePanelCandidatePointer(
+data class HomeSidePanelCandidatePointer(
     val pointerId: Long,
     val rootX: Float,
     val rootY: Float,
@@ -61,7 +61,7 @@ internal data class HomeSidePanelCandidatePointer(
     val sourceBottom: Float,
 )
 
-internal sealed interface HomeSidePanelAddCandidate {
+sealed interface HomeSidePanelAddCandidate {
     val pointer: HomeSidePanelCandidatePointer
 
     data class Card(
@@ -76,10 +76,10 @@ internal sealed interface HomeSidePanelAddCandidate {
     ) : HomeSidePanelAddCandidate
 }
 
-internal val HOME_SIDE_PANEL_PREVIEW_TIME: LocalDateTime =
+val HOME_SIDE_PANEL_PREVIEW_TIME: LocalDateTime =
     LocalDateTime.of(2026, 8, 20, 12, 34)
 
-internal val HOME_SIDE_PANEL_PREVIEW_WEATHER = WeatherSnapshot(
+val HOME_SIDE_PANEL_PREVIEW_WEATHER = WeatherSnapshot(
     city = DEFAULT_WEATHER_CITY,
     weatherCode = "0",
     temperature = "26",
@@ -128,7 +128,7 @@ private val HOME_SIDE_PANEL_ACTION_KINDS = listOf(
 )
 
 @Composable
-internal fun HomeSidePanelAddCardPage(
+fun HomeSidePanelAddCardPage(
     onBack: () -> Unit,
     onAddCard: (HomeSidePanelCardType) -> Unit,
     onLongPressCard: (HomeSidePanelCardType, HomeSidePanelCandidatePointer) -> Unit,
@@ -178,7 +178,7 @@ private fun HomeSidePanelCardCandidate(
 }
 
 @Composable
-internal fun HomeSidePanelCardCandidateVisual(
+fun HomeSidePanelCardCandidateVisual(
     type: HomeSidePanelCardType,
     modifier: Modifier = Modifier,
 ) {
@@ -257,7 +257,7 @@ internal fun HomeSidePanelCardCandidateVisual(
 }
 
 @Composable
-internal fun HomeSidePanelAddActionPage(
+fun HomeSidePanelAddActionPage(
     card: HomeSidePanelCardConfig,
     onBack: () -> Unit,
     onAddAction: (String, HomeSidePanelActionKind) -> Unit,
@@ -382,7 +382,7 @@ private fun HomeSidePanelActionCandidateList(
 }
 
 @StringRes
-internal fun homeSidePanelCardNameRes(type: HomeSidePanelCardType): Int = when (type) {
+fun homeSidePanelCardNameRes(type: HomeSidePanelCardType): Int = when (type) {
     HomeSidePanelCardType.DATE_TIME -> R.string.home_side_panel_card_date_time
     HomeSidePanelCardType.WEATHER -> R.string.home_side_panel_card_weather
     HomeSidePanelCardType.WALLET -> R.string.home_side_panel_card_wallet

@@ -83,7 +83,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     private val classSubCoreMultiTalk by dexClass()
 
     /** com.tencent.mm.plugin.multitalk.model.v0 —— MultiTalkManager. */
-    internal val methodExitMultiTalk by dexMethod()
+    val methodExitMultiTalk by dexMethod()
 
     /** com.tencent.mm.plugin.multitalk.ilinkservice.i4 —— ILinkService (enum, 单例 INSTANCE). */
     private val classILinkService by dexClass()
@@ -95,7 +95,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     private val classInviteTask by dexClass()
 
     /** e3.Ri() —— 获取 MultiTalkManager 单例. */
-    internal val methodGetMultiTalkManager by dexMethod()
+    val methodGetMultiTalkManager by dexMethod()
 
     /** v0.D(e4) —— 设置通话状态 (onChangeMultiTalkStatus). */
     private val methodSetStatus by dexMethod()

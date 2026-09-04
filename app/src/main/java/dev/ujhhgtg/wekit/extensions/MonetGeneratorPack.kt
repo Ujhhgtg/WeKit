@@ -34,7 +34,7 @@ object MonetGeneratorPack : ExtensionPack {
     override fun isInUse(): Boolean = cachedResolution != null
 
     @Synchronized
-    internal fun resolve(): Resolved? {
+    fun resolve(): Resolved? {
         cachedResolution?.let { return it }
         val manifest = installedManifest() ?: return null
         val paths = MonetInstallPaths.resolve(installDir(), manifest.version)
@@ -83,7 +83,7 @@ object MonetGeneratorPack : ExtensionPack {
         WeLogger.i("MonetGeneratorPack", "installed Monet generator $version")
     }
 
-    internal class Resolved(
+    class Resolved(
         val generator: MonetGeneratorApi,
         val payloadDir: File,
     )

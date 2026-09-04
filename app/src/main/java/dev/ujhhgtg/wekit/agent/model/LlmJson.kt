@@ -40,7 +40,7 @@ object SseParser {
 }
 
 /** [JsonPrimitive.content] but null when the JSON value is literally null. */
-internal fun JsonPrimitive.contentOrNullSafe(): String? =
+fun JsonPrimitive.contentOrNullSafe(): String? =
     if (!isString && content == "null") null else content
 
 /**
@@ -48,7 +48,7 @@ internal fun JsonPrimitive.contentOrNullSafe(): String? =
  * field names (`prompt_tokens`/`completion_tokens`/`total_tokens` and the Responses
  * `input_tokens`/`output_tokens`) so one helper serves both adapters. Returns null if [usage] is null.
  */
-internal fun parseUsage(usage: JsonObject?): LlmUsage? {
+fun parseUsage(usage: JsonObject?): LlmUsage? {
     if (usage == null) return null
     fun i(vararg keys: String): Int? = keys.firstNotNullOfOrNull { usage[it]?.jsonPrimitive?.intOrNull }
     return LlmUsage(
@@ -59,7 +59,7 @@ internal fun parseUsage(usage: JsonObject?): LlmUsage? {
 }
 
 /** Drains the rest of a channel as UTF-8 text (used for error bodies). */
-internal suspend fun ByteReadChannel.readRemainingText(): String = buildString {
+suspend fun ByteReadChannel.readRemainingText(): String = buildString {
     while (true) {
         @Suppress("DEPRECATION")
         val line = readUTF8Line() ?: break

@@ -64,7 +64,7 @@ private val nukePresetColors = listOf(
 )
 
 @Composable
-internal fun NukeAppearancePage(onBack: (Offset) -> Unit) {
+fun NukeAppearancePage(onBack: (Offset) -> Unit) {
     var showColorDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)

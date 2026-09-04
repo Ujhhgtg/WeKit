@@ -157,7 +157,7 @@ class ArtHookBridge : IHookBridge {
     override fun deoptimize(executable: Executable): Boolean = false
 
     /** Called after NativeLoader has loaded every module-provided native library. */
-    internal fun hideLoadedModuleLibraries(): Boolean = nativeHideLoadedModuleLibraries()
+    fun hideLoadedModuleLibraries(): Boolean = nativeHideLoadedModuleLibraries()
 
     // ── Invoke original ───────────────────────────────────────────────────────
 

@@ -39,7 +39,7 @@ data class ReadReceiptsTunnelStatus(
     val needsNotificationSettings: Boolean = false,
 )
 
-internal class ReadReceiptsTunnelException(
+class ReadReceiptsTunnelException(
     val errorCode: ReadReceiptsTunnelErrorCode,
     diagnostic: String,
     cause: Throwable? = null,
@@ -61,7 +61,7 @@ data class CloudflareLoginState(
     }
 }
 
-internal data class NativeCloudflareLoginStatus(
+data class NativeCloudflareLoginStatus(
     val generation: Long,
     val loginState: CloudflareLoginState,
     val accountId: String,
@@ -73,7 +73,7 @@ internal data class NativeCloudflareLoginStatus(
     }
 }
 
-internal data class NativeExistingTunnelList(
+data class NativeExistingTunnelList(
     val generation: Long,
     val tunnels: List<ExistingTunnel>,
     val error: String?,
@@ -123,7 +123,7 @@ data class ExistingTunnel private constructor(
             )
         }
 
-        internal fun isCanonicalId(value: String): Boolean = canonicalTunnelId(value) == value
+        fun isCanonicalId(value: String): Boolean = canonicalTunnelId(value) == value
 
         private fun canonicalTunnelId(value: String): String? {
             if (!UUID_PATTERN.matches(value)) return null

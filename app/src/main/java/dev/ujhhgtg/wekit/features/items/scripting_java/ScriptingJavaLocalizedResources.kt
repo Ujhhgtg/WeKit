@@ -6,7 +6,7 @@ import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.utils.HostInfo
 
-internal fun localizedScriptingJavaString(@StringRes id: Int, vararg args: Any): String =
+fun localizedScriptingJavaString(@StringRes id: Int, vararg args: Any): String =
     LocalizedContextFactory.create(
         HostInfo.application,
         WeKitLocaleController.resolvedLocale,

@@ -18,14 +18,14 @@ import java.nio.charset.StandardCharsets
 import java.util.Collections
 import java.util.UUID
 
-internal sealed interface OriginRequestTerminal<out T> {
+sealed interface OriginRequestTerminal<out T> {
     data class Completed<T>(val result: Result<T>) : OriginRequestTerminal<T>
 
     data object Superseded : OriginRequestTerminal<Nothing>
 }
 
 /** Delivers the terminal owned by one origin request at most once. */
-internal class OriginTerminalDelivery<T>(
+class OriginTerminalDelivery<T>(
     private val owner: (OriginRequestTerminal<T>) -> Unit,
 ) {
     private var delivered = false
@@ -41,7 +41,7 @@ internal class OriginTerminalDelivery<T>(
 }
 
 /** Keeps visible-tunnel replacement distinct from genuine handoff completion. */
-internal class TunnelHandoffTerminalDelivery(
+class TunnelHandoffTerminalDelivery(
     owner: (OriginRequestTerminal<Unit>) -> Unit,
 ) {
     private val delivery = OriginTerminalDelivery(owner)
@@ -53,7 +53,7 @@ internal class TunnelHandoffTerminalDelivery(
 }
 
 /** Computes one typed origin terminal across the worker-side staleness checkpoints. */
-internal class OriginRequestExecution<T, S>(
+class OriginRequestExecution<T, S>(
     private val isCurrent: () -> Boolean,
     private val lifecycleMutex: Mutex,
 ) {
@@ -84,7 +84,7 @@ internal class OriginRequestExecution<T, S>(
  * Serializes ownership of the process-global native handle by configuration generation.
  * Native operations execute while holding this monitor, so a stale cleanup cannot race a new start.
  */
-internal class TunnelNativeLease {
+class TunnelNativeLease {
     private var currentGeneration = 0L
     private var ownerGeneration: Long? = null
     private var activeRequestGeneration: Long? = null
@@ -327,28 +327,28 @@ internal class TunnelNativeLease {
     fun ownerGeneration(): Long? = ownerGeneration
 }
 
-internal data class TunnelCandidateReservation(
+data class TunnelCandidateReservation(
     val generation: Long,
     val networkEpoch: Long,
 )
 
-internal data class TunnelVerificationTicket(
+data class TunnelVerificationTicket(
     val generation: Long,
     val networkEpoch: Long,
     val nativeSessionEpoch: Long,
 )
 
-internal data class TunnelNetworkInvalidationTicket(
+data class TunnelNetworkInvalidationTicket(
     val invalidatedOwnerGeneration: Long,
     val nativeSessionEpoch: Long,
 )
 
-internal data class TunnelNativeSessionState(
+data class TunnelNativeSessionState(
     val ownerActive: Boolean,
     val verifiable: Boolean,
 )
 
-internal fun ReadReceiptsTunnelStatus.forAdministrativePublish(
+fun ReadReceiptsTunnelStatus.forAdministrativePublish(
     sessionState: TunnelNativeSessionState,
 ): ReadReceiptsTunnelStatus {
     if (sessionState.ownerActive && sessionState.verifiable) return this
@@ -358,7 +358,7 @@ internal fun ReadReceiptsTunnelStatus.forAdministrativePublish(
     return copy(publicUrl = null)
 }
 
-internal fun normalizeTunnelPublicRoot(value: String): HttpUrl? {
+fun normalizeTunnelPublicRoot(value: String): HttpUrl? {
     if (value.isBlank() || value != value.trim() || value.any(Char::isWhitespace)) return null
     val url = value.toHttpUrlOrNull() ?: return null
     if (
@@ -372,11 +372,11 @@ internal fun normalizeTunnelPublicRoot(value: String): HttpUrl? {
     return url
 }
 
-internal fun canonicalTunnelPublicRoot(value: String): String? =
+fun canonicalTunnelPublicRoot(value: String): String? =
     normalizeTunnelPublicRoot(value)?.toString()?.trimEnd('/')
 
 /** Canonical hostname handling shared by the runtime, controller, and settings UI. */
-internal object ReadReceiptsTunnelHostnames {
+object ReadReceiptsTunnelHostnames {
     fun normalizePublicRoot(value: String): HttpUrl? = normalizeTunnelPublicRoot(value)
 
     fun canonicalPublicRoot(value: String): String? = canonicalTunnelPublicRoot(value)
@@ -393,14 +393,14 @@ internal object ReadReceiptsTunnelHostnames {
     }
 }
 
-internal enum class TunnelVerificationCommit {
+enum class TunnelVerificationCommit {
     COMMITTED,
     STALE,
     CREDENTIAL_FAILURE,
 }
 
 /** Canonical identity used by runtime replacement decisions; TOKEN hostnames compare semantically. */
-internal data class TunnelRuntimeIdentity(
+data class TunnelRuntimeIdentity(
     val mode: ReadReceiptsTunnelMode,
     val hostname: String?,
 ) {
@@ -416,7 +416,7 @@ internal data class TunnelRuntimeIdentity(
     }
 }
 
-internal fun tunnelRuntimeChanged(
+fun tunnelRuntimeChanged(
     previousMode: ReadReceiptsTunnelMode,
     previousHostname: String,
     candidateMode: ReadReceiptsTunnelMode,
@@ -424,24 +424,24 @@ internal fun tunnelRuntimeChanged(
 ): Boolean = TunnelRuntimeIdentity.create(previousMode, previousHostname) !=
     TunnelRuntimeIdentity.create(candidateMode, candidateHostname)
 
-internal data class StopRegistration(
+data class StopRegistration(
     val generation: Long,
     val shouldSend: Boolean,
 )
 
-internal data class StopDrain(
+data class StopDrain(
     val matched: Boolean,
     val callbacks: List<(Result<Unit>) -> Unit> = emptyList(),
 )
 
-internal sealed interface TunnelStartAdmission {
+sealed interface TunnelStartAdmission {
     data class Admitted(val generation: Long) : TunnelStartAdmission
 
     data class Rejected(val failure: ReadReceiptsTunnelException) : TunnelStartAdmission
 }
 
 /** Linearizes connector-start reservation with STOP ownership and drains STOP callbacks once. */
-internal class TunnelStopCompletion {
+class TunnelStopCompletion {
     private data class Pending(
         var generation: Long,
         val callbacks: MutableList<(Result<Unit>) -> Unit>,
@@ -521,7 +521,7 @@ internal class TunnelStopCompletion {
 }
 
 /** Prevents late ACK/timeout events from completing or clearing a replacement START command. */
-internal class TunnelHandoffGate {
+class TunnelHandoffGate {
     private var pendingGeneration: Long? = null
 
     @Synchronized
@@ -565,7 +565,7 @@ internal class TunnelHandoffGate {
     }
 }
 
-internal class SelectCommitGate {
+class SelectCommitGate {
     private var claim = Claim.PENDING
 
     @Synchronized
@@ -591,7 +591,7 @@ internal class SelectCommitGate {
 }
 
 /** Hard rejection budget applied before any auth snapshot is written to Bundle or Parcel. */
-internal object AuthSnapshotBounds {
+object AuthSnapshotBounds {
     private const val MAX_TUNNELS = 100
     private const val MAX_HOSTNAMES = 512
     private const val MAX_DYNAMIC_TEXT_BYTES = 128 * 1024
@@ -636,7 +636,7 @@ internal object AuthSnapshotBounds {
     }
 }
 
-internal class ControllerAuthSnapshot(
+class ControllerAuthSnapshot(
     val revision: Long,
     val authGeneration: Long,
     val restartRequired: Boolean,
@@ -728,13 +728,13 @@ internal class ControllerAuthSnapshot(
     }
 }
 
-internal enum class TunnelCredentialSource {
+enum class TunnelCredentialSource {
     TOKEN,
     BROWSER_LOGIN,
 }
 
 /** Plaintext held only between Keystore decryption/encryption and the connector transaction. */
-internal class TunnelCredentialPayload private constructor(
+class TunnelCredentialPayload private constructor(
     val runToken: String,
     val source: TunnelCredentialSource,
     val accountId: String,
@@ -869,7 +869,7 @@ internal class TunnelCredentialPayload private constructor(
     }
 }
 
-internal sealed interface TunnelCredentialDecode {
+sealed interface TunnelCredentialDecode {
     data class Decoded(
         val payload: TunnelCredentialPayload,
         val migratedLegacy: Boolean,
@@ -878,7 +878,7 @@ internal sealed interface TunnelCredentialDecode {
     data object Invalid : TunnelCredentialDecode
 }
 
-internal sealed interface StrictJsonRead {
+sealed interface StrictJsonRead {
     data object NotJson : StrictJsonRead
 
     data object InvalidJson : StrictJsonRead
@@ -889,7 +889,7 @@ internal sealed interface StrictJsonRead {
 }
 
 /** Strict RFC JSON reader that rejects escaped-equivalent duplicate keys at every object depth. */
-internal object StrictJsonReader {
+object StrictJsonReader {
     const val MAX_DEPTH = 64
     private val json = Json {
         ignoreUnknownKeys = false
@@ -1103,7 +1103,7 @@ internal object StrictJsonReader {
     }
 }
 
-internal object TunnelCredentialPayloadCodec {
+object TunnelCredentialPayloadCodec {
     const val VERSION = 2
     const val MAX_BYTES = 32 * 1024
     private val fieldNames = setOf(
@@ -1186,12 +1186,12 @@ internal object TunnelCredentialPayloadCodec {
     }.getOrNull()
 }
 
-internal enum class TunnelCredentialStartupDecision {
+enum class TunnelCredentialStartupDecision {
     START,
     NEEDS_USER_ACTION,
 }
 
-internal fun decideCredentialStartup(
+fun decideCredentialStartup(
     payload: TunnelCredentialPayload,
     requestedMode: ReadReceiptsTunnelMode,
     requestedHostname: String,
@@ -1217,7 +1217,7 @@ internal fun decideCredentialStartup(
     }
 }
 
-internal data class CommittedBrowserTunnelMetadata(
+data class CommittedBrowserTunnelMetadata(
     val accountId: String,
     val tunnelId: String,
     val tunnelName: String,
@@ -1225,7 +1225,7 @@ internal data class CommittedBrowserTunnelMetadata(
     val fixedOriginPort: Int,
 )
 
-internal data class CommittedTunnelCredentialMetadata(
+data class CommittedTunnelCredentialMetadata(
     val source: TunnelCredentialSource,
     val accountId: String,
     val tunnelId: String,
@@ -1234,7 +1234,7 @@ internal data class CommittedTunnelCredentialMetadata(
     val fixedOriginPort: Int,
 )
 
-internal fun TunnelCredentialPayload.committedMetadata(): CommittedTunnelCredentialMetadata =
+fun TunnelCredentialPayload.committedMetadata(): CommittedTunnelCredentialMetadata =
     CommittedTunnelCredentialMetadata(
         source = source,
         accountId = accountId,
@@ -1244,7 +1244,7 @@ internal fun TunnelCredentialPayload.committedMetadata(): CommittedTunnelCredent
         fixedOriginPort = fixedOriginPort,
     )
 
-internal sealed interface BrowserMetadataRebindDecision {
+sealed interface BrowserMetadataRebindDecision {
     data class Replace(val metadata: CommittedBrowserTunnelMetadata) : BrowserMetadataRebindDecision
 
     data object Keep : BrowserMetadataRebindDecision

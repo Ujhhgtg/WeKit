@@ -187,24 +187,24 @@ private fun PanelHeaderAction(
     }
 }
 
-internal data class PanelImportOption<T>(
+data class PanelImportOption<T>(
     val mode: T,
     val title: String,
     val description: String,
     val icon: ImageVector,
 )
 
-class PanelDialogScope internal constructor(private val dialog: Dialog) {
+class PanelDialogScope constructor(private val dialog: Dialog) {
     private var implicitDismissBlockCount = 0
 
-    internal val canDismissImplicitly: Boolean
+    val canDismissImplicitly: Boolean
         get() = implicitDismissBlockCount == 0
 
-    internal fun blockImplicitDismiss() {
+    fun blockImplicitDismiss() {
         implicitDismissBlockCount++
     }
 
-    internal fun unblockImplicitDismiss() {
+    fun unblockImplicitDismiss() {
         implicitDismissBlockCount = (implicitDismissBlockCount - 1).coerceAtLeast(0)
     }
 
@@ -302,7 +302,7 @@ fun showPanelDialog(
 }
 
 @Composable
-internal fun <T> PanelImportModePrompt(
+fun <T> PanelImportModePrompt(
     options: List<PanelImportOption<T>>,
     onDismiss: () -> Unit,
     onSelect: (T) -> Unit,
@@ -1041,7 +1041,7 @@ private fun PanelOverlay(
 ) = PanelFullOverlay(onDismiss, content = content)
 
 @Composable
-internal fun PanelUiText.resolve(): String = when (this) {
+fun PanelUiText.resolve(): String = when (this) {
     is PanelUiText.Raw -> value
     is PanelUiText.Resource -> stringResource(id, *args.toTypedArray())
     is PanelUiText.Quantity -> pluralStringResource(id, quantity, *args.toTypedArray())

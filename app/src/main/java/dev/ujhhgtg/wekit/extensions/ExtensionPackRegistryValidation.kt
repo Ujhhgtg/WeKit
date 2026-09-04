@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.extensions
 
-internal fun validateExtensionPacks(packs: List<ExtensionPack>): List<ExtensionPack> {
+fun validateExtensionPacks(packs: List<ExtensionPack>): List<ExtensionPack> {
     packs.forEach { pack ->
         require(pack.id.isNotEmpty()) {
             "Extension pack ${pack.javaClass.name} has an empty ID"

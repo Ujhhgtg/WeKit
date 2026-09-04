@@ -61,31 +61,31 @@ import kotlinx.serialization.Serializable
 import kotlin.io.path.div
 
 @Serializable
-internal enum class MomentAutomationAction {
+enum class MomentAutomationAction {
     LIKE,
     UNLIKE
 }
 
 @Serializable
-internal enum class MomentAutomationMode {
+enum class MomentAutomationMode {
     WHEN_SEEN,
     ALL_LOADED
 }
 
 @Serializable
-internal data class MomentActionRule(
+data class MomentActionRule(
     val enabled: Boolean = true,
     val action: MomentAutomationAction = MomentAutomationAction.LIKE
 )
 
 @Serializable
-internal data class MomentModeRule(
+data class MomentModeRule(
     val enabled: Boolean = true,
     val mode: MomentAutomationMode = MomentAutomationMode.WHEN_SEEN
 )
 
 @Serializable
-internal data class MomentIntervalRule(
+data class MomentIntervalRule(
     val enabled: Boolean = false,
     val milliseconds: String = "0"
 ) {
@@ -97,13 +97,13 @@ internal data class MomentIntervalRule(
 }
 
 @Serializable
-internal data class MomentTypeRule(
+data class MomentTypeRule(
     val enabled: Boolean = false,
     val typeIds: Set<Int> = MomentsContentType.allTypeIds
 )
 
 @Serializable
-internal data class MomentAgeRule(
+data class MomentAgeRule(
     val enabled: Boolean = false,
     val maximumHours: String = "24"
 ) {
@@ -117,7 +117,7 @@ internal data class MomentAgeRule(
 }
 
 @Serializable
-internal data class MomentAutomationRuleSet(
+data class MomentAutomationRuleSet(
     val process: AutomationToggleRule = AutomationToggleRule(enabled = true),
     val action: MomentActionRule = MomentActionRule(),
     val mode: MomentModeRule = MomentModeRule(),
@@ -147,7 +147,7 @@ internal data class MomentAutomationRuleSet(
 }
 
 @Serializable
-internal data class MomentAutomationOverrides(
+data class MomentAutomationOverrides(
     val process: AutomationToggleRule? = null,
     val action: MomentActionRule? = null,
     val mode: MomentModeRule? = null,
@@ -178,7 +178,7 @@ private data class StoredMomentAutomationConfig(
     val contacts: Map<String, MomentAutomationOverrides> = emptyMap()
 )
 
-internal class MomentsAutomationSettings private constructor(
+class MomentsAutomationSettings private constructor(
     @StringRes private val featureNameRes: Int,
     private val fileName: String,
     private val logTag: String,

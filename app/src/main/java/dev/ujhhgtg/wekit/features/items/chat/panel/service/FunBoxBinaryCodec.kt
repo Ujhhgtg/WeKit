@@ -5,7 +5,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.security.SecureRandom
 
-internal class FunBoxBinaryWriter(
+class FunBoxBinaryWriter(
     private val random: SecureRandom = SecureRandom(),
 ) {
     private val output = ByteArrayOutputStream()

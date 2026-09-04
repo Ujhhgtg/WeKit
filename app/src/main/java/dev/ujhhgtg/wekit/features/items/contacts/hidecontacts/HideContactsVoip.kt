@@ -60,7 +60,7 @@ private const val TAG = "HideContacts.Voip"
  * `ZIDL_FBV` run to completion, and only then — from its `hookAfter` — invoke `q2.Qa()`, the same
  * "rejectByShortCut" entry WeChat's own Bluetooth quick-reject uses.
  */
-internal fun HideContacts.installVoipHooks() {
+fun HideContacts.installVoipHooks() {
     installVoipMpHooks()
     installMultiTalkHooks()
     installVoipRecordHooks()

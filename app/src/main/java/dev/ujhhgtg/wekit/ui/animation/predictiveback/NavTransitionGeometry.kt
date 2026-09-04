@@ -4,10 +4,10 @@ package dev.ujhhgtg.wekit.ui.animation.predictiveback
 
 import kotlin.math.roundToInt
 
-internal fun snapScaleToPixelExtent(scale: Float, extent: Float): Float =
+fun snapScaleToPixelExtent(scale: Float, extent: Float): Float =
     if (extent > 0f) (scale * extent).roundToInt() / extent else scale
 
-internal fun snapTranslationToPixelEdge(
+fun snapTranslationToPixelEdge(
     translation: Float,
     scale: Float,
     extent: Float,

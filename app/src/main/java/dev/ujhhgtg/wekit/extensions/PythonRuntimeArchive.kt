@@ -26,13 +26,13 @@ data class PythonRuntimeMetadata(
     val nativeLibraries: List<String>,
 )
 
-internal data class PythonRuntimeArchiveContents(
+data class PythonRuntimeArchiveContents(
     val metadata: PythonRuntimeMetadata,
     val dexEntries: List<String>,
     val nativeEntries: List<String>,
 )
 
-internal object PythonRuntimeArchive {
+object PythonRuntimeArchive {
     private const val METADATA_ENTRY = "assets/runtime-manifest.json"
     private const val BUILD_JSON_ENTRY = "assets/chaquopy/build.json"
     private const val SDK_ARCHIVE_ENTRY = "assets/chaquopy/app.imy"

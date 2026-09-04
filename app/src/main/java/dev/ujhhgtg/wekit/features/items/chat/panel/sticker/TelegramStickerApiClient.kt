@@ -32,7 +32,7 @@ import kotlin.coroutines.resumeWithException
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.isRegularFile
 
-internal object TelegramStickerApiClient {
+object TelegramStickerApiClient {
     private const val TAG = "TelegramStickerApi"
     private val client = OkHttpClient.Builder()
         .connectTimeout(Duration.ofSeconds(30))
@@ -175,7 +175,7 @@ internal object TelegramStickerApiClient {
         IOException(javaClass.simpleName)
 }
 
-internal class TelegramApiException(message: String) : IOException(message)
+class TelegramApiException(message: String) : IOException(message)
 
 @Serializable
 private data class TelegramResponse<T>(
@@ -185,7 +185,7 @@ private data class TelegramResponse<T>(
 )
 
 @Serializable
-internal data class TelegramStickerSet(
+data class TelegramStickerSet(
     val name: String,
     val title: String,
     @SerialName("sticker_type") val stickerType: String = "regular",
@@ -193,7 +193,7 @@ internal data class TelegramStickerSet(
 )
 
 @Serializable
-internal data class TelegramSticker(
+data class TelegramSticker(
     @SerialName("file_id") val fileId: String,
     @SerialName("file_unique_id") val fileUniqueId: String,
     @SerialName("is_animated") val isAnimated: Boolean = false,
@@ -202,7 +202,7 @@ internal data class TelegramSticker(
 )
 
 @Serializable
-internal data class TelegramFile(
+data class TelegramFile(
     @SerialName("file_id") val fileId: String,
     @SerialName("file_unique_id") val fileUniqueId: String,
     @SerialName("file_size") val fileSize: Long? = null,

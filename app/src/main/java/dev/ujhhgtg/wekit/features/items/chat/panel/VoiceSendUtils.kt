@@ -40,7 +40,7 @@ import kotlin.io.path.outputStream
  * [dev.ujhhgtg.wekit.features.items.chat.VoicePanel] can offer the same escape-hatch without
  * duplicating the logic.
  */
-internal fun selectAndSendVoice(context: Context, currentConv: String) {
+fun selectAndSendVoice(context: Context, currentConv: String) {
     TransparentActivity.launch(context) {
         val importLauncher = registerForActivityResult(
             ActivityResultContracts.OpenDocument()

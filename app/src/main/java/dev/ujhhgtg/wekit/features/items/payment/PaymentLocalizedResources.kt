@@ -10,24 +10,24 @@ import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.utils.HostInfo
 
-internal sealed interface PaymentUiText {
+sealed interface PaymentUiText {
     data class Resource(@StringRes val resourceId: Int) : PaymentUiText
     data class Raw(val value: String) : PaymentUiText
 }
 
 @Composable
-internal fun PaymentUiText.resolve(): String = when (this) {
+fun PaymentUiText.resolve(): String = when (this) {
     is PaymentUiText.Resource -> stringResource(resourceId)
     is PaymentUiText.Raw -> value
 }
 
-internal fun localizedPaymentString(@StringRes id: Int, vararg formatArgs: Any): String =
+fun localizedPaymentString(@StringRes id: Int, vararg formatArgs: Any): String =
     HostInfo.application.paymentLocalizedContext().getString(id, *formatArgs)
 
-internal fun Context.localizedPaymentString(@StringRes id: Int, vararg formatArgs: Any): String =
+fun Context.localizedPaymentString(@StringRes id: Int, vararg formatArgs: Any): String =
     paymentLocalizedContext().getString(id, *formatArgs)
 
-internal fun localizedPaymentQuantityString(
+fun localizedPaymentQuantityString(
     @PluralsRes id: Int,
     quantity: Int,
     vararg formatArgs: Any,
@@ -37,7 +37,7 @@ internal fun localizedPaymentQuantityString(
     *formatArgs,
 )
 
-internal fun Context.localizedPaymentQuantityString(
+fun Context.localizedPaymentQuantityString(
     @PluralsRes id: Int,
     quantity: Int,
     vararg formatArgs: Any,

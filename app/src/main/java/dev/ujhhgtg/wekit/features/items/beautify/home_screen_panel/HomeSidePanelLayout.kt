@@ -8,28 +8,28 @@ import kotlinx.serialization.Transient
 import kotlinx.serialization.json.JsonClassDiscriminator
 import java.util.UUID
 
-internal const val HOME_SIDE_PANEL_LAYOUT_VERSION = 1
-internal const val HOME_SIDE_PANEL_IMAGE_MIN_HEIGHT_DP = 80
-internal const val HOME_SIDE_PANEL_IMAGE_MAX_HEIGHT_DP = 800
-internal const val HOME_SIDE_PANEL_IMAGE_HEIGHT_STEP_DP = 8
-internal const val HOME_SIDE_PANEL_IMAGE_MAX_ASPECT_RATIO = 100
+const val HOME_SIDE_PANEL_LAYOUT_VERSION = 1
+const val HOME_SIDE_PANEL_IMAGE_MIN_HEIGHT_DP = 80
+const val HOME_SIDE_PANEL_IMAGE_MAX_HEIGHT_DP = 800
+const val HOME_SIDE_PANEL_IMAGE_HEIGHT_STEP_DP = 8
+const val HOME_SIDE_PANEL_IMAGE_MAX_ASPECT_RATIO = 100
 
-internal fun interface HomeSidePanelIdGenerator {
+fun interface HomeSidePanelIdGenerator {
     fun nextId(): String
 }
 
-internal object UuidHomeSidePanelIdGenerator : HomeSidePanelIdGenerator {
+object UuidHomeSidePanelIdGenerator : HomeSidePanelIdGenerator {
     override fun nextId(): String = UUID.randomUUID().toString()
 }
 
 @Serializable
-internal data class HomeSidePanelLayout(
+data class HomeSidePanelLayout(
     val version: Int = HOME_SIDE_PANEL_LAYOUT_VERSION,
     val cards: List<HomeSidePanelCardConfig>,
 )
 
 @Serializable
-internal enum class HomeSidePanelActionKind {
+enum class HomeSidePanelActionKind {
     ADD_FRIEND,
     SCAN,
     MOMENTS,
@@ -44,7 +44,7 @@ internal enum class HomeSidePanelActionKind {
 }
 
 @Serializable
-internal enum class HomeSidePanelCardType {
+enum class HomeSidePanelCardType {
     DATE_TIME,
     WEATHER,
     WALLET,
@@ -55,7 +55,7 @@ internal enum class HomeSidePanelCardType {
 }
 
 @Serializable
-internal data class HomeSidePanelActionConfig(
+data class HomeSidePanelActionConfig(
     val id: String,
     val kind: HomeSidePanelActionKind,
 )
@@ -63,14 +63,14 @@ internal data class HomeSidePanelActionConfig(
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
 @JsonClassDiscriminator("cardType")
-internal sealed class HomeSidePanelCardConfig {
+sealed class HomeSidePanelCardConfig {
     abstract val id: String
     abstract val type: HomeSidePanelCardType
 }
 
 @Serializable
 @SerialName("date_time")
-internal data class DateTimeCardConfig(
+data class DateTimeCardConfig(
     override val id: String,
     val showLunarCalendar: Boolean = false,
 ) : HomeSidePanelCardConfig() {
@@ -80,7 +80,7 @@ internal data class DateTimeCardConfig(
 
 @Serializable
 @SerialName("weather")
-internal data class WeatherCardConfig(
+data class WeatherCardConfig(
     override val id: String,
     val city: WeatherCity,
 ) : HomeSidePanelCardConfig() {
@@ -90,7 +90,7 @@ internal data class WeatherCardConfig(
 
 @Serializable
 @SerialName("wallet")
-internal data class WalletCardConfig(
+data class WalletCardConfig(
     override val id: String,
     val hideBalanceByDefault: Boolean = false,
 ) : HomeSidePanelCardConfig() {
@@ -100,7 +100,7 @@ internal data class WalletCardConfig(
 
 @Serializable
 @SerialName("hitokoto")
-internal data class HitokotoCardConfig(
+data class HitokotoCardConfig(
     override val id: String,
     val settings: HitokotoSettings = HitokotoSettings(),
 ) : HomeSidePanelCardConfig() {
@@ -109,7 +109,7 @@ internal data class HitokotoCardConfig(
 }
 
 @Serializable
-internal enum class HomeSidePanelImageScaleMode {
+enum class HomeSidePanelImageScaleMode {
     CROP,
     FIT,
     FILL_BOUNDS,
@@ -118,7 +118,7 @@ internal enum class HomeSidePanelImageScaleMode {
 
 @Serializable
 @SerialName("image")
-internal data class ImageCardConfig(
+data class ImageCardConfig(
     override val id: String,
     val imageAssetId: String? = null,
     val imageWidthPx: Int? = null,
@@ -132,7 +132,7 @@ internal data class ImageCardConfig(
 
 @Serializable
 @SerialName("horizontal_actions")
-internal data class HorizontalActionsCardConfig(
+data class HorizontalActionsCardConfig(
     override val id: String,
     val actions: List<HomeSidePanelActionConfig>,
 ) : HomeSidePanelCardConfig() {
@@ -142,7 +142,7 @@ internal data class HorizontalActionsCardConfig(
 
 @Serializable
 @SerialName("vertical_actions")
-internal data class VerticalActionsCardConfig(
+data class VerticalActionsCardConfig(
     override val id: String,
     val actions: List<HomeSidePanelActionConfig>,
 ) : HomeSidePanelCardConfig() {
@@ -150,9 +150,9 @@ internal data class VerticalActionsCardConfig(
     override val type: HomeSidePanelCardType = HomeSidePanelCardType.VERTICAL_ACTIONS
 }
 
-internal class InvalidHomeSidePanelLayoutException(message: String) : IllegalArgumentException(message)
+class InvalidHomeSidePanelLayoutException(message: String) : IllegalArgumentException(message)
 
-internal fun validateHomeSidePanelLayout(layout: HomeSidePanelLayout) {
+fun validateHomeSidePanelLayout(layout: HomeSidePanelLayout) {
     if (layout.version != HOME_SIDE_PANEL_LAYOUT_VERSION) {
         throw InvalidHomeSidePanelLayoutException("Unsupported layout version: ${layout.version}")
     }
@@ -213,14 +213,14 @@ internal fun validateHomeSidePanelLayout(layout: HomeSidePanelLayout) {
     }
 }
 
-internal fun isHomeSidePanelImageAspectRatioSupported(width: Int, height: Int): Boolean {
+fun isHomeSidePanelImageAspectRatioSupported(width: Int, height: Int): Boolean {
     if (width <= 0 || height <= 0) return false
     val longer = maxOf(width, height).toLong()
     val shorter = minOf(width, height).toLong()
     return longer <= shorter * HOME_SIDE_PANEL_IMAGE_MAX_ASPECT_RATIO
 }
 
-internal fun HomeSidePanelLayout.imageAssetIds(): Set<String> = cards
+fun HomeSidePanelLayout.imageAssetIds(): Set<String> = cards
     .filterIsInstance<ImageCardConfig>()
     .mapNotNullTo(linkedSetOf(), ImageCardConfig::imageAssetId)
 
@@ -234,7 +234,7 @@ private fun validateActionIds(actions: List<HomeSidePanelActionConfig>) {
     }
 }
 
-internal object HomeSidePanelLayoutCodec {
+object HomeSidePanelLayoutCodec {
 
     fun encode(layout: HomeSidePanelLayout): String {
         validateHomeSidePanelLayout(layout)
@@ -259,7 +259,7 @@ internal object HomeSidePanelLayoutCodec {
     }
 }
 
-internal data class LegacyHomeSidePanelSnapshot(
+data class LegacyHomeSidePanelSnapshot(
     val weatherCity: WeatherCity,
     val hideWalletBalance: Boolean,
     val hitokotoSettings: HitokotoSettings,
@@ -273,7 +273,7 @@ internal data class LegacyHomeSidePanelSnapshot(
     }
 }
 
-internal sealed interface HomeSidePanelLayoutLoad {
+sealed interface HomeSidePanelLayoutLoad {
     val layout: HomeSidePanelLayout
 
     data class Stored(override val layout: HomeSidePanelLayout) : HomeSidePanelLayoutLoad
@@ -285,7 +285,7 @@ internal sealed interface HomeSidePanelLayoutLoad {
     ) : HomeSidePanelLayoutLoad
 }
 
-internal fun defaultHomeSidePanelLayout(
+fun defaultHomeSidePanelLayout(
     legacy: LegacyHomeSidePanelSnapshot,
     idGenerator: HomeSidePanelIdGenerator = UuidHomeSidePanelIdGenerator,
 ): HomeSidePanelLayout = HomeSidePanelLayout(

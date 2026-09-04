@@ -34,10 +34,10 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.EDGE_TTS_VOICES
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneVoice
 
-internal enum class TtsMode { SYSTEM, EDGE, CLONE }
+enum class TtsMode { SYSTEM, EDGE, CLONE }
 
 @Composable
-internal fun TtsContent(
+fun TtsContent(
     mode: TtsMode,
     text: String,
     converted: Boolean,

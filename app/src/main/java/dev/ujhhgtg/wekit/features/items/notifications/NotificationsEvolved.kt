@@ -84,7 +84,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
 
     // com.tencent.mm.booter.notification.x.d(x, String talker, String content, int, int, boolean)
     // args[1] is the talker wxid. Anchored on a log string unique to that method.
-    internal val methodDealNotify by dexMethod {
+    val methodDealNotify by dexMethod {
         searchPackages("com.tencent.mm.booter.notification")
         matcher {
             paramCount(6)

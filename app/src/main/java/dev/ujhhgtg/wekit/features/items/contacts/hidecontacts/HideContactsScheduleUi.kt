@@ -198,7 +198,7 @@ private fun newSchedule(): HideSchedule = HideSchedule(
  * than pruned here: expiry belongs to the scheduler (it consumes such entries on fire and on startup
  * catch-up), and silently dropping rows the user never touched would be surprising.
  */
-internal fun HideContacts.showSchedulesDialog(context: Context) {
+fun HideContacts.showSchedulesDialog(context: Context) {
     showComposeDialog(context) {
         val schedules = remember { HideContactsSchedule.schedules.toMutableStateList() }
 

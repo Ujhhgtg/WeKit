@@ -28,13 +28,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-internal data class HomeSidePanelActionSpec(
+data class HomeSidePanelActionSpec(
     val kind: HomeSidePanelActionKind,
     @StringRes val labelRes: Int,
     val icon: ImageVector,
 )
 
-internal fun homeSidePanelActionSpec(kind: HomeSidePanelActionKind): HomeSidePanelActionSpec = when (kind) {
+fun homeSidePanelActionSpec(kind: HomeSidePanelActionKind): HomeSidePanelActionSpec = when (kind) {
     HomeSidePanelActionKind.ADD_FRIEND -> HomeSidePanelActionSpec(
         kind,
         R.string.home_side_panel_action_add_friend,
@@ -102,7 +102,7 @@ internal fun homeSidePanelActionSpec(kind: HomeSidePanelActionKind): HomeSidePan
     )
 }
 
-internal class HomeSidePanelActionExecutor(
+class HomeSidePanelActionExecutor(
     private val activity: Activity,
     private val scope: CoroutineScope,
     private val closePanel: ((() -> Unit)?) -> Unit,

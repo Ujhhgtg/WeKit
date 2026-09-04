@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.features.items.scripting_python.services
 import dev.ujhhgtg.wekit.python.api.PythonLogger
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-internal class PythonLogHostImpl(pluginId: String) : PythonLogger {
+class PythonLogHostImpl(pluginId: String) : PythonLogger {
     private val tag = "Python/$pluginId"
 
     override fun debug(message: String, vararg arguments: Any?) = WeLogger.d(tag, render(message, arguments))

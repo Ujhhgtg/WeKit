@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicLong
  * Thread-safe: ConcurrentHashMap + CopyOnWriteArrayList.
  */
 @Keep
-internal object ArtHookBridgeRuntime {
+object ArtHookBridgeRuntime {
 
     private const val TAG = "ArtHookBridgeRuntime"
 
@@ -32,12 +32,12 @@ internal object ArtHookBridgeRuntime {
      * equality: two hook handles may wrap the same callback object, and each
      * handle must be able to unhook only its own registration.
      */
-    internal class PrioritizedCallback(
+    class PrioritizedCallback(
         val callback: IHookBridge.IMemberHookCallback,
         val priority: Int,
     )
 
-    internal class HookEntry(
+    class HookEntry(
         val member: Member,
         val backupMethod: Method,   // DexMaker-generated backup; ArtMethod holds original code
         @Suppress("unused")
@@ -48,7 +48,7 @@ internal object ArtHookBridgeRuntime {
 
     // ── Mutable hook param ────────────────────────────────────────────────────
 
-    internal class MutableHookParam(
+    class MutableHookParam(
         override val member: Member,
         override val thisObject: Any?,
         val mutableArgs: Array<Any?>,
@@ -56,7 +56,7 @@ internal object ArtHookBridgeRuntime {
         override val args: Array<Any?> get() = mutableArgs
         private var resultValue: Any? = null
         private var throwableValue: Throwable? = null
-        internal var resultSet: Boolean = false
+        var resultSet: Boolean = false
         // Legacy Xposed gives each callback registration its own extra slot.
         // IdentityHashMap is intentional: two registrations may wrap the same
         // callback object but must still not share state.
@@ -93,9 +93,9 @@ internal object ArtHookBridgeRuntime {
                 // harmless null read/no-op write.
                 activeCallback?.let { callbackExtras[it] = value }
             }
-        internal var earlyReturn = false
+        var earlyReturn = false
 
-        internal fun <T> withCallback(callback: PrioritizedCallback, block: () -> T): T {
+        fun <T> withCallback(callback: PrioritizedCallback, block: () -> T): T {
             val previous = activeCallback
             activeCallback = callback
             return try {
@@ -105,22 +105,22 @@ internal object ArtHookBridgeRuntime {
             }
         }
 
-        internal fun clearCallbackState() {
+        fun clearCallbackState() {
             activeCallback = null
             callbackExtras.clear()
         }
 
         /** State XposedBridge restores when one callback throws. */
-        internal data class State(
+        data class State(
             val result: Any?,
             val throwable: Throwable?,
             val resultSet: Boolean,
             val earlyReturn: Boolean,
         )
 
-        internal fun snapshot(): State = State(resultValue, throwableValue, resultSet, earlyReturn)
+        fun snapshot(): State = State(resultValue, throwableValue, resultSet, earlyReturn)
 
-        internal fun restore(state: State) {
+        fun restore(state: State) {
             resultValue = state.result
             throwableValue = state.throwable
             resultSet = state.resultSet
@@ -132,7 +132,7 @@ internal object ArtHookBridgeRuntime {
          * failure, not as a requested replacement result.  Clear the callback's
          * unfinished result/throwable and allow the original method to proceed.
          */
-        internal fun resetAfterBeforeFailure() {
+        fun resetAfterBeforeFailure() {
             resultValue = null
             throwableValue = null
             resultSet = false
@@ -147,7 +147,7 @@ internal object ArtHookBridgeRuntime {
     private val hookIdSeq: AtomicLong = AtomicLong(0L)
 
     /** Serializes member registration with native ArtMethod replacement. */
-    internal val hookLock = Any()
+    val hookLock = Any()
 
     // ── Registration ──────────────────────────────────────────────────────────
 

@@ -16,11 +16,11 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
-class InjectionHandle internal constructor(
+class InjectionHandle constructor(
     val canonicalApk: File,
     val sha256: String,
     val cookie: Int,
-    internal val keepAlive: Any?,
+    val keepAlive: Any?,
 )
 
 object ResourcesInjector {

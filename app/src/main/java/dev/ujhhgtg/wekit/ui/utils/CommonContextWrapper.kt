@@ -13,7 +13,7 @@ import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
  */
 class CommonContextWrapper(
     val base: Context,
-    internal val windowContext: Context? = base.resolveWindowContext(),
+    val windowContext: Context? = base.resolveWindowContext(),
 ) : ContextThemeWrapper(base, base.theme) {
 
     init {
@@ -35,7 +35,7 @@ class CommonContextWrapper(
  * Finds the nearest [Activity] reachable through [ContextWrapper.baseContext], or the window
  * context already carried by an outer [CommonContextWrapper]. Returns null when none exists.
  */
-internal fun Context.resolveWindowContext(): Context? {
+fun Context.resolveWindowContext(): Context? {
     var current: Context? = this
     while (current != null) {
         when (current) {

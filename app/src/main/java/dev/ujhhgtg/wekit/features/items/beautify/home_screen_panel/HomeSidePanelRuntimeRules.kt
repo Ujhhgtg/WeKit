@@ -2,13 +2,13 @@ package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import java.security.MessageDigest
 
-internal data class HomeSidePanelRuntimeDelta(
+data class HomeSidePanelRuntimeDelta(
     val activate: Set<String> = emptySet(),
     val deactivate: Set<String> = emptySet(),
     val reconfigure: Set<String> = emptySet(),
 )
 
-internal enum class HomeSidePanelLiveCachePolicy(
+enum class HomeSidePanelLiveCachePolicy(
     val importLegacyCaches: Boolean,
     val persistLiveCaches: Boolean,
 ) {
@@ -17,7 +17,7 @@ internal enum class HomeSidePanelLiveCachePolicy(
     FALLBACK(importLegacyCaches = false, persistLiveCaches = false),
 }
 
-internal fun homeSidePanelLiveCachePolicy(
+fun homeSidePanelLiveCachePolicy(
     load: HomeSidePanelLayoutLoad,
 ): HomeSidePanelLiveCachePolicy = when (load) {
     is HomeSidePanelLayoutLoad.Stored -> HomeSidePanelLiveCachePolicy.STORED
@@ -25,7 +25,7 @@ internal fun homeSidePanelLiveCachePolicy(
     is HomeSidePanelLayoutLoad.Fallback -> HomeSidePanelLiveCachePolicy.FALLBACK
 }
 
-internal fun homeSidePanelRuntimeDelta(
+fun homeSidePanelRuntimeDelta(
     old: HomeSidePanelLayout?,
     new: HomeSidePanelLayout,
 ): HomeSidePanelRuntimeDelta {
@@ -39,10 +39,10 @@ internal fun homeSidePanelRuntimeDelta(
     )
 }
 
-internal fun weatherCacheFingerprint(city: WeatherCity): String =
+fun weatherCacheFingerprint(city: WeatherCity): String =
     sha256("weather|${city.cityNum}")
 
-internal fun hitokotoCacheFingerprint(settings: HitokotoSettings): String = sha256(
+fun hitokotoCacheFingerprint(settings: HitokotoSettings): String = sha256(
     buildString {
         append("hitokoto|")
         append(settings.categories.sorted().joinToString(","))
@@ -53,7 +53,7 @@ internal fun hitokotoCacheFingerprint(settings: HitokotoSettings): String = sha2
     },
 )
 
-internal fun <T> retainCommittedCardEntries(
+fun <T> retainCommittedCardEntries(
     entries: Map<String, T>,
     committed: HomeSidePanelLayout,
 ): Map<String, T> {
@@ -64,7 +64,7 @@ internal fun <T> retainCommittedCardEntries(
 private fun List<HomeSidePanelCardConfig>.runtimeCardsById(): Map<String, HomeSidePanelCardConfig> =
     filter { it.hasRuntimeState() }.associateBy(HomeSidePanelCardConfig::id)
 
-internal fun HomeSidePanelCardConfig.hasRuntimeState(): Boolean = when (this) {
+fun HomeSidePanelCardConfig.hasRuntimeState(): Boolean = when (this) {
     is WeatherCardConfig,
     is WalletCardConfig,
     is HitokotoCardConfig,

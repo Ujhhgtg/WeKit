@@ -48,13 +48,13 @@ import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import kotlinx.coroutines.delay
 
-internal enum class HomeSidePanelActionPlacement {
+enum class HomeSidePanelActionPlacement {
     TILE,
     LIST_ITEM,
 }
 
 @Composable
-internal fun HomeSidePanelHorizontalActionsCard(
+fun HomeSidePanelHorizontalActionsCard(
     card: HorizontalActionsCardConfig,
     content: HomeSidePanelActionCardContent,
     editMode: Boolean,
@@ -175,7 +175,7 @@ internal fun HomeSidePanelHorizontalActionsCard(
 }
 
 @Composable
-internal fun HomeSidePanelVerticalActionsCard(
+fun HomeSidePanelVerticalActionsCard(
     card: VerticalActionsCardConfig,
     content: HomeSidePanelActionCardContent,
     editMode: Boolean,
@@ -294,7 +294,7 @@ internal fun HomeSidePanelVerticalActionsCard(
 }
 
 @Composable
-internal fun HomeSidePanelAddActionItem(
+fun HomeSidePanelAddActionItem(
     placement: HomeSidePanelActionPlacement,
     onClick: (() -> Unit)?,
     onDeleteCard: (() -> Unit)?,
@@ -472,7 +472,7 @@ private fun HomeSidePanelActionItem(
 }
 
 @Composable
-internal fun HomeSidePanelDraggedActionItem(
+fun HomeSidePanelDraggedActionItem(
     card: HomeSidePanelCardConfig,
     action: HomeSidePanelActionConfig,
 ) {

@@ -8,19 +8,19 @@ import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.utils.HostInfo
 
-internal fun localizedBatchString(@StringRes id: Int, vararg formatArgs: Any): String =
+fun localizedBatchString(@StringRes id: Int, vararg formatArgs: Any): String =
     HostInfo.application.localizedBatchString(id, *formatArgs)
 
-internal fun Context.localizedBatchString(@StringRes id: Int, vararg formatArgs: Any): String =
+fun Context.localizedBatchString(@StringRes id: Int, vararg formatArgs: Any): String =
     batchLocalizedContext().getString(id, *formatArgs)
 
-internal fun localizedBatchQuantity(
+fun localizedBatchQuantity(
     @PluralsRes id: Int,
     quantity: Int,
     vararg formatArgs: Any,
 ): String = HostInfo.application.localizedBatchQuantity(id, quantity, *formatArgs)
 
-internal fun Context.localizedBatchQuantity(
+fun Context.localizedBatchQuantity(
     @PluralsRes id: Int,
     quantity: Int,
     vararg formatArgs: Any,

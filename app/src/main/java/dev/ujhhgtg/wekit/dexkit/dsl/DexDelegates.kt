@@ -41,12 +41,12 @@ private const val PLACEHOLDER_DESCRIPTOR =
  * 代码的字符串常量，不受混淆影响。
  */
 sealed class BaseDexDelegate(val key: String) {
-    internal lateinit var owner: BaseFeature
+    lateinit var owner: BaseFeature
 
     var diagnostic = DexResolutionDiagnostic(DexResolutionStatus.PENDING)
         private set
 
-    internal fun resetForDexTest() {
+    fun resetForDexTest() {
         clearResolvedValue()
         diagnostic = DexResolutionDiagnostic(DexResolutionStatus.PENDING)
     }
@@ -83,7 +83,7 @@ sealed class BaseDexDelegate(val key: String) {
         )
     }
 
-    internal fun markBlocked(causeKey: String) {
+    fun markBlocked(causeKey: String) {
         if (diagnostic.status == DexResolutionStatus.PENDING) {
             diagnostic = DexResolutionDiagnostic(
                 status = DexResolutionStatus.BLOCKED,
@@ -92,7 +92,7 @@ sealed class BaseDexDelegate(val key: String) {
         }
     }
 
-    internal fun markIncomplete() {
+    fun markIncomplete() {
         if (diagnostic.status == DexResolutionStatus.PENDING) {
             diagnostic = DexResolutionDiagnostic(DexResolutionStatus.INCOMPLETE)
         }
@@ -122,7 +122,7 @@ sealed class BaseDexDelegate(val key: String) {
 /**
  * Dex 类委托 — 自动生成 Key，自动反射获取 Class。
  */
-class DexClassDelegate internal constructor(
+class DexClassDelegate constructor(
     key: String,
     private val inlineBlock: ((DexClassDelegate, DexKitBridge) -> Boolean)? = null
 ) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexClassDelegate> {
@@ -229,7 +229,7 @@ class DexClassDelegate internal constructor(
 /**
  * Dex 字段委托 — 自动生成 Key，自动反射获取 Field。
  */
-class DexFieldDelegate internal constructor(
+class DexFieldDelegate constructor(
     key: String,
     private val inlineBlock: ((DexFieldDelegate, DexKitBridge) -> Boolean)? = null
 ) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexFieldDelegate> {
@@ -350,7 +350,7 @@ class DexFieldDelegate internal constructor(
 /**
  * Dex 方法委托 — 自动生成 Key，自动反射获取 Method。
  */
-class DexMethodDelegate internal constructor(
+class DexMethodDelegate constructor(
     key: String,
     private val inlineBlock: ((DexMethodDelegate, DexKitBridge) -> Boolean)? = null
 ) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexMethodDelegate> {
@@ -464,7 +464,7 @@ class DexMethodDelegate internal constructor(
 /**
  * Dex 构造函数委托 — 自动生成 Key，自动反射获取 Constructor。
  */
-class DexConstructorDelegate internal constructor(
+class DexConstructorDelegate constructor(
     key: String,
     private val inlineBlock: ((DexConstructorDelegate, DexKitBridge) -> Boolean)? = null
 ) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexConstructorDelegate> {

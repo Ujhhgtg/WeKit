@@ -53,12 +53,12 @@ import dev.ujhhgtg.wekit.utils.formatEpoch
 
 
 /** View tags shared with [ReadReceipts] while keeping its bind state on the time view. */
-internal const val READ_RECEIPTS_MESSAGE_ID_TAG = 0x7E000010
-internal const val READ_RECEIPTS_BINDING_GENERATION_TAG = 0x7E000011
-internal const val READ_RECEIPTS_COUNT_TAG = 0x7E000012
-internal const val READ_RECEIPTS_NATIVE_TEXT_TAG = 0x7E000013
+const val READ_RECEIPTS_MESSAGE_ID_TAG = 0x7E000010
+const val READ_RECEIPTS_BINDING_GENERATION_TAG = 0x7E000011
+const val READ_RECEIPTS_COUNT_TAG = 0x7E000012
+const val READ_RECEIPTS_NATIVE_TEXT_TAG = 0x7E000013
 
-internal data class ReadReceiptCountState(val count: Int?)
+data class ReadReceiptCountState(val count: Int?)
 
 object MessageTimeEnhancements : ClickableFeature(),
     WeChatMessageViewApi.ICreateViewListener {
@@ -174,7 +174,7 @@ object MessageTimeEnhancements : ClickableFeature(),
      * never adds a suffix to native text.
      */
     @SuppressLint("SetTextI18n")
-    internal fun renderMessageTime(
+    fun renderMessageTime(
         msgInfo: MessageInfo,
         time: TextView,
         forceVisible: Boolean = false,

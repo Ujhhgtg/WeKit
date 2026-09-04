@@ -11,7 +11,7 @@ import kotlinx.serialization.json.put
  * Shared utilities for the two Gemini API adapters ([GeminiGenerateContentClient] and
  * [GeminiInteractionsClient]).
  */
-internal object GeminiCommon {
+object GeminiCommon {
 
     /**
      * Keys that Gemini rejects in JSON Schema parameter objects. The Gemini function-declaration

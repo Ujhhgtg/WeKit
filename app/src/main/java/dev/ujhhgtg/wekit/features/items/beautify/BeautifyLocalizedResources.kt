@@ -7,17 +7,17 @@ import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.utils.HostInfo
 
-internal fun localizedBeautifyString(@StringRes id: Int, vararg formatArgs: Any): String =
+fun localizedBeautifyString(@StringRes id: Int, vararg formatArgs: Any): String =
     HostInfo.application.localizedBeautifyString(id, *formatArgs)
 
-internal fun Context.localizedBeautifyString(@StringRes id: Int, vararg formatArgs: Any): String =
+fun Context.localizedBeautifyString(@StringRes id: Int, vararg formatArgs: Any): String =
     LocalizedContextFactory.create(
         this,
         WeKitLocaleController.resolvedLocale,
         LocaleResourceMode.InjectedHost,
     ).getString(id, *formatArgs)
 
-internal sealed interface BeautifyText {
+sealed interface BeautifyText {
     data class Resource(
         @param:StringRes val id: Int,
         val args: List<Any> = emptyList(),
@@ -26,10 +26,10 @@ internal sealed interface BeautifyText {
     data class Raw(val value: String) : BeautifyText
 }
 
-internal fun beautifyText(@StringRes id: Int, vararg args: Any): BeautifyText =
+fun beautifyText(@StringRes id: Int, vararg args: Any): BeautifyText =
     BeautifyText.Resource(id, args.toList())
 
-internal fun Context.resolveBeautifyText(text: BeautifyText): String = when (text) {
+fun Context.resolveBeautifyText(text: BeautifyText): String = when (text) {
     is BeautifyText.Resource -> localizedBeautifyString(text.id, *text.args.toTypedArray())
     is BeautifyText.Raw -> text.value
 }

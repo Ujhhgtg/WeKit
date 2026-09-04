@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.extensions
 import dev.ujhhgtg.wekit.utils.fs.copyTo
 import java.io.File
 
-internal fun stageReadOnlyMonetDex(
+fun stageReadOnlyMonetDex(
     source: File,
     target: File,
     expectedSha256: String,

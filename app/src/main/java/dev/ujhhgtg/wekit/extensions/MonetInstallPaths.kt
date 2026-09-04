@@ -2,13 +2,13 @@ package dev.ujhhgtg.wekit.extensions
 
 import java.io.File
 
-internal data class MonetInstallPathSet(
+data class MonetInstallPathSet(
     val baseDir: File,
     val destination: File,
     val staging: File,
 )
 
-internal object MonetInstallPaths {
+object MonetInstallPaths {
 
     fun resolve(baseDir: File, version: String): MonetInstallPathSet {
         val canonicalBase = baseDir

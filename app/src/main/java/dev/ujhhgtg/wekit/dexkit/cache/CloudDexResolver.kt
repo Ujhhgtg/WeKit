@@ -14,7 +14,7 @@ import kotlinx.serialization.SerializationException
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-internal sealed interface CloudDexNotice {
+sealed interface CloudDexNotice {
     data object ReportNotFound : CloudDexNotice
     data class NetworkFailure(val message: String) : CloudDexNotice
     data class InvalidReport(val message: String) : CloudDexNotice
@@ -23,13 +23,13 @@ internal sealed interface CloudDexNotice {
     data class Partial(val importedCount: Int, val remainingCount: Int) : CloudDexNotice
 }
 
-internal data class CloudDexResolutionResult(
+data class CloudDexResolutionResult(
     val importedCount: Int,
     val remainingItems: List<IResolveDex>,
     val notice: CloudDexNotice?,
 )
 
-internal object CloudDexResolver {
+object CloudDexResolver {
     private const val TAG = "CloudDexResolver"
     private const val RELEASE_BASE_URL =
         "https://github.com/Ujhhgtg/WeKit/releases/download/Dex-Test"

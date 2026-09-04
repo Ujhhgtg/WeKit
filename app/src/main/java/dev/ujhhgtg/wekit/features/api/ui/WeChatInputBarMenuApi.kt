@@ -68,7 +68,7 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.ChatFooter", "send msg onClick")
         }
     }
-    internal val methodAppGridGetView by dexMethod {
+    val methodAppGridGetView by dexMethod {
         matcher {
             usingStrings("MicroMsg.AppGrid", "pos:", "page:")
             name = "getView"

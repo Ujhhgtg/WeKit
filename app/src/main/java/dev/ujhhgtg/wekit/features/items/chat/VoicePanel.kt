@@ -54,9 +54,9 @@ import kotlin.io.path.div
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.writeBytes
 
-internal data class EdgeTtsVoice(val id: String, @StringRes val titleRes: Int)
+data class EdgeTtsVoice(val id: String, @StringRes val titleRes: Int)
 
-internal val EDGE_TTS_VOICES = listOf(
+val EDGE_TTS_VOICES = listOf(
     EdgeTtsVoice("zh-CN-XiaoxiaoNeural", R.string.voice_edge_xiaoxiao),
     EdgeTtsVoice("zh-CN-XiaoyiNeural", R.string.voice_edge_xiaoyi),
     EdgeTtsVoice("zh-CN-YunxiNeural", R.string.voice_edge_yunxi),

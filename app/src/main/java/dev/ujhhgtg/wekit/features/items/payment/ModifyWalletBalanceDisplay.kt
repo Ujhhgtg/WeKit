@@ -643,7 +643,7 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
     }
 }
 
-internal fun migrateWalletBalanceExpression(configured: String, mode: String): String {
+fun migrateWalletBalanceExpression(configured: String, mode: String): String {
     val operand = Regex("[+-]?\\d+(?:\\.\\d+)?")
         .find(configured.replace(",", ""))
         ?.value
@@ -659,7 +659,7 @@ internal fun migrateWalletBalanceExpression(configured: String, mode: String): S
     }
 }
 
-internal fun shouldMigrateWalletExpression(
+fun shouldMigrateWalletExpression(
     hasExpression: Boolean,
     hasLegacyAmount: Boolean,
     hasLegacyMode: Boolean,

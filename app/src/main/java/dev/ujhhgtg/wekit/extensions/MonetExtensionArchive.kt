@@ -6,13 +6,13 @@ import java.io.File
 import java.util.zip.ZipFile
 
 @Serializable
-internal data class MonetExtensionMetadata(
+data class MonetExtensionMetadata(
     val apiVersion: Int,
     val entrypoint: String,
     val files: Map<String, String>,
 )
 
-internal object MonetExtensionArchive {
+object MonetExtensionArchive {
     private const val METADATA_NAME = "extension.json"
     private val json = Json { ignoreUnknownKeys = true }
 

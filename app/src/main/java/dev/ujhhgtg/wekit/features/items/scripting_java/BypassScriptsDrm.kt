@@ -14,11 +14,11 @@ object BypassScriptsDrm : SwitchFeature() {
 
     private val hook = ScriptsDrmBypassHook()
 
-    internal fun registerInterpreter(interpreter: Interpreter) {
+    fun registerInterpreter(interpreter: Interpreter) {
         hook.registerInterpreter(interpreter)
     }
 
-    internal fun unregisterInterpreter(interpreter: Interpreter) {
+    fun unregisterInterpreter(interpreter: Interpreter) {
         hook.unregisterInterpreter(interpreter)
     }
 

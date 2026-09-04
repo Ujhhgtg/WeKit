@@ -166,7 +166,7 @@ object LocalLlamaController {
      * mutex remains owned by the lease, so start, stop, and an incompatible request cannot change
      * the model tuple or random port until [LocalLlamaServerLease.release].
      */
-    internal suspend fun acquireServerLease(
+    suspend fun acquireServerLease(
         gguf: File,
         nCtx: Int,
         backend: String,
@@ -373,7 +373,7 @@ object LocalLlamaController {
 }
 
 /** Idempotent handle for the controller's exclusive request-stream lease. */
-internal class LocalLlamaServerLease internal constructor(private val releaseBlock: () -> Unit) {
+class LocalLlamaServerLease constructor(private val releaseBlock: () -> Unit) {
     private val released = AtomicBoolean(false)
 
     fun release() {

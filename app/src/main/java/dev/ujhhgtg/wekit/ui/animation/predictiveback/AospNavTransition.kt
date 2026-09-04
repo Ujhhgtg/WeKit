@@ -222,7 +222,7 @@ private val CrossActivityPredictive: NavTransition = navGraphicsTransition(
     }
 }
 
-internal val AospNavTransition: NavTransition = navDirectionalTransition(
+val AospNavTransition: NavTransition = navDirectionalTransition(
     push = ClassicActivityOpen,
     pop = ClassicActivityClose,
     predictivePop = CrossActivityPredictive,

@@ -196,7 +196,7 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
      *
      * The [pendingOrQueried] gate ensures at most one in-flight request per wxId.
      */
-    internal fun fetchRealName(senderId: String, groupId: String, onFound: (String) -> Unit) {
+    fun fetchRealName(senderId: String, groupId: String, onFound: (String) -> Unit) {
         // add() returns true only when the element was absent → fetch dispatched exactly once
         if (!pendingOrQueried.add(senderId)) return
 

@@ -18,7 +18,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicLong
 
-internal object ReadReceiptsTunnelNativeParser {
+object ReadReceiptsTunnelNativeParser {
     const val MAX_JSON_BYTES = 512 * 1024
     private const val MAX_TUNNELS = 100
     private const val MAX_AUTHORIZATION_URL_BYTES = 2048
@@ -147,7 +147,7 @@ internal object ReadReceiptsTunnelNativeParser {
         )
     }.getOrNull()
 
-    internal fun isPinnedAuthorizationUrl(value: String): Boolean {
+    fun isPinnedAuthorizationUrl(value: String): Boolean {
         if (
             value.toByteArray(Charsets.UTF_8).size > MAX_AUTHORIZATION_URL_BYTES ||
             value.any(Char::isISOControl)
@@ -189,7 +189,7 @@ internal object ReadReceiptsTunnelNativeParser {
 }
 
 /** Direct JNI owner for the separately-built Go cloudflared shared library. */
-internal object ReadReceiptsTunnelNative {
+object ReadReceiptsTunnelNative {
     private val handle = AtomicLong()
     private val authHandle = AtomicLong()
 

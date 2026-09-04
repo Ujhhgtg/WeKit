@@ -57,7 +57,7 @@ private enum class RevealPhase {
 }
 
 @Stable
-class NukeRevealState internal constructor(
+class NukeRevealState constructor(
     private val scope: CoroutineScope,
     initiallyRevealed: Boolean,
 ) {
@@ -165,11 +165,11 @@ class NukeRevealState internal constructor(
         }
     }
 
-    internal fun updateViewportSize(size: IntSize) {
+    fun updateViewportSize(size: IntSize) {
         viewportSize = size
     }
 
-    internal fun updateButtonNavigationBackOrigin(origin: Offset?) {
+    fun updateButtonNavigationBackOrigin(origin: Offset?) {
         buttonNavigationBackOrigin = origin
     }
 
@@ -218,7 +218,7 @@ fun rememberNukeRevealState(
     return remember(scope) { NukeRevealState(scope, initiallyRevealed) }
 }
 
-internal class NukeRevealStackEntry<T>(
+class NukeRevealStackEntry<T>(
     val destination: T,
     val revealState: NukeRevealState,
 )
@@ -228,10 +228,10 @@ internal class NukeRevealStackEntry<T>(
  * exposes the page immediately below it instead of rebuilding the root page.
  */
 @Stable
-class NukeRevealStackState<T> internal constructor(
+class NukeRevealStackState<T> constructor(
     private val scope: CoroutineScope,
 ) {
-    internal val entries = mutableStateListOf<NukeRevealStackEntry<T>>()
+    val entries = mutableStateListOf<NukeRevealStackEntry<T>>()
     private var viewportSize = IntSize.Zero
     private var buttonNavigationBackOrigin: Offset? = null
 
@@ -248,12 +248,12 @@ class NukeRevealStackState<T> internal constructor(
         entry.revealState.reveal(from) {}
     }
 
-    internal fun updateViewportSize(size: IntSize) {
+    fun updateViewportSize(size: IntSize) {
         viewportSize = size
         entries.forEach { entry -> entry.revealState.updateViewportSize(size) }
     }
 
-    internal fun updateButtonNavigationBackOrigin(origin: Offset?) {
+    fun updateButtonNavigationBackOrigin(origin: Offset?) {
         buttonNavigationBackOrigin = origin
         entries.forEach { entry -> entry.revealState.updateButtonNavigationBackOrigin(origin) }
     }

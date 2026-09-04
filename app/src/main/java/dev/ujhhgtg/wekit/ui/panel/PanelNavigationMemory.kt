@@ -5,7 +5,7 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceDestination
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceItem
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePack
 
-internal data class StickerPanelNavigation(
+data class StickerPanelNavigation(
     val destination: StickerDestination,
     val selectedLocalPackId: String?,
     val localPackDetailId: String?,
@@ -13,7 +13,7 @@ internal data class StickerPanelNavigation(
     val selectedOnlinePackId: String?,
 )
 
-internal data class VoicePanelNavigation(
+data class VoicePanelNavigation(
     val destination: VoiceDestination,
     val selectedLocalPackId: String?,
     val localPackDetailId: String?,
@@ -32,7 +32,7 @@ internal data class VoicePanelNavigation(
     val selectedSharedPack: VoicePack?,
 )
 
-internal object PanelNavigationMemory {
+object PanelNavigationMemory {
     var sticker: StickerPanelNavigation? = null
     var voice: VoicePanelNavigation? = null
 

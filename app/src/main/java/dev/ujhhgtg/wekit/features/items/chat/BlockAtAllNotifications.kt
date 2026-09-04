@@ -127,7 +127,7 @@ object BlockAtAllNotifications : ClickableFeature() {
         }
     }
 
-    internal fun shouldSuppress(groupId: String): Boolean {
+    fun shouldSuppress(groupId: String): Boolean {
         if (!groupId.isGroupChatWxId || !WePrefs.getBoolOrDef(technicalId, false)) return false
         return if (WePrefs.getBoolOrDef(KEY_USE_WHITELIST, false)) {
             groupId !in WePrefs.getStringSetOrDef(KEY_WHITELIST, emptySet())

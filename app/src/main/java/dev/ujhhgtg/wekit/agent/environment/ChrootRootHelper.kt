@@ -44,7 +44,7 @@ data class ChrootRecoveryResult(val recoveredRuns: Int, val unresolvedRuns: Map<
         ?.joinToString(prefix = "unresolved chroot runs: ") { "${it.key}: ${it.value}" }
 }
 
-internal class ChrootRootHelper(private val configuration: ChrootConfiguration) {
+class ChrootRootHelper(private val configuration: ChrootConfiguration) {
     suspend fun hasRoot(): Boolean = withContext(Dispatchers.IO) {
         runCatching { Shell.getShell().isRoot }.getOrDefault(false)
     }
@@ -210,7 +210,7 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         }
     }
 
-    internal fun editCommand(guestPath: String, input: Path): String {
+    fun editCommand(guestPath: String, input: Path): String {
         val stagedName = ".weagent-${input.fileName}"
         val stagedHost = configuration.rootfs.resolve("tmp").resolve(stagedName)
         val stagedGuest = "/tmp/$stagedName"
@@ -324,7 +324,7 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         removeRunMetadata(run)
     }
 
-    internal fun cleanupCommand(
+    fun cleanupCommand(
         helper: Path,
         run: ChrootRun,
         pid: Int,
@@ -345,7 +345,7 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
             .joinToString(" ", transform = ChrootConfiguration::shell)
     }
 
-    internal fun removeRunMetadata(run: ChrootRun) {
+    fun removeRunMetadata(run: ChrootRun) {
         run.directory.listDirectoryEntries().forEach(Path::deleteIfExists)
         run.directory.deleteIfExists()
         run.directory.parent?.let { runs ->
@@ -399,7 +399,7 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         private const val PREPARE_TIMEOUT_MILLIS = 120_000L
         private const val HEALTH_TIMEOUT_MILLIS = 15_000L
         private const val CLEANUP_TIMEOUT_MILLIS = 10_000L
-        internal val SELINUX_DENIAL = Regex("(?i)(avc:.*denied|permission denied|operation not permitted)")
+        val SELINUX_DENIAL = Regex("(?i)(avc:.*denied|permission denied|operation not permitted)")
         private val RUN_NONCE = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
         private val PROCESS_START_TIME = Regex("[0-9]+")
         private val TRUSTED_SU_PATHS = listOf(
@@ -409,7 +409,7 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
     }
 }
 
-internal fun classifyChrootFailure(stage: String, code: Int, stderr: String): ChrootFailure? {
+fun classifyChrootFailure(stage: String, code: Int, stderr: String): ChrootFailure? {
     if (code == 0) return null
     val detail = stderr.trim().take(500).ifBlank { "exit code $code" }
     if (stage in setOf("NAMESPACE", "MOUNT") && ChrootRootHelper.SELINUX_DENIAL.containsMatchIn(stderr)) {

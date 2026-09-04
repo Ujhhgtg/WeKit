@@ -71,8 +71,8 @@ class WeChatSettingsManager(
         var key: String = ""
         var title: String = ""
         var groupTitle: String? = null
-        internal var titleProvider: (() -> String)? = null
-        internal var groupTitleProvider: (() -> String)? = null
+        var titleProvider: (() -> String)? = null
+        var groupTitleProvider: (() -> String)? = null
         var pageClass: Class<*>? = null
         var parentClass: Class<*>? = null
         var childClass: Class<*>? = null

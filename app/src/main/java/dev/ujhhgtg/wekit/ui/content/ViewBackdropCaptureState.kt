@@ -1,13 +1,13 @@
 package dev.ujhhgtg.wekit.ui.content
 
-internal class ViewBackdropCaptureIdentity(val value: Any) {
+class ViewBackdropCaptureIdentity(val value: Any) {
     override fun equals(other: Any?): Boolean =
         other is ViewBackdropCaptureIdentity && value === other.value
 
     override fun hashCode(): Int = System.identityHashCode(value)
 }
 
-internal class ViewBackdropWindowIdentityState {
+class ViewBackdropWindowIdentityState {
     private var lastWindowIdentity: ViewBackdropCaptureIdentity? = null
 
     fun update(windowToken: Any?, invalidateCapture: () -> Unit): ViewBackdropCaptureIdentity? {
@@ -30,7 +30,7 @@ internal class ViewBackdropWindowIdentityState {
     }
 }
 
-internal data class ViewBackdropCaptureKey(
+data class ViewBackdropCaptureKey(
     val source: ViewBackdropCaptureIdentity,
     val window: ViewBackdropCaptureIdentity,
     val generation: Int,
@@ -46,13 +46,13 @@ internal data class ViewBackdropCaptureKey(
         source == other.source && window == other.window
 }
 
-internal enum class ViewBackdropCaptureDecision {
+enum class ViewBackdropCaptureDecision {
     CAPTURE,
     REUSE,
     SKIP,
 }
 
-internal class ViewBackdropCaptureState {
+class ViewBackdropCaptureState {
     private var capturedKey: ViewBackdropCaptureKey? = null
     private var attemptedKey: ViewBackdropCaptureKey? = null
     private var hasValidCapture = false

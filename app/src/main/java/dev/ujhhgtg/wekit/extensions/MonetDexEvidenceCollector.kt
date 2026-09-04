@@ -9,12 +9,12 @@ import dev.ujhhgtg.wekit.utils.reflection.withDexKit
 import org.luckypray.dexkit.result.FieldUsingType
 import org.luckypray.dexkit.result.MethodData
 
-internal object MonetDexEvidenceCollector {
+object MonetDexEvidenceCollector {
     fun collect(candidates: List<MonetDexCandidate>): List<MonetResourceDexEvidence> = withDexKit { bridge ->
         collect(bridge, candidates)
     }
 
-    internal fun collect(
+    fun collect(
         bridge: org.luckypray.dexkit.DexKitBridge,
         candidates: List<MonetDexCandidate>,
     ): List<MonetResourceDexEvidence> {

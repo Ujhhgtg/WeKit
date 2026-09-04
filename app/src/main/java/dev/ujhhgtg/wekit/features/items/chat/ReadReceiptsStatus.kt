@@ -20,7 +20,7 @@ enum class ReadReceiptsRuntimeState {
     FAILED,
 }
 
-internal data class ReadReceiptsStatus(
+data class ReadReceiptsStatus(
     val state: ReadReceiptsRuntimeState,
     val port: Int? = null,
     val error: String? = null,

@@ -32,7 +32,7 @@ object ArchiveExtractor {
         GZIPInputStream(input, BUFFER_SIZE).use { extractTar(it, destination, limits, checkActive) }
     }
 
-    internal fun extractTar(input: InputStream, destination: Path, limits: Limits = Limits(), checkActive: () -> Unit = {}) {
+    fun extractTar(input: InputStream, destination: Path, limits: Limits = Limits(), checkActive: () -> Unit = {}) {
         val root = destination.toAbsolutePath().normalize()
         var entries = 0
         var totalBytes = 0L

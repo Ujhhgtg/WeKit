@@ -5,7 +5,7 @@ package dev.ujhhgtg.wekit.features.items.chat
  * Binder client were wired to. The runtime is the in-process authoritative tunnel owner; every
  * member here is a plain delegation, and `status` reads the runtime's authoritative snapshot.
  */
-internal object ReadReceiptsTunnelController {
+object ReadReceiptsTunnelController {
     val status: ReadReceiptsTunnelStatus
         get() = ReadReceiptsTunnelRuntime.readStatus()
 
@@ -88,7 +88,7 @@ internal object ReadReceiptsTunnelController {
         ReadReceiptsTunnelRuntime.logoutBrowserLogin()
 }
 
-internal class BrowserLoginException(
+class BrowserLoginException(
     val errorCode: ReadReceiptsTunnelErrorCode,
     diagnostic: String,
     cause: Throwable? = null,

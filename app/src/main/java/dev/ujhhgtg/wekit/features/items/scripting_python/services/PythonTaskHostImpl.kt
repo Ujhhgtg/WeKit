@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeUnit
 
-internal class PythonTaskHostImpl(private val scope: PythonPluginScope) : PythonTaskHost {
+class PythonTaskHostImpl(private val scope: PythonPluginScope) : PythonTaskHost {
     override fun main(task: Callable<Any?>): PythonTaskHandle {
         check(!scope.isClosed) { "Python plugin scope is closed" }
         if (Looper.myLooper() == Looper.getMainLooper()) {

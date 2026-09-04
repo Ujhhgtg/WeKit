@@ -53,7 +53,7 @@ fun nukeDarkColors(accent: Color): NukeColors =
     )
 
 @Stable
-class NukeHapticFeedback internal constructor(
+class NukeHapticFeedback constructor(
     val enabled: Boolean,
     private val platformHapticFeedback: HapticFeedback,
 ) {

@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets
 
 class SshBackend(
     override val snapshot: EnvironmentSnapshot,
-    internal val connection: SshConnectionManager,
+    val connection: SshConnectionManager,
 ) : LinuxEnvironmentBackend {
     init {
         require(snapshot.type == LinuxEnvironmentType.SSH)
@@ -196,7 +196,7 @@ class SshBackend(
     private fun quote(value: String) = "'${value.replace("'", "'\\''")}'"
 
     companion object {
-        internal val REMOTE_HELPER = """
+        val REMOTE_HELPER = """
             #!/bin/bash
             export LC_ALL=C
             json_quote() {
@@ -381,7 +381,7 @@ class SshBackend(
     }
 }
 
-internal suspend fun <T> withSshReverseForward(
+suspend fun <T> withSshReverseForward(
     forward: SshReverseForward?,
     block: suspend () -> T,
 ): T = try {

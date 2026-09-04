@@ -162,7 +162,7 @@ object DexCacheManager {
     fun getOutdatedItems(items: List<IResolveDex>): List<IResolveDex> =
         items.filter { !isItemCacheValid(it) }
 
-    internal fun importCloudCaches(entries: List<CloudDexCacheEntry>) {
+    fun importCloudCaches(entries: List<CloudDexCacheEntry>) {
         writeCloudCacheFiles(cacheDir, entries, System.currentTimeMillis())
     }
 
@@ -170,7 +170,7 @@ object DexCacheManager {
 
     private val META_KEYS = setOf("methodHash", "timestamp")
 
-    internal fun cacheFileName(technicalId: String): String =
+    fun cacheFileName(technicalId: String): String =
         technicalId.replace("/", "_") + CACHE_FILE_SUFFIX
 
     private fun getCacheFile(technicalId: String): Path =
@@ -180,7 +180,7 @@ object DexCacheManager {
      * 获取 resolveDex 方法编译时生成的哈希，用于检测实现变化。
      * 以 technicalId 为 key，与宿主 R8 混淆后的类名解耦。
      */
-    internal fun methodHash(item: IResolveDex): String {
+    fun methodHash(item: IResolveDex): String {
         val hash = GeneratedMethodHashes.HASHES[(item as BaseFeature).technicalId]
         if (hash.isNullOrBlank())
             error("failed to retrieve method hash for item ${item.technicalId}; this shouldn't happen")
@@ -188,7 +188,7 @@ object DexCacheManager {
     }
 }
 
-internal fun writeCloudCacheFiles(
+fun writeCloudCacheFiles(
     cacheDir: Path,
     entries: List<CloudDexCacheEntry>,
     timestamp: Long,

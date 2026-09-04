@@ -11,21 +11,21 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-internal data class HomeSidePanelProfile(
+data class HomeSidePanelProfile(
     val wxId: String,
     val nickname: String,
     val avatarUrl: String,
     val status: HomeSidePanelStatusUiState,
 )
 
-internal sealed interface HomeSidePanelStatusUiState {
+sealed interface HomeSidePanelStatusUiState {
     data object Loading : HomeSidePanelStatusUiState
     data class Ready(val status: TextStatus) : HomeSidePanelStatusUiState
     data object NoStatus : HomeSidePanelStatusUiState
     data object Error : HomeSidePanelStatusUiState
 }
 
-internal class HomeSidePanelProfileLoader(
+class HomeSidePanelProfileLoader(
     private val cityIndex: HomeSidePanelCityIndex,
 ) {
 

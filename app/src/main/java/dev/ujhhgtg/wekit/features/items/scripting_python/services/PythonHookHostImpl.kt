@@ -19,7 +19,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.system.measureTimeMillis
 
-internal class PythonHookHostImpl(
+class PythonHookHostImpl(
     private val pluginId: String,
     private val scope: PythonPluginScope,
 ) : PythonHookHost {

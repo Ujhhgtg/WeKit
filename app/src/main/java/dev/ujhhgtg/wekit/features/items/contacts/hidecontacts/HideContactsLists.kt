@@ -37,7 +37,7 @@ private const val TAG = "HideContacts.Lists"
  * 定时显示 scheduler must be able to undo instantly; a destructive `removeAll` on a list the host
  * retains would make "temporarily show" unable to bring the rows back until WeChat repopulates it.
  */
-internal fun HideContacts.installListHooks() {
+fun HideContacts.installListHooks() {
     installMvvmListHooks()
     installContactCountHook()
     installGroupMemberHooks()

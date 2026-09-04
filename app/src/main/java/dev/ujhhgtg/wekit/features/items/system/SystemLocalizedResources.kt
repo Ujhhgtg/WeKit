@@ -7,10 +7,10 @@ import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.utils.HostInfo
 
-internal fun localizedSystemString(@StringRes id: Int, vararg args: Any): String =
+fun localizedSystemString(@StringRes id: Int, vararg args: Any): String =
     HostInfo.application.systemLocalizedContext().getString(id, *args)
 
-internal fun Context.localizedSystemString(@StringRes id: Int, vararg args: Any): String =
+fun Context.localizedSystemString(@StringRes id: Int, vararg args: Any): String =
     systemLocalizedContext().getString(id, *args)
 
 private fun Context.systemLocalizedContext(): Context = LocalizedContextFactory.create(

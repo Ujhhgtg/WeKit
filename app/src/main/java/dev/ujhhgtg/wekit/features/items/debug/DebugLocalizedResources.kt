@@ -7,10 +7,10 @@ import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.utils.HostInfo
 
-internal fun localizedDebugString(@StringRes id: Int, vararg args: Any): String =
+fun localizedDebugString(@StringRes id: Int, vararg args: Any): String =
     HostInfo.application.debugLocalizedContext().getString(id, *args)
 
-internal fun Context.localizedDebugString(@StringRes id: Int, vararg args: Any): String =
+fun Context.localizedDebugString(@StringRes id: Int, vararg args: Any): String =
     debugLocalizedContext().getString(id, *args)
 
 private fun Context.debugLocalizedContext(): Context = LocalizedContextFactory.create(

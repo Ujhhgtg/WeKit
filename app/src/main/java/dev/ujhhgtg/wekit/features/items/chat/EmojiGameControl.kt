@@ -72,7 +72,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
 
     private const val MD5_MORRA = "9bd1281af3a31710a45b84d736363691"
     private const val MD5_DICE = "08f223fa83f1ca34e143d1e580252c7c"
-    internal val GAME_EMOJI_MD5S = setOf(MD5_MORRA, MD5_DICE)
+    val GAME_EMOJI_MD5S = setOf(MD5_MORRA, MD5_DICE)
     private const val GRAVITY_EARTH = 9.81f
     private const val MOTION_THRESHOLD = 2.0f
     private const val TAG = "EmojiGameControl"

@@ -39,7 +39,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 
-class NativeBackend internal constructor(
+class NativeBackend constructor(
     override val snapshot: EnvironmentSnapshot,
     private val environmentVariables: Map<String, String> = emptyMap(),
     private val maxOutputBytes: Int = DEFAULT_MAX_OUTPUT_BYTES,
@@ -277,7 +277,7 @@ class NativeBackend internal constructor(
         }
     }
 
-    internal object ProcessTree {
+    object ProcessTree {
         fun descendants(rootPid: Int, parentOf: Map<Int, Int>): List<Int> =
             ProcessTermination.descendants(rootPid, parentOf)
     }

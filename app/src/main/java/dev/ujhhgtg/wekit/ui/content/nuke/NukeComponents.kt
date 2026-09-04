@@ -295,7 +295,7 @@ fun NukeSettingGroup(
  * last row rounds the bottom corners, and middle rows stay square so adjacent rows read as one
  * continuous card. Mirrors the Miuix engine's `groupedCardItem` layout contract.
  */
-internal fun nukeGroupedCardShape(index: Int, count: Int): RoundedCornerShape =
+fun nukeGroupedCardShape(index: Int, count: Int): RoundedCornerShape =
     RoundedCornerShape(
         topStart = if (index == 0) NukeSettingGroupCornerRadius else 0.dp,
         topEnd = if (index == 0) NukeSettingGroupCornerRadius else 0.dp,

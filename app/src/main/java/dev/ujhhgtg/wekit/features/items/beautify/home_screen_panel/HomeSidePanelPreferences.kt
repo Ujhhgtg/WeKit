@@ -5,7 +5,7 @@ import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 
-internal object HomeSidePanelPreferenceKeys {
+object HomeSidePanelPreferenceKeys {
     const val LAYOUT = "home_side_panel_layout"
     const val CARD_WEATHER_CACHE_PREFIX = "home_side_panel_card_weather_cache_"
     const val CARD_HITOKOTO_CACHE_PREFIX = "home_side_panel_card_hitokoto_cache_"
@@ -18,7 +18,7 @@ internal object HomeSidePanelPreferenceKeys {
     const val HIDE_WALLET_BALANCE = "home_side_panel_hide_wallet_balance"
 }
 
-internal object HomeSidePanelPreferences {
+object HomeSidePanelPreferences {
 
     private const val TAG = "HomeSidePanelPreferences"
 

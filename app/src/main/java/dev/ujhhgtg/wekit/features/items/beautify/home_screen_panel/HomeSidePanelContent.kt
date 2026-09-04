@@ -29,7 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 
-internal enum class HomeSidePanelTransitionKind {
+enum class HomeSidePanelTransitionKind {
     ENTER_EDITOR,
     EXIT_EDITOR,
     PUSH,
@@ -37,7 +37,7 @@ internal enum class HomeSidePanelTransitionKind {
     NONE,
 }
 
-internal fun homeSidePanelTransitionKind(
+fun homeSidePanelTransitionKind(
     from: HomeSidePanelRoute,
     to: HomeSidePanelRoute,
 ): HomeSidePanelTransitionKind = when {
@@ -64,7 +64,7 @@ internal fun homeSidePanelTransitionKind(
 }
 
 @Composable
-internal fun HomeSidePanelContent(
+fun HomeSidePanelContent(
     state: HomeSidePanelUiState,
     panelState: HomeSidePanelState,
 ) {

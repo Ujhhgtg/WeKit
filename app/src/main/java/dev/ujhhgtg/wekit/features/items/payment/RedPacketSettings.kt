@@ -51,7 +51,7 @@ import kotlin.io.path.readText
 import kotlin.random.Random
 
 /** Hierarchical settings used by [AutoOpenRedPackets]. */
-internal object RedPacketSettings {
+object RedPacketSettings {
     private const val TAG = "RedPacketSettings"
     private const val CONFIG_VERSION = 1
     private val RED_PACKET_KEYWORD_MODES =
@@ -61,7 +61,7 @@ internal object RedPacketSettings {
     private val legacyGroupMemberFile by lazy { KnownPaths.moduleData / "red_packet_group_members.json" }
 
     @Serializable
-    internal enum class ReceiveMode { NETWORK, CLICK }
+    enum class ReceiveMode { NETWORK, CLICK }
 
     @Serializable
     data class DelayRule(

@@ -15,7 +15,7 @@ import org.luckypray.dexkit.query.matchers.MethodMatcher
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 
-internal class PythonDexHostImpl(private val scope: PythonPluginScope) : PythonDexHost {
+class PythonDexHostImpl(private val scope: PythonPluginScope) : PythonDexHost {
     override fun findClasses(
         matcher: Any,
         searchPackages: List<String>,

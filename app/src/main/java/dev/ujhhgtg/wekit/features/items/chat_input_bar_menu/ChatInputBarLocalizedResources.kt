@@ -8,15 +8,15 @@ import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.utils.HostInfo
 
-internal fun localizedChatInputString(@StringRes id: Int, vararg formatArgs: Any): String =
+fun localizedChatInputString(@StringRes id: Int, vararg formatArgs: Any): String =
     HostInfo.application.localizedChatInputString(id, *formatArgs)
 
-internal fun Context.localizedChatInputString(
+fun Context.localizedChatInputString(
     @StringRes id: Int,
     vararg formatArgs: Any,
 ): String = chatInputLocalizedContext().getString(id, *formatArgs)
 
-internal fun Context.localizedChatInputQuantity(
+fun Context.localizedChatInputQuantity(
     @PluralsRes id: Int,
     quantity: Int,
     vararg formatArgs: Any,

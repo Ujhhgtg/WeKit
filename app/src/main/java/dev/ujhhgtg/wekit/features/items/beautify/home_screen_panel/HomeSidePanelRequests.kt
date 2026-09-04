@@ -8,7 +8,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
-internal class HomeSidePanelRequestPool<K, V>(
+class HomeSidePanelRequestPool<K, V>(
     private val ownerScope: CoroutineScope,
 ) {
 
@@ -107,7 +107,7 @@ internal class HomeSidePanelRequestPool<K, V>(
         retiring.completed.complete(Unit)
     }
 
-    internal class Subscription<V>(
+    class Subscription<V>(
         private val request: Deferred<V>,
         private val release: () -> Unit,
     ) {

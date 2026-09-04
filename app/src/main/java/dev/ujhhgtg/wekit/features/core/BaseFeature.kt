@@ -81,28 +81,28 @@ abstract class BaseFeature {
 
     private val _dexDelegates = mutableListOf<BaseDexDelegate>()
     val dexDelegates: List<BaseDexDelegate> get() = _dexDelegates
-    internal fun registerDexDelegate(d: BaseDexDelegate) {
+    fun registerDexDelegate(d: BaseDexDelegate) {
         d.owner = this
         _dexDelegates += d
     }
 
-    internal fun resolveInlineDex(dexKit: DexKitBridge) {
+    fun resolveInlineDex(dexKit: DexKitBridge) {
         dexDelegates.forEach { it.findInline(dexKit) }
     }
 
-    internal val unhooks = mutableListOf<HookHandle>()
-    internal fun registerUnhook(u: HookHandle) {
+    val unhooks = mutableListOf<HookHandle>()
+    fun registerUnhook(u: HookHandle) {
         unhooks += u
     }
 
-    internal fun unhookAll() {
+    fun unhookAll() {
         unhooks.forEach { it.unhook() }
         unhooks.clear()
     }
 
     // --- hookBefore ---
 
-    internal fun Executable.hookBefore(
+    fun Executable.hookBefore(
         priority: Int = 50,
         action: HookAction
     ) = registerUnhook(
@@ -112,30 +112,30 @@ abstract class BaseFeature {
     )
 
     @JvmName("hookBefore2")
-    internal fun BaseReflectedMethod.hookBefore(
+    fun BaseReflectedMethod.hookBefore(
         priority: Int = 50,
         action: HookAction
     ) = self.hookBefore(priority, action)
 
     @JvmName("hookBefore3")
-    internal fun ReflectedConstructor<*>.hookBefore(
+    fun ReflectedConstructor<*>.hookBefore(
         priority: Int = 50,
         action: HookAction
     ) = this.self.hookBefore(priority, action)
 
-    internal fun Class<*>.hookBeforeOnCreate(
+    fun Class<*>.hookBeforeOnCreate(
         action: HookAction
     ) = this.reflekt().firstMethod { name = "onCreate" }.hookBefore(50, action)
 
-    internal fun Class<*>.hookAfterOnCreate(
+    fun Class<*>.hookAfterOnCreate(
         action: HookAction
     ) = this.reflekt().firstMethod { name = "onCreate" }.hookAfter(50, action)
 
-    internal fun KClass<*>.hookBeforeOnCreate(
+    fun KClass<*>.hookBeforeOnCreate(
         action: HookAction
     ) = this.reflekt().firstMethod { name = "onCreate" }.hookBefore(50, action)
 
-    internal fun KClass<*>.hookAfterOnCreate(
+    fun KClass<*>.hookAfterOnCreate(
         action: HookAction
     ) = this.reflekt().firstMethod { name = "onCreate" }.hookAfter(50, action)
 
@@ -143,7 +143,7 @@ abstract class BaseFeature {
 
     // --- hookAfter ---
 
-    internal fun Executable.hookAfter(
+    fun Executable.hookAfter(
         priority: Int = 50,
         action: HookAction
     ) = registerUnhook(
@@ -153,13 +153,13 @@ abstract class BaseFeature {
     )
 
     @JvmName("hookAfter2")
-    internal fun BaseReflectedMethod.hookAfter(
+    fun BaseReflectedMethod.hookAfter(
         priority: Int = 50,
         action: HookAction
     ) = self.hookAfter(priority, action)
 
     @JvmName("hookAfter3")
-    internal fun ReflectedConstructor<*>.hookAfter(
+    fun ReflectedConstructor<*>.hookAfter(
         priority: Int = 50,
         action: HookAction
     ) = this.self.hookAfter(priority, action)
@@ -168,29 +168,29 @@ abstract class BaseFeature {
 
     // --- dex delegate ---
 
-    internal fun DexMethodDelegate.hookBefore(
+    fun DexMethodDelegate.hookBefore(
         priority: Int = 50,
         action: HookAction
     ) = method.hookBefore(priority, action)
 
-    internal fun DexMethodDelegate.hookAfter(
+    fun DexMethodDelegate.hookAfter(
         priority: Int = 50,
         action: HookAction
     ) = method.hookAfter(priority, action)
 
-    internal fun DexConstructorDelegate.hookBefore(
+    fun DexConstructorDelegate.hookBefore(
         priority: Int = 50,
         action: HookAction
     ) = constructor.hookBefore(priority, action)
 
-    internal fun DexConstructorDelegate.hookAfter(
+    fun DexConstructorDelegate.hookAfter(
         priority: Int = 50,
         action: HookAction
     ) = constructor.hookAfter(priority, action)
 
     // --- end dex delegate ---
 
-    internal fun executeHookAction(param: HookParam, action: HookAction) {
+    fun executeHookAction(param: HookParam, action: HookAction) {
         runCatching {
             action(param)
         }.onFailure { e -> WeLogger.e("executeHookAction", "failed to execute hook of $technicalId", e) }

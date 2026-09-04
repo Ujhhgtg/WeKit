@@ -9,12 +9,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.FragmentActivity
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 
-internal data class PickedPanelFile(
+data class PickedPanelFile(
     val name: String,
     val uri: Uri,
 )
 
-internal fun pickPanelFile(
+fun pickPanelFile(
     context: Context,
     mimeTypes: Array<String>,
     onSelected: (name: String, uri: Uri, activity: FragmentActivity) -> Unit,
@@ -40,7 +40,7 @@ internal fun pickPanelFile(
     }
 }
 
-internal fun pickPanelFiles(
+fun pickPanelFiles(
     context: Context,
     mimeTypes: Array<String>,
     onSelected: (files: List<PickedPanelFile>, activity: FragmentActivity) -> Unit,
@@ -60,7 +60,7 @@ internal fun pickPanelFiles(
     }
 }
 
-internal fun pickPanelDirectory(
+fun pickPanelDirectory(
     context: Context,
     onSelected: (treeUri: Uri, activity: FragmentActivity) -> Unit,
 ) {
@@ -76,7 +76,7 @@ internal fun pickPanelDirectory(
     }
 }
 
-internal fun listPanelTreeFiles(
+fun listPanelTreeFiles(
     resolver: ContentResolver,
     treeUri: Uri,
 ): List<PickedPanelFile> {

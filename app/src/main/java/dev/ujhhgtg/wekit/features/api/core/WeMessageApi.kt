@@ -117,7 +117,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
         }
     }
-    internal val classNetSceneQueue by dexClass {
+    val classNetSceneQueue by dexClass {
         searchPackages("com.tencent.mm.modelbase")
         matcher {
             methods {
@@ -242,7 +242,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.ChattingContext", "[notifyDataSetChange]")
         }
     }
-    internal val methodChattingContextGetTalker by dexMethod {
+    val methodChattingContextGetTalker by dexMethod {
         matcher {
             declaredClass(classChattingContext.data.name)
             usingEqStrings("getTalker returns null.")
@@ -339,7 +339,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.VoiceLogic", "startRecord insert voicestg success")
         }
     }
-    internal val classVfs by dexClass {
+    val classVfs by dexClass {
         matcher {
             usingStrings("MicroMsg.VFSFileOp", "Cannot resolve path or URI")
         }
@@ -362,7 +362,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
         }
     }
-    internal val methodChattingDataAdapterOnBindViewHolder by dexMethod {
+    val methodChattingDataAdapterOnBindViewHolder by dexMethod {
         matcher {
             declaredClass {
                 usingEqStrings("MicroMsg.ChattingDataAdapterV3")
@@ -1947,7 +1947,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
-    internal val methodLoadEmojiFile by dexMethod {
+    val methodLoadEmojiFile by dexMethod {
         matcher {
             usingEqStrings("MicroMsg.EmojiLoader", "load emoji file ")
             paramTypes("com.tencent.mm.storage.emotion.EmojiInfo", "boolean", null)
@@ -2317,7 +2317,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
-    internal val methodToggleMessageSelection by dexMethod {
+    val methodToggleMessageSelection by dexMethod {
         matcher {
             declaredClass(classChattingDataAdapter.data.name)
             usingNumbers(100)

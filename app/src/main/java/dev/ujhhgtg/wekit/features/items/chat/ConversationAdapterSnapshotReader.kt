@@ -11,7 +11,7 @@ import kotlin.collections.AbstractList
  * adapter and wraps each conversation in a row model; both field hops are discovered once by
  * comparing a single row with the adapter's original getItem() result.
  */
-internal class ConversationAdapterSnapshotReader {
+class ConversationAdapterSnapshotReader {
     private data class AccessPlan(
         val holderField: Field?,
         val listField: Field,

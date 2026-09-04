@@ -13,35 +13,35 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
-internal sealed interface HomeSidePanelRuntimeNamespace {
+sealed interface HomeSidePanelRuntimeNamespace {
     data object Live : HomeSidePanelRuntimeNamespace
     data class Draft(val sessionId: String) : HomeSidePanelRuntimeNamespace
 }
 
 @Serializable
-internal data class WeatherCardCacheRecord(
+data class WeatherCardCacheRecord(
     val fingerprint: String,
     val snapshot: WeatherSnapshot,
 )
 
 @Serializable
-internal data class HitokotoCardCacheRecord(
+data class HitokotoCardCacheRecord(
     val fingerprint: String,
     val snapshot: HitokotoSnapshot,
 )
 
-internal data class HomeSidePanelRuntimeKey(
+data class HomeSidePanelRuntimeKey(
     val namespace: HomeSidePanelRuntimeNamespace,
     val cardId: String,
 )
 
-internal sealed interface HomeSidePanelCardRuntimeState {
+sealed interface HomeSidePanelCardRuntimeState {
     data class Weather(val state: WeatherUiState) : HomeSidePanelCardRuntimeState
     data class Wallet(val state: HomeSidePanelWalletUiState) : HomeSidePanelCardRuntimeState
     data class Hitokoto(val state: HitokotoUiState) : HomeSidePanelCardRuntimeState
 }
 
-internal class HomeSidePanelRuntimeStore(
+class HomeSidePanelRuntimeStore(
     private val weather: HomeSidePanelWeather,
     private val hitokoto: HomeSidePanelHitokoto,
     private val walletBalance: HomeSidePanelWalletBalanceSource,

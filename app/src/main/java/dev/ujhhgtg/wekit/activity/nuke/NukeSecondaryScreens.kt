@@ -105,7 +105,7 @@ import java.text.Collator
 import java.util.Locale
 
 @Composable
-internal fun NukeDestinationPage(
+fun NukeDestinationPage(
     destination: NukeDestination,
     featureItems: List<SwitchFeature>,
     onBack: (Offset) -> Unit,

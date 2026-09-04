@@ -11,7 +11,7 @@ import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
 
-internal data class HomeSidePanelWalletDisplayState(
+data class HomeSidePanelWalletDisplayState(
     val defaultMaskEnabled: Boolean,
     val isMasked: Boolean = defaultMaskEnabled,
 ) {
@@ -24,7 +24,7 @@ internal data class HomeSidePanelWalletDisplayState(
     fun reset() = copy(isMasked = defaultMaskEnabled)
 }
 
-internal data class HomeSidePanelWalletUiState(
+data class HomeSidePanelWalletUiState(
     val balanceFen: Long? = null,
     val displayState: HomeSidePanelWalletDisplayState = HomeSidePanelWalletDisplayState(true),
 ) {
@@ -34,13 +34,13 @@ internal data class HomeSidePanelWalletUiState(
         get() = if (displayState.isMasked) "******" else formatHomeSidePanelWalletBalance(balanceFen)
 }
 
-internal fun formatHomeSidePanelWalletBalance(balanceFen: Long?): String {
+fun formatHomeSidePanelWalletBalance(balanceFen: Long?): String {
     if (balanceFen == null) return "¥ --"
     val formatter = DecimalFormat("#,##0.00", DecimalFormatSymbols(Locale.US))
     return "¥ ${formatter.format(BigDecimal.valueOf(balanceFen, 2))}"
 }
 
-internal object HomeSidePanelWalletBalanceSource {
+object HomeSidePanelWalletBalanceSource {
     const val BALANCE_KEY = "USERINFO_NEW_BALANCE_LONG_SYNC"
 
     private val lock = Any()
@@ -82,7 +82,7 @@ internal object HomeSidePanelWalletBalanceSource {
     }
 }
 
-internal fun readHomeSidePanelWalletBalance(
+fun readHomeSidePanelWalletBalance(
     walletCacheReadMethod: Method,
     walletPayPluginClass: Class<*>,
 ): Long? {

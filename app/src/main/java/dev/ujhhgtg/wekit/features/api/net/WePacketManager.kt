@@ -13,9 +13,9 @@ object WePacketManager {
 
     fun removeInterceptor(interceptor: IWePacketInterceptor) = listeners.remove(interceptor)
 
-    internal fun hasInterceptors(): Boolean = listeners.isNotEmpty()
+    fun hasInterceptors(): Boolean = listeners.isNotEmpty()
 
-    internal fun handleRequestTamper(uri: String, cgiId: Int, reqBytes: ByteArray): ByteArray? {
+    fun handleRequestTamper(uri: String, cgiId: Int, reqBytes: ByteArray): ByteArray? {
         if (Preferences.verboseLog) {
             val data = WeProtoData.fromBytes(reqBytes)
             WeLogger.logChunkedI(
@@ -31,7 +31,7 @@ object WePacketManager {
         return null
     }
 
-    internal fun handleResponseTamper(uri: String, cgiId: Int, respBytes: ByteArray): ByteArray? {
+    fun handleResponseTamper(uri: String, cgiId: Int, respBytes: ByteArray): ByteArray? {
         if (Preferences.verboseLog) {
             val data = WeProtoData.fromBytes(respBytes)
             WeLogger.logChunkedI(

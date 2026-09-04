@@ -92,7 +92,7 @@ import androidx.core.net.toUri
 import java.text.Collator
 import java.util.Locale
 
-internal sealed interface NukeDestination {
+sealed interface NukeDestination {
     data class Category(val id: String) : NukeDestination
     data object ModuleDebug : NukeDestination
     data object Update : NukeDestination
@@ -112,7 +112,7 @@ private data class NukeRootEntry(
 )
 
 @Composable
-internal fun NukeSettingsRoot() {
+fun NukeSettingsRoot() {
     val context = LocalWeKitLocalizedContext.current
     val resolvedLocale = WeKitLocaleController.resolvedLocale
     val featureNameCollator = remember(resolvedLocale) {
@@ -490,7 +490,7 @@ private fun LazyListScope.NukeFeatureSearchResults(
 }
 
 @Composable
-internal fun NukeFeatureCategoryPage(
+fun NukeFeatureCategoryPage(
     categoryId: String,
     featureItems: List<SwitchFeature>,
     onBack: (Offset) -> Unit,
@@ -561,7 +561,7 @@ internal fun NukeFeatureCategoryPage(
 }
 
 @Composable
-internal fun NukeFeatureRow(
+fun NukeFeatureRow(
     feature: SwitchFeature,
     activity: androidx.activity.ComponentActivity,
 ) {

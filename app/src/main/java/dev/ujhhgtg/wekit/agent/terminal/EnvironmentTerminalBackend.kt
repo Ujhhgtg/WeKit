@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-class EnvironmentTerminalBackend internal constructor(
+class EnvironmentTerminalBackend constructor(
     private val native: TerminalBackend = NativeTerminalBackend(),
     private val ssh: TerminalBackend? = null,
     private val approveChrootStart: suspend (EnvironmentSnapshot) -> Boolean = { false },

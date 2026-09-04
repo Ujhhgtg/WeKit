@@ -10,7 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 
-internal sealed interface LocalDexProgress {
+sealed interface LocalDexProgress {
     val displayName: String
 
     data class Start(override val displayName: String) : LocalDexProgress
@@ -21,16 +21,16 @@ internal sealed interface LocalDexProgress {
     ) : LocalDexProgress
 }
 
-internal data class LocalDexFailure(
+data class LocalDexFailure(
     val displayName: String,
     val error: Exception,
 )
 
-internal data class LocalDexResolutionResult(
+data class LocalDexResolutionResult(
     val failures: List<LocalDexFailure>,
 )
 
-internal object LocalDexResolver {
+object LocalDexResolver {
     private const val TAG = "LocalDexResolver"
 
     suspend fun resolve(

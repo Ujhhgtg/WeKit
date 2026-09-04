@@ -13,7 +13,7 @@ import kotlin.math.roundToInt
  * Light mode keeps WeChat's own backgrounds intact. Dark mode needs an explicit surface and a
  * hairline border because Android elevation is barely visible on near-black chat backgrounds.
  */
-internal object FloatingChatCardVisuals {
+object FloatingChatCardVisuals {
 
     private const val DARK_SURFACE_COLOR = 0xFF242424.toInt()
     private const val DARK_STROKE_COLOR = 0x24FFFFFF

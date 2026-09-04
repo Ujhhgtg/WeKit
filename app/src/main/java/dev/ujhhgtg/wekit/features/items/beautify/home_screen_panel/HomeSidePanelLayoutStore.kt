@@ -4,7 +4,7 @@ import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 
-internal object HomeSidePanelLayoutStore {
+object HomeSidePanelLayoutStore {
 
     fun load(): HomeSidePanelLayoutLoad {
         val legacy = LegacyHomeSidePanelSnapshot(

@@ -83,14 +83,14 @@ import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
-internal fun weatherCardSnapshot(state: WeatherUiState): WeatherSnapshot? = when (state) {
+fun weatherCardSnapshot(state: WeatherUiState): WeatherSnapshot? = when (state) {
     is WeatherUiState.Ready -> state.snapshot
     is WeatherUiState.Error -> state.cached
     WeatherUiState.Loading -> null
 }
 
 @Composable
-internal fun HomeSidePanelDateTimeCard(
+fun HomeSidePanelDateTimeCard(
     card: DateTimeCardConfig,
     content: DateTimeCardContent,
     editMode: Boolean,
@@ -192,7 +192,7 @@ private fun HomeSidePanelDateText(text: String) {
 }
 
 @Composable
-internal fun HomeSidePanelWeatherCard(
+fun HomeSidePanelWeatherCard(
     card: WeatherCardConfig,
     content: WeatherCardContent,
     editMode: Boolean,
@@ -404,7 +404,7 @@ internal fun HomeSidePanelWeatherCard(
 }
 
 @Composable
-internal fun HomeSidePanelWalletCard(
+fun HomeSidePanelWalletCard(
     card: WalletCardConfig,
     content: WalletCardContent,
     editMode: Boolean,
@@ -512,7 +512,7 @@ internal fun HomeSidePanelWalletCard(
 }
 
 @Composable
-internal fun HomeSidePanelHitokotoCard(
+fun HomeSidePanelHitokotoCard(
     card: HitokotoCardConfig,
     content: HitokotoCardContent,
     editMode: Boolean,

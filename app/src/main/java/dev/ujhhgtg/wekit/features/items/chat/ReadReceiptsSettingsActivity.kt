@@ -117,7 +117,7 @@ class ReadReceiptsSettingsActivity : ComponentActivity() {
 }
 
 @Serializable
-internal sealed interface ReadReceiptsRoute : NavKey {
+sealed interface ReadReceiptsRoute : NavKey {
     @Serializable data object Home : ReadReceiptsRoute
     @Serializable data object ThirdParty : ReadReceiptsRoute
     @Serializable data object Quick : ReadReceiptsRoute
@@ -180,14 +180,14 @@ private fun runtimeSnapshot(): RuntimeSnapshot {
     )
 }
 
-internal enum class FeedbackSeverity { SUCCESS, INFO, ERROR }
+enum class FeedbackSeverity { SUCCESS, INFO, ERROR }
 
-internal data class OperationFeedback(
+data class OperationFeedback(
     val message: String = "",
     val severity: FeedbackSeverity = FeedbackSeverity.INFO,
 )
 
-internal enum class ActiveOperation(@StringRes val progressRes: Int) {
+enum class ActiveOperation(@StringRes val progressRes: Int) {
     SAVING(R.string.read_receipts_save_in_progress),
     TESTING(R.string.read_receipts_connection_test_pending),
     CONNECTING(R.string.read_receipts_connect_in_progress),
@@ -201,7 +201,7 @@ internal enum class ActiveOperation(@StringRes val progressRes: Int) {
     RECONNECTING(R.string.read_receipts_reconnect_in_progress),
 }
 
-internal class SettingsOperationCoordinator : ViewModel() {
+class SettingsOperationCoordinator : ViewModel() {
     private val states = mutableMapOf<ReadReceiptsRoute, SettingsOperationState>()
 
     fun state(route: ReadReceiptsRoute): SettingsOperationState =
@@ -231,7 +231,7 @@ internal class SettingsOperationCoordinator : ViewModel() {
     }
 }
 
-internal class SettingsOperationState {
+class SettingsOperationState {
     var activeOperation by mutableStateOf<ActiveOperation?>(null)
         private set
     var feedback by mutableStateOf(OperationFeedback())
@@ -266,7 +266,7 @@ internal class SettingsOperationState {
     }
 }
 
-internal class SettingsOperationOwner(
+class SettingsOperationOwner(
     private val state: SettingsOperationState,
     private val generation: Long,
 ) {

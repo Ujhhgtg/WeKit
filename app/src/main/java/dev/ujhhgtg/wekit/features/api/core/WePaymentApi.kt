@@ -29,7 +29,7 @@ object WePaymentApi : ApiFeature(), IResolveDex {
             usingEqStrings("account click info , key is %s, value is %s")
         }
     }
-    internal val classReceiveLuckyMoney by dexClass {
+    val classReceiveLuckyMoney by dexClass {
         matcher {
             methods {
                 add {
@@ -39,7 +39,7 @@ object WePaymentApi : ApiFeature(), IResolveDex {
             }
         }
     }
-    internal val classOpenLuckyMoney by dexClass {
+    val classOpenLuckyMoney by dexClass {
         matcher {
             methods {
                 add {
@@ -49,14 +49,14 @@ object WePaymentApi : ApiFeature(), IResolveDex {
             }
         }
     }
-    internal val methodReceiveLuckyMoneyOnGYNetEnd by dexMethod {
+    val methodReceiveLuckyMoneyOnGYNetEnd by dexMethod {
         matcher {
             declaredClass(classReceiveLuckyMoney.data.name)
             name = "onGYNetEnd"
             paramCount = 3
         }
     }
-    internal val methodOpenLuckyMoneyOnGYNetEnd by dexMethod {
+    val methodOpenLuckyMoneyOnGYNetEnd by dexMethod {
         matcher {
             declaredClass(classOpenLuckyMoney.data.name)
             name = "onGYNetEnd"

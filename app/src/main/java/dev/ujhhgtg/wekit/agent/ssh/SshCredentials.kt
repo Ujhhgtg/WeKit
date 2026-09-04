@@ -59,7 +59,7 @@ object SshCredentialStore {
     }
 }
 
-internal object SshCredentialCodec {
+object SshCredentialCodec {
     private const val PASSWORD = 1
     private const val PRIVATE_KEY = 2
 

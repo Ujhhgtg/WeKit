@@ -5,7 +5,7 @@ package dev.ujhhgtg.wekit.ui.animation.predictiveback
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 
-internal val FastOutExtraSlowIn: Easing = run {
+val FastOutExtraSlowIn: Easing = run {
     val knotX = 0.166666f
     val knotY = 0.4f
     val first = CubicBezierEasing(0.05f / knotX, 0f, 0.133333f / knotX, 0.06f / knotY)
@@ -24,8 +24,8 @@ internal val FastOutExtraSlowIn: Easing = run {
     }
 }
 
-internal val BackGestureEasing: Easing = CubicBezierEasing(0.1f, 0.1f, 0f, 1f)
+val BackGestureEasing: Easing = CubicBezierEasing(0.1f, 0.1f, 0f, 1f)
 
-internal fun topProgress(depth: Float): Float = (1f + depth).coerceIn(0f, 1f)
+fun topProgress(depth: Float): Float = (1f + depth).coerceIn(0f, 1f)
 
-internal fun coverProgress(depth: Float): Float = depth.coerceIn(0f, 1f)
+fun coverProgress(depth: Float): Float = depth.coerceIn(0f, 1f)

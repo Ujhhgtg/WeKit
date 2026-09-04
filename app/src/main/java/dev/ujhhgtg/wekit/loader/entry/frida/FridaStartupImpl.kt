@@ -17,15 +17,15 @@ object FridaStartupImpl : ILoaderService {
     override var classLoaderHelper: IClassLoaderHelper? = null
     override val loaderName: String get() = HostLocalizedStrings.get(R.string.loader_frida_inject_name)
 
-    internal fun setModulePath(modulePath: File) {
+    fun setModulePath(modulePath: File) {
         mModulePath = modulePath
     }
 
-    internal fun setHostDataDir(hostDataDir: File) {
+    fun setHostDataDir(hostDataDir: File) {
         mHostDataDir = hostDataDir
     }
 
-    internal fun setXblService(xblService: Map<String, Method>?) {
+    fun setXblService(xblService: Map<String, Method>?) {
         mXblService = xblService
     }
 

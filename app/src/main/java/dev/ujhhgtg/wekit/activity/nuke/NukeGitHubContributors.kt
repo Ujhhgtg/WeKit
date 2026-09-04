@@ -15,7 +15,7 @@ private const val TAG = "NukeGitHubContributors"
 private const val CONTRIBUTORS_URL =
     "https://api.github.com/repos/Ujhhgtg/WeKit/contributors?per_page=100"
 
-internal data class NukeGitHubContributor(
+data class NukeGitHubContributor(
     val login: String,
     val profileUrl: String,
     val avatarUrl: String,
@@ -23,7 +23,7 @@ internal data class NukeGitHubContributor(
 )
 
 /** Public GitHub contributor data for Nuke's About page. */
-internal object NukeGitHubContributors {
+object NukeGitHubContributors {
     val fallbackContributors = listOf(
         fallbackContributor("Ujhhgtg"),
     )

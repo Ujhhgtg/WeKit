@@ -93,7 +93,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
         companion object {
             @JvmSynthetic
-            internal fun repost(
+            fun repost(
                 success: Boolean,
                 sent: Boolean,
                 message: String,
@@ -196,7 +196,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             )
         }
     }
-    internal val methodGetSnsInfoStorage by dexMethod {
+    val methodGetSnsInfoStorage by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
             modifiers = Modifier.STATIC

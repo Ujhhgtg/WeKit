@@ -27,10 +27,10 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-internal val HITOKOTO_CATEGORY_CODES = ('a'..'l').map(Char::toString).toSet()
+val HITOKOTO_CATEGORY_CODES = ('a'..'l').map(Char::toString).toSet()
 
 @Serializable
-internal data class HitokotoSnapshot(
+data class HitokotoSnapshot(
     val uuid: String,
     val text: String,
     val type: String?,
@@ -42,7 +42,7 @@ internal data class HitokotoSnapshot(
 )
 
 @Serializable
-internal data class HitokotoSettings(
+data class HitokotoSettings(
     val categories: Set<String> = HITOKOTO_CATEGORY_CODES,
     val minLength: Int? = null,
     val maxLength: Int? = null,
@@ -50,7 +50,7 @@ internal data class HitokotoSettings(
     val showAuthor: Boolean = true,
 )
 
-internal sealed interface HitokotoUiState {
+sealed interface HitokotoUiState {
     data object Loading : HitokotoUiState
     data class Ready(
         val snapshot: HitokotoSnapshot,
@@ -63,12 +63,12 @@ internal sealed interface HitokotoUiState {
     ) : HitokotoUiState
 }
 
-internal sealed interface HitokotoResult {
+sealed interface HitokotoResult {
     data class Success(val snapshot: HitokotoSnapshot) : HitokotoResult
     data class Error(val message: BeautifyText, val cached: HitokotoSnapshot?) : HitokotoResult
 }
 
-internal fun validateHitokotoSettings(
+fun validateHitokotoSettings(
     minLength: Int?,
     maxLength: Int?,
     categories: Set<String> = HITOKOTO_CATEGORY_CODES,
@@ -109,7 +109,7 @@ private fun parseHitokotoPayload(payload: String, fetchedAt: Long): HitokotoSnap
     )
 }
 
-internal class HomeSidePanelHitokoto(
+class HomeSidePanelHitokoto(
     private val client: OkHttpClient,
 ) {
 

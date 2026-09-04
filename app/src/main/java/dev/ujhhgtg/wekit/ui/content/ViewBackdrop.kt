@@ -120,13 +120,13 @@ fun rememberViewBackdrop(
 }
 
 @Stable
-class ViewBackdrop internal constructor(
+class ViewBackdrop constructor(
     private val graphicsLayer: GraphicsLayer
 ) : Backdrop {
 
-    internal var sourceView: View? = null
-    internal var density: Density = Density(1f)
-    internal var layoutDirection: LayoutDirection = LayoutDirection.Ltr
+    var sourceView: View? = null
+    var density: Density = Density(1f)
+    var layoutDirection: LayoutDirection = LayoutDirection.Ltr
 
     // Bumped whenever the source content redraws. Read inside drawBackdrop so the draw phase
     // subscribes to it: a change re-runs the backdrop draw node's layer recording (and thus our
@@ -151,7 +151,7 @@ class ViewBackdrop internal constructor(
     override var offsetResidualY: Float = 0f
         private set
 
-    internal fun updateEnvironment(
+    fun updateEnvironment(
         view: View,
         density: Density,
         layoutDirection: LayoutDirection,
@@ -167,15 +167,15 @@ class ViewBackdrop internal constructor(
         this.layoutDirection = layoutDirection
     }
 
-    internal fun bumpGeneration() {
+    fun bumpGeneration() {
         generation++
     }
 
-    internal fun onSourceAttached() {
+    fun onSourceAttached() {
         bumpGeneration()
     }
 
-    internal fun invalidateSource() {
+    fun invalidateSource() {
         captureState.invalidate()
         offsetResidualX = 0f
         offsetResidualY = 0f
@@ -183,11 +183,11 @@ class ViewBackdrop internal constructor(
         generation++
     }
 
-    internal fun prepareLifecycle(started: Boolean) {
+    fun prepareLifecycle(started: Boolean) {
         lifecycleStarted = started
     }
 
-    internal fun startLifecycle() {
+    fun startLifecycle() {
         lifecycleStarted = true
         bumpGeneration()
     }
@@ -218,7 +218,7 @@ class ViewBackdrop internal constructor(
      * Records the current pixels of [sourceView] into the backing layer. Returns true if a capture
      * was performed (so the caller can repaint), false if the view isn't ready yet.
      */
-    internal fun recordSource(): Boolean {
+    fun recordSource(): Boolean {
         val view = sourceView ?: return false
         val width = view.width
         val height = view.height

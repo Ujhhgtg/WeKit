@@ -529,7 +529,7 @@ class SshConnectionManager(
     }
 }
 
-class SshTerminalConnection internal constructor(
+class SshTerminalConnection constructor(
     private val readBlock: suspend (Int) -> ByteArray?,
     private val writeBlock: suspend (ByteArray) -> Unit,
     private val resizeBlock: suspend (Int, Int) -> Unit,
@@ -548,7 +548,7 @@ class SshTerminalConnection internal constructor(
     }
 }
 
-class SshReverseForward internal constructor(val remotePort: Int, private val closeBlock: suspend () -> Unit) {
+class SshReverseForward constructor(val remotePort: Int, private val closeBlock: suspend () -> Unit) {
     private val closed = AtomicBoolean()
     suspend fun close() {
         if (closed.compareAndSet(false, true)) closeBlock()

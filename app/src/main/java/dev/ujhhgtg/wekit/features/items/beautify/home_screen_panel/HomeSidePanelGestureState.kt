@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 import android.view.MotionEvent
 import kotlin.math.abs
 
-internal data class HomeSidePanelGestureConfig(
+data class HomeSidePanelGestureConfig(
     val drawerWidthFraction: Float = 0.84f,
     val touchSlopPx: Float = 8f,
     val horizontalDominance: Float = 1.15f,
@@ -11,25 +11,25 @@ internal data class HomeSidePanelGestureConfig(
     val velocityProjectionMs: Float = 160f,
 )
 
-internal fun homeSidePanelGestureConfig(density: Float): HomeSidePanelGestureConfig =
+fun homeSidePanelGestureConfig(density: Float): HomeSidePanelGestureConfig =
     HomeSidePanelGestureConfig(
         touchSlopPx = TOUCH_SLOP_DP * density,
     )
 
-internal enum class HomeSidePanelGestureDecision {
+enum class HomeSidePanelGestureDecision {
     PASS,
     TRACKING,
     CONSUME,
 }
 
-internal fun homeSidePanelShouldPassFullyOpenTouchToChild(actionMasked: Int): Boolean =
+fun homeSidePanelShouldPassFullyOpenTouchToChild(actionMasked: Int): Boolean =
     actionMasked == MotionEvent.ACTION_DOWN ||
         actionMasked == MotionEvent.ACTION_UP ||
         actionMasked == MotionEvent.ACTION_CANCEL
 
 private const val TOUCH_SLOP_DP = 8f
 
-internal class HomeSidePanelGestureState(
+class HomeSidePanelGestureState(
     private val config: HomeSidePanelGestureConfig = HomeSidePanelGestureConfig(),
 ) {
     var progress: Float = 0f

@@ -64,7 +64,7 @@ import kotlin.math.ln
 import kotlin.math.roundToLong
 
 @Composable
-internal fun panelListItemColors(): ListItemColors = ListItemDefaults.colors(
+fun panelListItemColors(): ListItemColors = ListItemDefaults.colors(
     containerColor = Color.Transparent,
 )
 
@@ -96,7 +96,7 @@ fun <T> PanelPackChips(
     HorizontalDivider()
 }
 
-internal fun <T> panelItemsWithStableKeys(
+fun <T> panelItemsWithStableKeys(
     items: List<T>,
     key: (T) -> String,
 ): List<Pair<String, T>> {

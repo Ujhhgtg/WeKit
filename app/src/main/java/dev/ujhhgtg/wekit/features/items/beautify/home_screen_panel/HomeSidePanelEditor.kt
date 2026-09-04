@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
-internal sealed interface HomeSidePanelRoute {
+sealed interface HomeSidePanelRoute {
     data object Home : HomeSidePanelRoute
     data object PanelSettings : HomeSidePanelRoute
     data object EditHome : HomeSidePanelRoute
@@ -13,7 +13,7 @@ internal sealed interface HomeSidePanelRoute {
     data class AddAction(val cardId: String) : EditorDetail
 }
 
-internal sealed interface HomeSidePanelEditCommit {
+sealed interface HomeSidePanelEditCommit {
     data class Retained(val failure: Throwable) : HomeSidePanelEditCommit
     data class Committed(
         val layout: HomeSidePanelLayout,
@@ -21,7 +21,7 @@ internal sealed interface HomeSidePanelEditCommit {
     ) : HomeSidePanelEditCommit
 }
 
-internal inline fun commitHomeSidePanelEdit(
+inline fun commitHomeSidePanelEdit(
     editor: HomeSidePanelEditSession,
     persist: (HomeSidePanelLayout) -> Result<Unit>,
     promote: (HomeSidePanelLayout) -> Unit,
@@ -38,7 +38,7 @@ internal inline fun commitHomeSidePanelEdit(
     )
 }
 
-internal class HomeSidePanelEditSession(
+class HomeSidePanelEditSession(
     private val original: HomeSidePanelLayout,
     private val idGenerator: HomeSidePanelIdGenerator,
 ) {
@@ -200,7 +200,7 @@ internal class HomeSidePanelEditSession(
     }
 }
 
-internal fun isWholeCardDeleteVisible(card: HomeSidePanelCardConfig): Boolean = when (card) {
+fun isWholeCardDeleteVisible(card: HomeSidePanelCardConfig): Boolean = when (card) {
     is HorizontalActionsCardConfig -> card.actions.isEmpty()
     is VerticalActionsCardConfig -> card.actions.isEmpty()
     else -> false

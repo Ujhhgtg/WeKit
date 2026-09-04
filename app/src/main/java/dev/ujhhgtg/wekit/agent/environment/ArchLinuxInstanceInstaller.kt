@@ -153,9 +153,9 @@ object ArchLinuxInstanceInstaller {
     private const val INSTALL_HEADROOM_BYTES = 512L * 1024 * 1024
     private const val HEALTH_TIMEOUT_MILLIS = 30_000L
     private const val MAX_HEALTH_OUTPUT_BYTES = 64 * 1024
-    internal const val PUBLISHED_MARKER = ".wekit-arch-published"
+    const val PUBLISHED_MARKER = ".wekit-arch-published"
 
-    internal fun disablePacmanSandbox(config: String): String {
+    fun disablePacmanSandbox(config: String): String {
         if (Regex("(?m)^[ \\t]*DisableSandbox[ \\t]*$").containsMatchIn(config)) return config
         val options = Regex("(?m)^\\[options\\][ \\t]*$").find(config)
             ?: throw IllegalArgumentException("pacman.conf has no [options] section")
@@ -164,7 +164,7 @@ object ArchLinuxInstanceInstaller {
         return config.substring(0, insertion) + lineEnding + "DisableSandbox" + config.substring(insertion)
     }
 
-    internal fun ensurePacmanSandboxDisabled(rootfs: java.nio.file.Path) {
+    fun ensurePacmanSandboxDisabled(rootfs: java.nio.file.Path) {
         val config = rootfs.resolve("etc/pacman.conf")
         if (!config.isRegularFile()) return
         val original = config.readText()
@@ -172,7 +172,7 @@ object ArchLinuxInstanceInstaller {
         if (updated != original) config.writeText(updated)
     }
 
-    internal fun withPacmanKeyringInitialization(command: String): String =
+    fun withPacmanKeyringInitialization(command: String): String =
         "if [ ! -f /etc/pacman.d/gnupg/.wekit-initialized ]; then " +
                 "mkdir -p /etc/pacman.d/gnupg && " +
                 "chmod 700 /etc/pacman.d/gnupg && " +

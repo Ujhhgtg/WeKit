@@ -28,7 +28,7 @@ import kotlinx.coroutines.launch
 /** 长按拖拽手柄调整列表顺序（ChatToolbar 设置同款实现）。 */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun <T> ReorderableList(
+fun <T> ReorderableList(
     items: List<T>,
     itemKey: (T) -> Any,
     onMove: (from: Int, to: Int) -> Unit,

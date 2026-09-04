@@ -52,7 +52,7 @@ import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
  * single [dev.ujhhgtg.wekit.ui.utils.showComposeDialog] window, so text values swap the dialog
  * content instead of opening a second window.
  */
-internal class PaymentTextEditMode(
+class PaymentTextEditMode(
     val title: String,
     val initial: String,
     val keyboardType: KeyboardType = KeyboardType.Text,
@@ -63,7 +63,7 @@ internal class PaymentTextEditMode(
 )
 
 @Composable
-internal fun PaymentTextEditDialog(
+fun PaymentTextEditDialog(
     mode: PaymentTextEditMode,
     onClose: () -> Unit,
 ) {
@@ -99,7 +99,7 @@ internal fun PaymentTextEditDialog(
 
 /** Navigation entry inside a payment settings dialog, e.g. "Global settings" with a chevron. */
 @Composable
-internal fun PaymentNavigationRow(
+fun PaymentNavigationRow(
     title: String,
     description: String,
     onClick: () -> Unit,
@@ -125,7 +125,7 @@ internal fun PaymentNavigationRow(
  * parent summary, activates on row tap, and exposes a reset action once activated.
  */
 @Composable
-internal fun PaymentRuleRow(
+fun PaymentRuleRow(
     title: String,
     summary: String,
     checked: Boolean,
@@ -183,7 +183,7 @@ internal fun PaymentRuleRow(
 
 /** Switch-less variant of [PaymentRuleRow] for rules whose value is a choice, not a toggle. */
 @Composable
-internal fun PaymentModeRuleRow(
+fun PaymentModeRuleRow(
     title: String,
     summary: String,
     overridden: Boolean?,
@@ -212,7 +212,7 @@ internal fun PaymentModeRuleRow(
 
 /** Row showing a stored value that is edited through an in-dialog [PaymentTextEditMode]. */
 @Composable
-internal fun PaymentValueRow(
+fun PaymentValueRow(
     title: String,
     value: String,
     onClick: () -> Unit,
@@ -231,12 +231,12 @@ internal fun PaymentValueRow(
 }
 
 @Composable
-internal fun PaymentErrorRow(message: String) {
+fun PaymentErrorRow(message: String) {
     BaseWidget(iconPlaceholder = false, title = message, isError = true)
 }
 
 /** Time-range fields shown while the owning rule is enabled. */
-internal fun SegmentedColumnScope.timeRangeItems(
+fun SegmentedColumnScope.timeRangeItems(
     rule: AutomationTimeRangeRule,
     editable: Boolean,
     visible: Boolean,
@@ -270,7 +270,7 @@ internal fun SegmentedColumnScope.timeRangeItems(
 }
 
 /** Keyword rule controls: match mode, ignore-case, keyword list / regex. */
-internal fun SegmentedColumnScope.keywordItems(
+fun SegmentedColumnScope.keywordItems(
     keyPrefix: String,
     rule: AutomationKeywordRule,
     editable: Boolean,
@@ -421,7 +421,7 @@ internal fun SegmentedColumnScope.keywordItems(
 }
 
 /** Delay value rows shown while the delay rule is enabled. */
-internal fun SegmentedColumnScope.delayItems(
+fun SegmentedColumnScope.delayItems(
     baseMs: String,
     randomRangeMs: String,
     editable: Boolean,

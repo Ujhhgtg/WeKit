@@ -111,13 +111,13 @@ abstract class WeAgentDatabase : RoomDatabase() {
             }
         }
 
-        internal val MIGRATION_12_13 = object : Migration(12, 13) {
+        val MIGRATION_12_13 = object : Migration(12, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 migration12To13Sql.forEach(db::execSQL)
             }
         }
 
-        internal val migration12To13Sql = listOf(
+        val migration12To13Sql = listOf(
             "CREATE TABLE IF NOT EXISTS `linux_environments` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `type` TEXT NOT NULL, `workingDirectory` TEXT NOT NULL, `environmentVariablesJson` TEXT NOT NULL, `rootfsPath` TEXT, `rootfsContentVersion` TEXT, `createdAt` INTEGER, `sshHost` TEXT, `sshPort` INTEGER, `sshUsername` TEXT, `sshAuthenticationType` TEXT, `sshCredentialCiphertext` BLOB, `sshCredentialIv` BLOB, `sshCredentialReference` TEXT, `sshHostKeyAlgorithm` TEXT, `sshHostKeyFingerprint` TEXT, `bridgePath` TEXT, PRIMARY KEY(`id`))",
             "CREATE TABLE `sessions_new` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `systemPromptId` TEXT, `linuxEnvironmentId` TEXT, `lastEffectiveLinuxEnvironmentId` TEXT, `modelId` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `favorite` INTEGER NOT NULL, `promptTokens` INTEGER, `completionTokens` INTEGER, `totalTokens` INTEGER, `contextWindow` INTEGER, PRIMARY KEY(`id`))",
             "INSERT INTO `sessions_new` (`id`, `title`, `systemPromptId`, `linuxEnvironmentId`, `lastEffectiveLinuxEnvironmentId`, `modelId`, `createdAt`, `updatedAt`, `favorite`, `promptTokens`, `completionTokens`, `totalTokens`, `contextWindow`) SELECT `id`, `title`, `systemPromptId`, NULL, NULL, `modelId`, `createdAt`, `updatedAt`, `favorite`, `promptTokens`, `completionTokens`, `totalTokens`, `contextWindow` FROM `sessions`",
@@ -128,19 +128,19 @@ abstract class WeAgentDatabase : RoomDatabase() {
             "DELETE FROM `tool_permissions` WHERE `providerId` = 'builtin-fs' AND `toolName` IN ('read_file', 'list_dir', 'search_files', 'write_file', 'append_file', 'delete_file', 'move_file')",
         )
 
-        internal val MIGRATION_13_14 = object : Migration(13, 14) {
+        val MIGRATION_13_14 = object : Migration(13, 14) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 migration13To14Sql.forEach(db::execSQL)
             }
         }
 
-        internal val migration13To14Sql = listOf(
+        val migration13To14Sql = listOf(
             "CREATE TABLE IF NOT EXISTS `bridge_tool_audits` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `environmentId` TEXT NOT NULL, `parentToolCallId` TEXT, `providerId` TEXT NOT NULL, `toolName` TEXT NOT NULL, `argumentsJson` TEXT NOT NULL, `approvalStatus` TEXT, `executionOutcome` TEXT NOT NULL, `result` TEXT NOT NULL, `executedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
             "CREATE INDEX IF NOT EXISTS `index_bridge_tool_audits_sessionId` ON `bridge_tool_audits` (`sessionId`)",
             "CREATE INDEX IF NOT EXISTS `index_bridge_tool_audits_environmentId` ON `bridge_tool_audits` (`environmentId`)",
         )
 
-        internal val MIGRATION_14_15 = object : Migration(14, 15) {
+        val MIGRATION_14_15 = object : Migration(14, 15) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 migration14To15Sql.forEach(db::execSQL)
             }
@@ -149,7 +149,7 @@ abstract class WeAgentDatabase : RoomDatabase() {
         // 14 → 15: per-tool permission rows are replaced by a session-level permission level
         // (sessions.permissionLevel). The tool_permissions table is dropped outright — the old
         // per-tool modes have no equivalent under the level model.
-        internal val migration14To15Sql = listOf(
+        val migration14To15Sql = listOf(
             "ALTER TABLE `sessions` ADD COLUMN `permissionLevel` TEXT",
             "DROP TABLE `tool_permissions`",
         )

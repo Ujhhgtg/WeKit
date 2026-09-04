@@ -379,9 +379,9 @@ class TerminalManager(
         fun info() = TerminalInfo(id, environment.id, state, cols, rows, ring.end, ring.end)
     }
 
-    internal data class RingRead(val bytes: ByteArray, val cursor: Long, val end: Long, val expired: Boolean, val oldest: Long)
+    data class RingRead(val bytes: ByteArray, val cursor: Long, val end: Long, val expired: Boolean, val oldest: Long)
 
-    internal class ByteRing(private val capacity: Int = MAX_SESSION_OUTPUT_BYTES) {
+    class ByteRing(private val capacity: Int = MAX_SESSION_OUTPUT_BYTES) {
         private var data = ByteArray(0)
         var base = 0L
             private set

@@ -53,7 +53,7 @@ import dev.ujhhgtg.wekit.R
 import kotlin.math.roundToInt
 
 @Composable
-internal fun HomeSidePanelDragHost(
+fun HomeSidePanelDragHost(
     dragState: HomeSidePanelDragState,
     listState: LazyListState,
     state: HomeSidePanelUiState,
@@ -171,7 +171,7 @@ internal fun HomeSidePanelDragHost(
     }
 }
 
-internal fun Modifier.homeSidePanelDragViewport(
+fun Modifier.homeSidePanelDragViewport(
     dragState: HomeSidePanelDragState,
 ): Modifier = composed {
     DisposableEffect(dragState) {
@@ -182,7 +182,7 @@ internal fun Modifier.homeSidePanelDragViewport(
     }
 }
 
-internal fun Modifier.homeSidePanelCardDragTarget(
+fun Modifier.homeSidePanelCardDragTarget(
     dragState: HomeSidePanelDragState,
     cardId: String,
     index: Int,
@@ -208,7 +208,7 @@ internal fun Modifier.homeSidePanelCardDragTarget(
     }
 }
 
-internal fun Modifier.homeSidePanelActionDragTarget(
+fun Modifier.homeSidePanelActionDragTarget(
     dragState: HomeSidePanelDragState,
     cardId: String,
     actionId: String,
@@ -228,7 +228,7 @@ internal fun Modifier.homeSidePanelActionDragTarget(
     }
 }
 
-internal fun Modifier.homeSidePanelActionTerminalDragTarget(
+fun Modifier.homeSidePanelActionTerminalDragTarget(
     dragState: HomeSidePanelDragState,
     cardId: String,
     insertionIndex: Int,
@@ -245,7 +245,7 @@ internal fun Modifier.homeSidePanelActionTerminalDragTarget(
     }
 }
 
-internal fun Modifier.homeSidePanelDragSource(
+fun Modifier.homeSidePanelDragSource(
     dragState: HomeSidePanelDragState,
     payload: HomeSidePanelDragPayload,
     @StringRes descriptionRes: Int,
@@ -291,7 +291,7 @@ internal fun Modifier.homeSidePanelDragSource(
 }
 
 @Composable
-internal fun HomeSidePanelCardInsertionGap(
+fun HomeSidePanelCardInsertionGap(
     snapshot: HomeSidePanelDragSnapshot,
 ) {
     val density = LocalDensity.current
@@ -300,7 +300,7 @@ internal fun HomeSidePanelCardInsertionGap(
 }
 
 @Composable
-internal fun HomeSidePanelActionInsertionGap(
+fun HomeSidePanelActionInsertionGap(
     snapshot: HomeSidePanelDragSnapshot,
     axis: HomeSidePanelDragAxis,
 ) {
@@ -527,7 +527,7 @@ private fun Modifier.homeSidePanelRootPointerObserver(
     }
 }
 
-internal fun LayoutCoordinates.homeSidePanelUnclippedBoundsInRoot() =
+fun LayoutCoordinates.homeSidePanelUnclippedBoundsInRoot() =
     findRootCoordinates().localBoundingBoxOf(this, clipBounds = false)
 
 private fun androidx.compose.ui.geometry.Rect.toRootDragBounds(): RootDragBounds =

@@ -47,12 +47,12 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
 
-internal data class RootTelegramInstance(
+data class RootTelegramInstance(
     val packageName: String,
     val databasePath: String? = null,
 )
 
-internal object RootTelegramStickerSetRepository {
+object RootTelegramStickerSetRepository {
     private const val TAG = "TelegramDatabaseRoot"
 
     private val knownPackages = setOf(
@@ -248,7 +248,7 @@ internal object RootTelegramStickerSetRepository {
 }
 
 @Composable
-internal fun RootTelegramStickerSetPickerContent(
+fun RootTelegramStickerSetPickerContent(
     discoverInstances: () -> Result<List<RootTelegramInstance>>,
     readInstalledSets: (RootTelegramInstance) -> Result<List<TelegramInstalledStickerSet>>,
     onCancel: () -> Unit,

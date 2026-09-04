@@ -48,7 +48,7 @@ import java.math.RoundingMode
 import kotlin.io.path.div
 import kotlin.random.Random
 
-internal object TransferSettings {
+object TransferSettings {
     private const val TAG = "TransferSettings"
     private const val CONFIG_VERSION = 1
     private const val MAX_DELAY_DIGITS = 7

@@ -51,7 +51,7 @@ import kotlin.coroutines.resume
  * [authMutex] instead of the `ServiceAuthCoordinator` wire-state machine, and no Binder/Messenger
  * transport — status listeners are invoked in-process.
  */
-internal object ReadReceiptsTunnelRuntime {
+object ReadReceiptsTunnelRuntime {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val nativeLease = TunnelNativeLease()
     private val handoffGate = TunnelHandoffGate()

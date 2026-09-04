@@ -110,7 +110,7 @@ object DeleteFakeGroups : ClickableFeature() {
      * once after the whole batch. Callers that generated exact IDs can reuse this without scanning
      * every fake group currently present in the database.
      */
-    internal fun deleteFakeGroups(
+    fun deleteFakeGroups(
         fakeGroupIds: Collection<String>,
         displayNames: Map<String, String> = emptyMap(),
     ) {

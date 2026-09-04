@@ -38,7 +38,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
-class ProotBackend internal constructor(
+class ProotBackend constructor(
     override val snapshot: EnvironmentSnapshot,
     private val rootfs: Path = requireNotNull(snapshot.rootfsPath).asPath,
     private val storageBinds: List<ProotCommand.Bind> = emptyList(),
@@ -287,5 +287,5 @@ object ProotCommand {
     }
 }
 
-internal fun processWithPidFile(pidFile: Path, argv: List<String>): List<String> =
+fun processWithPidFile(pidFile: Path, argv: List<String>): List<String> =
     listOf("/system/bin/sh", "-c", "echo \$\$ > \"\$1\"; shift; exec \"\$@\"", "wekit-proot", pidFile.toString()) + argv

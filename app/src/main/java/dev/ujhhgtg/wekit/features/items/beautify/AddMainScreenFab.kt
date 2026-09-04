@@ -165,7 +165,7 @@ object AddMainScreenFab : ClickableFeature() {
     private var offsetBeforeEdit = 0f to 0f
     private val hostViews = WeakHashMap<Activity, WeakReference<ComposeView>>()
 
-    internal fun hostViewFor(activity: Activity): ComposeView? = hostViews[activity]?.get()
+    fun hostViewFor(activity: Activity): ComposeView? = hostViews[activity]?.get()
 
     private class FabMenuEntry(
         val name: String,

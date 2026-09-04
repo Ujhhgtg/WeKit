@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.features.core
 
-internal fun validateFeatures(features: List<BaseFeature>): List<BaseFeature> {
+fun validateFeatures(features: List<BaseFeature>): List<BaseFeature> {
     features.forEach { feature ->
         require(feature.technicalId.isNotEmpty()) {
             "Feature ${feature.javaClass.name} has an empty technical ID"

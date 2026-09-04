@@ -26,7 +26,7 @@ import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-internal enum class NukePopupMotionFamily {
+enum class NukePopupMotionFamily {
     Enter,
     Exit,
 }
@@ -36,13 +36,13 @@ enum class NukePopupAnimationMode {
     ExitAlignedToEnter,
     EnterAlignedToExit;
 
-    internal val enterFamily: NukePopupMotionFamily
+    val enterFamily: NukePopupMotionFamily
         get() = when (this) {
             Vanilla, ExitAlignedToEnter -> NukePopupMotionFamily.Enter
             EnterAlignedToExit -> NukePopupMotionFamily.Exit
         }
 
-    internal val exitFamily: NukePopupMotionFamily
+    val exitFamily: NukePopupMotionFamily
         get() = when (this) {
             Vanilla, EnterAlignedToExit -> NukePopupMotionFamily.Exit
             ExitAlignedToEnter -> NukePopupMotionFamily.Enter
@@ -97,7 +97,7 @@ object NukePopupMotionSpecs {
     val predictiveReset: FiniteAnimationSpec<Float>
         get() = spring(dampingRatio = 0.78f, stiffness = 500f)
 
-    internal fun enter(
+    fun enter(
         mode: NukePopupAnimationMode,
         transformOrigin: TransformOrigin,
     ): EnterTransition = when (mode.enterFamily) {
@@ -110,7 +110,7 @@ object NukePopupMotionSpecs {
             )
     }
 
-    internal fun exit(
+    fun exit(
         mode: NukePopupAnimationMode,
         transformOrigin: TransformOrigin,
     ): ExitTransition = when (mode.exitFamily) {
@@ -125,7 +125,7 @@ object NukePopupMotionSpecs {
 }
 
 @Composable
-internal fun AnimatedVisibilityScope.nukePopupPanelMotionValues(
+fun AnimatedVisibilityScope.nukePopupPanelMotionValues(
     mode: NukePopupAnimationMode,
 ): NukePopupPanelMotionValues {
     val scaleX by transition.animateFloat(

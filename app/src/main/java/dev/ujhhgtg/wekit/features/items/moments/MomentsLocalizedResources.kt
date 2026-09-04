@@ -8,13 +8,13 @@ import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.utils.HostInfo
 
-internal fun localizedMomentsString(@StringRes id: Int, vararg formatArgs: Any): String =
+fun localizedMomentsString(@StringRes id: Int, vararg formatArgs: Any): String =
     HostInfo.application.localizedMomentsString(id, *formatArgs)
 
-internal fun Context.localizedMomentsString(@StringRes id: Int, vararg formatArgs: Any): String =
+fun Context.localizedMomentsString(@StringRes id: Int, vararg formatArgs: Any): String =
     momentsLocalizedContext().getString(id, *formatArgs)
 
-internal fun localizedMomentsQuantity(
+fun localizedMomentsQuantity(
     @PluralsRes id: Int,
     quantity: Int,
     vararg formatArgs: Any,

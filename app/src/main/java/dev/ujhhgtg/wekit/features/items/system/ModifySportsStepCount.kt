@@ -240,7 +240,7 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
     }
 }
 
-internal fun migrateSportsStepExpression(mode: String, value: Long): String = when {
+fun migrateSportsStepExpression(mode: String, value: Long): String = when {
     value < 0 -> "value"
     mode == "MULTIPLIER" -> "value * $value"
     else -> value.toString()

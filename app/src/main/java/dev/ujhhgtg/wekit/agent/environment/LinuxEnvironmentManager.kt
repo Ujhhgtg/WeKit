@@ -505,7 +505,7 @@ class LinuxEnvironmentManager(
             require(path.split('/').none { it == ".." }) { "local environment working directory cannot traverse upward" }
         }
 
-        internal fun parseEnvironmentVariables(json: String): Map<String, String> =
+        fun parseEnvironmentVariables(json: String): Map<String, String> =
             kotlinx.serialization.json.Json.parseToJsonElement(json).jsonObject.mapValues { (key, value) ->
                 require(key.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) { "invalid environment variable name: $key" }
                 require(value.jsonPrimitive.isString) { "environment variable $key must be a string" }
@@ -530,12 +530,12 @@ class LinuxEnvironmentManager(
     }
 }
 
-internal sealed interface LeaseReleaseResult {
+sealed interface LeaseReleaseResult {
     data object Committed : LeaseReleaseResult
     data class CommittedWithCloseFailure(val error: Throwable) : LeaseReleaseResult
 }
 
-class EnvironmentLease internal constructor(private val releaseBlock: suspend () -> LeaseReleaseResult) {
+class EnvironmentLease constructor(private val releaseBlock: suspend () -> LeaseReleaseResult) {
     private enum class State { ACTIVE, RELEASING, RELEASED }
     private val state = java.util.concurrent.atomic.AtomicReference(State.ACTIVE)
 

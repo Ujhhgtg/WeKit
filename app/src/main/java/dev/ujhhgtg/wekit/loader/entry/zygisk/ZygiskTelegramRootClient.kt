@@ -12,7 +12,7 @@ import kotlin.io.path.isRegularFile
  * The companion only exposes Telegram instance discovery and cache4.db
  * snapshots; parsing remains in the injected app process.
  */
-internal object ZygiskTelegramRootClient {
+object ZygiskTelegramRootClient {
 
     fun isAvailable(): Boolean = ZygiskEntry.hasTelegramRootCompanion()
 

@@ -36,10 +36,10 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
 @Serializable
-internal data class AutomationToggleRule(val enabled: Boolean = false)
+data class AutomationToggleRule(val enabled: Boolean = false)
 
 @Serializable
-internal data class AutomationTimeRangeRule(
+data class AutomationTimeRangeRule(
     val enabled: Boolean = false,
     val startMinute: Int = 0,
     val endMinute: Int = 0
@@ -55,14 +55,14 @@ internal data class AutomationTimeRangeRule(
 }
 
 @Serializable
-internal enum class AutomationKeywordMode {
+enum class AutomationKeywordMode {
     STRING_LIST,
     EXACT,
     REGEX
 }
 
 @Serializable
-internal data class AutomationKeywordRule(
+data class AutomationKeywordRule(
     val enabled: Boolean = false,
     val mode: AutomationKeywordMode = AutomationKeywordMode.STRING_LIST,
     val strings: List<String> = emptyList(),
@@ -105,7 +105,7 @@ internal data class AutomationKeywordRule(
     }
 }
 
-internal class AtomicJsonConfigStore<T>(
+class AtomicJsonConfigStore<T>(
     private val file: Path,
     private val serializer: KSerializer<T>,
     private val tag: String,
@@ -152,7 +152,7 @@ internal class AtomicJsonConfigStore<T>(
 }
 
 @Composable
-internal fun AutomationContactSettingsSelector(
+fun AutomationContactSettingsSelector(
     title: String,
     contacts: List<IWeContact>,
     selectionKey: Any,
@@ -198,10 +198,10 @@ internal fun AutomationContactSettingsSelector(
     )
 }
 
-internal fun formatAutomationMinute(value: Int): String = formatMinuteOfDay(value)
+fun formatAutomationMinute(value: Int): String = formatMinuteOfDay(value)
 
 @Composable
-internal fun automationKeywordSummary(rule: AutomationKeywordRule, unrestrictedText: String): String {
+fun automationKeywordSummary(rule: AutomationKeywordRule, unrestrictedText: String): String {
     if (!rule.enabled) return unrestrictedText
     return when (rule.mode) {
         AutomationKeywordMode.STRING_LIST -> pluralStringResource(

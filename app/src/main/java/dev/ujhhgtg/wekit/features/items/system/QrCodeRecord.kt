@@ -268,7 +268,7 @@ object QrCodeRecord : ClickableFeature(), IResolveDex {
         WePrefs.remove(KEY_RECORDS)
     }
 
-    internal val methodQBarString by dexMethod {
+    val methodQBarString by dexMethod {
         matcher {
             usingEqStrings("MicroMsg.QBarStringHandler", "key_offline_scan_show_tips")
         }

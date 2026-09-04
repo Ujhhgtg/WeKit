@@ -35,7 +35,7 @@ import java.nio.file.Path
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
-internal data class HomeSidePanelUiState(
+data class HomeSidePanelUiState(
     val profile: HomeSidePanelProfile,
     val formalLayout: HomeSidePanelLayout,
     val renderedLayout: HomeSidePanelLayout,
@@ -48,7 +48,7 @@ internal data class HomeSidePanelUiState(
     val imageImportingCardIds: Set<String> = emptySet(),
 )
 
-internal class HomeSidePanelState(
+class HomeSidePanelState(
     private val activity: Activity,
     private val profile: HomeSidePanelProfileLoader,
     private val weather: HomeSidePanelWeather,
@@ -999,4 +999,4 @@ internal class HomeSidePanelState(
     }
 }
 
-internal const val HOME_SIDE_PANEL_LOCATION_REQUEST_CODE = 0x574B
+const val HOME_SIDE_PANEL_LOCATION_REQUEST_CODE = 0x574B

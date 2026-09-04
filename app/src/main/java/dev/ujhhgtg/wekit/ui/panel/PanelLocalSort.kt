@@ -10,7 +10,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.panel.LocalSortMode
 
 @Composable
-internal fun panelLocalSortAction(
+fun panelLocalSortAction(
     mode: LocalSortMode,
     enabled: Boolean = true,
     onModeChange: (LocalSortMode) -> Unit,
@@ -25,7 +25,7 @@ internal fun panelLocalSortAction(
 )
 
 @Composable
-internal fun panelReorderActions(
+fun panelReorderActions(
     onCancel: () -> Unit,
     onSave: () -> Unit,
 ) = listOf(
@@ -52,5 +52,5 @@ private val LocalSortMode.labelRes: Int
         LocalSortMode.CUSTOM -> R.string.panel_sort_custom
     }
 
-internal fun <T> List<T>.moveItem(from: Int, to: Int): List<T> =
+fun <T> List<T>.moveItem(from: Int, to: Int): List<T> =
     toMutableList().apply { add(to, removeAt(from)) }

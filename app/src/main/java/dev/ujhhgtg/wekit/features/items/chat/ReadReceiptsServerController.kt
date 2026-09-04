@@ -13,7 +13,7 @@ interface ReadReceiptsServerController {
     fun status(): ReadReceiptsRuntimeState
 }
 
-internal class NativeReadReceiptsServerController : ReadReceiptsServerController {
+class NativeReadReceiptsServerController : ReadReceiptsServerController {
     private val generation = AtomicLong()
     private val lastStatus = AtomicReference(ReadReceiptsStatus(ReadReceiptsRuntimeState.STOPPED))
     private val statusAuthorityLock = Any()
@@ -69,7 +69,7 @@ internal class NativeReadReceiptsServerController : ReadReceiptsServerController
 
     override fun status(): ReadReceiptsRuntimeState = snapshot().state
 
-    internal fun snapshot(): ReadReceiptsStatus {
+    fun snapshot(): ReadReceiptsStatus {
         val currentGeneration = synchronized(statusAuthorityLock) {
             val current = generation.get()
             if (inFlightGeneration == current) return lastStatus.get()
@@ -131,7 +131,7 @@ internal class NativeReadReceiptsServerController : ReadReceiptsServerController
         }
     }
 
-    internal companion object {
+    companion object {
         private const val STATUS_READ_ERROR = "could not read built-in server status"
 
         fun databaseFile(): File = File(

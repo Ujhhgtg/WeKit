@@ -41,7 +41,7 @@ import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.wekit.R
 
 @Composable
-internal fun HomeSidePanelCardFrame(
+fun HomeSidePanelCardFrame(
     cardId: String,
     modifier: Modifier = Modifier,
     cardModifier: Modifier = Modifier,
@@ -86,7 +86,7 @@ internal fun HomeSidePanelCardFrame(
 }
 
 @Composable
-internal fun HomeSidePanelCardBadge(
+fun HomeSidePanelCardBadge(
     editMode: Boolean,
     onEdit: (() -> Unit)?,
     onDelete: (() -> Unit)?,
@@ -137,7 +137,7 @@ internal fun HomeSidePanelCardBadge(
 }
 
 @Composable
-internal fun HomeSidePanelBadgeButton(
+fun HomeSidePanelBadgeButton(
     onClick: (() -> Unit)?,
     contentDescription: String,
     icon: ImageVector,

@@ -27,7 +27,7 @@ private const val TAG = "HideContacts.Sql"
  * Bind arguments are always passed separately from the SQL text, so injecting literal
  * `NOT IN ('...')` predicates is safe everywhere here.
  */
-internal fun HideContacts.installSqlHooks() {
+fun HideContacts.installSqlHooks() {
     installWrapperHook()
     installFtsHook()
 }
@@ -233,7 +233,7 @@ private fun looksLikeContactSelectorQuery(lower: String): Boolean {
  * Callers must not use this on a query whose WHERE ends in a bare OR — see the 通讯录 contact-count
  * query, which ends in `or username = 'weixin'`.
  */
-internal fun injectCondition(sql: String, condition: String): String {
+fun injectCondition(sql: String, condition: String): String {
     val insertionPoint = listOf(" order by ", " group by ", " limit ")
         .map { sql.indexOf(it, ignoreCase = true) }
         .filter { it >= 0 }
@@ -245,7 +245,7 @@ internal fun injectCondition(sql: String, condition: String): String {
 }
 
 /** Renders a hidden-contact set as a single-quoted SQL value list with `''` escaping. */
-internal fun Set<String>.toSqlList(): String =
+fun Set<String>.toSqlList(): String =
     joinToString(",") { "'${it.replace("'", "''")}'" }
 
 // ── global search (FTS) ──────────────────────────────────────────────────────────────────────
@@ -388,7 +388,7 @@ private const val FEED_MARKER_RAW = "(sourceType & 2 != 0 )"
 private const val FEED_MARKER_ENHANCED = "(1=1)"
 
 /** Called from `HideContacts.onQuery`; returns null to leave the query untouched. */
-internal fun rewriteMomentsFeedSql(sql: String): String? {
+fun rewriteMomentsFeedSql(sql: String): String? {
     if (HideContacts.isTemporarilyShown) return null
 
     val hidden = HideContacts.hiddenContacts

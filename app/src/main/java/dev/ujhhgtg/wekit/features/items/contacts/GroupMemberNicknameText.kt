@@ -4,13 +4,13 @@ import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.ReplacementSpan
 
-internal data class GroupMemberNicknameRange(
+data class GroupMemberNicknameRange(
     val start: Int,
     val endExclusive: Int,
 )
 
 /** Locates the nickname while excluding text injected by the role and real-name features. */
-internal fun CharSequence.groupMemberNicknameRange(): GroupMemberNicknameRange {
+fun CharSequence.groupMemberNicknameRange(): GroupMemberNicknameRange {
     var start = 0
     var endExclusive = length
 

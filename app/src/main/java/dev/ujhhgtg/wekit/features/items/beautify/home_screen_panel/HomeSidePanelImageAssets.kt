@@ -20,7 +20,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
-internal sealed interface HomeSidePanelImageImportResult {
+sealed interface HomeSidePanelImageImportResult {
     data class Success(
         val assetId: String,
         val file: Path,
@@ -34,10 +34,10 @@ internal sealed interface HomeSidePanelImageImportResult {
     data class Failure(val error: Throwable) : HomeSidePanelImageImportResult
 }
 
-internal class HomeSidePanelImageAssetStore(
+class HomeSidePanelImageAssetStore(
     private val root: Path = KnownPaths.moduleAssets / "home_side_panel" / "images",
 ) {
-    internal data class PreparedCommit(
+    data class PreparedCommit(
         val sessionId: String,
         val promotedAssetIds: Set<String>,
         val orphanedAssetIds: Set<String>,

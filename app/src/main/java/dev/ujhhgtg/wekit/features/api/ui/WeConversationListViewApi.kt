@@ -62,7 +62,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     private var latestAdapter: WeakReference<BaseAdapter>? = null
     private var latestListView: WeakReference<ListView>? = null
 
-    internal val methodLegacyGetView by dexMethod(allowFailure = true) {
+    val methodLegacyGetView by dexMethod(allowFailure = true) {
         searchPackages("com.tencent.mm.ui.conversation")
         matcher {
             name = "getView"
@@ -74,7 +74,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             )
         }
     }
-    internal val methodMvvmGetView by dexMethod {
+    val methodMvvmGetView by dexMethod {
         matcher {
             declaredClass {
                 usingEqStrings(

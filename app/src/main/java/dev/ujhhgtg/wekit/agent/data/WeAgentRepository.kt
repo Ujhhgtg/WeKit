@@ -693,7 +693,7 @@ object WeAgentRepository {
     }
 
     /** Package sync-only stale-row deletion that retains the normal model-deletion cascade. */
-    internal suspend fun deleteLocalLlamaModelForSync(id: String) {
+    suspend fun deleteLocalLlamaModelForSync(id: String) {
         val model = db.modelDao().getById(id) ?: return
         check(model.providerId == LocalLlama.PROVIDER_ID) {
             "sync deletion is restricted to local llama model rows"
@@ -877,7 +877,7 @@ object WeAgentRepository {
 
     suspend fun getAllModelsOnce(): List<ModelEntity> = db.modelDao().getAllOnce()
 
-    internal fun resolveEffectiveLinuxEnvironmentId(
+    fun resolveEffectiveLinuxEnvironmentId(
         sessionEnvironmentId: String?,
         defaultEnvironmentId: String?,
         storedEnvironmentIds: Set<String>,
@@ -889,7 +889,7 @@ object WeAgentRepository {
         else -> NATIVE_ENVIRONMENT_ID
     }
 
-    internal fun planLinuxEnvironmentDeletion(
+    fun planLinuxEnvironmentDeletion(
         deletedEnvironment: EnvironmentSnapshot,
         nativeEnvironment: EnvironmentSnapshot,
         defaultEnvironmentId: String?,
@@ -918,7 +918,7 @@ object WeAgentRepository {
         return LinuxEnvironmentDeletionPlan(replacementDefaultId, transitions)
     }
 
-    internal fun validateLinuxEnvironmentUpdate(
+    fun validateLinuxEnvironmentUpdate(
         existing: LinuxEnvironmentEntity?,
         incoming: LinuxEnvironmentEntity,
     ) {

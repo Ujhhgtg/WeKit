@@ -8,7 +8,7 @@ import dev.ujhhgtg.wekit.loader.abc.IClassLoaderHelper
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
 
 @Keep
-internal class ZygiskLoaderService(
+class ZygiskLoaderService(
     private val modulePath: String,
     private val versionName: String,
     private val versionCode: Int,

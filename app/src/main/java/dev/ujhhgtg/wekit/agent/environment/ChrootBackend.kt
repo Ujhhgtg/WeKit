@@ -116,7 +116,7 @@ class ChrootConfiguration(
         """.trimIndent()
     }
 
-    internal fun hostLaunchArgv(run: ChrootRun, suExecutable: Path, argv: List<String>, environment: Map<String, String>): List<String> {
+    fun hostLaunchArgv(run: ChrootRun, suExecutable: Path, argv: List<String>, environment: Map<String, String>): List<String> {
         require(suExecutable.isAbsolute) { "root helper executable must be absolute" }
         return listOf(
             suExecutable.toString(), "-c",
@@ -156,12 +156,12 @@ class ChrootConfiguration(
             "/storage/emulated".asPath, "/storage/self/primary".asPath, "/sdcard".asPath,
         )
 
-        internal fun shell(value: String): String = "'${value.replace("'", "'\\''")}'"
+        fun shell(value: String): String = "'${value.replace("'", "'\\''")}'"
         private val RUN_NONCE = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
     }
 }
 
-class ChrootRun internal constructor(val nonce: String, val directory: Path) {
+class ChrootRun constructor(val nonce: String, val directory: Path) {
     val cmdlineMarker: String = "wekit-chroot-run-$nonce"
     val pidFile: Path = directory.resolve("pid")
     val startTimeFile: Path = directory.resolve("starttime")
@@ -170,7 +170,7 @@ class ChrootRun internal constructor(val nonce: String, val directory: Path) {
     val stageFile: Path = directory.resolve("stage")
 }
 
-internal object ArchLinuxInstanceLayout {
+object ArchLinuxInstanceLayout {
     fun canonicalInstancesRoot(): Path =
         HostInfo.application.filesDir.path.asPath.resolve("wekit-agent/environment/instances")
 
@@ -203,7 +203,7 @@ internal object ArchLinuxInstanceLayout {
     }
 }
 
-internal object ChrootMountRegistry {
+object ChrootMountRegistry {
     private val active = HashMap<String, MutableSet<String>>()
     private val deleting = HashSet<String>()
     @Synchronized fun begin(rootfs: Path, token: String) {
@@ -224,8 +224,8 @@ internal object ChrootMountRegistry {
         check(deleting.add(key)) { "chroot environment deletion is already in progress" }
     }
     @Synchronized fun endDeletion(rootfs: Path) { deleting.remove(rootfs.toString()) }
-    @Synchronized internal fun hasActiveRuns(rootfs: Path): Boolean = rootfs.toString() in active
-    @Synchronized internal fun isBusy(rootfs: Path): Boolean =
+    @Synchronized fun hasActiveRuns(rootfs: Path): Boolean = rootfs.toString() in active
+    @Synchronized fun isBusy(rootfs: Path): Boolean =
         hasActiveRuns(rootfs) || hasPersistedRuns(rootfs)
 
     private fun hasPersistedRuns(rootfs: Path): Boolean = rootfs.parent.resolve("chroot-runs").let { runs ->
@@ -233,7 +233,7 @@ internal object ChrootMountRegistry {
     }
 }
 
-class ChrootBackend internal constructor(
+class ChrootBackend constructor(
     override val snapshot: EnvironmentSnapshot,
     private val configuration: ChrootConfiguration = ChrootConfiguration(
         ArchLinuxInstanceLayout.validatePublishedRootfs(requireNotNull(snapshot.rootfsPath).asPath),

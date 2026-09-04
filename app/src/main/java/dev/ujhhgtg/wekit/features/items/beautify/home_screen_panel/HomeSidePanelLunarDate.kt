@@ -5,7 +5,7 @@ import android.icu.util.ChineseCalendar
 import java.time.LocalDateTime
 import java.time.ZoneId
 
-internal data class HomeSidePanelLunarDate(
+data class HomeSidePanelLunarDate(
     val month: Int,
     val day: Int,
     val isLeapMonth: Boolean,
@@ -16,7 +16,7 @@ internal data class HomeSidePanelLunarDate(
     }
 }
 
-internal data class HomeSidePanelLunarDateText(
+data class HomeSidePanelLunarDateText(
     val prefix: String,
     val leapPrefix: String,
     val separator: String,
@@ -29,7 +29,7 @@ internal data class HomeSidePanelLunarDateText(
     }
 }
 
-internal fun formatHomeSidePanelLunarDate(
+fun formatHomeSidePanelLunarDate(
     date: HomeSidePanelLunarDate,
     text: HomeSidePanelLunarDateText,
 ): String = buildString {
@@ -40,7 +40,7 @@ internal fun formatHomeSidePanelLunarDate(
     append(text.dayNames[date.day - 1])
 }
 
-internal fun homeSidePanelLunarDate(dateTime: LocalDateTime): HomeSidePanelLunarDate {
+fun homeSidePanelLunarDate(dateTime: LocalDateTime): HomeSidePanelLunarDate {
     val calendar = ChineseCalendar().apply {
         timeInMillis = dateTime
             .atZone(ZoneId.systemDefault())

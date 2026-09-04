@@ -175,6 +175,10 @@ The following instructions are for non-Claude models. If you are Claude, ignore 
 ## Key Conventions
 
 - Package namespace: `dev.ujhhgtg.wekit`
+- `app` is an application module, not a library and cannot be consumed by other projects. Do not
+  use the `internal` visibility modifier in Kotlin production sources under `app/src/main`; use
+  Kotlin's default implicit `public` visibility instead, because `internal` provides no meaningful
+  boundary there.
 - Min SDK 28, target SDK 37, compile SDK 37
 - Target: WeChat `com.tencent.mm`, versions 8.0.65–8.0.77. Current host info in `HostInfo`
 - Process targeting via `TargetProcesses`: override `startup()` to check

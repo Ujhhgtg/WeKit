@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.readText
 import kotlin.io.path.listDirectoryEntries
 
-internal object ProcessTermination {
+object ProcessTermination {
     const val TERM_GRACE_MILLIS = 500L
 
     suspend fun drain(process: OwnedProcessHandle) = process.terminateGroup(TERM_GRACE_MILLIS)
@@ -36,7 +36,7 @@ internal object ProcessTermination {
         }
     }
 
-    internal fun descendants(rootPid: Int, parentOf: Map<Int, Int>): List<Int> {
+    fun descendants(rootPid: Int, parentOf: Map<Int, Int>): List<Int> {
         val children = parentOf.entries.groupBy({ it.value }, { it.key })
         return buildList {
             fun visit(pid: Int) {

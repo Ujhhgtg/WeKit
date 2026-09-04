@@ -306,7 +306,7 @@ class PipVoipActivity : ComponentActivity() {
         private const val REQUEST_TOGGLE_MIC = 2
         private const val REQUEST_TOGGLE_VIDEO = 3
 
-        internal var current: PipVoipActivity? = null
+        var current: PipVoipActivity? = null
     }
 }
 

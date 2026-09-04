@@ -66,11 +66,11 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.TextStatus
 import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
 
-internal fun homeSidePanelProfileDisplayName(profile: HomeSidePanelProfile, fallback: String): String =
+fun homeSidePanelProfileDisplayName(profile: HomeSidePanelProfile, fallback: String): String =
     profile.nickname.ifBlank { fallback }
 
 @Composable
-internal fun HomeSidePanelHome(
+fun HomeSidePanelHome(
     state: HomeSidePanelUiState,
     panelState: HomeSidePanelState,
     dragState: HomeSidePanelDragState,
@@ -547,7 +547,7 @@ private fun HomeSidePanelStatus(
 }
 
 @Composable
-internal fun HomeSidePanelToolbarContent(
+fun HomeSidePanelToolbarContent(
     profile: HomeSidePanelProfile,
     onAvatarClick: () -> Unit,
     onStatusClick: () -> Unit,
@@ -602,7 +602,7 @@ internal fun HomeSidePanelToolbarContent(
 }
 
 @Composable
-internal fun HomeSidePanelProfileAvatar(
+fun HomeSidePanelProfileAvatar(
     profile: HomeSidePanelProfile,
     size: Dp,
     textStyle: TextStyle,

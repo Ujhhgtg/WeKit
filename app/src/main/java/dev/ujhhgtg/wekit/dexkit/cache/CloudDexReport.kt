@@ -3,30 +3,30 @@ package dev.ujhhgtg.wekit.dexkit.cache
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-internal data class CloudDexHost(
+data class CloudDexHost(
     val versionName: String,
     val versionCode: Long,
     val isGooglePlay: Boolean,
 )
 
-internal data class CurrentDexItem(
+data class CurrentDexItem(
     val technicalId: String,
     val methodHash: String,
     val delegateKeys: Set<String>,
 )
 
-internal data class CloudDexCacheEntry(
+data class CloudDexCacheEntry(
     val technicalId: String,
     val methodHash: String,
     val descriptors: Map<String, String>,
 )
 
-internal data class CloudDexSelection(
+data class CloudDexSelection(
     val entries: List<CloudDexCacheEntry>,
     val rejectedCount: Int,
 )
 
-internal object CloudDexReport {
+object CloudDexReport {
     private val json = Json { ignoreUnknownKeys = true }
 
     fun assetName(host: CloudDexHost): String =

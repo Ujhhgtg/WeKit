@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 /** JNI boundary for the loopback-only embedded read-receipts origin. */
-internal object ReadReceiptsNative {
+object ReadReceiptsNative {
     /** Returns null after the server reaches running state, or a bounded error message. */
     external fun startServer(databasePath: String, port: Int, connectorAuthenticator: String): String?
 

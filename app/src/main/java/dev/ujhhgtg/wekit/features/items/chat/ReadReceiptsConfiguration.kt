@@ -25,18 +25,18 @@ data class ReadReceiptsConfiguration(
 )
 
 /** Resolves the persisted tunnel-mode name, falling back to QUICK for unknown values. */
-internal fun ReadReceiptsConfiguration.tunnelMode(): ReadReceiptsTunnelMode =
+fun ReadReceiptsConfiguration.tunnelMode(): ReadReceiptsTunnelMode =
     ReadReceiptsTunnelMode.entries.firstOrNull { it.name == tunnelMode }
         ?: ReadReceiptsTunnelMode.QUICK
 
-internal enum class ReadReceiptsConfigurationSaveAction {
+enum class ReadReceiptsConfigurationSaveAction {
     COMMIT,
     STOP_THEN_COMMIT,
     TRANSACTIONAL_START,
     TRANSACTIONAL_REPLACE,
 }
 
-internal fun readReceiptsConfigurationSaveAction(
+fun readReceiptsConfigurationSaveAction(
     previous: ReadReceiptsConfiguration,
     candidate: ReadReceiptsConfiguration,
     originWasActive: Boolean,
@@ -64,7 +64,7 @@ internal fun readReceiptsConfigurationSaveAction(
     return ReadReceiptsConfigurationSaveAction.COMMIT
 }
 
-internal fun readReceiptsBuiltInRuntimeChanged(
+fun readReceiptsBuiltInRuntimeChanged(
     previous: ReadReceiptsConfiguration,
     candidate: ReadReceiptsConfiguration,
 ): Boolean = builtInRuntimeIdentity(previous) != builtInRuntimeIdentity(candidate)

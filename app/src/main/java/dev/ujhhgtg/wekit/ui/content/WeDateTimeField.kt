@@ -167,7 +167,7 @@ private fun dateTimeFormat() =
     SimpleDateFormat(WeDateTimeMode.DATE_TIME.pattern, Locale.getDefault()).apply { isLenient = false }
 
 /** The current wall-clock time as a minute-of-day, the shape [WeTimeOfDayField] works in. */
-internal fun currentMinuteOfDay(): Int = Calendar.getInstance().let {
+fun currentMinuteOfDay(): Int = Calendar.getInstance().let {
     it.get(Calendar.HOUR_OF_DAY) * 60 + it.get(Calendar.MINUTE)
 }
 

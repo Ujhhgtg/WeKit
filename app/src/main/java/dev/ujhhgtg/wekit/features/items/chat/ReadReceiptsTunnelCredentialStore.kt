@@ -12,7 +12,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /** WeChat-process encrypted store for the retained read-receipts tunnel credential. */
-internal class ReadReceiptsTunnelCredentialStore(baseDir: File) {
+class ReadReceiptsTunnelCredentialStore(baseDir: File) {
     private val file = AtomicFile(File(baseDir, FILE_PATH))
 
     fun exists(): Boolean = file.baseFile.isFile

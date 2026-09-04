@@ -50,7 +50,7 @@ import kotlin.coroutines.resumeWithException
 import kotlin.time.Duration.Companion.seconds
 
 @Serializable
-internal data class WeatherCity(
+data class WeatherCity(
     val countryCode: String,
     val province: String,
     val city: String,
@@ -60,7 +60,7 @@ internal data class WeatherCity(
     val longitude: Double? = null,
 )
 
-internal val DEFAULT_WEATHER_CITY = WeatherCity(
+val DEFAULT_WEATHER_CITY = WeatherCity(
     countryCode = "CN",
     province = "北京",
     city = "北京",
@@ -69,7 +69,7 @@ internal val DEFAULT_WEATHER_CITY = WeatherCity(
 )
 
 @Serializable
-internal data class WeatherSnapshot(
+data class WeatherSnapshot(
     val city: WeatherCity,
     val weatherCode: String,
     val temperature: String,
@@ -82,7 +82,7 @@ internal data class WeatherSnapshot(
     val fetchedAt: Long,
 )
 
-internal sealed interface WeatherUiState {
+sealed interface WeatherUiState {
     data object Loading : WeatherUiState
     data class Ready(
         val snapshot: WeatherSnapshot,
@@ -95,17 +95,17 @@ internal sealed interface WeatherUiState {
     ) : WeatherUiState
 }
 
-internal sealed interface WeatherResult {
+sealed interface WeatherResult {
     data class Success(val snapshot: WeatherSnapshot) : WeatherResult
     data class Error(val message: BeautifyText, val cached: WeatherSnapshot?) : WeatherResult
 }
 
-internal sealed interface WeatherCityMatchResult {
+sealed interface WeatherCityMatchResult {
     data class Success(val city: WeatherCity) : WeatherCityMatchResult
     data class Error(val reason: WeatherCityMatchFailure) : WeatherCityMatchResult
 }
 
-internal enum class WeatherCityMatchFailure(@StringRes val messageRes: Int) {
+enum class WeatherCityMatchFailure(@StringRes val messageRes: Int) {
     UNSUPPORTED_COUNTRY(R.string.home_side_panel_weather_unsupported_country),
     MISSING_REGION(R.string.home_side_panel_weather_missing_region),
     MISSING_CITY(R.string.home_side_panel_weather_missing_city),
@@ -113,14 +113,14 @@ internal enum class WeatherCityMatchFailure(@StringRes val messageRes: Int) {
     READ_ERROR(R.string.home_side_panel_weather_profile_read_error),
 }
 
-internal data class WeatherSettingsUiState(
+data class WeatherSettingsUiState(
     val selectedCity: WeatherCity = DEFAULT_WEATHER_CITY,
     val searchQuery: String = "",
     val searchResults: List<WeatherCity> = emptyList(),
     val actionInProgress: Boolean = false,
 )
 
-internal fun isEligibleWeatherCountry(code: String): Boolean =
+fun isEligibleWeatherCountry(code: String): Boolean =
     code.trim().uppercase() in setOf("CN", "HK", "MO", "TW")
 
 enum class WeatherIconKind {
@@ -151,7 +151,7 @@ enum class WeatherIconKind {
     UNKNOWN,
 }
 
-internal fun weatherIconKind(code: String): WeatherIconKind = when (code.toIntOrNull()) {
+fun weatherIconKind(code: String): WeatherIconKind = when (code.toIntOrNull()) {
     0 -> WeatherIconKind.SUNNY
     1 -> WeatherIconKind.PARTLY_CLOUDY
     2 -> WeatherIconKind.OVERCAST
@@ -223,7 +223,7 @@ private fun parseWeatherPayload(
     )
 }
 
-internal class HomeSidePanelWeather(
+class HomeSidePanelWeather(
     private val cityIndex: HomeSidePanelCityIndex,
     private val client: OkHttpClient,
 ) {
@@ -388,7 +388,7 @@ private val cityQueryTransliterator: Transliterator? by lazy {
 private fun transliterateCityQuery(value: String): String =
     cityQueryTransliterator?.let { synchronized(it) { it.transliterate(value) } } ?: value
 
-internal class HomeSidePanelCityMatcher(
+class HomeSidePanelCityMatcher(
     private val cities: List<WeatherCity>,
 ) {
 
@@ -481,7 +481,7 @@ internal class HomeSidePanelCityMatcher(
         listOf(countryCode, province, city, district.orEmpty()).joinToString("\u0000")
 }
 
-internal class HomeSidePanelCityIndex(context: Context) {
+class HomeSidePanelCityIndex(context: Context) {
 
     private val appContext = context.applicationContext
     private val matcher by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
@@ -570,7 +570,7 @@ internal class HomeSidePanelCityIndex(context: Context) {
     }
 }
 
-internal sealed interface LocationResolution {
+sealed interface LocationResolution {
     data object NeedPermission : LocationResolution
     data object LocationDisabled : LocationResolution
     data object Timeout : LocationResolution
@@ -580,7 +580,7 @@ internal sealed interface LocationResolution {
     data class Error(val message: BeautifyText) : LocationResolution
 }
 
-internal fun locationResolutionMessage(resolution: LocationResolution): BeautifyText = when (resolution) {
+fun locationResolutionMessage(resolution: LocationResolution): BeautifyText = when (resolution) {
     LocationResolution.NeedPermission -> beautifyText(R.string.home_side_panel_location_permission_needed)
     LocationResolution.LocationDisabled -> beautifyText(R.string.home_side_panel_location_disabled)
     LocationResolution.Timeout -> beautifyText(R.string.home_side_panel_location_timeout)
@@ -591,7 +591,7 @@ internal fun locationResolutionMessage(resolution: LocationResolution): Beautify
 }
 
 @Suppress("DEPRECATION")
-internal class HomeSidePanelLocation(
+class HomeSidePanelLocation(
     private val cityIndex: HomeSidePanelCityIndex,
 ) {
 
