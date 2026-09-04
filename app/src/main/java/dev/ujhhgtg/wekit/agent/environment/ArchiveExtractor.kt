@@ -1,12 +1,19 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createSymbolicLinkPointingTo
+import kotlin.io.path.copyTo
+import kotlin.io.path.getPosixFilePermissions
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.isSymbolicLink
+import kotlin.io.path.outputStream
+import kotlin.io.path.setPosixFilePermissions
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.io.EOFException
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
@@ -21,7 +28,7 @@ object ArchiveExtractor {
     )
 
     fun extractTarGz(input: InputStream, destination: Path, limits: Limits = Limits(), checkActive: () -> Unit = {}) {
-        Files.createDirectories(destination)
+        destination.createDirectories()
         GZIPInputStream(input, BUFFER_SIZE).use { extractTar(it, destination, limits, checkActive) }
     }
 
@@ -70,8 +77,8 @@ object ArchiveExtractor {
             ensureSafeParent(root, target.parent)
             when (type) {
                 '\u0000', '0', '7' -> {
-                    Files.createDirectories(target.parent)
-                    Files.newOutputStream(target, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { output ->
+                    target.parent.createDirectories()
+                    target.outputStream(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { output ->
                         copyExact(input, output::write, size, checkActive)
                     }
                     setMode(target, number(header, 100, 8), directory = false)
@@ -79,19 +86,19 @@ object ArchiveExtractor {
                 }
                 '5' -> {
                     require(size == 0L) { "directory entry has data: $name" }
-                    Files.createDirectories(target)
+                    target.createDirectories()
                     directoryModes[target] = number(header, 100, 8)
                 }
                 '2' -> {
                     require(size == 0L) { "symlink entry has data: $name" }
                     validateLink(root, target.parent, linkName)
-                    Files.createDirectories(target.parent)
-                    Files.createSymbolicLink(target, linkName.asPath)
+                    target.parent.createDirectories()
+                    target.createSymbolicLinkPointingTo(linkName.asPath)
                 }
                 '1' -> {
                     require(size == 0L) { "hardlink entry has data: $name" }
                     safePath(root, linkName)
-                    Files.createDirectories(target.parent)
+                    target.parent.createDirectories()
                     pendingHardLinks += target to linkName
                 }
                 else -> error("unsupported special archive entry type '$type': $name")
@@ -105,9 +112,9 @@ object ArchiveExtractor {
         for ((target, link) in pendingHardLinks) {
             val source = safePath(root, link)
             require(source in regularFiles) { "hardlink target does not name an archive regular file: $link" }
-            require(Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) { "hardlink target is not a regular file: $link" }
-            Files.copy(source, target)
-            Files.setPosixFilePermissions(target, Files.getPosixFilePermissions(source, LinkOption.NOFOLLOW_LINKS))
+            require(source.isRegularFile(LinkOption.NOFOLLOW_LINKS)) { "hardlink target is not a regular file: $link" }
+            source.copyTo(target)
+            target.setPosixFilePermissions(source.getPosixFilePermissions(LinkOption.NOFOLLOW_LINKS))
         }
         directoryModes.entries.sortedByDescending { it.key.nameCount }.forEach { (path, mode) ->
             setMode(path, mode, directory = true)
@@ -126,7 +133,7 @@ object ArchiveExtractor {
         val relative = root.relativize(parent ?: root)
         for (part in relative) {
             current = current.resolve(part)
-            require(!Files.isSymbolicLink(current)) { "archive entry traverses symlink: $current" }
+            require(!current.isSymbolicLink()) { "archive entry traverses symlink: $current" }
         }
     }
 
@@ -152,7 +159,7 @@ object ArchiveExtractor {
         )
         flags.filter { mode.toInt() and it.first != 0 }.mapTo(permissions) { it.second }
         if (permissions.isEmpty() && directory) permissions += PosixFilePermission.OWNER_EXECUTE
-        Files.setPosixFilePermissions(path, permissions)
+        path.setPosixFilePermissions(permissions)
     }
 
     private fun verifyChecksum(header: ByteArray) {

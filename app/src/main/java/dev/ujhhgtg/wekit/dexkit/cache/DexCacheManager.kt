@@ -1,5 +1,8 @@
 package dev.ujhhgtg.wekit.dexkit.cache
 
+import dev.ujhhgtg.wekit.utils.fs.moveReplacing
+import kotlin.io.path.createDirectories
+import kotlin.io.path.moveTo
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.features.core.BaseFeature
@@ -9,7 +12,6 @@ import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import dev.ujhhgtg.wekit.utils.unreachable
 import org.json.JSONObject
-import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
@@ -196,7 +198,7 @@ internal fun writeCloudCacheFiles(
         "duplicate cloud cache technical ID"
     }
 
-    Files.createDirectories(cacheDir)
+    cacheDir.createDirectories()
     val transactionId = "${System.currentTimeMillis()}-${System.nanoTime()}"
     val staged = mutableListOf<CloudCacheStagedFile>()
     val committed = mutableSetOf<Path>()
@@ -219,25 +221,25 @@ internal fun writeCloudCacheFiles(
         }
 
         for (file in staged) {
-            if (Files.exists(file.destination)) {
-                moveReplacing(file.destination, file.backup)
+            if (file.destination.exists()) {
+                file.destination.moveReplacing(file.backup)
             }
-            moveReplacing(file.temp, file.destination)
+            file.temp.moveReplacing(file.destination)
             committed.add(file.destination)
         }
     } catch (error: Exception) {
         for (file in staged.asReversed()) {
-            if (Files.exists(file.backup)) {
-                runCatching { moveReplacing(file.backup, file.destination) }
+            if (file.backup.exists()) {
+                runCatching { file.backup.moveReplacing(file.destination) }
             } else if (file.destination in committed) {
-                runCatching { Files.deleteIfExists(file.destination) }
+                runCatching { file.destination.deleteIfExists() }
             }
         }
         throw error
     } finally {
         staged.forEach { file ->
-            runCatching { Files.deleteIfExists(file.temp) }
-            runCatching { Files.deleteIfExists(file.backup) }
+            runCatching { file.temp.deleteIfExists() }
+            runCatching { file.backup.deleteIfExists() }
         }
     }
 }
@@ -247,14 +249,6 @@ private data class CloudCacheStagedFile(
     val temp: Path,
     val backup: Path,
 )
-
-private fun moveReplacing(source: Path, destination: Path) {
-    try {
-        Files.move(source, destination, ATOMIC_MOVE, REPLACE_EXISTING)
-    } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
-        Files.move(source, destination, REPLACE_EXISTING)
-    }
-}
 
 private fun StringBuilder.appendJsonString(value: String): StringBuilder {
     append('"')

@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.scripting_python.plugin
 
+import kotlin.io.path.moveTo
 import android.os.SystemClock
 import dev.ujhhgtg.wekit.extensions.PythonRuntimePack
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -7,7 +8,6 @@ import dev.ujhhgtg.wekit.utils.TargetProcesses
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
-import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.concurrent.atomic.AtomicLong
 
@@ -72,11 +72,6 @@ object PythonCrashGuard {
         directory.mkdirs()
         val temporary = File(directory, "execution-marker.tmp")
         temporary.outputStream().use { it.write(json.encodeToString(marker).encodeToByteArray()) }
-        Files.move(
-            temporary.toPath(),
-            markerFile.toPath(),
-            StandardCopyOption.ATOMIC_MOVE,
-            StandardCopyOption.REPLACE_EXISTING,
-        )
+        temporary.toPath().moveTo(markerFile.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
     }
 }

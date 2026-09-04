@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.extensions
 
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Memory
@@ -55,7 +56,7 @@ object LlamaNativePack : ExtensionPack {
             for (entryName in listOf("$ABI/$LIB", "$ABI/$LIB_OPENCL")) {
                 val entry = zip.getEntry(entryName) ?: error("llama-native pack has no $entryName")
                 val file = File(staging, entryName.substringAfter('/'))
-                zip.getInputStream(entry).use { input -> file.outputStream().use { output -> input.copyTo(output) } }
+                zip.getInputStream(entry).use { file.toPath().copyFrom(it) }
                 file.setReadable(true, true)
                 file.setExecutable(true, true)
             }

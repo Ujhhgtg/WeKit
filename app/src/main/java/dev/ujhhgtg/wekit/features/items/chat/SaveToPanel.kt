@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import kotlin.io.path.inputStream
 import android.content.Context
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Download
@@ -24,7 +25,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.nio.file.Files
 import kotlin.io.path.name
 
 object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
@@ -188,7 +188,7 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
         }
         val source = cachedPath.asPath
         return runCatching {
-            Files.newInputStream(source).use { input ->
+            source.inputStream().use { input ->
                 StickerPanelRepository.importSticker(packId, source.name, input).getOrThrow()
             }
             true
@@ -209,7 +209,7 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
         }
         val source = mp3Path.asPath
         return runCatching {
-            Files.newInputStream(source).use { input ->
+            source.inputStream().use { input ->
                 VoicePanelRepository.importVoice(packId, source.name, input).getOrThrow()
             }
             true

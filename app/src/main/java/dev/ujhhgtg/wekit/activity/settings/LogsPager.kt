@@ -1,6 +1,7 @@
 
 package dev.ujhhgtg.wekit.activity.settings
 
+import dev.ujhhgtg.wekit.utils.fs.copyTo
 import android.content.Context
 import android.content.Intent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -269,7 +270,7 @@ private fun saveLogFile(context: Context, localizedContext: () -> Context, file:
             lifecycleScope.launch(Dispatchers.IO) {
                 runCatching {
                     contentResolver.openOutputStream(uri, "w")!!.use { out ->
-                        file.toFile().inputStream().use { it.copyTo(out) }
+                        file.copyTo(out)
                     }
                 }.onFailure {
                     WeLogger.e(LOGS_TAG, "failed to save log", it)

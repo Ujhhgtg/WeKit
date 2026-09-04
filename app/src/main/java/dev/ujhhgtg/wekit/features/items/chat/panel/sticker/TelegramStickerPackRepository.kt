@@ -1,5 +1,8 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.sticker
 
+import dev.ujhhgtg.wekit.utils.fs.moveReplacing
+import kotlin.io.path.inputStream
+import kotlin.io.path.moveTo
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
@@ -14,7 +17,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
@@ -165,7 +167,7 @@ object TelegramStickerPackRepository {
                             sourceFormat = sourceFormat.name,
                             imported = true,
                         )
-                    } else if (!rawPath.isRegularFile() || Files.size(rawPath) == 0L) {
+                    } else if (!rawPath.isRegularFile() || rawPath.fileSize() == 0L) {
                         try {
                             val remoteFile = TelegramStickerApiClient.getFile(token, sticker.fileId)
                             require(remoteFile.fileUniqueId == sticker.fileUniqueId) {
@@ -218,7 +220,7 @@ object TelegramStickerPackRepository {
                         val rawPath = rawDir / "$identity.${sourceFormat.extension}"
                         if (!failures.containsKey(sticker.fileUniqueId)) {
                             try {
-                                require(rawPath.isRegularFile() && Files.size(rawPath) > 0L) {
+                                require(rawPath.isRegularFile() && rawPath.fileSize() > 0L) {
                                     localizedChatString(R.string.chat_telegram_sticker_unreadable)
                                 }
                                 val importPath = when (sourceFormat) {
@@ -239,7 +241,7 @@ object TelegramStickerPackRepository {
                                             tgsGifFrameRate,
                                         )
                                 }
-                                Files.newInputStream(importPath).use { input ->
+                                importPath.inputStream().use { input ->
                                     StickerPanelRepository.importTelegramSticker(
                                         packName,
                                         sticker.fileUniqueId,
@@ -357,14 +359,7 @@ object TelegramStickerPackRepository {
         }
         result.getOrThrow()
         currentCoroutineContext().ensureActive()
-        runCatching {
-            Files.move(
-                partial,
-                destination,
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE,
-            )
-        }.getOrElse { Files.move(partial, destination, StandardCopyOption.REPLACE_EXISTING) }
+        partial.moveReplacing(destination)
         return destination
     }
 
@@ -409,14 +404,7 @@ object TelegramStickerPackRepository {
         val temporary = path.resolveSibling("${path.fileName}.tmp")
         try {
             temporary.writeText(DefaultJson.encodeToString(manifest))
-            runCatching {
-                Files.move(
-                    temporary,
-                    path,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE,
-                )
-            }.getOrElse { Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING) }
+            temporary.moveReplacing(path)
         } finally {
             temporary.deleteIfExists()
         }

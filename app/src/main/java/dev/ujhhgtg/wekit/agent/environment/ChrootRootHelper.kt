@@ -1,23 +1,34 @@
 package dev.ujhhgtg.wekit.agent.environment
 
-import kotlin.io.path.writeText
-import dev.ujhhgtg.wekit.utils.fs.asPath
+import dev.ujhhgtg.wekit.utils.fs.copyTo
 import com.topjohnwu.superuser.Shell
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
-import java.nio.file.Files
-import java.nio.file.StandardOpenOption
-import java.nio.file.Path
-import java.nio.charset.CodingErrorAction
-import java.nio.charset.StandardCharsets
-import java.nio.ByteBuffer
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
-import kotlin.coroutines.coroutineContext
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createTempFile
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.exists
+import kotlin.io.path.fileSize
+import kotlin.io.path.inputStream
+import kotlin.io.path.isDirectory
+import kotlin.io.path.isExecutable
+import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.outputStream
+import kotlin.io.path.readBytes
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
 sealed class ChrootFailure(message: String, cause: Throwable? = null) : IllegalStateException(message, cause) {
     class Root(cause: Throwable? = null) : ChrootFailure("root access denied", cause)
@@ -56,9 +67,9 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
         require(timeoutMillis in 1..NativeBackend.MAX_TIMEOUT_MILLIS)
         if (!hasRoot()) throw ChrootFailure.Root()
         val outputDirectory = configuration.rootfs.resolve("root/.weagent/outputs")
-        Files.createDirectories(outputDirectory)
-        val stdout = Files.createTempFile(outputDirectory, "chroot-", ".stdout")
-        val stderr = Files.createTempFile(outputDirectory, "chroot-", ".stderr")
+        outputDirectory.createDirectories()
+        val stdout = createTempFile(outputDirectory, "chroot-", ".stdout")
+        val stderr = createTempFile(outputDirectory, "chroot-", ".stderr")
         val startedAt = System.nanoTime()
         var timedOut = false
         var spill = false
@@ -95,18 +106,18 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
             val result = awaitCleanup(future)
             val stderrText = readBounded(stderr, NativeBackend.DEFAULT_MAX_OUTPUT_BYTES)
             classifyFailure(run, result.code, stderrText)
-            val stdoutSize = Files.size(stdout)
-            val stderrSize = Files.size(stderr)
+            val stdoutSize = stdout.fileSize()
+            val stderrSize = stderr.fileSize()
             spill = stdoutSize + stderrSize > NativeBackend.DEFAULT_MAX_OUTPUT_BYTES
             val outLimit = minOf(stdoutSize, NativeBackend.DEFAULT_MAX_OUTPUT_BYTES.toLong()).toInt()
             val errLimit = minOf(stderrSize, (NativeBackend.DEFAULT_MAX_OUTPUT_BYTES - outLimit).toLong()).toInt()
             val spillPath = if (spill) {
                 val spillFile = outputDirectory.resolve("exec-${System.currentTimeMillis()}.log")
-                Files.newOutputStream(spillFile, StandardOpenOption.CREATE_NEW).use { stream ->
+                spillFile.outputStream(StandardOpenOption.CREATE_NEW).use { stream ->
                     stream.write("--- stdout ---\n".toByteArray())
-                    Files.copy(stdout, stream)
+                    stdout.copyTo(stream)
                     stream.write("\n--- stderr ---\n".toByteArray())
-                    Files.copy(stderr, stream)
+                    stderr.copyTo(stream)
                 }
                 "/root/.weagent/outputs/${spillFile.fileName}"
             } else null
@@ -132,8 +143,8 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
                             cleanupFailure?.addSuppressed(error) ?: run { cleanupFailure = error }
                         }
                     }
-                    Files.deleteIfExists(stdout)
-                    Files.deleteIfExists(stderr)
+                    stdout.deleteIfExists()
+                    stderr.deleteIfExists()
                 }
                 cleanupFailure?.let { throw it }
                 ChrootMountRegistry.end(configuration.rootfs, run.nonce)
@@ -147,7 +158,7 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
             val result = shell.newJob().add("command -v su").exec()
             val value = result.out.singleOrNull()?.trim().orEmpty()
             val path = runCatching { value.asPath }.getOrNull()
-            if (!result.isSuccess || path == null || !path.isAbsolute || !Files.isExecutable(path) ||
+            if (!result.isSuccess || path == null || !path.isAbsolute || !path.isExecutable() ||
                 TRUSTED_SU_PATHS.none { path == it }
             ) {
                 throw ChrootFailure.Root(IllegalStateException("trusted absolute su executable is unavailable"))
@@ -162,8 +173,8 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
 
     suspend fun readUtf8(guestPath: String, maxBytes: Long): String = withContext(Dispatchers.IO) {
         require(maxBytes in 0L..NativeBackend.MAX_EDIT_BYTES)
-        Files.createDirectories(configuration.instance.resolve("outputs"))
-        val output = Files.createTempFile(configuration.instance.resolve("outputs"), "read-", ".tmp")
+        configuration.instance.resolve("outputs").createDirectories()
+        val output = createTempFile(configuration.instance.resolve("outputs"), "read-", ".tmp")
         try {
             executeFixed(
                 "chroot ${ChrootConfiguration.shell(configuration.rootfs.toString())} /bin/sh -c " +
@@ -172,11 +183,11 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
                 HEALTH_TIMEOUT_MILLIS,
                 "rooted file read failed",
             )
-            val bytes = Files.readAllBytes(output)
+            val bytes = output.readBytes()
             StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString()
         } finally {
-            Files.deleteIfExists(output)
+            output.deleteIfExists()
         }
     }
 
@@ -189,13 +200,13 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
             require(count > 0 && (request.replaceAll || count == 1)) { "oldString occurs $count times" }
             if (request.replaceAll) original.replace(old, request.newString) else original.replaceFirst(old, request.newString)
         } ?: request.newString.also { require(original.isEmpty()) { "creation requires a missing or empty file" } }
-        Files.createDirectories(configuration.instance.resolve("outputs"))
-        val input = Files.createTempFile(configuration.instance.resolve("outputs"), "edit-", ".tmp")
+        configuration.instance.resolve("outputs").createDirectories()
+        val input = createTempFile(configuration.instance.resolve("outputs"), "edit-", ".tmp")
         try {
             input.writeText(updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)
             executeFixed(editCommand(request.path, input), HEALTH_TIMEOUT_MILLIS, "rooted atomic edit failed")
         } finally {
-            Files.deleteIfExists(input)
+            input.deleteIfExists()
         }
     }
 
@@ -278,7 +289,7 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
     }
 
     suspend fun cleanupNamespace(run: ChrootRun) = withContext(NonCancellable + Dispatchers.IO) {
-        if (!Files.exists(run.directory)) return@withContext
+        if (!run.directory.exists()) return@withContext
         val storedNonce = readMetadata(run.directory.resolve("nonce"))
         if (storedNonce != run.nonce || run.directory.fileName.toString() != run.nonce ||
             run.directory.parent != configuration.runsDirectory
@@ -335,15 +346,15 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
     }
 
     internal fun removeRunMetadata(run: ChrootRun) {
-        Files.newDirectoryStream(run.directory).use { entries -> entries.forEach(Files::deleteIfExists) }
-        Files.deleteIfExists(run.directory)
+        run.directory.listDirectoryEntries().forEach(Path::deleteIfExists)
+        run.directory.deleteIfExists()
         run.directory.parent?.let { runs ->
-            if (Files.isDirectory(runs) && Files.newDirectoryStream(runs).use { !it.iterator().hasNext() }) Files.deleteIfExists(runs)
+            if (runs.isDirectory() && runs.listDirectoryEntries().isEmpty()) runs.deleteIfExists()
         }
     }
 
     private fun readMetadata(path: Path): String? =
-        runCatching { Files.readString(path).trim() }.getOrNull()?.takeIf(String::isNotEmpty)
+        runCatching { path.readText().trim() }.getOrNull()?.takeIf(String::isNotEmpty)
 
     private fun awaitCleanup(future: java.util.concurrent.Future<Shell.Result>): Shell.Result = try {
         future.get(CLEANUP_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
@@ -353,13 +364,26 @@ internal class ChrootRootHelper(private val configuration: ChrootConfiguration) 
 
     private fun classifyFailure(run: ChrootRun, code: Int, stderr: String) {
         if (code == 0) return
-        classifyChrootFailure(runCatching { Files.readString(run.stageFile) }.getOrDefault(""), code, stderr)?.let { throw it }
+        classifyChrootFailure(runCatching { run.stageFile.readText() }.getOrDefault(""), code, stderr)?.let { throw it }
     }
 
     private fun readBounded(path: java.nio.file.Path, maxBytes: Int): String {
         if (maxBytes == 0) return ""
-        Files.newInputStream(path, StandardOpenOption.READ).use { input ->
-            return input.readNBytes(maxBytes).decodeToString()
+        path.inputStream(StandardOpenOption.READ).use { input ->
+            val bytes = ByteArray(maxBytes)
+            var offset = 0
+            while (offset < bytes.size) {
+                val read = input.read(bytes, offset, bytes.size - offset)
+                if (read < 0) break
+                if (read == 0) {
+                    val byte = input.read()
+                    if (byte < 0) break
+                    bytes[offset++] = byte.toByte()
+                } else {
+                    offset += read
+                }
+            }
+            return String(bytes, 0, offset, Charsets.UTF_8)
         }
     }
 

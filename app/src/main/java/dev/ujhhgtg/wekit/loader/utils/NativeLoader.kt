@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.loader.utils
 
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
@@ -283,7 +284,7 @@ object NativeLoader {
         val temporary = File(destinationDir, "$libraryName.${Process.myPid()}.tmp")
         temporary.delete()
         archive.getInputStream(archive.getEntry(entryName)).use { input ->
-            temporary.outputStream().use { output -> input.copyTo(output) }
+            temporary.toPath().copyFrom(input)
         }
         temporary.setReadable(true, true)
         temporary.setExecutable(true, true)

@@ -1,5 +1,12 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.voice
 
+import dev.ujhhgtg.wekit.utils.fs.moveReplacing
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
+import kotlin.io.path.outputStream
+import kotlin.io.path.exists
+import kotlin.io.path.fileSize
+import kotlin.io.path.getLastModifiedTime
+import kotlin.io.path.moveTo
 import dev.ujhhgtg.wekit.features.items.chat.panel.LocalSortMode
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelCustomOrders
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
@@ -18,7 +25,6 @@ import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.Serializable
 import java.io.InputStream
-import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.UUID
 import kotlin.io.path.absolutePathString
@@ -137,7 +143,7 @@ object VoicePanelRepository {
         require(safeName.isNotBlank()) { localizedChatString(R.string.chat_voice_pack_name_empty) }
         require(safeName !in reservedNames) { localizedChatString(R.string.chat_voice_pack_name_unavailable) }
         val destination = packPath(safeName)
-        require(Files.notExists(destination)) { localizedChatString(R.string.chat_voice_pack_exists) }
+        require(destination.notExists()) { localizedChatString(R.string.chat_voice_pack_exists) }
         destination.createDirectories()
         safeName
     }
@@ -170,8 +176,8 @@ object VoicePanelRepository {
         val source = packPath(safeOldName)
         val destination = packPath(safeName)
         require(source.isDirectory()) { localizedChatString(R.string.chat_voice_pack_not_found) }
-        require(Files.notExists(destination)) { localizedChatString(R.string.chat_voice_pack_exists) }
-        Files.move(source, destination)
+        require(destination.notExists()) { localizedChatString(R.string.chat_voice_pack_exists) }
+        source.moveTo(destination)
         migrateStatsPrefix(source, destination)
         migrateOrders(source.name, destination.name)
     }
@@ -221,8 +227,8 @@ object VoicePanelRepository {
         val directory = packPath(requirePackName(packId)).also { it.createDirectories() }
         val temporary = directory / ".import-${UUID.randomUUID()}.part"
         try {
-            input.use { Files.copy(it, temporary, StandardCopyOption.REPLACE_EXISTING) }
-            require(Files.size(temporary) > 0L) { localizedChatString(R.string.chat_voice_file_empty) }
+            input.use(temporary::copyFrom)
+            require(temporary.fileSize() > 0L) { localizedChatString(R.string.chat_voice_file_empty) }
             val format = MediaFileTypeDetector.detectAudio(temporary)
                 ?: throw IllegalArgumentException(localizedChatString(R.string.chat_voice_unsupported_format))
             val destination = uniquePath(
@@ -249,8 +255,8 @@ object VoicePanelRepository {
         }
         val temporary = directory / "${identity.take(96)}.part"
         try {
-            input.use { Files.copy(it, temporary, StandardCopyOption.REPLACE_EXISTING) }
-            require(Files.size(temporary) > 0L) { localizedChatString(R.string.chat_voice_server_empty) }
+            input.use(temporary::copyFrom)
+            require(temporary.fileSize() > 0L) { localizedChatString(R.string.chat_voice_server_empty) }
             val extension = MediaFileTypeDetector.detectAudio(temporary)?.extension
                 ?: throw IllegalArgumentException(localizedChatString(R.string.chat_voice_server_unsupported_format))
             val destination = directory / "${identity.take(96)}.$extension"
@@ -380,7 +386,7 @@ object VoicePanelRepository {
     }
 
     private fun lastModified(path: java.nio.file.Path): Long =
-        runCatching { Files.getLastModifiedTime(path).toMillis() }.getOrDefault(0L)
+        runCatching { path.getLastModifiedTime().toMillis() }.getOrDefault(0L)
 
     private fun readOnlineRecents(): List<VoiceItem> {
         if (onlineRecentsFile.notExists()) return emptyList()
@@ -403,7 +409,7 @@ object VoicePanelRepository {
         val migratedPaths = buildMap {
             legacyFiles.forEach { source ->
                 val destination = uniquePath(destinationDir, source.name)
-                runCatching { Files.move(source, destination) }.onSuccess {
+                runCatching { source.moveTo(destination) }.onSuccess {
                     put(source.absolutePathString(), destination.absolutePathString())
                 }
             }
@@ -417,16 +423,7 @@ object VoicePanelRepository {
     private fun atomicWrite(path: java.nio.file.Path, value: String) {
         val temporary = path.resolveSibling("${path.name}.tmp")
         temporary.writeText(value)
-        runCatching {
-            Files.move(
-                temporary,
-                path,
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE,
-            )
-        }.getOrElse {
-            Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING)
-        }
+        temporary.moveReplacing(path)
         temporary.deleteIfExists()
     }
 
@@ -513,7 +510,7 @@ object VoicePanelRepository {
     private fun uniquePath(dir: java.nio.file.Path, fileName: String): java.nio.file.Path {
         var candidate = dir / fileName
         var suffix = 1
-        while (Files.exists(candidate)) {
+        while (candidate.exists()) {
             val stem = fileName.substringBeforeLast('.')
             val ext = fileName.substringAfterLast('.', "")
             candidate = dir / "$stem-$suffix${if (ext.isEmpty()) "" else ".$ext"}"
@@ -528,14 +525,7 @@ object VoicePanelRepository {
     }
 
     private fun moveImportedFile(source: java.nio.file.Path, destination: java.nio.file.Path) {
-        runCatching {
-            Files.move(
-                source,
-                destination,
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE,
-            )
-        }.getOrElse { Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING) }
+        source.moveReplacing(destination)
     }
 
     private val reservedNames = setOf(".", "..", "clone_voices", RECENT_PACK_ID)

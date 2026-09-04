@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import kotlin.io.path.exists
+import kotlin.io.path.moveTo
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
@@ -15,7 +17,6 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.io.File
 import java.nio.file.Path
-import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -225,7 +226,7 @@ class LinuxEnvironmentManager(
     suspend fun delete(id: String): Boolean {
         require(id != NATIVE_ENVIRONMENT_ID) { "native environment cannot be deleted" }
         val environment = getEnvironment(id)
-        val chrootRootfs = environment?.takeIf { it.type == LinuxEnvironmentType.CHROOT }?.rootfsPath?.let(Path::of)
+        val chrootRootfs = environment?.takeIf { it.type == LinuxEnvironmentType.CHROOT }?.rootfsPath?.asPath
         stateMutex.withLock {
             check((leaseCounts[id] ?: 0) == 0) { "environment is currently leased" }
             check(deleting.add(id)) { "environment deletion is already in progress" }
@@ -246,9 +247,9 @@ class LinuxEnvironmentManager(
                 val rootfs = requireNotNull(environment.rootfsPath).asPath
                 val instance = rootfs.parent
                 check(instance.fileName.toString() == id) { "invalid local environment layout" }
-                if (Files.exists(instance)) {
+                if (instance.exists()) {
                     val quarantine = instance.resolveSibling(".${instance.fileName}.deleting-${UUID.randomUUID()}")
-                    Files.move(instance, quarantine, StandardCopyOption.ATOMIC_MOVE)
+                    instance.moveTo(quarantine, StandardCopyOption.ATOMIC_MOVE)
                     originalInstance = instance
                     quarantinedInstance = quarantine
                 }
@@ -256,12 +257,12 @@ class LinuxEnvironmentManager(
             try {
                 deleted = environment != null && deleteEnvironment(id, environment.toSnapshot(), nativeSnapshot)
                 if (!deleted && quarantinedInstance != null) {
-                    Files.move(quarantinedInstance, originalInstance, StandardCopyOption.ATOMIC_MOVE)
+                    quarantinedInstance.moveTo(originalInstance!!, StandardCopyOption.ATOMIC_MOVE)
                     quarantinedInstance = null
                 }
             } catch (error: Throwable) {
                 quarantinedInstance?.let { quarantine ->
-                    runCatching { Files.move(quarantine, originalInstance, StandardCopyOption.ATOMIC_MOVE) }
+                    runCatching { quarantine.moveTo(originalInstance!!, StandardCopyOption.ATOMIC_MOVE) }
                         .exceptionOrNull()?.let(error::addSuppressed)
                 }
                 quarantinedInstance = null

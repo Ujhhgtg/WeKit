@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.extensions
 
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
 import android.os.Build
 import android.os.Process
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -91,7 +92,7 @@ object PythonRuntimePack : ExtensionPack {
             require(staging.mkdirs()) { "Cannot create Python runtime staging directory" }
             try {
                 val runtimeApk = File(staging, "runtime.apk")
-                verifiedTmp.inputStream().use { input -> runtimeApk.outputStream().use(input::copyTo) }
+                verifiedTmp.inputStream().use { runtimeApk.toPath().copyFrom(it) }
                 val contents = PythonRuntimeArchive.inspect(runtimeApk, meta)
                 PythonRuntimeArchive.extractNativeLibraries(runtimeApk, contents, File(staging, "native"))
                 PythonRuntimeArchive.extractSdk(runtimeApk, File(staging, "sdk"))

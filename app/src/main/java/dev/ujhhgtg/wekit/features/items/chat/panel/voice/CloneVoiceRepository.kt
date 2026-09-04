@@ -1,5 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.voice
 
+import dev.ujhhgtg.wekit.utils.fs.moveReplacing
+import kotlin.io.path.moveTo
+import kotlin.io.path.outputStream
+import kotlin.io.path.readBytes
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneVoice
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
 import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
@@ -10,7 +14,6 @@ import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.Serializable
 import java.io.InputStream
-import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
@@ -21,6 +24,7 @@ import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.io.path.fileSize
 import kotlin.io.path.isRegularFile
+import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
 import kotlin.io.path.notExists
 import kotlin.io.path.readText
@@ -87,7 +91,7 @@ object CloneVoiceRepository {
             temporary.parent.createDirectories()
             try {
                 input.use { source ->
-                    Files.newOutputStream(temporary).use { output ->
+                    temporary.outputStream().use { output ->
                         val buffer = ByteArray(8192)
                         var total = 0L
                         while (true) {
@@ -170,13 +174,13 @@ object CloneVoiceRepository {
             try {
                 require(AudioUtils.silkToPcm(source.absolutePathString(), pcm.absolutePathString())) { "Silk 转 PCM 失败" }
                 require(AudioUtils.pcmToMp3(pcm.absolutePathString(), mp3.absolutePathString())) { "PCM 转 MP3 失败" }
-                Files.readAllBytes(mp3) to voice.fileName.substringBeforeLast('.') + ".mp3"
+                mp3.readBytes() to voice.fileName.substringBeforeLast('.') + ".mp3"
             } finally {
                 pcm.deleteIfExists()
                 mp3.deleteIfExists()
             }
         } else {
-            Files.readAllBytes(source) to voice.fileName.substringBeforeLast('.', voice.fileName) + ".${format.extension}"
+            source.readBytes() to voice.fileName.substringBeforeLast('.', voice.fileName) + ".${format.extension}"
         }
     }
 
@@ -193,27 +197,16 @@ object CloneVoiceRepository {
         metadataFile.parent.createDirectories()
         val temporary = metadataFile.resolveSibling("${metadataFile.name}.tmp")
         temporary.writeText(DefaultJson.encodeToString(store))
-        runCatching {
-            Files.move(
-                temporary,
-                metadataFile,
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE,
-            )
-        }.getOrElse {
-            Files.move(temporary, metadataFile, StandardCopyOption.REPLACE_EXISTING)
-        }
+        temporary.moveReplacing(metadataFile)
         temporary.deleteIfExists()
     }
 
     private fun cleanupOrphans(voices: List<CloneVoice>) {
         val names = voices.mapTo(mutableSetOf()) { it.fileName }
         runCatching {
-            Files.list(PanelPaths.cloneVoiceDir).use { stream ->
-                stream.filter { it.isRegularFile() && it != metadataFile && it.name !in names }.forEach {
-                    it.deleteIfExists()
-                }
-            }
+            PanelPaths.cloneVoiceDir.listDirectoryEntries()
+                .filter { it.isRegularFile() && it != metadataFile && it.name !in names }
+                .forEach { it.deleteIfExists() }
         }
     }
 
@@ -224,14 +217,7 @@ object CloneVoiceRepository {
     }
 
     private fun moveImportedFile(source: Path, destination: Path) {
-        runCatching {
-            Files.move(
-                source,
-                destination,
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE,
-            )
-        }.getOrElse { Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING) }
+        source.moveReplacing(destination)
     }
 
     private fun md5(value: String) = MessageDigest.getInstance("MD5")

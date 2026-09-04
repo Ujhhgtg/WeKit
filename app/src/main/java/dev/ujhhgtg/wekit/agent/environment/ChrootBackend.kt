@@ -1,8 +1,15 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createDirectory
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.getOwner
+import kotlin.io.path.isDirectory
+import kotlin.io.path.isExecutable
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.writeText
 import dev.ujhhgtg.wekit.utils.fs.asPath
-import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
@@ -36,25 +43,25 @@ class ChrootConfiguration(
 
     fun createRun(nonce: String = UUID.randomUUID().toString()): ChrootRun {
         require(nonce.matches(RUN_NONCE)) { "invalid chroot run nonce" }
-        Files.createDirectories(runsDirectory)
+        runsDirectory.createDirectories()
         val directory = runsDirectory.resolve(nonce)
-        Files.createDirectory(directory)
+        directory.createDirectory()
         try {
             directory.resolve("nonce").writeText(nonce, Charsets.UTF_8, StandardOpenOption.CREATE_NEW)
             directory.resolve("stage").writeText("CREATED", Charsets.UTF_8, StandardOpenOption.CREATE_NEW)
             return ChrootRun(nonce, directory)
         } catch (error: Throwable) {
-            Files.newDirectoryStream(directory).use { entries -> entries.forEach(Files::deleteIfExists) }
-            Files.deleteIfExists(directory)
+            directory.listDirectoryEntries().forEach(Path::deleteIfExists)
+            directory.deleteIfExists()
             throw error
         }
     }
 
     fun pendingRuns(): List<ChrootRun> {
-        if (!Files.isDirectory(runsDirectory)) return emptyList()
-        return Files.newDirectoryStream(runsDirectory).use { entries ->
-            entries.filter(Files::isDirectory).map { directory -> ChrootRun(directory.fileName.toString(), directory) }
-        }
+        if (!runsDirectory.isDirectory()) return emptyList()
+        return runsDirectory.listDirectoryEntries()
+            .filter { it.isDirectory() }
+            .map { directory -> ChrootRun(directory.fileName.toString(), directory) }
     }
 
     fun execScript(run: ChrootRun, command: String, environment: Map<String, String>): String =
@@ -181,16 +188,16 @@ internal object ArchLinuxInstanceLayout {
         require(realInstance.parent == canonicalRoot && realRootfs.parent == realInstance) {
             "chroot rootfs escapes the canonical instance root"
         }
-        require(Files.getOwner(realInstance) == Files.getOwner(canonicalRoot)) {
+        require(realInstance.getOwner() == canonicalRoot.getOwner()) {
             "Arch instance is not app-owned"
         }
-        require(Files.isRegularFile(realInstance.resolve(ArchLinuxInstanceInstaller.PUBLISHED_MARKER), LinkOption.NOFOLLOW_LINKS)) {
+        require(realInstance.resolve(ArchLinuxInstanceInstaller.PUBLISHED_MARKER).isRegularFile(LinkOption.NOFOLLOW_LINKS)) {
             "Arch instance is not published"
         }
         require(
-            Files.isExecutable(realRootfs.resolve("bin/bash")) &&
-                Files.isExecutable(realRootfs.resolve("usr/bin/invoke_tool")) &&
-                Files.isRegularFile(realRootfs.resolve("etc/resolv.conf"), LinkOption.NOFOLLOW_LINKS)
+            realRootfs.resolve("bin/bash").isExecutable() &&
+                realRootfs.resolve("usr/bin/invoke_tool").isExecutable() &&
+                realRootfs.resolve("etc/resolv.conf").isRegularFile(LinkOption.NOFOLLOW_LINKS)
         ) { "published Arch instance is incomplete" }
         return realRootfs
     }
@@ -222,7 +229,7 @@ internal object ChrootMountRegistry {
         hasActiveRuns(rootfs) || hasPersistedRuns(rootfs)
 
     private fun hasPersistedRuns(rootfs: Path): Boolean = rootfs.parent.resolve("chroot-runs").let { runs ->
-        Files.isDirectory(runs) && Files.newDirectoryStream(runs).use { it.iterator().hasNext() }
+        runs.isDirectory() && runs.listDirectoryEntries().isNotEmpty()
     }
 }
 
@@ -255,7 +262,7 @@ class ChrootBackend internal constructor(
     }
 
     override suspend fun checkHealth(): EnvironmentHealth {
-        if (!Files.isRegularFile(configuration.rootfs.resolve("bin/bash"))) {
+        if (!configuration.rootfs.resolve("bin/bash").isRegularFile()) {
             return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "Arch rootfs is corrupt")
         }
         if (!rootHelper.hasRoot()) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "root access denied")

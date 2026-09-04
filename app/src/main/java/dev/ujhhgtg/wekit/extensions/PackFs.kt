@@ -1,9 +1,9 @@
 package dev.ujhhgtg.wekit.extensions
 
+import kotlin.io.path.moveTo
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.security.MessageDigest
-import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
 /** Shared file plumbing for extension packs: hashing, verification, atomic publish. */
@@ -32,7 +32,7 @@ object PackFs {
         dst.parentFile?.mkdirs()
         if (dst.exists()) dst.delete()
         if (!tmp.renameTo(dst)) {
-            Files.move(tmp.toPath(), dst.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            tmp.toPath().moveTo(dst.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
     }
 

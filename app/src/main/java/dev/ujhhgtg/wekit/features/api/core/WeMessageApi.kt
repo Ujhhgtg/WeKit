@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.api.core
 
+import dev.ujhhgtg.wekit.utils.fs.moveReplacing
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.database.Cursor
@@ -7,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Parcel
 import android.os.SystemClock
+import androidx.core.graphics.scale
 import com.tencent.mm.api.IEmojiInfo
 import com.tencent.mm.opensdk.modelmsg.WXFileObject
 import com.tencent.mm.opensdk.modelmsg.WXMediaMessage
@@ -65,8 +67,6 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
-import java.nio.file.AtomicMoveNotSupportedException
-import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.FileTime
@@ -76,15 +76,21 @@ import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.copyTo
 import kotlin.io.path.createDirectories
+import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.io.path.fileSize
+import kotlin.io.path.getLastModifiedTime
+import kotlin.io.path.inputStream
+import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.moveTo
 import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.outputStream
 import kotlin.io.path.readBytes
+import kotlin.io.path.setLastModifiedTime
 import kotlin.io.path.writeBytes
 import kotlin.random.Random
 
@@ -916,7 +922,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             )
             return false
         }
-        val relationInserted = result.localMsgId?.takeIf { it > 0L }?.let { localMsgId ->
+        val relationInserted = result.localMsgId?.let { localMsgId ->
             runCatching { insertQuoteRelation(localMsgId, source) }.getOrElse {
                 WeLogger.e(
                     TAG,
@@ -930,13 +936,13 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             TAG,
                 "sendNativeQuote: destination=$talker, sourceMsgId=${source.id}, " +
                 "sourceMsgSvrId=${source.serverId}, sourceTalker=${source.talker}, " +
-                "contentLength=${content.length}, statusCode=${result.statusCode}, " +
+                "contentLength=${content.length}, statusCode=0, " +
                 "localMsgId=${result.localMsgId}, relationInserted=$relationInserted",
         )
         if (relationInserted == false) {
             WeLogger.w(TAG, "sendNativeQuote: message accepted without MsgQuote relation")
         }
-        return accepted
+        return true
     }
 
     fun sendQuoteText(talker: String, quotedMsgSvrId: Long, content: String): Boolean {
@@ -1129,7 +1135,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
     private fun inspectStickerFile(path: Path): StickerFileInfo {
         val header = ByteArray(12)
-        val headerSize = Files.newInputStream(path).use { input ->
+        val headerSize = path.inputStream().use { input ->
             var offset = 0
             while (offset < header.size) {
                 val read = input.read(header, offset, header.size - offset)
@@ -1207,7 +1213,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             ?: "img"
         val retained = KnownPaths.moduleCache /
                 "sticker-send-image-${System.currentTimeMillis()}-${UUID.randomUUID()}.$extension"
-        Files.copy(source, retained, StandardCopyOption.REPLACE_EXISTING)
+        source.copyTo(retained, StandardCopyOption.REPLACE_EXISTING)
         WeLogger.i(TAG, "sticker send route: ordinary image ($reason), source retained in cache")
         return sendImage(toUser, retained.absolutePathString()).also { success ->
             if (!success) retained.deleteIfExists()
@@ -1217,13 +1223,11 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     private fun cleanupStickerSendCache() {
         val cutoff = System.currentTimeMillis() - STICKER_SEND_CACHE_MAX_AGE_MS
         runCatching {
-            Files.list(KnownPaths.moduleCache).use { paths ->
-                paths.filter {
-                    it.isRegularFile() &&
-                            it.name.startsWith("sticker-send-") &&
-                            Files.getLastModifiedTime(it).toMillis() < cutoff
-                }.forEach(Path::deleteIfExists)
-            }
+            KnownPaths.moduleCache.listDirectoryEntries().filter {
+                it.isRegularFile() &&
+                    it.name.startsWith("sticker-send-") &&
+                    it.getLastModifiedTime().toMillis() < cutoff
+            }.forEach(Path::deleteIfExists)
         }.onFailure { WeLogger.w(TAG, "failed to clean stale sticker send cache", it) }
     }
 
@@ -1634,7 +1638,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                 .invokeStatic(toUser, "amr_") as String
             val fullPath = getVoiceFullPath(partialPath)
 
-            Files.copy(Path(path), Path(fullPath), StandardCopyOption.REPLACE_EXISTING)
+            Path(path).copyTo(Path(fullPath), StandardCopyOption.REPLACE_EXISTING)
 
             val actualDuration = if (durationMs > 60000) 60000 else durationMs
 
@@ -2169,13 +2173,13 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     private fun detectImageMime(path: Path): String? {
         if (!path.isRegularFile() || path.fileSize() <= 0L) return null
         val header = ByteArray(12)
-        val size = Files.newInputStream(path).use { it.read(header) }
+        val size = path.inputStream().use { it.read(header) }
         return detectImageMime(if (size == header.size) header else header.copyOf(size.coerceAtLeast(0)))
     }
 
     private fun reuseNotificationMedia(destination: Path): NotificationMediaFile? {
         val mimeType = detectImageMime(destination) ?: return null
-        Files.setLastModifiedTime(destination, FileTime.fromMillis(System.currentTimeMillis()))
+        destination.setLastModifiedTime(FileTime.fromMillis(System.currentTimeMillis()))
         return NotificationMediaFile(destination, mimeType)
     }
 
@@ -2200,12 +2204,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                 val shortestEdge = minOf(bitmap.width, bitmap.height)
                 if (shortestEdge in 1 until minimumEdgePixels) {
                     val scale = minimumEdgePixels.toFloat() / shortestEdge
-                    val scaled = Bitmap.createScaledBitmap(
-                        bitmap,
-                        (bitmap.width * scale).toInt(),
-                        (bitmap.height * scale).toInt(),
-                        true,
-                    )
+                    val scaled = bitmap.scale((bitmap.width * scale).toInt(), (bitmap.height * scale).toInt())
                     try {
                         val output = ByteArrayOutputStream()
                         val format = if (mimeType == "image/jpeg") {
@@ -2233,23 +2232,10 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         if (SystemClock.elapsedRealtime() >= deadlineElapsedRealtime) return null
         destination.parent.createDirectories()
 
-        var temporary: Path? = Files.createTempFile(
-            destination.parent,
-            ".${destination.name}.",
-            ".tmp",
-        )
+        var temporary: Path? = createTempFile(destination.parent, ".${destination.name}.", ".tmp")
         try {
             temporary!!.writeBytes(bytes)
-            try {
-                Files.move(
-                    temporary,
-                    destination,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE,
-                )
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING)
-            }
+            temporary.moveReplacing(destination)
             temporary = null
             return NotificationMediaFile(destination, mimeType)
         } finally {
@@ -2492,8 +2478,8 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         if (bigImgPath.length < 4) return null
         val microMsgPath = HostInfo.application.filesDir.asPath.parent / "MicroMsg"
         val accountDir = microMsgPath.listDirectoryEntries()
-            .filter { Files.isDirectory(it) && it.fileName.toString().length == 32 }
-            .maxByOrNull { Files.getLastModifiedTime(it).toMillis() }
+            .filter { it.isDirectory() && it.fileName.toString().length == 32 }
+            .maxByOrNull { it.getLastModifiedTime().toMillis() }
             ?: return null
         return accountDir / "image2" / bigImgPath.take(2) / bigImgPath.substring(2, 4) / bigImgPath
     }
@@ -2513,7 +2499,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         var temporary: Path? = null
         return try {
             if (detectImageMime(destination) != null) {
-                Files.setLastModifiedTime(destination, FileTime.fromMillis(System.currentTimeMillis()))
+                destination.setLastModifiedTime(FileTime.fromMillis(System.currentTimeMillis()))
                 return destination
             }
 
@@ -2538,22 +2524,13 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
             check(detectImageMime(stickerBytes) != null) { "failed to decode sticker image" }
 
-            temporary = Files.createTempFile(destination.parent, ".${destination.name}.", ".tmp")
+            temporary = createTempFile(destination.parent, ".${destination.name}.", ".tmp")
             temporary.outputStream().use { output -> output.write(stickerBytes) }
             check(temporary.isRegularFile() && temporary.fileSize() > 0L) {
                 "temporary sticker GIF is empty"
             }
 
-            try {
-                Files.move(
-                    temporary,
-                    destination,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE,
-                )
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING)
-            }
+            temporary.moveReplacing(destination)
             temporary = null
             check(destination.isRegularFile() && destination.fileSize() > 0L) {
                 "final sticker GIF is empty"
@@ -2635,16 +2612,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                 ?: "sticker_${System.currentTimeMillis()}"
             val destination = KnownPaths.downloads /
                     "$baseName.${extensionForImageMime(mimeType)}"
-            try {
-                Files.move(
-                    decoded,
-                    destination,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE,
-                )
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(decoded, destination, StandardCopyOption.REPLACE_EXISTING)
-            }
+            decoded.moveReplacing(destination)
             destination.absolutePathString()
         } catch (error: Exception) {
             WeLogger.e(TAG, "saveStickerByMd5 failed for md5=$md5", error)

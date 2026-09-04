@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.shortvideos
 
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
 import android.net.Uri
 import android.util.Base64
 import dev.ujhhgtg.wekit.R
@@ -211,7 +212,7 @@ object DownloadMedia : SwitchFeature(),
 
     private suspend fun downloadFile(url: String, targetPath: Path) = withContext(Dispatchers.IO) {
         URL(url).openStream().use { input ->
-            targetPath.outputStream().use { input.copyTo(it) }
+            targetPath.copyFrom(input)
         }
     }
 

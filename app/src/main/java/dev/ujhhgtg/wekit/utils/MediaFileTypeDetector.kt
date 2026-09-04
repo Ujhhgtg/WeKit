@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.utils
 
-import java.nio.ByteBuffer
-import java.nio.file.Files
+import kotlin.io.path.inputStream
+import kotlin.io.path.isRegularFile
 import java.nio.file.Path
 
 /**
@@ -42,7 +42,7 @@ object MediaFileTypeDetector {
     }
 
     fun detectAudio(path: Path): AudioFormat? {
-        if (!Files.isRegularFile(path)) return null
+        if (!path.isRegularFile()) return null
         val header = readHeader(path) ?: return null
         detectAudio(header)?.let { return it }
 
@@ -107,16 +107,25 @@ object MediaFileTypeDetector {
     }
 
     private fun readHeader(path: Path, offset: Long = 0L): ByteArray? = runCatching {
-        Files.newByteChannel(path).use { channel ->
-            channel.position(offset)
-            val buffer = ByteBuffer.allocate(HEADER_BYTES)
+        path.inputStream().use { input ->
+            var remainingOffset = offset
+            while (remainingOffset > 0) {
+                val skipped = input.skip(remainingOffset)
+                if (skipped > 0) {
+                    remainingOffset -= skipped
+                } else {
+                    if (input.read() < 0) return@use null
+                    remainingOffset--
+                }
+            }
+            val buffer = ByteArray(HEADER_BYTES)
             var count = 0
-            while (buffer.hasRemaining()) {
-                val read = channel.read(buffer)
+            while (count < buffer.size) {
+                val read = input.read(buffer, count, buffer.size - count)
                 if (read <= 0) break
                 count += read
             }
-            if (count <= 0) null else buffer.array().copyOf(count)
+            if (count <= 0) null else buffer.copyOf(count)
         }
     }.getOrNull()
 

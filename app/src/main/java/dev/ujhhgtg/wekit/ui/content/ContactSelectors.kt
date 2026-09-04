@@ -194,8 +194,7 @@ fun BaseContactSelector(
         val upper = firstChar.uppercaseChar()
         val initial = if (upper in 'A'..'Z') {
             upper.toString()
-        } else if (transliterator != null) {
-            // safe to ignore since transliterator is null when SDK too low
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && transliterator != null) {
             // ICU Transliterator 不是线程安全的, 预热协程与主线程可能同时进来。
             val pinyin = synchronized(transliterator) { transliterator.transliterate(firstChar.toString()) }
             val c = pinyin.firstOrNull()?.uppercaseChar() ?: '#'

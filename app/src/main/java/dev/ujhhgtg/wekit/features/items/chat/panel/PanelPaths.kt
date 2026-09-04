@@ -1,8 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel
 
+import kotlin.io.path.getLastModifiedTime
+import kotlin.io.path.listDirectoryEntries
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
-import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.FileTime
 import java.time.Instant
@@ -23,10 +24,9 @@ object PanelPaths {
     fun cleanupStalePanelCache() {
         val cutoff = FileTime.from(Instant.now().minus(1, ChronoUnit.DAYS))
         runCatching {
-            Files.list(panelCacheDir).use { paths ->
-                paths.filter { it.isRegularFile() && Files.getLastModifiedTime(it) < cutoff }
-                    .forEach(Path::deleteIfExists)
-            }
+            panelCacheDir.listDirectoryEntries()
+                .filter { it.isRegularFile() && it.getLastModifiedTime() < cutoff }
+                .forEach(Path::deleteIfExists)
         }
     }
 }

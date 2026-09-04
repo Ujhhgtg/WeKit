@@ -1,5 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.service
 
+import dev.ujhhgtg.wekit.utils.fs.copyTo
+import kotlin.io.path.inputStream
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.readBytes
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneExample
@@ -17,7 +21,6 @@ import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import java.nio.file.Files
 import java.security.MessageDigest
 import java.util.LinkedHashMap
 
@@ -159,7 +162,7 @@ object FunBoxStickerRepository {
         val localPaths = pack.items.mapNotNull { it.localPath }.map { it.asPath }
         require(localPaths.isNotEmpty()) { localizedChatString(R.string.chat_funbox_sticker_pack_empty) }
         WeLogger.d(TAG, "pack upload start items=${localPaths.size}")
-        val hashes = localPaths.map { md5(Files.readAllBytes(it)) }
+        val hashes = localPaths.map { md5(it.readBytes()) }
         val preflight = FunBoxServiceClient.call(
             OP_STICKER_UPLOAD_PREFLIGHT,
             FunBoxBinaryWriter().apply {
@@ -292,9 +295,9 @@ object FunBoxStickerRepository {
         val output = java.io.ByteArrayOutputStream()
         java.util.zip.ZipOutputStream(output).use { zip ->
             paths.forEachIndexed { index, path ->
-                require(Files.isRegularFile(path)) { localizedChatString(R.string.chat_funbox_sticker_file_missing, path) }
+                require(path.isRegularFile()) { localizedChatString(R.string.chat_funbox_sticker_file_missing, path) }
                 zip.putNextEntry(java.util.zip.ZipEntry(index.toString()))
-                Files.copy(path, zip)
+                path.copyTo(zip)
                 zip.closeEntry()
             }
         }

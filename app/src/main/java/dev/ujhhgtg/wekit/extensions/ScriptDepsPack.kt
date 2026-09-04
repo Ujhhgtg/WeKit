@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.extensions
 
+import kotlin.io.path.readBytes
 import dalvik.system.InMemoryDexClassLoader
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -8,7 +9,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import java.io.File
 import java.nio.ByteBuffer
-import java.nio.file.Files
 
 /**
  * Java 脚本依赖扩展包:未混淆 DEX(fastjson2 + okhttp + kotlin-stdlib),供
@@ -42,7 +42,7 @@ object ScriptDepsPack : ExtensionPack {
         val manifest = installedManifest() ?: return null
         val dex = installDir().resolve(manifest.version).resolve("classes.dex")
         if (!dex.isFile) return null
-        val dexBytes = Files.readAllBytes(dex.toPath())
+        val dexBytes = dex.toPath().readBytes()
         val loader = InMemoryDexClassLoader(ByteBuffer.wrap(dexBytes), ScriptDepsPack::class.java.classLoader)
         cachedLoader = loader
         return loader

@@ -1,5 +1,8 @@
 package dev.ujhhgtg.wekit.features.items
 
+import dev.ujhhgtg.wekit.utils.fs.moveReplacing
+import kotlin.io.path.createDirectories
+import kotlin.io.path.moveTo
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,7 +26,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.text.Collator
@@ -139,19 +141,10 @@ internal class AtomicJsonConfigStore<T>(
 
     private fun write(value: T) {
         runCatching {
-            Files.createDirectories(file.parent)
+            file.parent.createDirectories()
             val temporary = file.resolveSibling("${file.fileName}.tmp")
             temporary.writeText(DefaultJson.encodeToString(serializer, value))
-            runCatching {
-                Files.move(
-                    temporary,
-                    file,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE
-                )
-            }.getOrElse {
-                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING)
-            }
+            temporary.moveReplacing(file)
         }.onFailure {
             WeLogger.e(tag, "failed to save $file", it)
         }

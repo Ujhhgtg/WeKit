@@ -1,5 +1,9 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import kotlin.io.path.copyTo
+import kotlin.io.path.deleteExisting
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.isSymbolicLink
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -7,7 +11,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
@@ -58,13 +61,13 @@ object ArchLinuxInstanceInstaller {
             }
             val guestBridge = File(rootfs, "usr/bin/invoke_tool")
             requireNotNull(guestBridge.parentFile).mkdirs()
-            Files.copy(bridge.toPath(), guestBridge.toPath(), StandardCopyOption.COPY_ATTRIBUTES)
+            bridge.toPath().copyTo(guestBridge.toPath(), StandardCopyOption.COPY_ATTRIBUTES)
             require(guestBridge.setExecutable(true, true)) { "cannot make invoke_tool executable" }
 
             val resolvConf = File(rootfs, "etc/resolv.conf")
             requireNotNull(resolvConf.parentFile).mkdirs()
-            if (Files.isSymbolicLink(resolvConf.toPath())) {
-                Files.delete(resolvConf.toPath())
+            if (resolvConf.toPath().isSymbolicLink()) {
+                resolvConf.toPath().deleteExisting()
             }
             resolvConf.writeText(
                 "nameserver 1.1.1.1\n" +
@@ -163,7 +166,7 @@ object ArchLinuxInstanceInstaller {
 
     internal fun ensurePacmanSandboxDisabled(rootfs: java.nio.file.Path) {
         val config = rootfs.resolve("etc/pacman.conf")
-        if (!Files.isRegularFile(config)) return
+        if (!config.isRegularFile()) return
         val original = config.readText()
         val updated = disablePacmanSandbox(original)
         if (updated != original) config.writeText(updated)

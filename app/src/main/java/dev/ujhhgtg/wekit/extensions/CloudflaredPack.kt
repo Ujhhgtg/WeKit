@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.extensions
 
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Cloud
@@ -58,7 +59,7 @@ object CloudflaredPack : ExtensionPack {
         ZipFile(verifiedTmp).use { zip ->
             val entry = zip.getEntry("$ABI/$LIB_NAME") ?: error("cloudflared pack has no library for $ABI")
             zip.getInputStream(entry).use { input ->
-                File(versionDir, LIB_NAME).outputStream().use { output -> input.copyTo(output) }
+                File(versionDir, LIB_NAME).toPath().copyFrom(input)
             }
             File(versionDir, LIB_NAME).setReadable(true, true)
             File(versionDir, LIB_NAME).setExecutable(true, true)

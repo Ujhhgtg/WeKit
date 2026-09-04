@@ -1,8 +1,8 @@
 package dev.ujhhgtg.wekit.agent.data
 
+import kotlin.io.path.moveTo
 import java.io.File
 import java.io.FileOutputStream
-import java.nio.file.Files
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 
@@ -46,7 +46,7 @@ internal class WeAgentDatabaseRelocator(
                     output.fd.sync()
                 }
             }
-            Files.move(temp.toPath(), destination.toPath(), ATOMIC_MOVE, REPLACE_EXISTING)
+            temp.toPath().moveTo(destination.toPath(), ATOMIC_MOVE, REPLACE_EXISTING)
             PreparedDatabaseLocation(destination, migratedNow = true, externalFallback = false)
         } catch (t: Throwable) {
             temp.delete()

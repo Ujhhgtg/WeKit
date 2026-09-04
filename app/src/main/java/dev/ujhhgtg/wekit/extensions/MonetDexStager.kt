@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.extensions
 
+import dev.ujhhgtg.wekit.utils.fs.copyTo
 import java.io.File
 
 internal fun stageReadOnlyMonetDex(
@@ -20,7 +21,7 @@ internal fun stageReadOnlyMonetDex(
             require(target.setReadOnly()) {
                 "cannot make Monet generator DEX read-only"
             }
-            source.inputStream().use { input -> input.copyTo(output) }
+            source.toPath().copyTo(output)
         }
         require(!target.canWrite()) { "Monet generator DEX remains writable" }
         require(PackFs.verify(target, expectedSha256)) {

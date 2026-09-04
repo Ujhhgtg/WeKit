@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.notifications
 
+import kotlin.io.path.getLastModifiedTime
+import kotlin.io.path.listDirectoryEntries
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -65,7 +67,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
-import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
@@ -311,11 +312,9 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     private fun cleanupNotificationMediaCache() {
         val cutoff = System.currentTimeMillis() - MEDIA_CACHE_MAX_AGE_MILLIS
         runCatching {
-            Files.list(notificationMediaDir).use { paths ->
-                paths.filter { path ->
-                    path.isRegularFile() && Files.getLastModifiedTime(path).toMillis() < cutoff
-                }.forEach(Path::deleteIfExists)
-            }
+            notificationMediaDir.listDirectoryEntries().filter { path ->
+                path.isRegularFile() && path.getLastModifiedTime().toMillis() < cutoff
+            }.forEach(Path::deleteIfExists)
         }.onFailure { WeLogger.w(TAG, "failed to clean notification media cache", it) }
     }
 

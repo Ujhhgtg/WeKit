@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
+import kotlin.io.path.outputStream
 import android.content.ContentResolver
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
@@ -48,7 +50,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
-import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.UUID
 import kotlin.coroutines.resume
@@ -233,7 +234,7 @@ object StickerPanel : SwitchFeature() {
                 val path = resolveStickerPath(item).getOrThrow()
                 val temporary = item.localPath == null
                 try {
-                    Files.newInputStream(path.asPath).use { input ->
+                    path.asPath.inputStream().use { input ->
                         StickerPanelRepository.importOnlineSticker(item, packId, input, overwrite).getOrThrow()
                     }
                 } finally {
@@ -352,7 +353,7 @@ object StickerPanel : SwitchFeature() {
                             val temporary = PanelPaths.panelCacheDir / "telegram-cache4-${UUID.randomUUID()}.db"
                             val result = runCatching {
                                 contentResolver.openInputStream(uri)?.use { input ->
-                                    Files.copy(input, temporary, StandardCopyOption.REPLACE_EXISTING)
+                                    temporary.copyFrom(input)
                                 } ?: error(localizedChatString(R.string.chat_telegram_database_read_failed))
                                 TelegramStickerDatabase.readInstalledSets(temporary).getOrThrow()
                             }

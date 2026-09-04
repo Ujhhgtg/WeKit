@@ -1,5 +1,8 @@
 package dev.ujhhgtg.wekit.features.items.scripting_python.plugin
 
+import dev.ujhhgtg.wekit.utils.fs.copyTo
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
+import kotlin.io.path.isSymbolicLink
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.features.items.scripting_python.PythonScriptingFeature
 import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLimits
@@ -17,7 +20,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.OutputStream
-import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
@@ -231,7 +233,7 @@ object PythonPluginManager {
                             "Archive entry escapes its directory: ${entry.name}"
                         }
                         target.parentFile!!.mkdirs()
-                        zip.getInputStream(entry).use { input -> target.outputStream().use(input::copyTo) }
+                        zip.getInputStream(entry).use { target.toPath().copyFrom(it) }
                     }
                 if (!staging.renameTo(destination)) {
                     staging.copyRecursively(destination)
@@ -258,7 +260,7 @@ object PythonPluginManager {
         ZipOutputStream(output.buffered()).use { zip ->
             root.walkTopDown().filter(File::isFile).forEach { file ->
                 zip.putNextEntry(ZipEntry(file.toRelativeString(root).replace(File.separatorChar, '/')))
-                file.inputStream().use { it.copyTo(zip) }
+                file.toPath().copyTo(zip)
                 zip.closeEntry()
             }
         }
@@ -294,9 +296,9 @@ object PythonPluginManager {
     }
 
     private fun validate(root: File): PythonPluginManifest {
-        require(!Files.isSymbolicLink(root.toPath())) { "Plugin root cannot be a symlink" }
+        require(!root.toPath().isSymbolicLink()) { "Plugin root cannot be a symlink" }
         root.walkTopDown().forEach { file ->
-            require(!Files.isSymbolicLink(file.toPath())) { "Plugin tree contains a symlink: ${file.name}" }
+            require(!file.toPath().isSymbolicLink()) { "Plugin tree contains a symlink: ${file.name}" }
             require(file.canonicalPath.startsWith(root.canonicalPath + File.separator) || file == root) {
                 "Plugin file escapes its root"
             }

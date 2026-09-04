@@ -1,5 +1,12 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.sticker
 
+import dev.ujhhgtg.wekit.utils.fs.moveReplacing
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
+import kotlin.io.path.outputStream
+import kotlin.io.path.exists
+import kotlin.io.path.fileSize
+import kotlin.io.path.getLastModifiedTime
+import kotlin.io.path.moveTo
 import dev.ujhhgtg.wekit.features.items.chat.panel.LocalSortMode
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelCustomOrders
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
@@ -17,7 +24,6 @@ import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.Serializable
 import java.io.InputStream
-import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
@@ -146,7 +152,7 @@ object StickerPanelRepository {
         require(safeName.isNotBlank()) { localizedChatString(R.string.chat_sticker_pack_name_empty) }
         require(safeName !in reservedNames) { localizedChatString(R.string.chat_sticker_pack_name_unavailable) }
         val destination = packPath(safeName)
-        require(Files.notExists(destination)) { localizedChatString(R.string.chat_sticker_pack_exists) }
+        require(destination.notExists()) { localizedChatString(R.string.chat_sticker_pack_exists) }
         destination.createDirectories()
         safeName
     }
@@ -177,8 +183,8 @@ object StickerPanelRepository {
         val source = packPath(safeOldName)
         val destination = packPath(safeName)
         require(source.isDirectory()) { localizedChatString(R.string.chat_sticker_pack_not_found) }
-        require(Files.notExists(destination)) { localizedChatString(R.string.chat_sticker_pack_exists) }
-        Files.move(source, destination)
+        require(destination.notExists()) { localizedChatString(R.string.chat_sticker_pack_exists) }
+        source.moveTo(destination)
         migratePathPrefix(source, destination)
     }
 
@@ -194,8 +200,8 @@ object StickerPanelRepository {
         val packDir = packPath(safePack).also { it.createDirectories() }
         val temporary = packDir / ".import-${UUID.randomUUID()}.part"
         try {
-            input.use { Files.copy(it, temporary, StandardCopyOption.REPLACE_EXISTING) }
-            require(Files.size(temporary) > 0L) { localizedChatString(R.string.chat_sticker_image_empty) }
+            input.use(temporary::copyFrom)
+            require(temporary.fileSize() > 0L) { localizedChatString(R.string.chat_sticker_image_empty) }
             val format = MediaFileTypeDetector.detectImage(temporary)
                 ?: throw IllegalArgumentException(localizedChatString(R.string.chat_sticker_unsupported_format))
             val destination = uniquePath(packDir, "${importedFileStem(displayName, "sticker")}.${format.extension}")
@@ -222,8 +228,8 @@ object StickerPanelRepository {
         val identity = onlineIdentity(item)
         val temporary = packDir / "$identity.part"
         try {
-            input.use { Files.copy(it, temporary, StandardCopyOption.REPLACE_EXISTING) }
-            require(Files.size(temporary) > 0L) {
+            input.use(temporary::copyFrom)
+            require(temporary.fileSize() > 0L) {
                 localizedChatString(R.string.chat_sticker_server_empty)
             }
             val extension = MediaFileTypeDetector.detectImage(temporary)?.extension
@@ -231,14 +237,7 @@ object StickerPanelRepository {
                     localizedChatString(R.string.chat_sticker_server_unsupported_format),
                 )
             val destination = packDir / "$identity.$extension"
-            runCatching {
-                Files.move(
-                    temporary,
-                    destination,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE,
-                )
-            }.getOrElse { Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING) }
+            temporary.moveReplacing(destination)
             if (existing != null && existing != destination) existing.deleteIfExists()
             destination.toItem(safePack, readStats(), readTitles(), PanelSource.IMPORTED)
         } finally {
@@ -307,19 +306,12 @@ object StickerPanelRepository {
         }
         val temporary = packDir / "$identity.part"
         try {
-            input.use { Files.copy(it, temporary, StandardCopyOption.REPLACE_EXISTING) }
-            require(Files.size(temporary) > 0L) { emptyDataMessage }
+            input.use(temporary::copyFrom)
+            require(temporary.fileSize() > 0L) { emptyDataMessage }
             val extension = MediaFileTypeDetector.detectImage(temporary)?.extension
                 ?: throw IllegalArgumentException(unsupportedFormatMessage)
             val destination = packDir / "$identity.$extension"
-            runCatching {
-                Files.move(
-                    temporary,
-                    destination,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE,
-                )
-            }.getOrElse { Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING) }
+            temporary.moveReplacing(destination)
             destination.toItem(safePack, readStats(), readTitles(), PanelSource.IMPORTED)
         } finally {
             temporary.deleteIfExists()
@@ -541,7 +533,7 @@ object StickerPanelRepository {
     }
 
     private fun lastModified(path: Path): Long =
-        runCatching { Files.getLastModifiedTime(path).toMillis() }.getOrDefault(0L)
+        runCatching { path.getLastModifiedTime().toMillis() }.getOrDefault(0L)
 
     private fun Path.toItem(
         packId: String,
@@ -617,25 +609,18 @@ object StickerPanelRepository {
         return packDir.listDirectoryEntries().firstOrNull { path ->
             path.isRegularFile() &&
                     (path.name == identity || path.name.startsWith("$identity.")) &&
-                    isStickerFile(path) && Files.size(path) > 0L
+                    isStickerFile(path) && path.fileSize() > 0L
         }
     }
 
     private fun moveImportedFile(source: Path, destination: Path) {
-        runCatching {
-            Files.move(
-                source,
-                destination,
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE,
-            )
-        }.getOrElse { Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING) }
+        source.moveReplacing(destination)
     }
 
     private fun uniquePath(dir: Path, fileName: String): Path {
         var candidate = dir / fileName
         var suffix = 1
-        while (Files.exists(candidate)) {
+        while (candidate.exists()) {
             val stem = fileName.substringBeforeLast('.')
             val ext = fileName.substringAfterLast('.', "")
             candidate = dir / "$stem-$suffix${if (ext.isEmpty()) "" else ".$ext"}"
@@ -649,16 +634,7 @@ object StickerPanelRepository {
         val temporary = path.resolveSibling("${path.name}.tmp")
         try {
             temporary.writeText(value)
-            runCatching {
-                Files.move(
-                    temporary,
-                    path,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE,
-                )
-            }.getOrElse {
-                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING)
-            }
+            temporary.moveReplacing(path)
         } finally {
             temporary.deleteIfExists()
         }

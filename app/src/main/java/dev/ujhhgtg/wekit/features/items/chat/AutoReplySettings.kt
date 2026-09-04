@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
+import kotlin.io.path.outputStream
 import android.content.Context
 import android.content.ContentResolver
 import android.net.Uri
@@ -78,7 +80,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import kotlin.io.path.div
 
@@ -878,7 +879,7 @@ internal object AutoReplySettings {
                         val target = KnownPaths.userAssets /
                             "${typePrefix}_${System.currentTimeMillis()}.$extension"
                         contentResolver.openInputStream(uri)?.use { input ->
-                            Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
+                            target.copyFrom(input)
                         } ?: error("cannot open picked file")
                         withContext(Dispatchers.Main) {
                             onImported(target.toString())

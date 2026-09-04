@@ -1,5 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.sticker
 
+import dev.ujhhgtg.wekit.utils.fs.moveReplacing
+import kotlin.io.path.fileSize
+import kotlin.io.path.moveTo
+import kotlin.io.path.outputStream
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -19,7 +23,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
-import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
@@ -51,7 +54,7 @@ internal object TelegramStickerApiClient {
     ) = withContext(Dispatchers.IO) {
         require(isSafeFilePath(filePath)) { localizedChatString(R.string.chat_telegram_invalid_file_path) }
         val partial = destination.resolveSibling("${destination.fileName}.part")
-        var existing = partial.takeIf { it.isRegularFile() }?.let(Files::size) ?: 0L
+        var existing = partial.takeIf { it.isRegularFile() }?.fileSize() ?: 0L
         if (expectedSize != null && existing > expectedSize) {
             partial.deleteIfExists()
             existing = 0L
@@ -86,7 +89,7 @@ internal object TelegramStickerApiClient {
                     existing = 0L
                     arrayOf(StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
                 }
-                Files.newOutputStream(partial, *options).use { output ->
+                partial.outputStream(*options).use { output ->
                     it.body.byteStream().use { input ->
                         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                         while (true) {
@@ -98,13 +101,13 @@ internal object TelegramStickerApiClient {
                     }
                 }
             }
-            val downloadedSize = Files.size(partial)
+            val downloadedSize = partial.fileSize()
             require(downloadedSize > 0L) { localizedChatString(R.string.chat_telegram_file_empty) }
             require(expectedSize == null || downloadedSize == expectedSize) {
                 localizedChatString(R.string.chat_telegram_file_incomplete)
             }
             moveCompletedDownload(partial, destination)
-            WeLogger.i(TAG, "download completed bytes=${Files.size(destination)}")
+            WeLogger.i(TAG, "download completed bytes=${destination.fileSize()}")
             return@withContext
         }
         error(localizedChatString(R.string.chat_telegram_file_resume_failed))
@@ -152,14 +155,7 @@ internal object TelegramStickerApiClient {
         value.isNotBlank() && !value.startsWith('/') && value.split('/').none { it == ".." }
 
     private fun moveCompletedDownload(partial: Path, destination: Path) {
-        runCatching {
-            Files.move(
-                partial,
-                destination,
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE,
-            )
-        }.getOrElse { Files.move(partial, destination, StandardCopyOption.REPLACE_EXISTING) }
+        partial.moveReplacing(destination)
     }
 
     private suspend fun Call.awaitResponse(): Response = suspendCancellableCoroutine { continuation ->

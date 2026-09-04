@@ -1,5 +1,23 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import dev.ujhhgtg.wekit.utils.fs.copyTo
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createTempFile
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.exists
+import kotlin.io.path.fileSize
+import kotlin.io.path.getPosixFilePermissions
+import kotlin.io.path.inputStream
+import kotlin.io.path.isDirectory
+import kotlin.io.path.isExecutable
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.isSymbolicLink
+import kotlin.io.path.moveTo
+import kotlin.io.path.outputStream
+import kotlin.io.path.readBytes
+import kotlin.io.path.readSymbolicLink
+import kotlin.io.path.setPosixFilePermissions
 import kotlin.io.path.writeText
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -8,7 +26,6 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -45,11 +62,11 @@ class ProotBackend internal constructor(
     override suspend fun exec(command: String, timeoutMillis: Long, environmentVariables: Map<String, String>): ExecResult =
         withContext(Dispatchers.IO) {
             require(timeoutMillis in 1..NativeBackend.MAX_TIMEOUT_MILLIS)
-            val outputs = rootfs.resolve("root/.weagent/outputs").also(Files::createDirectories)
-            val stdout = Files.createTempFile(outputs, "exec-", ".stdout")
-            val stderr = Files.createTempFile(outputs, "exec-", ".stderr")
+            val outputs = rootfs.resolve("root/.weagent/outputs").also { it.createDirectories() }
+            val stdout = createTempFile(outputs, "exec-", ".stdout")
+            val stderr = createTempFile(outputs, "exec-", ".stderr")
             val startedAt = System.nanoTime()
-            val prootTmp = instance.resolve("tmp").also(Files::createDirectories)
+            val prootTmp = instance.resolve("tmp").also { it.createDirectories() }
             val fipsEnabled = prootTmp.resolve("fips_enabled").also { it.writeText("0\n") }
             val argv = ProotCommand.execArgv(
                 launcher,
@@ -68,8 +85,8 @@ class ProotBackend internal constructor(
                 TAG,
                 "starting PRoot hostCwd=$instance guestCwd=${snapshot.workingDirectory} " +
                         "rootfs=$rootfs launcher=$launcher loader=$loader " +
-                        "rootfsExists=${Files.isDirectory(rootfs)} " +
-                        "tmpExists=${Files.isDirectory(instance.resolve("tmp"))} " +
+                        "rootfsExists=${rootfs.isDirectory()} " +
+                        "tmpExists=${instance.resolve("tmp").isDirectory()} " +
                         "prootTmp=${processEnvironment["PROOT_TMP_DIR"]} " +
                         "tmpdir=${processEnvironment["TMPDIR"]} " +
                         "pwd=${processEnvironment["PWD"]} " +
@@ -106,15 +123,15 @@ class ProotBackend internal constructor(
                     stderrReader.join()
                 }
                 streamFailure.get()?.let { throw it }
-                val stdoutBytes = Files.size(stdout)
-                val stderrBytes = Files.size(stderr)
+                val stdoutBytes = stdout.fileSize()
+                val stderrBytes = stderr.fileSize()
                 val spill = stdoutBytes + stderrBytes > NativeBackend.DEFAULT_MAX_OUTPUT_BYTES
                 val outLimit = minOf(stdoutBytes, NativeBackend.DEFAULT_MAX_OUTPUT_BYTES.toLong()).toInt()
                 val errLimit = minOf(stderrBytes, (NativeBackend.DEFAULT_MAX_OUTPUT_BYTES - outLimit).toLong()).toInt()
                 val spillPath = if (spill) rootfs.resolve("root/.weagent/outputs/exec-${System.currentTimeMillis()}.log").also { path ->
-                    Files.newOutputStream(path, StandardOpenOption.CREATE_NEW).use { stream ->
-                        stream.write("--- stdout ---\n".toByteArray()); Files.copy(stdout, stream)
-                        stream.write("\n--- stderr ---\n".toByteArray()); Files.copy(stderr, stream)
+                    path.outputStream(StandardOpenOption.CREATE_NEW).use { stream ->
+                        stream.write("--- stdout ---\n".toByteArray()); stdout.copyTo(stream)
+                        stream.write("\n--- stderr ---\n".toByteArray()); stderr.copyTo(stream)
                     }
                 }.let { "/root/" + rootfs.resolve("root").relativize(it) } else null
                 ExecResult(readPrefix(stdout, outLimit), readPrefix(stderr, errLimit), if (timedOut) null else exitCode, timedOut,
@@ -127,25 +144,25 @@ class ProotBackend internal constructor(
                         stderrReader?.join()
                     }
                 }
-                Files.deleteIfExists(stdout); Files.deleteIfExists(stderr)
+                stdout.deleteIfExists(); stderr.deleteIfExists()
             }
         }
 
     override suspend fun readUtf8(path: String, maxBytes: Long): String = withContext(Dispatchers.IO) {
         val target = resolve(path)
-        require(Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) { "not a regular file: $path" }
-        require(Files.size(target) <= maxBytes) { "file exceeds $maxBytes bytes" }
-        decode(Files.readAllBytes(target))
+        require(target.isRegularFile(LinkOption.NOFOLLOW_LINKS)) { "not a regular file: $path" }
+        require(target.fileSize() <= maxBytes) { "file exceeds $maxBytes bytes" }
+        decode(target.readBytes())
     }
 
     override suspend fun edit(request: FileEditRequest) = withContext(Dispatchers.IO) {
         require(!request.replaceAll || request.oldString != null)
         val target = resolve(request.path)
-        val exists = Files.exists(target, LinkOption.NOFOLLOW_LINKS)
+        val exists = target.exists(LinkOption.NOFOLLOW_LINKS)
         val original = if (exists) {
-            require(Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS))
-            require(Files.size(target) <= NativeBackend.MAX_EDIT_BYTES)
-            decode(Files.readAllBytes(target))
+            require(target.isRegularFile(LinkOption.NOFOLLOW_LINKS))
+            require(target.fileSize() <= NativeBackend.MAX_EDIT_BYTES)
+            decode(target.readBytes())
         } else ""
         val updated = request.oldString?.let { old ->
             require(old.isNotEmpty())
@@ -154,14 +171,14 @@ class ProotBackend internal constructor(
             if (request.replaceAll) original.replace(old, request.newString) else original.replaceFirst(old, request.newString)
         } ?: request.newString.also { require(original.isEmpty()) { "creation requires a missing or empty file" } }
         val parent = target.parent
-        require(Files.isDirectory(parent)) { "parent directory does not exist" }
-        val mode = if (exists) Files.getPosixFilePermissions(target) else PosixFilePermissions.fromString("rw-------")
-        val temporary = Files.createTempFile(parent, ".weagent-edit-", ".tmp")
+        require(parent.isDirectory()) { "parent directory does not exist" }
+        val mode = if (exists) target.getPosixFilePermissions() else PosixFilePermissions.fromString("rw-------")
+        val temporary = createTempFile(parent, ".weagent-edit-", ".tmp")
         try {
             temporary.writeText(updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)
-            Files.setPosixFilePermissions(temporary, mode)
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-        } finally { Files.deleteIfExists(temporary) }
+            temporary.setPosixFilePermissions(mode)
+            temporary.moveTo(target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        } finally { temporary.deleteIfExists() }
         Unit
     }
 
@@ -169,14 +186,14 @@ class ProotBackend internal constructor(
 
     override suspend fun ensureBridge(): BridgeInstallArtifact {
         val bridge = rootfs.resolve("usr/bin/invoke_tool")
-        require(Files.isRegularFile(bridge) && Files.isExecutable(bridge)) { "invoke_tool is missing from PRoot instance" }
+        require(bridge.isRegularFile() && bridge.isExecutable()) { "invoke_tool is missing from PRoot instance" }
         return BridgeInstallArtifact("/usr/bin/invoke_tool", "/usr/bin")
     }
 
     override suspend fun checkHealth(): EnvironmentHealth {
-        if (!Files.isExecutable(launcher)) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "PRoot launcher is missing")
-        if (!Files.isExecutable(loader)) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "PRoot loader is missing")
-        if (!Files.isRegularFile(rootfs.resolve("bin/bash"))) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "Arch template is corrupt")
+        if (!launcher.isExecutable()) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "PRoot launcher is missing")
+        if (!loader.isExecutable()) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "PRoot loader is missing")
+        if (!rootfs.resolve("bin/bash").isRegularFile()) return EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "Arch template is corrupt")
         val result = exec("test -x /usr/bin/invoke_tool && test -w /root", 15_000)
         return if (result.exitCode == 0) EnvironmentHealth(EnvironmentHealthState.HEALTHY)
         else EnvironmentHealth(EnvironmentHealthState.DEGRADED, result.stderr.ifBlank { "PRoot health command failed" })
@@ -197,9 +214,9 @@ class ProotBackend internal constructor(
         var links = 0
         while (index < guest.nameCount) {
             host = host.resolve(guest.getName(index).toString())
-            if (Files.isSymbolicLink(host)) {
+            if (host.isSymbolicLink()) {
                 require(++links <= 40) { "too many symbolic links" }
-                val link = Files.readSymbolicLink(host)
+                val link = host.readSymbolicLink()
                 val remaining = if (index + 1 < guest.nameCount) guest.subpath(index + 1, guest.nameCount) else "".asPath
                 guest = (if (link.isAbsolute) link else "/".asPath.resolve(rootfs.relativize(host.parent)).resolve(link)).resolve(remaining).normalize()
                 require(guest.isAbsolute && !guest.startsWith("/..")) { "symbolic link escapes guest root" }
@@ -215,7 +232,7 @@ class ProotBackend internal constructor(
     private fun readPrefix(path: Path, limit: Int): String {
         if (limit == 0) return ""
         val output = ByteArrayOutputStream(limit)
-        Files.newInputStream(path).use { input ->
+        path.inputStream().use { input ->
             val buffer = ByteArray(minOf(8192, limit))
             var remaining = limit
             while (remaining > 0) {
@@ -231,7 +248,7 @@ class ProotBackend internal constructor(
     private fun drain(input: java.io.InputStream, path: Path, failure: AtomicReference<Throwable?>) =
         Thread {
             try {
-                input.use { source -> Files.newOutputStream(path, StandardOpenOption.TRUNCATE_EXISTING).use { target -> source.copyTo(target) } }
+                input.use { path.copyFrom(it, StandardOpenOption.TRUNCATE_EXISTING) }
             } catch (error: Throwable) {
                 failure.compareAndSet(null, error)
             }

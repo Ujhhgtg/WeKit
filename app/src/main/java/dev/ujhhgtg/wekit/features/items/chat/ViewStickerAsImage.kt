@@ -1,5 +1,8 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createTempFile
+import kotlin.io.path.getLastModifiedTime
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
@@ -23,7 +26,6 @@ import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.lang.reflect.Modifier
-import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.deleteIfExists
@@ -150,10 +152,10 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
 
     private fun prunePreviewDirectory(directory: Path, extension: String) {
         try {
-            Files.createDirectories(directory)
+            directory.createDirectories()
             directory.listDirectoryEntries()
                 .filter { it.isRegularFile() && it.name.endsWith(extension) }
-                .sortedByDescending { Files.getLastModifiedTime(it).toMillis() }
+                .sortedByDescending { it.getLastModifiedTime().toMillis() }
                 .drop(10)
                 .forEach { it.deleteIfExists() }
         } catch (error: Exception) {
@@ -185,7 +187,7 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
         var bitmap: Bitmap? = null
         return try {
             prunePreviewDirectory(directory, ".png")
-            output = Files.createTempFile(directory, "sticker-preview-", ".png")
+            output = createTempFile(directory, "sticker-preview-", ".png")
             bitmap = Bitmap.createBitmap(
                 outputWidth,
                 outputHeight,

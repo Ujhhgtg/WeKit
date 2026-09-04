@@ -1,10 +1,29 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import dev.ujhhgtg.wekit.utils.fs.copyTo
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createSymbolicLinkPointingTo
+import kotlin.io.path.createTempFile
+import kotlin.io.path.deleteExisting
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.exists
+import kotlin.io.path.fileSize
+import kotlin.io.path.getPosixFilePermissions
+import kotlin.io.path.inputStream
+import kotlin.io.path.isDirectory
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.isSymbolicLink
+import kotlin.io.path.isWritable
+import kotlin.io.path.moveTo
+import kotlin.io.path.outputStream
+import kotlin.io.path.readBytes
+import kotlin.io.path.readSymbolicLink
+import kotlin.io.path.setPosixFilePermissions
 import kotlin.io.path.writeText
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
@@ -41,9 +60,9 @@ class NativeBackend internal constructor(
         require(timeoutMillis in 1..MAX_TIMEOUT_MILLIS) { "timeout must be between 1 and $MAX_TIMEOUT_MILLIS ms" }
         val workingDirectory = Paths.get(snapshot.workingDirectory).toRealPath()
         val outputDirectory = workingDirectory.resolve(".weagent/outputs")
-        Files.createDirectories(outputDirectory)
-        val stdoutFile = Files.createTempFile(outputDirectory, "exec-", ".stdout")
-        val stderrFile = Files.createTempFile(outputDirectory, "exec-", ".stderr")
+        outputDirectory.createDirectories()
+        val stdoutFile = createTempFile(outputDirectory, "exec-", ".stdout")
+        val stderrFile = createTempFile(outputDirectory, "exec-", ".stderr")
         val startedAt = System.nanoTime()
         val processEnvironment = System.getenv().toMutableMap().apply {
             putAll(this@NativeBackend.environmentVariables)
@@ -80,8 +99,8 @@ class NativeBackend internal constructor(
                 stderrReader.join()
             }
             streamFailure.get()?.let { throw it }
-            val stdoutSize = Files.size(stdoutFile)
-            val stderrSize = Files.size(stderrFile)
+            val stdoutSize = stdoutFile.fileSize()
+            val stderrSize = stderrFile.fileSize()
             val spilled = stdoutSize + stderrSize > maxOutputBytes
             val stdoutLimit = minOf(stdoutSize, maxOutputBytes.toLong()).toInt()
             val stderrLimit = minOf(stderrSize, (maxOutputBytes - stdoutLimit).coerceAtLeast(0).toLong()).toInt()
@@ -89,11 +108,11 @@ class NativeBackend internal constructor(
             val stderr = String(readPrefix(stderrFile, stderrLimit), StandardCharsets.UTF_8)
             val spillPath = if (spilled) {
                 val spill = outputDirectory.resolve("exec-${System.currentTimeMillis()}.log")
-                Files.newOutputStream(spill, StandardOpenOption.CREATE_NEW).use { stream ->
+                spill.outputStream(StandardOpenOption.CREATE_NEW).use { stream ->
                     stream.write("--- stdout ---\n".toByteArray())
-                    Files.copy(stdoutFile, stream)
+                    stdoutFile.copyTo(stream)
                     stream.write("\n--- stderr ---\n".toByteArray())
-                    Files.copy(stderrFile, stream)
+                    stderrFile.copyTo(stream)
                 }
                 spill.toString()
             } else null
@@ -115,15 +134,15 @@ class NativeBackend internal constructor(
                     stderrReader?.join()
                 }
             }
-            Files.deleteIfExists(stdoutFile)
-            Files.deleteIfExists(stderrFile)
+            stdoutFile.deleteIfExists()
+            stderrFile.deleteIfExists()
         }
     }
 
     private fun drain(input: java.io.InputStream, path: Path, failure: AtomicReference<Throwable?>) =
         Thread {
             try {
-                input.use { source -> Files.newOutputStream(path, StandardOpenOption.TRUNCATE_EXISTING).use { target -> source.copyTo(target) } }
+                input.use { path.copyFrom(it, StandardOpenOption.TRUNCATE_EXISTING) }
             } catch (error: Throwable) {
                 failure.compareAndSet(null, error)
             }
@@ -132,19 +151,19 @@ class NativeBackend internal constructor(
     override suspend fun readUtf8(path: String, maxBytes: Long): String = withContext(Dispatchers.IO) {
         require(maxBytes > 0)
         val target = resolve(path)
-        require(Files.isRegularFile(target)) { "not a regular file: $path" }
-        require(Files.size(target) <= maxBytes) { "file exceeds $maxBytes bytes" }
-        decodeUtf8(Files.readAllBytes(target))
+        require(target.isRegularFile()) { "not a regular file: $path" }
+        require(target.fileSize() <= maxBytes) { "file exceeds $maxBytes bytes" }
+        decodeUtf8(target.readBytes())
     }
 
     override suspend fun edit(request: FileEditRequest) = withContext(Dispatchers.IO) {
         require(!request.replaceAll || request.oldString != null) { "replaceAll is invalid in creation mode" }
         val target = resolve(request.path)
-        val exists = Files.exists(target)
+        val exists = target.exists()
         val original = if (exists) {
-            require(Files.isRegularFile(target)) { "not a regular file: ${request.path}" }
-            require(Files.size(target) <= MAX_EDIT_BYTES) { "file exceeds $MAX_EDIT_BYTES bytes" }
-            decodeUtf8(Files.readAllBytes(target))
+            require(target.isRegularFile()) { "not a regular file: ${request.path}" }
+            require(target.fileSize() <= MAX_EDIT_BYTES) { "file exceeds $MAX_EDIT_BYTES bytes" }
+            decodeUtf8(target.readBytes())
         } else ""
         val updated = when (val old = request.oldString) {
             null -> {
@@ -161,25 +180,25 @@ class NativeBackend internal constructor(
             }
         }
         val parent = target.parent ?: error("target has no parent")
-        require(Files.isDirectory(parent)) { "parent directory does not exist" }
+        require(parent.isDirectory()) { "parent directory does not exist" }
         val originalPermissions = if (exists) {
             try {
-                Files.getPosixFilePermissions(target)
+                target.getPosixFilePermissions()
             } catch (error: Exception) {
                 throw IllegalStateException("cannot read mode for existing file ${request.path}", error)
             }
         } else null
-        val temporary = Files.createTempFile(parent, ".weagent-edit-", ".tmp")
+        val temporary = createTempFile(parent, ".weagent-edit-", ".tmp")
         try {
             temporary.writeText(updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)
             try {
-                Files.setPosixFilePermissions(temporary, originalPermissions ?: defaultFilePermissions)
+                temporary.setPosixFilePermissions(originalPermissions ?: defaultFilePermissions)
             } catch (error: Exception) {
                 throw IllegalStateException("cannot set mode for edited file ${request.path}", error)
             }
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            temporary.moveTo(target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
         } finally {
-            Files.deleteIfExists(temporary)
+            temporary.deleteIfExists()
         }
         Unit
     }
@@ -189,18 +208,18 @@ class NativeBackend internal constructor(
     override suspend fun ensureBridge(): BridgeInstallArtifact = withContext(Dispatchers.IO) {
         val packaged = NativeLoader.invokeToolExecutable()
         val bin = Paths.get(snapshot.workingDirectory).resolve(".weagent/bin")
-        Files.createDirectories(bin)
+        bin.createDirectories()
         val link = bin.resolve("invoke_tool")
-        if (Files.isSymbolicLink(link) && Files.readSymbolicLink(link) != packaged.toPath()) {
-            Files.delete(link)
+        if (link.isSymbolicLink() && link.readSymbolicLink() != packaged.toPath()) {
+            link.deleteExisting()
         }
-        if (!Files.exists(link)) Files.createSymbolicLink(link, packaged.toPath())
+        if (!link.exists()) link.createSymbolicLinkPointingTo(packaged.toPath())
         BridgeInstallArtifact(link.toString(), bin.toString())
     }
 
     override suspend fun checkHealth(): EnvironmentHealth = withContext(Dispatchers.IO) {
         val directory = Paths.get(snapshot.workingDirectory)
-        if (Files.isDirectory(directory) && Files.isWritable(directory)) {
+        if (directory.isDirectory() && directory.isWritable()) {
             EnvironmentHealth(EnvironmentHealthState.HEALTHY)
         } else {
             EnvironmentHealth(EnvironmentHealthState.UNAVAILABLE, "working directory is not writable")
@@ -214,7 +233,7 @@ class NativeBackend internal constructor(
         if (!requested.isAbsolute) {
             require(lexical.startsWith(root)) { "relative path escapes the working directory" }
         }
-        val checked = if (Files.exists(lexical)) lexical.toRealPath() else {
+        val checked = if (lexical.exists()) lexical.toRealPath() else {
             val parent = lexical.parent ?: error("relative path has no parent")
             parent.toRealPath().resolve(lexical.fileName).normalize()
         }
@@ -234,7 +253,7 @@ class NativeBackend internal constructor(
     private fun readPrefix(path: Path, limit: Int): ByteArray {
         if (limit == 0) return ByteArray(0)
         val output = ByteArrayOutputStream(limit)
-        Files.newInputStream(path).use { input ->
+        path.inputStream().use { input ->
             val buffer = ByteArray(minOf(8192, limit))
             var remaining = limit
             while (remaining > 0) {

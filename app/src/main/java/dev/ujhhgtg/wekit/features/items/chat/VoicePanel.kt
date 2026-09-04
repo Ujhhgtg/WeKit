@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import kotlin.io.path.fileSize
+import kotlin.io.path.inputStream
 import android.content.ContentResolver
 import android.content.Context
 import android.os.Bundle
@@ -43,7 +45,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import java.nio.file.Files
 import java.util.Locale
 import java.util.UUID
 import kotlin.coroutines.resume
@@ -143,7 +144,7 @@ object VoicePanel : SwitchFeature() {
             if (VoicePanelRepository.hasOnlineVoice(packId, item)) return@addToLocal Result.success(Unit)
             resolveVoicePath(item).mapCatching { path ->
                 try {
-                    Files.newInputStream(path.path.asPath).use { input ->
+                    path.path.asPath.inputStream().use { input ->
                         VoicePanelRepository.importOnlineVoice(packId, item, input).getOrThrow()
                     }
                 } finally {
@@ -164,8 +165,8 @@ object VoicePanel : SwitchFeature() {
             resolveVoicePath(item).mapCatching { path ->
                 val source = path.path.asPath
                 try {
-                    Files.newInputStream(source).use { input ->
-                        CloneVoiceRepository.import(name, input, Files.size(source)).getOrThrow()
+                    source.inputStream().use { input ->
+                        CloneVoiceRepository.import(name, input, source.fileSize()).getOrThrow()
                     }
                 } finally {
                     if (path.temporary) source.deleteIfExists()
@@ -350,7 +351,7 @@ object VoicePanel : SwitchFeature() {
         val path = PanelPaths.panelCacheDir / "$prefix-${UUID.randomUUID()}.$extension"
         try {
             generate(path)
-            require(path.isRegularFile() && Files.size(path) > 0L) { localizedChatString(R.string.chat_voice_conversion_empty) }
+            require(path.isRegularFile() && path.fileSize() > 0L) { localizedChatString(R.string.chat_voice_conversion_empty) }
             Result.success(VoicePreview(path.absolutePathString(), temporary = true))
         } catch (error: CancellationException) {
             path.deleteIfExists()
@@ -368,7 +369,7 @@ object VoicePanel : SwitchFeature() {
                 val (voiceBytes, fileName) = CloneVoiceRepository.synthesisInput(voice).getOrThrow()
                 val audio = FunBoxCloneVoiceRepository.synthesize(text, voiceBytes, fileName).getOrThrow()
                 path.writeBytes(audio)
-                require(Files.size(path) > 0L) { localizedChatString(R.string.chat_voice_conversion_empty) }
+                require(path.fileSize() > 0L) { localizedChatString(R.string.chat_voice_conversion_empty) }
                 Result.success(VoicePreview(path.absolutePathString(), temporary = true))
             } catch (error: CancellationException) {
                 path.deleteIfExists()
