@@ -11,7 +11,6 @@ import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.api.core.WeUnsafeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -19,6 +18,7 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.unsafe.TheUnsafe
 
 object LaunchInternalUrls : ClickableFeature(), IResolveDex {
 
@@ -55,7 +55,7 @@ object LaunchInternalUrls : ClickableFeature(), IResolveDex {
                         val args = if (argsInput.isBlank()) emptyList() else argsInput.split("\n")
                         methodOpenUrl.method.invoke(
                             // FIXME: getDeclaredConstructor() says no ctor exists?? but Unsafe works????
-                            WeUnsafeApi.allocateInstance(methodOpenUrl.method.declaringClass),
+                            TheUnsafe.allocateInstance(methodOpenUrl.method.declaringClass),
                             *arrayOf(context, url, args.toTypedArray())
                         )
                     }) { Text(stringResource(R.string.dialog_confirm)) }
