@@ -3433,6 +3433,8 @@
     <string name="payment_wealth_balance_optional">零钱通余额 (留空不修改)</string>
     <string name="payment_business_balance_optional">经营账户余额 (留空不修改)</string>
     <string name="payment_balance_display_amount">显示金额</string>
+    <string name="payment_wallet_balance_expression">余额表达式</string>
+    <string name="payment_wallet_balance_expression_hint" formatted="false">value 表示真实余额，支持 +、-、*、/、^、**、//、%、sqrt 和 round</string>
     <string name="payment_wallet_balance_title">零钱</string>
     <string name="payment_wealth_balance_title">零钱通</string>
     <string name="payment_business_balance_title">经营账户</string>
@@ -3716,11 +3718,12 @@
     <string name="system_predictive_back_unsupported">当前 Android 版本不支持预见性返回</string>
     <string name="system_prevent_xposed_google_play_warning">微信 Google Play 版本无法使用此功能。</string>
     <string name="system_risky_feature_warning">此功能可能带来账号风险，请在了解后果的情况下继续。</string>
-    <string name="system_sports_active_value">要上传的步数</string>
+    <string name="system_sports_active_value">主动上传步数</string>
     <string name="system_sports_fixed">固定值</string>
     <string name="system_sports_multiplier">倍数</string>
     <string name="system_sports_passive_mode">被动修改</string>
-    <string name="system_sports_passive_value">数值</string>
+    <string name="system_sports_passive_value">被动上传步数表达式</string>
+    <string name="system_sports_passive_expression_hint">value 表示原始步数，例如：value * 2 + 1000</string>
     <string name="system_sports_upload">上传</string>
     <string name="system_sports_upload_result">上传%1$s</string>
     <string name="system_success">成功</string>

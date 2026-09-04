@@ -2,7 +2,9 @@
 // Copyright (C) 2026 InstallerX Revived contributors
 package dev.ujhhgtg.wekit.ui.content.m3
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -43,9 +44,6 @@ fun BaseSupportingWidget(
     enabled: Boolean = true,
     supportingContent: @Composable () -> Unit
 ) {
-    val shape = LocalSegmentedItemShape.current
-    val backgroundColor = MaterialTheme.colorScheme.surfaceBright
-
     val body: @Composable () -> Unit = {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -79,21 +77,17 @@ fun BaseSupportingWidget(
         }
     }
 
-    if (onClick != null) {
-        Surface(
-            onClick = onClick,
-            enabled = enabled,
-            modifier = modifier.fillMaxWidth(),
-            color = backgroundColor,
-            shape = shape,
-            content = body
-        )
-    } else {
-        Surface(
-            modifier = modifier.fillMaxWidth(),
-            color = backgroundColor,
-            shape = shape,
-            content = body
-        )
+    BaseItemContainer(modifier = modifier) {
+        if (onClick == null) {
+            body()
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = enabled, onClick = onClick),
+            ) {
+                body()
+            }
+        }
     }
 }

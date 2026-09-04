@@ -3390,6 +3390,8 @@
     <string name="payment_wealth_balance_optional">Wealth balance (leave blank to keep unchanged)</string>
     <string name="payment_business_balance_optional">Business account balance (leave blank to keep unchanged)</string>
     <string name="payment_balance_display_amount">Displayed amount</string>
+    <string name="payment_wallet_balance_expression">Balance expression</string>
+    <string name="payment_wallet_balance_expression_hint" formatted="false">value is the real balance. Supports +, -, *, /, ^, **, //, %, sqrt, and round.</string>
     <string name="payment_wallet_balance_title">Wallet balance</string>
     <string name="payment_wealth_balance_title">Wealth balance</string>
     <string name="payment_business_balance_title">Business account</string>
@@ -3680,11 +3682,12 @@
     <string name="system_predictive_back_unsupported">Predictive back is not supported by this Android version</string>
     <string name="system_prevent_xposed_google_play_warning">This feature is unavailable in the Google Play build of WeChat.</string>
     <string name="system_risky_feature_warning">This feature may cause account risk. Continue only if you understand the consequences.</string>
-    <string name="system_sports_active_value">Step count to upload</string>
+    <string name="system_sports_active_value">Active upload step count</string>
     <string name="system_sports_fixed">Fixed</string>
     <string name="system_sports_multiplier">Multiplier</string>
     <string name="system_sports_passive_mode">Passive modification</string>
-    <string name="system_sports_passive_value">Value</string>
+    <string name="system_sports_passive_value">Passive upload step expression</string>
+    <string name="system_sports_passive_expression_hint">value is the original step count; for example: value * 2 + 1000</string>
     <string name="system_sports_upload">Upload</string>
     <string name="system_sports_upload_result">Upload %1$s</string>
     <string name="system_success">succeeded</string>

@@ -2,44 +2,55 @@ package dev.ujhhgtg.wekit.features.items.system
 
 import android.content.Context
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Upload
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.utils.math.DecimalExpression
+import java.math.RoundingMode
 
 object ModifySportsStepCount : ClickableFeature(), IResolveDex {
+
+    private const val KEY_PASSIVE_EXPRESSION = "step_passive_expression"
+    private const val LEGACY_MODE = "step_passive_mode"
+    private const val LEGACY_VALUE = "step_passive_value"
+    private const val VALUE_VARIABLE = "value"
+    private const val TAG = "ModifySportsStepCount"
 
     override val technicalId = "修改运动步数"
     override val nameRes = R.string.feature_modify_sports_step_count_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_modify_sports_step_count_description
-
-    enum class PassiveMode { FIXED, MULTIPLIER }
 
     private val methodGetSteps by dexMethod {
         searchPackages("com.tencent.mm.plugin.sport.model")
@@ -55,119 +66,140 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
     }
 
     override fun onEnable() {
+        migrateLegacySettings()
         methodGetSteps.hookAfter {
-            val value = passiveValue
-            if (value < 0) return@hookAfter
-            result = when (passiveMode) {
-                PassiveMode.FIXED -> value
-                PassiveMode.MULTIPLIER -> (result as Long) * value
-            }
+            val original = result as Long
+            evaluatePassiveExpression(original)?.let { result = it }
         }
     }
 
-    private var passiveModeStr by prefOption("step_passive_mode", PassiveMode.FIXED.name)
-    private var passiveMode: PassiveMode
-        get() = runCatching { PassiveMode.valueOf(passiveModeStr) }.getOrDefault(PassiveMode.FIXED)
-        set(v) {
-            passiveModeStr = v.name
-        }
+    private var passiveExpression by prefOption(KEY_PASSIVE_EXPRESSION, VALUE_VARIABLE)
+    private var cachedExpression: Pair<String, DecimalExpression>? = null
 
-    private var passiveValue by prefOption("step_passive_value", -1L)
+    private fun evaluatePassiveExpression(original: Long): Long? {
+        val source = passiveExpression
+        return runCatching {
+            val expression = synchronized(this) {
+                cachedExpression?.takeIf { it.first == source }?.second
+                    ?: DecimalExpression.parse(source, setOf(VALUE_VARIABLE)).also {
+                        cachedExpression = source to it
+                    }
+            }
+            val evaluated = expression.evaluate(mapOf(VALUE_VARIABLE to original.toBigDecimal()))
+            if (evaluated.signum() < 0) error("Step count cannot be negative")
+            evaluated.setScale(0, RoundingMode.HALF_UP).longValueExact()
+        }.onFailure { error ->
+            WeLogger.e(
+                TAG,
+                "failed to evaluate passive step expression '$source' with value $original; keeping original steps",
+                error,
+            )
+        }.getOrNull()
+    }
+
+    private fun expressionError(expression: String): String? = runCatching {
+        DecimalExpression.parse(expression, setOf(VALUE_VARIABLE))
+    }.exceptionOrNull()?.message
+
+    private fun migrateLegacySettings() {
+        if (WePrefs.default.contains(KEY_PASSIVE_EXPRESSION)) return
+        val mode = WePrefs.getStringOrDef(LEGACY_MODE, "FIXED")
+        val value = WePrefs.getLongOrDef(LEGACY_VALUE, -1L)
+        passiveExpression = migrateSportsStepExpression(mode, value)
+        WeLogger.i(TAG, "migrated legacy passive step settings to an expression")
+    }
 
     override fun onClick(context: ComponentActivity) {
+        migrateLegacySettings()
         showComposeDialog(context) {
-            var modeState by remember { mutableStateOf(passiveMode) }
-            var passiveInput by remember {
-                mutableStateOf(if (passiveValue >= 0) passiveValue.toString() else "")
-            }
+            var passiveInput by remember { mutableStateOf(passiveExpression) }
             var activeInput by remember { mutableStateOf("") }
-            val activeIsEmpty = activeInput.isEmpty()
+            val passiveError = expressionError(passiveInput)
+            val activeError = stringResource(R.string.system_invalid_format)
+                .takeIf { activeInput.isNotEmpty() && activeInput.toLongOrNull() == null }
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_modify_sports_step_count_name)) },
                 text = {
-                    DefaultColumn {
-                        // 被动模式: 固定 / 倍率
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(stringResource(R.string.system_sports_passive_mode), modifier = Modifier.weight(1f))
-                            SingleChoiceSegmentedButtonRow {
-                                PassiveMode.entries.forEachIndexed { index, mode ->
-                                    SegmentedButton(
-                                        selected = modeState == mode,
-                                        onClick = { modeState = mode },
-                                        shape = SegmentedButtonDefaults.itemShape(
-                                            index, PassiveMode.entries.size
-                                        )
-                                    ) {
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            BaseSupportingWidget(
+                                title = stringResource(R.string.system_sports_passive_value),
+                            ) {
+                                OutlinedTextField(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    value = passiveInput,
+                                    onValueChange = { passiveInput = it },
+                                    supportingText = {
                                         Text(
-                                            stringResource(
-                                                if (mode == PassiveMode.FIXED) R.string.system_sports_fixed
-                                                else R.string.system_sports_multiplier
-                                            )
+                                            passiveError
+                                                ?: stringResource(R.string.system_sports_passive_expression_hint)
                                         )
-                                    }
-                                }
+                                    },
+                                    isError = passiveError != null,
+                                    singleLine = true,
+                                )
                             }
                         }
 
-                        // 被动值
-                        TextField(
-                            modifier = Modifier.fillMaxWidth(),
-                            value = passiveInput,
-                            onValueChange = {
-                                passiveInput = it.filter { c -> c.isDigit() }.trim()
-                            },
-                            label = { Text(stringResource(R.string.system_sports_passive_value)) }
-                        )
-
-                        // 主动值 + 立即上传
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TextField(
-                                modifier = Modifier.weight(1f),
-                                value = activeInput,
-                                onValueChange = {
-                                    activeInput = it.filter { c -> c.isDigit() }.trim()
-                                },
-                                label = { Text(stringResource(R.string.system_sports_active_value)) },
-                            )
-                            Button(
-                                enabled = !activeIsEmpty,
-                                onClick = {
-                                    val count = activeInput.toLongOrNull() ?: run {
-                                        showToast(localizedSystemString(R.string.system_invalid_format))
-                                        return@Button
-                                    }
-                                    val sportsMan =
-                                        methodUploadSteps.method.declaringClass.createInstance()
-                                    val ok =
-                                        methodUploadSteps.method.invoke(sportsMan, count) as Boolean
-                                    val result = localizedSystemString(
-                                        if (ok) R.string.system_success else R.string.system_failure
-                                    )
-                                    showToast(
-                                        context,
-                                        context.localizedSystemString(R.string.system_sports_upload_result, result)
-                                    )
-                                }
+                        item {
+                            BaseSupportingWidget(
+                                title = stringResource(R.string.system_sports_active_value),
                             ) {
-                                Text(stringResource(R.string.system_sports_upload))
+                                OutlinedTextField(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    value = activeInput,
+                                    onValueChange = {
+                                        activeInput = it.filter(Char::isDigit).trim()
+                                    },
+                                    supportingText = activeError?.let { error -> { Text(error) } },
+                                    isError = activeError != null,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    trailingIcon = {
+                                        IconButton(
+                                            enabled = activeInput.isNotEmpty() && activeError == null,
+                                            onClick = {
+                                                val count = activeInput.toLong()
+                                                val sportsMan =
+                                                    methodUploadSteps.method.declaringClass.createInstance()
+                                                val ok = methodUploadSteps.method.invoke(sportsMan, count) as Boolean
+                                                val result = localizedSystemString(
+                                                    if (ok) R.string.system_success else R.string.system_failure
+                                                )
+                                                showToast(
+                                                    context,
+                                                    context.localizedSystemString(
+                                                        R.string.system_sports_upload_result,
+                                                        result,
+                                                    ),
+                                                )
+                                            },
+                                        ) {
+                                            Icon(
+                                                imageVector = MaterialSymbols.Outlined.Upload,
+                                                contentDescription = stringResource(R.string.system_sports_upload),
+                                            )
+                                        }
+                                    },
+                                    singleLine = true,
+                                )
                             }
                         }
                     }
                 },
                 confirmButton = {
-                    Button(onClick = {
-                        passiveMode = modeState
-                        passiveValue = passiveInput.toLongOrNull() ?: -1L
-                        onDismiss()
-                    }) {
+                    Button(
+                        enabled = passiveError == null,
+                        onClick = {
+                            passiveExpression = passiveInput.trim()
+                            synchronized(this@ModifySportsStepCount) { cachedExpression = null }
+                            onDismiss()
+                        },
+                    ) {
                         Text(stringResource(R.string.action_save))
                     }
                 },
@@ -206,4 +238,10 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
 
         return true
     }
+}
+
+internal fun migrateSportsStepExpression(mode: String, value: Long): String = when {
+    value < 0 -> "value"
+    mode == "MULTIPLIER" -> "value * $value"
+    else -> value.toString()
 }

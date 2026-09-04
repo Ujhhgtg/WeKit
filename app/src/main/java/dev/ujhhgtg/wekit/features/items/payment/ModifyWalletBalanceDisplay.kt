@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -37,14 +38,16 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
-import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
-import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.math.DecimalExpression
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.float
+import dev.ujhhgtg.wekit.utils.reflection.long
+import dev.ujhhgtg.wekit.utils.reflection.void
 import java.lang.reflect.Method
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -74,9 +77,15 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
     private const val KEY_MODE_LQT = "fake_wallet_balance_mode_lqt"
     private const val KEY_MODE_BUSINESS = "fake_wallet_balance_mode_business"
 
+    private const val KEY_EXPRESSION_BALANCE = "fake_wallet_balance_expression_balance"
+    private const val KEY_EXPRESSION_LQT = "fake_wallet_balance_expression_lqt"
+    private const val KEY_EXPRESSION_BUSINESS = "fake_wallet_balance_expression_business"
+
     private const val MODE_FIXED = "fixed"
     private const val MODE_INCREASE = "increase"
     private const val MODE_DECREASE = "decrease"
+    private const val VALUE_VARIABLE = "value"
+    private const val TAG = "ModifyWalletBalanceDisplay"
 
     private val tickerSetTextAnimated by dexMethod {
         matcher {
@@ -87,20 +96,18 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
         }
     }
 
-    private var balance by prefOption(KEY_BALANCE, "0.00")
-    private var lqt by prefOption(KEY_LQT, "0.00")
-    private var business by prefOption(KEY_BUSINESS, null as String?)
+    private var balanceExpression by prefOption(KEY_EXPRESSION_BALANCE, "value")
+    private var lqtExpression by prefOption(KEY_EXPRESSION_LQT, "value")
+    private var businessExpression by prefOption(KEY_EXPRESSION_BUSINESS, "value")
     private var enableBalance by prefOption(KEY_ENABLE_BALANCE, false)
     private var enableLqt by prefOption(KEY_ENABLE_LQT, false)
     private var enableBusiness by prefOption(KEY_ENABLE_BUSINESS, false)
-    private var balanceMode by prefOption(KEY_MODE_BALANCE, MODE_FIXED)
-    private var lqtMode by prefOption(KEY_MODE_LQT, MODE_FIXED)
-    private var businessMode by prefOption(KEY_MODE_BUSINESS, MODE_FIXED)
 
     private val callStack = ThreadLocal.withInitial { ArrayDeque<Boolean>() }
     private val overrideState = ThreadLocal<AmountOverride?>()
     private val tickerState = WeakHashMap<View, Boolean>()
     private val amountState = WeakHashMap<View, AmountTextState>()
+    private val expressionCache = mutableMapOf<Target, Pair<String, DecimalExpression>>()
     private lateinit var tickerSetText: Method
 
     private data class AmountOverride(val target: Target, val original: String)
@@ -109,23 +116,15 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
     private enum class Target {
         BALANCE, LQT, BUSINESS;
 
-        val amount: String
+        val expression: String
             get() = when (this) {
-                BALANCE -> balance
-                LQT -> lqt
-                BUSINESS -> if (WePrefs.default.contains(KEY_BUSINESS)) business ?: "0.00" else lqt
-            }
-
-        val mode: String
-            get() = when (this) {
-                BALANCE -> resolveMode(KEY_MODE_BALANCE, amount, MODE_FIXED)
-                LQT -> resolveMode(KEY_MODE_LQT, amount, MODE_FIXED)
-                BUSINESS -> resolveMode(
-                    KEY_MODE_BUSINESS,
-                    amount,
-                    if (WePrefs.default.contains(KEY_BUSINESS)) MODE_FIXED
-                    else resolveMode(KEY_MODE_LQT, lqt, MODE_FIXED),
-                )
+                BALANCE -> balanceExpression
+                LQT -> lqtExpression
+                BUSINESS -> if (WePrefs.default.contains(KEY_EXPRESSION_BUSINESS)) {
+                    businessExpression ?: "0"
+                } else {
+                    lqtExpression
+                }
             }
     }
 
@@ -134,97 +133,124 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
 
         val wcClazz = "com.tencent.mm.plugin.wallet_core.ui.view.WcPayMoneyLoadingView".toClass()
         wcClazz.reflekt().methods {
-                parameters { params ->
-                    params.isNotEmpty() && params[0] == String::class.java
-                }
-            }.filter { method ->
-                val params = method.parameterTypes
-                params[0] == String::class.java &&
-                    (method.name in setOf("setMoney", "setFirstMoney", "setNewMoney") && params.size == 1 ||
-                        (params.size == 2 || params.size == 4) && params.drop(1).all { it == Boolean::class.javaPrimitiveType })
-            }.forEach { method ->
-                method.hookBefore {
-                    if (!beginOverride(thisObject as View, args[0] as String)) {
-                        val target = targetFor(thisObject as View) ?: Target.BALANCE
-                        if (isEnabled(target)) {
-                            val original = args[0] as String
+            parameters { params ->
+                params.isNotEmpty() && params[0] == BString
+            }
+        }.filter { method ->
+            val params = method.parameterTypes
+            params[0] == BString &&
+                (method.name in setOf("setMoney", "setFirstMoney", "setNewMoney") && params.size == 1 ||
+                    (params.size == 2 || params.size == 4) && params.drop(1).all { it == bool })
+        }.forEach { method ->
+            method.hookBefore {
+                if (!beginOverride(thisObject as View, args[0] as String)) {
+                    val view = thisObject as View
+                    val target = targetFor(view) ?: Target.BALANCE
+                    val tickerReady = !isLqtOrBusiness(target) ||
+                        findTickerView(view)?.let { tickerState[it] == true } == true
+                    if (tickerReady && isEnabled(target)) {
+                        val original = args[0] as String
+                        evaluateAmount(target, original)?.let { replacement ->
                             setOverride(target, original)
-                            args[0] = formatAmount(original, fakeAmount(target, original))
+                            args[0] = formatAmount(original, replacement)
                         }
                     }
                 }
-                method.hookAfter { endOverride() }
             }
+            method.hookAfter { endOverride() }
+        }
 
         val crossClazz = "com.tencent.kinda.framework.WxCrossServices".toClass()
         crossClazz.reflekt().methods {
-                name = "startLqtDetailUseCaseWithBalanceInMMProcess"
-                parameters { params ->
-                    params.size == 2 && Context::class.java.isAssignableFrom(params[0]) &&
-                        params[1] == Long::class.javaPrimitiveType
-                }
-                returnType(Boolean::class.javaPrimitiveType!!)
-            }.forEach { method ->
-                method.hookBefore {
-                    if (!beginOverride(null, null) && isEnabled(Target.LQT)) {
-                        val original = BigDecimal.valueOf(args[1] as Long, 2).toPlainString()
-                        val rendered = fakeAmount(Target.LQT, original).toBigDecimal()
-                            .movePointRight(2).setScale(0, RoundingMode.HALF_UP).toLong()
-                        setOverride(Target.LQT, original)
-                        args[1] = rendered
+            name = "startLqtDetailUseCaseWithBalanceInMMProcess"
+            parameters { params ->
+                params.size == 2 && params[0] isSubclassOf Context::class &&
+                    params[1] == long
+            }
+            returnType(bool)
+        }.forEach { method ->
+            method.hookBefore {
+                if (!beginOverride(null, null) && isEnabled(Target.LQT)) {
+                    val original = BigDecimal.valueOf(args[1] as Long, 2).toPlainString()
+                    evaluateAmount(Target.LQT, original)?.let { replacement ->
+                        runCatching {
+                            replacement.toBigDecimal().movePointRight(2)
+                                .setScale(0, RoundingMode.HALF_UP).longValueExact()
+                        }.onFailure { error ->
+                            logExpressionError(Target.LQT, original, error)
+                        }.getOrNull()?.let { rendered ->
+                            setOverride(Target.LQT, original)
+                            args[1] = rendered
+                        }
                     }
                 }
-                method.hookAfter { endOverride() }
             }
+            method.hookAfter { endOverride() }
+        }
 
         val mallClazz = "com.tencent.mm.plugin.mall.ui.MallWalletSectionCellView".toClass()
         mallClazz.reflekt().methods {
-                returnType(Void.TYPE)
-                parameters { params ->
-                    params.size == 7 && params[1].name == "org.json.JSONObject" &&
-                        params[2] == Boolean::class.javaPrimitiveType && params[3] == String::class.java &&
-                        params[4] == Boolean::class.javaPrimitiveType
-                }
-            }.forEach { method ->
-                method.hookBefore {
-                    val original = args[3] as String
-                    if (!beginOverride(thisObject as? View, original)) {
-                        val cell = args[0]!!.reflekt().firstField { name = "i" }.get(args[0]!!)
-                        val target = when (cell) {
-                            "balance_cell" -> Target.BALANCE
-                            "lqt_cell" -> Target.LQT
-                            else -> null
-                        } ?: return@hookBefore
-                        if (isEnabled(target)) {
-                            val base = stableOriginal(thisObject as? View, target, original)
-                            val rendered = formatAmount(base, fakeAmount(target, base))
+            returnType(void)
+            parameters { params ->
+                params.size == 7 && params[1].name == "org.json.JSONObject" &&
+                    params[2] == bool && params[3] == BString && params[4] == bool
+            }
+        }.forEach { method ->
+            method.hookBefore {
+                val original = args[3] as String
+                if (!beginOverride(thisObject as? View, original)) {
+                    val cell = args[0]!!.reflekt().firstField { name = "i" }.get(args[0]!!)
+                    val target = when (cell) {
+                        "balance_cell" -> Target.BALANCE
+                        "lqt_cell" -> Target.LQT
+                        else -> null
+                    } ?: return@hookBefore
+                    if (isEnabled(target)) {
+                        val base = stableOriginal(thisObject as? View, target, original)
+                        evaluateAmount(target, base)?.let { replacement ->
+                            val rendered = formatAmount(base, replacement)
                             rememberText(thisObject as? View, target, base, rendered)
                             setOverride(target, base)
                             args[3] = rendered
                         }
                     }
                 }
-                method.hookAfter { endOverride() }
             }
+            method.hookAfter { endOverride() }
+        }
 
         val tickerClazz = "com.robinhood.ticker.TickerView".toClass()
         tickerSetText = tickerClazz.reflekt().firstMethod {
             name = "setText"
             parameters(BString)
-            returnType(Void.TYPE)
+            returnType(void)
         }.self
         installTickerMethod(tickerSetText)
         installTickerMethod(tickerSetTextAnimated.method)
         tickerClazz.reflekt().firstMethod {
             name = "setTextSize"
             parameters(float)
-            returnType(Void.TYPE)
-        }.hookBefore {
-            val view = thisObject as View
-            val target = targetFor(view) ?: Target.BALANCE
-            if (isEnabled(target)) {
-                animator(view)?.takeIf(ValueAnimator::isStarted)?.end()
-                if (view.parent != null && isLqtOrBusiness(target)) tickerState[view] = true
+            returnType(void)
+        }.apply {
+            hookBefore {
+                val view = thisObject as View
+                val target = targetFor(view) ?: Target.BALANCE
+                if (isEnabled(target)) {
+                    animator(view)?.takeIf(ValueAnimator::isStarted)?.end()
+                    if (view.parent != null && isLqtOrBusiness(target)) tickerState[view] = true
+                }
+            }
+            hookAfter {
+                val view = thisObject as View
+                val target = targetFor(view) ?: Target.BALANCE
+                if (isEnabled(target)) {
+                    animator(view)?.setCurrentFraction(1.0f)
+                    if (isLqtOrBusiness(target) && tickerState[view] == true) {
+                        val original = synchronized(amountState) { amountState[view]?.original }
+                            ?: view.reflekt().firstMethod { name = "getText" }.invoke() as String
+                        if (original.any(Char::isDigit)) tickerSetText.invoke(view, original)
+                    }
+                }
             }
         }
     }
@@ -235,32 +261,20 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
             val original = args[0] as String
             if (!beginOverride(view, original)) {
                 val target = targetFor(view) ?: Target.BALANCE
-                if (isEnabled(target)) {
+                if ((!isLqtOrBusiness(target) || tickerState[view] == true) && isEnabled(target)) {
                     animator(view)?.takeIf(ValueAnimator::isStarted)?.end()
                     val base = stableOriginal(view, target, original)
-                    val rendered = formatAmount(base, fakeAmount(target, base))
-                    rememberText(view, target, base, rendered)
-                    setOverride(target, base)
-                    args[0] = rendered
-                    if (method.parameterTypes.size == 2) args[1] = false
-                }
-            }
-        }
-        method.hookAfter {
-            endOverride()
-            val view = thisObject as View
-            val target = targetFor(view) ?: Target.BALANCE
-            if (isEnabled(target)) {
-                animator(view)?.setCurrentFraction(1.0f)
-                if (isLqtOrBusiness(target) && tickerState[view] == true) {
-                    val rendered = synchronized(amountState) { amountState[view]?.rendered }
-                        ?: view.reflekt().firstMethod { name = "getText" }.invoke() as String
-                    if (rendered.any(Char::isDigit)) {
-                        tickerSetText.invoke(view, rendered)
+                    evaluateAmount(target, base)?.let { replacement ->
+                        val rendered = formatAmount(base, replacement)
+                        rememberText(view, target, base, rendered)
+                        setOverride(target, base)
+                        args[0] = rendered
+                        if (method.parameterTypes.size == 2) args[1] = false
                     }
                 }
             }
         }
+        method.hookAfter { endOverride() }
     }
 
     private fun beginOverride(view: View?, text: String?): Boolean {
@@ -269,9 +283,9 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
         val override = overrideState.get()
         if (override != null) {
             if (view != null && text != null && text.any(Char::isDigit)) {
-                val rendered = formatAmount(text, amount(override.original).toPlainString())
+                val original = formatAmount(text, amount(override.original).toPlainString())
                 synchronized(amountState) {
-                    amountState[view] = AmountTextState(override.target, override.original, rendered)
+                    amountState[view] = AmountTextState(override.target, original, text)
                 }
             }
             return true
@@ -315,19 +329,35 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
 
     private fun isLqtOrBusiness(target: Target) = target == Target.LQT || target == Target.BUSINESS
 
-    private fun fakeAmount(target: Target, original: String): String {
-        val configured = amount(target.amount).abs()
-        val real = amount(original)
-        val result = when (target.mode) {
-            MODE_INCREASE -> real + configured
-            MODE_DECREASE -> real - configured
-            else -> configured
-        }.max(BigDecimal.ZERO)
-        return result.setScale(2, RoundingMode.HALF_UP).toPlainString()
+    private fun evaluateAmount(target: Target, original: String): String? {
+        val expression = target.expression
+        return runCatching {
+            val compiled = synchronized(expressionCache) {
+                expressionCache[target]?.takeIf { it.first == expression }?.second
+                    ?: DecimalExpression.parse(expression, setOf(VALUE_VARIABLE)).also {
+                        expressionCache[target] = expression to it
+                    }
+            }
+            compiled.evaluate(mapOf(VALUE_VARIABLE to amount(original)))
+                .max(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP)
+                .toPlainString()
+        }.onFailure { error ->
+            logExpressionError(target, original, error)
+        }.getOrNull()
+    }
+
+    private fun logExpressionError(target: Target, original: String, error: Throwable) {
+        WeLogger.e(
+            TAG,
+            "failed to evaluate ${target.name.lowercase(Locale.US)} expression " +
+                "'${target.expression}' with value '${amount(original).toPlainString()}'; keeping original amount",
+            error,
+        )
     }
 
     private fun formatAmount(text: String, replacement: String): String {
-        val normalized = text.replace(" ", "")
+        val normalized = text.trim()
         val start = normalized.indexOfFirst(Char::isDigit)
         if (start < 0) return if ('¥' in normalized || '￥' in normalized) normalized + replacement else replacement
         var end = start
@@ -340,8 +370,6 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
         return match?.value?.toBigDecimalOrNull()?.setScale(2, RoundingMode.HALF_UP)
             ?: BigDecimal.ZERO.setScale(2)
     }
-
-    private fun normalize(value: String): String = amount(value).abs().toPlainString()
 
     private fun resolveMode(key: String, configured: String, fallback: String): String {
         if (WePrefs.default.contains(key)) {
@@ -397,6 +425,15 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
         return null
     }
 
+    private fun findTickerView(view: View): View? {
+        if (view.javaClass.name == "com.robinhood.ticker.TickerView") return view
+        if (view !is ViewGroup) return null
+        for (index in 0 until view.childCount) {
+            findTickerView(view.getChildAt(index))?.let { return it }
+        }
+        return null
+    }
+
     private fun scanChildren(root: ViewGroup, excluded: View, depth: Int, found: (Target) -> Unit) {
         if (depth > 3) return
         for (index in 0 until root.childCount) {
@@ -418,7 +455,7 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
     }
 
     private fun animator(view: View): ValueAnimator? =
-        view.reflekt().fields { type { ValueAnimator::class.java.isAssignableFrom(it) } }
+        view.reflekt().fields { type { it isSubclassOf ValueAnimator::class } }
             .firstOrNull()?.get(view) as? ValueAnimator
 
     private fun rememberText(view: View?, target: Target, original: String, rendered: String) {
@@ -429,8 +466,10 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
         if (view == null) return current
         synchronized(amountState) {
             val state = amountState[view]
-            return if (state != null && state.target == target && amount(current).compareTo(amount(state.rendered)) == 0)
-                state.original
+            return if (state != null && state.target == target && current.any(Char::isDigit) &&
+                state.rendered.any(Char::isDigit) && amount(current).compareTo(amount(state.rendered)) == 0
+            )
+                formatAmount(current, amount(state.original).toPlainString())
             else current
         }
     }
@@ -442,24 +481,54 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
             WePrefs.putString(KEY_LQT, WePrefs.getString(LEGACY_LQT)!!)
         if (!WePrefs.default.contains(KEY_BUSINESS) && WePrefs.default.contains(LEGACY_BUSINESS))
             WePrefs.putString(KEY_BUSINESS, WePrefs.getString(LEGACY_BUSINESS)!!)
+
+        var migrated = false
+        if (!WePrefs.default.contains(KEY_EXPRESSION_BALANCE)) {
+            val configured = WePrefs.getStringOrDef(KEY_BALANCE, "0.00")
+            val mode = resolveMode(KEY_MODE_BALANCE, configured, MODE_FIXED)
+            WePrefs.putString(KEY_EXPRESSION_BALANCE, migrateExpression(configured, mode))
+            migrated = true
+        }
+        if (!WePrefs.default.contains(KEY_EXPRESSION_LQT)) {
+            val configured = WePrefs.getStringOrDef(KEY_LQT, "0.00")
+            val mode = resolveMode(KEY_MODE_LQT, configured, MODE_FIXED)
+            WePrefs.putString(KEY_EXPRESSION_LQT, migrateExpression(configured, mode))
+            migrated = true
+        }
+        if (!WePrefs.default.contains(KEY_EXPRESSION_BUSINESS) &&
+            (WePrefs.default.contains(KEY_BUSINESS) || WePrefs.default.contains(KEY_MODE_BUSINESS))
+        ) {
+            val lqtConfigured = WePrefs.getStringOrDef(KEY_LQT, "0.00")
+            val configured = WePrefs.getString(KEY_BUSINESS) ?: lqtConfigured
+            val lqtMode = resolveMode(KEY_MODE_LQT, lqtConfigured, MODE_FIXED)
+            val mode = resolveMode(KEY_MODE_BUSINESS, configured, lqtMode)
+            WePrefs.putString(KEY_EXPRESSION_BUSINESS, migrateExpression(configured, mode))
+            migrated = true
+        }
+        if (migrated) WeLogger.i(TAG, "migrated legacy wallet balance settings to expressions")
     }
 
+    private fun migrateExpression(configured: String, mode: String): String {
+        return migrateWalletBalanceExpression(configured, mode)
+    }
+
+    private fun expressionError(expression: String): String? = runCatching {
+        DecimalExpression.parse(expression, setOf(VALUE_VARIABLE))
+    }.exceptionOrNull()?.message
+
     override fun onClick(context: ComponentActivity) {
+        migrateLegacySettings()
         showComposeDialog(context) {
-            var balanceInput by remember { mutableStateOf(balance) }
-            var lqtInput by remember { mutableStateOf(lqt) }
-            var businessInput by remember { mutableStateOf(business ?: lqt) }
+            var balanceInput by remember { mutableStateOf(balanceExpression) }
+            var lqtInput by remember { mutableStateOf(lqtExpression) }
+            var businessInput by remember { mutableStateOf(businessExpression ?: lqtExpression) }
             var balanceEnabled by remember { mutableStateOf(enableBalance) }
             var lqtEnabled by remember { mutableStateOf(enableLqt) }
             var businessEnabled by remember { mutableStateOf(enableBusiness) }
-            var balanceModeInput by remember { mutableStateOf(balanceMode) }
-            var lqtModeInput by remember { mutableStateOf(lqtMode) }
-            var businessModeInput by remember { mutableStateOf(businessMode) }
-            val modes = listOf(
-                DropdownOption(MODE_FIXED, stringResource(R.string.payment_wallet_balance_mode_fixed)),
-                DropdownOption(MODE_INCREASE, stringResource(R.string.payment_wallet_balance_mode_increase)),
-                DropdownOption(MODE_DECREASE, stringResource(R.string.payment_wallet_balance_mode_decrease)),
-            )
+            val balanceError = if (balanceEnabled) expressionError(balanceInput) else null
+            val lqtError = if (lqtEnabled) expressionError(lqtInput) else null
+            val businessError = if (businessEnabled) expressionError(businessInput) else null
+            val expressionHint = stringResource(R.string.payment_wallet_balance_expression_hint)
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_modify_wallet_balance_display_name)) },
                 text = {
@@ -476,25 +545,18 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
                                 )
                             }
                             item(animatedVisibility = balanceEnabled) {
-                                BaseSupportingWidget(title = stringResource(R.string.payment_balance_display_amount)) {
+                                BaseSupportingWidget(title = stringResource(R.string.payment_wallet_balance_expression)) {
                                     OutlinedTextField(
                                         value = balanceInput,
                                         onValueChange = { balanceInput = it },
+                                        supportingText = { Text(balanceError ?: expressionHint) },
+                                        isError = balanceError != null,
                                         singleLine = true,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp),
                                     )
                                 }
-                            }
-                            item(animatedVisibility = balanceEnabled) {
-                                DropDownMenuWidget(
-                                    title = stringResource(R.string.payment_wallet_balance_mode),
-                                    description = null,
-                                    value = balanceModeInput,
-                                    options = modes,
-                                    onValueChange = { balanceModeInput = it },
-                                )
                             }
                         }
 
@@ -507,25 +569,18 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
                                 )
                             }
                             item(animatedVisibility = lqtEnabled) {
-                                BaseSupportingWidget(title = stringResource(R.string.payment_balance_display_amount)) {
+                                BaseSupportingWidget(title = stringResource(R.string.payment_wallet_balance_expression)) {
                                     OutlinedTextField(
                                         value = lqtInput,
                                         onValueChange = { lqtInput = it },
+                                        supportingText = { Text(lqtError ?: expressionHint) },
+                                        isError = lqtError != null,
                                         singleLine = true,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp),
                                     )
                                 }
-                            }
-                            item(animatedVisibility = lqtEnabled) {
-                                DropDownMenuWidget(
-                                    title = stringResource(R.string.payment_wealth_balance_mode),
-                                    description = null,
-                                    value = lqtModeInput,
-                                    options = modes,
-                                    onValueChange = { lqtModeInput = it },
-                                )
                             }
                         }
 
@@ -538,10 +593,12 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
                                 )
                             }
                             item(animatedVisibility = businessEnabled) {
-                                BaseSupportingWidget(title = stringResource(R.string.payment_balance_display_amount)) {
+                                BaseSupportingWidget(title = stringResource(R.string.payment_wallet_balance_expression)) {
                                     OutlinedTextField(
                                         value = businessInput,
                                         onValueChange = { businessInput = it },
+                                        supportingText = { Text(businessError ?: expressionHint) },
+                                        isError = businessError != null,
                                         singleLine = true,
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -549,34 +606,42 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
                                     )
                                 }
                             }
-                            item(animatedVisibility = businessEnabled) {
-                                DropDownMenuWidget(
-                                    title = stringResource(R.string.payment_business_balance_mode),
-                                    description = null,
-                                    value = businessModeInput,
-                                    options = modes,
-                                    onValueChange = { businessModeInput = it },
-                                )
-                            }
                         }
                     }
                 },
                 confirmButton = {
-                    Button(onClick = {
-                        balance = normalize(balanceInput)
-                        lqt = normalize(lqtInput)
-                        business = normalize(businessInput)
-                        enableBalance = balanceEnabled
-                        enableLqt = lqtEnabled
-                        enableBusiness = businessEnabled
-                        balanceMode = balanceModeInput
-                        lqtMode = lqtModeInput
-                        businessMode = businessModeInput
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
+                    Button(
+                        enabled = balanceError == null && lqtError == null && businessError == null,
+                        onClick = {
+                            balanceExpression = balanceInput.trim()
+                            lqtExpression = lqtInput.trim()
+                            businessExpression = businessInput.trim()
+                            enableBalance = balanceEnabled
+                            enableLqt = lqtEnabled
+                            enableBusiness = businessEnabled
+                            synchronized(expressionCache) { expressionCache.clear() }
+                            onDismiss()
+                        },
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
                 dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
             )
         }
+    }
+}
+
+internal fun migrateWalletBalanceExpression(configured: String, mode: String): String {
+    val operand = Regex("[+-]?\\d+(?:\\.\\d+)?")
+        .find(configured.replace(",", ""))
+        ?.value
+        ?.toBigDecimalOrNull()
+        ?.setScale(2, RoundingMode.HALF_UP)
+        ?.abs()
+        ?: BigDecimal.ZERO.setScale(2)
+    val normalized = operand.stripTrailingZeros().toPlainString()
+    return when (mode) {
+        "increase" -> "value + $normalized"
+        "decrease" -> "value - $normalized"
+        else -> normalized
     }
 }
