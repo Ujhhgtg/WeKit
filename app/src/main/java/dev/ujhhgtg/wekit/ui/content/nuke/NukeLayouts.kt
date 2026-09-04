@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.ui.content.nukex
+package dev.ujhhgtg.wekit.ui.content.nuke
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement

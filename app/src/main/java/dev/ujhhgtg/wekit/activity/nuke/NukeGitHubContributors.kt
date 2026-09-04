@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.activity.testsettings
+package dev.ujhhgtg.wekit.activity.nuke
 
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson

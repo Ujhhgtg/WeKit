@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.ui.content.nukex
+package dev.ujhhgtg.wekit.ui.content.nuke
 
 import android.content.Context
 import android.content.Intent

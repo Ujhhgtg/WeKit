@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.ui.content.nukex
+package dev.ujhhgtg.wekit.ui.content.nuke
 
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline

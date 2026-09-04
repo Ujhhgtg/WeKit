@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.activity.testsettings
+package dev.ujhhgtg.wekit.activity.nuke
 
 import android.content.Context
 import androidx.activity.compose.BackHandler
@@ -65,24 +65,24 @@ import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeCategoryIcon
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeCountAndChevron
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeDivider
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeEmptyState
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeGlyph
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeGlyphKind
-import dev.ujhhgtg.wekit.ui.content.nukex.NukePageScaffold
-import dev.ujhhgtg.wekit.ui.content.nukex.NukePreferenceRow
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeRevealStackNavigator
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeSearchField
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeSettingGroup
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeSettingGroupTitle
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeSquircleShape
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeSwitch
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeTheme
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeVectorCategoryIcon
-import dev.ujhhgtg.wekit.ui.content.nukex.nukeGroupedCardItem
-import dev.ujhhgtg.wekit.ui.content.nukex.rememberNukeRevealStackState
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeCategoryIcon
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeCountAndChevron
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeDivider
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeEmptyState
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeGlyph
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeGlyphKind
+import dev.ujhhgtg.wekit.ui.content.nuke.NukePageScaffold
+import dev.ujhhgtg.wekit.ui.content.nuke.NukePreferenceRow
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeRevealStackNavigator
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeSearchField
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeSettingGroup
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeSettingGroupTitle
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeSquircleShape
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeSwitch
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeTheme
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeVectorCategoryIcon
+import dev.ujhhgtg.wekit.ui.content.nuke.nukeGroupedCardItem
+import dev.ujhhgtg.wekit.ui.content.nuke.rememberNukeRevealStackState
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.openInSystem
@@ -256,7 +256,7 @@ private fun NukeHomePage(
             .fillMaxSize()
             .background(NukeTheme.colors.background),
     ) {
-        dev.ujhhgtg.wekit.ui.content.nukex.NukeTopAppBar(
+        dev.ujhhgtg.wekit.ui.content.nuke.NukeTopAppBar(
             title = stringResource(R.string.nuke_settings_title)
         )
         LazyColumn(

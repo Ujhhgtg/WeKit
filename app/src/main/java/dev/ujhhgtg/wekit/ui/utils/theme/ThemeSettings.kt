@@ -10,7 +10,7 @@ import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.ui.content.nukex.NukePopupAnimationMode
+import dev.ujhhgtg.wekit.ui.content.nuke.NukePopupAnimationMode
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.applyToWechat
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.colorSpec
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.dynamicWallpaper

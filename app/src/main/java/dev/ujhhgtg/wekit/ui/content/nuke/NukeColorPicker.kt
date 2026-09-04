@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.ui.content.nukex
+package dev.ujhhgtg.wekit.ui.content.nuke
 
 import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.Canvas

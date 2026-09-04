@@ -18,7 +18,7 @@ import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeModuleTheme
+import dev.ujhhgtg.wekit.ui.content.nuke.NukeModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
