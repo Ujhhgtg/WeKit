@@ -63,7 +63,6 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.lang.reflect.Constructor
-import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
@@ -335,11 +334,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     // -------------------------------------------------------------------------------------
     // 语音发送组件
     // -------------------------------------------------------------------------------------
-    private val classVoiceParams by dexClass {
-        matcher {
-            usingEqStrings("toUserName", "fileName", "send_voice_msg")
-        }
-    }
     private val classVoiceNameGen by dexClass(allowFailure = true) {
         matcher {
             usingEqStrings("MicroMsg.VoiceLogic", "startRecord insert voicestg success")
@@ -408,24 +402,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
-    private val classVoiceServiceInterface by dexClass()
-
-    private val classVoiceServiceImpl by dexClass {
-        matcher {
-            usingEqStrings(
-                "MicroMsg.VoiceMsgAsyncSendFSC",
-                "sendAsync only support BaseSendMsgTask Type"
-            )
-        }
-    }
-//    private val methodSendVoice by dexMethod(allowMultiple = true) {
-//        matcher {
-//            declaredClass(classVoiceServiceImpl.clazz)
-//            paramCount = 1
-//            returnType = "void"
-//        }
-//    }
-
     // -------------------------------------------------------------------------------------
     // 运行时缓存
     // -------------------------------------------------------------------------------------
@@ -489,9 +465,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             returnType = String::class
         }.self
     }
-    private lateinit var voiceDurationField: Field     // 语音时长字段
-    private lateinit var voiceOffsetField: Field       // 偏移量字段
-
     private const val TAG = "WeMessageApi"
     private const val MAX_EMOJI_DIMENSION = 1024
     private const val STICKER_SEND_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000L
@@ -702,11 +675,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                     imageFeatureServiceNewPathProbes.joinToString { it.descriptor }
             )
         }
-
-        val targetInterface = classVoiceServiceImpl.data.interfaces.first {
-            !it.name.startsWith("ki0.")
-        }
-        classVoiceServiceInterface.setDescriptor(targetInterface.name)
     }
 
     fun convertMsgInfoInstanceFromContentValues(contentValues: ContentValues): Any {
@@ -1365,12 +1333,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                 returnType = Boolean::class
             }.self
         }
-
-        classVoiceParams.reflekt().apply {
-            val intFields = fields { type = Int::class }
-            voiceDurationField = intFields[0].self
-            voiceOffsetField = intFields[1].self
-        }
     }
 
     /**
@@ -1554,52 +1516,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
     fun sendVoice(toUser: String, path: String, durationMs: Int): Boolean {
         var succeeded = runCatching {
-//             // 尝试通过 ServiceManager 获取
-//             var finalServiceObj: Any? = null
-//             if (getServiceMethod != null) {
-//                 try {
-//                     finalServiceObj = getServiceMethod!!.invoke(null, classVoiceServiceInterface.clazz)
-//                 } catch (e: Exception) {
-//                     WeLogger.e(TAG, "failed to retrieve ServiceManager, trying singleton fallback", e)
-//                 }
-//             }
-//
-//             // 尝试单例 Fallback
-//             if (finalServiceObj == null) {
-//                 val implClass = classVoiceServiceImpl.clazz
-//                 val instanceField = implClass.declaredFields.find {
-//                     it.name == "INSTANCE" || it.type == implClass
-//                 }
-//                 if (instanceField != null) {
-//                     instanceField.makeAccessible()
-//                     finalServiceObj = instanceField.get(null)
-//                 }
-//             }
-//
-//             if (finalServiceObj == null) error("failed to retrieve VoiceService instance")
-//
-//             // 准备文件
-//             val fileName = voiceNameGenMethod.invoke(null, selfCustomWxId, "amr_") as? String
-//                 ?: error("VoiceName Gen Failed")
-//             val accPath = getAccPath()
-//             val voice2Root = if (accPath.endsWith("/")) "${accPath}voice2/" else "$accPath/voice2/"
-//             val destFullPath =
-//                 pathGenMethod.invoke(null, voice2Root, "msg_", fileName, ".amr", 2) as? String
-//                     ?: error("Path Gen Failed")
-//
-//             if (!copyFileViaVfs(path, destFullPath)) return false
-//
-//             // 构造任务
-//             val paramsObj = classVoiceParams.clazz.createInstance(toUser, fileName)
-//             voiceDurationField.set(paramsObj, durationMs)
-//             voiceOffsetField.set(paramsObj, 0)
-//
-//             val taskObj = voiceTaskConstructor.newInstance(paramsObj)
-//                 ?: error("failed to construct voice task")
-//
-//             methodSendVoice.method.invoke(finalServiceObj, taskObj)
-//             WeLogger.i(TAG, "sent voice (Service method): $fileName")
-
             // 准备文件
             val fileName = voiceNameGenMethod.invoke(getReceiverForMethod(voiceNameGenMethod), toUser, "amr_") as? String
                 ?: error("failed to generate voice name")
