@@ -5,7 +5,6 @@ import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
-import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -92,7 +91,7 @@ object AutoLikeMoments : AutoMomentsBase(),
         val sourceType = values.getAsInteger("sourceType") ?: 0
         if (sourceType != 0) return
 
-        val liked = (values.getAsInteger("likeFlag") ?: 0) != 0
+        val liked = values.getAsInteger("likeFlag") ?: 0 != 0
         if (rules.effectiveAction == MomentAutomationAction.LIKE && liked) return
         if (rules.effectiveAction == MomentAutomationAction.UNLIKE && !liked) return
 
@@ -118,7 +117,6 @@ object AutoLikeMoments : AutoMomentsBase(),
     }
 
     private fun queryCachedTargetSnsIds(): List<Long> {
-        if (!WeDatabaseApi.isReady) return emptyList()
         val sql = """
             SELECT snsId, userName, IFNULL(likeFlag, 0)
             FROM SnsInfo
@@ -128,7 +126,7 @@ object AutoLikeMoments : AutoMomentsBase(),
         """.trimIndent()
 
         val result = mutableListOf<Long>()
-        WeDatabaseApi.rawQuery(sql, emptyArray()).use { cursor ->
+        WeMomentsApi.rawQuerySnsInfo(sql).use { cursor ->
             while (cursor.moveToNext()) {
                 val snsId = cursor.getLong(0)
                 val owner = cursor.getString(1).orEmpty()

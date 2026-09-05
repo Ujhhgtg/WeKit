@@ -5,7 +5,6 @@ import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
-import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -122,7 +121,6 @@ object AutoRepostMoments : AutoMomentsBase(),
     }
 
     private fun queryCachedTargetSnsIds(): List<Long> {
-        if (!WeDatabaseApi.isReady) return emptyList()
         val sql = """
             SELECT snsId, userName
             FROM SnsInfo
@@ -132,7 +130,7 @@ object AutoRepostMoments : AutoMomentsBase(),
         """.trimIndent()
 
         val result = mutableListOf<Long>()
-        WeDatabaseApi.rawQuery(sql, emptyArray()).use { cursor ->
+        WeMomentsApi.rawQuerySnsInfo(sql).use { cursor ->
             while (cursor.moveToNext()) {
                 val snsId = cursor.getLong(0)
                 val owner = cursor.getString(1).orEmpty()
