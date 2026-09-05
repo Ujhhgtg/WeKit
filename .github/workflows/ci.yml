@@ -434,7 +434,7 @@ jobs:
           targets: aarch64-linux-android
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: app/src/main/go/wekit-cloudflared/go.mod
           cache: true
