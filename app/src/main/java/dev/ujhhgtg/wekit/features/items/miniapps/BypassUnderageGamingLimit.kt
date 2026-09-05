@@ -6,7 +6,7 @@ import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.utils.TargetProcesses
+import dev.ujhhgtg.wekit.utils.TargetProcess
 
 object BypassUnderageGamingLimit : SwitchFeature() {
 
@@ -15,7 +15,7 @@ object BypassUnderageGamingLimit : SwitchFeature() {
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)
     override val descriptionRes = R.string.feature_bypass_underage_gaming_limit_description
 
-    override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND
+    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 
     override fun onEnable() {
         listOf(

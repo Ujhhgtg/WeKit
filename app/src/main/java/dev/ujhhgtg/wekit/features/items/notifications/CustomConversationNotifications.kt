@@ -64,7 +64,7 @@
 //import dev.ujhhgtg.wekit.ui.content.TextButton
 //import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 //import dev.ujhhgtg.wekit.utils.HostInfo
-//import dev.ujhhgtg.wekit.utils.TargetProcesses
+//import dev.ujhhgtg.wekit.utils.TargetProcess
 //import dev.ujhhgtg.wekit.utils.android.getSystemService
 //import kotlinx.coroutines.Dispatchers
 //import kotlinx.coroutines.launch
@@ -104,8 +104,7 @@
 //    // Own ThreadLocal — never shared with NotificationsEvolved.
 //    private val currentTalker = ThreadLocal<String?>()
 //
-//    override val shouldLoadInCurrentProcess
-//        get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_PUSH
+//    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.PUSH)
 //
 //    override val alwaysEnabled = true
 //    override val noSwitchWidget = true

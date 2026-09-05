@@ -8,7 +8,7 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
 import dev.ujhhgtg.wekit.features.items.notifications.NotificationsEvolved
 import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.utils.TargetProcesses
+import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 /**
@@ -19,7 +19,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
  *
  * WeChat raises new-message notifications from `com.tencent.mm.booter.CoreService`, which the host
  * manifest pins to `android:process=":push"`. [HideContacts] does not override
- * `shouldLoadInCurrentProcess`, so it only ever loads in the main process — which means the
+ * `targetProcesses`, so it only ever loads in the main process — which means the
  * `dealNotify` hook it used to install inline was registered in a process that never calls it. The
  * suppression therefore (almost) never fired. There is a second path on top of that: the LightPush
  * builder raises the notification and plays the ringtone/vibration straight off the push payload and
@@ -114,11 +114,7 @@ object HideContactsNotifications : ApiFeature(), IResolveDex {
     }
 
     /** `CoreService` — and therefore both notification paths — lives in `:push`, not in main. */
-    override fun startup() {
-        if (!TargetProcesses.isInMain && TargetProcesses.currentType != TargetProcesses.PROC_PUSH)
-            return
-        enable()
-    }
+    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.PUSH)
 
     /**
      * Whether a notification for [wxId] must be swallowed.

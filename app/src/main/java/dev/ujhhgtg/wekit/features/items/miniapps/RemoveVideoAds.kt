@@ -5,7 +5,7 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.utils.TargetProcesses
+import dev.ujhhgtg.wekit.utils.TargetProcess
 import org.json.JSONObject
 
 object RemoveVideoAds : SwitchFeature() {
@@ -15,7 +15,7 @@ object RemoveVideoAds : SwitchFeature() {
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)
     override val descriptionRes = R.string.feature_remove_video_ads_description
 
-    override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND
+    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 
     override fun onEnable() {
         "com.tencent.mm.appbrand.commonjni.AppBrandJsBridgeBinding".toClass().reflekt()

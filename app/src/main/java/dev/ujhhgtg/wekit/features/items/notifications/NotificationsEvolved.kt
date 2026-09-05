@@ -49,7 +49,7 @@ import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.OriginalMethodInvoker
-import dev.ujhhgtg.wekit.utils.TargetProcesses
+import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getSystemService
 import dev.ujhhgtg.wekit.utils.captureOriginalMethod
@@ -116,7 +116,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         }
     }
 
-    override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_PUSH
+    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.PUSH)
 
     private enum class ImageNotificationMode {
         DISABLED,

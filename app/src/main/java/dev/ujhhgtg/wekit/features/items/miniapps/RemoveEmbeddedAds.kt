@@ -8,7 +8,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.utils.TargetProcesses
+import dev.ujhhgtg.wekit.utils.TargetProcess
 import org.json.JSONObject
 import java.lang.reflect.Field
 
@@ -51,7 +51,7 @@ object RemoveEmbeddedAds : SwitchFeature(), IResolveDex {
 
     private lateinit var protoField: Field
 
-    override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND
+    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 
     override fun onEnable() {
         // 不同版本构造函数的 data 参数位置不同 (8.0.65 在 args[1], 8.0.76 在 args[3]),

@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.core
 
 import android.content.Context
 import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 abstract class SwitchFeature : BaseFeature() {
@@ -18,10 +17,6 @@ abstract class SwitchFeature : BaseFeature() {
      */
     open val defaultEnabled: Boolean = false
 
-    /** Whether this feature should load in the current process. Defaults to the main process only. */
-    protected open val shouldLoadInCurrentProcess: Boolean
-        get() = TargetProcesses.isInMain
-
     /** Whether the feature should be active at startup, given the cached preference. */
     protected open val shouldEnableOnStartup: Boolean
         get() = _isEnabled
@@ -31,7 +26,6 @@ abstract class SwitchFeature : BaseFeature() {
     }
 
     final override fun startup() {
-        if (!shouldLoadInCurrentProcess) return
         if (shouldEnableOnStartup) enable()
     }
 

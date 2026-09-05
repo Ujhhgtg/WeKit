@@ -30,7 +30,7 @@ import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import dev.ujhhgtg.wekit.utils.TargetProcesses
+import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
@@ -183,10 +183,7 @@ object BlockAtAllNotificationsRuntime : ApiFeature(), IResolveDex {
         }
     }
 
-    override fun startup() {
-        if (!TargetProcesses.isInMain && TargetProcesses.currentType != TargetProcesses.PROC_PUSH) return
-        enable()
-    }
+    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.PUSH)
 
     override fun onEnable() {
         WeMessageApi.methodMsgInfoStorageInsertMessage.hookAfter {

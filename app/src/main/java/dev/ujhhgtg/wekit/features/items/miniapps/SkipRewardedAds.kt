@@ -8,7 +8,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
-import dev.ujhhgtg.wekit.utils.TargetProcesses
+import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.json.JSONObject
 import java.io.File
@@ -115,8 +115,7 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
     /** 命中广告相关事件后, 接下来 30 秒内的所有 bridge 事件都会被打日志。 */
     private val adEventSessionUntil = AtomicLong(0)
 
-    override val shouldLoadInCurrentProcess
-        get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND
+    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 
     override fun onEnable() {
         // 1) webapi_getadvert 请求日志 (主进程): 奖励请求放行 + 发奖校验。

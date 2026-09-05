@@ -13,6 +13,8 @@ import dev.ujhhgtg.wekit.dexkit.dsl.DexMethodDelegate
 import dev.ujhhgtg.wekit.utils.HookAction
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.HookParam
+import dev.ujhhgtg.wekit.utils.TargetProcess
+import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
@@ -28,6 +30,9 @@ abstract class BaseFeature {
     abstract val nameRes: Int
 
     abstract val categoryIds: List<String>
+
+    /** Processes where this feature may be enabled. Defaults to the main process only. */
+    open val targetProcesses: Set<TargetProcess> = setOf(TargetProcess.MAIN)
 
     @get:StringRes
     open val descriptionRes: Int? = null
@@ -49,7 +54,7 @@ abstract class BaseFeature {
         private set
 
     fun enable() {
-        if (isActive) return
+        if (TargetProcesses.currentType !in targetProcesses || isActive) return
 
         runCatching {
             isActive = true
