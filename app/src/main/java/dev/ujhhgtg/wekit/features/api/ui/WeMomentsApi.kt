@@ -983,6 +983,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     fun getOwnerWxId(context: WeMomentsContextMenuApi.MomentsContext): String? =
         getOwnerWxId(context.snsInfo)
 
+    fun getCreateTimeSeconds(snsInfo: Any): Long =
+        (normalizeSnsInfo(snsInfo)!!.reflekt().getField("field_createTime", true) as Int).toLong()
+
     /** Queries the database owned by SnsInfoStorage; the caller must close the cursor. */
     fun rawQuerySnsInfo(sql: String, args: Array<String> = emptyArray()): Cursor {
         val storage = methodGetSnsInfoStorage.method.invoke(null)!!
@@ -2409,7 +2412,11 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
      * 一键转发, 但在转发前先强制把图片/视频从 CDN 缓存到本地 (相当于自动点开一次), 避免转发后空白。
      * [nativeTimeline] 可显式传入, 否则从 [snsInfo] 反射解析。
      */
-    suspend fun quickRepostEnsuringCached(snsInfo: Any?, nativeTimeline: Any? = null): ActionResult {
+    suspend fun quickRepostEnsuringCached(
+        snsInfo: Any?,
+        nativeTimeline: Any? = null,
+        shouldSend: () -> Boolean = { true }
+    ): ActionResult {
         val content = getMomentContent(snsInfo, nativeTimeline)
             ?: return repostResult(
                 success = false,
@@ -2417,10 +2424,14 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 message = "无法解析朋友圈内容",
                 messageRes = R.string.moments_repost_parse_failed,
             )
-        return quickRepostEnsuringCached(content)
+        return quickRepostEnsuringCached(content, shouldSend)
     }
 
-    suspend fun quickRepostEnsuringCached(content: MomentContent): ActionResult {
+    suspend fun quickRepostEnsuringCached(
+        content: MomentContent,
+        shouldSend: () -> Boolean = { true }
+    ): ActionResult {
+        if (!shouldSend()) return ActionResult(success = true, sent = false, message = "automation stopped")
         val text = content.contentText
         return try {
             when (content.type) {
@@ -2432,6 +2443,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                             message = "视频下载失败或超时",
                             messageRes = R.string.moments_repost_video_download_failed,
                         )
+                    if (!shouldSend()) return ActionResult(success = true, sent = false, message = "automation stopped")
                     val ok = postTextAndVideo(HostInfo.application, text, video.videoPath, video.thumbPath)
                     if (ok) {
                         repostResult(success = true, sent = true, message = "已加入发送队列", messageRes = R.string.moments_repost_queued)
@@ -2450,6 +2462,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                                 message = "图片下载失败或超时",
                                 messageRes = R.string.moments_repost_image_download_failed,
                             )
+                        if (!shouldSend()) return ActionResult(success = true, sent = false, message = "automation stopped")
                         return quickRepost(content)
                     }
                     val paths = ensureImagePathsCached(content.mediaList, content.nativeMediaList)
@@ -2459,6 +2472,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                             message = "图片下载失败或超时",
                             messageRes = R.string.moments_repost_image_download_failed,
                         )
+                    if (!shouldSend()) return ActionResult(success = true, sent = false, message = "automation stopped")
                     val ok = postTextAndImages(text, paths)
                     if (ok) {
                         repostResult(success = true, sent = true, message = "已加入发送队列", messageRes = R.string.moments_repost_queued)
@@ -2467,7 +2481,10 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                     }
                 }
 
-                else -> quickRepost(content)
+                else -> {
+                    if (!shouldSend()) return ActionResult(success = true, sent = false, message = "automation stopped")
+                    quickRepost(content)
+                }
             }
         } catch (e: Exception) {
             WeLogger.e(TAG, "quickRepostEnsuringCached failed", e)

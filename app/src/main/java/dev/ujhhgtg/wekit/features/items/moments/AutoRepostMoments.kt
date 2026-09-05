@@ -43,6 +43,9 @@ object AutoRepostMoments : AutoMomentsBase(),
     )
 
     override fun onEnable() {
+        startAutomation()
+        handledSnsIds.clear()
+        lastAttemptAt.clear()
         WeDatabaseListenerApi.addListener(this)
         AutoRefresh.addListener(this)
         installTimelineHooks()
@@ -50,6 +53,7 @@ object AutoRepostMoments : AutoMomentsBase(),
     }
 
     override fun onDisable() {
+        stopAutomation()
         WeDatabaseListenerApi.removeListener(this)
         AutoRefresh.removeListener(this)
     }
@@ -107,32 +111,36 @@ object AutoRepostMoments : AutoMomentsBase(),
 
     private fun scanCachedTargetMoments() {
         if (!settings.hasAllLoadedTargets()) return
+        val scope = captureAutomationScope() ?: return
         thread(name = "ScanMomentsToAutoForwardThread") {
-            val snsIds = runCatching { queryCachedTargetSnsIds() }
+            if (!isAutomationCurrent(scope)) return@thread
+            val snsIds = runCatching { queryCachedTargetSnsIds(scope) }
                 .onFailure { WeLogger.w(TAG, "failed to query cached target moments", it) }
                 .getOrDefault(emptyList())
 
             WeLogger.d(TAG, "scanCachedTargetMoments: found ${snsIds.size} cached moments")
             for (snsId in snsIds) {
+                if (!isAutomationCurrent(scope)) break
                 val snsInfo = WeMomentsApi.getSnsInfoBySnsId(snsId) ?: continue
-                runCatching { processSnsInfo(snsInfo, "cached") }
+                runCatching { processSnsInfo(snsInfo, "cached", scope) }
                     .onFailure { WeLogger.w(TAG, "auto-forward processing failed", it) }
             }
         }
     }
 
-    private fun queryCachedTargetSnsIds(): List<Long> {
+    private fun queryCachedTargetSnsIds(scope: AutomationScope): List<Long> {
         val sql = """
             SELECT snsId, userName
             FROM SnsInfo
             WHERE snsId != 0
+              AND createTime > ?
               AND (sourceType & ${WeMomentsApi.ACTIVE_SOURCE_MASK}) != 0
               AND (sourceType & ${WeMomentsApi.AD_SOURCE_FLAG}) = 0
             ORDER BY createTime DESC
         """.trimIndent()
 
         val result = mutableListOf<Long>()
-        WeMomentsApi.rawQuerySnsInfo(sql).use { cursor ->
+        WeMomentsApi.rawQuerySnsInfo(sql, arrayOf(scope.publishedAfterSeconds.toString())).use { cursor ->
             while (cursor.moveToNext()) {
                 val snsId = cursor.getLong(0)
                 val owner = cursor.getString(1).orEmpty()
@@ -144,11 +152,13 @@ object AutoRepostMoments : AutoMomentsBase(),
         return result
     }
 
-    private fun processSnsInfo(snsInfo: Any, source: String) {
+    private fun processSnsInfo(snsInfo: Any, source: String, scope: AutomationScope) {
+        if (!isAutomationCurrent(scope)) return
         val owner = WeMomentsApi.getOwnerWxId(snsInfo)?.trim().orEmpty()
         val rules = settings.resolve(owner)
         if (owner.isBlank() || owner == WeApi.selfWxId) return
         if (source != "visible" && rules.effectiveMode != MomentAutomationMode.ALL_LOADED) return
+        if (!matchesPublicationWindow(snsInfo, rules.effectiveMode, scope)) return
         if (!rules.matchesMoment(snsInfo)) return
         if (WeMomentsApi.isDeleted(snsInfo)) return
 
@@ -167,12 +177,15 @@ object AutoRepostMoments : AutoMomentsBase(),
             // canAttempt and queue up on the lock, and if the mark landed after the lock was
             // released that thread would see isAlreadyForwarded == false and post a duplicate.
             commit = { committed ->
-                if (committed.success) {
+                if (committed.success && isAutomationCurrent(scope)) {
                     handledSnsIds.add(snsTableId)
                     if (committed.sent) markForwarded(snsTableId)
                 }
             }
         ) {
+            if (!isAutomationCurrent(scope)) {
+                return@sendWithDelay WeMomentsApi.ActionResult(success = true, sent = false, message = "automation stopped")
+            }
             val latestOwner = WeMomentsApi.getOwnerWxId(snsInfo)?.trim().orEmpty()
             val latestRules = settings.resolve(latestOwner)
             when {
@@ -181,6 +194,9 @@ object AutoRepostMoments : AutoMomentsBase(),
 
                 source != "visible" && latestRules.effectiveMode != MomentAutomationMode.ALL_LOADED ->
                     WeMomentsApi.ActionResult(success = true, sent = false, message = "mode changed")
+
+                !matchesPublicationWindow(snsInfo, latestRules.effectiveMode, scope) ->
+                    WeMomentsApi.ActionResult(success = true, sent = false, message = "predates activation")
 
                 !latestRules.matchesMoment(snsInfo) ->
                     WeMomentsApi.ActionResult(success = true, sent = false, message = "rules changed")
@@ -191,7 +207,16 @@ object AutoRepostMoments : AutoMomentsBase(),
                 isAlreadyForwarded(snsTableId) ->
                     WeMomentsApi.ActionResult(success = true, sent = false, message = "already forwarded")
 
-                else -> runBlocking { WeMomentsApi.quickRepostEnsuringCached(snsInfo) }
+                else -> runBlocking {
+                    WeMomentsApi.quickRepostEnsuringCached(snsInfo, shouldSend = {
+                        val currentRules = settings.resolve(owner)
+                        isAutomationCurrent(scope) &&
+                                (source == "visible" || currentRules.effectiveMode == MomentAutomationMode.ALL_LOADED) &&
+                                matchesPublicationWindow(snsInfo, currentRules.effectiveMode, scope) &&
+                                currentRules.matchesMoment(snsInfo) &&
+                                !WeMomentsApi.isDeleted(snsInfo) && !isAlreadyForwarded(snsTableId)
+                    })
+                }
             }
         }
 
@@ -212,8 +237,9 @@ object AutoRepostMoments : AutoMomentsBase(),
     }
 
     private fun processSnsInfoAsync(snsInfo: Any, source: String) {
+        val scope = captureAutomationScope() ?: return
         submitItemWork {
-            runCatching { processSnsInfo(snsInfo, source) }
+            runCatching { processSnsInfo(snsInfo, source, scope) }
                 .onFailure { WeLogger.w(TAG, "auto-forward processing failed", it) }
         }
     }

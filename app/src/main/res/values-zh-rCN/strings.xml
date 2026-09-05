@@ -3080,8 +3080,8 @@
     <string name="moments_automation_processing_mode">处理模式</string>
     <string name="moments_automation_when_seen_only">仅在刷到时处理</string>
     <string name="moments_automation_when_seen">刷到时即时处理</string>
-    <string name="moments_automation_all_cached">本地缓存全量处理</string>
-    <string name="moments_automation_all_cached_requires_refresh">需启用“朋友圈 / 自动刷新”</string>
+    <string name="moments_automation_all_cached">自动处理新发布的朋友圈</string>
+    <string name="moments_automation_all_cached_requires_refresh">仅处理启用后新发布的朋友圈，不补处理历史。后台获取新内容需启用“朋友圈 / 自动刷新”</string>
     <string name="moments_automation_interval">操作间隔</string>
     <string name="moments_automation_interval_value">至少间隔 %1$s ms</string>
     <string name="moments_automation_no_extra_wait">不额外等待</string>

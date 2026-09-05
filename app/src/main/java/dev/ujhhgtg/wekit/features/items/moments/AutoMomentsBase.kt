@@ -10,6 +10,8 @@ import com.tencent.mm.view.recyclerview.WxRecyclerView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
+import dev.ujhhgtg.wekit.features.api.core.WeApi
+import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.classImproveInteractionLayout
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.classImproveSnsInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.fieldInteractionSnsInfo
@@ -20,6 +22,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
@@ -33,6 +36,60 @@ abstract class AutoMomentsBase : ClickableFeature() {
 
     @Suppress("PropertyName")
     protected abstract val TAG: String
+
+    protected class AutomationRun(val enabledAtMillis: Long) {
+        val accountWindows = ConcurrentHashMap<String, Long>()
+    }
+
+    protected class AutomationScope(
+        val run: AutomationRun,
+        val account: String,
+        val publishedAfterSeconds: Long
+    )
+
+    @Volatile
+    private var automationRun: AutomationRun? = null
+
+    private val enabledAtKey get() = "${technicalId}_new_posts_enabled_at"
+
+    protected fun startAutomation() {
+        val enabledAt = WePrefs.getLongOrDef(enabledAtKey, 0L).takeIf { it > 0L }
+            ?: System.currentTimeMillis().also { WePrefs.putLong(enabledAtKey, it) }
+        automationRun = AutomationRun(enabledAt)
+    }
+
+    protected fun stopAutomation() {
+        automationRun = null
+        WePrefs.remove(enabledAtKey)
+        // Old view callbacks may survive unhooking, but cannot submit work while stopped.
+        timelineHooksInstalled = false
+        synchronized(attachedRoots) { attachedRoots.clear() }
+    }
+
+    protected fun captureAutomationScope(): AutomationScope? {
+        val run = automationRun ?: return null
+        val account = WeApi.selfWxId
+        if (account.isEmpty()) return null
+        val afterMillis = run.accountWindows.computeIfAbsent(account) {
+            val key = "${technicalId}_new_posts_after_$account"
+            val previous = WePrefs.getLongOrDef(key, 0L)
+            if (previous >= run.enabledAtMillis) previous else {
+                // A new account or a fresh enable must never inherit another account's backlog.
+                System.currentTimeMillis().also { WePrefs.putLong(key, it) }
+            }
+        }
+        return AutomationScope(run, account, afterMillis / 1000L)
+    }
+
+    protected fun isAutomationCurrent(scope: AutomationScope): Boolean =
+        automationRun === scope.run && WeApi.selfWxId == scope.account
+
+    protected fun matchesPublicationWindow(
+        snsInfo: Any,
+        mode: MomentAutomationMode,
+        scope: AutomationScope
+    ): Boolean = mode == MomentAutomationMode.WHEN_SEEN ||
+            WeMomentsApi.getCreateTimeSeconds(snsInfo) > scope.publishedAfterSeconds
 
     protected val attachedRoots: MutableSet<ViewGroup> = Collections.newSetFromMap(WeakHashMap())
 
@@ -68,6 +125,7 @@ abstract class AutoMomentsBase : ClickableFeature() {
     }
 
     private fun attachToTimelineList(root: ViewGroup) {
+        if (automationRun == null) return
         val list = root.findViewWhich { it is WxRecyclerView } as? WxRecyclerView? ?: return
         synchronized(attachedRoots) {
             if (!attachedRoots.add(root)) return
@@ -103,6 +161,7 @@ abstract class AutoMomentsBase : ClickableFeature() {
      * framework's safety net, so anything escaping here would crash WeChat outright.
      */
     private fun scanVisibleItems(list: ViewGroup) {
+        if (automationRun == null) return
         runCatching { processVisibleItems(list) }
             .onFailure { WeLogger.w(TAG, "failed to scan visible Moments items", it) }
     }

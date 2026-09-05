@@ -35,6 +35,9 @@ object AutoLikeMoments : AutoMomentsBase(),
     private var lastActionSentAt = 0L
 
     override fun onEnable() {
+        startAutomation()
+        handledSnsIds.clear()
+        lastAttemptAt.clear()
         WeDatabaseListenerApi.addListener(this)
         AutoRefresh.addListener(this)
         installTimelineHooks()
@@ -42,6 +45,7 @@ object AutoLikeMoments : AutoMomentsBase(),
     }
 
     override fun onDisable() {
+        stopAutomation()
         WeDatabaseListenerApi.removeListener(this)
         AutoRefresh.removeListener(this)
     }
@@ -103,32 +107,36 @@ object AutoLikeMoments : AutoMomentsBase(),
 
     private fun scanCachedTargetMoments() {
         if (!settings.hasAllLoadedTargets()) return
+        val scope = captureAutomationScope() ?: return
         thread(name = "ScanMomentsToAutoLikeThread") {
-            val snsIds = runCatching { queryCachedTargetSnsIds() }
+            if (!isAutomationCurrent(scope)) return@thread
+            val snsIds = runCatching { queryCachedTargetSnsIds(scope) }
                 .onFailure { WeLogger.w(TAG, "failed to query cached target moments", it) }
                 .getOrDefault(emptyList())
 
             WeLogger.d(TAG, "scanCachedTargetMoments: found ${snsIds.size} cached moments")
             for (snsId in snsIds) {
+                if (!isAutomationCurrent(scope)) break
                 val snsInfo = WeMomentsApi.getSnsInfoBySnsId(snsId) ?: continue
-                runCatching { processSnsInfo(snsInfo, "cached") }
+                runCatching { processSnsInfo(snsInfo, "cached", scope) }
                     .onFailure { WeLogger.w(TAG, "auto-like processing failed", it) }
             }
         }
     }
 
-    private fun queryCachedTargetSnsIds(): List<Long> {
+    private fun queryCachedTargetSnsIds(scope: AutomationScope): List<Long> {
         val sql = """
             SELECT snsId, userName, IFNULL(likeFlag, 0)
             FROM SnsInfo
             WHERE snsId != 0
+              AND createTime > ?
               AND (sourceType & ${WeMomentsApi.ACTIVE_SOURCE_MASK}) != 0
               AND (sourceType & ${WeMomentsApi.AD_SOURCE_FLAG}) = 0
             ORDER BY createTime DESC
         """.trimIndent()
 
         val result = mutableListOf<Long>()
-        WeMomentsApi.rawQuerySnsInfo(sql).use { cursor ->
+        WeMomentsApi.rawQuerySnsInfo(sql, arrayOf(scope.publishedAfterSeconds.toString())).use { cursor ->
             while (cursor.moveToNext()) {
                 val snsId = cursor.getLong(0)
                 val owner = cursor.getString(1).orEmpty()
@@ -143,11 +151,13 @@ object AutoLikeMoments : AutoMomentsBase(),
         return result
     }
 
-    private fun processSnsInfo(snsInfo: Any, source: String) {
+    private fun processSnsInfo(snsInfo: Any, source: String, scope: AutomationScope) {
+        if (!isAutomationCurrent(scope)) return
         val owner = WeMomentsApi.getOwnerWxId(snsInfo)?.trim().orEmpty()
         val rules = settings.resolve(owner)
         if (owner.isBlank() || owner == WeApi.selfWxId) return
         if (source != "visible" && rules.effectiveMode != MomentAutomationMode.ALL_LOADED) return
+        if (!matchesPublicationWindow(snsInfo, rules.effectiveMode, scope)) return
         if (!rules.matchesMoment(snsInfo)) return
         if (WeMomentsApi.isDeleted(snsInfo)) return
 
@@ -167,14 +177,23 @@ object AutoLikeMoments : AutoMomentsBase(),
         if (!canAttempt(snsTableId)) return
 
         val result = sendWithDelay(rules.interval.value()) {
+            if (!isAutomationCurrent(scope)) {
+                return@sendWithDelay WeMomentsApi.ActionResult(success = true, sent = false, message = "automation stopped")
+            }
             val latestOwner = WeMomentsApi.getOwnerWxId(snsInfo)?.trim().orEmpty()
             val latestRules = settings.resolve(latestOwner)
-            when {
+            val outcome = when {
                 latestOwner.isBlank() || latestOwner == WeApi.selfWxId ->
                     WeMomentsApi.ActionResult(success = true, sent = false, message = "target skipped")
 
                 source != "visible" && latestRules.effectiveMode != MomentAutomationMode.ALL_LOADED ->
                     WeMomentsApi.ActionResult(success = true, sent = false, message = "mode changed")
+
+                !matchesPublicationWindow(snsInfo, latestRules.effectiveMode, scope) ->
+                    WeMomentsApi.ActionResult(success = true, sent = false, message = "predates activation")
+
+                snsTableId in handledSnsIds ->
+                    WeMomentsApi.ActionResult(success = true, sent = false, message = "already handled")
 
                 !latestRules.matchesMoment(snsInfo) ->
                     WeMomentsApi.ActionResult(success = true, sent = false, message = "rules changed")
@@ -191,10 +210,11 @@ object AutoLikeMoments : AutoMomentsBase(),
                 latestRules.effectiveAction == MomentAutomationAction.UNLIKE -> WeMomentsApi.unlike(snsInfo)
                 else -> WeMomentsApi.like(snsInfo)
             }
+            if (outcome.success && isAutomationCurrent(scope)) handledSnsIds.add(snsTableId)
+            outcome
         }
 
         if (result.success) {
-            handledSnsIds.add(snsTableId)
             WeLogger.i(TAG, "auto-${actionLabel(action)} $source sent=${result.sent}, owner=$owner, sns=$snsTableId")
         } else {
             val message = "auto-${actionLabel(action)} $source failed, owner=$owner, sns=$snsTableId, message=${result.message}"
@@ -211,8 +231,9 @@ object AutoLikeMoments : AutoMomentsBase(),
     }
 
     private fun processSnsInfoAsync(snsInfo: Any, source: String) {
+        val scope = captureAutomationScope() ?: return
         submitItemWork {
-            runCatching { processSnsInfo(snsInfo, source) }
+            runCatching { processSnsInfo(snsInfo, source, scope) }
                 .onFailure { WeLogger.w(TAG, "auto-like processing failed", it) }
         }
     }

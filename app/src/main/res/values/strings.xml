@@ -3031,8 +3031,8 @@
     <string name="moments_automation_processing_mode">Processing mode</string>
     <string name="moments_automation_when_seen_only">Only process posts as they appear</string>
     <string name="moments_automation_when_seen">Process immediately when seen</string>
-    <string name="moments_automation_all_cached">Process all locally cached posts</string>
-    <string name="moments_automation_all_cached_requires_refresh">Requires “Moments / Auto refresh”</string>
+    <string name="moments_automation_all_cached">Automatically process newly published posts</string>
+    <string name="moments_automation_all_cached_requires_refresh">Only posts published after enabling this feature; no historical catch-up. Enable “Moments / Auto refresh” for background updates.</string>
     <string name="moments_automation_interval">Action interval</string>
     <string name="moments_automation_interval_value">At least %1$s ms between actions</string>
     <string name="moments_automation_no_extra_wait">No additional wait</string>
