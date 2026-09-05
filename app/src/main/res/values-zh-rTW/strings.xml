@@ -1303,6 +1303,11 @@
     <string name="conversation_group_match_count">當前匹配到 %1$d 個對話</string>
     <string name="conversation_group_sql_help" formatted="false">數據源自 rcontact r、img_flag i、rconversation c\n示例：c.unReadCount &gt; 0 AND r.username LIKE \'%@chatroom\'</string>
     <string name="conversation_group_saved">已保存</string>
+    <string name="conversation_grouping_tab_layout_title">標籤佈局</string>
+    <string name="conversation_grouping_tab_layout_content">內容寬度</string>
+    <string name="conversation_grouping_tab_layout_content_description">未佔滿時置中，超出一行時靠左並可橫向捲動</string>
+    <string name="conversation_grouping_tab_layout_equal">等寬鋪滿</string>
+    <string name="conversation_grouping_tab_layout_equal_description">所有標籤等寬分配，佔滿整行</string>
     <string name="conversation_grouping_backend_title">對話分組實現方式</string>
     <string name="conversation_grouping_backend_query">查詢改寫</string>
     <string name="conversation_grouping_backend_query_description">在微信數據庫查詢層過濾對話</string>

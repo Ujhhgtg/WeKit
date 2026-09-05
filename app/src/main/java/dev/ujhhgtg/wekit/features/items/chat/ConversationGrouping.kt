@@ -4,16 +4,9 @@ import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.StartOffset
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,14 +16,18 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.DropdownMenu
@@ -38,11 +35,13 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
+import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -53,14 +52,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -148,6 +151,11 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
 
     private val groupingBackend: GroupingBackend
         get() = GroupingBackend.from(groupingBackendValue)
+
+    private var equalWidthTabs by WePrefs.prefOption("conversation_grouping_equal_width_tabs", false)
+    private val equalWidthTabsState by lazy { mutableStateOf(equalWidthTabs) }
+
+    private val groupTabHorizontalPadding = 16.dp
 
     private fun isAllTab(id: String?): Boolean = id == ALL_TAB_ID
 
@@ -530,32 +538,71 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         showComposeDialog(context) {
             var selected by remember { mutableStateOf(groupingBackend) }
             AlertDialogContent(
-                title = { Text(stringResource(R.string.conversation_grouping_backend_title)) },
+                title = { Text(stringResource(R.string.feature_conversation_grouping_name)) },
+                textTopSpacing = 0.dp,
                 text = {
-                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
-                        item(key = GroupingBackend.ADAPTER_FILTER.value) {
-                            RadioButtonWidget(
-                                iconPlaceholder = false,
-                                title = stringResource(R.string.conversation_grouping_backend_adapter),
-                                description = stringResource(R.string.conversation_grouping_backend_adapter_description),
-                                selected = selected == GroupingBackend.ADAPTER_FILTER,
-                                onClick = {
-                                    selected = GroupingBackend.ADAPTER_FILTER
-                                    selectGroupingBackend(GroupingBackend.ADAPTER_FILTER)
-                                },
-                            )
+                    LazyColumn(Modifier.fillMaxWidth()) {
+                        item {
+                            SegmentedColumn(
+                                title = stringResource(R.string.conversation_grouping_tab_layout_title),
+                                contentPadding = PaddingValues(0.dp),
+                                titlePadding = PaddingValues(start = 16.dp, top = 8.dp, bottom = 8.dp),
+                            ) {
+                                item {
+                                    RadioButtonWidget(
+                                        title = stringResource(R.string.conversation_grouping_tab_layout_content),
+                                        description = stringResource(R.string.conversation_grouping_tab_layout_content_description),
+                                        selected = !equalWidthTabsState.value,
+                                        onClick = {
+                                            equalWidthTabs = false
+                                            equalWidthTabsState.value = false
+                                        },
+                                    )
+                                }
+                                item {
+                                    RadioButtonWidget(
+                                        title = stringResource(R.string.conversation_grouping_tab_layout_equal),
+                                        description = stringResource(R.string.conversation_grouping_tab_layout_equal_description),
+                                        selected = equalWidthTabsState.value,
+                                        onClick = {
+                                            equalWidthTabs = true
+                                            equalWidthTabsState.value = true
+                                        },
+                                    )
+                                }
+                            }
                         }
-                        item(key = GroupingBackend.QUERY_REWRITE.value) {
-                            RadioButtonWidget(
-                                iconPlaceholder = false,
-                                title = stringResource(R.string.conversation_grouping_backend_query),
-                                description = stringResource(R.string.conversation_grouping_backend_query_description),
-                                selected = selected == GroupingBackend.QUERY_REWRITE,
-                                onClick = {
-                                    selected = GroupingBackend.QUERY_REWRITE
-                                    selectGroupingBackend(GroupingBackend.QUERY_REWRITE)
-                                },
-                            )
+                        item {
+                            SegmentedColumn(
+                                title = stringResource(R.string.conversation_grouping_backend_title),
+                                contentPadding = PaddingValues(0.dp),
+                                titlePadding = PaddingValues(start = 16.dp, top = 8.dp, bottom = 8.dp),
+                            ) {
+                                item(key = GroupingBackend.ADAPTER_FILTER.value) {
+                                    RadioButtonWidget(
+                                        iconPlaceholder = false,
+                                        title = stringResource(R.string.conversation_grouping_backend_adapter),
+                                        description = stringResource(R.string.conversation_grouping_backend_adapter_description),
+                                        selected = selected == GroupingBackend.ADAPTER_FILTER,
+                                        onClick = {
+                                            selected = GroupingBackend.ADAPTER_FILTER
+                                            selectGroupingBackend(GroupingBackend.ADAPTER_FILTER)
+                                        },
+                                    )
+                                }
+                                item(key = GroupingBackend.QUERY_REWRITE.value) {
+                                    RadioButtonWidget(
+                                        iconPlaceholder = false,
+                                        title = stringResource(R.string.conversation_grouping_backend_query),
+                                        description = stringResource(R.string.conversation_grouping_backend_query_description),
+                                        selected = selected == GroupingBackend.QUERY_REWRITE,
+                                        onClick = {
+                                            selected = GroupingBackend.QUERY_REWRITE
+                                            selectGroupingBackend(GroupingBackend.QUERY_REWRITE)
+                                        },
+                                    )
+                                }
+                            }
                         }
                     }
                 },
@@ -860,7 +907,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     ) {
         val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
         var menuForGroupId by remember { mutableStateOf<String?>(null) }
-        // Sort (edit) mode: tabs jiggle in place and can be long-pressed to drag-reorder.
+        // Sort (edit) mode: long-press a tab to drag-reorder.
         var sortMode by remember { mutableStateOf(false) }
         // The working order while sorting. Seeded from `groups` on entry and mutated live as the
         // user drags; committed via onReorder only when the check button is tapped.
@@ -884,101 +931,133 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             if (sortMode) {
                 SortableTabsRow(
                     groups = orderedGroups,
+                    selectedGroupId = selectedGroupId,
                     onMove = { from, to ->
                         order = order.toMutableList().apply { add(to, removeAt(from)) }
                     }
                 )
             } else {
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(
-                        space = 8.dp,
-                        alignment = Alignment.CenterHorizontally
-                    ),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    items(orderedGroups, key = { it.id }) { group ->
-                        val allTab = isAllTab(group.id)
-                        val label = groupDisplayName(group)
-                        Box {
-                            GroupTab(
-                                label = label,
-                                selected = selectedGroupId == group.id,
-                                onClick = { onTabSelected(group.id) },
-                                onLongClick = { menuForGroupId = group.id }
-                            )
+                val tabs: @Composable () -> Unit = {
+                    orderedGroups.forEach { group ->
+                        key(group.id) {
+                            val allTab = isAllTab(group.id)
+                            val label = groupDisplayName(group)
+                            Box {
+                                GroupTab(
+                                    label = label,
+                                    selected = selectedGroupId == group.id,
+                                    onClick = { onTabSelected(group.id) },
+                                    onLongClick = { menuForGroupId = group.id }
+                                )
 
-                            DropdownMenu(
-                                expanded = menuForGroupId == group.id,
-                                onDismissRequest = { menuForGroupId = null }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.conversation_group_action_new)) },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = MaterialSymbols.Outlined.Add,
-                                            contentDescription = stringResource(R.string.conversation_group_new_description),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    },
-                                    onClick = {
-                                        menuForGroupId = null
-                                        onCreateGroup()
-                                    }
-                                )
-                                // The fixed "全部" tab can be reordered but never edited or deleted.
-                                if (!allTab) {
+                                DropdownMenu(
+                                    expanded = menuForGroupId == group.id,
+                                    onDismissRequest = { menuForGroupId = null }
+                                ) {
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.conversation_group_action_edit)) },
+                                        text = { Text(stringResource(R.string.conversation_group_action_new)) },
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = MaterialSymbols.Outlined.Edit,
-                                                contentDescription = stringResource(R.string.conversation_group_action_edit),
+                                                imageVector = MaterialSymbols.Outlined.Add,
+                                                contentDescription = stringResource(R.string.conversation_group_new_description),
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         },
                                         onClick = {
                                             menuForGroupId = null
-                                            onEditGroup(group)
+                                            onCreateGroup()
                                         }
                                     )
-                                }
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.conversation_group_action_reorder)) },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = MaterialSymbols.Outlined.Swap_vert,
-                                            contentDescription = stringResource(R.string.conversation_group_action_reorder),
-                                            modifier = Modifier.size(20.dp)
+                                    // The fixed "全部" tab can be reordered but never edited or deleted.
+                                    if (!allTab) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.conversation_group_action_edit)) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = MaterialSymbols.Outlined.Edit,
+                                                    contentDescription = stringResource(R.string.conversation_group_action_edit),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            },
+                                            onClick = {
+                                                menuForGroupId = null
+                                                onEditGroup(group)
+                                            }
                                         )
-                                    },
-                                    onClick = {
-                                        menuForGroupId = null
-                                        order = groups.map { it.id }
-                                        sortMode = true
                                     }
-                                )
-                                if (!allTab) {
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.conversation_group_action_delete)) },
+                                        text = { Text(stringResource(R.string.conversation_group_action_reorder)) },
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = MaterialSymbols.Outlined.Delete,
-                                                contentDescription = stringResource(R.string.conversation_group_action_delete),
+                                                imageVector = MaterialSymbols.Outlined.Swap_vert,
+                                                contentDescription = stringResource(R.string.conversation_group_action_reorder),
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         },
                                         onClick = {
                                             menuForGroupId = null
-                                            onDeleteGroup(group)
+                                            order = groups.map { it.id }
+                                            sortMode = true
                                         }
                                     )
+                                    if (!allTab) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.conversation_group_action_delete)) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = MaterialSymbols.Outlined.Delete,
+                                                    contentDescription = stringResource(R.string.conversation_group_action_delete),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            },
+                                            onClick = {
+                                                menuForGroupId = null
+                                                onDeleteGroup(group)
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-
+                }
+                val selectedTabIndex = orderedGroups.indexOfFirst { it.id == selectedGroupId }
+                    .coerceAtLeast(0)
+                if (equalWidthTabsState.value) {
+                    PrimaryTabRow(
+                        selectedTabIndex = selectedTabIndex,
+                        modifier = Modifier.fillMaxWidth(),
+                        containerColor = containerColor,
+                        divider = {},
+                        tabs = tabs,
+                    )
+                } else {
+                    val textMeasurer = rememberTextMeasurer()
+                    val density = LocalDensity.current
+                    val textStyle = MaterialTheme.typography.titleSmall
+                    val tabsWidth = orderedGroups.fold(0.dp) { width, group ->
+                        val textWidth = textMeasurer.measure(
+                            text = groupDisplayName(group),
+                            style = textStyle,
+                            maxLines = 1,
+                            softWrap = false,
+                        ).size.width
+                        width + with(density) {
+                            (textWidth + groupTabHorizontalPadding.roundToPx() * 2)
+                                .coerceAtLeast(48.dp.roundToPx()).toDp()
+                        }
+                    }
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        // Center short rows; retain only the edge inset once tabs overflow.
+                        PrimaryScrollableTabRow(
+                            selectedTabIndex = selectedTabIndex,
+                            containerColor = containerColor,
+                            edgePadding = ((maxWidth - tabsWidth) / 2).coerceAtLeast(12.dp),
+                            minTabWidth = 48.dp,
+                            divider = {},
+                            tabs = tabs,
+                        )
+                    }
                 }
             }
 
@@ -1041,17 +1120,14 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         localizedGroupName(LocalWeKitLocalizedContext.current, group)
 
     /**
-     * The row shown while sorting: every tab jiggles in place (iOS home-screen editing feel), and a
-     * long-press on any tab picks it up so dragging left/right reorders the row. Reordering mutates
-     * the caller's working order via [onMove]; nothing is persisted until the ✓ button is tapped.
-     *
-     * We build our own drag handling rather than using a LazyRow so we can control the pickup +
-     * live swap ourselves; the tab count is small so a plain Row of measured widths is fine.
+     * Long-press a tab to drag it into a new position. The working order is persisted only when
+     * the check button is tapped.
      */
     @OptIn(ExperimentalFoundationApi::class)
     @Composable
     private fun SortableTabsRow(
         groups: List<ChatGroup>,
+        selectedGroupId: String,
         onMove: (from: Int, to: Int) -> Unit,
     ) {
         val listState = rememberLazyListState()
@@ -1080,100 +1156,106 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             return initialOffset + draggedDelta - item.offset
         }
 
-        LazyRow(
-            state = listState,
-            // Keep normal horizontal scrolling while nothing is picked up, so an overflowing tab
-            // row can be swiped left/right. Once a tab is picked up the drag consumes the gesture,
-            // and the auto-scroll below handles scrolling near the edges.
-            userScrollEnabled = draggingIndex == -1,
-            modifier = Modifier
-                .fillMaxWidth()
-                .pointerInput(Unit) {
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = { offset ->
-                            // Hit-test the touch against the live layout to pick up the right tab.
-                            val hit = listState.layoutInfo.visibleItemsInfo.firstOrNull {
-                                offset.x.toInt() in it.offset..it.offset + it.size
-                            }
-                            if (hit != null) {
-                                draggingIndex = hit.index
-                                initialOffset = hit.offset
-                                draggedDelta = 0f
-                            }
-                        },
-                        onDragEnd = {
-                            val landed = draggingIndex
-                            val from = offsetForIndex(landed)
-                            draggingIndex = -1
-                            // Spring the residual offset back to the slot so the tab glides home.
-                            if (landed >= 0) scope.launch {
-                                settleIndex = landed
-                                settleAnim.snapTo(from)
-                                settleAnim.animateTo(
-                                    0f,
-                                    spring(
-                                        dampingRatio = Spring.DampingRatioLowBouncy,
-                                        stiffness = Spring.StiffnessMedium
+        // Reserve space for the save button outside the scrolling and drag-hit-test area.
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(end = 56.dp)) {
+            LazyRow(
+                state = listState,
+                // Keep normal horizontal scrolling while nothing is picked up, so an overflowing tab
+                // row can be swiped left/right. Once a tab is picked up the drag consumes the gesture,
+                // and the auto-scroll below handles scrolling near the edges.
+                userScrollEnabled = draggingIndex == -1,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(Unit) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { offset ->
+                                // Hit-test the touch against the live layout to pick up the right tab.
+                                val hit = listState.layoutInfo.visibleItemsInfo.firstOrNull {
+                                    offset.x.toInt() in it.offset..it.offset + it.size
+                                }
+                                if (hit != null) {
+                                    draggingIndex = hit.index
+                                    initialOffset = hit.offset
+                                    draggedDelta = 0f
+                                }
+                            },
+                            onDragEnd = {
+                                val landed = draggingIndex
+                                val from = offsetForIndex(landed)
+                                draggingIndex = -1
+                                // Spring the residual offset back to the slot so the tab glides home.
+                                if (landed >= 0) scope.launch {
+                                    settleIndex = landed
+                                    settleAnim.snapTo(from)
+                                    settleAnim.animateTo(
+                                        0f,
+                                        spring(
+                                            dampingRatio = Spring.DampingRatioLowBouncy,
+                                            stiffness = Spring.StiffnessMedium
+                                        )
                                     )
-                                )
-                                settleIndex = -1
+                                    settleIndex = -1
+                                }
+                            },
+                            onDragCancel = { draggingIndex = -1 },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                if (draggingIndex < 0) return@detectDragGesturesAfterLongPress
+                                draggedDelta += amount.x
+                                val info = listState.layoutInfo.visibleItemsInfo
+                                val cur = info.firstOrNull { it.index == draggingIndex }
+                                    ?: return@detectDragGesturesAfterLongPress
+                                // Center of the dragged tab as it currently sits under the finger.
+                                val center = (cur.offset + offsetForIndex(draggingIndex) + cur.size / 2f).toInt()
+                                val target = info.firstOrNull { other ->
+                                    other.index != draggingIndex &&
+                                            center in other.offset..other.offset + other.size
+                                }
+                                if (target != null) {
+                                    onMove(draggingIndex, target.index)
+                                    draggingIndex = target.index
+                                }
                             }
-                        },
-                        onDragCancel = { draggingIndex = -1 },
-                        onDrag = { change, amount ->
-                            change.consume()
-                            if (draggingIndex < 0) return@detectDragGesturesAfterLongPress
-                            draggedDelta += amount.x
-                            val info = listState.layoutInfo.visibleItemsInfo
-                            val cur = info.firstOrNull { it.index == draggingIndex }
-                                ?: return@detectDragGesturesAfterLongPress
-                            // Center of the dragged tab as it currently sits under the finger.
-                            val center = (cur.offset + offsetForIndex(draggingIndex) + cur.size / 2f).toInt()
-                            val target = info.firstOrNull { other ->
-                                other.index != draggingIndex &&
-                                        center in other.offset..other.offset + other.size
-                            }
-                            if (target != null) {
-                                onMove(draggingIndex, target.index)
-                                draggingIndex = target.index
-                            }
-                        }
-                    )
-                },
-            // Leave room on the right for the overlaid ✓ button.
-            contentPadding = PaddingValues(
-                start = 12.dp, end = 56.dp, top = 8.dp, bottom = 8.dp
-            ),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            items(groups.size, key = { groups[it].id }) { index ->
-                val group = groups[index]
-                val dragging = index == draggingIndex
-                val settling = index == settleIndex
-
-                JiggleTab(
-                    label = groupDisplayName(group),
-                    // Keep the lift look through the settle so scale eases out alongside the glide.
-                    dragging = dragging || settling,
-                    // Offset the jiggle phase by index so neighbouring tabs aren't perfectly in sync.
-                    phaseIndex = index,
-                    // Read at draw time so a swap-induced layout shift is reflected without a
-                    // recomposition-timing gap. While dragging: follow the finger. While settling:
-                    // the spring value. Otherwise: 0 (its slot).
-                    dragOffsetX = {
-                        when {
-                            dragging -> offsetForIndex(index)
-                            settling -> settleAnim.value
-                            else -> 0f
-                        }
+                        )
                     },
-                    modifier = Modifier
-                        .zIndex(if (dragging || settling) 1f else 0f)
-                        // Neighbours springing aside to make room animate their placement smoothly
-                        // instead of jumping. The dragged tab is excluded (it tracks the finger).
-                        .then(if (dragging || settling) Modifier else Modifier.animateItem())
-                )
+                contentPadding = PaddingValues(horizontal = if (equalWidthTabsState.value) 0.dp else 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items(groups.size, key = { groups[it].id }) { index ->
+                    val group = groups[index]
+                    val dragging = index == draggingIndex
+                    val settling = index == settleIndex
+
+                    val scale by animateFloatAsState(
+                        targetValue = if (dragging || settling) 1.1f else 1f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMedium,
+                        ),
+                        label = "dragScale",
+                    )
+                    GroupTabContent(
+                        label = groupDisplayName(group),
+                        selected = selectedGroupId == group.id,
+                        modifier = Modifier
+                            .then(
+                                if (equalWidthTabsState.value) Modifier.width(maxWidth / groups.size)
+                                else Modifier.widthIn(min = 48.dp)
+                            )
+                            .zIndex(if (dragging || settling) 1f else 0f)
+                            .graphicsLayer {
+                                translationX = when {
+                                    dragging -> offsetForIndex(index)
+                                    settling -> settleAnim.value
+                                    else -> 0f
+                                }
+                                scaleX = scale
+                                scaleY = scale
+                            }
+                            .then(if (dragging || settling) Modifier else Modifier.animateItem()),
+                    )
+                }
             }
         }
 
@@ -1204,103 +1286,40 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         onClick: () -> Unit,
         onLongClick: () -> Unit,
     ) {
-        val backgroundColor = if (selected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.surfaceContainerHighest
-        }
-        val contentColor = if (selected) {
-            MaterialTheme.colorScheme.onPrimary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        }
-
-        Surface(
-            color = backgroundColor,
-            contentColor = contentColor,
-            shape = CircleShape
-        ) {
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-                    .padding(horizontal = 18.dp, vertical = 9.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
-                    )
-                )
-            }
-        }
+        GroupTabContent(
+            label = label,
+            selected = selected,
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { this.selected = selected }
+                .combinedClickable(
+                    role = Role.Tab,
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                ),
+        )
     }
 
-    /**
-     * A tab pill in sort mode: continuously rotates a couple degrees back and forth (the iOS
-     * home-screen "jiggle"), lifts and enlarges slightly while being dragged, and follows the
-     * finger horizontally via [dragOffsetX].
-     */
     @Composable
-    private fun JiggleTab(
+    private fun GroupTabContent(
         label: String,
-        dragging: Boolean,
-        phaseIndex: Int,
-        dragOffsetX: () -> Float,
+        selected: Boolean,
         modifier: Modifier = Modifier,
     ) {
-        val transition = rememberInfiniteTransition(label = "jiggle")
-        // Alternate the start phase per index so neighbouring tabs jiggle out of sync.
-        val rotation by transition.animateFloat(
-            initialValue = -2.5f,
-            targetValue = 2.5f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 160, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse,
-                initialStartOffset = StartOffset(if (phaseIndex % 2 == 0) 0 else 80)
-            ),
-            label = "rotation"
-        )
-
-        // Spring the lift scale up/down so picking up and dropping ease in and out.
-        val scale by animateFloatAsState(
-            targetValue = if (dragging) 1.1f else 1f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessMedium
-            ),
-            label = "scale"
-        )
-        // Fade the jiggle out while lifted rather than cutting it dead.
-        val jiggleDamp by animateFloatAsState(
-            targetValue = if (dragging) 0f else 1f,
-            animationSpec = tween(durationMillis = 150),
-            label = "jiggleDamp"
-        )
-
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHighest,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            shape = CircleShape,
-            modifier = modifier.graphicsLayer {
-                rotationZ = rotation * jiggleDamp
-                translationX = dragOffsetX()
-                scaleX = scale
-                scaleY = scale
-            }
+        Box(
+            modifier = modifier
+                .heightIn(min = 48.dp)
+                .padding(horizontal = groupTabHorizontalPadding, vertical = 12.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .padding(horizontal = 18.dp, vertical = 9.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
+            Text(
+                text = label,
+                color = if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 
