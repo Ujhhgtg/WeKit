@@ -1,6 +1,6 @@
 # WeKit
 
-本网站对应 [WeKit-Dev master](https://github.com/Ujhhgtg/WeKit-Dev) 开发版，功能与设置以当前开发代码为准。已发布 APK 的界面可能有所不同。
+本网站对应 WeKit 开发版，功能与设置以当前开发代码为准。
 
 WeKit 是一个功能丰富的微信增强模块, 支持通过 Xposed 框架或 Zygisk 模块加载, 提供大量微信增强功能。
 

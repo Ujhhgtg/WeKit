@@ -31,7 +31,7 @@
 - `GET /pixel?wxId=<wxId>&id=<id>`：返回追踪像素并记录读取；
 - `GET /count?wxId=<wxId>&id=<id>`：返回 `{"count": <number>}`。
 
-仓库中的 [`services/read-receipts`](https://github.com/Ujhhgtg/WeKit-Dev/blob/master/services/read-receipts/README.md) 是保留独立
+仓库中的 [`services/read-receipts`](https://github.com/Ujhhgtg/WeKit/blob/master/services/read-receipts/README.md) 是保留独立
 dashboard、REPL、管理 API、本地 SQLite 和远程 Turso 的参考实现，不是官方托管服务，
 也不是生产级多租户服务。可直接部署它，也可以按协议使用其他兼容实现。
 
