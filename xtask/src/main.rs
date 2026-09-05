@@ -9,6 +9,7 @@
 //!   check [OPTIONS]      Run `cargo check` on the native library.
 //!   clippy [OPTIONS]     Run `cargo clippy` on the native library.
 //!   dex-test [OPTIONS]   Resolve WeKit DexKit targets against desktop APKs.
+//!   dex-report-diff      Compare member signatures in existing per-APK reports.
 //!   dex-test-ci          Prepare APK sources and mutable Dex-Test Release assets.
 //!   i18n-check           Validate the Android English and Chinese resource catalogs.
 //!
@@ -148,6 +149,9 @@ enum Cmd {
 
     /// Run DexKit resolvers against one or more WeChat APKs on this Linux desktop.
     DexTest(dex_test::DexTestArgs),
+
+    /// Compare adjacent per-APK Dex reports in the supplied order; no APK/JVM required.
+    DexReportDiff(dex_test::diff::DexReportDiffArgs),
 
     /// Prepare inputs and outputs used by the cloud Dex resolution CI jobs.
     DexTestCi(dex_test_ci::DexTestCiArgs),
@@ -383,6 +387,7 @@ fn main() -> Result<()> {
         Cmd::Check(args) => task_cargo_cmd("check", &args.abis, &[])?,
         Cmd::Clippy(args) => task_cargo_cmd("clippy", &args.abis, &["--", "-D", "warnings"])?,
         Cmd::DexTest(args) => dex_test::task_dex_test(args)?,
+        Cmd::DexReportDiff(args) => dex_test::diff::task_dex_report_diff(args)?,
         Cmd::DexTestCi(args) => dex_test_ci::task_dex_test_ci(args)?,
         Cmd::I18nCheck => i18n_check::check_repository(&workspace_root())?,
         Cmd::Extensions(args) => extensions::run(&workspace_root(), &args)?,
@@ -873,6 +878,7 @@ fn task_build_proot(root: &Path) -> Result<()> {
     fs::create_dir_all(&build_root)?;
     let build_lock = fs::OpenOptions::new()
         .create(true)
+        .truncate(false)
         .read(true)
         .write(true)
         .open(build_root.join("build.lock"))?;

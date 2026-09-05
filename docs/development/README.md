@@ -80,6 +80,7 @@ exec cargo xtask "$@"
 | `./x clippy` | 对 Rust native 库执行 `cargo clippy -- -D warnings` |
 | `./x i18n-check` | 校验 Android 国际化资源目录 |
 | `./x dex-test` | 在桌面测试 DexKit 解析器 |
+| `./x dex-report-diff <report...>` | 离线比较版本报告中的方法和构造函数签名 |
 | `./x zygisk` | 配置、构建、打包、安装或清理 Zygisk 模块 |
 
 使用 `./x --help` 或 `./x <命令> --help` 查看当前支持的参数。

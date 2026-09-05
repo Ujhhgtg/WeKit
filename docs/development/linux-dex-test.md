@@ -32,6 +32,52 @@ DEX 文件中解析出目标。
 `gradle/libs.versions.toml` 中的 DexKit 版本构建；复用缓存前，工具会验证缓存检出内容的
 版本。
 
+## 离线比较版本报告
+
+现有报告的 `descriptor` 已包含方法／构造函数的完整参数和返回类型，不需要扩展报告格式、
+重新解析 APK 或启动 JVM。传入两个或更多**单 APK 报告**，按指定顺序比较相邻项：
+
+```bash
+./x dex-report-diff /path/wechat_8076.json /path/wechat_8077.json /path/wechat_8078.json
+./x dex-report-diff /path/old.json /path/new.json --output /path/version-diff.json
+```
+
+输入兼容 schema 1 和 2，不接受 `summary.json`。工具不按 `versionCode` 自动排序：不同
+版本可能使用相同的版本码，国内版和 Google Play 版也应由调用者明确安排比较顺序。
+输出保留每份报告的版本名、版本码、buildTag、渠道和 APK SHA-256。
+
+比较使用功能的 `className` 和委托的 `key` 对齐，兼容旧报告的 `Feature:key` 格式：
+
+- 方法／构造函数：显示前后的参数数量、按顺序排列的完整类型和返回类型，包括基本类型和多维数组。
+- 解析状态／占位符变化：单独列出，不将占位用的 `LauncherUI.getInstance()` 当成真实解析结果。
+- 功能／委托增减：只表示报告覆盖或声明发生变化，不能视为微信删除了对应结构。
+- 解析器 `methodHash` 变化：明确提示，避免将源码调整产生的差异都归因于微信升级。
+
+仅所属类名或方法名变化、而参数和返回类型相同的项，默认只计数；加 `--include-renames`
+可展开。类／字段委托的 descriptor 变化也作为信息项保留，不属于方法参数扫描。
+**参数及返回类型按原名精确比较**：混淆类型改名仍会列为类型变化，必须结合源码判断，
+不会将所有宿主类型统一成一个占位类型而掩盖真正的变化。
+
+`--output` 写出独立的差异 JSON（包含默认隐藏的名称／descriptor 信息项），不改写输入报告。
+`--fail-on-change` 在存在参数、返回类型、状态、覆盖范围、解析器源码等实质差异，或输入报告
+未通过时返回非零退出码；差异文件会先保存。默认模式下发现差异不导致命令失败，但无效报告、
+重复输入、重复功能／委托键和不支持的 schema 会报错。
+
+例如 8.0.77 → 8.0.78 可从报告直接发现：
+
+```text
+ctorNetSceneSendMsg: 5 → 6 parameters
+  (String, String, int, int, Object)
+  (String, String, int, int, Object, String)
+methodSetVoice: 4 → 5 parameters
+  (String, int, int, MsgInfo)
+  (String, int, int, MsgInfo, String)
+```
+
+这里为方便阅读省略了类型包名，工具实际输出完整类型名。报告中没有声明的动态反射目标无法
+检查；descriptor 也不包含 static 标志、泛型、参数名或参数语义，工具不推断这些信息。
+签名相同不能证明 Hook 或消息发送在真机上正常。
+
 ## CI 与云端报告
 
 `dex-test` CI 作业独立于 Android 构建运行，触发条件包括推送到 `master` 和 `dev`、

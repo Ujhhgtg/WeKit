@@ -19,6 +19,9 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use crate::workspace_root;
 
+#[path = "dex_report_diff.rs"]
+pub mod diff;
+
 const DEXKIT_REPOSITORY: &str = "https://github.com/LuckyPray/DexKit.git";
 const DEXKIT_REVISION: &str = "ffa6c51c38fe3ecfddb18d8949c30c48dbfbfd6a";
 
@@ -181,7 +184,7 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
     let apks = if args.apks.is_empty() {
         discover_apks()?
             .into_iter()
-            .map(|path| canonical_apk(path))
+            .map(canonical_apk)
             .collect::<Result<Vec<_>>>()?
     } else {
         normalize_explicit_apks(&args.apks)?
@@ -874,8 +877,8 @@ fn command_output(command: &mut Command, description: &str) -> Result<String> {
             String::from_utf8_lossy(&output.stderr).trim()
         );
     }
-    Ok(String::from_utf8(output.stdout)
-        .with_context(|| format!("{description} produced non-UTF-8 output"))?)
+    String::from_utf8(output.stdout)
+        .with_context(|| format!("{description} produced non-UTF-8 output"))
 }
 
 fn run_command(command: &mut Command, description: &str) -> Result<()> {
