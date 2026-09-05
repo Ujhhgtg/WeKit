@@ -258,6 +258,22 @@ val scriptDeps = configurations.create("scriptDeps") {
     isCanBeConsumed = false
 }
 
+val arsclibSource = configurations.create("arsclibSource") {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+    isTransitive = false
+}
+
+// ARSCLib bundles desktop copies of Android/XML Pull APIs. If supplied to R8 as
+// program classes, even AttributeSet::class in host constructor queries gets
+// rewritten to the bundled (obfuscated) copy and no longer matches Android.
+val prepareAndroidArsclib = tasks.register<Jar>("prepareAndroidArsclib") {
+    from(provider { arsclibSource.map { zipTree(it) } })
+    exclude("android/**", "org/xmlpull/v1/**")
+    archiveFileName.set("arsclib-android.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("generated/arsclib"))
+}
+
 // R8/D8 fat jar, resolved through the project repositories (google()).
 val r8Tool = configurations.detachedConfiguration(
     dependencies.create("com.android.tools:r8:8.7.18"),
@@ -323,7 +339,8 @@ dependencies {
     implementation(libs.mmkv)
 
     implementation(project(":libs:common:bsh"))
-    implementation(libs.arsclib)
+    add(arsclibSource.name, libs.arsclib)
+    implementation(files(prepareAndroidArsclib))
     implementation(libs.apksig)
     implementation(libs.bouncycastle.prov)
     implementation(libs.bouncycastle.pkix)
