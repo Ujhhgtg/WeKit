@@ -147,7 +147,11 @@ android {
             "kotlin/**",
             "**.bin",
             "kotlin-tooling-metadata.json",
-            "META-INF/INDEX.LIST"
+            "META-INF/INDEX.LIST",
+            // Monet reads host resource tables with default framework loading disabled.
+            "frameworks/android/**",
+            // Monet signs with RSA; Picnic's post-quantum lookup tables are unused.
+            "org/bouncycastle/pqc/crypto/picnic/**"
         )
         resources.merges += listOf(
             "META-INF/io.netty.versions.properties",
