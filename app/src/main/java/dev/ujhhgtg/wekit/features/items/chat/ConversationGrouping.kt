@@ -322,8 +322,18 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             val getView = delegate.method
             val owner = getView.declaringClass.reflekt()
             AdapterMethods(
-                getCount = owner.firstMethod { name = "getCount"; parameterCount = 0 }.self,
-                getItem = owner.firstMethod { name = "getItem"; parameterCount = 1 }.self,
+                getCount = owner.firstMethod {
+                    name = "getCount"
+                    parameters()
+                    returnType = Int::class.java
+                    superclass()
+                }.self,
+                getItem = owner.firstMethod {
+                    name = "getItem"
+                    parameters(Int::class.java)
+                    returnType = Any::class.java
+                    superclass()
+                }.self,
                 getView = getView,
                 storage = storage,
             )
@@ -333,6 +343,8 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 if (groupingBackend != GroupingBackend.ADAPTER_FILTER) return@hookAfter
                 if (isAllTab(activeAdapterGroup.id)) return@hookAfter
                 val adapter = thisObject!!
+                // The inherited count method is also called by unrelated adapters.
+                if (!methods.getView.declaringClass.isInstance(adapter)) return@hookAfter
                 val boundCache = if (bindingAdapter.get() === adapter) {
                     synchronized(adapterCaches) { adapterCaches[adapter] }
                 } else {
