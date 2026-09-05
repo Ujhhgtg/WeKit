@@ -23,7 +23,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
+import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs
@@ -34,14 +37,20 @@ import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.roundToInt
@@ -58,10 +67,12 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
     private const val DEFAULT_INTERVAL_MINUTES = 30L
     private const val MIN_INTERVAL_MINUTES = 1
     private const val MAX_INTERVAL_MINUTES = 120
+    private const val REFRESH_TIMEOUT_MS = 60_000L
 
     private var intervalMinutes by WePrefs.prefOption("moments_auto_refresh_interval_minutes", DEFAULT_INTERVAL_MINUTES)
 
     fun interface IRefreshListener {
+        /** The automatic timeline request has finished processing a valid response. */
         fun onRefresh()
     }
 
@@ -78,6 +89,19 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
     private var refreshJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
+    private class RefreshRequest(val account: String) {
+        @Volatile
+        var scene: Any? = null
+
+        @Volatile
+        var handledValidResponse = false
+
+        val completion = CompletableDeferred<Boolean>()
+    }
+
+    private val pendingRefresh = AtomicReference<RefreshRequest?>()
+    private val submittingRefresh = ThreadLocal<RefreshRequest>()
+
     private val methodGetSnsCore by dexMethod {
         matcher {
             usingEqStrings("getCore", "com.tencent.mm.plugin.sns.model.SnsCore")
@@ -90,14 +114,57 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
         }
     }
 
-    private val snsLogicSnsServer by lazy {
-        val snsCore = methodGetSnsCore.method.invoke(null)
-        snsCore.reflekt().firstField {
-            type = methodDoFpList.method.declaringClass
-        }.get()!!
+    private val ctorTimelineRequest by dexConstructor {
+        matcher {
+            declaredClass {
+                usingEqStrings("/cgi-bin/micromsg-bin/mmsnstimeline")
+            }
+            paramTypes("long", "long", "int")
+        }
+    }
+
+    private val methodHandleNormalResponse by dexMethod {
+        matcher {
+            declaredClass(ctorTimelineRequest.data.declaredClassName)
+            usingEqStrings("handleNormalResp", "com.tencent.mm.plugin.sns.model.NetSceneSnsTimeLine")
+            paramTypes("int", "int", "java.lang.String", null)
+            returnType("void")
+        }
+    }
+
+    private val methodTimelineResponseEnd by dexMethod {
+        matcher {
+            declaredClass(ctorTimelineRequest.data.declaredClassName)
+            name = "onGYNetEnd"
+            paramCount = 6
+            returnType("void")
+        }
     }
 
     override fun onEnable() {
+        // The type=1 doFpList branch constructs its scene synchronously before enqueueing it.
+        ctorTimelineRequest.hookAfter {
+            val request = submittingRefresh.get() ?: return@hookAfter
+            if (throwable == null && pendingRefresh.get() === request) {
+                request.scene = thisObject!!
+            }
+        }
+        methodHandleNormalResponse.hookAfter {
+            val request = pendingRefresh.get() ?: return@hookAfter
+            if (request.scene !== thisObject || throwable != null) return@hookAfter
+            val errType = args[0] as Int
+            val errCode = args[1] as Int
+            // The host also handles the timeline's 207 response as a valid result.
+            request.handledValidResponse = (errType == 0 && errCode == 0) ||
+                    (errType == 4 && errCode == 207)
+        }
+        methodTimelineResponseEnd.hookAfter {
+            val request = pendingRefresh.get() ?: return@hookAfter
+            if (request.scene !== thisObject) return@hookAfter
+            // Includes failures which never enter handleNormalResp. List writes have completed
+            // before the normal-response handler returns; this does not wait for media downloads.
+            request.completion.complete(throwable == null && request.handledValidResponse)
+        }
         startRefreshingJob()
     }
 
@@ -117,16 +184,51 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
         }
     }
 
-    private fun refreshMoments() {
+    private suspend fun refreshMoments() {
+        val account = WeApi.selfWxId
+        if (account.isEmpty()) return
+        val request = RefreshRequest(account)
+        if (!pendingRefresh.compareAndSet(null, request)) return
         try {
             WeLogger.d(TAG, "refreshing moments")
-            methodDoFpList.method.invoke(
-                snsLogicSnsServer,
-                1, "@__weixintimtline", false, false, 0
-            )
-            refreshListeners.forEach { it.onRefresh() }
+            val snsCore = methodGetSnsCore.method.invoke(null)!!
+            val server = snsCore.reflekt().firstField {
+                type = methodDoFpList.method.declaringClass
+            }.get()!!
+            submittingRefresh.set(request)
+            try {
+                methodDoFpList.method.invoke(server, 1, "@__weixintimtline", false, false, 0)
+            } finally {
+                submittingRefresh.remove()
+            }
+            if (request.scene == null) {
+                WeLogger.d(TAG, "timeline request was skipped by the host")
+                return
+            }
+            val completed = withTimeoutOrNull(REFRESH_TIMEOUT_MS) { request.completion.await() }
+            when (completed) {
+                true -> {
+                    if (WeApi.selfWxId != request.account) return
+                    WeLogger.d(TAG, "timeline response processed; notifying refresh listeners")
+                    refreshListeners.forEach { listener ->
+                        currentCoroutineContext().ensureActive()
+                        try {
+                            listener.onRefresh()
+                        } catch (e: Exception) {
+                            WeLogger.w(TAG, "refresh listener failed: ${listener.javaClass.name}", e)
+                        }
+                    }
+                }
+                false -> WeLogger.w(TAG, "timeline request did not finish with a valid response")
+                null -> WeLogger.w(TAG, "timed out waiting for the timeline response")
+            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            WeLogger.w(TAG, "exception during refreshing: ${e.message}")
+            WeLogger.w(TAG, "exception during refreshing", e)
+        } finally {
+            pendingRefresh.compareAndSet(request, null)
+            request.completion.cancel()
         }
     }
 

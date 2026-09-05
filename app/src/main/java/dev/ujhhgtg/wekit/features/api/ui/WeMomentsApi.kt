@@ -77,6 +77,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     override val descriptionRes = R.string.feature_we_moments_api_description
 
     private const val TAG = "WeMomentsApi"
+    /** Source bits checked by the host's SnsInfo.isDeadSource(), including timeline and albums. */
+    const val ACTIVE_SOURCE_MASK = 270
+    const val AD_SOURCE_FLAG = 32
     private const val SNS_VIDEO_SCENE_TIMELINE_OFFLINE = 31
     private const val SNS_VIDEO_SCENE_FINISH_REMAINING = 36
     private const val FALLBACK_VIDEO_CREATE_TIME = 1

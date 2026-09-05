@@ -89,7 +89,8 @@ object AutoLikeMoments : AutoMomentsBase(),
         if (!rules.process.enabled || rules.effectiveMode != MomentAutomationMode.ALL_LOADED) return
 
         val sourceType = values.getAsInteger("sourceType") ?: 0
-        if (sourceType != 0) return
+        if (sourceType and WeMomentsApi.ACTIVE_SOURCE_MASK == 0 ||
+            sourceType and WeMomentsApi.AD_SOURCE_FLAG != 0) return
 
         val liked = values.getAsInteger("likeFlag") ?: 0 != 0
         if (rules.effectiveAction == MomentAutomationAction.LIKE && liked) return
@@ -121,7 +122,8 @@ object AutoLikeMoments : AutoMomentsBase(),
             SELECT snsId, userName, IFNULL(likeFlag, 0)
             FROM SnsInfo
             WHERE snsId != 0
-              AND sourceType = 0
+              AND (sourceType & ${WeMomentsApi.ACTIVE_SOURCE_MASK}) != 0
+              AND (sourceType & ${WeMomentsApi.AD_SOURCE_FLAG}) = 0
             ORDER BY createTime DESC
         """.trimIndent()
 
