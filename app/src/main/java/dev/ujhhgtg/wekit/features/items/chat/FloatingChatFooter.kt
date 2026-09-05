@@ -311,7 +311,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
             applyBottomMargin(footer)
             // 面板收起时也要重算: 微信在这里把容器高度写回它那套值, 留着不管的话
             // 下一次展开会先用一帧错误的高度。
-            footer.bottomPanel?.let { applyPanelHeight(footer, it, "refreshBottomHeight") }
+            footer.bottomPanel?.let { applyPanelHeight(footer, it) }
         }
 
         // 表情面板顶部那个把手的拖拽机制是"先把面板撑到全高, 再用 translationY 把多出来的
@@ -355,7 +355,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                 dragExtents.remove(panel)
                 return@hookBefore
             }
-            applyPanelHeight(footer, panel, "switchPanel:before:$state")
+            applyPanelHeight(footer, panel)
         }
 
         // 再来一次: switchPanel 的方法体里 (setVisibility / F1 / G1 以及它们触发的
@@ -366,7 +366,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
             if (state != PANEL_STATE_SMILEY && state != PANEL_STATE_APP) return@hookAfter
             val footer = thisObject as ChatFooter
             val panel = footer.bottomPanel ?: return@hookAfter
-            applyPanelHeight(footer, panel, "switchPanel:after:$state")
+            applyPanelHeight(footer, panel)
         }
 
         // 面板可见 = 它已经作为布局的一部分向上撑开了 footer, 此时再做 translationY
@@ -464,7 +464,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
      * 2. 键盘和面板现在可以同时开着, 两者叠加会把面板顶到聊天页顶栏后面。键盘开着时
      *    按剩余空间压缩面板, 并给会话内容留出 [PANEL_TOP_RESERVE_DP]。
      */
-    private fun applyPanelHeight(footer: ChatFooter, panel: ChatFooterBottom, from: String) {
+    private fun applyPanelHeight(footer: ChatFooter, panel: ChatFooterBottom) {
         val appPanel = footer.findViewWhich { it is AppPanel }
         val lp = panel.layoutParams ?: return
         // AppPanel 是懒创建的 (第一次点「+」才走 G0), 在那之前微信从没调过 setPortHeighPx,
@@ -483,11 +483,6 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         val target = minOf(natural + extent, cap)
 
         if (lp.height != target) {
-            WeLogger.d(
-                TAG,
-                "panel height [$from]: ${lp.height} -> $target " +
-                    "(natural=$natural extent=$extent ime=${footer.imeHeight} cap=$cap)"
-            )
             lp.height = target
             panel.layoutParams = lp
         }
@@ -592,7 +587,6 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         footer.elevation = elevationDp * density
         FloatingChatCardVisuals.applyDarkSurface(footer, cornerRadiusDp)
         if (!movePanelAbove) trackOutlineWhileScrolling(footer)
-        WeLogger.d(TAG, "applied drawing style: corner=${cornerRadiusDp}dp elev=${elevationDp}dp")
     }
 
     /**
@@ -744,7 +738,6 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
             edgeToEdgeApplied[window] = true
             // decorFits 是窗口级总开关；本特性只消费底部 inset，未启用 Header 时顶部仍由微信保留。
             WindowCompat.setDecorFitsSystemWindows(window, false)
-            WeLogger.d(TAG, "chat navigation bar edge-to-edge applied")
         }
         if (navBarLayoutsApplied.put(layout, true) == null) {
             val navInset = currentNavBarInset(layout)
@@ -904,10 +897,6 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         if (old == target) return
         val wasAtBottom = !recycler.canScrollVertically(1)
         recycler.setPadding(recycler.paddingLeft, recycler.paddingTop, recycler.paddingRight, target)
-        WeLogger.d(
-            TAG,
-            "chat list bottom padding: $old -> $target (extra=$extra atBottom=$wasAtBottom)"
-        )
         if (wasAtBottom && target > old) {
             // 滚动到新的 padding 底端, 让最新消息从卡片后露出; 用户正翻旧消息时不打扰
             recycler.scrollBy(0, target - old)
@@ -921,7 +910,6 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         lp.leftMargin = sideMarginPx
         lp.rightMargin = sideMarginPx
         footer.requestLayout()
-        WeLogger.d(TAG, "applied side margins: side=${sideMarginDp}dp")
     }
 
     /**
@@ -1019,7 +1007,6 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                 child.layoutParams = childLp
             }
         }
-        WeLogger.d(TAG, "reparented ChatFooterBottom above input row (panelHeight=$height)")
     }
 
     override fun onDisable() {
