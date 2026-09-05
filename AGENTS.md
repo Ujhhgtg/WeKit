@@ -74,6 +74,9 @@
   `DexCacheManager.kt` against WeChat APKs on the Linux desktop. Test only the supported host
   range **8.0.65–8.0.78**; APKs outside that range are useful for investigation but must not be
   treated as compatibility gates for the project.
+- Add `--workers 4` to exercise the same shared batch scheduler as local Android resolution.
+  Use `--workers 1` for its serial comparison; omitting the option preserves per-feature runs.
+  Batch runs initialize/reset all selected roots before starting workers and report after joining.
 - Test each supported APK version separately, including separate normal and Google Play APKs
   when both are available. Each APK runs in its own JVM worker and must carry its own version code,
   version name, build tag, and Google Play metadata.

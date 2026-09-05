@@ -6,11 +6,14 @@ import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
 import dev.ujhhgtg.wekit.dexkit.resolution.DexHostMetadata
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
 import dev.ujhhgtg.wekit.dexkit.resolution.resolveAllDex
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionEvent
+import dev.ujhhgtg.wekit.dexkit.resolution.resolveDexBatch
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestEntry
 import org.luckypray.dexkit.DexKitBridge
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
+import kotlinx.coroutines.runBlocking
 
 internal fun runDexFeature(
     entry: DexResolutionTestEntry,
@@ -53,12 +56,22 @@ internal fun runDexFeature(
             featureError = DexTestError(message = "${entry.className} does not implement IResolveDex"),
         )
 
-    feature.dexDelegates.forEach(BaseDexDelegate::resetForDexTest)
+    feature.dexDelegates.forEach(BaseDexDelegate::resetForResolution)
 
     val error = runCatching {
         resolver.resolveAllDex(dexKit, host)
     }.exceptionOrNull()
     error?.rethrowIfFatal()
+
+    return dexFeatureReport(feature, entry, error, started.elapsedNow().inWholeMilliseconds)
+}
+
+private fun dexFeatureReport(
+    feature: BaseFeature,
+    entry: DexResolutionTestEntry,
+    error: Throwable?,
+    elapsedMillis: Long,
+): DexTestFeatureReport {
 
     val pending = feature.dexDelegates.filter { it.diagnostic.status == DexResolutionStatus.PENDING }
     if (error == null) {
@@ -90,10 +103,53 @@ internal fun runDexFeature(
         technicalId = feature.technicalId,
         methodHash = GeneratedMethodHashes.HASHES[feature.technicalId].orEmpty(),
         outcome = featureOutcome(delegates, error),
-        elapsedMillis = started.elapsedNow().inWholeMilliseconds,
+        elapsedMillis = elapsedMillis,
         delegates = delegates,
         featureError = error?.toDexTestError(),
     )
+}
+
+internal fun runDexBatchFeatures(
+    entries: List<DexResolutionTestEntry>,
+    dexKit: DexKitBridge,
+    host: DexHostMetadata,
+    classLoader: ClassLoader,
+    workerCount: Int,
+): List<DexTestFeatureReport> {
+    val reports = mutableMapOf<DexResolutionTestEntry, DexTestFeatureReport>()
+    val loaded = entries.mapNotNull { entry ->
+        val started = TimeSource.Monotonic.markNow()
+        try {
+            val feature = loadFeature(entry, classLoader)
+            check(feature is IResolveDex) { "${entry.className} does not implement IResolveDex" }
+            entry to feature
+        } catch (error: Throwable) {
+            error.rethrowIfFatal()
+            reports[entry] = DexTestFeatureReport(
+                className = entry.className,
+                displayName = entry.className,
+                methodHash = "",
+                outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
+                elapsedMillis = started.elapsedNow().inWholeMilliseconds,
+                featureError = error.toDexTestError(),
+            )
+            null
+        }
+    }
+    // Initialize and reset all roots before workers start; never reset a dependency
+    // while another worker can be reading it. Build reports only after the batch joins.
+    loaded.forEach { (_, feature) -> feature.dexDelegates.forEach(BaseDexDelegate::resetForResolution) }
+    val finished = mutableMapOf<IResolveDex, DexResolutionEvent.Finished>()
+    runBlocking {
+        resolveDexBatch(loaded.map { it.second as IResolveDex }, dexKit, host, workerCount) { event ->
+            if (event is DexResolutionEvent.Finished) finished[event.item] = event
+        }
+    }
+    loaded.forEach { (entry, feature) ->
+        val result = finished.getValue(feature as IResolveDex)
+        reports[entry] = dexFeatureReport(feature, entry, result.error, result.elapsedMillis)
+    }
+    return entries.map(reports::getValue)
 }
 
 private fun loadFeature(entry: DexResolutionTestEntry, classLoader: ClassLoader): BaseFeature {

@@ -73,6 +73,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -734,6 +735,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     }
 
     override fun resolveDex(dexKit: DexKitBridge) {
+        DexResolutionContext.ensureResolved(WeConversationListViewApi.classConversationRecyclerAdapter)
         if (WeConversationListViewApi.classConversationRecyclerAdapter.isPlaceholder) {
             val reason = "conversation RecyclerView architecture is absent"
             classRecyclerDataSource.setPlaceholderDescriptor(true, reason)

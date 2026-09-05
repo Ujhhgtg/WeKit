@@ -46,7 +46,7 @@ sealed class BaseDexDelegate(val key: String) {
     var diagnostic = DexResolutionDiagnostic(DexResolutionStatus.PENDING)
         private set
 
-    fun resetForDexTest() {
+    fun resetForResolution() {
         clearResolvedValue()
         diagnostic = DexResolutionDiagnostic(DexResolutionStatus.PENDING)
     }

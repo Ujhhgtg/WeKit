@@ -37,6 +37,7 @@ import dev.ujhhgtg.wekit.utils.restartHost
 import java.io.PrintWriter
 import java.io.StringWriter
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -84,6 +85,8 @@ fun DexResolver(
         scope.launch {
             val remainingItems = try {
                 CloudDexResolver.resolve(currentItems).remainingItems
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 WeLogger.e(TAG, "cloud resolution failed", error)
                 currentItems
@@ -110,6 +113,8 @@ fun DexResolver(
                 withContext(Dispatchers.Main.immediate) {
                     phase = DialogPhase.Done(CompletionSource.Local, result.failures)
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 WeLogger.e(TAG, "local resolution failed", error)
                 withContext(Dispatchers.Main.immediate) {

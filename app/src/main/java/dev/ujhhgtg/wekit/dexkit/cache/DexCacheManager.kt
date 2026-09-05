@@ -120,6 +120,7 @@ object DexCacheManager {
             WeLogger.d(TAG, "cache saved for: ${item.technicalPath}")
         } catch (e: Exception) {
             WeLogger.e(TAG, "failed to save cache for: ${item.technicalPath}", e)
+            throw e
         }
     }
 

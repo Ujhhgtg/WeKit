@@ -388,6 +388,7 @@ val dexTestWorkerProperties = listOf(
     "wekit.dexTest.buildTag",
     "wekit.dexTest.isGooglePlay",
     "wekit.dexTest.features",
+    "wekit.dexTest.workers",
 )
 val dexTestWorker = providers.gradleProperty("dexTestWorker").map(String::toBoolean).orElse(false)
 val monetCorpus = providers.gradleProperty("wekit.monetCorpus").map(String::toBoolean).orElse(false)

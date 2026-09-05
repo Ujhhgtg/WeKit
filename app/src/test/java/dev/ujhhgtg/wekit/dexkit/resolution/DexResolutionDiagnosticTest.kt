@@ -11,7 +11,7 @@ class DexResolutionDiagnosticTest {
     @Test
     fun explicitExpectedPlaceholderDoesNotFail() {
         val delegate = DexMethodDelegate("Feature:method")
-        delegate.resetForDexTest()
+        delegate.resetForResolution()
 
         delegate.setPlaceholderDescriptor(
             expectedFailure = true,
@@ -24,7 +24,7 @@ class DexResolutionDiagnosticTest {
     @Test
     fun unclassifiedPlaceholderIsUnexpectedFailure() {
         val delegate = DexMethodDelegate("Feature:method")
-        delegate.resetForDexTest()
+        delegate.resetForResolution()
 
         delegate.setPlaceholderDescriptor()
 
@@ -34,7 +34,7 @@ class DexResolutionDiagnosticTest {
     @Test
     fun pendingDelegateBecomesBlockedAfterSiblingThrows() {
         val delegate = DexClassDelegate("Feature:later")
-        delegate.resetForDexTest()
+        delegate.resetForResolution()
 
         delegate.markBlocked("Feature:failing")
 
@@ -44,7 +44,7 @@ class DexResolutionDiagnosticTest {
     @Test
     fun normalCompletionTurnsPendingIntoIncomplete() {
         val delegate = DexFieldDelegate("Feature:field")
-        delegate.resetForDexTest()
+        delegate.resetForResolution()
 
         delegate.markIncomplete()
 

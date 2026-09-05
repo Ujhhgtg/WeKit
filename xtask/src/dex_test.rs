@@ -39,6 +39,10 @@ pub struct DexTestArgs {
     #[arg(long, value_name = "FEATURES", value_parser = parse_feature_filter)]
     pub features: Option<String>,
 
+    /// Use the shared Android batch scheduler with this many workers (omit for per-feature runs).
+    #[arg(long, value_parser = clap::value_parser!(u16).range(1..))]
+    pub workers: Option<u16>,
+
     /// Print every successful delegate and descriptor.
     #[arg(long)]
     pub verbose: bool,
@@ -248,6 +252,7 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
             &native,
             &report_path,
             args.features.as_deref(),
+            args.workers,
         );
         let report = match (status, read_report(&report_path)) {
             (_, Ok(report)) => report,
@@ -636,6 +641,7 @@ fn run_worker(
     native: &DexKitNative,
     report: &Path,
     features: Option<&str>,
+    workers: Option<u16>,
 ) -> Result<i32> {
     let gradle = root.join("gradlew");
     let mut properties = vec![
@@ -660,6 +666,9 @@ fn run_worker(
     ];
     if let Some(features) = features {
         properties.push(("wekit.dexTest.features", features.to_string()));
+    }
+    if let Some(workers) = workers {
+        properties.push(("wekit.dexTest.workers", workers.to_string()));
     }
     let mut command = Command::new(&gradle);
     command

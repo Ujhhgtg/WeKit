@@ -23,6 +23,7 @@ internal data class DexTestWorkerConfig(
     val buildTag: String,
     val isGooglePlay: Boolean,
     val featureSelectors: List<String>?,
+    val workers: Int? = null,
 ) {
     companion object {
         fun fromSystemProperties(properties: Properties): DexTestWorkerConfig {
@@ -43,6 +44,11 @@ internal data class DexTestWorkerConfig(
                 versionName = required("wekit.dexTest.versionName"),
                 buildTag = required("wekit.dexTest.buildTag"),
                 isGooglePlay = isGooglePlay,
+                workers = properties.getProperty("wekit.dexTest.workers")?.takeIf(String::isNotBlank)?.let {
+                    requireNotNull(it.toIntOrNull()?.takeIf { count -> count > 0 }) {
+                        "wekit.dexTest.workers must be a positive integer"
+                    }
+                },
                 featureSelectors = properties.getProperty("wekit.dexTest.features")
                     ?.takeIf(String::isNotBlank)
                     ?.split(',')
@@ -82,8 +88,11 @@ class DexTestWorkerTest {
             System.load(config.nativeLibrary.toString())
             DexKitBridge.create(config.apk.toString()).use { dexKit ->
                 val host = DexHostMetadata(config.versionCode, config.versionName, config.isGooglePlay)
-                val features = entries.map { entry ->
-                    runDexFeature(entry, dexKit, host, javaClass.classLoader ?: error("worker class loader is null"))
+                val classLoader = javaClass.classLoader ?: error("worker class loader is null")
+                val features = if (config.workers != null) {
+                    runDexBatchFeatures(entries, dexKit, host, classLoader, config.workers)
+                } else entries.map { entry ->
+                    runDexFeature(entry, dexKit, host, classLoader)
                 }
                 buildReport(
                     config = config,
