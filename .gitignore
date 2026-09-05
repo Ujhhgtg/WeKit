@@ -40,9 +40,6 @@ local.properties
 /build-logic/convention/build/
 
 /decrypted_wechat.db
-/app/src/main/java/nuke/data/cipher/NativeCrypto.kt
-/app/src/main/java/dev/ujhhgtg/wekit/features/items/debug/LoadWeChatXDex.kt
-/app/src/main/java/dev/ujhhgtg/wekit/features/items/debug/MTH7851.kt
 
 # Superpowers artifacts live in /home/ujhhgtg/coding/wekit_dev/superpowers (AGENTS.md there)
 .superpowers/
