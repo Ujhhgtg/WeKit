@@ -329,8 +329,6 @@
     <string name="extensions_pack_python_runtime_name">Python Runtime</string>
     <string name="extensions_pack_python_runtime_desc">CPython and Chaquopy runtime for Python plugins</string>
     <string name="extensions_pack_python_restart_required">Update installed; restart WeChat to use it</string>
-    <string name="extensions_pack_monet_generator_name">Monet engine module generator</string>
-    <string name="extensions_pack_monet_generator_desc">RRO builder, signer, and resources for the zero-overhead WeChat Monet module</string>
     <string name="extensions_pack_cloudflared_name">Cloudflared</string>
     <string name="extensions_pack_cloudflared_desc">Cloudflare Tunnel bridge for the built-in read-receipts backend</string>
     <string name="extensions_pack_archlinux_name">Arch Linux ARM64</string>
@@ -613,7 +611,6 @@
     <string name="feature_monet_module_generator_name">Monet engine module generator</string>
     <string name="feature_monet_module_generator_description">Generate a root-installable WeChat Monet RRO with no runtime overhead. Requires Android 12+ and the Monet engine module generator extension.</string>
     <string name="monet_generator_unsupported">Android 12 or newer is required.</string>
-    <string name="monet_generator_pack_invalid">The Monet engine module generator extension is damaged or incompatible. Delete it and download it again.</string>
     <string name="monet_generator_failed">Generation failed during %1$s: %2$s</string>
     <string name="monet_generator_output">Module generated at:\n%1$s</string>
     <string name="monet_generator_counts">Covered %1$d resources (kept %2$d, added %3$d, pruned %4$d).</string>

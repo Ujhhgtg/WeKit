@@ -299,8 +299,6 @@
     <string name="extensions_pack_python_runtime_name">Python 运行时</string>
     <string name="extensions_pack_python_runtime_desc">Python 插件使用的 CPython 与 Chaquopy 运行时</string>
     <string name="extensions_pack_python_restart_required">更新已安装；重启微信后使用</string>
-    <string name="extensions_pack_monet_generator_name">莫奈引擎模块生成器</string>
-    <string name="extensions_pack_monet_generator_desc">用于生成零运行时损耗微信莫奈 RRO 模块的构建器、签名器与资源</string>
     <string name="extensions_pack_cloudflared_name">Cloudflared</string>
     <string name="extensions_pack_cloudflared_desc">已读追踪内置服务器模式的 Cloudflare Tunnel 桥接库</string>
     <string name="extensions_pack_archlinux_name">Arch Linux ARM64</string>
@@ -576,7 +574,6 @@
     <string name="feature_monet_module_generator_name">莫奈引擎模块生成器</string>
     <string name="feature_monet_module_generator_description">生成可通过 Root 管理器安装、零运行时损耗的微信莫奈 RRO 模块。需要 Android 12+ 与莫奈引擎模块生成器扩展包。</string>
     <string name="monet_generator_unsupported">需要 Android 12 或更高版本。</string>
-    <string name="monet_generator_pack_invalid">莫奈引擎模块生成器扩展包已损坏或不兼容，请删除后重新下载。</string>
     <string name="monet_generator_failed">在%1$s阶段生成失败：%2$s</string>
     <string name="monet_generator_output">模块已生成至：\n%1$s</string>
     <string name="monet_generator_counts">共覆盖 %1$d 项资源（保留 %2$d、新增 %3$d、裁剪 %4$d）。</string>

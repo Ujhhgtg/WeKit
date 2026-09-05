@@ -1,8 +1,0 @@
--keep public class dev.ujhhgtg.wekit.python.api.** { *; }
--keep public class dev.ujhhgtg.wekit.features.api.** { public *; }
--keep public class dev.ujhhgtg.wekit.loader.abc.IHookBridge$IMemberHookParam { public *; }
--keep class dev.ujhhgtg.wekit.activity.scripting_python.PythonScriptsSettingsActivity { *; }
--keep class org.luckypray.dexkit.query.matchers.** { public *; }
--keep class org.luckypray.dexkit.query.enums.** { public *; }
--keep class org.luckypray.dexkit.query.**MatcherList { public *; }
--keep class org.luckypray.dexkit.query.StringMatchersGroupList { public *; }

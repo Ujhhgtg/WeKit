@@ -1,1 +1,0 @@
--keep class dev.ujhhgtg.wekit.extensions.monet.api.** { *; }

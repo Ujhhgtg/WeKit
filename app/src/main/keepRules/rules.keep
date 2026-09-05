@@ -9,6 +9,17 @@
 # libxposed
 -dontwarn io.github.libxposed.annotation.**
 
+# Scripting APIs and Python settings
+-keep public class dev.ujhhgtg.wekit.python.api.** { *; }
+-keep public class dev.ujhhgtg.wekit.features.api.** { public *; }
+-keep public class dev.ujhhgtg.wekit.loader.abc.IHookBridge$IMemberHookParam { public *; }
+
+# DexKit scripting API
+-keep class org.luckypray.dexkit.query.matchers.** { public *; }
+-keep class org.luckypray.dexkit.query.enums.** { public *; }
+-keep class org.luckypray.dexkit.query.**MatcherList { public *; }
+-keep class org.luckypray.dexkit.query.StringMatchersGroupList { public *; }
+
 # BeanShell
 -keep class bsh.This { *; }
 -keep class bsh.This$* { *; }

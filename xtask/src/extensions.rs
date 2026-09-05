@@ -26,7 +26,6 @@ use zip::write::SimpleFileOptions;
 
 const PACK_SCRIPT_DEPS: &str = "script-deps";
 const PACK_PYTHON_RUNTIME: &str = "python-runtime";
-const PACK_MONET_GENERATOR: &str = "monet-generator";
 const PACK_CLOUDFLARED: &str = "cloudflared";
 const PACK_ARCHLINUX: &str = "archlinux-arm64";
 const PACK_LLAMA: &str = "llama-native";
@@ -46,7 +45,7 @@ pub struct ExtensionsArgs {
     #[command(subcommand)]
     pub command: ExtensionsCommand,
 
-    /// Only process the given pack id (script-deps | python-runtime | monet-generator |
+    /// Only process the given pack id (script-deps | python-runtime |
     /// cloudflared | archlinux-arm64 | llama-native | qwen3.8-4b-distill). Skips writing the index.
     #[arg(long, global = true)]
     pub only: Option<String>,
@@ -193,9 +192,6 @@ pub fn run(root: &Path, args: &ExtensionsArgs) -> Result<()> {
     }
     if selected(PACK_PYTHON_RUNTIME) {
         entries.push(build_python_runtime(root, &dist)?);
-    }
-    if selected(PACK_MONET_GENERATOR) {
-        entries.push(build_monet_generator_zip(root, &dist)?);
     }
     if selected(PACK_CLOUDFLARED) {
         entries.push(build_cloudflared_zip(root, &dist)?);
@@ -1106,100 +1102,6 @@ fn build_python_sdk_artifact(root: &Path, dist: &Path) -> Result<()> {
     Ok(())
 }
 
-fn monet_archive_entries(
-    inputs: &BTreeMap<String, PathBuf>,
-) -> Result<BTreeMap<String, Option<PathBuf>>> {
-    anyhow::ensure!(
-        inputs.len() == 1 && inputs.contains_key("classes.dex"),
-        "Monet pack requires exactly one DEX"
-    );
-
-    let mut entries = BTreeMap::new();
-    entries.insert(
-        "classes.dex".to_string(),
-        Some(
-            inputs
-                .get("classes.dex")
-                .context("missing Monet classes.dex")?
-                .clone(),
-        ),
-    );
-    entries.insert("extension.json".to_string(), None);
-    Ok(entries)
-}
-
-fn sha256_bytes(bytes: &[u8]) -> String {
-    hex(&Sha256::digest(bytes))
-}
-
-fn build_monet_generator_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
-    let gradlew = if cfg!(windows) {
-        "gradlew.bat"
-    } else {
-        "./gradlew"
-    };
-    let status = Command::new(gradlew)
-        .args([
-            ":extension-packs:monet-generator:generateMonetGeneratorDex",
-            "--quiet",
-        ])
-        .current_dir(root)
-        .status()
-        .context("failed to spawn gradlew")?;
-    anyhow::ensure!(
-        status.success(),
-        ":extension-packs:monet-generator:generateMonetGeneratorDex failed"
-    );
-
-    let inputs = [(
-        "classes.dex",
-        root.join("extension-packs/monet-generator/build/outputs/extension-dex/classes.dex"),
-    )]
-    .into_iter()
-    .map(|(name, path)| (name.to_string(), path))
-    .collect::<BTreeMap<_, _>>();
-    let entries = monet_archive_entries(&inputs)?;
-    let hashes = entries
-        .iter()
-        .filter_map(|(name, path)| path.as_ref().map(|path| (name, path)))
-        .map(|(name, path)| Ok((name.clone(), sha256_file(path)?)))
-        .collect::<Result<BTreeMap<_, _>>>()?;
-    let extension_json = serde_json::to_vec_pretty(&serde_json::json!({
-        "apiVersion": 1,
-        "entrypoint": "dev.ujhhgtg.wekit.extensions.monet.MonetGeneratorEntrypoint",
-        "files": hashes,
-    }))?;
-
-    let mut identity = hashes.clone();
-    identity.insert("extension.json".into(), sha256_bytes(&extension_json));
-    let version = derive_version(&content_hash(&identity));
-    let zip_tmp = dist.join("monet-generator-unversioned.zip");
-    let mut zip = ZipWriter::new(File::create(&zip_tmp)?);
-    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-    for (name, path) in entries {
-        zip.start_file(&name, options)?;
-        match path {
-            Some(path) => {
-                let mut input = File::open(&path)
-                    .with_context(|| format!("open Monet pack input {}", path.display()))?;
-                std::io::copy(&mut input, &mut zip)?;
-            }
-            None => zip.write_all(&extension_json)?,
-        }
-    }
-    zip.finish()?;
-
-    let mut files = BTreeMap::new();
-    files.insert("monet-generator.zip".to_string(), sha256_file(&zip_tmp)?);
-    let entry = index_entry(PACK_MONET_GENERATOR, &version, &files);
-    let asset = dist.join(&entry.asset);
-    fs::rename(&zip_tmp, &asset)?;
-    clean_stale(dist, "monet-generator-", &asset)?;
-
-    println!("monet-generator: {version}");
-    Ok(entry)
-}
-
 fn build_cloudflared_zip(root: &Path, dist: &Path) -> Result<PackIndexEntry> {
     let abis = ["arm64-v8a"];
     crate::task_build_cloudflared(&abis.iter().map(|s| s.to_string()).collect::<Vec<_>>())?;
@@ -1576,13 +1478,6 @@ fn clean_stale(dist: &Path, prefix: &str, keep: &Path) -> Result<()> {
 mod tests {
     use super::*;
 
-    fn fixture_monet_inputs() -> BTreeMap<String, PathBuf> {
-        ["classes.dex"]
-            .into_iter()
-            .map(|name| (name.to_string(), PathBuf::from(name)))
-            .collect()
-    }
-
     fn files(entries: &[(&str, &str)]) -> BTreeMap<String, String> {
         entries
             .iter()
@@ -1605,15 +1500,6 @@ mod tests {
     fn version_is_first_twelve_hex_chars_of_content_hash() {
         let hash = content_hash(&files(&[("script-deps.dex", "aa")]));
         assert_eq!(derive_version(&hash), hash[..12]);
-    }
-
-    #[test]
-    fn monet_pack_contains_only_contract_dex() {
-        let entries = monet_archive_entries(&fixture_monet_inputs()).unwrap();
-        assert_eq!(
-            entries.keys().map(String::as_str).collect::<Vec<_>>(),
-            vec!["classes.dex", "extension.json"],
-        );
     }
 
     #[test]

@@ -126,7 +126,7 @@ android {
 
         release {
             optimization.enable = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             signingConfig = signingConfigs.getByName(if (foundKeystore) "release" else "debug")
         }
     }
@@ -319,7 +319,10 @@ dependencies {
     implementation(libs.mmkv)
 
     implementation(project(":libs:common:bsh"))
-    implementation(project(":libs:monet-generator-api"))
+    implementation(libs.arsclib)
+    implementation(libs.apksig)
+    implementation(libs.bouncycastle.prov)
+    implementation(libs.bouncycastle.pkix)
 
     compileOnly(libs.legacyxposed.api)
     compileOnly(libs.libxposed.api)
@@ -370,7 +373,6 @@ dependencies {
 
     testImplementation(libs.junit.jupiter)
     testImplementation(project(":libs:common:stubs"))
-    testImplementation(project(":extension-packs:monet-generator"))
     testImplementation(libs.legacyxposed.api)
     testImplementation(libs.libxposed.api)
     testImplementation(libs.sqlite.jdbc)
@@ -395,7 +397,8 @@ val monetCorpus = providers.gradleProperty("wekit.monetCorpus").map(String::toBo
 
 tasks.withType<Test>().configureEach {
     systemProperty("wekit.monetCorpus", monetCorpus.get())
-    if (monetCorpus.get()) maxHeapSize = "4g"
+    // Monet resource-graph tests load complete host APKs.
+    maxHeapSize = "4g"
     if (dexTestWorker.get()) {
         filter {
             includeTestsMatching("dev.ujhhgtg.wekit.dextest.DexTestWorkerTest")

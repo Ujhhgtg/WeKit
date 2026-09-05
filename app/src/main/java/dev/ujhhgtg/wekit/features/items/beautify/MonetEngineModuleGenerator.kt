@@ -27,19 +27,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
-import dev.ujhhgtg.wekit.extensions.ExtensionPacks
-import dev.ujhhgtg.wekit.extensions.MonetDexEvidenceCollector
-import dev.ujhhgtg.wekit.extensions.MonetGeneratorPack
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetBubbleStyle
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationEvent
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationOptions
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationRequest
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationResult
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetGenerationStage
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetLogLevel
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetTabStyle
-import dev.ujhhgtg.wekit.extensions.monet.api.MonetUserScope
+import dev.ujhhgtg.wekit.utils.monet.MonetDexEvidenceCollector
+import dev.ujhhgtg.wekit.utils.monet.MonetModuleGenerator
+import dev.ujhhgtg.wekit.utils.monet.MonetBubbleStyle
+import dev.ujhhgtg.wekit.utils.monet.MonetGenerationEvent
+import dev.ujhhgtg.wekit.utils.monet.MonetGenerationOptions
+import dev.ujhhgtg.wekit.utils.monet.MonetGenerationRequest
+import dev.ujhhgtg.wekit.utils.monet.MonetGenerationResult
+import dev.ujhhgtg.wekit.utils.monet.MonetGenerationStage
+import dev.ujhhgtg.wekit.utils.monet.MonetLogLevel
+import dev.ujhhgtg.wekit.utils.monet.MonetTabStyle
+import dev.ujhhgtg.wekit.utils.monet.MonetUserScope
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -64,11 +62,6 @@ object MonetEngineModuleGenerator : ClickableFeature() {
         val activity = context as Activity
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             showUnsupportedDialog(activity)
-            return
-        }
-        ExtensionPacks.refresh(MonetGeneratorPack)
-        if (!MonetGeneratorPack.isInstalled()) {
-            ExtensionPackDialogs.requireInstall(activity, MonetGeneratorPack)
             return
         }
         showOptionsDialog(activity)
@@ -136,14 +129,6 @@ object MonetEngineModuleGenerator : ClickableFeature() {
     }
 
     private fun showGeneratorDialog(activity: Activity, options: MonetGenerationOptions) {
-        val resolvedPack = try {
-            requireNotNull(MonetGeneratorPack.resolve())
-        } catch (error: Throwable) {
-            WeLogger.e(TAG, "failed to load Monet generator extension", error)
-            showInvalidPackDialog(activity)
-            return
-        }
-
         showComposeDialog(activity, directlyDismissable = false) {
             var state by remember {
                 mutableStateOf<GeneratorUiState>(
@@ -181,11 +166,10 @@ object MonetEngineModuleGenerator : ClickableFeature() {
                             sdkInt = Build.VERSION.SDK_INT,
                             dexEvidenceProvider = MonetDexEvidenceCollector::collect,
                             options = options,
-                            payloadDir = resolvedPack.payloadDir,
                             workDir = workDir,
                             outputZip = resolvedOutputZip,
                         )
-                        val result = resolvedPack.generator.generate(
+                        val result = MonetModuleGenerator.generate(
                             request,
                         ) { event ->
                             when (event) {
@@ -235,18 +219,6 @@ object MonetEngineModuleGenerator : ClickableFeature() {
                     if (state !is GeneratorUiState.Running) {
                         Button(onDismiss) { Text(stringResource(R.string.dialog_close)) }
                     }
-                },
-            )
-        }
-    }
-
-    private fun showInvalidPackDialog(activity: Activity) {
-        showComposeDialog(activity) {
-            AlertDialogContent(
-                title = { Text(stringResource(R.string.feature_monet_module_generator_name)) },
-                text = { Text(stringResource(R.string.monet_generator_pack_invalid)) },
-                confirmButton = {
-                    Button(onDismiss) { Text(stringResource(R.string.dialog_close)) }
                 },
             )
         }

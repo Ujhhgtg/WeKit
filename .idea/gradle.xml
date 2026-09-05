@@ -29,8 +29,6 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/buildSrc" />
-            <option value="$PROJECT_DIR$/extension-packs" />
-            <option value="$PROJECT_DIR$/extension-packs/monet-generator" />
             <option value="$PROJECT_DIR$/libs" />
             <option value="$PROJECT_DIR$/libs/common" />
             <option value="$PROJECT_DIR$/libs/common/annotation-scanner" />
@@ -39,7 +37,6 @@
             <option value="$PROJECT_DIR$/libs/common/scripta" />
             <option value="$PROJECT_DIR$/libs/common/scripta/editor" />
             <option value="$PROJECT_DIR$/libs/common/stubs" />
-            <option value="$PROJECT_DIR$/libs/monet-generator-api" />
             <option value="$PROJECT_DIR$/libs/python-runtime-api" />
           </set>
         </option>
