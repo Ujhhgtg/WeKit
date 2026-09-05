@@ -25,7 +25,7 @@ pub struct WeKitModule {
     pub api: *mut ApiTable,
     pub env: *mut RawJNIEnv,
     // filled in preAppSpecialize
-    pub apk_fd: Option<File>,
+    pub module_dir_fd: Option<OwnedFd>,
     pub data_dir: String,
     pub process_name: String,
     // DirectByteBuffers reference these allocations for the process lifetime.
@@ -41,7 +41,7 @@ impl WeKitModule {
         Self {
             api,
             env,
-            apk_fd: None,
+            module_dir_fd: None,
             data_dir: String::new(),
             process_name: String::new(),
             dex_buffers: Vec::new(),
@@ -141,30 +141,9 @@ pub unsafe fn do_pre_app_specialize(module: &mut WeKitModule, args: *mut AppSpec
         (*module.api).set_option(DLCLOSE_MODULE_LIBRARY);
         return;
     }
-    let module_dir = OwnedFd::from_raw_fd(mod_fd);
-    let fd = libc::openat(
-        module_dir.as_raw_fd(),
-        c"module.apk".as_ptr(),
-        libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
-    );
-    if fd < 0 {
-        loge!(
-            "Zygisk: cannot open module.apk: {}",
-            std::io::Error::last_os_error()
-        );
-        (*module.api).set_option(DLCLOSE_MODULE_LIBRARY);
-        return;
-    }
-    let apk = File::from_raw_fd(fd);
-    let valid = apk.metadata().is_ok_and(|metadata| {
-        metadata.is_file() && metadata.len() > 0 && metadata.len() <= crate::apk::MAX_APK_BYTES
-    });
-    if !valid || !(*module.api).exempt_fd.is_some_and(|exempt| exempt(fd)) {
-        loge!("Zygisk: invalid APK or cannot retain APK fd across specialization");
-        (*module.api).set_option(DLCLOSE_MODULE_LIBRARY);
-        return;
-    }
-    module.apk_fd = Some(apk);
+    // Preserve the pre-dual-format lifecycle: keep the module directory, then
+    // open and copy the payload in postAppSpecialize. No exemptFd dependency.
+    module.module_dir_fd = Some(OwnedFd::from_raw_fd(mod_fd));
     module.data_dir = app_data_dir;
     module.process_name = nice_name.clone();
 
@@ -186,9 +165,28 @@ pub unsafe fn do_post_app_specialize(module: &mut WeKitModule, _args: *const App
         return;
     }
     module.enabled = false;
-    let Some(apk) = module.apk_fd.take() else {
+    let Some(module_dir) = module.module_dir_fd.take() else {
         return;
     };
+    let fd = libc::openat(
+        module_dir.as_raw_fd(),
+        c"module.apk".as_ptr(),
+        libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+    );
+    if fd < 0 {
+        loge!(
+            "Zygisk: cannot open module.apk: {}",
+            std::io::Error::last_os_error()
+        );
+        return;
+    }
+    let apk = File::from_raw_fd(fd);
+    if !apk.metadata().is_ok_and(|metadata| {
+        metadata.is_file() && metadata.len() > 0 && metadata.len() <= crate::apk::MAX_APK_BYTES
+    }) {
+        loge!("Zygisk: invalid module.apk");
+        return;
+    }
     let data_dir = module.data_dir.clone();
     let (apk_dst, dex_bufs) = match crate::payload::publish_apk(apk, &data_dir) {
         Ok(payload) => payload,
