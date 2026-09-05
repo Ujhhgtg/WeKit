@@ -8,6 +8,7 @@ internal data class MonetSemanticRule(
     val requiredAdjacentRoles: Map<Int, String> = emptyMap(),
     val preferredEvidence: Set<String> = emptySet(),
     val optional: Boolean = false,
+    val optionalWhenResourceAbsent: MonetResourceKey? = null,
 )
 
 internal val MONET_RULES = listOf(
@@ -89,7 +90,16 @@ internal val MONET_RULES = listOf(
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-23", "color", setOf("config::literal:COLOR_RGB8:4280953387")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-25", "color", setOf("config::literal:COLOR_ARGB8:2130706432", "usage:owner:style:item:16843857:reference")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-26", "color", emptySet()),
-    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-27", "color", setOf("config::literal:COLOR_RGB8:4280492835")),
+    // Compose suggestion-row background: the same String/click/composer/int function uses
+    // this color on domestic and Play builds; the obfuscated resource name is not an anchor.
+    MonetSemanticRule(
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-27",
+        "color",
+        setOf("config::literal:COLOR_RGB8:4280492835"),
+        requiredDexEvidence = setOf(
+            "method-shape:(java.lang.String,object,object,int):void", "string:text", "string:onClick",
+        ),
+    ),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-29", "color", setOf("usage:layout:FrameLayout/com.tencent.mm.ui.widget.RoundedCornerFrameLayout/LinearLayout/com.tencent.mm.ui.widget.RoundedCornerFrameLayout:16842964:background")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-30", "color", setOf("config::literal:COLOR_RGB8:4294967295", "usage:layout:LinearLayout/RelativeLayout:16842964:background")),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-33", "color", setOf("config:-night:literal:COLOR_RGB8:4283256141")),
@@ -125,7 +135,7 @@ internal val MONET_RULES = listOf(
     MonetSemanticRule("theme.color.system-surface-light--system-surface-light.slot-03", "color", setOf("usage:layout:com.tencent.mm.ui.widget.RoundCornerLinearLayout/com.tencent.neattextview.textview.view.NeatTextView:16842904:textColor")),
     MonetSemanticRule("theme.color.unknown--10ffffff.slot-01", "color", setOf("config::literal:COLOR_RGB8:4292532954")),
     MonetSemanticRule("theme.color.unknown--10ffffff.slot-04", "color", setOf("config:-night:literal:COLOR_RGB8:4280295456", "config::literal:COLOR_RGB8:4294967295")),
-    MonetSemanticRule("theme.color.unknown--10ffffff.slot-06", "color", setOf("context:layout:attribute:RelativeLayout/ListView:16842974:scrollbars:HEX:literal:HEX:512", "context:layout:attribute:RelativeLayout/com.tencent.mm.ui.widget.button.WeButton:16842972:visibility:DEC:literal:DEC:2", "context:layout:attribute:RelativeLayout/ListView:16842970:focusable:BOOLEAN:literal:BOOLEAN:0")),
+    MonetSemanticRule("theme.color.unknown--10ffffff.slot-06", "color", setOf("usage:layout:RelativeLayout:16842964:background", "context:layout:attribute:RelativeLayout/ListView:16842974:scrollbars:HEX:literal:HEX:512", "context:layout:attribute:RelativeLayout/com.tencent.mm.ui.widget.button.WeButton:16842972:visibility:DEC:literal:DEC:2", "context:layout:attribute:RelativeLayout/ListView:16842970:focusable:BOOLEAN:literal:BOOLEAN:0")),
     MonetSemanticRule("theme.color.unknown--10ffffff.slot-07", "color", setOf("config:-night:literal:COLOR_RGB8:4281348144", "config::reference:color:REFERENCE")),
     MonetSemanticRule("theme.color.unknown--10ffffff.slot-08", "color", setOf("config::literal:COLOR_RGB8:4294177779")),
     MonetSemanticRule("theme.color.unknown--10ffffff.slot-09", "color", setOf("config:-night:literal:COLOR_ARGB8:1291845632", "config::literal:COLOR_ARGB8:218103808")),
@@ -142,9 +152,21 @@ internal val MONET_RULES = listOf(
     MonetSemanticRule("theme.color.10000000--10ffffff.slot-01", "color", setOf("context:drawable:usage:layout:com.tencent.mm.plugin.finder.live.view.FinderMaxSizeLayout/RelativeLayout:16842964:background", "config::literal:COLOR_RGB8:4293256677")),
     MonetSemanticRule("theme.color.10000000--10ffffff.slot-05", "color", setOf("context:drawable:usage:layout:FrameLayout/LinearLayout/LinearLayout/TextView:16842964:background", "config::literal:COLOR_RGB8:4293256677")),
     MonetSemanticRule("theme.color.10000000--10ffffff.slot-06", "color", setOf("context:layout:attribute:LinearLayout/LinearLayout/ImageView:16842997:layout_height:DIMENSION:literal:DIMENSION:104857633", "usage:layout:LinearLayout/View:16842964:background")),
-    MonetSemanticRule("theme.color.10000000--system-surface-container-dark.slot-02", "color", setOf("context:drawable:usage:layout:RelativeLayout/com.tencent.mm.ui.widget.InputPanelLinearLayout/LinearLayout/RelativeLayout/LinearLayout/Button:16842964:background", "context:drawable:attribute:selector/item/shape/corners:16843176:radius:DIMENSION:literal:DIMENSION:5121")),
-    MonetSemanticRule("theme.color.system-primary-light--system-primary-dark.slot-12", "color", setOf("context:layout:element:RelativeLayout/ScrollView/com.tencent.mm.ui.widget.InputPanelLinearLayout/LinearLayout/LinearLayout/LinearLayout/View", "config::literal:COLOR_RGB8:4278698336")),
-    MonetSemanticRule("theme.color.system-primary-light--system-primary-dark.slot-19", "color", setOf("context:layout:simple-attribute:LinearLayout/ConstraintLayout/WeImageView:16842931:layout_gravity:HEX:literal:HEX:19", "context:layout:simple-attribute:ScrollView/LinearLayout/TextView:16842901:textSize:DIMENSION:literal:DIMENSION:3585", "context:layout:simple-attribute:LinearLayout/WeImageView:16842931:layout_gravity:HEX:literal:HEX:16")),
+    // Native KidsWatch login/registration resources were removed in the inspected 8.0.78 APK.
+    // Their stable resource names only prove absence; present resources still need all evidence.
+    MonetSemanticRule(
+        "theme.color.10000000--system-surface-container-dark.slot-02",
+        "color",
+        setOf("context:drawable:usage:layout:RelativeLayout/com.tencent.mm.ui.widget.InputPanelLinearLayout/LinearLayout/RelativeLayout/LinearLayout/Button:16842964:background", "context:drawable:attribute:selector/item/shape/corners:16843176:radius:DIMENSION:literal:DIMENSION:5121"),
+        optionalWhenResourceAbsent = MonetResourceKey("color", "BW_90_K"),
+    ),
+    MonetSemanticRule(
+        "theme.color.system-primary-light--system-primary-dark.slot-12",
+        "color",
+        setOf("context:layout:element:RelativeLayout/ScrollView/com.tencent.mm.ui.widget.InputPanelLinearLayout/LinearLayout/LinearLayout/LinearLayout/View", "config::literal:COLOR_RGB8:4278698336"),
+        optionalWhenResourceAbsent = MonetResourceKey("color", "Brand_K"),
+    ),
+    MonetSemanticRule("theme.color.system-primary-light--system-primary-dark.slot-19", "color", setOf("config::literal:COLOR_ARGB8:4294594897", "usage:layout:LinearLayout/TextView:16842904:textColor")),
     MonetSemanticRule("theme.color.system-surface-container-dark--system-surface-container-dark.slot-04", "color", setOf("context:drawable:usage:layout:FrameLayout/com.tencent.mm.ui.widget.RoundedCornerFrameLayout/com.tencent.mm.ui.widget.MMRoundCornerImageView:16842964:background")),
     MonetSemanticRule("theme.color.system-surface-container-dark--system-surface-container-dark.slot-11", "color", setOf("context:layout:attribute:LinearLayout/ImageView:16842997:layout_height:DIMENSION:literal:DIMENSION:22017", "context:layout:attribute:LinearLayout/LinearLayout/TextView:16842927:gravity:HEX:literal:HEX:5")),
     MonetSemanticRule("theme.color.system-surface-container-dark--system-surface-container-dark.slot-17", "color", setOf("context:layout:attribute:RelativeLayout/com.tencent.mm.plugin.appbrand.widget.recent.AppBrandTaskRadiusLayout:16842996:layout_width:REFERENCE:reference:dimen:REFERENCE", "config::literal:COLOR_ARGB8:1291845632")),
@@ -227,17 +249,20 @@ internal val MONET_RULES = listOf(
     MonetSemanticRule("theme.color.unknown--10ffffff.slot-02", "color", setOf("context:layout:attribute:LinearLayout/ImageView:16842997:layout_height:DIMENSION:literal:DIMENSION:6401", "adjacent:1:config::reference:color:REFERENCE")),
     MonetSemanticRule("theme.color.unknown--10ffffff.slot-03", "color", setOf("adjacent:1:config:-night:literal:COLOR_ARGB8:872415231", "adjacent:2:config::reference:color:REFERENCE")),
     MonetSemanticRule("theme.color.unknown--10ffffff.slot-05", "color", setOf("adjacent:2:config::literal:COLOR_ARGB8:234881023", "adjacent:1:config::literal:COLOR_ARGB8:3875536895")),
-    MonetSemanticRule("theme.color.system-surface-container-light--10ffffff.slot-02", "color", emptySet()),
-    MonetSemanticRule("theme.color.system-surface-container-light--10ffffff.slot-03", "color", setOf("simple-usage:layout:ConstraintLayout/RoundCornerLinearLayout:16842964:background")),
+    MonetSemanticRule("theme.color.system-surface-container-light--10ffffff.slot-02", "color", emptySet(), optional = true),
+    MonetSemanticRule("theme.color.system-surface-container-light--10ffffff.slot-03", "color", emptySet(), optional = true),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-37", "color", setOf("child:color:config::literal:COLOR_ARGB8:3841982464", "config::reference:color:REFERENCE"), preferredEvidence = setOf("config::reference:color:REFERENCE", "child:color:config:-night:literal:COLOR_ARGB8:3439329279", "outgoing:color", "child:color:config::literal:COLOR_ARGB8:3841982464")),
-    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-47", "color", setOf("adjacent:-2:config::literal:COLOR_ARGB8:436207616"), preferredEvidence = setOf("adjacent:-2:config::literal:COLOR_ARGB8:436207616", "config::literal:COLOR_RGB8:4294440951", "config:-night:literal:COLOR_RGB8:4281479730", "adjacent:-1:config::literal:COLOR_ARGB8:218103808")),
+    // WebView SmileyPanel palette: absent before its dedicated day/night color was added.
+    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-47", "color", setOf("config::literal:COLOR_RGB8:4294440951", "config:-night:literal:COLOR_RGB8:4281479730", "adjacent:-2:config::literal:COLOR_ARGB8:436207616", "adjacent:-1:config::literal:COLOR_ARGB8:218103808"), optional = true),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-50", "color", emptySet()),
-    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-53", "color", setOf("adjacent:-1:config::literal:COLOR_ARGB8:872415231"), preferredEvidence = setOf("adjacent:-1:config::literal:COLOR_ARGB8:872415231", "adjacent:1:config::literal:COLOR_ARGB8:638042464", "config::literal:COLOR_RGB8:4278698336", "adjacent:2:config::literal:COLOR_RGB8:4293783021")),
-    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-56", "color", setOf("context:drawable:element:shape/corners", "context:drawable:element:shape/solid")),
+    // Dedicated Canvas recording-button palette; the inspected 8.0.69 builds use Brand_100 instead.
+    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-53", "color", setOf("config::literal:COLOR_RGB8:4278698336", "adjacent:-1:config::literal:COLOR_ARGB8:872415231", "adjacent:1:config::literal:COLOR_ARGB8:638042464"), optional = true),
+    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-56", "color", emptySet(), optional = true),
     MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-57", "color", emptySet(), optional = true),
-    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-58", "color", setOf("context:drawable:attribute:shape/corners:16843176:radius:DIMENSION:literal:DIMENSION:1025", "context:drawable:usage:layout:LinearLayout:16842964:background")),
-    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-59", "color", emptySet()),
-    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-60", "color", emptySet(), preferredEvidence = setOf("config::literal:COLOR_ARGB8:4294440951", "adjacent:-1:config::literal:COLOR_ARGB8:2348810240", "adjacent:1:config::literal:COLOR_RGB8:4292854676", "adjacent:2:config::literal:COLOR_ARGB8:3439329279")),
+    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-58", "color", emptySet(), optional = true),
+    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-59", "color", emptySet(), optional = true),
+    // ECS dynamically built header buttons: their color group is absent in 8.0.65.
+    MonetSemanticRule("theme.color.system-surface-container-light--system-surface-container-dark.slot-60", "color", setOf("config::literal:COLOR_ARGB8:4294440951", "adjacent:-1:config::literal:COLOR_ARGB8:2348810240"), optional = true),
     MonetSemanticRule("theme.color.system-surface-dark--system-surface-dark.slot-02", "color", emptySet()),
     MonetSemanticRule("theme.color.system-surface-light--system-surface-dark.slot-04", "color", emptySet()),
     MonetSemanticRule("main.surface.header.primary", "drawable", setOf("config::file:9PNG:21:190:0:47:56:1015182:1017450:2:259089148f46db80af657aa18439589603c0807cd88376e29026eeda003fcaab")),

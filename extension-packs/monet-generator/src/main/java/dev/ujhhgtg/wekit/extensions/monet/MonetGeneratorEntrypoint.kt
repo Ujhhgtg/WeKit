@@ -25,9 +25,9 @@ class MonetGeneratorEntrypoint : MonetGeneratorApi {
             progress(MonetGenerationStage.BUILDING_RESOURCE_GRAPH, detail)
         }
         progress(MonetGenerationStage.BUILDING_RESOURCE_GRAPH, "ARSC/XML 引用图构建完成")
-        progress(MonetGenerationStage.RESOLVING_ROLES, "解析 ${MonetStructureMatcher.roleIds.size} 个语义角色", 0, MonetStructureMatcher.roleIds.size)
-        val resolved = MonetStructureMatcher.resolveAll(graph, request.dexEvidenceProvider) { completed, total, role ->
-            progress(MonetGenerationStage.RESOLVING_ROLES, "解析 $role", completed, total)
+        progress(MonetGenerationStage.RESOLVING_ROLES, "准备解析语义角色")
+        val resolved = MonetStructureMatcher.resolveAll(graph, request.dexEvidenceProvider) { completed, total, detail ->
+            progress(MonetGenerationStage.RESOLVING_ROLES, detail, completed, total)
         }
         val colors = MONET_RULES.filter { it.type == "color" && it.id != "main.tab.background" }.mapNotNull { rule ->
             val node = resolved[rule.id] ?: return@mapNotNull null

@@ -164,7 +164,7 @@ ui_print " "
 ui_print "已安装生成时选定的莫奈覆盖。"
 ui_print " "
 ui_print "温馨提示:"
-ui_print "- 若正在使用 KernelSU 或 APatch 及其衍生版, 请禁用「微信」的「App Profile」中的「卸载模块」选项。"
+ui_print "- 若正在使用 KernelSU 或 APatch 及其衍生版, 请在「超级用户」中选择「微信」, 关闭「卸载模块」选项。"
 ui_print "- 无须禁用「默认卸载模块」。"
 ui_print "- 若仍不生效, 请尝试给予「微信」Root 权限。"
 

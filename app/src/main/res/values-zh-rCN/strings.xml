@@ -580,7 +580,7 @@
     <string name="monet_generator_failed">在%1$s阶段生成失败：%2$s</string>
     <string name="monet_generator_output">模块已生成至：\n%1$s</string>
     <string name="monet_generator_counts">共覆盖 %1$d 项资源（保留 %2$d、新增 %3$d、裁剪 %4$d）。</string>
-    <string name="monet_generator_install_hint">请通过 Magisk、KernelSU、APatch 或其衍生 Root 管理器安装此 ZIP。安装后，请启用“莫奈引擎模块生成器”开关并重启。KernelSU/APatch 用户还需在微信的 App Profile 中允许模块作用于微信。</string>
+    <string name="monet_generator_install_hint">请通过 Magisk、KernelSU、APatch 或其衍生 Root 管理器安装此 ZIP。安装后，请启用“莫奈引擎模块生成器”开关并重启。KernelSU/APatch 用户还需在“超级用户”中选择微信，关闭“卸载模块”选项。</string>
     <string name="feature_replace_navigation_bar_name">美化首页底部导航栏</string>
     <string name="feature_replace_navigation_bar_description">将首页底栏替换为 Material Design 或 Backdrop 风格</string>
     <string name="feature_themes_name">主题</string>

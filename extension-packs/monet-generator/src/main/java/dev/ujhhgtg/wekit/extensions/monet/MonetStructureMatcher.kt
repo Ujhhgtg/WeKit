@@ -11,13 +11,14 @@ object MonetStructureMatcher {
     fun resolveAll(
         graph: MonetResourceGraph,
         dexProvider: MonetDexEvidenceProvider? = null,
-        onProgress: (completed: Int, total: Int, role: String) -> Unit = { _, _, _ -> },
+        onProgress: (completed: Int?, total: Int?, detail: String) -> Unit = { _, _, _ -> },
     ): Map<String, MonetResourceNode> {
-        val audited = audit(graph, dexProvider)
-        val resolved = MONET_RULES.mapIndexedNotNull { index, rule ->
-            onProgress(index + 1, MONET_RULES.size, rule.id)
-            val candidates = audited.getValue(rule.id)
-            if (rule.optional && candidates.isEmpty()) null else {
+        val audited = resolveCandidateIds(graph, dexProvider, onProgress)
+        onProgress(null, null, "校验语义角色解析结果")
+        val resolved = MONET_RULES.mapNotNull { rule ->
+            val candidates = audited.getValue(rule).mapNotNull(graph::node)
+            val optional = rule.optional || rule.optionalWhenResourceAbsent?.let { graph.node(it) == null } == true
+            if (optional && candidates.isEmpty()) null else {
                 require(candidates.size == 1) { "${rule.id}: ${candidates.map { it.key }}" }
                 rule.id to candidates.single()
             }
@@ -29,6 +30,7 @@ object MonetStructureMatcher {
         require(duplicateRoles.isEmpty()) {
             "multiple Monet roles resolved to the same resource: $duplicateRoles"
         }
+        onProgress(MONET_RULES.size, MONET_RULES.size, "语义角色解析完成")
         return resolved
     }
 
@@ -45,11 +47,13 @@ object MonetStructureMatcher {
     private fun resolveCandidateIds(
         graph: MonetResourceGraph,
         dexProvider: MonetDexEvidenceProvider?,
+        onProgress: (completed: Int?, total: Int?, detail: String) -> Unit = { _, _, _ -> },
     ): Map<MonetSemanticRule, Set<Int>> {
-        val structural = structuralResolution(graph)
+        val structural = structuralResolution(graph, onProgress)
         val candidates = structural.candidates
         val anchored = candidates.filter { (rule, ids) -> rule.requiredDexEvidence.isNotEmpty() && ids.size > 1 }
         val dexFiltered = if (anchored.isEmpty()) emptyMap() else {
+            onProgress(null, null, "分析代码引用，区分 ${anchored.size} 个歧义角色")
             val provider = requireNotNull(dexProvider) { "Dex evidence is required for ambiguous Monet roles" }
             val neighborIds = anchored.keys.flatMap { rule ->
                 rule.requiredDexEvidence.mapNotNull { token ->
@@ -75,6 +79,7 @@ object MonetStructureMatcher {
         val combined = MONET_RULES.associateWith { rule ->
             dexFiltered[rule] ?: candidates.getValue(rule)
         }
+        onProgress(null, null, "校验角色关联并消除歧义")
         val related = applyRoleRelations(combined, graph)
         return disambiguate(assignPreferred(related, structural.preferredScores), assignEquivalentGroups = true)
     }
@@ -111,19 +116,34 @@ object MonetStructureMatcher {
             .mapKeys { it.key.id }.mapValues { (_, ids) -> ids.mapNotNull(graph::node) }
     }
 
-    private fun structuralResolution(graph: MonetResourceGraph): StructuralResolution {
+    private fun structuralResolution(
+        graph: MonetResourceGraph,
+        onProgress: (completed: Int?, total: Int?, detail: String) -> Unit = { _, _, _ -> },
+    ): StructuralResolution {
         val requiredByType = MONET_RULES.groupBy(MonetSemanticRule::type).mapValues { (_, rules) ->
             rules.flatMapTo(hashSetOf()) { it.requiredEvidence + it.preferredEvidence }
         }
         val idsByToken = HashMap<String, MutableSet<Int>>()
+        val nodesByType = requiredByType.keys.associateWith(graph::nodes)
+        val resourceTotal = nodesByType.values.sumOf { it.size }
+        var scanned = 0
+        if (resourceTotal > 0) onProgress(0, resourceTotal, "扫描资源特征与引用关系")
         requiredByType.forEach { (type, required) ->
-            graph.nodes(type).forEach { node ->
+            nodesByType.getValue(type).forEach { node ->
                 calculateEvidence(node, graph).forEach { token ->
                     if (token in required) idsByToken.getOrPut(token, ::linkedSetOf).add(node.id)
                 }
+                scanned++
+                // Resource scans can be large; avoid flooding the main-thread event queue.
+                if (scanned % 32 == 0 || scanned == resourceTotal) {
+                    onProgress(scanned, resourceTotal, "扫描资源特征与引用关系（$type）")
+                }
             }
         }
-        val candidates = disambiguate(MONET_RULES.associateWith { rule ->
+        var matched = 0
+        val noticeCardColors = graph.noticeCardColors()
+        val initialCandidates = MONET_RULES.associateWith { rule ->
+            onProgress(matched, MONET_RULES.size, "匹配角色候选：${rule.id}")
             val baseline = COLOR_BASELINES[rule.id]
             val colorCandidates = baseline?.let { expected ->
                 graph.nodes(rule.type).filterTo(linkedSetOf()) { node ->
@@ -142,45 +162,30 @@ object MonetStructureMatcher {
                     .reduce { result, ids -> result.intersect(ids) }
             }
             val semanticCandidates: Set<Int>? = when (rule.id) {
-                SEARCH_BAR_BACKGROUND -> graph.actionBarSearchBackgroundColors()
+                // Older search bars share the global surface color. Only overlay a dedicated tint;
+                // the shared color remains owned by slot-40, whose night palette is different.
+                SEARCH_BAR_BACKGROUND -> graph.actionBarSearchBackgroundColors().also {
+                    require(it.isNotEmpty()) { "search bar background tint is missing" }
+                } - idsByToken["usage:drawable:selector/item/rotate/rotate/shape/solid:16843173:color"].orEmpty()
+                VOICE_INPUT_BACKGROUND -> graph.voiceInputBackgroundColors()
                 THREE_STATE_STROKE -> graph.threeStateSelectorDefaultStrokeColors()
                 FINDER_LIVE_TAB -> colorCandidates?.filterNotTo(linkedSetOf()) { graph.isVipBadgeColor(it) }
                 DELETE_ACTION_COLOR -> graph.sharedRawIconTextColors("icons_outlined_delete", 0xffedededL)
                 APP_BRAND_PAGE_BACKGROUND -> graph.sandwichedColor(0xff333333L, 0xfff2f2f2L, 0xff191919L)
-                SURFACE_CONTAINER_SLOT_59 -> graph.upSwipeCardTextColors().intersect(colorCandidates.orEmpty())
+                SURFACE_CONTAINER_SLOT_56 -> graph.ecsFeedbackBackgroundColors()
+                SURFACE_CONTAINER_SLOT_58 -> noticeCardColors.first
+                SURFACE_CONTAINER_SLOT_59 -> noticeCardColors.second
                 SURFACE_CONTAINER_SLOT_57 -> graph.sharedArrowIconTextColors()
                 else -> null
             }
-            val staticNames = STATIC_ROLE_NAMES[rule.id].orEmpty()
-            val orderedStaticNames = staticNames
-            val referencedStatic = STATIC_ROLE_REFERENCES[rule.id]?.let { ownerKey ->
-                graph.node(ownerKey)?.let { owner ->
-                    graph.xmlTrees(owner.id)
-                        .filter { rule.id.endsWith("slot-56") && it.name == "shape" }
-                        .flatMap { it.referenceIds() }
-                        .mapNotNull(graph::node)
-                        .firstOrNull {
-                            it.key.type == rule.type && it.key.name in orderedStaticNames &&
-                                (it.id in structural || it.id in colorCandidates.orEmpty())
-                        }?.id
-                }
-            }
-            val staticAny = referencedStatic ?: orderedStaticNames.firstNotNullOfOrNull { name ->
-                graph.node(MonetResourceKey(rule.type, name))?.takeIf { node ->
-                    !rule.id.endsWith("received") || graph.xmlTrees(node.id).any { it.name == "selector" }
-                }?.id
-            }
-            val static = referencedStatic?.let(::setOf)
-                ?: orderedStaticNames.firstNotNullOfOrNull { name ->
+            val static = STATIC_ROLE_NAMES[rule.id].orEmpty().firstNotNullOfOrNull { name ->
                 graph.node(MonetResourceKey(rule.type, name))?.takeIf { node ->
                     (node.id in structural || node.id in colorCandidates.orEmpty()) &&
                         (!rule.id.endsWith("received") || graph.xmlTrees(node.id).any { it.name == "selector" })
                 }?.id
-                }?.let(::setOf)
-            if (semanticCandidates != null) {
+            }?.let(::setOf)
+            val matchedCandidates = if (semanticCandidates != null) {
                 semanticCandidates
-            } else if (rule.id in STATIC_FORCE_ROLES && (static?.singleOrNull() ?: staticAny) != null) {
-                setOf(static?.singleOrNull() ?: staticAny!!)
             } else if (static != null && (structural.isEmpty() || static.any { it in structural })) {
                 static.intersect(structural).takeIf { it.isNotEmpty() } ?: static
             } else if (rule.requiredEvidence.isEmpty()) {
@@ -191,7 +196,12 @@ object MonetStructureMatcher {
                     structural.intersect(colors).takeIf { it.isNotEmpty() } ?: colors
                 } ?: structural
             }
-        }, assignEquivalentGroups = false)
+            matched++
+            onProgress(matched, MONET_RULES.size, "已检查角色候选：${rule.id}")
+            matchedCandidates
+        }
+        onProgress(null, null, "整理角色候选与资源特征")
+        val candidates = disambiguate(initialCandidates, assignEquivalentGroups = false)
         val scores = MONET_RULES.associateWith { rule ->
             candidates.getValue(rule).associateWith { id ->
                 rule.preferredEvidence.count { id in idsByToken[it].orEmpty() }
@@ -209,27 +219,15 @@ object MonetStructureMatcher {
         "chat.transfer.outgoing.expired" to listOf("c2c_chatto_remittance_expired_bg"),
         "chat.transfer.incoming.received" to listOf("z1", "k6", "ym"),
         "chat.transfer.outgoing.received" to listOf("zc", "k9", "yy"),
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-27" to listOf("af6"),
         "theme.color.unknown--10ffffff.slot-06" to listOf("rh", "aa4"),
         "theme.color.unknown--system-surface-dark.slot-02" to listOf("e2", "ni"),
     )
-    private val STATIC_ROLE_REFERENCES = emptyMap<String, MonetResourceKey>()
-    private val STATIC_FORCE_ROLES = setOf(
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-56",
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-27",
-    )
-
     private data class StructuralResolution(
         val candidates: Map<MonetSemanticRule, Set<Int>>,
         val preferredScores: Map<MonetSemanticRule, Map<Int, Int>>,
     )
 
     private val COLOR_BASELINES = mapOf(
-        "theme.color.system-surface-container-light--10ffffff.slot-02" to mapOf("" to 4294111986L, "-night" to 4281348144L),
-        "theme.color.system-surface-container-light--10ffffff.slot-03" to mapOf("" to 4294111986L, "-night" to 4281348144L),
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-56" to mapOf("" to 637534208L),
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-58" to mapOf("" to 4294440951L),
-        "theme.color.system-surface-container-light--system-surface-container-dark.slot-59" to mapOf("" to 2348810240L),
         "theme.color.system-surface-light--system-surface-dark.slot-04" to mapOf("" to 4291801463L),
     )
     private val COLOR_SELECTOR_BASELINES = mapOf(
@@ -237,10 +235,16 @@ object MonetStructureMatcher {
     )
     private const val SURFACE_CONTAINER_SLOT_57 =
         "theme.color.system-surface-container-light--system-surface-container-dark.slot-57"
+    private const val SURFACE_CONTAINER_SLOT_56 =
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-56"
+    private const val SURFACE_CONTAINER_SLOT_58 =
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-58"
     private const val SURFACE_CONTAINER_SLOT_59 =
         "theme.color.system-surface-container-light--system-surface-container-dark.slot-59"
     private const val SEARCH_BAR_BACKGROUND =
         "theme.color.system-surface-container-light--10ffffff.slot-02"
+    private const val VOICE_INPUT_BACKGROUND =
+        "theme.color.system-surface-container-light--10ffffff.slot-03"
     private const val THREE_STATE_STROKE =
         "theme.color.system-surface-container-light--system-surface-container-dark.slot-50"
     private const val FINDER_LIVE_TAB =
@@ -581,20 +585,76 @@ private fun MonetResourceGraph.actionBarSearchBackgroundColors(): Set<Int> = bui
     }
 }
 
-private fun MonetResourceGraph.upSwipeCardTextColors(): Set<Int> = buildSet {
+private fun MonetXmlElement.elements(): Sequence<MonetXmlElement> = sequence {
+    yield(this@elements)
+    children.forEach { yieldAll(it.elements()) }
+}
+
+/** The compact voice-input button is absent from the inspected 8.0.65 layouts. */
+private fun MonetResourceGraph.voiceInputBackgroundColors(): Set<Int> = buildSet {
     nodes("layout").forEach { owner ->
-        xmlTrees(owner.id).forEach { it.collectUpSwipeCardTextColors(this) }
+        xmlTrees(owner.id).asSequence().flatMap { it.elements() }.filter { element ->
+            element.name == "com.tencent.mm.ui.widget.RoundCornerLinearLayout" &&
+                element.children.any { it.reference("src")?.let(this@voiceInputBackgroundColors::node)?.key ==
+                    MonetResourceKey("raw", "mike_on_heavy") } &&
+                element.children.any { it.name == "TextView" && it.literal("textSize") == 4353L &&
+                    it.literal("textStyle") == 1L }
+        }.forEach { button ->
+            val color = requireNotNull(button.reference("background")?.let(this@voiceInputBackgroundColors::node)) {
+                "voice input button background is missing"
+            }
+            require(color.key.type == "color" && color.defaultLiteral() == 0xfff2f2f2L) {
+                "unexpected voice input button background: ${color.key}"
+            }
+            add(color.id)
+        }
     }
 }
 
-private fun MonetXmlElement.collectUpSwipeCardTextColors(result: MutableSet<Int>) {
-    val image = children.firstOrNull { it.name.substringAfterLast('.') == "ImageView" }
-    val text = children.firstOrNull { it.name.substringAfterLast('.') == "TextView" }
-    val singleLine = text?.literal("singleLine")
-    if (image?.reference("tint") != null && image.reference("src") != null && text != null &&
-        text.literal("maxLines") == 1L && singleLine != null && singleLine != 0L
-    ) text.reference("textColor")?.let(result::add)
-    children.forEach { it.collectUpSwipeCardTextColors(result) }
+/** Old ECS feedback pages disappear along with their 6dp background in the newer layouts. */
+private fun MonetResourceGraph.ecsFeedbackBackgroundColors(): Set<Int> = buildSet {
+    val layouts = nodes("layout").flatMap { xmlTrees(it.id) }.filter { tree ->
+        tree.elements().any { it.name == "com.tencent.mm.feature.ecs.product.view.EcsBarrageBoxView" }
+    }
+    layouts.asSequence().flatMap { it.elements() }.filter { element ->
+        element.name == "TextView" && element.literal("layout_width") == 11265L &&
+            element.literal("layout_height") == 6401L
+    }.forEach { button ->
+        val drawable = requireNotNull(button.reference("background")) { "ECS feedback background is missing" }
+        val shape = xmlTrees(drawable).single()
+        require(shape.name == "shape" && shape.descendant("corners")?.literal("radius") == 1537L)
+        val color = requireNotNull(shape.descendant("solid")?.reference("color")?.let(this@ecsFeedbackBackgroundColors::node))
+        require(color.key.type == "color" && color.defaultLiteral() == 0x26000000L)
+        add(color.id)
+    }
+    require(layouts.isEmpty() || isNotEmpty()) { "ECS pages exist but their feedback background is missing" }
+}
+
+/** This notice row and its dedicated colors are absent from the inspected 8.0.65/8.0.67 layouts. */
+private fun MonetResourceGraph.noticeCardColors(): Pair<Set<Int>, Set<Int>> {
+    val backgrounds = linkedSetOf<Int>()
+    val foregrounds = linkedSetOf<Int>()
+    nodes("layout").forEach { owner ->
+        xmlTrees(owner.id).asSequence().flatMap { it.elements() }.filter { element ->
+            element.name == "LinearLayout" && element.children.any {
+                it.name == "ImageView" && it.reference("tint") != null && it.reference("src") != null
+            } && element.children.any {
+                it.reference("src")?.let(::node)?.key == MonetResourceKey("raw", "icons_filled_arrow")
+            }
+        }.forEach { row ->
+            val text = row.children.single { it.name == "TextView" && it.literal("maxLines") == 1L &&
+                it.literal("singleLine")?.let { value -> value != 0L } == true }
+            val foreground = requireNotNull(text.reference("textColor")?.let(::node))
+            val shape = xmlTrees(requireNotNull(row.reference("background"))).single()
+            require(shape.name == "shape" && shape.descendant("corners")?.literal("radius") == 1025L)
+            val background = requireNotNull(shape.descendant("solid")?.reference("color")?.let(::node))
+            require(background.key.type == "color" && background.defaultLiteral() == 0xfff7f7f7L)
+            require(foreground.key.type == "color" && foreground.defaultLiteral() == 0x8c000000L)
+            backgrounds += background.id
+            foregrounds += foreground.id
+        }
+    }
+    return backgrounds to foregrounds
 }
 
 private fun MonetXmlElement.collectSearchBackgroundColors(graph: MonetResourceGraph, result: MutableSet<Int>) {

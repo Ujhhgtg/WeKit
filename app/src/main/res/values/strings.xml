@@ -617,7 +617,7 @@
     <string name="monet_generator_failed">Generation failed during %1$s: %2$s</string>
     <string name="monet_generator_output">Module generated at:\n%1$s</string>
     <string name="monet_generator_counts">Covered %1$d resources (kept %2$d, added %3$d, pruned %4$d).</string>
-    <string name="monet_generator_install_hint">Install this ZIP with Magisk, KernelSU, APatch, or a derivative root manager. After installation, enable the “Monet engine module generator” switch and reboot. KernelSU/APatch users must allow modules to affect WeChat in its app profile.</string>
+    <string name="monet_generator_install_hint">Install this ZIP with Magisk, KernelSU, APatch, or a derivative root manager. After installation, enable the “Monet engine module generator” switch and reboot. KernelSU/APatch users must select WeChat under “Superuser” and turn off “Unmount modules”.</string>
     <string name="feature_replace_navigation_bar_name">Replace home navigation bar</string>
     <string name="feature_replace_navigation_bar_description">Replace the bottom navigation bar of the homepage with Material Design or Backdrop style</string>
     <string name="feature_themes_name">Themes</string>
