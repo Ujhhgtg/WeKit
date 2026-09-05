@@ -13,7 +13,7 @@
 ```bash
 ./x build           # debug (uses same signing as release)
 ./x build --release # release (with optimization on)
-./x zygisk build    # standard arm64-v8a APK + arm64 Zygisk module ZIP
+./x run --zygisk    # build the dual-format APK and install it as a Zygisk module
 # (./x is alias to `cargo xtask` which orchestrates the build process)
 ```
 
@@ -23,6 +23,9 @@
 - **When working in a Git worktree, work directly on `dev` unless the user explicitly requests
   another branch or isolated history.** This is because commits made on a detached worktree are not automatically
   transferred by Codex's “local checkout” action and can appear to be lost.
+- Every standard/legacy debug/release APK is dual-format: install normally as an APK, or rename
+  to `.zip` and install through a root manager. Module files enter the APK before AGP signs it;
+  never modify or repack the signed output. There is no separate `zygisk build` command.
 - JDK 21
 - **Gradle does NOT build the Rust native lib.** `./gradlew assemble*` only packages whatever
   prebuilt `libwekit_native.so` already sits in `app/src/main/jniLibs/<abi>/`. Compiling
@@ -31,7 +34,7 @@
   a stale native lib. Requires a Rust toolchain + the Android NDK and its Rust targets;
   `./x configure` regenerates `wekit-native/.cargo/config.toml` from the local NDK and is invoked
   automatically by the build tasks.
-- `./x build --native-only` rebuilds just the native lib into `jniLibs/`
+- `./x build --native-only` prepares both the application and Zygisk native libs in `jniLibs/`
 - AGP 9, Gradle version catalog in `gradle/libs.versions.toml`
 
 ## Project Structure
@@ -45,7 +48,7 @@
 - `libs/common/stubs/` — compileOnly stubs for WeChat and Android hidden classes
 - `buildSrc/` — custom Gradle tasks: `GenerateMethodHashesTask` (`IResolveDex` `resolveDex` method MD5 cache), `GenerateNewFeaturesTask` (Kotlin source files added within 30 days of the HEAD commit → `NewFeatures.ADDED_AT_BY_SOURCE_KEY`; KSP joins source keys to discovered features for the 新功能 pseudo-category)
 - `xtask/` — build orchestration behind `./x`: native-lib compilation + NDK linker config, APK
-  assembly via Gradle, and Zygisk module packaging/flashing
+  assembly/signing via Gradle, and Zygisk installation of that same APK
 
 ## Entry Points & Architecture
 

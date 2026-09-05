@@ -17,13 +17,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Zygisk JVM entry point.
  *
- * Called from C++ postAppSpecialize:
+ * Called from native postAppSpecialize:
  *   ZygiskEntry.init(processName, dataDir, copiedApkPath)
  *
- * The C++ side has only:
- *   1. Copied the active module's APK and every classes*.dex payload into
+ * The native side has only:
+ *   1. Copied the active module's APK into
  *      this app's data directory during postAppSpecialize.
- *   2. Loaded the copied DEX files through InMemoryDexClassLoader and called
+ *   2. Read DEX directly from that APK through InMemoryDexClassLoader and called
  *      this entry point.
  *
  * This Java entry then initializes its native hook runtime,

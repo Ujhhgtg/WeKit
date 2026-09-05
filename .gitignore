@@ -31,6 +31,7 @@ local.properties
 /app/nul
 /.idea/deploymentTargetSelector.xml
 /app/src/main/jniLibs/*/libwekit_native.so
+/app/src/main/jniLibs/*/libwekit_zygisk.so
 /app/src/main/jniLibs/*/libwekit_cloudflared.so
 /app/src/main/jniLibs/*/libinvoke_tool.so
 /app/src/main/jniLibs/*/libchroot_cleanup.so

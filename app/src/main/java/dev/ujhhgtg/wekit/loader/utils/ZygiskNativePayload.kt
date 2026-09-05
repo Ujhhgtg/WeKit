@@ -19,7 +19,7 @@ class ZygiskNativePayload(val apk: File, private val dataDir: File) {
     @SuppressLint("UnsafeDynamicallyLoadedCode")
     fun loadLibraries(): Map<String, File> = ZipFile(apk).use { archive ->
         val abi = currentProcessAbi(archive)
-        val libraryDir = File(dataDir, ".wekit-native-$abi")
+        val libraryDir = File(dataDir, ".wekit-native/${apk.nameWithoutExtension}/$abi")
         if (!libraryDir.exists() && !libraryDir.mkdirs()) {
             error("cannot create Zygisk native-library directory: $libraryDir")
         }
@@ -73,8 +73,8 @@ class ZygiskNativePayload(val apk: File, private val dataDir: File) {
         archive.getInputStream(entry).use { input ->
             temporary.toPath().copyFrom(input)
         }
-        temporary.setReadable(true, true)
-        temporary.setExecutable(true, true)
+        check(temporary.setReadable(true, true) && temporary.setExecutable(true, true) &&
+            temporary.setWritable(false, false)) { "cannot protect Zygisk native library: $temporary" }
         if (!temporary.renameTo(destination)) {
             temporary.delete()
             error("cannot publish Zygisk native library: $destination")

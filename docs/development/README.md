@@ -196,93 +196,50 @@ adb shell cmd package compile -m speed-profile dev.ujhhgtg.wekit
 
 `check` 和 `clippy` 默认检查 `arm64-v8a`，这也是唯一可用 ABI。
 
-## Zygisk 模块
+## APK / Zygisk 二合一
 
-Zygisk 模块使用 standard APK payload，仅支持 `arm64-v8a`。
-
-### 构建 ZIP
-
-```bash
-# 默认：debug APK、ARM64 release loader 和 release ZIP
-./x zygisk build
-
-# release APK + release Zygisk
-./x zygisk build --apk-release --release --force
-
-# release APK + debug Zygisk
-./x zygisk build --apk-release --debug
-
-# 复用已有 standard APK 输出
-./x zygisk build --skip-apk-build
-
-# 显式指定 payload APK
-./x zygisk build --skip-apk-build \
-  --apk app/build/outputs/apk/standard/debug/app-standard-debug.apk
-
-# 同时保存未剥离 native 符号
-./x zygisk build --save-symbols
-```
-
-常用参数：
-
-| 参数 | 说明 |
-|------|------|
-| `--apk-debug` | 构建或自动选择 debug APK，默认行为 |
-| `--apk-release` | 构建或自动选择 release APK |
-| `--debug` | 使用 debug Zygisk loader 和 debug ZIP |
-| `--release` | 使用优化后的 release Zygisk loader 和 release ZIP，默认行为 |
-| `--force` | 构建前删除对应 native 输出和未剥离符号 |
-| `--ndk <VERSION>` | 覆盖 `gradle/libs.versions.toml` 中的 Zygisk NDK 版本 |
-| `--skip-apk-build` | 不执行 Gradle，按 APK profile 复用现有 APK |
-| `--apk <PATH>` | 指定 payload APK |
-| `--save-symbols` | 额外生成未剥离 native 符号 ZIP |
-
-模块 ZIP 输出到：
-
-```text
-wekit-zygisk/release/WeKit-<versionCode>-git+<commit>-<debug|release>.zip
-```
-
-使用 `--save-symbols` 时，符号包输出到：
-
-```text
-wekit-zygisk/symbols/WeKit-<versionCode>-git+<commit>-<debug|release>-symbols.zip
-```
-
-### Native 构建与清理
+所有 standard / legacy、debug / release APK 都同时是可刷入的 Zygisk 模块，仅支持
+`arm64-v8a`。直接安装 APK 用于 Android / Xposed；把同一文件改名 `.zip` 后可通过
+Magisk、KernelSU 或 APatch 的模块安装入口刷入。首次刷入后在 WebUI 选择注入目标，
+并按管理器要求重启。APK 安装与 Zygisk 刷入分别更新各自部署，不能互相代替。
 
 ```bash
-# 默认构建 release loader；使用 --debug 构建 debug loader
-./x zygisk native
-./x zygisk native --debug --force --abi arm64-v8a
+# 两个 flavor 的二合一 debug APK
+./x build
 
-# 清理两种 profile 的 loader 库和未剥离符号
-./x zygisk clean
+# 两个 flavor 的二合一 release APK
+./x build --release
 
-# 只清理指定 profile/ABI
-./x zygisk clean --profile release --abi arm64-v8a
+# 只构建 legacy
+./x build --flavor legacy
+
+# 仅准备应用和 Zygisk native 输入
+./x build --native-only
+
+# 额外导出注入器的未剥离符号
+./x build --save-symbols
+
+# 正常 APK 安装；默认 standard debug
+./x run
+
+# 构建同一 APK，以模块方式刷入；仅显式 --reboot 才重启
+./x run --zygisk --device SERIAL --root ksu --reboot
+./x run --zygisk --flavor legacy --release
 ```
 
-`zygisk native` 默认处理 `arm64-v8a`，并使用 release profile。`--abi` 也接受
-`arm64`、`aarch64` 等别名。loader 由 Cargo 交叉编译，并使用 NDK 提供的 linker
-和 `llvm-strip`。
+APK 仍输出到 `app/build/outputs/apk/<standard|legacy>/<debug|release>/`。
+符号归档输出到 `target/zygisk-symbols/WeKit-<commit>-arm64-v8a-symbols.zip`。
+注入器始终使用 release profile；`--release` 控制 Android 代码优化。
 
-### 安装到设备
+模块安装器直接保存原始 APK 为 `$MODPATH/module.apk`，注入器从这份 APK 读取 DEX。
+无需嵌套 APK、独立 `classes*.dex` 文件或 `dex.list`。宿主私有目录保留按 APK 内容摘要
+区分的只读 APK，供资源、原生库和独立子进程使用。
 
-```bash
-# 默认构建 release ZIP，安装到指定设备的 KernelSU，然后重启
-./x zygisk flash --device SERIAL --root ksu --reboot
+`--device` 未指定时使用 adb 默认设备；普通 APK 安装同样支持此参数。
+`--root` 支持 `magisk`、`ksu`、`ap` 以及 `kernelsu` / `apatch` 别名，未指定时自动检测。
+`--root` 和 `--reboot` 仅用于 `--zygisk`。
+不再提供独立 `zygisk` 构建/刷入命令或按修改时间选择旧 ZIP 的选项。
 
-# 安装 release 目录中最新的 release ZIP，不重新构建
-./x zygisk flash --skip-build
-
-# 安装最新的 debug ZIP
-./x zygisk flash --debug --skip-build
-```
-
-`--device` 未指定时使用 adb 默认设备。`--root` 支持 `magisk`、`ksu` 和 `ap`，也接受
-`kernelsu`、`apatch` 别名；未指定时由安装脚本自动检测。`--reboot` 仅在安装成功后
-重启设备。
-
-`--skip-build` 按 Zygisk profile 选择 release 或 debug ZIP，再使用
-`wekit-zygisk/release/` 中修改时间最新的对应 ZIP。
+原生调试可在 `wekit-zygisk/native` 中直接运行 `cargo build --target aarch64-linux-android`；
+先用 `./x configure` 准备 NDK 链接配置。正常出包始终使用 `./x build`，确保两个 Rust 库
+都已更新；Gradle 只负责消费这些 native 输入并打包签名。

@@ -185,6 +185,20 @@ tasks.withType<KotlinCompile> {
 val adbProvider = androidComponents.sdkComponents.adb
 androidComponents {
     onVariants { variant ->
+        val generateZygiskResources = tasks.register<GenerateZygiskResourcesTask>(
+            "generate${variant.name.replaceFirstChar { it.uppercase() }}ZygiskResources"
+        ) {
+            templateDir.set(rootProject.layout.projectDirectory.dir("wekit-zygisk/template"))
+            versionCode.set(variant.outputs.single().versionCode)
+            versionName.set(variant.outputs.single().versionName)
+            variantName.set(variant.name)
+            outputDir.set(layout.buildDirectory.dir("generated/zygiskResources/${variant.name}"))
+        }
+        variant.sources.resources!!.addGeneratedSourceDirectory(
+            generateZygiskResources,
+            GenerateZygiskResourcesTask::outputDir
+        )
+
         val kotlinSources = variant.sources.kotlin ?: return@onVariants
 
         kotlinSources.addGeneratedSourceDirectory(

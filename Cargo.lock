@@ -3434,8 +3434,11 @@ dependencies = [
 name = "wekit-zygisk"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "jni",
  "libc",
+ "sha2",
+ "zip",
 ]
 
 [[package]]

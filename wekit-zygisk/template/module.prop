@@ -1,7 +1,7 @@
-id=${moduleId}
-name=${moduleName}
-version=${versionName}
-versionCode=${versionCode}
+id=wekit_zygisk
+name=WeKit
+version=@VERSION_NAME@
+versionCode=@VERSION_CODE@
 author=ujhhgtg
-description=WeKit — Zygisk mode. Manage per-Android-user injection targets from the KernelSU WebUI.
+description=WeKit (@VARIANT@) — Zygisk mode. Manage per-Android-user injection targets from the KernelSU WebUI.
 #updateJson=

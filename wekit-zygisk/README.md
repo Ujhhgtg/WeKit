@@ -21,44 +21,50 @@ Open the WeKit module page in KernelSU to manage injection targets.
 The persisted target list is `/data/adb/wekit_zygisk/injection-targets.tsv`. Module
 updates retain it; uninstall removes it without touching app data.
 
-## Hot Update
+## Installation and updates
 
-The installer exports `MODULE_HOT_INSTALL_REQUEST=true`, the hot-install
-request used by compatible KernelSU-family root managers. On such a manager an
-updated module is activated without a device reboot. Stop and restart WeChat
-after the update: the Zygisk companion opens the shared payload for
-every newly specialized WeChat process, so it receives the updated APK.
+Every WeKit APK is also a Zygisk module ZIP. Rename `.apk` to `.zip`, install it
+from your root manager, select the target instances in the WebUI, and restart as
+required by the manager. APK installation and module installation update their
+respective deployments separately. Do not enable both injection modes for the
+same WeChat instance.
 
-This does not replace code in an already running WeChat process. Root managers
-that do not implement the hot-install protocol retain their normal reboot or
-restart requirements.
+The installer stores the original signed package as `$MODPATH/module.apk` and
+extracts its loader into `zygisk/arm64-v8a.so`. DEX stays inside the APK. The native
+loader copies that APK into the host's private directory under a content hash,
+then reads its DEX into memory. Resources, native libraries and child processes
+use the same APK version.
+
+The installer retains `MODULE_HOT_INSTALL_REQUEST=true` for compatible root
+managers. This is not a guarantee that native loader updates can take effect
+without rebooting, and it never replaces code in an already running process.
+The APK and loader follow the manager's module activation lifecycle together.
 
 ## Build
 
 ```bash
-# Build the standard arm64-v8a APK, Zygisk loader, and installable debug ZIP.
-./x zygisk build
+# Both standard and legacy dual-format APKs (arm64-v8a).
+./x build
+./x build --release
 
-# Build a release ZIP.
-./x zygisk build --release
+# Prepare application and Zygisk native libraries without building an APK.
+./x build --native-only
 
-# Only compile the Zygisk native loader.
-./x zygisk native --abi arm64-v8a
+# Also export the unstripped Zygisk loader symbols.
+./x build --save-symbols
 
-# Reuse an existing APK output, or explicitly select one.
-./x zygisk build --skip-apk-build
-./x zygisk build --skip-apk-build --apk path/to/wekit-arm64.apk
+# Normal Android installation.
+./x run
 
-# Build and install with adb; omit --root to let install_module.sh detect it.
-./x zygisk flash --device SERIAL --root ksu --reboot
-
-# Install the newest ZIP for the requested profile without rebuilding.
-./x zygisk flash --skip-build
+# Build and install as a module; omit --root for manager auto-detection.
+./x run --zygisk --device SERIAL --root ksu --reboot
+./x run --zygisk --flavor legacy --release
 ```
 
-`./x zygisk build` defaults to a debug standard `arm64-v8a` APK payload and an
-`arm64-v8a` Zygisk loader. The ZIP is output to `release/`.
-Run `./x zygisk --help` or `./x zygisk <subcommand> --help` for every option.
+APKs are in `app/build/outputs/apk/<flavor>/<type>/`. No separate module ZIP is
+built or published. The device-side `.zip` used by `run --zygisk` has exactly the
+APK's bytes. Symbols are in `target/zygisk-symbols/`.
+Run `./x build --help` or `./x run --help` for options.
 
 ## Development environment
 

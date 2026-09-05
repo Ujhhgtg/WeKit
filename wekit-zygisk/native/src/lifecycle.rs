@@ -2,7 +2,7 @@
 //
 // Implements the three specialization hooks called by the Zygisk framework:
 // `preAppSpecialize` (allow-list + companion IPC + resource acquisition),
-// `postAppSpecialize` (APK/DEX copy, classloader bootstrap), and
+// `postAppSpecialize` (APK publication, in-memory DEX bootstrap), and
 // `preServerSpecialize` (dlclose — module does not inject into system_server).
 
 use crate::protocol::{
@@ -12,12 +12,12 @@ use crate::protocol::{
 use crate::zygisk::{ApiTable, AppSpecializeArgs, DLCLOSE_MODULE_LIBRARY, ServerSpecializeArgs};
 use crate::{loge, logi};
 use jni::sys::{JNIEnv as RawJNIEnv, jobject, jstring};
-use libc::{gid_t, uid_t};
 use std::{
     ffi::{CStr, c_char},
+    fs::File,
     os::{
         fd::{FromRawFd, OwnedFd},
-        unix::io::{AsRawFd, RawFd},
+        unix::io::AsRawFd,
     },
 };
 
@@ -25,12 +25,11 @@ pub struct WeKitModule {
     pub api: *mut ApiTable,
     pub env: *mut RawJNIEnv,
     // filled in preAppSpecialize
-    pub module_dir_fd: Option<OwnedFd>,
-    pub app_uid: uid_t,
-    pub app_gid: gid_t,
+    pub apk_fd: Option<File>,
     pub data_dir: String,
     pub process_name: String,
-    pub dex_names: Vec<String>,
+    // DirectByteBuffers reference these allocations for the process lifetime.
+    pub dex_buffers: Vec<Vec<u8>>,
     pub telegram_socket_name: Option<String>,
     pub enabled: bool,
     // filled in postAppSpecialize
@@ -42,12 +41,10 @@ impl WeKitModule {
         Self {
             api,
             env,
-            module_dir_fd: None,
-            app_uid: 0,
-            app_gid: 0,
+            apk_fd: None,
             data_dir: String::new(),
             process_name: String::new(),
-            dex_names: Vec::new(),
+            dex_buffers: Vec::new(),
             telegram_socket_name: None,
             enabled: false,
             module_classloader: None,
@@ -114,65 +111,6 @@ fn negotiate_telegram_socket(api: *mut ApiTable, uid: i32, process_name: &str) -
     name
 }
 
-/// Read dex.list and validate sequential ordering (classes.dex, classes2.dex, ...).
-fn read_dex_list(mod_fd: RawFd, rel_path: &str) -> Vec<String> {
-    let path_c = match std::ffi::CString::new(rel_path) {
-        Ok(s) => s,
-        Err(_) => return Vec::new(),
-    };
-    let fd = unsafe { libc::openat(mod_fd, path_c.as_ptr(), libc::O_RDONLY | libc::O_CLOEXEC) };
-    if fd < 0 {
-        return Vec::new();
-    }
-    let mut bytes = Vec::new();
-    let mut buf = [0u8; 4096];
-    loop {
-        let n = unsafe { libc::read(fd, buf.as_mut_ptr().cast(), buf.len()) };
-        if n <= 0 {
-            break;
-        }
-        bytes.extend_from_slice(&buf[..n as usize]);
-    }
-    unsafe { libc::close(fd) };
-    let names: Vec<String> = String::from_utf8_lossy(&bytes)
-        .lines()
-        .map(str::trim)
-        .filter(|l| !l.is_empty())
-        .map(str::to_owned)
-        .collect();
-    // Verify names are classes.dex, classes2.dex, ... in contiguous order
-    for (i, name) in names.iter().enumerate() {
-        let expected = (i + 1) as u32;
-        let order = dex_name_order(name);
-        if order != Some(expected) {
-            loge!(
-                "Zygisk: dex.list entry '{}' is out of order (expected {})",
-                name,
-                expected
-            );
-            return Vec::new();
-        }
-    }
-    names
-}
-
-/// Map a dex file name to its numeric order (classes.dex → 1, classes2.dex → 2, …).
-fn dex_name_order(name: &str) -> Option<u32> {
-    if name == "classes.dex" {
-        return Some(1);
-    }
-    let prefix = "classes";
-    let suffix = ".dex";
-    if !name.starts_with(prefix) || !name.ends_with(suffix) {
-        return None;
-    }
-    let middle = &name[prefix.len()..name.len() - suffix.len()];
-    if middle.is_empty() {
-        return None;
-    }
-    middle.parse::<u32>().ok().filter(|&n| n >= 2)
-}
-
 // ── Lifecycle callbacks ───────────────────────────────────────────────────────
 
 pub unsafe fn do_pre_app_specialize(module: &mut WeKitModule, args: *mut AppSpecializeArgs) {
@@ -191,7 +129,6 @@ pub unsafe fn do_pre_app_specialize(module: &mut WeKitModule, args: *mut AppSpec
         }
     };
     let uid = *(*args).uid;
-    let gid = *(*args).gid;
 
     let status = send_check_request(module.api, uid, &nice_name);
     if status != COMPANION_ENABLED {
@@ -204,19 +141,32 @@ pub unsafe fn do_pre_app_specialize(module: &mut WeKitModule, args: *mut AppSpec
         (*module.api).set_option(DLCLOSE_MODULE_LIBRARY);
         return;
     }
-    // SAFETY: mod_fd is a valid fd returned by Zygisk API
-    module.module_dir_fd = Some(OwnedFd::from_raw_fd(mod_fd));
-    module.app_uid = uid as uid_t;
-    module.app_gid = gid as gid_t;
-    module.data_dir = app_data_dir;
-
-    module.process_name = nice_name.clone();
-    module.dex_names = read_dex_list(mod_fd, "payload/dex.list");
-    if module.dex_names.is_empty() {
-        loge!("Zygisk: empty or missing payload/dex.list");
+    let module_dir = OwnedFd::from_raw_fd(mod_fd);
+    let fd = libc::openat(
+        module_dir.as_raw_fd(),
+        c"module.apk".as_ptr(),
+        libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+    );
+    if fd < 0 {
+        loge!(
+            "Zygisk: cannot open module.apk: {}",
+            std::io::Error::last_os_error()
+        );
         (*module.api).set_option(DLCLOSE_MODULE_LIBRARY);
         return;
     }
+    let apk = File::from_raw_fd(fd);
+    let valid = apk.metadata().is_ok_and(|metadata| {
+        metadata.is_file() && metadata.len() > 0 && metadata.len() <= crate::apk::MAX_APK_BYTES
+    });
+    if !valid || !(*module.api).exempt_fd.is_some_and(|exempt| exempt(fd)) {
+        loge!("Zygisk: invalid APK or cannot retain APK fd across specialization");
+        (*module.api).set_option(DLCLOSE_MODULE_LIBRARY);
+        return;
+    }
+    module.apk_fd = Some(apk);
+    module.data_dir = app_data_dir;
+    module.process_name = nice_name.clone();
 
     // Non-isolated processes: negotiate Telegram socket, write to global
     if !nice_name.contains(':')
@@ -235,50 +185,18 @@ pub unsafe fn do_post_app_specialize(module: &mut WeKitModule, _args: *const App
     if !module.enabled {
         return;
     }
-    let mod_fd = match module.module_dir_fd.as_ref() {
-        Some(f) => f.as_raw_fd(),
-        None => return,
+    module.enabled = false;
+    let Some(apk) = module.apk_fd.take() else {
+        return;
     };
     let data_dir = module.data_dir.clone();
-    let uid = module.app_uid;
-    let gid = module.app_gid;
-    crate::payload::ensure_dir(&format!("{data_dir}/files"), uid, gid);
-    crate::payload::ensure_dir(&format!("{data_dir}/files/mmkv"), uid, gid);
-
-    // Copy APK
-    let apk_dst = format!("{data_dir}/files/mmkv/.wekit-bootstrap.apk");
-    if !crate::payload::copy_module_file(
-        mod_fd,
-        "payload/wekit.apk",
-        &apk_dst,
-        uid,
-        gid,
-        256 * 1024 * 1024,
-    ) {
-        loge!("Zygisk: failed to copy wekit.apk");
-        return;
-    }
-
-    // Copy DEX files and read them into memory
-    // dex_names already includes the .dex extension.
-    let mut dex_bufs: Vec<Vec<u8>> = Vec::new();
-    for name in module.dex_names.clone() {
-        let dst = format!("{data_dir}/files/mmkv/.wekit-bootstrap-{name}");
-        if !crate::payload::copy_module_file(
-            mod_fd,
-            &format!("payload/{name}"),
-            &dst,
-            uid,
-            gid,
-            64 * 1024 * 1024,
-        ) {
-            loge!("Zygisk: failed to copy DEX payload {name}");
+    let (apk_dst, dex_bufs) = match crate::payload::publish_apk(apk, &data_dir) {
+        Ok(payload) => payload,
+        Err(error) => {
+            loge!("Zygisk: cannot prepare module APK: {error:#}");
             return;
         }
-        if let Some(b) = crate::payload::read_file(&dst) {
-            dex_bufs.push(b);
-        }
-    }
+    };
 
     // Build InMemoryDexClassLoader
     let fns = *module.env;
@@ -296,8 +214,10 @@ pub unsafe fn do_post_app_specialize(module: &mut WeKitModule, _args: *const App
         return;
     }
 
-    // Close module dir fd
-    module.module_dir_fd = None;
+    // Once Java can see the loader, classes may escape even if later startup
+    // throws. Retain its direct-buffer backing memory in the process-lifetime
+    // module object, rather than freeing it on those later failure paths.
+    module.dex_buffers = dex_bufs;
 
     // Load ZygiskEntry class
     let entry_name = "dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskEntry";
@@ -332,7 +252,7 @@ pub unsafe fn do_post_app_specialize(module: &mut WeKitModule, _args: *const App
     }
     let process_name_c = std::ffi::CString::new(module.process_name.as_str()).unwrap_or_default();
     let data_dir_c = std::ffi::CString::new(data_dir.as_str()).unwrap_or_default();
-    let apk_path_c = std::ffi::CString::new(apk_dst.as_str()).unwrap_or_default();
+    let apk_path_c = std::ffi::CString::new(apk_dst.to_str().unwrap()).unwrap_or_default();
     let j_process = ((*fns).v1_6.NewStringUTF)(module.env, process_name_c.as_ptr());
     let j_data = ((*fns).v1_6.NewStringUTF)(module.env, data_dir_c.as_ptr());
     let j_apk = ((*fns).v1_6.NewStringUTF)(module.env, apk_path_c.as_ptr());
