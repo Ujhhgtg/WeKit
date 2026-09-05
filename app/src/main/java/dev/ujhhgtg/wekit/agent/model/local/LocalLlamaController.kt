@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.agent.model.local
 
 import dev.ujhhgtg.wekit.extensions.LlamaPackNotInstalledException
-import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import dev.ujhhgtg.wekit.utils.WeLogger
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -116,7 +115,7 @@ object LocalLlamaController {
     private var active: ActiveTuple? = null
 
     fun isRunning(): Boolean {
-        if (!NativeLoader.isLlamaLoaded()) return false
+        if (!LlamaNativeLoader.isLoaded()) return false
         return parseStatus(LlamaServerNative.serverStatus()).state == "running"
     }
 
@@ -186,7 +185,7 @@ object LocalLlamaController {
         syncState()
         val current = stateFlow.value
         val launch = try {
-            NativeLoader.prepareLlamaLaunch(backend)
+            LlamaNativeLoader.prepareLaunch(backend)
         } catch (failure: Throwable) {
             if (current is LlamaState.Starting || current is LlamaState.Running) {
                 stopInternal()
@@ -245,7 +244,7 @@ object LocalLlamaController {
 
     private fun stopInternal() {
         stopPolling()
-        if (NativeLoader.isLlamaLoaded()) LlamaServerNative.stopServer()
+        if (LlamaNativeLoader.isLoaded()) LlamaServerNative.stopServer()
         active = null
         syncState()
     }
@@ -255,7 +254,7 @@ object LocalLlamaController {
      * JSON carries no backend, so the remembered [active] tuple supplies it.
      */
     private fun syncState() {
-        val mapped = if (NativeLoader.isLlamaLoaded()) {
+        val mapped = if (LlamaNativeLoader.isLoaded()) {
             val status = parseStatus(LlamaServerNative.serverStatus())
             when (status.state) {
                 "starting" -> LlamaState.Starting

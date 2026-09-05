@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.agent.model.local
 /**
  * JNI bridge to the wekit-llama native controller shipped in the llama-native
  * extension pack. The library must be System.load-ed (via
- * `NativeLoader.prepareLlamaLaunch`) before parent-controller calls. Parent
+ * `LlamaNativeLoader.prepareLaunch`) before parent-controller calls. Parent
  * lifecycle methods return the controller's status JSON:
  * `{"state":"stopped|starting|running|failed","port":N,"pid":N,"error":"…"}`.
  */

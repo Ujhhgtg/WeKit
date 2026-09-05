@@ -7,7 +7,6 @@ import com.composables.icons.materialsymbols.outlined.Cloud
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.ReadReceipts
 import dev.ujhhgtg.wekit.features.items.chat.ReadReceiptsServerMode
-import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.io.File
@@ -18,7 +17,7 @@ class CloudflaredPackNotInstalledException(message: String) : RuntimeException(m
 
 /**
  * Cloudflared 扩展包：解压 arm64-v8a 的 libwekit_cloudflared.so
- * 到应用内部存储(dlopen 要求),由 NativeLoader.ensureCloudflaredLoaded() System.load。
+ * 到应用内部存储(dlopen 要求),由 CloudflaredNativeLoader.ensureLoaded() System.load。
  */
 object CloudflaredPack : ExtensionPack {
 
@@ -50,7 +49,7 @@ object CloudflaredPack : ExtensionPack {
     }
 
     override fun isInUse(): Boolean =
-        NativeLoader.isCloudflaredLoaded() ||
+        CloudflaredNativeLoader.isLoaded() ||
             ReadReceipts.configuration().mode == ReadReceiptsServerMode.BUILT_IN
 
     override fun install(verifiedTmp: File, version: String, sha256: String, meta: String?) {
