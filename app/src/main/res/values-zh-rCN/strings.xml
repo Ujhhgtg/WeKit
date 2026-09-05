@@ -784,7 +784,7 @@
     <string name="feature_round_avatars_name">圆角头像</string>
     <string name="feature_round_avatars_description">自定义微信全局头像渲染的圆角弧度</string>
     <string name="feature_show_wx_id_in_contact_details_name">显示微信 ID</string>
-    <string name="feature_show_wx_id_in_contact_details_description">在联系人与群组详情页面显示微信 ID</string>
+    <string name="feature_show_wx_id_in_contact_details_description">在联系人详情头部显示微信 ID</string>
     <string name="feature_split_group_call_name">分裂群组通话</string>
     <string name="feature_split_group_call_description">随机生成假群 ID, 并发起群通话或实时对讲后终止推送到他人手机</string>
     <string name="feature_split_group_chats_name">分裂群组</string>
@@ -2761,7 +2761,7 @@
     <string name="contacts_modify_count_display">显示数量</string>
     <string name="contacts_wechat_id">微信 ID</string>
     <string name="contacts_wechat_id_empty">微信 ID 为空！</string>
-    <string name="contacts_wechat_id_value">微信 ID：%1$s</string>
+    <string name="contacts_wechat_id_value">微信 ID: %1$s</string>
     <string name="contacts_open_homepage">好友主页</string>
     <string name="contacts_open_settings">好友设置</string>
     <string name="contacts_open_chat">对话</string>
@@ -3893,4 +3893,8 @@
     <string name="monet_user_current">当前用户</string>
     <string name="monet_user_all">全部用户</string>
     <string name="monet_generate">生成</string>
+    <string name="feature_show_friend_add_time_name">显示好友添加时间</string>
+    <string name="feature_show_friend_add_time_description">在联系人详情头部显示好友添加时间</string>
+    <string name="feature_we_contact_header_api_name">联系人详情头部扩展</string>
+    <string name="contacts_add_time_value">添加时间: %1$s</string>
 </resources>

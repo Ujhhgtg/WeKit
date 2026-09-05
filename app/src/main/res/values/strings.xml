@@ -821,7 +821,7 @@
     <string name="feature_round_avatars_name">Rounded avatar</string>
     <string name="feature_round_avatars_description">Customize the rounded arc of WeChat global avatar rendering</string>
     <string name="feature_show_wx_id_in_contact_details_name">Show WeChat ID</string>
-    <string name="feature_show_wx_id_in_contact_details_description">Display WeChat ID on contact and group details page</string>
+    <string name="feature_show_wx_id_in_contact_details_description">Display WeChat ID in the contact profile header</string>
     <string name="feature_split_group_call_name">Split group call</string>
     <string name="feature_split_group_call_description">Randomly generate a fake group ID, initiate a group call or real-time intercom and then terminate the push to other people’s mobile phones</string>
     <string name="feature_split_group_chats_name">Split group chats</string>
@@ -3865,4 +3865,8 @@
     <string name="monet_user_current">Current user</string>
     <string name="monet_user_all">All users</string>
     <string name="monet_generate">Generate</string>
+    <string name="feature_show_friend_add_time_name">Show friend added time</string>
+    <string name="feature_show_friend_add_time_description">Display when a friend was added in the contact profile header</string>
+    <string name="feature_we_contact_header_api_name">Contact profile header extensions</string>
+    <string name="contacts_add_time_value">Added: %1$s</string>
 </resources>
