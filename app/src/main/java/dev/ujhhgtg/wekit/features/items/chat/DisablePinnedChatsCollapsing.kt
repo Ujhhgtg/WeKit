@@ -7,6 +7,8 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.utils.reflection.bool
+import dev.ujhhgtg.wekit.utils.reflection.int
 import java.util.concurrent.atomic.AtomicBoolean
 
 object DisablePinnedChatsCollapsing : SwitchFeature(), IResolveDex {
@@ -30,24 +32,51 @@ object DisablePinnedChatsCollapsing : SwitchFeature(), IResolveDex {
         searchPackages("com.tencent.mm.ui.conversation")
         matcher {
             usingEqStrings("MicroMsg.FolderHelper", "checkIfShowFoldItem, ifShow:")
-            returnType(Boolean::class.java)
+            returnType(bool)
+        }
+    }
+
+    private val methodRecyclerShouldShowFoldItem by dexMethod(allowFailure = true) {
+        matcher {
+            declaredClass {
+                usingEqStrings(
+                    "MicroMsg.RecyclerFolderHelper",
+                    "performFoldItemClick: not ready",
+                )
+            }
+            paramTypes(int)
+            returnType(bool)
         }
     }
 
     override fun onEnable() {
         staleFoldConversationCleaned.set(false)
-        cleanupStaleFoldConversationOnce()
 
         methodAddCollapseChatItem.hookBefore {
             result = null
         }
+
         methodIfShouldAddCollapseChatItem.hookBefore {
             if (staleFoldConversationCleaned.get()) result = false
         }
+
         methodIfShouldAddCollapseChatItem.hookAfter {
             cleanupStaleFoldConversationOnce()
             result = false
         }
+
+        if (!methodRecyclerShouldShowFoldItem.isPlaceholder) {
+            methodRecyclerShouldShowFoldItem.hookBefore {
+                cleanupStaleFoldConversationOnce()
+                result = false
+            }
+            methodRecyclerShouldShowFoldItem.hookAfter {
+                cleanupStaleFoldConversationOnce()
+                result = false
+            }
+        }
+
+        cleanupStaleFoldConversationOnce()
     }
 
     private fun cleanupStaleFoldConversationOnce() {
