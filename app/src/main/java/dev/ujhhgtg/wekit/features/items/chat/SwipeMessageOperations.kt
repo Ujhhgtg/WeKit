@@ -43,7 +43,7 @@ import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
 import dev.ujhhgtg.wekit.ui.utils.ExposurePlus1Icon
-import dev.ujhhgtg.wekit.ui.utils.FormatQuoteIcon
+import dev.ujhhgtg.wekit.ui.utils.ReplyIcon
 import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -377,7 +377,7 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
         private val root = row.rootView as? ViewGroup
         private val size = 44.dpToPx(row.context)
         private val edgeMargin = 16.dpToPx(row.context)
-        private val quoteIcon = SwipeActionIconView(row.context, FormatQuoteIcon, SwipeActionColor.GREEN)
+        private val quoteIcon = SwipeActionIconView(row.context, ReplyIcon, SwipeActionColor.GREEN)
         private val repeatIcon = SwipeActionIconView(row.context, ExposurePlus1Icon, SwipeActionColor.BLUE)
         private val editIcon = SwipeActionIconView(row.context, EditIcon, SwipeActionColor.ORANGE)
         private val rootLocation = IntArray(2)
