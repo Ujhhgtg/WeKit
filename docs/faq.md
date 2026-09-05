@@ -18,15 +18,15 @@ Zygisk 模式先确认 WebUI 中对应 Android 用户和微信的开关已经打
 
 ## 4. 不受支持的旧版本启动一直弹 DEX 缓存更新怎么办?
 
-模块通用设置启用 「禁用版本适配」 或更新到 >= 8.0.65。
+模块通用设置启用 「禁用自动解析」 或更新到 >= 8.0.65。
 
-## 5. 「聊天/发送卡片消息」在哪里?
+## 5. 如何发送卡片消息？
 
-合并进了 [「聊天/聊天输入栏增强」](features/chat/chat-input-bar-enhancements.md)。
+在聊天分类启用[发送卡片消息](features/chat/send-card-message.md)，输入有效 XML 后长按发送或加号按钮选择该操作。
 
 ## 6. LSPosed 提示「此模块是为较新的 Xposed 版本设计的, 因此某些功能可能无法使用」
 
-忽略即可; 模块支持全部 Xposed API 版本。
+忽略即可; 模块提供传统 Xposed API（51+）与 libxposed（101–102）入口，需使用匹配的框架与 APK 变体。
 
 ## 7. 模块出现问题 (例如找不到入口, 功能失效) 怎么办?
 
@@ -37,7 +37,7 @@ Zygisk 模式先确认 WebUI 中对应 Android 用户和微信的开关已经打
 1. 开启「模块设置 -> 调试 -> 详细日志」并重启微信
 2. 在日志中寻找:
 
-    ```none
+    ```text
     WeDatabaseApi: openDatabase() called with: name=/data/user/0/com.tencent.mm/MicroMsg/xxxxxxxxx/EnMicroMsg.db, password=xxxxxxx, cipherSpec=0,false,0,4000,1024
     ```
 

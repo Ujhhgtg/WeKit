@@ -226,7 +226,7 @@ private fun LearnMore() {
                 iconPlaceholder = false,
                 title = stringResource(R.string.home_learn_more_item_title),
                 description = stringResource(R.string.home_learn_more_item_summary),
-                onClick = { uriHandler.openUri("https://ujhhgtgteams.gitbook.io/wekit-docs") },
+                onClick = { uriHandler.openUri("https://docs.wekit.ujhhgtg.dev") },
             )
         }
     }

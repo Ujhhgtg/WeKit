@@ -36,7 +36,7 @@
 
 功能设置位于底栏「功能」Tab 中。可以按名称或说明搜索功能, 也可以进入分类查看。
 普通功能可直接打开或关闭; 名称旁带齿轮图标的功能还可点击进入详细配置。此类功能
-排列在各分类的普通开关之后。
+可能有固定展示顺序。
 
 各设置项及分组的详细说明请参见 [功能设置说明](module-settings.md#功能设置)。
 
@@ -63,19 +63,22 @@
 
 模块运行时的文件存放在以下位置:
 
-```none
+```text
 /sdcard/Android/data/<宿主包名>/WeKit/
 ├── logs/                     # 运行日志
 ├── assets/                   # 媒体资源 (需手动创建)
 ├── scripts_java/             # Java 脚本 (需手动创建)
-├── stickers/                 # 贴纸包 (需手动创建)
+├── scripts_python/           # Python 插件
+├── sticker_panel/            # 表情面板本地数据
+├── voice_panel/              # 语音面板本地数据
+├── themes/                   # 界面主题
 ├── crashes/                  # 崩溃日志 (需启用「调试/崩溃拦截」)
 └── dex_cache/                # DEX 缓存 (自动生成)
 ```
 
 #### 媒体资源目录
 
-「自定义消息气泡」所用的气泡文件存放于 `<模块数据>/assets/` 目录下, 命名为 `left_bubble.9.png` `right_bubble.9.png`。
+「自定义消息气泡」所用的气泡文件存放于 `<模块数据>/assets/` 目录下, 可在该功能设置中导入和更换 `.9.png` 气泡图片，不必手工操作目录。
 
 #### 脚本目录
 
@@ -85,9 +88,9 @@ Java 脚本目录存放于 `<模块数据>/scripts_java/` 目录下, 该目录�
 
 #### 贴纸目录
 
-贴纸存放于 `<模块数据>/stickers/` 目录下, 每个贴纸包为一个子目录。
+表情面板数据存放于 `<模块数据>/sticker_panel/`，通过面板导入和管理；语音面板使用 `<模块数据>/voice_panel/`。
 
-详见 [贴纸包同步](features/chat/stickers-sync.md)。
+详见 [表情面板](features/chat/sticker-panel.md)。
 
 ### KV 存储
 
@@ -97,6 +100,10 @@ Java 脚本目录存放于 `<模块数据>/scripts_java/` 目录下, 该目录�
 - **多用户 (如双开微信)**: `/data/user/<宿主安卓用户 ID>/<宿主包名>/files/mmkv/{wekit_prefs,wekit_prefs.crc}`
 
 > 如果模块功能失效或设置异常, 可以尝试清除上述 MMKV 文件 (会丢失所有设置)。
+
+## 扩展包
+
+需要 Python、cloudflared、本地推理或其他可选运行时的功能，通过「设置 → 更新 → 扩展包」管理对应组件。缺少包时按界面提示安装；功能开关不等于扩展已经可用。
 
 ## 下一步
 

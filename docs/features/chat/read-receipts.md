@@ -4,7 +4,7 @@
 
 ## 工作方式与限制
 
-在聊天输入框中用 `#`（可自定义）作为前缀发送文本时，WeKit 会先向所选服务器注册
+使用所选发送模式发送带追踪的文本时，WeKit 会先向所选服务器注册
 `wxId`、明文消息内容和创建时间，再发送包含透明追踪像素的消息。收到消息的客户端加载
 像素后，服务器记录请求的 TCP 对端 IP；发送方每隔一段时间查询去重计数。
 
@@ -14,6 +14,12 @@
 协议限制为：`wxId` 最多 128 UTF-8 字节、消息内容最多 16 KiB、注册请求体最多
 20 KiB、原始 query string 最多 1 KiB，消息 ID 为 64 位小写十六进制 SHA-256。
 第三方端点最多 2048 字符，不得包含用户名、密码、query 或 fragment。
+
+## 发送方式
+
+默认使用主动菜单模式：在输入框填写文本，长按发送按钮或加号按钮，选择「发送已读回执消息」。也可在设置中选择被动模式（处理发出的文本）或主动前缀模式（只处理以配置前缀开头的文本，发送时去掉前缀）。默认前缀是 `#rr`，不是所有模式都需要前缀。
+
+计数按设置的查询间隔刷新，初始间隔为 5 秒；失败会退避重试。内置模式使用 cloudflared 扩展包，使用前确认扩展包可用。
 
 ## 服务器模式
 
@@ -25,7 +31,7 @@
 - `GET /pixel?wxId=<wxId>&id=<id>`：返回追踪像素并记录读取；
 - `GET /count?wxId=<wxId>&id=<id>`：返回 `{"count": <number>}`。
 
-仓库中的 [`services/read-receipts`](../../../services/read-receipts/README.md) 是保留独立
+仓库中的 [`services/read-receipts`](https://github.com/Ujhhgtg/WeKit-Dev/blob/master/services/read-receipts/README.md) 是保留独立
 dashboard、REPL、管理 API、本地 SQLite 和远程 Turso 的参考实现，不是官方托管服务，
 也不是生产级多租户服务。可直接部署它，也可以按协议使用其他兼容实现。
 
@@ -99,7 +105,7 @@ Cloudflare 对 `CF-Connecting-IP` 的定义及 Workers 子请求差异见
 1. 在设置中启用「已读追踪」，选择第三方或内置服务器。
 2. 第三方模式填写 HTTPS 基础地址并测试；内置模式选择 Quick、Token 或 Browser Login，
    按上述要求配置端口、主机名、凭据和通知。
-3. 在聊天输入框中用配置的前缀开始消息并发送。
+3. 按所选发送方式，使用长按菜单、配置前缀或被动模式发送。
 4. 发送成功后，自己消息下方的计数会按配置间隔刷新。
 
 真实浏览器授权、Cloudflare 凭据、Binder/前台服务、进程死亡、网络切换和 WeChat 渲染

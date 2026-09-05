@@ -1,21 +1,23 @@
 # 脚本引擎 (Java)
 
-> 执行 Java 脚本
+入口：WeKit 设置 → 功能 → 脚本 (Java) → 脚本引擎 (Java)。
 
-## 类别
+开启后加载 `<模块数据>/scripts_java/` 下的脚本目录，每个脚本至少包含：
 
-脚本 (Java)
+```text
+scripts_java/example/
+├── info.prop
+└── main.java
+```
 
-## 类型
+`info.prop` 可填写 `name`、`author`、`version` 和 `updateTime`，`main.java` 为 BeanShell/Java 脚本正文。例如：
 
-可开关
+```properties
+name=示例脚本
+author=作者
+version=1.0
+```
 
-## 描述
+点击功能进入脚本列表，分别启用或禁用脚本。目录中的 `disabled.flag` 表示禁用状态；新放入或编辑文件后应重新加载功能或重启微信检查日志。
 
-启用 Java 脚本引擎, 自动加载 `<模块数据>/scripts_java/` 目录下的所有 Java (BeanShell) 脚本文件。脚本支持通过 `JavaHookApi` 提供的 Hook 服务拦截微信方法、监听数据库变化等。
-
-每个 `.bsh` 文件会在模块启动时自动加载并执行。
-
-## 使用方法
-
-在模块设置中启用, 并将 `.bsh` 脚本文件放入 `<模块数据>/scripts_java/` 目录, 模块会在下次启动时自动加载执行
+脚本在微信进程内运行，可使用模块提供的宿主事件和[Hook 服务](java-hook-api.md)。只运行可信脚本；关闭脚本不能保证撤销它已经造成的任意修改。

@@ -54,7 +54,7 @@
 
 若模块加载成功, 上传模块运行日志:
 
-```none
+```text
 /sdcard/Android/data/<宿主包名>/WeKit/logs/
 ```
 

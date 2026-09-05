@@ -64,7 +64,7 @@ WebUI 页面底部的「WebUI 日志」用于排查应用扫描和开关保存�
 
 遇到注入、加载或闪退问题时, 点击 WebUI 的「导出日志」。日志会保存到:
 
-```none
+```text
 /data/adb/wekit_zygisk/logcat.log
 ```
 

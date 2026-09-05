@@ -1,10 +1,23 @@
-# Python plugin engine
+# Python 插件引擎
+
+入口：WeKit 设置 → 功能 → 脚本 (Python) → Python 插件引擎。
+
+## 首次使用
+
+1. 点击功能打开管理页，先检查顶部 Python 运行时扩展包状态；未安装时按扩展包管理流程安装。
+2. 选择新建插件或导入插件，检查名称、ID、版本和入口模块。插件目录为 `<模块数据>/scripts_python/<插件 ID>/`，包含 `plugin.json` 和入口 Python 文件，默认入口是 `main.py`。
+3. 启用引擎，再在插件列表中启用需要运行的插件。新插件默认关闭；仅安装运行时不会自动启用全部插件。
+4. 出错时打开插件详情和诊断页查看状态。缺少运行时显示 `RUNTIME_MISSING`，不会在微信启动时静默下载。
+
+插件在微信进程中拥有直接访问 JVM、文件与网络的能力，没有沙箱隔离。禁用会回收管理器跟踪的资源，但不能撤销插件任意副作用。
+
+## 运行时与开发参考
 
 WeKit's Python engine is an independent CPython plugin subsystem. It does not adapt the Java/BeanShell engine and has no JavaEngine callback compatibility layer.
 
 ## Distribution
 
-The base APK contains only the loader-neutral SPI, plugin manager, host services and UI. CPython 3.13, Chaquopy, native libraries and Python standard-library assets are built by `extensions/python-runtime` and published by:
+The base APK contains only the loader-neutral SPI, plugin manager, host services and UI. CPython 3.13, Chaquopy, native libraries and Python standard-library assets are built by `extension-packs/python-runtime` and published by:
 
 ```bash
 ./x extensions pack --only python-runtime

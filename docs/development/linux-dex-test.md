@@ -80,8 +80,8 @@ methodSetVoice: 4 → 5 parameters
 
 ## CI 与云端报告
 
-`dex-test` CI 作业独立于 Android 构建运行，触发条件包括推送到 `master` 和 `dev`、
-以这两个分支为目标的拉取请求，以及手动运行工作流。其 APK 矩阵来自
+`dex-test` CI 作业独立于 Android 构建运行，当前工作流监听 `master` 的推送/拉取请求和手动运行，各作业另有仓库条件；
+以 `.github/workflows/ci.yml` 的实际规则为准。其 APK 矩阵来自
 [`docs/getting-started.md`](../getting-started.md) 中的下载链接：国内版使用其中列出的微信官方
 URL，Google Play 版使用其中列出的 APKMirror 发布页面。请确保每个版本和渠道的链接唯一。
 
