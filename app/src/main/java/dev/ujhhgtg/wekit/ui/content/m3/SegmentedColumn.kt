@@ -160,6 +160,7 @@ class SegmentedColumnScope {
  * @param modifier The modifier to be applied to the group container.
  * @param title An optional title string displayed above the group of items.
  * @param contentPadding The padding applied to the group container.
+ * @param titlePadding The padding around the optional group title.
  * @param content A lambda providing a [SegmentedColumnScope] to declare the children.
  */
 @Composable
@@ -167,6 +168,7 @@ fun SegmentedColumn(
     modifier: Modifier = Modifier,
     title: String = "",
     contentPadding: PaddingValues = PaddingValues(horizontal = PADDING_HORIZONTAL.dp, vertical = PADDING_VERTICAL.dp),
+    titlePadding: PaddingValues = PaddingValues(start = PADDING_HORIZONTAL.dp, top = PADDING_VERTICAL.dp, bottom = 16.dp),
     content: SegmentedColumnScope.() -> Unit
 ) {
     val scope = SegmentedColumnScope().apply(content)
@@ -180,7 +182,7 @@ fun SegmentedColumn(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = PADDING_HORIZONTAL.dp, top = PADDING_VERTICAL.dp, bottom = 16.dp)
+                modifier = Modifier.padding(titlePadding)
             )
         }
 
