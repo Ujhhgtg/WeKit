@@ -71,8 +71,8 @@ fun DexResolver(
     val localResults = remember { mutableStateMapOf<String, LocalDexProgress>() }
 
     fun updateProgress(progress: LocalDexProgress) {
-        currentTask = progress
         if (progress is LocalDexProgress.Complete || progress is LocalDexProgress.Failed) {
+            currentTask = progress
             localResults[progress.displayName] = progress
             completed = localResults.size
         }
