@@ -49,7 +49,7 @@ git diff --check
 | Root directory | `docs` |
 | Build command | `bun install --frozen-lockfile && bun run build` |
 | Deploy command | `bun run deploy` |
-| Build variables | `BUN_VERSION=1.4.0`、`SKIP_DEPENDENCY_INSTALL=1` |
+| Build variables | `BUN_VERSION=1.4.0`、`NODE_VERSION=24.15.0`、`SKIP_DEPENDENCY_INSTALL=1` |
 | Build watch includes | `docs/*` |
 | Build watch excludes | 空 |
 | Non-production branch builds | 关闭 |
