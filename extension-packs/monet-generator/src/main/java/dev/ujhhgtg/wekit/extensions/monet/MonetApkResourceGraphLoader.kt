@@ -22,6 +22,12 @@ object MonetApkResourceGraphLoader {
         apkPaths.forEachIndexed { index, apk ->
             onProgress("打开 ${apk.name}", index, apkPaths.size)
             ApkModule.loadApkFile(apk).apply { setLoadDefaultFramework(false) }.use { module ->
+                // ABI/code-only splits have no resources.arsc. Check entry presence rather than
+                // catching parser errors: an existing but malformed table must still fail.
+                if (!module.hasTableBlock()) {
+                    onProgress("跳过 ${apk.name}：不含资源表", index, apkPaths.size)
+                    return@use
+                }
                 val resFiles = module.listResFiles().toList()
                 val fileStructures = resFiles.associate { it.filePath to it.fileStructure() }
                 onProgress("解析 ${apk.name} 的资源表", index, apkPaths.size)

@@ -20,7 +20,7 @@ import kotlin.io.path.createTempDirectory
 class MonetMatcherCorpusTest {
     @Test
     fun `directly compare reference color targets to domestic resources`() {
-        val play = extractResourceApks(File("/home/ujhhgtg/coding/wechat_8072_3084.apks"))
+        val play = extractApks(File("/home/ujhhgtg/coding/wechat_8072_3084.apks"))
         val referenceApk = File.createTempFile("monet-reference-", ".apk").apply {
             writeBytes(ZipFile("/home/ujhhgtg/Downloads/WeChatMonet_Pro_v26S4.zip").use { zip ->
                 zip.getInputStream(zip.getEntry("files/MonetWeChat.apk")).readBytes()
@@ -99,6 +99,13 @@ class MonetMatcherCorpusTest {
             val olderPlay = File("/home/ujhhgtg/coding/wechat_8069_3020_play.apk")
             val olderPlayGraph = MonetApkResourceGraphLoader.load(listOf(olderPlay), "com.tencent.mm")
             comparePalette(olderPlay.name, olderPlayGraph, auditResources(olderPlay, olderPlayGraph))
+            val newerPlay = extractApks(PLAY_3085_APKS)
+            try {
+                val newerPlayGraph = MonetApkResourceGraphLoader.load(newerPlay.second, "com.tencent.mm")
+                comparePalette(PLAY_3085_FILE_NAME, newerPlayGraph, auditResources(PLAY_3085_APKS, newerPlayGraph))
+            } finally {
+                newerPlay.first.deleteRecursively()
+            }
             assertTrue(mismatches.isEmpty(), mismatches.joinToString("\n"))
         } finally {
             play.first.deleteRecursively()
@@ -111,11 +118,11 @@ class MonetMatcherCorpusTest {
         System.load(File("../.wekit/dex-test/native/2.2.0/x86_64/cmake/libdexkit.so").canonicalPath)
         val samples = listOf("8065", "8067", "8069", "8074", "8076", "8077", "8078", "8069_3020_play").map {
             File("/home/ujhhgtg/coding/wechat_$it.apk")
-        } + File("/home/ujhhgtg/coding/wechat_8072_3084.apks")
+        } + listOf(File("/home/ujhhgtg/coding/wechat_8072_3084.apks"), PLAY_3085_APKS)
         val failures = mutableListOf<String>()
 
         samples.forEach { sample ->
-            val extracted = if (sample.extension == "apks") extractResourceApks(sample) else null
+            val extracted = if (sample.extension == "apks") extractApks(sample) else null
             try {
                 val graph = MonetApkResourceGraphLoader.load(extracted?.second ?: listOf(sample), "com.tencent.mm")
                 DexKitBridge.create(dexBytes(sample).toTypedArray()).use { bridge ->
@@ -161,18 +168,40 @@ class MonetMatcherCorpusTest {
         }
     }
 
-    private fun extractResourceApks(apks: File): Pair<File, List<File>> {
+    @Test
+    fun `installed Play split subset resolves every role including code-only splits`() {
+        val extracted = extractApks(PLAY_3085_APKS)
+        try {
+            // The actual sourceDir/splitSourceDirs combination on the reporting device.
+            val installedNames = setOf(
+                "base.apk", "split_config.arm64_v8a.apk", "split_config.xxxhdpi.apk",
+                "split_config.zh.apk", "split_delivery.apk", "split_delivery.config.arm64_v8a.apk",
+            )
+            val installedApks = extracted.second.filter { it.name in installedNames }
+            assertEquals(installedNames, installedApks.map { it.name }.toSet())
+            val graph = MonetApkResourceGraphLoader.load(installedApks, "com.tencent.mm")
+            System.load(File("../.wekit/dex-test/native/2.2.0/x86_64/cmake/libdexkit.so").canonicalPath)
+            DexKitBridge.create(installedApks.flatMap(::dexBytes).toTypedArray()).use { bridge ->
+                val resolved = MonetStructureMatcher.resolveAll(
+                    graph,
+                    MonetDexEvidenceProvider { candidates -> MonetDexEvidenceCollector.collect(bridge, candidates) },
+                )
+                assertEquals(MonetStructureMatcher.roleIds, resolved.keys)
+                println("MONET_INSTALLED_SPLITS_RESULT version=3085 apks=${installedApks.size} resolved=${resolved.size}")
+            }
+        } finally {
+            extracted.first.deleteRecursively()
+        }
+    }
+
+    private fun extractApks(apks: File): Pair<File, List<File>> {
         val dir = createTempDirectory("monet-apks").toFile()
         val result = mutableListOf<File>()
         ZipFile(apks).use { outer ->
             outer.entries().asSequence().filter { it.name.endsWith(".apk") }.forEach { entry ->
                 val bytes = outer.getInputStream(entry).readBytes()
-                if (ZipInputStream(ByteArrayInputStream(bytes)).use { nested ->
-                        generateSequence(nested::getNextEntry).any { it.name == "resources.arsc" }
-                    }
-                ) {
-                    result += File(dir, entry.name).also { it.writeBytes(bytes) }
-                }
+                // Keep ABI/code-only APKs too, exactly like sourceDir + splitSourceDirs on-device.
+                result += File(dir, entry.name).also { it.writeBytes(bytes) }
             }
         }
         return dir to result.sortedBy { if (it.name == "base.apk") "" else it.name }
@@ -203,6 +232,9 @@ class MonetMatcherCorpusTest {
     }
 
     private companion object {
+        const val PLAY_3085_FILE_NAME =
+            "com.tencent.mm_8.0.72-3085_1arch_7dpi_24lang_2feat_985c2543ef8d5b617ac8b43f3e8e25bc_apkmirror.com.apks"
+        val PLAY_3085_APKS = File("/home/ujhhgtg/Downloads", PLAY_3085_FILE_NAME)
         val SOURCE_VERIFIED_ROLES = setOf(
             // Same VIP badge consumer, but 8.0.65 uses literal #b4000000 instead of an FG_0 alias.
             "theme.color.system-surface-container-dark--system-surface-container-dark.slot-10",
@@ -272,6 +304,7 @@ class MonetMatcherCorpusTest {
             "wechat_8069_3020_play.apk" to setOf(SEARCH_BAR_BACKGROUND,
                 "theme.color.system-surface-container-light--system-surface-container-dark.slot-53"),
             "wechat_8072_3084.apks" to emptySet(),
+            PLAY_3085_FILE_NAME to emptySet(),
             "wechat_8074.apk" to emptySet(),
             "wechat_8076.apk" to setOf(SURFACE_CONTAINER_SLOT_56, SURFACE_CONTAINER_SLOT_57),
             "wechat_8077.apk" to setOf(SURFACE_CONTAINER_SLOT_56, SURFACE_CONTAINER_SLOT_57),
@@ -312,6 +345,8 @@ class MonetMatcherCorpusTest {
             "wechat_8069_3020_play.apk" to listOf("can", "cao") + FIXED_TARGETS + listOf("adl", "af0", "n0", "a_z", "ni"),
             "wechat_8072_3084.apks" to
                 listOf("cbr", "cbs") + FIXED_TARGETS + listOf("adr", "af6", "n0", "aa4", "ni"),
+            PLAY_3085_FILE_NAME to
+                listOf("cbr", "cbs") + FIXED_TARGETS + listOf("adr", "af6", "n0", "aa4", "ni"),
         ).mapValues { (_, names) -> EXPECTED_ROLES.zip(names).toMap() }
         val INCOMING_TRANSFER_ROLES = listOf("chat.transfer.incoming.expired", "chat.transfer.incoming.received")
         val OUTGOING_TRANSFER_ROLES = listOf("chat.transfer.outgoing.expired", "chat.transfer.outgoing.received")
@@ -328,6 +363,8 @@ class MonetMatcherCorpusTest {
             "wechat_8069_3020_play.apk" to
                 (setOf("c2c_chatfrom_remittance_expired_bg", "ym") to setOf("c2c_chatto_remittance_expired_bg", "yy")),
             "wechat_8072_3084.apks" to
+                (setOf("c2c_chatfrom_remittance_expired_bg", "z1") to setOf("c2c_chatto_remittance_expired_bg", "zc")),
+            PLAY_3085_FILE_NAME to
                 (setOf("c2c_chatfrom_remittance_expired_bg", "z1") to setOf("c2c_chatto_remittance_expired_bg", "zc")),
         )
     }
