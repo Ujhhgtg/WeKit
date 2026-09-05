@@ -72,6 +72,9 @@ import com.composables.icons.materialsymbols.outlined.Swap_vert
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -99,8 +102,11 @@ import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier as ReflectModifier
+import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.div
@@ -164,11 +170,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         val rawToVisible: IntArray,
     )
     private data class AdapterMethods(
-        val adapterClass: Class<*>,
         val getCount: Method,
         val getItem: Method,
-        val bindingMethods: List<Method>,
-        val positionArgumentIndex: Int,
+        val getView: Method,
         val storage: AdapterStorage,
     )
     private data class AdapterItemFields(
@@ -182,7 +186,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     private val adapterItemFields = ConcurrentHashMap<Class<*>, AdapterItemFields>()
     private val snapshotFailuresLogged = ConcurrentHashMap.newKeySet<Class<*>>()
     private val bindingAdapter = ThreadLocal<Any?>()
-    private val recyclerAttachedState = ThreadLocal<Boolean?>()
+    private val recyclerLists = Collections.synchronizedSet(
+        Collections.newSetFromMap(WeakHashMap<Any, Boolean>()),
+    )
     private val adapterPositionProvider = WeConversationListViewApi.IAdapterPositionProvider { adapter, rawPosition ->
         adapterPositionSnapshot(adapter, rawPosition)
     }
@@ -290,49 +296,33 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     override fun onDisable() {
         WeConversationListViewApi.removePositionProvider(adapterPositionProvider)
         bindingAdapter.remove()
-        recyclerAttachedState.remove()
+        synchronized(recyclerLists) { recyclerLists.clear() }
         clearAdapterCaches()
         snapshotFailuresLogged.clear()
     }
 
     private fun hookConversationListAdapter() {
-        val methods = listOf(
+        val viewHooks = listOf(
             WeConversationListViewApi.methodLegacyGetView to AdapterStorage.LEGACY_CURSOR,
             WeConversationListViewApi.methodMvvmGetView to AdapterStorage.MVVM_LIST,
         ).filterNot { (delegate, _) -> delegate.isPlaceholder }
-        adapterMethods = methods.map { (delegate, storage) ->
+        if (viewHooks.isEmpty()) {
+            error("conversation adapter filter targets were not resolved")
+        }
+        adapterMethods = viewHooks.map { (delegate, storage) ->
             val getView = delegate.method
             val owner = getView.declaringClass.reflekt()
             AdapterMethods(
-                adapterClass = getView.declaringClass,
                 getCount = owner.firstMethod { name = "getCount"; parameterCount = 0 }.self,
                 getItem = owner.firstMethod { name = "getItem"; parameterCount = 1 }.self,
-                bindingMethods = listOf(getView),
-                positionArgumentIndex = 0,
+                getView = getView,
                 storage = storage,
             )
-        }
-        if (!WeConversationListViewApi.classConversationRecyclerAdapter.isPlaceholder) {
-            adapterMethods += AdapterMethods(
-                adapterClass = WeConversationListViewApi.classConversationRecyclerAdapter.clazz,
-                getCount = WeConversationListViewApi.methodRecyclerItemCount.method,
-                getItem = WeConversationListViewApi.methodAdapterGetItem.method,
-                bindingMethods = listOf(
-                    WeConversationListViewApi.methodRecyclerBind.method,
-                    WeConversationListViewApi.methodRecyclerBindPayloads.method,
-                ),
-                positionArgumentIndex = 1,
-                storage = AdapterStorage.MVVM_LIST,
-            )
-        }
-        if (adapterMethods.isEmpty()) {
-            error("conversation adapter filter targets were not resolved")
         }
         adapterMethods.forEach { methods ->
             methods.getCount.hookAfter {
                 if (groupingBackend != GroupingBackend.ADAPTER_FILTER) return@hookAfter
                 if (isAllTab(activeAdapterGroup.id)) return@hookAfter
-                if (!methods.adapterClass.isInstance(thisObject)) return@hookAfter
                 val adapter = thisObject!!
                 val boundCache = if (bindingAdapter.get() === adapter) {
                     synchronized(adapterCaches) { adapterCaches[adapter] }
@@ -345,53 +335,77 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 }
                 rebuildAdapterCache(adapter, result as Int)?.let { result = it.visiblePositions.size }
             }
-            methods.bindingMethods.forEach { bindingMethod ->
-                bindingMethod.hookBefore(priority = 100) {
-                    if (groupingBackend != GroupingBackend.ADAPTER_FILTER) return@hookBefore
-                    if (isAllTab(activeAdapterGroup.id)) return@hookBefore
-                    if (!methods.adapterClass.isInstance(thisObject)) return@hookBefore
-                    val adapter = thisObject!!
-                    val argumentIndex = methods.positionArgumentIndex
-                    val position = args[argumentIndex] as Int
-                    val cache = synchronized(adapterCaches) {
-                        adapterCaches[adapter]
-                    } ?: return@hookBefore
-                    bindingAdapter.set(adapter)
-                    if (position in cache.visiblePositions.indices) {
-                        args[argumentIndex] = cache.visiblePositions[position]
-                    }
-                }
-                bindingMethod.hookAfter(priority = 100) {
-                    if (bindingAdapter.get() === thisObject) bindingAdapter.remove()
-                }
-            }
-        }
-
-        if (!WeConversationListViewApi.methodRecyclerDataChanged.isPlaceholder) {
-            WeConversationListViewApi.methodRecyclerDataChanged.hookBefore(priority = 100) {
+            methods.getView.hookBefore(priority = 100) {
                 if (groupingBackend != GroupingBackend.ADAPTER_FILTER) return@hookBefore
                 if (isAllTab(activeAdapterGroup.id)) return@hookBefore
                 val adapter = thisObject!!
-                clearAdapterCaches()
-                val attached = WeConversationListViewApi.fieldRecyclerAttached.field
-                    .getBoolean(adapter)
-                recyclerAttachedState.set(attached)
-                if (attached) {
-                    WeConversationListViewApi.fieldRecyclerAttached.field
-                        .setBoolean(adapter, false)
+                val position = args[0] as Int
+                val cache = synchronized(adapterCaches) { adapterCaches[adapter] } ?: return@hookBefore
+                bindingAdapter.set(adapter)
+                if (position in cache.visiblePositions.indices) {
+                    args[0] = cache.visiblePositions[position]
                 }
             }
-            WeConversationListViewApi.methodRecyclerDataChanged.hookAfter(priority = 100) {
-                val attached = recyclerAttachedState.get() ?: return@hookAfter
-                recyclerAttachedState.remove()
-                val adapter = thisObject!!
-                WeConversationListViewApi.fieldRecyclerAttached.field
-                    .setBoolean(adapter, attached)
-                if (attached) {
-                    WeConversationListViewApi.notifyAdapterChanged(adapter)
-                }
+            methods.getView.hookAfter(priority = 100) {
+                if (bindingAdapter.get() === thisObject) bindingAdapter.remove()
             }
         }
+
+        if (!WeConversationListViewApi.classConversationRecyclerAdapter.isPlaceholder) {
+            hookRecyclerDataSource()
+        }
+    }
+
+    private fun hookRecyclerDataSource() {
+        methodRecyclerQueryPage.hookAfter {
+            if (!classRecyclerDataSource.clazz.isInstance(thisObject)) return@hookAfter
+            val page = result!!
+            @Suppress("UNCHECKED_CAST")
+            val rows = fieldRecyclerPageItems.field.get(page) as MutableList<Any>
+            filterRecyclerRows(rows)
+        }
+
+        WeConversationListViewApi.classConversationRecyclerAdapter.clazz.constructors.forEach { constructor ->
+            constructor.hookAfter {
+                captureRecyclerList(thisObject!!)
+            }
+        }
+        WeConversationListViewApi.currentAdapter()?.let { adapter ->
+            if (WeConversationListViewApi.classConversationRecyclerAdapter.clazz.isInstance(adapter)) {
+                captureRecyclerList(adapter)
+            }
+        }
+
+        methodRecyclerSubmitUiChange.hookBefore {
+            if (!recyclerLists.contains(thisObject)) return@hookBefore
+            val pendingData = args[0]!!
+            @Suppress("UNCHECKED_CAST")
+            val rows = fieldRecyclerPendingItems.field.get(pendingData) as MutableList<Any>
+            filterRecyclerRows(rows)
+        }
+    }
+
+    private fun captureRecyclerList(adapter: Any) {
+        recyclerLists.add(fieldRecyclerMvvmList.field.get(adapter)!!)
+    }
+
+    private fun filterRecyclerRows(rows: MutableList<Any>) {
+        if (groupingBackend != GroupingBackend.ADAPTER_FILTER) return
+        val group = activeAdapterGroup
+        if (isAllTab(group.id)) return
+        rows.removeAll { row ->
+            classRecyclerRow.clazz.isInstance(row) &&
+                !adapterItemMatches(fieldRecyclerRowConversation.field.get(row), group)
+        }
+    }
+
+    private fun refreshRecyclerData(): Boolean {
+        val lists = synchronized(recyclerLists) { recyclerLists.toList() }
+        if (lists.isEmpty()) return false
+        for (list in lists) {
+            methodRecyclerRefreshAll.method.invoke(null, list, null, 1, null)
+        }
+        return true
     }
 
     private fun rebuildAdapterCache(adapter: Any, rawCount: Int): AdapterCache? {
@@ -466,7 +480,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     }
 
     private fun adapterMethods(adapter: Any): AdapterMethods =
-        adapterMethods.first { it.adapterClass.isInstance(adapter) }
+        adapterMethods.first { it.getView.declaringClass.isInstance(adapter) }
 
     private fun adapterItemMatches(item: Any?, group: ChatGroup): Boolean {
         if (isAllTab(group.id)) return true
@@ -598,9 +612,10 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
 
     private fun refreshConversations(backend: GroupingBackend) {
         if (backend == GroupingBackend.ADAPTER_FILTER) {
-            // FreeMoe refreshes the concrete adapter directly. Avoid broadcasting a conversation
-            // storage change here: that synchronously re-runs the database/query observer chain.
-            WeConversationListViewApi.refresh()
+            // The paged Recycler adapter must rebuild through its own data source so count, item,
+            // bind, click and incremental-update positions stay on the same real list. Legacy
+            // ListView adapters keep the original cached-position refresh path.
+            if (!refreshRecyclerData()) WeConversationListViewApi.refresh()
         } else {
             // Query Rewrite needs a fresh host query so the new SQL predicate is applied.
             WeConversationApi.reloadConversations()
@@ -693,10 +708,132 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
 
     private const val TAG = "ConversationGrouping"
 
+    private val classRecyclerDataSource by dexClass()
+
+    private val methodRecyclerQueryPage by dexMethod()
+
+    private val fieldRecyclerPageItems by dexField()
+
+    private val classRecyclerRow by dexClass()
+
+    private val fieldRecyclerRowConversation by dexField()
+
+    private val methodRecyclerSubmitUiChange by dexMethod()
+
+    private val fieldRecyclerPendingItems by dexField()
+
+    private val fieldRecyclerMvvmList by dexField()
+
+    private val methodRecyclerRefreshAll by dexMethod()
+
     private val methodOnTabCreate by dexMethod {
         matcher {
             declaredClass = "com.tencent.mm.ui.conversation.MainUI"
             usingEqStrings("MicroMsg.MainUI", "onTabCreate, %d")
+        }
+    }
+
+    override fun resolveDex(dexKit: DexKitBridge) {
+        if (WeConversationListViewApi.classConversationRecyclerAdapter.isPlaceholder) {
+            val reason = "conversation RecyclerView architecture is absent"
+            classRecyclerDataSource.setPlaceholderDescriptor(true, reason)
+            methodRecyclerQueryPage.setPlaceholderDescriptor(true, reason)
+            fieldRecyclerPageItems.setPlaceholderDescriptor(true, reason)
+            classRecyclerRow.setPlaceholderDescriptor(true, reason)
+            fieldRecyclerRowConversation.setPlaceholderDescriptor(true, reason)
+            methodRecyclerSubmitUiChange.setPlaceholderDescriptor(true, reason)
+            fieldRecyclerPendingItems.setPlaceholderDescriptor(true, reason)
+            fieldRecyclerMvvmList.setPlaceholderDescriptor(true, reason)
+            methodRecyclerRefreshAll.setPlaceholderDescriptor(true, reason)
+            return
+        }
+
+        classRecyclerDataSource.find(dexKit) {
+            matcher {
+                usingEqStrings(
+                    "MicroMsg.ConversationAdapter.ConvRecyclerDataSource",
+                    "syncFoldExpandStatus: isShowPlaceTop=",
+                )
+            }
+        }
+        methodRecyclerQueryPage.find(dexKit) {
+            matcher {
+                paramCount = 1
+                usingEqStrings(
+                    "getConvList: may getContact error, size mismatch",
+                    "getConvList ",
+                )
+            }
+        }
+        fieldRecyclerPageItems.find(dexKit) {
+            matcher {
+                declaredClass(methodRecyclerQueryPage.data.returnTypeName)
+                type = "java.util.ArrayList"
+            }
+        }
+
+        val conversationClassName = WeConversationListViewApi.methodAdapterGetItem.data.returnTypeName
+        val rowBuilders = methodRecyclerQueryPage.data.invokes.distinctBy { it.descriptor }
+            .filter { candidate ->
+                candidate.paramTypeNames.firstOrNull() == conversationClassName &&
+                    dexKit.getClassData(candidate.returnTypeName)?.fields?.any {
+                        it.typeName == conversationClassName
+                    } == true
+            }
+        require(rowBuilders.size == 1) {
+            "expected one conversation RecyclerView row builder, found: " +
+                rowBuilders.joinToString { it.descriptor }
+        }
+        val recyclerRow = dexKit.getClassData(rowBuilders.single().returnTypeName)!!
+        classRecyclerRow.setDescriptor(recyclerRow)
+        fieldRecyclerRowConversation.setDescriptor(recyclerRow.fields.single {
+            it.typeName == conversationClassName
+        })
+
+        val recyclerAdapterBase =
+            WeConversationListViewApi.classConversationRecyclerAdapter.data.superClass!!
+        require(recyclerAdapterBase.fields.size == 1) {
+            "expected one Recycler adapter base field, found: " +
+                recyclerAdapterBase.fields.joinToString { it.descriptor }
+        }
+        val recyclerMvvmListField = recyclerAdapterBase.fields.single()
+        fieldRecyclerMvvmList.setDescriptor(recyclerMvvmListField)
+
+        methodRecyclerSubmitUiChange.find(dexKit) {
+            matcher {
+                declaredClass(recyclerMvvmListField.typeName)
+                paramCount = 1
+                returnType = "void"
+                usingEqStrings(
+                    "submitUIChange callback:",
+                    " currentDataListVersion:",
+                )
+            }
+        }
+        fieldRecyclerPendingItems.find(dexKit) {
+            matcher {
+                declaredClass(methodRecyclerSubmitUiChange.data.paramTypeNames.single())
+                type = "java.util.List"
+                addReadMethod {
+                    declaredClass(methodRecyclerSubmitUiChange.data.declaredClassName)
+                    paramTypes(methodRecyclerSubmitUiChange.data.paramTypeNames.single())
+                    usingEqStrings("submitUIChange callback:", " currentDataListVersion:")
+                }
+            }
+        }
+        methodRecyclerRefreshAll.find(dexKit) {
+            matcher {
+                declaredClass(methodRecyclerSubmitUiChange.data.declaredClassName)
+                modifiers(ReflectModifier.STATIC)
+                paramTypes(
+                    methodRecyclerSubmitUiChange.data.declaredClassName,
+                    null,
+                    "int",
+                    "java.lang.Object",
+                )
+                returnType = "void"
+                usingEqStrings("submitRefreshAll")
+            }
         }
     }
 

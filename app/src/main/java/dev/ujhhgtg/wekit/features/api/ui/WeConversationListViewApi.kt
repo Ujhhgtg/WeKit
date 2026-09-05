@@ -145,17 +145,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
         }
     }
 
-    val methodRecyclerItemCount by dexMethod()
-
-    val methodRecyclerBind by dexMethod()
-
-    val methodRecyclerBindPayloads by dexMethod()
-
     private val methodRecyclerConversationBind by dexMethod()
-
-    val methodRecyclerDataChanged by dexMethod()
-
-    val fieldRecyclerAttached by dexField()
 
     private val fieldRecyclerHolderAdapter by dexField()
 
@@ -210,12 +200,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             classConversationAdapter.setPlaceholderDescriptor(true, reason)
             methodAdapterGetCount.setPlaceholderDescriptor(true, reason)
             methodAdapterGetItem.setPlaceholderDescriptor(true, reason)
-            methodRecyclerItemCount.setPlaceholderDescriptor(true, reason)
-            methodRecyclerBind.setPlaceholderDescriptor(true, reason)
-            methodRecyclerBindPayloads.setPlaceholderDescriptor(true, reason)
             methodRecyclerConversationBind.setPlaceholderDescriptor(true, reason)
-            methodRecyclerDataChanged.setPlaceholderDescriptor(true, reason)
-            fieldRecyclerAttached.setPlaceholderDescriptor(true, reason)
             fieldRecyclerHolderAdapter.setPlaceholderDescriptor(true, reason)
             fieldRecyclerHolderView.setPlaceholderDescriptor(true, reason)
             classConversationRecyclerView.setPlaceholderDescriptor(true, reason)
@@ -265,7 +250,6 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             }
         }
         val holderType = methodRecyclerConversationBind.data.paramTypeNames[0]
-        val recyclerAdapterBase = "com.tencent.mm.view.recyclerview.WxRecyclerAdapter"
         val recyclerAdapterFrameworkClass = generateSequence(
             dexKit.getClassData(classConversationRecyclerAdapter.data.name)
         ) { it.superClass }.first {
@@ -278,53 +262,6 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
         fieldRecyclerHolderView.setDescriptor(holderClass.fields.single {
             it.typeName == "androidx.recyclerview.widget.RecyclerView"
         })
-        methodRecyclerItemCount.find(dexKit) {
-            matcher {
-                declaredClass = recyclerAdapterBase
-                paramCount = 0
-                returnType = "int"
-            }
-        }
-        methodRecyclerBind.find(dexKit) {
-            matcher {
-                declaredClass = recyclerAdapterBase
-                paramTypes(holderType, "int")
-                returnType = "void"
-            }
-        }
-        methodRecyclerBindPayloads.find(dexKit) {
-            matcher {
-                declaredClass = recyclerAdapterBase
-                paramTypes(holderType, "int", "java.util.List")
-                returnType = "void"
-            }
-        }
-        methodRecyclerDataChanged.find(dexKit) {
-            matcher {
-                declaredClass(classConversationRecyclerAdapter.data.name)
-                paramCount = 1
-                returnType = "void"
-                usingEqStrings(
-                    "MicroMsg.Mvvm.ConcurrentRecyclerAdapter",
-                    "onInserted pos:",
-                    "onRefresh size:",
-                )
-            }
-        }
-        fieldRecyclerAttached.find(dexKit) {
-            matcher {
-                declaredClass(dexKit.getClassData(recyclerAdapterBase)!!.superClass!!.name)
-                type = "boolean"
-                addReadMethod {
-                    declaredClass(classConversationRecyclerAdapter.data.name)
-                    paramCount = 0
-                    usingEqStrings(
-                        "MicroMsg.ConversationRecyclerAdapter",
-                        "onPause: skip due to RecyclerView not attached yet",
-                    )
-                }
-            }
-        }
 
         classConversationRecyclerView.find(dexKit) {
             matcher {
@@ -445,6 +382,8 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             superclass()
         }.invoke()
     }
+
+    fun currentAdapter(): Any? = latestAdapter?.get()
 
     fun hostView(mainUi: Any): View {
         if (classConversationListHost.isPlaceholder) {
