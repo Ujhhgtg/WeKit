@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
 import android.os.Handler
@@ -13,8 +14,6 @@ import android.widget.HeaderViewListAdapter
 import android.widget.ListView
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
-import androidx.core.view.OneShotPreDrawListener
-import androidx.core.view.doOnAttach
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Spring
@@ -49,13 +48,13 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.TabIndicatorScope
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -73,8 +72,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.drawscope.clipPath
@@ -96,17 +95,23 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.core.view.OneShotPreDrawListener
+import androidx.core.view.doOnAttach
 import androidx.lifecycle.LifecycleOwner
-import com.tencent.mm.ui.base.CustomViewPager
-import com.tencent.mm.ui.LauncherUI
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Check
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Edit
 import com.composables.icons.materialsymbols.outlined.Swap_vert
+import com.tencent.mm.ui.LauncherUI
+import com.tencent.mm.ui.base.CustomViewPager
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.JsonDataMigration
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.data.WeKitDatabase
+import dev.ujhhgtg.wekit.data.structured.BuiltInGroupLabel
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -123,9 +128,8 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel.HomeSidePanel
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.i18n.HostLocalizedStrings
-import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
@@ -141,34 +145,30 @@ import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.data.structured.ConversationGroup as ChatGroup
-import dev.ujhhgtg.wekit.data.structured.ConversationGroupType as GroupType
-import dev.ujhhgtg.wekit.data.structured.BuiltInGroupLabel
-import dev.ujhhgtg.wekit.data.JsonDataMigration
-import dev.ujhhgtg.wekit.data.WeKitDatabase
-import kotlinx.coroutines.runBlocking
-import dev.ujhhgtg.wekit.utils.invokeOriginalMethod
 import dev.ujhhgtg.wekit.utils.android.baseActivity
 import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.utils.invokeOriginalMethod
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.luckypray.dexkit.DexKitBridge
 import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import java.lang.ref.WeakReference
 import java.lang.reflect.Field
 import java.lang.reflect.Method
-import java.lang.ref.WeakReference
 import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.io.path.div
 import kotlin.time.Duration.Companion.milliseconds
+import dev.ujhhgtg.wekit.data.structured.ConversationGroup as ChatGroup
+import dev.ujhhgtg.wekit.data.structured.ConversationGroupType as GroupType
 import java.lang.reflect.Modifier as ReflectModifier
 
 object ConversationGrouping : ClickableFeature(), IResolveDex {
@@ -194,7 +194,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     private const val TAB_STYLE_FLOATING = 1
 
     private var tabStyle by KvStore.prefOption(TAB_STYLE_KEY, TAB_STYLE_FULL_WIDTH)
-    private val tabStyleState by lazy { mutableStateOf(tabStyle) }
+    private val tabStyleState by lazy { mutableIntStateOf(tabStyle) }
     private var pinTabs by KvStore.prefOption("conversation_grouping_pin_tabs", true)
     private var takeOverHorizontalScroll by KvStore.prefOption("conversation_grouping_take_over_horizontal_scroll", true)
     private var rememberScrollState by KvStore.prefOption("conversation_grouping_remember_scroll_state", false)
@@ -320,6 +320,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     private val hookedRecyclerAppliedMethods = mutableSetOf<Method>()
     private val pagingHandler by lazy { Handler(Looper.getMainLooper()) }
     private val pagingQueryRequest = ThreadLocal<PagingRequest?>()
+    @SuppressLint("StaticFieldLeak")
     @Volatile
     private var pagingRequest: PagingRequest? = null
 
