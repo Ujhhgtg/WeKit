@@ -602,6 +602,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     override fun onEnable() {
+        FloatingChatPagination.install(this) { recycler ->
+            if (chatListBasePaddings.containsKey(recycler)) recycler.paddingTop else 0
+        }
         cacheAnimationGroupFields()
         methodTipsExpandAnimationUpdate.hookAfter {
             val group = animationGroup(thisObject!!) ?: return@hookAfter

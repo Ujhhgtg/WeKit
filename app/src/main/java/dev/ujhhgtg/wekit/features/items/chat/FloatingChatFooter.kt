@@ -246,6 +246,10 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     }
 
     override fun onEnable() {
+        FloatingChatPagination.install(this) { recycler ->
+            val base = chatListBasePaddings[recycler]
+            if (base != null) recycler.paddingBottom - base else 0
+        }
         val reflekt = ChatFooter::class.reflekt()
 
         // 绘制属性不依赖 LayoutParams, 构造完就能设
