@@ -53,6 +53,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -2159,6 +2160,19 @@ object ReadReceipts : ClickableFeature(),
 
     // Settings activity support
 
+    internal fun thirdPartyHealthCheckUrl(endpoint: String): String {
+        val url = endpoint.toHttpUrlOrNull()
+            ?: return "$endpoint/count?wxId=wekit-health-check&id=${"0".repeat(64)}"
+        val isCapabilityEndpoint = url.pathSegments.size == 3 && url.pathSegments.firstOrNull() == "r"
+        if (isCapabilityEndpoint) return url.toString()
+        return url.newBuilder()
+            .addPathSegment("count")
+            .addQueryParameter("wxId", "wekit-health-check")
+            .addQueryParameter("id", "0".repeat(64))
+            .build()
+            .toString()
+    }
+
     fun testThirdPartyEndpoint(
         value: String,
         scope: CoroutineScope,
@@ -2167,7 +2181,7 @@ object ReadReceipts : ClickableFeature(),
         val endpoint = normalizedEndpoint(value) ?: return null
         return scope.launch {
             val request = Request.Builder()
-                .url("$endpoint/count?wxId=wekit-health-check&id=${"0".repeat(64)}")
+                .url(thirdPartyHealthCheckUrl(endpoint))
                 .get()
                 .build()
             val result = runCatching {

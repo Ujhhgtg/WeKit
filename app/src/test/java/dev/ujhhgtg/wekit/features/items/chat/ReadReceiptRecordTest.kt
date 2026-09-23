@@ -7,6 +7,17 @@ import org.junit.jupiter.api.Test
 class ReadReceiptRecordTest {
 
     @Test
+    fun `health check uses capability landing page for a dedicated link`() {
+        val endpoint = "https://protocol.example/r/usr_owner/rrt_secret"
+
+        assertEquals(endpoint, ReadReceipts.thirdPartyHealthCheckUrl(endpoint))
+        assertEquals(
+            "https://protocol.example/count?wxId=wekit-health-check&id=${"0".repeat(64)}",
+            ReadReceipts.thirdPartyHealthCheckUrl("https://protocol.example"),
+        )
+    }
+
+    @Test
     fun `round trips third party endpoint`() {
         val record = ReadReceiptRecord(
             "0123456789abcdef",
