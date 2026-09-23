@@ -18,10 +18,7 @@ import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
-import dev.ujhhgtg.wekit.ui.content.nuke.NukeModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
-import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
-import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 
 // useful for showing a compose dialog in non-compose context,
 // or when you don't want to manage the state for a dialog inside a composable
@@ -54,20 +51,13 @@ fun showComposeDialog(
             ComposeView(context).apply {
                 setContent {
                     WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
-                        val themedContent: @Composable () -> Unit = {
-                            ModuleTheme {
-                                Box(
-                                    modifier = Modifier.wrapContentSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    scope.content()
-                                }
+                        ModuleTheme {
+                            Box(
+                                modifier = Modifier.wrapContentSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                scope.content()
                             }
-                        }
-                        if (ThemeSettings.uiEngine == SettingsUiEngine.NUKE) {
-                            NukeModuleTheme(content = themedContent)
-                        } else {
-                            themedContent()
                         }
                     }
                 }

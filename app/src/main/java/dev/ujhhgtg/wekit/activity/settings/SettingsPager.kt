@@ -132,7 +132,6 @@ import dev.ujhhgtg.wekit.ui.utils.theme.AppColorSpec
 import dev.ujhhgtg.wekit.ui.utils.theme.AppPaletteStyle
 import dev.ujhhgtg.wekit.ui.utils.theme.AppThemeMode
 import dev.ujhhgtg.wekit.ui.utils.theme.PageTransitionAnimation
-import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.AppUpdater
 import dev.ujhhgtg.wekit.utils.UpdateResult
@@ -533,19 +532,6 @@ private fun ThemeSection() {
                 options = languageLabels.map { DropdownOption(it.key, it.value) },
                 onValueChange = WeKitLocaleController::updateSelection,
                 icon = MaterialSymbols.Outlined.Language,
-            )
-        }
-
-        item {
-            DropDownMenuWidget(
-                title = stringResource(R.string.settings_ui_engine_title),
-                description = null,
-                value = ThemeSettings.uiEngine,
-                options = SettingsUiEngine.entries.map {
-                    DropdownOption(it, it.displayName)
-                },
-                onValueChange = ThemeSettings::updateUiEngine,
-                icon = MaterialSymbols.Outlined.Style,
             )
         }
 

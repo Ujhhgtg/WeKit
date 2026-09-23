@@ -72,7 +72,6 @@ import com.composables.icons.materialsymbols.outlinedfilled.Home
 import com.composables.icons.materialsymbols.outlinedfilled.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Tune
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.activity.nuke.NukeSettingsContent
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -93,7 +92,6 @@ import dev.ujhhgtg.wekit.ui.navigation.LocalNavigator
 import dev.ujhhgtg.wekit.ui.navigation.Navigator
 import dev.ujhhgtg.wekit.ui.navigation.rememberM3NavEffects
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
-import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.ui.animation.predictiveback.weKitNavTransition
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -119,12 +117,8 @@ class SettingsActivity : ComponentActivity() {
                 LocalComponentActivity provides this
             ) {
                 WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
-                    when (ThemeSettings.uiEngine) {
-                        SettingsUiEngine.MATERIAL3 -> ModuleTheme {
-                            SettingsRoot(onFinish = { finish() })
-                        }
-
-                        SettingsUiEngine.NUKE -> NukeSettingsContent()
+                    ModuleTheme {
+                        SettingsRoot(onFinish = { finish() })
                     }
                 }
             }

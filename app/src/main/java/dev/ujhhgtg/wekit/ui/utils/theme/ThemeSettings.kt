@@ -10,7 +10,6 @@ import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.ui.content.nuke.NukePopupAnimationMode
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.applyToWechat
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.colorSpec
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.dynamicWallpaper
@@ -42,20 +41,6 @@ enum class PageTransitionAnimation {
 
     companion object {
         fun fromName(value: String?) = entries.find { it.name == value } ?: AOSP
-    }
-}
-
-enum class SettingsUiEngine(val displayName: String) {
-    MATERIAL3("Material 3"),
-    NUKE("Nuke");
-
-    companion object {
-        fun fromName(value: String?): SettingsUiEngine = when (value) {
-            // legacy names written by older builds
-            "MIUIX", "Miuix" -> MATERIAL3
-            NUKE.name -> NUKE
-            else -> MATERIAL3
-        }
     }
 }
 
@@ -111,10 +96,6 @@ enum class AppColorSpec(
  */
 object ThemeSettings {
 
-    var uiEngine by mutableStateOf(
-        SettingsUiEngine.fromName(KvStore.getString(Preferences.THEME_UI_ENGINE))
-    )
-        private set
     var themeMode by mutableStateOf(AppThemeMode.fromName(KvStore.getString(Preferences.THEME_MODE)))
         private set
     var predictiveBackEnabled by mutableStateOf(
@@ -127,33 +108,6 @@ object ThemeSettings {
         PageTransitionAnimation.fromName(
             KvStore.getString(Preferences.THEME_PAGE_TRANSITION_ANIMATION)
         )
-    )
-        private set
-    /** Haptic feedback for the Nuke component engine; ignored by Material 3. */
-    var nukeHaptics by mutableStateOf(
-        KvStore.getBoolOrDef(Preferences.THEME_NUKE_HAPTICS, true)
-    )
-        private set
-    var nukePopupAnimation by mutableStateOf(
-        NukePopupAnimationMode.fromName(
-            KvStore.getString(Preferences.THEME_NUKE_POPUP_ANIMATION)
-        )
-    )
-        private set
-    var nukePopupDialogHost by mutableStateOf(
-        KvStore.getBoolOrDef(Preferences.THEME_NUKE_POPUP_DIALOG_HOST, true)
-    )
-        private set
-    var nukePopupPredictiveExit by mutableStateOf(
-        KvStore.getBoolOrDef(Preferences.THEME_NUKE_POPUP_PREDICTIVE_EXIT, true)
-    )
-        private set
-    var nukePageExitOptimization by mutableStateOf(
-        KvStore.getBoolOrDef(Preferences.THEME_NUKE_PAGE_EXIT_OPTIMIZATION, true)
-    )
-        private set
-    var nukeImmediatePressFeedback by mutableStateOf(
-        KvStore.getBoolOrDef(Preferences.THEME_NUKE_IMMEDIATE_PRESS_FEEDBACK, true)
     )
         private set
     /** Seed the accent from the platform wallpaper accent (SDK >= 31) instead of [seedColor]. */
@@ -181,11 +135,6 @@ object ThemeSettings {
     val effectiveColorSpec: AppColorSpec
         get() = if (paletteStyle.supportsSpec2025) colorSpec else AppColorSpec.SPEC_2021
 
-    fun updateUiEngine(value: SettingsUiEngine) {
-        uiEngine = value
-        KvStore.putString(Preferences.THEME_UI_ENGINE, value.name)
-    }
-
     fun updateThemeMode(value: AppThemeMode) {
         themeMode = value
         KvStore.putString(Preferences.THEME_MODE, value.name)
@@ -199,52 +148,6 @@ object ThemeSettings {
     fun updatePageTransitionAnimation(value: PageTransitionAnimation) {
         pageTransitionAnimation = value
         KvStore.putString(Preferences.THEME_PAGE_TRANSITION_ANIMATION, value.name)
-    }
-
-    fun updateNukeHaptics(value: Boolean) {
-        nukeHaptics = value
-        KvStore.putBool(Preferences.THEME_NUKE_HAPTICS, value)
-    }
-
-    fun updateNukePopupAnimation(value: NukePopupAnimationMode) {
-        nukePopupAnimation = value
-        KvStore.putString(Preferences.THEME_NUKE_POPUP_ANIMATION, value.name)
-    }
-
-    fun updateNukePopupDialogHost(value: Boolean) {
-        nukePopupDialogHost = value
-        KvStore.putBool(Preferences.THEME_NUKE_POPUP_DIALOG_HOST, value)
-    }
-
-    fun updateNukePopupPredictiveExit(value: Boolean) {
-        nukePopupPredictiveExit = value
-        KvStore.putBool(Preferences.THEME_NUKE_POPUP_PREDICTIVE_EXIT, value)
-    }
-
-    fun updateNukePageExitOptimization(value: Boolean) {
-        nukePageExitOptimization = value
-        KvStore.putBool(Preferences.THEME_NUKE_PAGE_EXIT_OPTIMIZATION, value)
-    }
-
-    fun updateNukeImmediatePressFeedback(value: Boolean) {
-        nukeImmediatePressFeedback = value
-        KvStore.putBool(Preferences.THEME_NUKE_IMMEDIATE_PRESS_FEEDBACK, value)
-    }
-
-    fun applyNukeRecommendedFineTuning() {
-        updateNukeImmediatePressFeedback(true)
-        updateNukePageExitOptimization(true)
-        updateNukePopupAnimation(NukePopupAnimationMode.Vanilla)
-        updateNukePopupDialogHost(true)
-        updateNukePopupPredictiveExit(true)
-    }
-
-    fun restoreNukeOriginalFineTuning() {
-        updateNukeImmediatePressFeedback(false)
-        updateNukePageExitOptimization(false)
-        updateNukePopupAnimation(NukePopupAnimationMode.Vanilla)
-        updateNukePopupDialogHost(false)
-        updateNukePopupPredictiveExit(false)
     }
 
     fun updateDynamicWallpaper(value: Boolean) {
