@@ -1011,6 +1011,8 @@
     <string name="feature_we_home_screen_popup_menu_api_description">Provides the ability to add menu items to the menu in the upper right corner of the homepage</string>
     <string name="feature_we_main_activity_beautify_api_name">WeChat home screen beautification service</string>
     <string name="feature_we_main_activity_beautify_api_description">Provides the ability to beautify the WeChat home screen</string>
+    <string name="feature_we_launcher_back_api_name">WeChat home back gesture service</string>
+    <string name="feature_we_launcher_back_api_description">Lets overlays on the WeChat home screen handle the back gesture</string>
     <string name="feature_we_moments_api_name">Moments service</string>
     <string name="feature_we_moments_api_description">Provide the ability to operate the Moments</string>
     <string name="feature_we_moments_context_menu_api_name">Moments menu enhanced extension</string>

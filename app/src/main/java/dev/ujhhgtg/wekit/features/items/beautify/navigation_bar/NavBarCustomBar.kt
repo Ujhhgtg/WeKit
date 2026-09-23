@@ -301,20 +301,13 @@ fun NavBarCustomBar(session: NavBarSession) {
                         scaleY = scale
                     }
                 },
-                iconContent = { item, index, previewSelected ->
+                iconContent = { item, _, activeLayer ->
                     if (config.labelMode.showsIcon) {
-                        // Native bitmaps bake in both shape and color, so preview the
-                        // pressed tab immediately. Material icons retain their page-driven
-                        // fill and layer-driven tint.
-                        val isSelected = if (nativeIcons != null) previewSelected else index == targetIndex
+                        // Masked like the labels: the active layer only shows inside the
+                        // selection pill, so it always carries the filled variant (native
+                        // bitmaps bake their accent in; Material icons take the layer tint).
                         NavTabBadge(item.index) {
-                            Crossfade(
-                                targetState = isSelected,
-                                animationSpec = tween(200),
-                                label = "navIconFloating"
-                            ) { selected ->
-                                NavTabIcon(item, selected, nativeIcons)
-                            }
+                            NavTabIcon(item, filled = activeLayer, nativeIcons = nativeIcons)
                         }
                     }
                 },

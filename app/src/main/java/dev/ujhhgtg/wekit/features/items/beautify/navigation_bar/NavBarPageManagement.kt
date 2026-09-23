@@ -10,7 +10,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,6 +32,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -48,6 +48,7 @@ import com.composables.icons.materialsymbols.outlined.Notifications_off
 import com.composables.icons.materialsymbols.outlinedfilled.Notifications
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.ui.content.m3.InfoTipCard
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 /**
@@ -80,11 +81,10 @@ fun PageManagementPage(session: NavBarSession, config: NavBarConfig) {
         }
     }
 
-    Text(
+    InfoTipCard(
         text = stringResource(R.string.nav_page_management_hint),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 12.dp),
+        noPadding = true,
+        modifier = Modifier.padding(bottom = 12.dp),
     )
 
     Column(
@@ -192,8 +192,18 @@ fun PageManagementPage(session: NavBarSession, config: NavBarConfig) {
                                         )
                                     }
                                 } else {
-                                    // Keep the checkboxes aligned on the Me row.
-                                    Spacer(Modifier.size(48.dp))
+                                    // An invisible twin keeps the Me row's height and
+                                    // checkbox column identical to the others.
+                                    IconToggleButton(
+                                        checked = false,
+                                        onCheckedChange = {},
+                                        enabled = false,
+                                        modifier = Modifier
+                                            .alpha(0f)
+                                            .clearAndSetSemantics {},
+                                    ) {
+                                        Icon(MaterialSymbols.Outlined.Notifications_off, contentDescription = null)
+                                    }
                                 }
                             }
                             Checkbox(

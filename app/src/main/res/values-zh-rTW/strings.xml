@@ -974,6 +974,8 @@
     <string name="feature_we_home_screen_popup_menu_api_description">提供向首頁右上角菜單添加菜單項的能力</string>
     <string name="feature_we_main_activity_beautify_api_name">微信主屏幕美化服務</string>
     <string name="feature_we_main_activity_beautify_api_description">提供美化微信主屏幕的能力</string>
+    <string name="feature_we_launcher_back_api_name">微信主界面返回手勢服務</string>
+    <string name="feature_we_launcher_back_api_description">供微信主界面上的懸浮界面處理返回手勢</string>
     <string name="feature_we_moments_api_name">朋友圈服務</string>
     <string name="feature_we_moments_api_description">提供操作朋友圈的能力</string>
     <string name="feature_we_moments_context_menu_api_name">朋友圈菜單增強擴展</string>

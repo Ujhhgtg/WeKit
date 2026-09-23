@@ -72,10 +72,11 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.children
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Arrow_back
+import com.composables.icons.materialsymbols.outlined.Check
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.features.api.ui.WeLauncherBackApi
 import dev.ujhhgtg.wekit.ui.content.IconButton
-import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
@@ -114,10 +115,15 @@ class NavBarEditor(private val session: NavBarSession) {
         view.setContent { InjectedUiTheme { NavBarEditorOverlay(this, session) } }
         decor.addView(view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         visible = true
+        // Registered after HomeSidePanel's, so the editor on top gets the gesture first.
+        unregisterBack = WeLauncherBackApi.register(session.activity, ::onBack)
     }
 
-    fun onBack() {
+    private var unregisterBack: (() -> Unit)? = null
+
+    private fun onBack(): Boolean {
         if (page == EditorPage.PAGES) page = EditorPage.SETTINGS else dismiss()
+        return true
     }
 
     fun dismiss() {
@@ -126,6 +132,8 @@ class NavBarEditor(private val session: NavBarSession) {
 
     /** Called once the exit animation has finished. */
     fun remove() {
+        unregisterBack?.invoke()
+        unregisterBack = null
         veil.clear()
         session.reorder.reset()
         session.setBarLift(0f)
@@ -394,7 +402,9 @@ private fun EditorHeader(editor: NavBarEditor) {
                 .weight(1f)
                 .padding(start = if (inPages) 4.dp else 12.dp),
         )
-        TextButton(onClick = editor::dismiss) { Text(stringResource(R.string.action_done)) }
+        IconButton(onClick = editor::dismiss) {
+            Icon(MaterialSymbols.Outlined.Check, contentDescription = stringResource(R.string.action_done))
+        }
     }
 }
 

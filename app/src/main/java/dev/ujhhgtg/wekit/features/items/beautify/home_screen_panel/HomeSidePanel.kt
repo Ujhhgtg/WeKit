@@ -35,6 +35,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.ui.WeLauncherBackApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -173,17 +174,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         }
         LauncherUI::class.hookAfterOnCreate {
             ensureLauncherEdgeToEdge(thisObject as Activity)
-        }
-        LauncherUI::class.reflekt().firstMethod {
-            name = "moveTaskToBack"
-            parameters(Boolean::class)
-        }.hookBefore {
-            val activity = thisObject as? Activity ?: return@hookBefore
-            val session = sessions.values.mapNotNull { it.get() }.firstOrNull { it.ownsActivity(activity) }
-                ?: return@hookBefore
-            if (session.consumeMoveTaskToBack()) {
-                result = true
-            }
         }
         LauncherUI::class.reflekt().firstMethod {
             name = "onResume"
@@ -438,7 +428,10 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private var fabOriginalLayoutParams: ViewGroup.LayoutParams? = null
         private var fabOriginalIndex = -1
         private var wasPanelVisible = false
+        // Set when a back only popped the settings page: the drawer must not also close later
+        // in the same frame. Repeats of the gesture itself are dropped by WeLauncherBackApi.
         private var suppressCloseUntilNextFrame = false
+        private var unregisterBack: (() -> Unit)? = null
         private var selectedTabIndex = HOME_TAB_INDEX
         private var chattingVisible = false
         private var cachedNativeBottomTabView: View? = null
@@ -458,6 +451,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         fun attach() {
             if (attached) return
             attached = true
+            unregisterBack = WeLauncherBackApi.register(activity, ::consumeMoveTaskToBack)
 
             parentClipChildren = parent.clipChildren
             parentClipToPadding = parent.clipToPadding
@@ -676,6 +670,8 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         fun detach() {
             if (!attached) return
             attached = false
+            unregisterBack?.invoke()
+            unregisterBack = null
             parent.removeCallbacks(syncRunnable)
             parent.removeOnLayoutChangeListener(parentLayoutListener)
             decorRoot.removeOnLayoutChangeListener(decorLayoutListener)
@@ -816,8 +812,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             animateTo(1f, from)
         }
 
-        fun consumeMoveTaskToBack(): Boolean {
-            if (suppressCloseUntilNextFrame) return true
+        private fun consumeMoveTaskToBack(): Boolean {
             if (panelState.consumeSettingsBack()) {
                 suppressCloseUntilNextFrame = true
                 decorRoot.postOnAnimation {

@@ -47,6 +47,11 @@ import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -203,7 +208,10 @@ fun <T> FloatingBottomBar(
     modifier: Modifier = Modifier,
     mode: FloatingBottomBarMode = FloatingBottomBarMode.LiquidGlass,
     colors: FloatingBottomBarColors = FloatingBottomBarDefaults.colors(),
-    iconContent: @Composable (item: T, index: Int, previewSelected: Boolean) -> Unit,
+    // `activeLayer` is true for the copy drawn in the active colors, which only shows
+    // through where the selection pill covers it (like the labels' tint). Draw the
+    // selected icon variant there and the unselected one otherwise, never per tab.
+    iconContent: @Composable (item: T, index: Int, activeLayer: Boolean) -> Unit,
     labelContent: @Composable (item: T, index: Int) -> Unit,
     onSelectedTabTap: ((index: Int) -> Unit)? = null,
     onTabLongPress: ((index: Int) -> Boolean)? = null,
@@ -336,16 +344,7 @@ fun <T> FloatingBottomBar(
         }
     }
 
-    // The pill previews a tab on pointer-down/drag, before onSelected commits a page.
-    // Derive from the same animation target so cancellation and programmatic changes
-    // also restore the icon preview, without introducing another gesture state.
-    val previewIndex by remember(dampedDragAnimation) {
-        derivedStateOf {
-            dampedDragAnimation.targetValue.fastRoundToInt().fastCoerceIn(0, tabsCount - 1)
-        }
-    }
-
-    val tabsContent: @Composable RowScope.() -> Unit = {
+    val tabsContent: @Composable RowScope.(activeLayer: Boolean) -> Unit = { activeLayer ->
         val scale = LocalFloatingBottomBarTabScale.current
         val contentColor = LocalFloatingBottomBarContentColor.current
         items.forEachIndexed { index, item ->
@@ -386,7 +385,7 @@ fun <T> FloatingBottomBar(
                 CompositionLocalProvider(
                     M3LocalContentColor provides contentColor,
                 ) {
-                    iconContent(item, index, index == previewIndex)
+                    iconContent(item, index, activeLayer)
                     labelContent(item, index)
                 }
             }
@@ -495,10 +494,36 @@ fun <T> FloatingBottomBar(
                     )
                     .then(dampedDragAnimation.modifier)
                     .height(64.dp)
-                    .padding(4.dp),
+                    .padding(4.dp)
+                    .then(
+                        // Without glass the pill is only a translucent tint, so the base
+                        // copy would show through under the active one. Punch the pill out
+                        // of the base tabs (the offscreen layer holds only them, not the
+                        // container background) so each spot shows exactly one layer.
+                        if (isLiquidGlassMode) {
+                            Modifier
+                        } else {
+                            Modifier
+                                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                                .drawWithContent {
+                                    drawContent()
+                                    if (tabWidthPx <= 0f) return@drawWithContent
+                                    val offset = dampedDragAnimation.value * tabWidthPx
+                                    val left = if (isLtr) offset else size.width - offset - tabWidthPx
+                                    drawRoundRect(
+                                        color = Color.Black,
+                                        topLeft = Offset(left, 0f),
+                                        size = Size(tabWidthPx, size.height),
+                                        cornerRadius = CornerRadius(size.height / 2f),
+                                        blendMode = BlendMode.Clear,
+                                    )
+                                }
+                        }
+                    ),
                 verticalAlignment = Alignment.CenterVertically,
-                content = tabsContent
-            )
+            ) {
+                tabsContent(false)
+            }
         }
 
         if (isLiquidGlassMode) {
@@ -534,7 +559,7 @@ fun <T> FloatingBottomBar(
                         .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    tabsContent()
+                    tabsContent(true)
                 }
             }
         }
@@ -620,8 +645,9 @@ fun <T> FloatingBottomBar(
                                     translationX = if (isLtr) -progressOffset else progressOffset
                                 },
                             verticalAlignment = Alignment.CenterVertically,
-                            content = tabsContent
-                        )
+                        ) {
+                            tabsContent(true)
+                        }
                     }
                 }
             }

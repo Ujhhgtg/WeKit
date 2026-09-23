@@ -347,15 +347,6 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         }
 
         LauncherUI::class.reflekt().firstMethod {
-            name = "moveTaskToBack"
-            parameters(Boolean::class)
-        }.hookBefore {
-            val editor = sessionForActivity(thisObject as Activity)?.editor ?: return@hookBefore
-            editor.onBack()
-            result = true
-        }
-
-        LauncherUI::class.reflekt().firstMethod {
             name = "onResume"
             parameters()
         }.hookAfter {
