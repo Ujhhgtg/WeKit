@@ -71,9 +71,13 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.addOutline
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.input.pointer.pointerInput
@@ -1320,8 +1324,8 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         var savingOrder by remember { mutableStateOf(false) }
         val capsuleStyle = usesFloatingTabs
         val darkTheme = isSystemInDarkTheme()
-        val shadowProgress by animateFloatAsState(
-            targetValue = if (capsuleStyle && hasContentBehind) 1f else 0f,
+        val shadowProgress = animateFloatAsState(
+            targetValue = if (capsuleStyle && (!darkTheme || hasContentBehind)) 1f else 0f,
             animationSpec = tween(durationMillis = 180),
             label = "groupIslandShadow",
         )
@@ -1394,30 +1398,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                             )
                             .then(
                                 if (backdrop != null) {
-                                    // Fit the soft and contact shadows inside the transparent margins.
-                                    Modifier
-                                        .dropShadow(
-                                            CircleShape,
-                                            Shadow(
-                                                radius = 4.dp,
-                                                offset = DpOffset(0.dp, 1.dp),
-                                                color = Color.Black,
-                                                alpha = (if (darkTheme) 0.32f else 0.16f) * shadowProgress,
-                                            ),
-                                        )
-                                        .dropShadow(
-                                            CircleShape,
-                                            Shadow(
-                                                radius = 1.dp,
-                                                offset = DpOffset(0.dp, 1.dp),
-                                                color = Color.Black,
-                                                alpha = (if (darkTheme) 0.16f else 0.08f) * shadowProgress,
-                                            ),
-                                        )
+                                    Modifier.groupIslandShadow(darkTheme) { shadowProgress.value }
                                 } else {
-                                    // Platform elevation leaves the translucent interior clear when
-                                    // there is no captured backdrop to cover a filled shadow mask.
-                                    Modifier.shadow(4.dp * shadowProgress, CircleShape, clip = false)
+                                    Modifier.shadow(4.dp * shadowProgress.value, CircleShape, clip = false)
                                 },
                             )
                             .clip(CircleShape)
@@ -1595,6 +1578,42 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                             modifier = Modifier.size(22.dp)
                         )
                     }
+                }
+            }
+        }
+    }
+
+    private fun Modifier.groupIslandShadow(darkTheme: Boolean, progress: () -> Float): Modifier = drawWithCache {
+        val interior = Path().apply {
+            addOutline(CircleShape.createOutline(size, layoutDirection, this@drawWithCache))
+        }
+        val shadowContext = obtainShadowContext()
+        val softShadow = shadowContext.createDropShadowPainter(
+            CircleShape,
+            Shadow(
+                radius = 4.dp,
+                offset = DpOffset(0.dp, 1.dp),
+                color = Color.Black,
+                alpha = if (darkTheme) 0.32f else 0.16f,
+            ),
+        )
+        val contactShadow = shadowContext.createDropShadowPainter(
+            CircleShape,
+            Shadow(
+                radius = 1.dp,
+                offset = DpOffset(0.dp, 1.dp),
+                color = Color.Black,
+                alpha = if (darkTheme) 0.16f else 0.08f,
+            ),
+        )
+        onDrawBehind {
+            val alpha = progress()
+            if (alpha > 0f) {
+                // A drop shadow includes a filled silhouette. Keep that fill out of the glass,
+                // including the frame where paging hands its backdrop back to the native list.
+                clipPath(interior, ClipOp.Difference) {
+                    with(softShadow) { draw(size, alpha = alpha) }
+                    with(contactShadow) { draw(size, alpha = alpha) }
                 }
             }
         }
