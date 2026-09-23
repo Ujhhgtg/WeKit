@@ -81,6 +81,17 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.runtime.Stable
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -1370,6 +1381,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             }
         }
         var menuForGroupId by remember { mutableStateOf<String?>(null) }
+        val pillBounds = remember { GroupPillBounds() }
         // Sort (edit) mode: long-press a tab to drag-reorder.
         var sortMode by remember { mutableStateOf(false) }
         LaunchedEffect(sortMode) { onSortModeChanged(sortMode) }
@@ -1442,6 +1454,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                                         unread = unreadCounts[group.id] ?: noUnread,
                                         selected = selectedGroupId == group.id,
                                         capsuleStyle = capsuleStyle,
+                                        pillMask = if (capsuleStyle) pillBounds else null,
                                         enabled = pagingProgress == null,
                                         onClick = { onTabSelected(group.id) },
                                         onLongClick = { menuForGroupId = group.id }
@@ -1519,7 +1532,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                         .coerceAtLeast(0)
                     val indicator: @Composable TabIndicatorScope.() -> Unit = {
                         if (capsuleStyle) {
-                            AnimatedGroupSelectionPill(tabWidths, selectedTabIndex, orderedGroups.map { it.id }, pagingProgress)
+                            AnimatedGroupSelectionPill(
+                                tabWidths, selectedTabIndex, orderedGroups.map { it.id }, pagingProgress, pillBounds,
+                            )
                         } else {
                             TabRowDefaults.PrimaryIndicator(
                                 modifier = Modifier.tabIndicatorOffset(selectedTabIndex, matchContentSize = true),
@@ -1869,6 +1884,28 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         }
     }
 
+    /** Live bounds of the capsule selection pill, in root coordinates. */
+    @Stable
+    private class GroupPillBounds {
+        var rect by mutableStateOf(Rect.Zero)
+    }
+
+    private class CoordinatesHolder {
+        var coordinates: LayoutCoordinates? = null
+    }
+
+    /** Draws only the part of this node that lies under the selection pill. */
+    private fun Modifier.clipToPill(bounds: GroupPillBounds): Modifier = composed {
+        val holder = remember { CoordinatesHolder() }
+        onPlaced { holder.coordinates = it }.drawWithContent {
+            val coordinates = holder.coordinates?.takeIf { it.isAttached } ?: return@drawWithContent
+            val pill = bounds.rect.translate(-coordinates.positionInRoot())
+            if (pill.isEmpty) return@drawWithContent
+            val path = Path().apply { addRoundRect(RoundRect(pill, CornerRadius(pill.height / 2f))) }
+            clipPath(path) { this@drawWithContent.drawContent() }
+        }
+    }
+
     @Composable
     private fun GroupSelectionPill(modifier: Modifier) {
         Box(modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape))
@@ -1880,6 +1917,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         selectedIndex: Int,
         groupIds: List<String>,
         pagingProgress: ConversationGroupPagingProgress?,
+        bounds: GroupPillBounds,
     ) {
         if (pagingProgress != null) {
             val from = groupIds.indexOf(pagingProgress.fromGroupId)
@@ -1889,7 +1927,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 val toLeft = widths.take(to).fold(0.dp) { left, width -> left + width }
                 val left = fromLeft + (toLeft - fromLeft) * pagingProgress.progress
                 val width = widths[from] + (widths[to] - widths[from]) * pagingProgress.progress
-                PositionedGroupSelectionPill(selectedIndex, { left }, { width })
+                PositionedGroupSelectionPill(selectedIndex, { left }, { width }, bounds)
                 return
             }
         }
@@ -1904,7 +1942,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             animationSpec = tween(durationMillis = 320, easing = selectionPillEasing),
             label = "groupSelectionWidth",
         )
-        PositionedGroupSelectionPill(selectedIndex, { left.value }, { width.value })
+        PositionedGroupSelectionPill(selectedIndex, { left.value }, { width.value }, bounds)
     }
 
     @Composable
@@ -1912,6 +1950,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         selectedIndex: Int,
         left: () -> Dp,
         width: () -> Dp,
+        bounds: GroupPillBounds,
     ) {
         GroupSelectionPill(
             Modifier
@@ -1927,6 +1966,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                         pill.placeRelative(left().roundToPx(), 0)
                     }
                 }
+                // After tabIndicatorLayout, so these are the offset pill's coordinates rather
+                // than the indicator slot's, which stays at the row start.
+                .onGloballyPositioned { bounds.rect = Rect(it.positionInRoot(), it.size.toSize()) }
                 .fillMaxHeight(),
         )
     }
@@ -1938,6 +1980,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         unread: ConversationUnreadState,
         selected: Boolean,
         capsuleStyle: Boolean,
+        pillMask: GroupPillBounds?,
         enabled: Boolean,
         onClick: () -> Unit,
         onLongClick: () -> Unit,
@@ -1947,6 +1990,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             unread = unread,
             selected = selected,
             capsuleStyle = capsuleStyle,
+            pillMask = pillMask,
             modifier = Modifier
                 .fillMaxWidth()
                 .then(if (capsuleStyle) Modifier.clip(CircleShape) else Modifier)
@@ -1967,6 +2011,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         selected: Boolean,
         capsuleStyle: Boolean,
         modifier: Modifier = Modifier,
+        pillMask: GroupPillBounds? = null,
     ) {
         Box(
             modifier = modifier
@@ -1979,14 +2024,31 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         ) {
             Layout(
                 content = {
-                    Text(
-                        text = label,
-                        color = if (selected) MaterialTheme.colorScheme.primary
+                    val labelText = @Composable { color: Color, textModifier: Modifier ->
+                        Text(
+                            text = label,
+                            color = color,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = textModifier,
+                        )
+                    }
+                    if (pillMask == null) {
+                        labelText(
+                            if (selected) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                            Modifier,
+                        )
+                    } else {
+                        // Two-layer mask, as on the floating bottom bar: the base label stays
+                        // unselected everywhere, and its primary twin only shows through where
+                        // the moving pill covers it, so the color travels with the pill.
+                        Box {
+                            labelText(MaterialTheme.colorScheme.onSurfaceVariant, Modifier)
+                            labelText(MaterialTheme.colorScheme.primary, Modifier.clipToPill(pillMask))
+                        }
+                    }
                     if (showUnreadState.value) {
                         if (unread.normalCount > 0) {
                             Badge(containerColor = Color(0xFFFF3B30)) {
