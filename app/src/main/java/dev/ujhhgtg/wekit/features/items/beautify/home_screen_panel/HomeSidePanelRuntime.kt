@@ -213,6 +213,13 @@ class HomeSidePanelRuntimeStore(
         }
     }
 
+    fun refreshWallets(namespace: HomeSidePanelRuntimeNamespace) {
+        if (activeLayouts[namespace]?.cards?.none { it is WalletCardConfig } != false) return
+        runCatching(walletBalance::refresh).onFailure {
+            WeLogger.w(TAG, "failed to refresh wallet balance", it)
+        }
+    }
+
     fun resetWallets(namespace: HomeSidePanelRuntimeNamespace) {
         _states.update { current ->
             current.mapValues { (key, runtime) ->

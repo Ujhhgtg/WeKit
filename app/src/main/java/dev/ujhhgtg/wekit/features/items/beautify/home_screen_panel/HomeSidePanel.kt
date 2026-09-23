@@ -143,6 +143,14 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         }
     }
 
+    private val methodWalletQuery by dexMethod {
+        matcher {
+            usingEqStrings("MicroMsg.QueryWeChatWalletManager", "do query wechat wallet: %s")
+            paramCount = 4
+            returnType = "void"
+        }
+    }
+
     private const val TAG = "HomeSidePanel"
     private const val LAUNCHER_BOTTOM_TAB_VIEW_CLASS = "com.tencent.mm.ui.LauncherUIBottomTabView"
     private val sessions = WeakHashMap<WxViewPager, WeakReference<HomeSidePanelSession>>()
@@ -157,12 +165,15 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
     }
 
     override fun onEnable() {
-        HomeSidePanelWalletBalanceSource.install {
-            readHomeSidePanelWalletBalance(
-                walletCacheReadMethod = methodWalletCacheRead.method,
-                walletPayPluginClass = classWalletPayPlugin.clazz,
-            )
-        }
+        HomeSidePanelWalletBalanceSource.install(
+            reader = {
+                readHomeSidePanelWalletBalance(
+                    walletCacheReadMethod = methodWalletCacheRead.method,
+                    walletPayPluginClass = classWalletPayPlugin.clazz,
+                )
+            },
+            query = { queryHomeSidePanelWalletBalance(methodWalletQuery.method) },
+        )
         methodWalletCacheWrite.hookAfter {
             HomeSidePanelWalletBalanceSource.onCacheWrite(args[0], args[1])
         }

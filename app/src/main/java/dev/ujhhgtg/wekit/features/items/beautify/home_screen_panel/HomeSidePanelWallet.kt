@@ -46,12 +46,14 @@ object HomeSidePanelWalletBalanceSource {
     private val lock = Any()
     private val _updates = MutableStateFlow<Long?>(null)
     private var readBalance: (() -> Long?)? = null
+    private var queryBalance: (() -> Unit)? = null
 
     val updates: StateFlow<Long?> = _updates.asStateFlow()
 
-    fun install(reader: () -> Long?) {
+    fun install(reader: () -> Long?, query: () -> Unit) {
         synchronized(lock) {
             readBalance = reader
+            queryBalance = query
             _updates.value = null
         }
     }
@@ -59,6 +61,7 @@ object HomeSidePanelWalletBalanceSource {
     fun clear() {
         synchronized(lock) {
             readBalance = null
+            queryBalance = null
             _updates.value = null
         }
     }
@@ -67,10 +70,16 @@ object HomeSidePanelWalletBalanceSource {
         readBalance?.invoke()
     }
 
+    /**
+     * Publishes the cached balance immediately, then asks WeChat to query the server; the fresh
+     * value arrives asynchronously through [onCacheWrite] once the wallet response is stored.
+     */
     fun refresh() {
-        synchronized(lock) {
+        val query = synchronized(lock) {
             _updates.value = readBalance?.invoke()
+            queryBalance
         }
+        query?.invoke()
     }
 
     fun onCacheWrite(key: Any?, value: Any?) {
@@ -80,6 +89,11 @@ object HomeSidePanelWalletBalanceSource {
             _updates.value = value
         }
     }
+}
+
+fun queryHomeSidePanelWalletBalance(walletQueryMethod: Method) {
+    // (listener, forceNetwork, deliverCacheToListener, retryCount): same as WeChat's wallet page.
+    walletQueryMethod.invoke(null, null, true, false, 0)
 }
 
 fun readHomeSidePanelWalletBalance(

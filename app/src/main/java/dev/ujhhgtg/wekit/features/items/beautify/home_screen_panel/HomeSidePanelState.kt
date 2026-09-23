@@ -143,6 +143,7 @@ class HomeSidePanelState(
 
     fun onPanelOpened() {
         runtimeStore.resetWallets(renderedNamespace())
+        runtimeStore.refreshWallets(renderedNamespace())
         scheduleIdentitySync(
             waitForChange = false,
             maxAttempts = PANEL_OPEN_STATUS_SYNC_ATTEMPTS,
