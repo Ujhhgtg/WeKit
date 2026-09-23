@@ -209,6 +209,9 @@ fun <T> FloatingBottomBar(
     onTabLongPress: ((index: Int) -> Boolean)? = null,
     liquidGlassBlurRadius: Dp = 4.dp,
     dynamicGravityHighlight: Boolean = true,
+    // Applied to each tab in every layer, so per-tab transforms (e.g. drag-reorder
+    // offsets) stay aligned between the base, glass and indicator copies.
+    itemModifier: (index: Int) -> Modifier = { Modifier },
 ) {
     val isInDark = isSystemInDarkTheme()
     val pillShape = remember { CircleShape }
@@ -371,6 +374,7 @@ fun <T> FloatingBottomBar(
                     .focusable()
                     .fillMaxHeight()
                     .weight(1f)
+                    .then(itemModifier(index))
                     .graphicsLayer {
                         val itemScale = scale()
                         scaleX = itemScale
