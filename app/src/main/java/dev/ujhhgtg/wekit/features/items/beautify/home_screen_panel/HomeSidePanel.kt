@@ -448,7 +448,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private var observedNativeBottomTabView: View? = null
         private var observedNativeBottomLinearLayout: LinearLayout? = null
         private var nativeBottomTabMissingLogged = false
-        private var lastNativeContentInsetLogState: String? = null
         private val toolbarProfileBindings = linkedMapOf<RelativeLayout, ToolbarProfileBinding>()
         private val observedToolbarProfileHosts = linkedSetOf<RelativeLayout>()
         private val homeToolbarHosts = linkedSetOf<RelativeLayout>()
@@ -609,10 +608,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                 ?.getInsets(WindowInsetsCompat.Type.navigationBars())
                 ?.bottom
                 ?: 0
-            val tappableBottom = insets
-                ?.getInsets(WindowInsetsCompat.Type.tappableElement())
-                ?.bottom
-                ?: 0
             val ancestorBottomInset = contentBottomGapToDecor()
             val nativeBottomInset = bottomBar.paddingBottom +
                 (bottomLinearLayout?.paddingBottom ?: 0)
@@ -630,22 +625,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                     contentWrapper.paddingRight,
                     targetBottom,
                 )
-            }
-            val logState = "$targetBottom/$navigationBottom/$tappableBottom/$ancestorBottomInset/" +
-                "$nativeBottomInset/$chattingVisible/$replacementOwnsInsets/${bottomBar.visibility}"
-            if (lastNativeContentInsetLogState != logState) {
-                WeLogger.d(
-                    TAG,
-                    "native content inset target=$targetBottom " +
-                        "(navigation=$navigationBottom tappable=$tappableBottom " +
-                        "ancestor=$ancestorBottomInset native=$nativeBottomInset " +
-                        "chatting=$chattingVisible replacement=$replacementOwnsInsets " +
-                        "wrapper=${contentWrapper.height}/${contentWrapper.paddingBottom} " +
-                        "bottomBar=${bottomBar.height}/${bottomBar.top}/${bottomBar.bottom}/" +
-                        "${bottomBar.paddingBottom}/${bottomBar.visibility} sysUi=0x" +
-                        activity.window.decorView.systemUiVisibility.toString(16) + ")"
-                )
-                lastNativeContentInsetLogState = logState
             }
         }
 
@@ -714,7 +693,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             observedNativeBottomTabView = null
             observedNativeBottomLinearLayout = null
             nativeBottomTabMissingLogged = false
-            lastNativeContentInsetLogState = null
             restoreContent()
             panelView.disposeComposition()
             decorRoot.removeView(overlayRoot)
