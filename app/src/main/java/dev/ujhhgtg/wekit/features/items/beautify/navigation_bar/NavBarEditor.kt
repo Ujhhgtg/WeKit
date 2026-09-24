@@ -475,6 +475,14 @@ private fun SettingsPage(editor: NavBarEditor, config: NavBarConfig) {
                 )
             }
         }
+        item(animatedVisibility = style == NavBarStyle.LIQUID_GLASS) {
+            SwitchWidget(
+                title = stringResource(R.string.nav_dynamic_gravity_highlight),
+                description = stringResource(R.string.nav_dynamic_gravity_highlight_summary),
+                checked = config.gravityHighlight,
+                onCheckedChange = { value -> BeautifyNavigationBar.updateConfig { copy(gravityHighlight = value) } },
+            )
+        }
         item(animatedVisibility = style.usesComposeBar) {
             BaseItemContainer {
                 IntNumberPickerWidget(

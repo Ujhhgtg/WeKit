@@ -78,6 +78,7 @@ data class NavBarConfig(
     val badgeTabs: Set<Int>,
     val autoHide: Boolean,
     val blurRadius: Int,
+    val gravityHighlight: Boolean,
     val scalePercent: Int,
     val animatePageChange: Boolean,
 ) {
@@ -113,6 +114,7 @@ object NavBarPrefs {
     private const val KEY_BADGE_TABS = "nav_bar_badge_tabs"
     private const val KEY_AUTO_HIDE = "nav_bar_auto_hide_on_scroll"
     private const val KEY_BLUR_RADIUS = "nav_bar_blur_radius"
+    private const val KEY_GRAVITY_HIGHLIGHT = "nav_bar_dynamic_gravity_highlight"
     private const val KEY_SCALE = "nav_bar_scale"
     private const val KEY_ANIMATE_PAGE_CHANGE = "nav_bar_animate_page_change"
     private const val KEY_TAB_ORDER = "nav_bar_tab_order"
@@ -124,7 +126,6 @@ object NavBarPrefs {
     private const val LEGACY_USE_WECHAT_ICONS = "nav_bar_use_wechat_icons"
     private const val LEGACY_HIDE_LABELS = "nav_bar_hide_labels"
     private const val LEGACY_SHOW_FINDER_BADGE = "nav_bar_show_finder_badge"
-    private const val LEGACY_GRAVITY_HIGHLIGHT = "nav_bar_dynamic_gravity_highlight"
 
     fun load(): NavBarConfig {
         if (!KvStore.contains(KEY_STYLE)) migrateLegacy()
@@ -137,6 +138,7 @@ object NavBarPrefs {
             badgeTabs = KvStore.getStringSetOrDef(KEY_BADGE_TABS, defaultBadgeTabs()).mapNotNullTo(linkedSetOf(), String::toIntOrNull),
             autoHide = KvStore.getBoolOrDef(KEY_AUTO_HIDE, false),
             blurRadius = KvStore.getIntOrDef(KEY_BLUR_RADIUS, 8),
+            gravityHighlight = KvStore.getBoolOrDef(KEY_GRAVITY_HIGHLIGHT, false),
             scalePercent = KvStore.getIntOrDef(KEY_SCALE, 100),
             animatePageChange = KvStore.getBoolOrDef(KEY_ANIMATE_PAGE_CHANGE, true),
         ).normalized()
@@ -151,6 +153,7 @@ object NavBarPrefs {
         KvStore.putStringSet(KEY_BADGE_TABS, config.badgeTabs.mapTo(linkedSetOf(), Int::toString))
         KvStore.putBool(KEY_AUTO_HIDE, config.autoHide)
         KvStore.putInt(KEY_BLUR_RADIUS, config.blurRadius)
+        KvStore.putBool(KEY_GRAVITY_HIGHLIGHT, config.gravityHighlight)
         KvStore.putInt(KEY_SCALE, config.scalePercent)
         KvStore.putBool(KEY_ANIMATE_PAGE_CHANGE, config.animatePageChange)
     }
@@ -184,7 +187,7 @@ object NavBarPrefs {
         }
         listOf(
             LEGACY_USE_FLOATING, LEGACY_USE_BACKDROP, LEGACY_USE_WECHAT_ICONS,
-            LEGACY_HIDE_LABELS, LEGACY_SHOW_FINDER_BADGE, LEGACY_GRAVITY_HIGHLIGHT,
+            LEGACY_HIDE_LABELS, LEGACY_SHOW_FINDER_BADGE,
         ).forEach(KvStore::remove)
     }
 }

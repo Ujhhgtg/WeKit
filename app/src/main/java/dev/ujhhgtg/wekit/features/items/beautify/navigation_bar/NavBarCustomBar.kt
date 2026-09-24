@@ -292,6 +292,7 @@ fun NavBarCustomBar(session: NavBarSession) {
                     }
                 },
                 liquidGlassBlurRadius = config.blurRadius.dp,
+                dynamicGravityHighlight = config.gravityHighlight,
                 itemModifier = { index ->
                     val tab = tabs[index].index
                     Modifier.graphicsLayer {

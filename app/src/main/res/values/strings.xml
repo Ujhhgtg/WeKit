@@ -1170,6 +1170,8 @@
     <string name="nav_auto_hide_bar">Auto-hide bottom bar</string>
     <string name="nav_auto_hide_bar_summary">Hide the bar with an animation when scrolling down the conversation list, restore when scrolling up</string>
     <string name="nav_blur_radius">Blur radius</string>
+    <string name="nav_dynamic_gravity_highlight">Dynamic gravity highlight</string>
+    <string name="nav_dynamic_gravity_highlight_summary">Rotate glass highlights with device movement; uses the rotation sensor</string>
     <string name="nav_bar_scale">Scale</string>
     <string name="chat_toolbar_mode_icon_and_text">Icon and text</string>
     <string name="chat_toolbar_mode_icon_only">Icons only</string>
