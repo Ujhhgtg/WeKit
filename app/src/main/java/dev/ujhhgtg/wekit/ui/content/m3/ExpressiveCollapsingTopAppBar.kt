@@ -17,6 +17,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -53,6 +56,7 @@ fun ExpressiveCollapsingTopAppBar(
     val expandedStyle = MaterialTheme.typography.displaySmall.copy(textMotion = TextMotion.Animated)
     val collapsedStyle = MaterialTheme.typography.titleLarge.copy(textMotion = TextMotion.Animated)
     val textMeasurer = rememberTextMeasurer()
+    val contentOverlapped by remember(state) { derivedStateOf { state.overlappedFraction > 0.01f } }
     // Endpoint metrics keep the scroll range stable while the visible title changes size. They
     // also allow the bar to grow with accessibility font scaling instead of clipping the text.
     val expandedTitle = textMeasurer.measure(title, expandedStyle, softWrap = false, maxLines = 1)
@@ -82,7 +86,10 @@ fun ExpressiveCollapsingTopAppBar(
             .clipToBounds(),
         content = {
             Box {
-                CompositionLocalProvider(LocalContentColor provides colors.navigationIconContentColor) {
+                CompositionLocalProvider(
+                    LocalContentColor provides colors.navigationIconContentColor,
+                    LocalTopBarContentOverlapped provides contentOverlapped,
+                ) {
                     navigationIcon()
                 }
             }

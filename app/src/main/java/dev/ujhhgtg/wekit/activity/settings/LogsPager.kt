@@ -335,7 +335,7 @@ fun LogsPager() {
         topBar = {
             // The blur layer spans the app bar and the tab row beneath it, mirroring the old
             // miuix TopAppBar bottomContent arrangement.
-            Column(modifier = Modifier.m3AppBarBlur(barBackdrop)) {
+            Column(modifier = Modifier.m3AppBarBlur(barBackdrop, progressive = false)) {
                 TopAppBar(
                     title = { Text(stringResource(R.string.nav_logs)) },
                     scrollBehavior = scrollBehavior,

@@ -24,8 +24,8 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -59,6 +59,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.PresetPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SystemPromptEntity
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
+import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveCollapsingTopAppBar
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
@@ -96,7 +97,7 @@ fun PromptsScreen(onBack: () -> Unit) {
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val pagerState = rememberPagerState(initialPage = selectedTab, pageCount = { PROMPT_TAB_LABELS.size })
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val barBackdrop = rememberMaterial3BlurBackdrop()
 
     // Pager → tab: swiping a page updates the selected tab.
@@ -118,14 +119,9 @@ fun PromptsScreen(onBack: () -> Unit) {
         topBar = {
             // The blur layer spans the app bar and the tab row beneath it, mirroring LogsPager.
             Column(modifier = Modifier.m3AppBarBlur(barBackdrop)) {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.agent_prompts_title)) },
-                    navigationIcon = {
-                        Row {
-                            ExpressiveBackButton(onClick = onBack)
-                            Spacer(modifier = Modifier.size(16.dp))
-                        }
-                    },
+                ExpressiveCollapsingTopAppBar(
+                    title = stringResource(R.string.agent_prompts_title),
+                    navigationIcon = { ExpressiveBackButton(onClick = onBack) },
                     scrollBehavior = scrollBehavior,
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = barBackdrop.m3AppBarColor(),
