@@ -409,7 +409,6 @@ jobs:
               - 'extension-packs/**'
               - 'extensions/**'
               - 'libs/python-runtime-api/**'
-              - 'app/src/main/go/**'
               - 'app/src/main/rust/**'
               - 'patches/proot/**'
               - 'third_party/proot-static'
