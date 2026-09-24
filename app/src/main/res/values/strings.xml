@@ -367,8 +367,6 @@
     <string name="color_spec_expressive_2025" translatable="false">Expressive (2025)</string>
     <string name="settings_color_spec_title">Color specification</string>
     <string name="settings_color_spec_unsupported">The current palette style only supports Material 3 (2021)</string>
-    <string name="settings_apply_to_wechat_title">Also apply to WeChat</string>
-    <string name="settings_apply_to_wechat_summary">Apply the custom color scheme to WeChat itself</string>
     <string name="settings_safe_mode_title">Safe mode</string>
     <string name="settings_safe_mode_summary">Load module capabilities conservatively in unstable environments</string>
     <string name="action_reset">Reset</string>
@@ -506,8 +504,6 @@
     <string name="feature_hide_me_tab_page_items_description">Streamline some components of my page</string>
     <string name="feature_hide_other_devices_banner_name">Hide other device banners</string>
     <string name="feature_hide_other_devices_banner_description">Hide other devices logged in banner at top of homepage</string>
-    <string name="feature_monet_engine_name">Monet engine</string>
-    <string name="feature_monet_engine_description">Color WeChat native components according to the custom color matching set by the module</string>
     <string name="feature_monet_module_generator_name">Monet engine module generator</string>
     <string name="feature_monet_module_generator_description">Generate a root-installable WeChat Monet RRO with no runtime overhead. Requires Android 12+ and the Monet engine module generator extension.</string>
     <string name="monet_generator_unsupported">Android 12 or newer is required.</string>

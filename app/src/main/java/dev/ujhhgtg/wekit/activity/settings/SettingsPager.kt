@@ -649,23 +649,6 @@ private fun ThemeSection() {
                 icon = MaterialSymbols.Outlined.Contrast,
             )
         }
-
-        item {
-            var applyToWechat by remember { mutableStateOf(ThemeSettings.applyToWechat) }
-            SwitchWidget(
-                title = stringResource(R.string.settings_apply_to_wechat_title),
-                description = stringResource(R.string.settings_apply_to_wechat_summary),
-                icon = MaterialSymbols.Outlined.Sync,
-                checked = applyToWechat,
-                onCheckedChange = {
-                    applyToWechat = it
-                    ThemeSettings.updateApplyToWechat(it)
-                    CoroutineScope(Dispatchers.Main).launch {
-                        showToastSuspend(localizedContext.getString(R.string.restart_wechat_to_apply))
-                    }
-                },
-            )
-        }
     }
 }
 

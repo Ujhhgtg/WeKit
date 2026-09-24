@@ -333,8 +333,6 @@
     <string name="palette_style_bilingual_format">%1$s (%2$s)</string>
     <string name="settings_color_spec_title">颜色规格</string>
     <string name="settings_color_spec_unsupported">当前调色板样式仅支持 Material 3 (2021)</string>
-    <string name="settings_apply_to_wechat_title">同时对微信生效</string>
-    <string name="settings_apply_to_wechat_summary">将自定义配色应用到微信本身</string>
     <string name="settings_safe_mode_title">安全模式</string>
     <string name="settings_safe_mode_summary">在不稳定环境中保守加载模块能力</string>
     <string name="action_reset">重置</string>
@@ -469,8 +467,6 @@
     <string name="feature_hide_me_tab_page_items_description">精简我的页面的部分组件</string>
     <string name="feature_hide_other_devices_banner_name">隐藏其他设备横幅</string>
     <string name="feature_hide_other_devices_banner_description">隐藏主页顶部其他设备已登录横幅</string>
-    <string name="feature_monet_engine_name">莫奈引擎</string>
-    <string name="feature_monet_engine_description">根据模块设置的自定义配色为微信原生组件上色</string>
     <string name="feature_monet_module_generator_name">莫奈引擎模块生成器</string>
     <string name="feature_monet_module_generator_description">生成可通过 Root 管理器安装、零运行时损耗的微信莫奈 RRO 模块。需要 Android 12+ 与莫奈引擎模块生成器扩展包。</string>
     <string name="monet_generator_unsupported">需要 Android 12 或更高版本。</string>

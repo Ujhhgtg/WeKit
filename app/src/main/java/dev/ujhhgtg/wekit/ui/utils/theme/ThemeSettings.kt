@@ -10,7 +10,6 @@ import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.applyToWechat
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.colorSpec
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.dynamicWallpaper
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.paletteStyle
@@ -90,9 +89,9 @@ enum class AppColorSpec(
  *
  * Two consumers:
  * - the module's own UI ([ModuleTheme]) re-themes live from every value here;
- * - the UI injected into WeChat ([InjectedUiTheme]) + native recoloring ([dev.ujhhgtg.wekit.features.items.beautify.MonetEngine]) only
- *   consult [applyToWechat]/[dynamicWallpaper]/[seedColor]/[paletteStyle]/[colorSpec], and NOT live —
- *   they read the persisted values once per WeChat launch.
+ * - the UI injected into WeChat ([InjectedUiTheme]) only
+ *   consult [dynamicWallpaper]/[seedColor]/[paletteStyle]/[colorSpec], and NOT live —
+ *   it reads the persisted values once per WeChat launch.
  */
 object ThemeSettings {
 
@@ -122,13 +121,6 @@ object ThemeSettings {
 
     /** Seed color (ARGB int) used when wallpaper color is off. */
     var seedColor by mutableIntStateOf(KvStore.getIntOrDef(Preferences.THEME_SEED_COLOR, DEFAULT_SEED_COLOR))
-        private set
-
-    /**
-     * Whether the selected color also applies to WeChat itself (injected WeKit ComposeUI + native
-     * recoloring via [dev.ujhhgtg.wekit.features.items.beautify.MonetEngine]). Does NOT take effect live — requires restarting WeChat.
-     */
-    var applyToWechat by mutableStateOf(KvStore.getBoolOrFalse(Preferences.THEME_APPLY_TO_WECHAT))
         private set
 
     /** Spec coerced to 2021 when the current palette style can't honor 2025. */
@@ -168,11 +160,6 @@ object ThemeSettings {
     fun updateSeedColor(value: Int) {
         seedColor = value
         KvStore.putInt(Preferences.THEME_SEED_COLOR, value)
-    }
-
-    fun updateApplyToWechat(value: Boolean) {
-        applyToWechat = value
-        KvStore.putBool(Preferences.THEME_APPLY_TO_WECHAT, value)
     }
 
     /** Default seed accent (WeChat green 0xFF07C160). */

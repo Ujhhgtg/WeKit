@@ -13,9 +13,8 @@ import dev.ujhhgtg.wekit.ui.utils.theme.SeedResolver.customSeed
 
 /**
  * Single source of truth for turning [ThemeSettings] into a concrete accent seed and the derived
- * Material 3 color schemes. Shared by [ModuleTheme], [InjectedUiTheme], and
- * [dev.ujhhgtg.wekit.features.items.beautify.MonetEngine] so the module UI, the WeKit UI injected
- * into WeChat, and the native-view recoloring all agree on the same colors.
+ * Material 3 color schemes. Shared by [ModuleTheme] and [InjectedUiTheme] so the module UI and the
+ * WeKit UI injected into WeChat agree on the same colors.
  */
 object SeedResolver {
 
@@ -34,14 +33,6 @@ object SeedResolver {
     fun customSeed(context: Context, dark: Boolean): Int =
         if (ThemeSettings.dynamicWallpaper) wallpaperAccent(context, dark) ?: ThemeSettings.seedColor
         else ThemeSettings.seedColor
-
-    /**
-     * The seed for UI injected into WeChat: WeChat green unless the user opted the selected seed
-     * into WeChat ([ThemeSettings.applyToWechat]), in which case it follows [customSeed].
-     */
-    fun injectedSeed(context: Context, dark: Boolean): Int =
-        if (ThemeSettings.applyToWechat) customSeed(context, dark)
-        else ThemeSettings.DEFAULT_SEED_COLOR
 
     /** Material 3 [ColorScheme] generated from [seed] with the current palette style + spec. */
     fun materialScheme(seed: Int, dark: Boolean): ColorScheme = dynamicColorScheme(

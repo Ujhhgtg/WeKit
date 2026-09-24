@@ -19,7 +19,6 @@ object Preferences {
     const val THEME_PALETTE_STYLE = "settings_theme_palette_style"
     const val THEME_COLOR_SPEC = "settings_theme_color_spec"
     const val THEME_SEED_COLOR = "settings_theme_seed_color"
-    const val THEME_APPLY_TO_WECHAT = "settings_theme_apply_to_wechat"
 
     // Python entry-script editor
     const val PYTHON_EDITOR_SOFT_WRAP = "python_editor_soft_wrap"
