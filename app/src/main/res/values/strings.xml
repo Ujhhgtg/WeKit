@@ -633,6 +633,8 @@
     <string name="feature_merge_messages_into_groups_description">Combine multiple consecutive messages from the same sender into one message display (Telegram style)</string>
     <string name="feature_message_entrance_animation_name">Message entry animation</string>
     <string name="feature_message_entrance_animation_description">When a single message enters the screen in the chat interface, the entry animation is played, and it supports bouncing/sliding in/gravity drop, allowing all historical messages to jump.</string>
+    <string name="feature_message_deletion_animation_name">Message deletion animation</string>
+    <string name="feature_message_deletion_animation_description">Play a Telegram-style animation when a message is deleted: the message disintegrates into particles (falls back to fading out if unsupported) and the remaining messages slide into place.</string>
     <string name="feature_message_time_enhancements_name">Enhanced message timestamps</string>
     <string name="feature_message_time_enhancements_description">Shows the precise time the message was sent and allows more details to be displayed</string>
     <string name="feature_modify_text_message_display_name">Modify text message display</string>

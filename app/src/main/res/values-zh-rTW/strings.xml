@@ -598,6 +598,8 @@
     <string name="feature_merge_messages_into_groups_description">將同一發送者的連續多條消息合併爲一組消息顯示 (Telegram 風格)</string>
     <string name="feature_message_entrance_animation_name">消息進入動畫</string>
     <string name="feature_message_entrance_animation_description">聊天界面中單條消息進入屏幕時播放入場動畫, 支持彈跳/平移滑入/重力掉落, 可讓歷史消息全跳動</string>
+    <string name="feature_message_deletion_animation_name">消息刪除動畫</string>
+    <string name="feature_message_deletion_animation_description">刪除消息時播放 Telegram 風格動畫: 消息化為粒子消散 (不支持時改為淡出), 其餘消息平滑歸位</string>
     <string name="feature_message_time_enhancements_name">消息時間增強</string>
     <string name="feature_message_time_enhancements_description">顯示精確消息發送時間並允許顯示更多詳情</string>
     <string name="feature_modify_text_message_display_name">修改文本消息顯示</string>
