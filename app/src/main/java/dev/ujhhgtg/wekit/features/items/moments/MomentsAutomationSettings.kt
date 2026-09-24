@@ -759,7 +759,11 @@ class MomentsAutomationSettings private constructor(
             val value = rules.interval.milliseconds.toLongOrNull()
                 ?: return context.getString(R.string.moments_automation_invalid_interval)
             if (value !in 0L..MAX_ACTION_DELAY_MS) {
-                return context.getString(R.string.moments_automation_interval_too_large, MAX_ACTION_DELAY_MS)
+                return context.resources.getQuantityString(
+                    R.plurals.moments_automation_interval_too_large,
+                    MAX_ACTION_DELAY_MS.toInt(),
+                    MAX_ACTION_DELAY_MS,
+                )
             }
         }
         if (validates(RuleKey.KEYWORD)) {

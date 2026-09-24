@@ -6,6 +6,7 @@ import kotlin.io.path.isRegularFile
 import kotlin.io.path.readBytes
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
+import dev.ujhhgtg.wekit.features.items.chat.localizedChatQuantity
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneExample
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSource
@@ -551,7 +552,7 @@ object FunBoxVoiceRepository {
 object FunBoxCloneVoiceRepository {
     suspend fun synthesize(text: String, voiceBytes: ByteArray, fileName: String): Result<ByteArray> {
         require(text.isNotBlank()) { localizedChatString(R.string.chat_funbox_conversion_text_empty) }
-        require(text.codePointCount(0, text.length) <= 256) { localizedChatString(R.string.chat_funbox_conversion_text_too_long, 256) }
+        require(text.codePointCount(0, text.length) <= 256) { localizedChatQuantity(R.plurals.chat_funbox_conversion_text_too_long, 256, 256) }
         require(voiceBytes.isNotEmpty()) { localizedChatString(R.string.chat_voice_tone_unreadable) }
         WeLogger.d(TAG, "clone synthesis start voiceBytes=${voiceBytes.size}")
         val request = FunBoxBinaryWriter().apply {

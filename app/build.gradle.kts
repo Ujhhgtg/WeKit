@@ -56,6 +56,26 @@ android {
         }
     }
 
+    lint {
+        // 模块代码运行在宿主 (微信) 进程中, 使用宿主的权限与运行时环境:
+        // 权限检查以模块清单为准会产生误报; 反射调用隐藏/私有 API 是 Xposed 模块的常态。
+        // 自定义 View 仅在代码中构造, 不从 XML 加载; 语言切换由模块自行注入资源而非 Play 分包;
+        // 动态快捷方式是转发给宿主的入口, 无需上报使用记录。
+        disable += setOf(
+            "MissingPermission",
+            "NotificationPermission",
+            "PrivateApi",
+            "DiscouragedPrivateApi",
+            "SoonBlockedPrivateApi",
+            "BlockedPrivateApi",
+            "ViewConstructor",
+            "ClickableViewAccessibility",
+            "AppBundleLocaleChanges",
+            "ReportShortcutUsage",
+        )
+        lintConfig = file("lint.xml")
+    }
+
     // Two entry-point variants:
     //  - standard: ships the modern libxposed entry point (entry/lxp/* sources +
     //              META-INF/xposed/*), placed in the `standard` flavor source set.
@@ -313,6 +333,7 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.exifinterface)
     implementation(libs.androidx.navigationevent.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.compose.runtime)

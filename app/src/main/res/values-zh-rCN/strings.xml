@@ -3,7 +3,6 @@
     <string name="app_description">微信增强模块\nUjhhgtg@github</string>
     <string name="settings_title">设置</string>
     <string name="settings_section_interface">界面</string>
-    <string name="settings_general_title">通用设置</string>
     <string name="settings_language_title">语言</string>
     <string name="settings_language_summary">%1$s · %2$s</string>
     <string name="language_follow_system">跟随系统</string>
@@ -65,7 +64,6 @@
     <string name="contact_filters_collapse">折叠筛选</string>
     <string name="contact_filters_expand">展开筛选</string>
     <string name="contact_filter_with_count">%1$s (%2$d)</string>
-    <string name="contact_labels_content_description">标签</string>
     <string name="contact_filter_mode_labels">标签</string>
     <string name="contact_filter_mode_aggregation">归拢</string>
     <string name="contact_filter_mode_grouping">分组</string>
@@ -81,29 +79,24 @@
     <string name="contact_confirm_selected_count">确定 (%1$d)</string>
     <string name="error_unknown">未知错误</string>
     <string name="clipboard_copied">已复制</string>
-    <string name="clipboard_label_link">链接</string>
     <string name="restart_wechat">重启微信</string>
     <string name="restart_wechat_to_apply">重启微信后生效</string>
-    <string name="dex_cache_status_resolving">正在解析...</string>
+    <string name="dex_cache_status_resolving">正在解析…</string>
     <string name="dex_cache_status_completed">已完成: %1$s</string>
     <string name="dex_cache_status_failed">失败: %1$s</string>
     <string name="dex_cache_resolution_error">解析过程中发生错误: %1$s</string>
     <string name="dex_cache_update_title">DEX 缓存更新</string>
-    <string name="dex_cache_update_required_message">检测到 %1$d 个功能需要更新 DEX 缓存，可从云端解析或在本机解析。若直接关闭对话框，相关功能将不会被加载</string>
+    <plurals name="dex_cache_update_required_message">
+        <item quantity="other">检测到 %1$d 个功能需要更新 DEX 缓存，可从云端解析或在本机解析。若直接关闭对话框，相关功能将不会被加载</item>
+    </plurals>
     <string name="dex_cache_resolution_success">解析完成！所有功能已成功更新 DEX 缓存</string>
-    <string name="dex_cache_resolution_partial_failure">解析完成，但有 %1$d 个功能失败（不影响其他功能使用）</string>
+    <plurals name="dex_cache_resolution_partial_failure">
+        <item quantity="other">解析完成，但有 %1$d 个功能失败（不影响其他功能使用）</item>
+    </plurals>
     <string name="dex_cache_cloud_downloading">正在下载并校验云端解析报告…</string>
     <string name="dex_cache_cloud_complete">云端解析完成，请重启微信以加载已解析的功能</string>
-    <string name="dex_cache_cloud_partial">云端已解析 %1$d 个功能，仍有 %2$d 个功能需要本地解析</string>
-    <string name="dex_cache_cloud_not_found">云端暂无当前微信版本的解析报告，可继续本地解析</string>
-    <string name="dex_cache_cloud_network_failure">无法下载云端解析报告：%1$s。可继续本地解析</string>
-    <string name="dex_cache_cloud_invalid_report">云端解析报告无效或不兼容：%1$s。可继续本地解析</string>
-    <string name="dex_cache_cloud_write_failure">无法保存云端解析缓存：%1$s。现有缓存已保留</string>
-    <string name="dex_cache_cloud_no_matches">云端报告中没有可用于当前版本的解析结果，可继续本地解析</string>
     <string name="dex_cache_total_progress">总进度: %1$d/%2$d</string>
-    <string name="dex_cache_cloud_resolution">云端解析</string>
     <string name="dex_cache_start_local_resolution">开始解析</string>
-    <string name="dex_cache_continue_local_resolution">继续解析</string>
     <string name="dex_cache_failure_detail">%1$d. %2$s\n   错误: %3$s\n\n</string>
     <string name="dex_cache_copy_error_information">复制错误信息</string>
     <string name="dex_error_report_title">=== WeKit DEX 扫描错误报告 ===</string>
@@ -115,11 +108,6 @@
     <string name="location_manual_coordinates_title">手动输入坐标</string>
     <string name="location_latitude_range_label">纬度 (-90 ~ 90)</string>
     <string name="location_longitude_range_label">经度 (-180 ~ 180)</string>
-    <string name="voip_hang_up">挂断</string>
-    <string name="voip_turn_on_microphone">打开麦克风</string>
-    <string name="voip_turn_off_microphone">关闭麦克风</string>
-    <string name="voip_turn_on_video">打开视频</string>
-    <string name="voip_turn_off_video">关闭视频</string>
     <string name="color_picker_title">选择颜色</string>
     <string name="color_picker_hue">色相</string>
     <string name="color_picker_saturation">饱和度</string>
@@ -202,19 +190,14 @@
     <string name="agent_use_first_model">（使用第一个模型）</string>
     <string name="agent_default_system_prompt_title">默认系统提示词</string>
     <string name="common_none_parenthesized">（无）</string>
-    <string name="common_loading">加载中…</string>
     <string name="action_save">保存</string>
-    <string name="accessibility_show">显示</string>
-    <string name="accessibility_hide">隐藏</string>
     <string name="external_service_exa_description">AI 语义搜索，需要 Exa API Key（exa.ai）</string>
     <string name="external_service_brave_description">隐私优先的网络搜索，需要 Brave Search API Key（api.search.brave.com）</string>
-    <string name="agent_no_provider_tools">该提供方暂无可用工具。</string>
     <string name="agent_permission_level_request_approval">请求批准</string>
     <string name="agent_permission_level_auto_edit">自动编辑</string>
     <string name="agent_permission_level_auto_approval">自动审批</string>
     <string name="agent_permission_level_full_access">完全访问</string>
     <string name="action_add">添加</string>
-    <string name="common_name">名称</string>
     <string name="agent_provider_summary">%1$s · %2$s</string>
     <string name="agent_add_provider">添加提供方</string>
     <string name="agent_add_model_provider">添加模型提供方</string>
@@ -223,7 +206,9 @@
     <string name="features_clear_search">清除搜索</string>
     <string name="features_no_results">未匹配到任何相关功能</string>
     <string name="features_category_empty">当前分类没有可显示的功能</string>
-    <string name="features_new_summary">最近 %1$d 天新增 %2$d 个功能</string>
+    <plurals name="features_new_summary">
+        <item quantity="other">最近 %1$d 天新增 %2$d 个功能</item>
+    </plurals>
     <string name="home_module_activated">模块已激活</string>
     <string name="home_device_info_title">设备信息</string>
     <string name="home_learn_more_title">了解更多</string>
@@ -331,7 +316,6 @@
     <string name="theme_mode_system">跟随系统</string>
     <string name="theme_mode_light">浅色模式</string>
     <string name="theme_mode_dark">深色模式</string>
-    <string name="settings_custom_color_summary">使用调色板样式生成配色，而非 Material 3 默认颜色</string>
     <string name="settings_dynamic_wallpaper_title">动态壁纸取色</string>
     <string name="settings_dynamic_wallpaper_summary">使用系统壁纸的强调色作为种子\n需系统 Android SDK &gt;= 31</string>
     <string name="settings_seed_color_title">种子颜色</string>
@@ -373,12 +357,6 @@
     <string name="licenses_search_hint">搜索库</string>
     <string name="licenses_visit_home_page">访问主页</string>
     <string name="licenses_no_license_text">暂无许可证文本</string>
-    <string name="licenses_count">%1$d 个库</string>
-    <string name="licenses_filtered_count">%1$d/%2$d 个库</string>
-    <string name="licenses_no_results">找不到「%1$s」的结果</string>
-    <string name="licenses_unknown_author">未知作者</string>
-    <string name="licenses_version">版本 %1$s</string>
-    <string name="licenses_license_names">许可：%1$s</string>
     <!-- Feature categories -->
     <string name="feature_category_chat_title">聊天</string>
     <string name="feature_category_contacts_groups_title">联系人与群组</string>
@@ -453,7 +431,9 @@
     <string name="python_delete_plugin">删除插件</string>
     <string name="python_delete_plugin_confirm">将永久删除该插件的脚本与数据，且无法恢复。确定删除？</string>
     <string name="python_delete_failed">插件删除失败：%1$s</string>
-    <string name="feature_category_enabled_summary">当前已启用 %1$d 个功能</string>
+    <plurals name="feature_category_enabled_summary">
+        <item quantity="other">当前已启用 %1$d 个功能</item>
+    </plurals>
     <!-- Feature metadata -->
     <string name="feature_batch_add_label_name">批量打标签</string>
     <string name="feature_batch_add_label_description">为选中的多个好友追加同一个标签, 可选择已有标签或新建, 请求会自动间隔以规避服务器风控</string>
@@ -475,8 +455,6 @@
     <string name="feature_apply_dialog_background_blur_description">为模块与微信的对话框添加窗口级模糊处理 [需 SDK &gt;= 31]</string>
     <string name="feature_apply_global_background_name">应用全局背景</string>
     <string name="feature_apply_global_background_description">将微信背景全局替换为图片</string>
-    <string name="feature_beautify_activity_transition_animation_name">美化活动过渡动画</string>
-    <string name="feature_beautify_activity_transition_animation_description">将部分活动过渡动画替换为默认过渡或元素级共享动画 (没做完)</string>
     <string name="feature_beautify_conversation_list_name">美化对话列表</string>
     <string name="feature_beautify_conversation_list_description">为会话列表提供岛式布局、未读突出和分隔线设置</string>
     <string name="feature_beautify_view_press_effect_name">美化组件按下效果</string>
@@ -532,8 +510,6 @@
     <string name="feature_brute_force_group_member_real_names_first_char_description">通过大额转账的姓名校验接口, 逐一尝试并还原群成员实名的首字 (与显示实名尾字功能配合可拼出完整姓名). 会向服务器发起多次转账下单 (不会真正扣款), 有触发风控的风险, 请自行承担</string>
     <string name="feature_bypass_risk_file_blocking_name">解除风险文件拦截</string>
     <string name="feature_bypass_risk_file_blocking_description">绕过“此文件已被用户投诉并核实存在安全风险，无法接收/无法打开”的提示，允许正常接收和打开被标记的文件</string>
-    <string name="feature_chat_auto_reply_name">聊天自动回复</string>
-    <string name="feature_chat_auto_reply_description">按任务规则匹配收到的文字消息并自动回复</string>
     <string name="feature_chat_footer_hooks_name">聊天输入栏钩子</string>
     <string name="feature_chat_footer_hooks_description">集中提供聊天输入栏相关钩子</string>
     <string name="feature_chat_toolbar_name">聊天工具栏</string>
@@ -599,9 +575,9 @@
     <string name="feature_merge_messages_into_groups_name">合并消息显示</string>
     <string name="feature_merge_messages_into_groups_description">将同一发送者的连续多条消息合并为一组消息显示 (Telegram 风格)</string>
     <string name="feature_message_entrance_animation_name">消息进入动画</string>
-    <string name="feature_message_entrance_animation_description">聊天界面中单条消息进入屏幕时播放入场动画, 支持弹跳/平移滑入/重力掉落, 可让历史消息全跳动</string>
+    <string name="feature_message_entrance_animation_description">聊天界面中单条消息进入屏幕时播放入场动画, 支持弹跳/平移滑入/重力掉落</string>
     <string name="feature_message_deletion_animation_name">消息删除动画</string>
-    <string name="feature_message_deletion_animation_description">删除消息时播放 Telegram 风格动画: 消息化为粒子消散 (不支持时改为淡出), 其余消息平滑归位</string>
+    <string name="feature_message_deletion_animation_description">删除消息时, 消息化为粒子消散, 其余消息平滑归位 (Telegram 风格)</string>
     <string name="feature_message_time_enhancements_name">消息时间增强</string>
     <string name="feature_message_time_enhancements_description">显示精确消息发送时间并允许显示更多详情</string>
     <string name="feature_modify_text_message_display_name">修改文本消息显示</string>
@@ -652,14 +628,14 @@
     <string name="feature_voice_message_playback_optimization_description">优化语音消息听筒/扬声器自动切换: 完全禁用自动切换, 或切换后继承播放进度不再从头重播</string>
     <string name="feature_voice_panel_name">语音面板</string>
     <string name="feature_voice_panel_description">长按语音按钮打开语音面板</string>
-    <string name="feature_mention_members_name">@所有人</string>
+    <string name="feature_mention_members_name">\@所有人</string>
     <string name="feature_mention_members_description">在群聊输入栏长按菜单中添加「@所有人」功能, 支持选择接收成员; 长按此项可配置发送设置</string>
     <string name="feature_send_card_message_name">发送卡片消息</string>
     <string name="feature_send_card_message_description">在聊天输入栏长按菜单中添加「发送卡片消息」功能</string>
     <string name="feature_send_voice_file_name">发送语音文件</string>
     <string name="feature_send_voice_file_description">在聊天输入栏长按菜单中添加「发送语音文件」功能</string>
     <string name="feature_send_sec_msg_name">安全消息发送</string>
-    <string name="feature_send_sec_msg_description">在自己发出的文本消息 msgsource 中注入 sec_msg_node 标记，双方长按该消息只剩「删除」选项。被动模式：对所有发出的文本消息生效；主动模式：长按发送按钮或使用触发前缀，仅对特定消息生效</string>
+    <string name="feature_send_sec_msg_description">在自己发出的文本消息 msgsource 中注入 sec_msg_node 标记，双方长按该消息只剩「删除」选项</string>
     <string name="send_sec_msg_menu_label">发送安全消息</string>
     <string name="send_sec_msg_input_empty">输入框内容为空</string>
     <string name="send_sec_msg_mode_passive">被动模式</string>
@@ -916,8 +892,6 @@
     <string name="feature_api_server_description">启用 REST API 与 MCP 服务器, 让人类与 AI 能够访问微信能力</string>
     <string name="feature_block_voip_ringtone_name">屏蔽铃声</string>
     <string name="feature_block_voip_ringtone_description">屏蔽音视频通话铃声</string>
-    <string name="feature_pip_voip_name">音视频通话使用画中画</string>
-    <string name="feature_pip_voip_description">让微信的音视频通话使用原生的画中画模式而非悬浮窗</string>
     <string name="feature_remove_limits_during_calls_name">移除通话时聊天限制</string>
     <string name="feature_remove_limits_during_calls_description">绕过正在通话时聊天限制</string>
     <string name="feature_virtual_voip_video_name">虚拟视频通话</string>
@@ -993,9 +967,7 @@
     <string name="feature_we_view_tree_lifecycle_provider_name">Compose 生命周期提供方</string>
     <string name="feature_we_web_view_api_name">WebView 追踪服务</string>
     <string name="feature_we_web_view_api_description">追踪主进程内所有 WebView 实例，供 WeAgent 的 builtin-webview 工具调用</string>
-    <string name="agent_loading">加载中…</string>
     <string name="agent_field_name">名称</string>
-    <string name="action_edit">编辑</string>
     <string name="action_delete">删除</string>
     <string name="agent_mcp_server_summary">%1$s · %2$s</string>
     <string name="agent_mcp_server_summary_error">%1$s · %2$s · %3$s</string>
@@ -1005,7 +977,6 @@
     <string name="agent_mcp_status_error">%1$s · %2$s</string>
     <string name="agent_delete_server">删除此服务器</string>
     <string name="agent_tools_title">工具</string>
-    <string name="agent_mcp_tools_empty">未连接或无工具。连接后可在此设置每个工具的权限。</string>
     <string name="agent_mcp_state_disconnected">未连接</string>
     <string name="agent_mcp_state_connecting">连接中</string>
     <string name="agent_mcp_state_connected">已连接</string>
@@ -1019,7 +990,6 @@
     <string name="agent_delete_provider">删除提供方</string>
     <string name="agent_model_supports_vision_badge">视觉</string>
     <string name="agent_add_model">添加模型</string>
-    <string name="agent_fetching_models">获取模型列表中…</string>
     <string name="agent_auto_import_models">自动导入模型</string>
     <string name="agent_fetch_models_failed">获取失败：%1$s</string>
     <string name="agent_import_models_title">导入模型（%1$d）</string>
@@ -1046,19 +1016,15 @@
     <string name="agent_supports_vision">支持视觉（图片输入）</string>
     <string name="agent_supports_vision_summary">开启后 AI 才能使用 ui-screenshot 截图工具查看界面</string>
     <string name="agent_system_prompts">系统提示词</string>
-    <string name="agent_system_prompts_empty">还没有系统提示词。会话可绑定其中一个。</string>
     <string name="agent_add_system_prompt">新增系统提示词</string>
     <string name="agent_edit_system_prompt">编辑系统提示词</string>
     <string name="agent_per_turn_prompts">每轮提示词</string>
-    <string name="agent_per_turn_prompts_empty">还没有每轮提示词。开启后会追加到每条用户消息前。</string>
     <string name="agent_add_per_turn_prompt">新增每轮提示词</string>
     <string name="agent_edit_per_turn_prompt">编辑每轮提示词</string>
     <string name="agent_conditional_prompts">条件提示词</string>
-    <string name="agent_conditional_prompts_empty">还没有条件提示词。开启后按正则匹配模型回复并注入内容。</string>
     <string name="agent_add_conditional_prompt">新增条件提示词</string>
     <string name="agent_edit_conditional_prompt">编辑条件提示词</string>
     <string name="agent_preset_prompts">预设提示词</string>
-    <string name="agent_preset_prompts_empty">还没有预设提示词。可在对话输入框的 + 菜单里插入。</string>
     <string name="agent_add_preset_prompt">新增预设提示词</string>
     <string name="agent_edit_preset_prompt">编辑预设提示词</string>
     <string name="agent_system_prompt_content">系统提示词内容</string>
@@ -1086,16 +1052,18 @@
     <string name="agent_trigger_type_message">新消息</string>
     <string name="agent_trigger_type_database">数据库</string>
     <string name="agent_trigger_type_database_operation">数据库操作</string>
-    <string name="agent_trigger_interval_summary">每 %1$d 秒</string>
+    <plurals name="agent_trigger_interval_summary">
+        <item quantity="other">每 %1$d 秒</item>
+    </plurals>
     <string name="agent_trigger_daily_summary">每天 %1$s</string>
     <string name="agent_trigger_cron_summary">cron: %1$s</string>
     <string name="agent_trigger_once_summary">一次性</string>
     <string name="agent_trigger_not_configured">未配置</string>
-    <string name="agent_trigger_buffer_summary">缓冲 %1$d s / 上限 %2$d 条</string>
+    <plurals name="agent_trigger_buffer_summary">
+        <item quantity="other">缓冲 %1$d s / 上限 %2$d 条</item>
+    </plurals>
     <string name="agent_trigger_type">类型</string>
     <string name="agent_trigger_scope">作用域</string>
-    <string name="agent_trigger_scope_session_summary">绑定某个会话，触发时在该会话内运行</string>
-    <string name="agent_trigger_scope_global_summary">每次触发都新建一个会话运行</string>
     <string name="agent_trigger_scope_session">绑定会话</string>
     <string name="agent_trigger_scope_global">全局（每次新建会话）</string>
     <string name="agent_no_sessions_to_bind">还没有会话，无法绑定。请先在助手面板里创建一个会话。</string>
@@ -1107,8 +1075,8 @@
     <string name="agent_schedule_cron">Cron 表达式</string>
     <string name="agent_schedule_once">一次性</string>
     <string name="agent_interval_seconds">间隔（秒）</string>
-    <string name="agent_hour_range">时（0-23）</string>
-    <string name="agent_minute_range">分（0-59）</string>
+    <string name="agent_hour_range">时（0–23）</string>
+    <string name="agent_minute_range">分（0–59）</string>
     <string name="agent_cron_field">Cron（分 时 日 月 周）</string>
     <string name="agent_once_schedule_help">一次性触发请由 AI 通过工具设定具体时间；此处保存后需在 AI 中配置触发时间。</string>
     <string name="agent_message_content_regex">内容匹配（正则，可空）</string>
@@ -1222,7 +1190,9 @@
     <string name="conversation_group_mode_friends">自动所有好友</string>
     <string name="conversation_group_mode_officials">自动所有公众号</string>
     <string name="conversation_group_mode_sql">自定义 SQL 规则</string>
-    <string name="conversation_group_selected_count">已选择 %1$d 个对话</string>
+    <plurals name="conversation_group_selected_count">
+        <item quantity="other">已选择 %1$d 个对话</item>
+    </plurals>
     <string name="conversation_group_select_conversations">选择对话</string>
     <string name="conversation_group_unread_match_count">自动分组所有未读对话（当前匹配到 %1$d 个对话）</string>
     <string name="conversation_group_groups_match_count">自动分组所有群聊（当前匹配到 %1$d 个对话）</string>
@@ -1230,7 +1200,9 @@
     <string name="conversation_group_officials_match_count">自动分组所有公众号（当前匹配到 %1$d 个对话）</string>
     <string name="conversation_group_select_fields">SELECT 字段</string>
     <string name="conversation_group_where_clause">WHERE 条件</string>
-    <string name="conversation_group_match_count">当前匹配到 %1$d 个对话</string>
+    <plurals name="conversation_group_match_count">
+        <item quantity="other">当前匹配到 %1$d 个对话</item>
+    </plurals>
     <string name="conversation_group_sql_help" formatted="false">数据源自 rcontact r、img_flag i、rconversation c\n示例：c.unReadCount &gt; 0 AND r.username LIKE \'%@chatroom\'</string>
     <string name="conversation_group_saved">已保存</string>
     <string name="conversation_grouping_tab_layout_title">标签布局</string>
@@ -1302,9 +1274,6 @@
     <string name="fab_description_stop_wechat">终止微信进程</string>
     <string name="fab_drag_to_reorder_description">拖动以调整顺序</string>
     <string name="fab_delete_description">删除 %1$s</string>
-    <string name="agent_name_required">名称不能为空</string>
-    <string name="agent_name_dot_invalid">名称不能为“.”或“..”</string>
-    <string name="agent_name_illegal_characters">名称不能包含 / \ : * ? " &lt; &gt; | 等字符</string>
     <string name="panel_action_back">返回</string>
     <string name="panel_action_create">创建</string>
     <string name="panel_action_delete">删除</string>
@@ -1339,9 +1308,9 @@
     <string name="panel_number_at_least_one">数量（至少 1）</string>
     <string name="panel_number_below_min">不能小于 %1$d</string>
     <string name="panel_number_invalid">请输入有效的整数</string>
-    <string name="panel_number_range_1_15">数量（1-15）</string>
-    <string name="panel_number_tasks_1_32">任务数（1-32）</string>
-    <string name="panel_number_tasks_1_8">任务数（1-8）</string>
+    <string name="panel_number_range_1_15">数量（1–15）</string>
+    <string name="panel_number_tasks_1_32">任务数（1–32）</string>
+    <string name="panel_number_tasks_1_8">任务数（1–8）</string>
     <string name="panel_online_search">在线搜索</string>
     <string name="panel_pack_create_failed">创建包失败</string>
     <string name="panel_pack_name">包名称</string>
@@ -1373,8 +1342,8 @@
     <string name="panel_sort_recent">最近使用</string>
     <string name="panel_sort_save_failed">保存排序失败</string>
     <string name="panel_sort_saved">已保存自定义顺序</string>
-    <string name="panel_task_range_1_32">任务数（1-32）</string>
-    <string name="panel_task_range_1_8">任务数（1-8）</string>
+    <string name="panel_task_range_1_32">任务数（1–32）</string>
+    <string name="panel_task_range_1_8">任务数（1–8）</string>
     <string name="panel_telegram_bot_token">Telegram Bot Token</string>
     <string name="panel_telegram_bot_token_invalid">请输入有效的 Telegram Bot Token</string>
     <string name="panel_telegram_bot_token_label">Bot Token</string>
@@ -1384,7 +1353,7 @@
     <string name="panel_value_set">已设置</string>
     <string name="panel_wechat_id">微信 ID</string>
     <string name="panel_wechat_id_generate">随机生成微信 ID</string>
-    <string name="panel_wechat_id_invalid">请输入 6-64 位字母、数字、下划线或连字符</string>
+    <string name="panel_wechat_id_invalid">请输入 6–64 位字母、数字、下划线或连字符</string>
     <string name="panel_wechat_id_use_current">填入当前微信 ID</string>
     <string name="sticker_count_short">%1$d 个</string>
     <string name="sticker_drag_item">拖动 %1$s</string>
@@ -1402,7 +1371,9 @@
     <string name="sticker_panel_delete_item_message">从本地表情包中删除这个表情？</string>
     <string name="sticker_panel_delete_pack">删除表情包</string>
     <string name="sticker_panel_delete_pack_message">删除“%1$s”及其中的所有表情？</string>
-    <string name="sticker_panel_deleted_count">已删除 %1$d 个表情</string>
+    <plurals name="sticker_panel_deleted_count">
+        <item quantity="other">已删除 %1$d 个表情</item>
+    </plurals>
     <string name="sticker_panel_empty_local_packs">暂无本地表情包</string>
     <string name="sticker_panel_empty_local_packs_hint">新建表情包后即可导入</string>
     <string name="sticker_panel_empty_never_sent">还没有发送过表情</string>
@@ -1473,7 +1444,9 @@
     <string name="sticker_panel_save_result">保存完成：成功 %1$d 个，失败 %2$d 个</string>
     <string name="sticker_panel_save_to_local">保存到本地</string>
     <string name="sticker_panel_save_to_pack">保存到表情包</string>
-    <string name="sticker_panel_saved_count">已保存 %1$d 个表情</string>
+    <plurals name="sticker_panel_saved_count">
+        <item quantity="other">已保存 %1$d 个表情</item>
+    </plurals>
     <string name="sticker_panel_search_action_hint">点击搜索查找在线表情</string>
     <string name="sticker_panel_search_prompt">输入关键词搜索在线表情</string>
     <string name="sticker_panel_search_similar">搜索相似表情</string>
@@ -1490,7 +1463,9 @@
     <string name="sticker_panel_title_saved">表情名称已保存</string>
     <string name="sticker_panel_update_from_online">从在线表情包更新</string>
     <string name="sticker_panel_update_result">更新完成：成功 %1$d 个，失败 %2$d 个</string>
-    <string name="sticker_panel_updated_count">已更新 %1$d 个表情</string>
+    <plurals name="sticker_panel_updated_count">
+        <item quantity="other">已更新 %1$d 个表情</item>
+    </plurals>
     <string name="sticker_panel_upload_and_search">上传并搜索</string>
     <string name="sticker_panel_upload_pack">上传表情包</string>
     <string name="sticker_panel_view_online_pack">查看在线表情包</string>
@@ -1498,7 +1473,7 @@
     <string name="sticker_setting_close_preview_after_scrub">移动预览松手后自动关闭</string>
     <string name="sticker_setting_close_preview_after_scrub_summary">长按表情并移动手指后，松手时关闭大图预览</string>
     <string name="sticker_setting_columns">每行表情数量</string>
-    <string name="sticker_setting_fps_range">帧率（1-60 FPS）</string>
+    <string name="sticker_setting_fps_range">帧率（1–60 FPS）</string>
     <string name="sticker_setting_local_layout">本地表情包一级界面</string>
     <string name="sticker_setting_online_layout">在线表情包一级界面</string>
     <string name="sticker_setting_online_preview_original">在线表情预览使用原图</string>
@@ -1586,7 +1561,9 @@
     <string name="voice_panel_delete_pack_message">删除“%1$s”及其中的语音？</string>
     <string name="voice_panel_delete_shared_pack_message">是否删除语音包“%1$s”？</string>
     <string name="voice_panel_delete_voices">删除语音</string>
-    <string name="voice_panel_deleted_count">已删除 %1$d 条语音</string>
+    <plurals name="voice_panel_deleted_count">
+        <item quantity="other">已删除 %1$d 条语音</item>
+    </plurals>
     <string name="voice_panel_empty_current_page_no_match">当前页面没有匹配的语音</string>
     <string name="voice_panel_empty_create_pack_hint">请先新建语音包</string>
     <string name="voice_panel_empty_example_groups">服务器上暂无语音示例目录</string>
@@ -1664,7 +1641,9 @@
     <string name="voice_panel_rename_pack">重命名语音包</string>
     <string name="voice_panel_save_result">保存完成：成功 %1$d 条，失败 %2$d 条</string>
     <string name="voice_panel_save_to_pack">保存到语音包</string>
-    <string name="voice_panel_saved_count">已保存 %1$d 条语音</string>
+    <plurals name="voice_panel_saved_count">
+        <item quantity="other">已保存 %1$d 条语音</item>
+    </plurals>
     <string name="voice_panel_search_action_hint">点击搜索查找在线语音</string>
     <string name="voice_panel_search_prompt">输入关键词搜索在线语音</string>
     <string name="voice_panel_select_pack">选择一个语音包</string>
@@ -1676,7 +1655,9 @@
     <string name="voice_panel_tts">文字转语音</string>
     <string name="voice_panel_tts_choose_voice_first">请先选择音色</string>
     <string name="voice_panel_tts_empty">转换文字不能为空</string>
-    <string name="voice_panel_tts_too_long">转换文字不能超过 %1$d 个字符</string>
+    <plurals name="voice_panel_tts_too_long">
+        <item quantity="other">转换文字不能超过 %1$d 个字符</item>
+    </plurals>
     <string name="voice_panel_upload_voice">上传语音</string>
     <string name="voice_panel_voice_examples">语音示例</string>
     <string name="voice_setting_pack_layout">本地及共享语音包一级界面</string>
@@ -1758,7 +1739,6 @@
     <string name="chat_hide_avatar_incoming_description">仅在私聊中隐藏对方的用户头像</string>
     <string name="chat_hide_avatar_outgoing">隐藏发送消息头像</string>
     <string name="chat_hide_avatar_outgoing_description">隐藏自己发出的消息的用户头像</string>
-    <string name="chat_half_screen_album_height">高度占比：%1$d%%</string>
     <string name="chat_half_screen_album_height_label">高度占比</string>
     <string name="chat_modify_text_menu">修改内容</string>
     <string name="chat_modify_text_title">修改消息显示</string>
@@ -1823,7 +1803,6 @@
     <string name="chat_group_role_owner">群主</string>
     <string name="chat_group_role_admin">管理员</string>
     <string name="chat_group_role_member">成员</string>
-    <string name="chat_group_role_show_member">显示「成员」标签</string>
     <string name="chat_group_role_show_label">显示标签</string>
     <string name="chat_group_role_owner_background">背景色</string>
     <string name="chat_group_role_owner_foreground">前景色</string>
@@ -1984,10 +1963,10 @@
         <item quantity="other">已保存 %1$d 张贴纸到 %2$s</item>
     </plurals>
     <!-- 聊天输入栏菜单与 API 核心简体中文资源。 -->
-    <string name="mention_members_settings_title">@所有人设置</string>
+    <string name="mention_members_settings_title">\@所有人设置</string>
     <string name="mention_members_stealth_label">隐蔽@所有人</string>
     <string name="mention_members_stealth_description">开启时确认成员选择后以原生方式发送输入框文本（不附带@昵称前缀），接收方会收到“有人@我”提醒但消息内不显示@文本；群成员超过 200 人时仅提醒前 200 人。关闭时在消息头部附带@昵称文本</string>
-    <string name="mention_members_action_label">@所有人（长按配置）</string>
+    <string name="mention_members_action_label">\@所有人（长按配置）</string>
     <string name="mention_members_group_only">只能在群组里使用！</string>
     <string name="mention_members_sent_unseen">已发送（自己无法看到该消息）</string>
     <string name="mention_members_input_empty">输入框内容为空！</string>
@@ -2036,78 +2015,6 @@
     <string name="message_type_unknown">未知类型</string>
     <string name="message_type_music">音乐链接</string>
     <string name="message_type_file">文件</string>
-    <string name="chat_auto_reply_title">聊天自动回复</string>
-    <string name="chat_auto_reply_global_settings">全局设置</string>
-    <string name="chat_auto_reply_global_settings_summary">配置默认自动回复任务与操作</string>
-    <string name="chat_auto_reply_contact_settings">分联系人设置</string>
-    <string name="chat_auto_reply_contact_settings_summary">为联系人、群聊或群成员覆盖全局设置</string>
-    <string name="chat_auto_reply_global_saved">全局设置已保存</string>
-    <string name="chat_auto_reply_group_settings">群聊设置</string>
-    <string name="chat_auto_reply_follows_global">跟随全局设置</string>
-    <plurals name="chat_auto_reply_group_overridden_count">
-        <item quantity="other">群聊设置 · 已覆盖 %1$d 项</item>
-    </plurals>
-    <plurals name="chat_auto_reply_overridden_count">
-        <item quantity="other">已覆盖 %1$d 项</item>
-    </plurals>
-    <string name="chat_auto_reply_group_global_settings">群聊全局设置</string>
-    <string name="chat_auto_reply_group_member_settings">群聊分群成员设置</string>
-    <string name="chat_auto_reply_all_members_follow_group">所有成员跟随群聊全局设置</string>
-    <plurals name="chat_auto_reply_configured_member_count">
-        <item quantity="other">已配置 %1$d 个成员</item>
-    </plurals>
-    <string name="chat_auto_reply_group_member_settings_title">%1$s · 分群成员设置</string>
-    <string name="chat_auto_reply_follows_group">跟随群聊全局设置</string>
-    <string name="chat_auto_reply_settings_saved">设置已保存</string>
-    <string name="chat_auto_reply_task_settings">任务设置</string>
-    <string name="chat_auto_reply_enabled_title">自动回复</string>
-    <string name="chat_auto_reply_enabled_summary">按下方任务规则匹配收到的文字消息并自动回复</string>
-    <string name="chat_auto_reply_disabled_summary">不自动回复</string>
-    <string name="chat_auto_reply_time_range_title">时间段自动回复</string>
-    <string name="chat_auto_reply_time_unrestricted">不限制回复时间</string>
-    <string name="chat_auto_reply_tasks_title">任务（按顺序匹配）</string>
-    <string name="chat_auto_reply_no_tasks">尚未添加任务</string>
-    <plurals name="chat_auto_reply_task_count_summary">
-        <item quantity="other">长按拖动手柄调整顺序 · %1$d 个任务</item>
-    </plurals>
-    <string name="chat_auto_reply_drag_task">拖动任务</string>
-    <string name="chat_auto_reply_task_number">任务 %1$d</string>
-    <string name="chat_auto_reply_delete_task">删除任务</string>
-    <string name="chat_auto_reply_add_task">添加任务</string>
-    <string name="chat_auto_reply_add_task_summary">设置关键词、回复内容与延迟</string>
-    <string name="chat_auto_reply_task_name">任务名称</string>
-    <string name="chat_auto_reply_enable_task">启用任务</string>
-    <string name="chat_auto_reply_type_text">文本</string>
-    <string name="chat_auto_reply_type_image">图片</string>
-    <string name="chat_auto_reply_type_video">视频</string>
-    <string name="chat_auto_reply_type_voice">语音</string>
-    <string name="chat_auto_reply_reply_content">回复内容</string>
-    <string name="chat_auto_reply_voice_duration_ms">语音时长（毫秒）</string>
-    <string name="chat_auto_reply_delay_ms">回复延迟（毫秒，0–60000）</string>
-    <string name="chat_auto_reply_cooldown_ms">冷却时间（毫秒）</string>
-    <string name="chat_auto_reply_stop_after_match">命中后停止匹配后续任务</string>
-    <string name="chat_auto_reply_image_path">图片路径</string>
-    <string name="chat_auto_reply_video_path">视频路径</string>
-    <string name="chat_auto_reply_voice_path">语音文件路径（amr/silk）</string>
-    <string name="chat_auto_reply_import">导入</string>
-    <string name="chat_auto_reply_keyword_unrestricted">不限关键词</string>
-    <plurals name="chat_auto_reply_keyword_list_summary">
-        <item quantity="other">匹配字符串列表中的任意一项（%1$d）</item>
-    </plurals>
-    <plurals name="chat_auto_reply_keyword_exact_summary">
-        <item quantity="other">完全匹配字符串列表中的任意一项（%1$d）</item>
-    </plurals>
-    <string name="chat_auto_reply_keyword_regex_empty">尚未填写正则表达式</string>
-    <string name="chat_auto_reply_keyword_regex_summary">匹配单个正则表达式</string>
-    <string name="chat_auto_reply_task_error">任务“%1$s”：%2$s</string>
-    <string name="chat_auto_reply_error_keyword_list_empty">关键词字符串列表不能为空</string>
-    <string name="chat_auto_reply_error_keyword_regex_empty">关键词正则表达式不能为空</string>
-    <string name="chat_auto_reply_error_keyword_regex_invalid">关键词正则表达式格式不正确</string>
-    <string name="chat_auto_reply_error_text_empty">文本回复内容不能为空</string>
-    <string name="chat_auto_reply_error_path_empty">回复文件路径不能为空</string>
-    <string name="chat_auto_reply_error_voice_duration">语音时长必须在 1–60000 毫秒之间</string>
-    <string name="chat_auto_reply_error_delay">延迟必须在 0–60000 毫秒之间</string>
-    <string name="chat_auto_reply_error_cooldown">冷却时间不能为负数</string>
     <string name="chat_message_details_menu">详情</string>
     <string name="chat_message_details_type">类型</string>
     <string name="chat_message_details_talker_id">对方/群聊 ID</string>
@@ -2127,10 +2034,10 @@
         <item quantity="other">%1$d 小时前</item>
     </plurals>
     <string name="chat_message_time_group_announcement">群公告</string>
-    <string name="chat_message_time_everyone">@所有人</string>
-    <string name="chat_message_time_me">@我</string>
+    <string name="chat_message_time_everyone">\@所有人</string>
+    <string name="chat_message_time_me">\@我</string>
     <plurals name="chat_message_time_mentioned_people">
-        <item quantity="other">@%1$d 人</item>
+        <item quantity="other">\@%1$d 人</item>
     </plurals>
     <string name="chat_message_time_title">消息时间增强</string>
     <string name="chat_message_time_display_template">显示格式模板</string>
@@ -2151,11 +2058,6 @@
     <string name="chat_floating_header_style_integrated">一体式</string>
     <string name="chat_floating_header_style_separated">分体式</string>
     <string name="chat_floating_component_gap_label">最小组件间距</string>
-    <string name="chat_floating_corner_radius">圆角半径：%1$d dp</string>
-    <string name="chat_floating_side_margin">侧边距：%1$d dp</string>
-    <string name="chat_floating_top_gap">顶部间距：%1$d dp</string>
-    <string name="chat_floating_card_gap">下方卡片间距：%1$d dp</string>
-    <string name="chat_floating_elevation">阴影强度：%1$d dp</string>
     <string name="chat_floating_corner_radius_label">圆角半径</string>
     <string name="chat_floating_side_margin_label">侧边距</string>
     <string name="chat_floating_top_gap_label">顶部间距</string>
@@ -2164,7 +2066,6 @@
     <string name="chat_floating_footer_title">悬浮输入框</string>
     <string name="chat_floating_footer_panel_above">菜单显示在输入框上方</string>
     <string name="chat_floating_footer_panel_above_summary">表情与工具菜单从输入框上沿向上展开，输入框位置不动；关闭则维持微信原样</string>
-    <string name="chat_floating_bottom_gap">底部间距：%1$d dp</string>
     <string name="chat_floating_bottom_gap_label">底部间距</string>
     <string name="chat_real_name_bruteforce_title">爆破群成员实名首字</string>
     <string name="chat_real_name_bruteforce_first_char">首字：%1$s</string>
@@ -2236,7 +2137,6 @@
     <string name="chat_aggregation_index_rebuilt">已重建文件夹索引</string>
     <string name="chat_aggregation_reload">重载</string>
     <string name="chat_aggregation_create">新建</string>
-    <string name="chat_aggregation_saved_restart">已保存，重启微信生效</string>
     <string name="chat_aggregation_create_folder">新建文件夹</string>
     <string name="chat_aggregation_edit_folder">编辑文件夹</string>
     <string name="chat_aggregation_mode_manual">手动选择</string>
@@ -2366,7 +2266,9 @@
     <string name="chat_funbox_status_published">已发布</string>
     <string name="chat_funbox_status_rejected">已拒绝</string>
     <string name="chat_funbox_conversion_text_empty">转换文字不能为空</string>
-    <string name="chat_funbox_conversion_text_too_long">转换文字不能超过 %1$d 个字符</string>
+    <plurals name="chat_funbox_conversion_text_too_long">
+        <item quantity="other">转换文字不能超过 %1$d 个字符</item>
+    </plurals>
     <string name="chat_funbox_clone_synthesis_failed">克隆语音合成失败</string>
     <string name="chat_funbox_voice_example_load_failed">读取语音示例失败</string>
     <string name="chat_telegram_invalid_file_path">Telegram 返回了无效文件路径</string>
@@ -2406,7 +2308,6 @@
     <string name="chat_voice_category_western">欧美馆</string>
     <string name="chat_sticker_online_source_empty">在线表情包 ID 不能为空</string>
     <string name="chat_sticker_pack_delete_failed">表情包删除失败</string>
-    <string name="chat_panel_imported">已导入</string>
     <string name="chat_sticker_image_empty">图片文件为空</string>
     <string name="chat_sticker_unsupported_format">不支持或无法识别的图片格式</string>
     <string name="chat_voice_pack_name_empty">语音包名称不能为空</string>
@@ -2622,7 +2523,6 @@
     <plurals name="contacts_detect_unresolved">
         <item quantity="other">另有 %1$d 个好友无法确定状态，未计入结果</item>
     </plurals>
-    <string name="contacts_detect_status_abnormal">状态：异常</string>
     <string name="contacts_detect_nickname">昵称：%1$s</string>
     <string name="contacts_detect_remark">备注：%1$s</string>
     <string name="contacts_detect_wechat_number">微信号：%1$s</string>
@@ -2718,7 +2618,6 @@
     <string name="action_clear_image">清除图片</string>
     <string name="settings_saved">设置已保存</string>
     <string name="copied_to_clipboard">已复制</string>
-    <string name="current_value">当前值：%1$d</string>
     <string name="light_mode">亮色模式</string>
     <string name="dark_mode">暗色模式</string>
     <string name="imported">已导入</string>
@@ -2804,11 +2703,9 @@
     <string name="moments_custom_source_preset_title">选择预设应用</string>
     <string name="moments_custom_source_search">搜索 ID 或名称</string>
     <string name="moments_display_details_title">朋友圈底部信息详细</string>
-    <string name="moments_display_details_placeholders">占位符：%1$s %2$s %3$s %4$s %5$s</string>
     <string name="moments_display_details_text_format">文本格式</string>
     <string name="moments_display_details_time_format">时间格式</string>
     <string name="moments_display_details_hide_visibility_icon">隐藏可见范围图标</string>
-    <string name="moments_display_details_saved">已保存，重新进入朋友圈后生效</string>
     <string name="moments_fake_likes_menu">伪点赞</string>
     <string name="moments_fake_likes_method_title">伪点赞方式</string>
     <string name="moments_fake_likes_select_users">选择伪点赞用户</string>
@@ -2898,7 +2795,9 @@
     <string name="moments_automation_age_unrestricted">不限制发布时间</string>
     <string name="moments_automation_maximum_age_hours">最大发布时间（小时）</string>
     <string name="moments_automation_invalid_interval">请输入有效的操作间隔</string>
-    <string name="moments_automation_interval_too_large">操作间隔不能超过 %1$d 毫秒</string>
+    <plurals name="moments_automation_interval_too_large">
+        <item quantity="other">操作间隔不能超过 %1$d 毫秒</item>
+    </plurals>
     <string name="moments_automation_select_type">请至少选择一种朋友圈类型</string>
     <string name="moments_automation_invalid_maximum_age">请输入有效的最大发布时间</string>
     <string name="moments_content_type_image">图片</string>
@@ -2955,12 +2854,6 @@
     <string name="beautify_theme_saved">主题已保存，重启微信生效</string>
     <string name="home_side_panel_wechat_user">微信用户</string>
     <string name="home_side_panel_scan">扫一扫</string>
-    <string name="home_side_panel_payments">收付款</string>
-    <string name="home_side_panel_favorites">收藏</string>
-    <string name="home_side_panel_moments">朋友圈</string>
-    <string name="home_side_panel_channels">视频号</string>
-    <string name="home_side_panel_mark_all_read">清空未读</string>
-    <string name="home_side_panel_wekit_settings">WeKit 设置</string>
     <string name="home_side_panel_open_profile">打开个人资料</string>
     <string name="home_side_panel_settings">侧栏设置</string>
     <string name="home_side_panel_online">在线</string>
@@ -2971,6 +2864,7 @@
     <string name="home_side_panel_show_lunar_calendar">显示农历</string>
     <string name="home_side_panel_lunar_prefix">农历</string>
     <string name="home_side_panel_lunar_leap_prefix">闰</string>
+    <string name="home_side_panel_lunar_separator"></string>
     <string-array name="home_side_panel_lunar_month_names">
         <item>正月</item>
         <item>二月</item>
@@ -3239,19 +3133,11 @@
     <string name="payment_transfer_received">收到「%1$s」的转账 %2$s</string>
     <string name="payment_wallet_balance_optional">零钱余额 (留空不修改)</string>
     <string name="payment_wealth_balance_optional">零钱通余额 (留空不修改)</string>
-    <string name="payment_business_balance_optional">经营账户余额 (留空不修改)</string>
-    <string name="payment_balance_display_amount">显示金额</string>
     <string name="payment_wallet_balance_expression">余额表达式</string>
     <string name="payment_wallet_balance_expression_hint" formatted="false">value 表示真实余额，支持 +、-、*、/、^、**、//、%、sqrt 和 round</string>
     <string name="payment_wallet_balance_title">零钱</string>
     <string name="payment_wealth_balance_title">零钱通</string>
     <string name="payment_business_balance_title">经营账户</string>
-    <string name="payment_wallet_balance_mode">零钱余额模式</string>
-    <string name="payment_wealth_balance_mode">零钱通余额模式</string>
-    <string name="payment_business_balance_mode">经营账户余额模式</string>
-    <string name="payment_wallet_balance_mode_fixed">固定显示该金额</string>
-    <string name="payment_wallet_balance_mode_increase">在真实余额上增加</string>
-    <string name="payment_wallet_balance_mode_decrease">从真实余额中减少</string>
     <string name="payment_transfer_wallet_balance">零钱(剩余%1$s)</string>
     <string name="payment_transfer_wealth_balance">零钱通(剩余%1$s)</string>
     <string name="payment_red_packet_date_today">HH:mm:ss</string>
@@ -3261,12 +3147,12 @@
     <string name="payment_red_packet_count_details">数量: %1$d/%2$d</string>
     <string name="payment_red_packet_remaining">剩余: %1$.2f元</string>
     <string name="payment_history_title">历史红包捡漏</string>
-    <string name="payment_history_scan_started">开始扫描会话历史消息...</string>
+    <string name="payment_history_scan_started">开始扫描会话历史消息…</string>
     <string name="payment_history_scan_expired_complete">已扫描完 24 小时内的消息, 更早的红包已过期, 停止扫描</string>
     <string name="payment_history_scan_complete">所有历史消息扫描完毕</string>
     <string name="payment_history_scan_failed">扫描异常终止: %1$s</string>
-    <string name="payment_history_found">发现历史红包 [%1$s], 尝试领包...</string>
-    <string name="payment_history_found_unnamed">发现历史红包 [&lt;未命名&gt;], 尝试领包...</string>
+    <string name="payment_history_found">发现历史红包 [%1$s], 尝试领包…</string>
+    <string name="payment_history_found_unnamed">发现历史红包 [&lt;未命名&gt;], 尝试领包…</string>
     <string name="payment_history_open_request_failed">红包 [%1$s] 拆开请求异常</string>
     <string name="payment_history_receive_failed">红包 [%1$s] 领取失败 (retcode=%2$d)</string>
     <string name="payment_history_receive_success">红包 [%1$s] 领取成功: ¥%2$.2f</string>
@@ -3352,7 +3238,6 @@
     <string name="voip_block_outgoing_summary">屏蔽拨出音视频通话时的铃声</string>
     <string name="voip_block_incoming">屏蔽呼入铃声</string>
     <string name="voip_block_incoming_summary">屏蔽收到音视频通话请求时的铃声</string>
-    <string name="voip_pip_zygisk_unavailable">画中画窗口必须由模块应用自己的 Activity 承载（清单里要声明 supportsPictureInPicture，微信没有这样的 Activity）, 而 Zygisk 模式下模块应用并未安装, 因此本功能仅在 LSPosed 模式下可用!</string>
     <string name="voip_virtual_video_title">虚拟视频通话配置</string>
     <string name="voip_virtual_video_source">视频来源</string>
     <string name="voip_virtual_video_local_file">本地文件</string>
@@ -3448,7 +3333,6 @@
     <string name="clear_profile_details_send_failure_details">类型：%1$s，代码：%2$s，消息：%3$s</string>
     <string name="image_rotation_only_avatars">只对头像生效</string>
     <string name="image_rotation_period_milliseconds">旋转周期（毫秒）</string>
-    <string name="image_rotation_period_requirement">请输入大于 0 的毫秒数</string>
     <string name="java_scripts_dialog_title">Java 脚本</string>
     <string name="java_scripts_empty">暂无脚本</string>
     <string name="java_script_status_enabled">已启用</string>
@@ -3461,7 +3345,6 @@
     <string name="notifications_action_reply">回复</string>
     <string name="notifications_reply_hint">输入回复内容…</string>
     <string name="notifications_self">我</string>
-    <string name="notifications_unknown_content">未知内容（请向模块开发者报告错误）</string>
     <string name="notifications_unknown_conversation">未知对话（请向模块开发者报告错误）</string>
     <string name="notifications_settings_title">通知进化设置</string>
     <string name="notifications_image_behavior">图片消息</string>
@@ -3518,13 +3401,9 @@
     <string name="system_link_wechat_summary">在微信内打开链接</string>
     <string name="system_loading">加载中…</string>
     <string name="system_none">无</string>
-    <string name="system_predictive_back_unsupported">当前 Android 版本不支持预见性返回</string>
     <string name="system_prevent_xposed_google_play_warning">微信 Google Play 版本无法使用此功能。</string>
     <string name="system_risky_feature_warning">此功能可能带来账号风险，请在了解后果的情况下继续。</string>
     <string name="system_sports_active_value">主动上传步数</string>
-    <string name="system_sports_fixed">固定值</string>
-    <string name="system_sports_multiplier">倍数</string>
-    <string name="system_sports_passive_mode">被动修改</string>
     <string name="system_sports_passive_value">被动上传步数表达式</string>
     <string name="system_sports_passive_expression_hint">value 表示原始步数，例如：value * 2 + 1000</string>
     <string name="system_sports_upload">上传</string>
@@ -3534,8 +3413,9 @@
     <string name="system_qr_code_record_copy">复制内容</string>
     <string name="system_qr_code_record_open">在微信打开</string>
     <string name="system_qr_code_record_open_in_system">在系统中打开</string>
-    <string name="qr_code_record_home_menu_description">记录功能启用时，在微信首页「+」菜单中显示</string>
-    <string name="qr_code_record_count">%1$d 条扫描记录</string>
+    <plurals name="qr_code_record_count">
+        <item quantity="other">%1$d 条扫描记录</item>
+    </plurals>
     <string name="qr_code_record_native_open_description">通过微信识别流程打开，支持好友、群聊等二维码。</string>
     <string name="qr_code_record_empty_description">启用二维码扫描记录后，识别的内容会显示在这里。</string>
     <string name="qr_code_record_open_failed">无法打开微信扫码结果，请查看日志了解详情。</string>
@@ -3580,6 +3460,7 @@
     <!-- WeAgent live panel -->
     <string name="agent_panel_collapse_sessions">收起会话侧栏</string>
     <string name="agent_panel_sessions">会话</string>
+    <string name="agent_panel_environment">环境</string>
     <string name="agent_panel_new_session">新建会话</string>
     <string name="agent_panel_unfavorite">取消收藏</string>
     <string name="agent_panel_favorite">收藏</string>
@@ -3638,7 +3519,7 @@
     <string name="agent_delete_prompt_confirm">删除该提示词？此操作无法撤销。</string>
     <string name="agent_delete_skill_confirm">删除该技能？此操作无法撤销。</string>
     <string name="agent_delete_trigger_confirm">删除该触发器？此操作无法撤销。</string>
-    <string name="agent_models_imported_result">新增 %1$d 个，覆盖 %1$d 个</string>
+    <string name="agent_models_imported_result">新增 %1$d 个，覆盖 %2$d 个</string>
     <string name="agent_import_overwrite_hint">勾选已导入的模型会用导入默认值覆盖其现有配置</string>
     <string name="agent_regex_invalid">正则表达式无效：%1$s</string>
     <string name="agent_save_failed">保存失败:%1$s</string>

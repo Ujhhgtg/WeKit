@@ -95,6 +95,7 @@ import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
@@ -220,7 +221,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     private val selectionPillEasing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
 
     val usesFloatingTabs: Boolean
-        get() = tabStyleState.value == TAB_STYLE_FLOATING
+        get() = tabStyleState.intValue == TAB_STYLE_FLOATING
 
     /** Called once at startup, before any feature UI can change the old beauty preference. */
     fun migrateTabStyle(legacyFloatingTabs: Boolean) {
@@ -233,7 +234,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         if (KvStore.containsKey(TAB_STYLE_KEY) && tabStyle == style) return
         swipeSessions.values.mapNotNull { it.get() }.forEach { it.cancelImmediately() }
         tabStyle = style
-        tabStyleState.value = style
+        tabStyleState.intValue = style
     }
 
     fun showFloatingTabsRecommendation(context: Context) {
@@ -935,14 +936,14 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                                 item {
                                     RadioButtonWidget(
                                         title = stringResource(R.string.conversation_grouping_tab_style_full_width),
-                                        selected = tabStyleState.value == TAB_STYLE_FULL_WIDTH,
+                                        selected = tabStyleState.intValue == TAB_STYLE_FULL_WIDTH,
                                         onSelect = { updateTabStyle(TAB_STYLE_FULL_WIDTH) },
                                     )
                                 }
                                 item {
                                     RadioButtonWidget(
                                         title = stringResource(R.string.conversation_grouping_tab_style_floating),
-                                        selected = tabStyleState.value == TAB_STYLE_FLOATING,
+                                        selected = tabStyleState.intValue == TAB_STYLE_FLOATING,
                                         onSelect = { updateTabStyle(TAB_STYLE_FLOATING) },
                                     )
                                 }
@@ -2404,7 +2405,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
 
                     when (type) {
                         GroupType.MANUAL -> {
-                            Text(stringResource(R.string.conversation_group_selected_count, matchedCount))
+                            Text(pluralStringResource(R.plurals.conversation_group_selected_count, matchedCount, matchedCount))
                             val context = LocalContext.current
                             Button(
                                 enabled = !saving,
@@ -2463,7 +2464,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                                 maxLines = 4
                             )
                             Text(
-                                text = stringResource(R.string.conversation_group_match_count, matchedCount),
+                                text = pluralStringResource(R.plurals.conversation_group_match_count, matchedCount, matchedCount),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(

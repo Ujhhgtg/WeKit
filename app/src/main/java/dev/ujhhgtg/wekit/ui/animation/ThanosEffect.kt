@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.ui.animation
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
@@ -40,7 +39,6 @@ import kotlin.math.sqrt
  *
  * 所有动画结束 (或出错/表面销毁) 后调用 [onFinished], 由调用方把本视图移出父布局。
  */
-@SuppressLint("ViewConstructor")
 class ThanosEffect(context: Context, private val onFinished: () -> Unit) : TextureView(context) {
 
     companion object {

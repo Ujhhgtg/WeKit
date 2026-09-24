@@ -69,6 +69,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.children
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Arrow_back
@@ -174,7 +175,7 @@ class ContentVeil(private val decor: ViewGroup, private val overlay: View) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             targets.forEach { target ->
                 originalForegrounds[target] = target.foreground
-                val dim = ColorDrawable(0)
+                val dim = 0.toDrawable()
                 dims[target] = dim
                 target.foreground = dim
             }

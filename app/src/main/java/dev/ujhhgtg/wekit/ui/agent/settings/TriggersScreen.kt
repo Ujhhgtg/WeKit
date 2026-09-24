@@ -18,6 +18,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -25,6 +26,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -201,7 +203,9 @@ private fun typeLabel(type: TriggerType): String = stringResource(
 @Composable
 private fun configSummary(t: TriggerEntity): String = when (t.type) {
     TriggerType.SCHEDULE -> when (t.scheduleKind) {
-        ScheduleKind.INTERVAL -> stringResource(R.string.agent_trigger_interval_summary, t.intervalSeconds ?: 0)
+        ScheduleKind.INTERVAL -> (t.intervalSeconds ?: 0).let {
+            pluralStringResource(R.plurals.agent_trigger_interval_summary, it.toInt(), it)
+        }
         ScheduleKind.DAILY -> {
             val m = t.dailyMinuteOfDay ?: 0
             val time = "${(m / 60).toString().padStart(2, '0')}:${(m % 60).toString().padStart(2, '0')}"
@@ -215,7 +219,7 @@ private fun configSummary(t: TriggerEntity): String = when (t.type) {
 
     TriggerType.MESSAGE, TriggerType.SQL -> {
         val debounce = t.bufferDebounceMillis / 1000
-        stringResource(R.string.agent_trigger_buffer_summary, debounce, t.bufferMaxEvents)
+        pluralStringResource(R.plurals.agent_trigger_buffer_summary, t.bufferMaxEvents, debounce, t.bufferMaxEvents)
     }
 }
 
@@ -242,7 +246,7 @@ private fun TriggerEditorSheet(
     // fix a mistakenly-global trigger by re-binding it to a session, without deleting + recreating.
     val scopeOptions = listOf(TriggerScope.SESSION, TriggerScope.GLOBAL)
     var scopeIndex by remember(existing) {
-        mutableStateOf(scopeOptions.indexOf(existing?.scope ?: TriggerScope.GLOBAL).coerceAtLeast(0))
+        mutableIntStateOf(scopeOptions.indexOf(existing?.scope ?: TriggerScope.GLOBAL).coerceAtLeast(0))
     }
     val selectedScope = scopeOptions[scopeIndex]
     // Ordered session list for the picker; preselect the trigger's bound session if any. The index is
@@ -251,20 +255,20 @@ private fun TriggerEditorSheet(
     // user's pick. Only sessions appearing/disappearing should invalidate it.
     val sessionList = remember(sessions) { sessions.values.toList() }
     var boundSessionIndex by remember(existing, sessions.keys) {
-        mutableStateOf(sessionList.indexOfFirst { it.id == existing?.sessionId }.coerceAtLeast(0))
+        mutableIntStateOf(sessionList.indexOfFirst { it.id == existing?.sessionId }.coerceAtLeast(0))
     }
 
     // Type selector (only editable when creating).
     val typeOptions = listOf(TriggerType.SCHEDULE, TriggerType.MESSAGE, TriggerType.SQL)
     var typeIndex by remember(existing) {
-        mutableStateOf(typeOptions.indexOf(existing?.type ?: TriggerType.SCHEDULE).coerceAtLeast(0))
+        mutableIntStateOf(typeOptions.indexOf(existing?.type ?: TriggerType.SCHEDULE).coerceAtLeast(0))
     }
     val type = typeOptions[typeIndex]
 
     // --- schedule fields ---
     val scheduleKinds = listOf(ScheduleKind.INTERVAL, ScheduleKind.DAILY, ScheduleKind.CRON, ScheduleKind.ONCE)
     var kindIndex by remember(existing) {
-        mutableStateOf(scheduleKinds.indexOf(existing?.scheduleKind ?: ScheduleKind.INTERVAL).coerceAtLeast(0))
+        mutableIntStateOf(scheduleKinds.indexOf(existing?.scheduleKind ?: ScheduleKind.INTERVAL).coerceAtLeast(0))
     }
     val kind = scheduleKinds[kindIndex]
     var intervalSeconds by remember(existing) { mutableStateOf((existing?.intervalSeconds ?: 3600).toString()) }
@@ -278,7 +282,7 @@ private fun TriggerEditorSheet(
     var talkerRegex by remember(existing) { mutableStateOf(cond.talkerRegex.orEmpty()) }
     var msgTypes by remember(existing) { mutableStateOf(cond.msgTypes?.joinToString(",").orEmpty()) }
     val directions = listOf(MessageDirection.RECEIVED, MessageDirection.SENT, MessageDirection.BOTH)
-    var directionIndex by remember(existing) { mutableStateOf(directions.indexOf(cond.direction).coerceAtLeast(0)) }
+    var directionIndex by remember(existing) { mutableIntStateOf(directions.indexOf(cond.direction).coerceAtLeast(0)) }
     var tableRegex by remember(existing) { mutableStateOf(cond.tableRegex.orEmpty()) }
     var sqlRegex by remember(existing) { mutableStateOf(cond.sqlRegex.orEmpty()) }
     var valuesRegex by remember(existing) { mutableStateOf(cond.valuesRegex.orEmpty()) }

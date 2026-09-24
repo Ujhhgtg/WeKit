@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -160,7 +161,7 @@ fun DexResolver(
                 val unknownError = stringResource(R.string.error_unknown)
                 val tipText = when (val currentPhase = phase) {
                     is DialogPhase.Idle ->
-                        stringResource(R.string.dex_cache_update_required_message, pendingItems.size)
+                        pluralStringResource(R.plurals.dex_cache_update_required_message, pendingItems.size, pendingItems.size)
 
                     is DialogPhase.DownloadingCloud ->
                         stringResource(R.string.dex_cache_cloud_downloading)
@@ -170,8 +171,9 @@ fun DexResolver(
                             stringResource(R.string.dex_cache_cloud_complete)
                         currentPhase.failures.isEmpty() ->
                             stringResource(R.string.dex_cache_resolution_success)
-                        else -> stringResource(
-                            R.string.dex_cache_resolution_partial_failure,
+                        else -> pluralStringResource(
+                            R.plurals.dex_cache_resolution_partial_failure,
+                            currentPhase.failures.size,
                             currentPhase.failures.size,
                         )
                     }

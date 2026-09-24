@@ -23,7 +23,7 @@ use crate::workspace_root;
 pub mod diff;
 
 const DEXKIT_REPOSITORY: &str = "https://github.com/LuckyPray/DexKit.git";
-const DEXKIT_REVISION: &str = "ffa6c51c38fe3ecfddb18d8949c30c48dbfbfd6a";
+const DEXKIT_REVISION: &str = "c9cd12a14b75409bebd2f73e4dfc5ff575df3eb8";
 
 #[derive(Args, Debug)]
 pub struct DexTestArgs {

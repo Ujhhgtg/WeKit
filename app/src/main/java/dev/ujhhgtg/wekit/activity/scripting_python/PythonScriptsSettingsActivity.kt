@@ -606,8 +606,8 @@ private fun PythonDetailScreen(
                                 "com.android.externalstorage.documents",
                                 "primary:$relative",
                             )
-                            context.startActivity(Intent(Intent.ACTION_VIEW, uri).apply {
-                                type = DocumentsContract.Document.MIME_TYPE_DIR
+                            context.startActivity(Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, DocumentsContract.Document.MIME_TYPE_DIR)
                             })
                         },
                     )

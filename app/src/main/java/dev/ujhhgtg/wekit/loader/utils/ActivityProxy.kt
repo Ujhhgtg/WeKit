@@ -40,7 +40,6 @@ object ActivityProxy {
     private const val TAG = "ActivityProxy"
     private var initialized = false
 
-    @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
     fun init(ctx: Context) {
         if (initialized) return
 
@@ -78,7 +77,6 @@ object ActivityProxy {
         }.onFailure { WeLogger.e(TAG, "failed to init stub activity hooks", it) }
     }
 
-    @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
     private fun hookIActivityManager() {
         val singletonClass = Class.forName("android.util.Singleton")
         val instanceField =
@@ -121,7 +119,6 @@ object ActivityProxy {
         }
     }
 
-    @SuppressLint("PrivateApi")
     private fun hookPackageManager(
         ctx: Context,
         sCurrentActivityThread: Any,
@@ -155,13 +152,9 @@ object ActivityProxy {
 
         /**
          * 这些模块 Activity 不借宿主的 stub，直接在模块自己的进程里启动：
-         *  - MainActivity 本来就是从桌面启动的；
-         *  - PipVoipActivity 需要清单里的 `supportsPictureInPicture`。system_server 校验的是
-         *    被启动组件在清单里的 flag（见 `ActivityRecord.supportsPictureInPicture()`），
-         *    而宿主没有任何 Activity 声明过它，借壳就永远进不了画中画。也正因为如此，
-         *    对应的功能只能在 LSPosed 模式下用（Zygisk 模式下模块应用没有安装）。
+         *  - MainActivity 本来就是从桌面启动的。
          */
-        private val NON_PROXY_ACTIVITIES = listOf("MainActivity", "PipVoipActivity")
+        private val NON_PROXY_ACTIVITIES = listOf("MainActivity")
 
         fun isModuleProxyActivity(className: String?): Boolean =
             className?.startsWith(PackageNames.MODULE) == true &&

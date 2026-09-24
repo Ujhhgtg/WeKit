@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.graphics.createBitmap
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlin.math.roundToInt
 
@@ -61,7 +62,7 @@ class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.co
         if (!alignToSource()) return BeginResult.SourceNotReady
 
         val bitmap = try {
-            Bitmap.createBitmap(sourceView.width, sourceView.height, Bitmap.Config.ARGB_8888)
+            createBitmap(sourceView.width, sourceView.height)
         } catch (error: OutOfMemoryError) {
             return BeginResult.AllocationFailed(error)
         } catch (error: IllegalArgumentException) {

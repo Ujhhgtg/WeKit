@@ -1,8 +1,8 @@
 package dev.ujhhgtg.wekit.data
 
 import android.content.Context
-import android.net.Uri
 import android.os.Build
+import androidx.core.net.toUri
 import dev.ujhhgtg.wekit.data.entity.AssetBindingEntity
 import dev.ujhhgtg.wekit.data.entity.AssetChunkEntity
 import dev.ujhhgtg.wekit.data.entity.AssetEntity
@@ -146,7 +146,7 @@ object LegacyDocumentMigration {
         val entries = Json.decodeFromString<Map<String, String>>(mapFile.readText(Charsets.UTF_8))
         entries.forEach { (username, rawUri) ->
             runCatching {
-                val uri = Uri.parse(rawUri)
+                val uri = rawUri.toUri()
                 val source = AssetSource(
                     owner = "custom-avatar",
                     slot = username,

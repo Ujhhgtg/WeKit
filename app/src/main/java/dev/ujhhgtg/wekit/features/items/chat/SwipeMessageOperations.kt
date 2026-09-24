@@ -212,7 +212,6 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
         val state: SwipeState,
         val delegate: View.OnTouchListener?,
     ) : View.OnTouchListener {
-        @SuppressLint("ClickableViewAccessibility")
         override fun onTouch(v: View, event: MotionEvent): Boolean {
             val consumed = handleSwipe(v, state, event)
             runCatching { delegate?.onTouch(v, event) }
@@ -220,7 +219,6 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
         }
     }
 
-    @SuppressLint("ClickableViewAccessibility")
     private fun attachSwipeListener(view: View, state: SwipeState) {
         val current = getAttachedTouchListener(view)
         if (current is SwipeTouchListener) return  // already wrapped for this stream

@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.api.ui
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ContextWrapper
 import android.util.TypedValue
@@ -56,7 +55,6 @@ object WeContactHeaderApi : ApiFeature(), IResolveDex {
         providers.remove(provider)
     }
 
-    @SuppressLint("ClickableViewAccessibility")
     override fun onEnable() {
         bindHeader.hookAfter {
             val root = args[0] as View

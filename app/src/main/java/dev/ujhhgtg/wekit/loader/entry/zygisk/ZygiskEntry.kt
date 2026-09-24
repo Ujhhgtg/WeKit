@@ -2,7 +2,6 @@
 
 package dev.ujhhgtg.wekit.loader.entry.zygisk
 
-import android.annotation.SuppressLint
 import android.content.pm.ApplicationInfo
 import androidx.annotation.Keep
 import dev.ujhhgtg.reflekt.utils.makeAccessible
@@ -40,7 +39,6 @@ object ZygiskEntry {
     private var hostDataDir: String = ""
     private var modulePath: String = ""
 
-    @SuppressLint("PrivateApi", "SoonBlockedPrivateApi")
     @Keep
     @JvmStatic
     fun init(

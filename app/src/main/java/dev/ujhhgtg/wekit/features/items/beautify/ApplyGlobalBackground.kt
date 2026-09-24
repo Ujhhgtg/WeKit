@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.graphics.Color
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -26,6 +25,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Opacity
@@ -229,7 +229,7 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
         if (!legacy.startsWith("content://")) return
 
         val migrated = runCatching {
-            HostInfo.application.contentResolver.openInputStream(Uri.parse(legacy))?.use { input ->
+            HostInfo.application.contentResolver.openInputStream(legacy.toUri())?.use { input ->
                 backgroundImageFile.toFile().outputStream().use { output ->
                     input.copyTo(output)
                 }

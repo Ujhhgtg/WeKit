@@ -15,7 +15,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
@@ -29,7 +30,7 @@ fun WeKitBasicDialog(
 ) {
     if (!show) return
 
-    val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.9f).dp
+    val maxHeight = with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * 0.9f).toDp() }
     BasicAlertDialog(onDismissRequest = onDismissRequest) {
         Surface(
             modifier = Modifier

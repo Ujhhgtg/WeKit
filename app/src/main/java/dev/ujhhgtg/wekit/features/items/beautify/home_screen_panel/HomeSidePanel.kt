@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.graphics.Outline
@@ -1536,7 +1535,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         override fun onInterceptTouchEvent(ev: MotionEvent): Boolean =
             session?.onOverlayInterceptTouch(ev) == true || super.onInterceptTouchEvent(ev)
 
-        @SuppressLint("ClickableViewAccessibility")
         override fun onTouchEvent(event: MotionEvent): Boolean =
             session?.onOverlayTouch(event) == true || super.onTouchEvent(event)
     }

@@ -24,7 +24,6 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import java.text.Collator
 import java.util.Calendar
-import java.util.Locale
 
 @Serializable
 data class AutomationToggleRule(val enabled: Boolean = false)
@@ -156,7 +155,7 @@ fun AutomationContactSettingsSelector(
     onOpen: (IWeContact) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    val currentLocale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+    val currentLocale = LocalConfiguration.current.locales[0]
     val collator = remember(currentLocale) { Collator.getInstance(currentLocale) }
     val filteredContacts = remember(searchQuery, contacts, collator) {
         contacts.filter {

@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -160,8 +161,9 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                         BaseWidget(
                             icon = MaterialSymbols.Outlined.Fiber_new,
                             title = stringResource(featureCategoryTitleRes(NEW_FEATURES_CATEGORY)),
-                            description = stringResource(
-                                R.string.features_new_summary,
+                            description = pluralStringResource(
+                                R.plurals.features_new_summary,
+                                FeatureCategoryState.newItems.size,
                                 NewFeatures.WINDOW_DAYS,
                                 FeatureCategoryState.newItems.size,
                             ),
@@ -180,7 +182,7 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                         BaseWidget(
                             icon = MaterialSymbols.Outlined.Check_circle,
                             title = stringResource(featureCategoryTitleRes(ENABLED_FEATURES_CATEGORY)),
-                            description = stringResource(R.string.feature_category_enabled_summary, enabledCount),
+                            description = pluralStringResource(R.plurals.feature_category_enabled_summary, enabledCount, enabledCount),
                             onClick = { onOpenCategory(ENABLED_FEATURES_CATEGORY) },
                             trailingContent = {
                                 Icon(

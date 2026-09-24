@@ -34,6 +34,7 @@ import androidx.core.graphics.get
 import androidx.core.view.children
 import androidx.core.view.descendants
 import androidx.core.view.doOnNextLayout
+import androidx.core.view.isVisible
 import com.tencent.mm.ui.mogic.WxViewPager
 import dev.ujhhgtg.reflekt.firstMethod
 import dev.ujhhgtg.reflekt.reflekt
@@ -392,7 +393,7 @@ class NavBarSession(
     }
 
     private fun updateNativeBarLayout() {
-        val first = nativeRow.children.firstOrNull { it.visibility == View.VISIBLE && it.width > 0 }
+        val first = nativeRow.children.firstOrNull { it.isVisible && it.width > 0 }
         if (first == null) {
             nativeBarLayout = null
             return
@@ -404,7 +405,7 @@ class NavBarSession(
             top = location[1] + first.top - bottomTab.translationY,
             height = first.height.toFloat(),
             step = first.width.toFloat(),
-            count = nativeRow.children.count { it.visibility == View.VISIBLE },
+            count = nativeRow.children.count { it.isVisible },
         )
     }
 

@@ -45,6 +45,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.drawable.toDrawable
+import androidx.core.graphics.get
 import androidx.core.view.WindowCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
@@ -1337,7 +1340,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             val view = original.view
             val background = view.background
             if (background !is ColorDrawable || background.color != Color.TRANSPARENT) {
-                view.background = ColorDrawable(Color.TRANSPARENT)
+                view.background = Color.TRANSPARENT.toDrawable()
             }
             if (view.outlineProvider != null) view.outlineProvider = null
             if (view.clipToOutline) view.clipToOutline = false
@@ -1507,11 +1510,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private fun sampleHeaderSurfaceColor(header: View): Int {
         val fallback = if (header.context.isDarkMode) 0xFF242424.toInt() else 0xFFF7F7F7.toInt()
         if (header.width <= 0 || header.height <= 0) return fallback
-        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(1, 1)
         val canvas = Canvas(bitmap)
         canvas.translate(-(header.width / 2f), -1f)
         header.draw(canvas)
-        val sampled = bitmap.getPixel(0, 0)
+        val sampled = bitmap[0, 0]
         bitmap.recycle()
         return if (Color.alpha(sampled) >= 0x80) sampled else fallback
     }
@@ -2180,7 +2183,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         ) {
             text.setPaddingRelative(original[0], original[1], reservedEnd, original[3])
         }
-        badge.text = "+$remainingCount"
+        badge.text = localizedChatString(R.string.chat_floating_header_overflow_badge, remainingCount)
         val color = text.currentTextColor
         badge.setTextColor(color and 0x00FFFFFF or (0x99 shl 24))
         badge.visibility = View.VISIBLE

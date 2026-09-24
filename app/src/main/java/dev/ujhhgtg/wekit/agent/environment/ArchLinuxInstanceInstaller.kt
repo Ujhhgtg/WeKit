@@ -1,5 +1,8 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import android.os.storage.StorageManager
+import androidx.core.content.getSystemService
+import dev.ujhhgtg.wekit.utils.HostInfo
 import kotlin.io.path.copyTo
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.isRegularFile
@@ -45,7 +48,10 @@ object ArchLinuxInstanceInstaller {
         require(instancesDirectory.mkdirs() || instancesDirectory.isDirectory) { "cannot create environment storage" }
         require(maxExtractedBytes > 0) { "invalid Arch extracted-size limit" }
         val required = Math.addExact(maxExtractedBytes, INSTALL_HEADROOM_BYTES)
-        require(instancesDirectory.usableSpace >= required) { "insufficient storage for Arch Linux instance" }
+        // 可分配空间会把系统可清理的缓存计入, 比 usableSpace 更准确
+        val storageManager = HostInfo.application.getSystemService<StorageManager>()!!
+        val allocatable = storageManager.getAllocatableBytes(storageManager.getUuidForPath(instancesDirectory))
+        require(allocatable >= required) { "insufficient storage for Arch Linux instance" }
         val destination = File(instancesDirectory, instanceId)
         require(!destination.exists()) { "environment instance already exists" }
         val staging = File(instancesDirectory, ".$instanceId-${UUID.randomUUID()}.staging")

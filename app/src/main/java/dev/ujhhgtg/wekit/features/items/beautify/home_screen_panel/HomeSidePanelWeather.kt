@@ -659,7 +659,6 @@ class HomeSidePanelLocation(
         listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
             .firstOrNull(locationManager::isProviderEnabled)
 
-    @SuppressLint("MissingPermission")
     private suspend fun requestLocation(
         activity: Activity,
         locationManager: LocationManager,

@@ -19,6 +19,7 @@ import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
+import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -314,7 +315,7 @@ object StickersManagerEnhancements : SwitchFeature() {
             selectedMd5s.forEachIndexed { index, md5 ->
                 WeMessageApi.saveStickerByMd5(md5, "sticker_${baseName}_$index.gif")
             }
-            showToastSuspend(localizedChatQuantity(R.plurals.chat_sticker_manager_exported, selectedMd5s.size, selectedMd5s.size, "/sdcard/Download/WeKit"))
+            showToastSuspend(localizedChatQuantity(R.plurals.chat_sticker_manager_exported, selectedMd5s.size, selectedMd5s.size, KnownPaths.downloads.toString()))
         }
     }
 }

@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.loader.utils
 
-import android.annotation.SuppressLint
 import android.content.res.AssetManager
 import android.content.res.Resources
 import android.content.res.loader.ResourcesLoader
@@ -83,7 +82,6 @@ object ResourcesInjector {
         }
     }
 
-    @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
     @Suppress("JavaReflectionMemberAccess")
     private fun injectResLt30(resources: Resources, apk: File, sha256: String): InjectionHandle {
         val addAssetPath = AssetManager::class.java

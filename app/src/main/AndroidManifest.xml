@@ -53,21 +53,6 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
 
         <activity
-            android:name=".activity.PipVoipActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:excludeFromRecents="true"
-            android:exported="true"
-            android:launchMode="singleTask"
-            android:resizeableActivity="true"
-            android:supportsPictureInPicture="true"
-            android:taskAffinity="dev.ujhhgtg.wekit.voip_pip"
-            android:theme="@style/Theme.Material3.DynamicColors.DayNight.NoActionBar" />
-
-        <receiver
-            android:name=".activity.PipVoipActionReceiver"
-            android:exported="false" />
-
-        <activity
             android:name=".activity.settings.SettingsActivity"
             android:exported="true"
             android:theme="@style/Theme.Material3.DynamicColors.DayNight.NoActionBar" />

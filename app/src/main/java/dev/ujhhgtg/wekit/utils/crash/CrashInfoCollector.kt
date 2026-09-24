@@ -269,7 +269,7 @@ object CrashInfoCollector {
             var processName = reader.readLine()
             reader.close()
             if (processName != null) {
-                processName = processName.trim { it <= ' ' }
+                processName = processName.trim()
                 if (!processName.isEmpty()) {
                     return processName
                 }

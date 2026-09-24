@@ -5,7 +5,6 @@
 
     <string name="settings_title">Settings</string>
     <string name="settings_section_interface">Interface</string>
-    <string name="settings_general_title">General settings</string>
     <string name="settings_language_title">Language</string>
     <string name="settings_language_summary">%1$s · %2$s</string>
     <string name="language_follow_system">Follow system</string>
@@ -80,7 +79,6 @@
     <string name="contact_filters_collapse">Collapse filters</string>
     <string name="contact_filters_expand">Expand filters</string>
     <string name="contact_filter_with_count">%1$s (%2$d)</string>
-    <string name="contact_labels_content_description">Labels</string>
     <string name="contact_filter_mode_labels">Labels</string>
     <string name="contact_filter_mode_aggregation">Aggregation</string>
     <string name="contact_filter_mode_grouping">Grouping</string>
@@ -96,7 +94,6 @@
     <string name="contact_confirm_selected_count">Confirm (%1$d)</string>
     <string name="error_unknown">Unknown error</string>
     <string name="clipboard_copied">Copied</string>
-    <string name="clipboard_label_link">Link</string>
     <string name="restart_wechat">Restart WeChat</string>
     <string name="restart_wechat_to_apply">Takes effect after restarting WeChat</string>
     <string name="dex_cache_status_resolving">Resolving…</string>
@@ -104,21 +101,19 @@
     <string name="dex_cache_status_failed">Failed: %1$s</string>
     <string name="dex_cache_resolution_error">An error occurred during resolution: %1$s</string>
     <string name="dex_cache_update_title">DEX cache update</string>
-    <string name="dex_cache_update_required_message">%1$d features need their DEX caches updated. Resolve them from the cloud or on this device. If you close this dialog, those features will not be loaded.</string>
+    <plurals name="dex_cache_update_required_message">
+        <item quantity="one">%1$d feature needs its DEX cache updated. Resolve it from the cloud or on this device. If you close this dialog, that feature will not be loaded.</item>
+        <item quantity="other">%1$d features need their DEX caches updated. Resolve them from the cloud or on this device. If you close this dialog, those features will not be loaded.</item>
+    </plurals>
     <string name="dex_cache_resolution_success">Resolution complete. All DEX caches were updated successfully.</string>
-    <string name="dex_cache_resolution_partial_failure">Resolution complete, but %1$d features failed. Other features are unaffected.</string>
+    <plurals name="dex_cache_resolution_partial_failure">
+        <item quantity="one">Resolution complete, but %1$d feature failed. Other features are unaffected.</item>
+        <item quantity="other">Resolution complete, but %1$d features failed. Other features are unaffected.</item>
+    </plurals>
     <string name="dex_cache_cloud_downloading">Downloading and validating the cloud resolution report…</string>
     <string name="dex_cache_cloud_complete">Cloud resolution complete. Restart WeChat to load the resolved features.</string>
-    <string name="dex_cache_cloud_partial">Cloud resolution completed for %1$d features. %2$d features still require local resolution.</string>
-    <string name="dex_cache_cloud_not_found">No cloud resolution report is available for this WeChat build. You can continue with local resolution.</string>
-    <string name="dex_cache_cloud_network_failure">Could not download the cloud resolution report: %1$s. You can continue with local resolution.</string>
-    <string name="dex_cache_cloud_invalid_report">The cloud resolution report is invalid or incompatible: %1$s. You can continue with local resolution.</string>
-    <string name="dex_cache_cloud_write_failure">Could not save the cloud resolution cache: %1$s. Existing caches were preserved.</string>
-    <string name="dex_cache_cloud_no_matches">The cloud report contains no current resolver entries. You can continue with local resolution.</string>
     <string name="dex_cache_total_progress">Total progress: %1$d/%2$d</string>
-    <string name="dex_cache_cloud_resolution">Cloud resolution</string>
     <string name="dex_cache_start_local_resolution">Start resolution</string>
-    <string name="dex_cache_continue_local_resolution">Continue resolution</string>
     <string name="dex_cache_failure_detail">%1$d. %2$s\n   Error: %3$s\n\n</string>
     <string name="dex_cache_copy_error_information">Copy error information</string>
     <string name="dex_error_report_title">=== WeKit DEX Scan Error Report ===</string>
@@ -131,11 +126,6 @@
     <string name="location_manual_coordinates_title">Enter coordinates manually</string>
     <string name="location_latitude_range_label">Latitude (-90 to 90)</string>
     <string name="location_longitude_range_label">Longitude (-180 to 180)</string>
-    <string name="voip_hang_up">Hang up</string>
-    <string name="voip_turn_on_microphone">Turn on microphone</string>
-    <string name="voip_turn_off_microphone">Turn off microphone</string>
-    <string name="voip_turn_on_video">Turn on video</string>
-    <string name="voip_turn_off_video">Turn off video</string>
     <string name="color_picker_title">Choose color</string>
     <string name="color_picker_hue">Hue</string>
     <string name="color_picker_saturation">Saturation</string>
@@ -218,22 +208,17 @@
     <string name="agent_use_first_model">(Use the first model)</string>
     <string name="agent_default_system_prompt_title">Default system prompt</string>
     <string name="common_none_parenthesized">(None)</string>
-    <string name="common_loading">Loading…</string>
     <string name="action_save">Save</string>
-    <string name="accessibility_show">Show</string>
-    <string name="accessibility_hide">Hide</string>
     <string name="external_service_exa_name" translatable="false">Exa Search</string>
     <string name="external_service_exa_description">AI semantic search; requires an Exa API key (exa.ai)</string>
     <string name="external_service_brave_name" translatable="false">Brave Search</string>
     <string name="external_service_brave_description">Privacy-focused web search; requires a Brave Search API key (api.search.brave.com)</string>
     <string name="external_service_api_key" translatable="false">API Key</string>
-    <string name="agent_no_provider_tools">This provider has no available tools.</string>
     <string name="agent_permission_level_request_approval">Request approval</string>
     <string name="agent_permission_level_auto_edit">Auto edit</string>
     <string name="agent_permission_level_auto_approval">Auto approval</string>
     <string name="agent_permission_level_full_access">Full access</string>
     <string name="action_add">Add</string>
-    <string name="common_name">Name</string>
     <string name="agent_provider_summary">%1$s · %2$s</string>
     <string name="agent_add_provider">Add provider</string>
     <string name="agent_add_model_provider">Add model provider</string>
@@ -248,7 +233,10 @@
     <string name="features_clear_search">Clear search</string>
     <string name="features_no_results">No matching features</string>
     <string name="features_category_empty">There are no features to show in this category</string>
-    <string name="features_new_summary">%2$d features added in the last %1$d days</string>
+    <plurals name="features_new_summary">
+        <item quantity="one">%2$d feature added in the last %1$d days</item>
+        <item quantity="other">%2$d features added in the last %1$d days</item>
+    </plurals>
     <string name="home_module_activated">Module activated</string>
     <string name="home_device_info_title">Device information</string>
     <string name="home_learn_more_title">Learn more</string>
@@ -264,7 +252,7 @@
     <string name="home_device_model_value" translatable="false">%1$s %2$s</string>
     <string name="home_android_version_value" translatable="false">%1$s (API %2$d)</string>
     <string name="home_loading_environment_value">Current loader: %1$s\nCurrent hook bridge: %2$s</string>
-    <string name="loader_libxposed_api_name">libxposed API %1$d</string>
+    <string name="loader_libxposed_api_name" translatable="false">libxposed API %1$d</string>
     <string name="loader_legacy_xposed_api_name">Legacy Xposed API %1$d</string>
     <string name="loader_art_hook_name">ART hooks</string>
     <string name="loader_zygisk_name">Zygisk loader</string>
@@ -360,7 +348,6 @@
     <string name="theme_mode_system">Follow system</string>
     <string name="theme_mode_light">Light mode</string>
     <string name="theme_mode_dark">Dark mode</string>
-    <string name="settings_custom_color_summary">Generate colors from a palette instead of using the default Material 3 color</string>
     <string name="settings_dynamic_wallpaper_title">Dynamic wallpaper colors</string>
     <string name="settings_dynamic_wallpaper_summary">Use the system wallpaper accent as the seed color\nRequires Android SDK 31 or later</string>
     <string name="settings_seed_color_title">Seed color</string>
@@ -404,12 +391,6 @@
     <string name="licenses_search_hint">Search libraries</string>
     <string name="licenses_visit_home_page">Visit home page</string>
     <string name="licenses_no_license_text">No license text available</string>
-    <string name="licenses_count">%1$d libraries</string>
-    <string name="licenses_filtered_count">%1$d/%2$d libraries</string>
-    <string name="licenses_no_results">No results for “%1$s”</string>
-    <string name="licenses_unknown_author">Unknown author</string>
-    <string name="licenses_version">Version %1$s</string>
-    <string name="licenses_license_names">Licenses: %1$s</string>
 
     <!-- Feature categories -->
     <string name="feature_category_chat_title">Chat</string>
@@ -434,7 +415,10 @@
     <string name="feature_category_api_title">API</string>
     <string name="feature_category_new_features_title">New features</string>
     <string name="feature_category_enabled_title">Enabled features</string>
-    <string name="feature_category_enabled_summary">%1$d features currently enabled</string>
+    <plurals name="feature_category_enabled_summary">
+        <item quantity="one">%1$d feature currently enabled</item>
+        <item quantity="other">%1$d features currently enabled</item>
+    </plurals>
     <string name="feature_python_scripting_name">Python plugin engine</string>
     <string name="feature_python_scripting_description">Run trusted CPython plugins with direct JVM access</string>
     <string name="python_scripts_title">Python plugins</string>
@@ -508,8 +492,6 @@
     <string name="feature_apply_dialog_background_blur_description">Add window-level background blur to module and WeChat dialogs [requires SDK &gt;= 31]</string>
     <string name="feature_apply_global_background_name">Apply global background</string>
     <string name="feature_apply_global_background_description">Globally replace the WeChat background with a picture</string>
-    <string name="feature_beautify_activity_transition_animation_name">Customize activity transitions</string>
-    <string name="feature_beautify_activity_transition_animation_description">Replace some active transition animations with default transitions or element-level shared animations (not finished yet)</string>
     <string name="feature_beautify_conversation_list_name">Customize conversation list</string>
     <string name="feature_beautify_conversation_list_description">Provides an island layout, unread highlighting and divider settings for the conversation list</string>
     <string name="feature_beautify_view_press_effect_name">Customize press effects</string>
@@ -531,7 +513,7 @@
     <string name="monet_generator_unsupported">Android 12 or newer is required.</string>
     <string name="monet_generator_failed">Generation failed during %1$s: %2$s</string>
     <string name="monet_generator_output">Module generated at:\n%1$s</string>
-    <string name="monet_generator_counts">Covered %1$d resources (kept %2$d, added %3$d, pruned %4$d).</string>
+    <string name="monet_generator_counts">Resources covered: %1$d (kept %2$d, added %3$d, pruned %4$d).</string>
     <string name="monet_generator_install_hint">Install this ZIP with Magisk, KernelSU, APatch, or a derivative root manager. After installation, enable the “Monet engine module generator” switch and reboot. KernelSU/APatch users must select WeChat under “Superuser” and turn off “Unmount modules”.</string>
     <string name="feature_beautify_navigation_bar_name">Beautify home navigation bar</string>
     <string name="feature_beautify_navigation_bar_description">Restyle the home bottom bar and manage its pages and badges, edited live on the home screen</string>
@@ -565,8 +547,6 @@
     <string name="feature_brute_force_group_member_real_names_first_char_description">Through the name verification interface for large transfers, try and restore the first letter of the group member’s real name one by one (cooperated with the function of displaying the suffix of the real name to spell out the complete name). Multiple transfer orders will be initiated to the server (no money will be actually deducted), there is a risk of triggering anti-abuse controls, please bear it at your own risk</string>
     <string name="feature_bypass_risk_file_blocking_name">Unblock risky files</string>
     <string name="feature_bypass_risk_file_blocking_description">Bypass the prompt "This file has been complained by users and verified to be a security risk and cannot be received/cannot be opened" and allows the marked files to be received and opened normally.</string>
-    <string name="feature_chat_auto_reply_name">Chat auto-reply</string>
-    <string name="feature_chat_auto_reply_description">Match received text messages according to task rules and automatically reply</string>
     <string name="feature_chat_footer_hooks_name">Chat input bar hooks</string>
     <string name="feature_chat_footer_hooks_description">Centrally provide hooks related to the chat input field</string>
     <string name="feature_chat_toolbar_name">Chat toolbar</string>
@@ -632,9 +612,9 @@
     <string name="feature_merge_messages_into_groups_name">Group consecutive messages</string>
     <string name="feature_merge_messages_into_groups_description">Combine multiple consecutive messages from the same sender into one message display (Telegram style)</string>
     <string name="feature_message_entrance_animation_name">Message entry animation</string>
-    <string name="feature_message_entrance_animation_description">When a single message enters the screen in the chat interface, the entry animation is played, and it supports bouncing/sliding in/gravity drop, allowing all historical messages to jump.</string>
+    <string name="feature_message_entrance_animation_description">When a single message enters the screen in the chat interface, an entry animation is played, supporting bouncing/sliding in/gravity drop.</string>
     <string name="feature_message_deletion_animation_name">Message deletion animation</string>
-    <string name="feature_message_deletion_animation_description">Play a Telegram-style animation when a message is deleted: the message disintegrates into particles (falls back to fading out if unsupported) and the remaining messages slide into place.</string>
+    <string name="feature_message_deletion_animation_description">When a message is deleted, it disintegrates into particles and the remaining messages slide smoothly into place (Telegram style).</string>
     <string name="feature_message_time_enhancements_name">Enhanced message timestamps</string>
     <string name="feature_message_time_enhancements_description">Shows the precise time the message was sent and allows more details to be displayed</string>
     <string name="feature_modify_text_message_display_name">Modify text message display</string>
@@ -685,14 +665,14 @@
     <string name="feature_voice_message_playback_optimization_description">Optimize the automatic switching of voice message receiver/speaker: completely disable automatic switching, or continue the playback progress after switching and no longer replay from the beginning</string>
     <string name="feature_voice_panel_name">Voice panel</string>
     <string name="feature_voice_panel_description">Long press the voice button to open the voice panel</string>
-    <string name="feature_mention_members_name">@everyone</string>
+    <string name="feature_mention_members_name">\@everyone</string>
     <string name="feature_mention_members_description">Add the "@Everyone" function to the long-press menu of the group chat input field to support selecting receiving members; long-press this item to configure sending settings</string>
     <string name="feature_send_card_message_name">Send card message</string>
     <string name="feature_send_card_message_description">Add the "Send Card Message" function to the long-press menu of the chat input field</string>
     <string name="feature_send_voice_file_name">Send voice file</string>
     <string name="feature_send_voice_file_description">Add the "Send Voice File" function to the long-press menu of the chat input field</string>
     <string name="feature_send_sec_msg_name">Send secure messages</string>
-    <string name="feature_send_sec_msg_description">Inject a sec_msg_node marker into outgoing text messages so the long-press menu shows only "Delete" for both sides. Passive mode: applies to every text message; Active modes: long-press the send button or use a trigger prefix to apply it to specific messages</string>
+    <string name="feature_send_sec_msg_description">Inject a sec_msg_node marker into outgoing text messages so the long-press menu shows only "Delete" for both sides</string>
     <string name="send_sec_msg_menu_label">Send secure message</string>
     <string name="send_sec_msg_input_empty">The input box is empty</string>
     <string name="send_sec_msg_mode_passive">Passive mode</string>
@@ -949,8 +929,6 @@
     <string name="feature_api_server_description">Enable REST API and MCP server to allow humans and AI to access WeChat capabilities</string>
     <string name="feature_block_voip_ringtone_name">Block ringtones</string>
     <string name="feature_block_voip_ringtone_description">Block audio and video call ringtones</string>
-    <string name="feature_pip_voip_name">Use picture-in-picture for audio and video calls</string>
-    <string name="feature_pip_voip_description">Let WeChat audio and video calls use the native picture-in-picture mode instead of a floating window</string>
     <string name="feature_remove_limits_during_calls_name">Remove chat restrictions during calls</string>
     <string name="feature_remove_limits_during_calls_description">Bypass chat restrictions while on a call</string>
     <string name="feature_virtual_voip_video_name">Virtual video calls</string>
@@ -1027,10 +1005,8 @@
     <string name="feature_we_view_tree_lifecycle_provider_name">Compose lifecycle provider</string>
     <string name="feature_we_web_view_api_name">WebView tracking service</string>
     <string name="feature_we_web_view_api_description">Track all WebView instances in the main process for calls by WeAgent’s builtin-webview tool</string>
-    <string name="agent_loading">Loading…</string>
     <string name="agent_field_name">Name</string>
     <string name="agent_api_key_label" translatable="false">API Key</string>
-    <string name="action_edit">Edit</string>
     <string name="action_delete">Delete</string>
     <string name="agent_mcp_server_summary">%1$s · %2$s</string>
     <string name="agent_mcp_server_summary_error">%1$s · %2$s · %3$s</string>
@@ -1040,7 +1016,6 @@
     <string name="agent_mcp_status_error">%1$s · %2$s</string>
     <string name="agent_delete_server">Delete this server</string>
     <string name="agent_tools_title">Tools</string>
-    <string name="agent_mcp_tools_empty">Not connected or no tools are available. Connect first to configure each tool’s permissions here.</string>
     <string name="agent_mcp_state_disconnected">Disconnected</string>
     <string name="agent_mcp_state_connecting">Connecting</string>
     <string name="agent_mcp_state_connected">Connected</string>
@@ -1054,7 +1029,6 @@
     <string name="agent_delete_provider">Delete provider</string>
     <string name="agent_model_supports_vision_badge">Vision</string>
     <string name="agent_add_model">Add model</string>
-    <string name="agent_fetching_models">Fetching model list…</string>
     <string name="agent_auto_import_models">Import models automatically</string>
     <string name="agent_fetch_models_failed">Failed to fetch models: %1$s</string>
     <string name="agent_import_models_title">Import models (%1$d)</string>
@@ -1081,19 +1055,15 @@
     <string name="agent_supports_vision">Supports vision (image input)</string>
     <string name="agent_supports_vision_summary">Enable this so the AI can use the ui-screenshot tool to inspect the interface</string>
     <string name="agent_system_prompts">System prompts</string>
-    <string name="agent_system_prompts_empty">No system prompts yet. A session can bind one of them.</string>
     <string name="agent_add_system_prompt">Add system prompt</string>
     <string name="agent_edit_system_prompt">Edit system prompt</string>
     <string name="agent_per_turn_prompts">Per-turn prompts</string>
-    <string name="agent_per_turn_prompts_empty">No per-turn prompts yet. When enabled, they are prepended to every user message.</string>
     <string name="agent_add_per_turn_prompt">Add per-turn prompt</string>
     <string name="agent_edit_per_turn_prompt">Edit per-turn prompt</string>
     <string name="agent_conditional_prompts">Conditional prompts</string>
-    <string name="agent_conditional_prompts_empty">No conditional prompts yet. When enabled, they match model replies using regular expressions and inject content.</string>
     <string name="agent_add_conditional_prompt">Add conditional prompt</string>
     <string name="agent_edit_conditional_prompt">Edit conditional prompt</string>
     <string name="agent_preset_prompts">Preset prompts</string>
-    <string name="agent_preset_prompts_empty">No preset prompts yet. They can be inserted from the + menu in the conversation input.</string>
     <string name="agent_add_preset_prompt">Add preset prompt</string>
     <string name="agent_edit_preset_prompt">Edit preset prompt</string>
     <string name="agent_system_prompt_content">System prompt content</string>
@@ -1121,16 +1091,20 @@
     <string name="agent_trigger_type_message">New message</string>
     <string name="agent_trigger_type_database">Database</string>
     <string name="agent_trigger_type_database_operation">Database operation</string>
-    <string name="agent_trigger_interval_summary">Every %1$d seconds</string>
+    <plurals name="agent_trigger_interval_summary">
+        <item quantity="one">Every %1$d second</item>
+        <item quantity="other">Every %1$d seconds</item>
+    </plurals>
     <string name="agent_trigger_daily_summary">Every day at %1$s</string>
     <string name="agent_trigger_cron_summary">cron: %1$s</string>
     <string name="agent_trigger_once_summary">One time</string>
     <string name="agent_trigger_not_configured">Not configured</string>
-    <string name="agent_trigger_buffer_summary">Buffer %1$d s / limit %2$d events</string>
+    <plurals name="agent_trigger_buffer_summary">
+        <item quantity="one">Buffer %1$d s / limit %2$d event</item>
+        <item quantity="other">Buffer %1$d s / limit %2$d events</item>
+    </plurals>
     <string name="agent_trigger_type">Type</string>
     <string name="agent_trigger_scope">Scope</string>
-    <string name="agent_trigger_scope_session_summary">Bind a session and run within it when triggered</string>
-    <string name="agent_trigger_scope_global_summary">Create a new session each time the trigger fires</string>
     <string name="agent_trigger_scope_session">Bind session</string>
     <string name="agent_trigger_scope_global">Global (create a new session each time)</string>
     <string name="agent_no_sessions_to_bind">There are no sessions to bind. Create a session in the assistant panel first.</string>
@@ -1257,15 +1231,21 @@
     <string name="conversation_group_mode_friends">All friends automatically</string>
     <string name="conversation_group_mode_officials">All official accounts automatically</string>
     <string name="conversation_group_mode_sql">Custom SQL rule</string>
-    <string name="conversation_group_selected_count">Selected %1$d conversations</string>
+    <plurals name="conversation_group_selected_count">
+        <item quantity="one">Selected %1$d conversation</item>
+        <item quantity="other">Selected %1$d conversations</item>
+    </plurals>
     <string name="conversation_group_select_conversations">Select conversations</string>
-    <string name="conversation_group_unread_match_count">Automatically group all unread conversations (%1$d currently matched)</string>
-    <string name="conversation_group_groups_match_count">Automatically group all group chats (%1$d currently matched)</string>
-    <string name="conversation_group_friends_match_count">Automatically group all friends (%1$d currently matched)</string>
-    <string name="conversation_group_officials_match_count">Automatically group all official accounts (%1$d currently matched)</string>
+    <string name="conversation_group_unread_match_count">Automatically group all unread conversations (currently matched: %1$d)</string>
+    <string name="conversation_group_groups_match_count">Automatically group all group chats (currently matched: %1$d)</string>
+    <string name="conversation_group_friends_match_count">Automatically group all friends (currently matched: %1$d)</string>
+    <string name="conversation_group_officials_match_count">Automatically group all official accounts (currently matched: %1$d)</string>
     <string name="conversation_group_select_fields">SELECT fields</string>
     <string name="conversation_group_where_clause">WHERE clause</string>
-    <string name="conversation_group_match_count">Currently matches %1$d conversations</string>
+    <plurals name="conversation_group_match_count">
+        <item quantity="one">Currently matches %1$d conversation</item>
+        <item quantity="other">Currently matches %1$d conversations</item>
+    </plurals>
     <string name="conversation_group_sql_help" formatted="false">Data sources: rcontact r, img_flag i, rconversation c\nExample: c.unReadCount &gt; 0 AND r.username LIKE \'%@chatroom\'</string>
     <string name="conversation_group_saved">Saved</string>
     <string name="conversation_grouping_tab_layout_title">Tab layout</string>
@@ -1313,17 +1293,17 @@
     <string name="fab_preset_entry">%1$s · %2$s</string>
     <string name="fab_icon">Icon</string>
     <string name="fab_icon_qr_scanner">QR scanner</string>
-    <string name="fab_icon_camera">camera</string>
-    <string name="fab_icon_wallet">wallet</string>
-    <string name="fab_icon_video">video</string>
-    <string name="fab_icon_settings">settings</string>
-    <string name="fab_icon_extension">extension</string>
-    <string name="fab_icon_cancel">cancel</string>
-    <string name="fab_icon_update">update</string>
-    <string name="fab_icon_bookmark">bookmark</string>
-    <string name="fab_icon_favorite">favorite</string>
-    <string name="fab_icon_mark_as_read">mark as read</string>
-    <string name="fab_icon_check_circle">check circle</string>
+    <string name="fab_icon_camera">Camera</string>
+    <string name="fab_icon_wallet">Wallet</string>
+    <string name="fab_icon_video">Video</string>
+    <string name="fab_icon_settings">Settings</string>
+    <string name="fab_icon_extension">Extension</string>
+    <string name="fab_icon_cancel">Cancel</string>
+    <string name="fab_icon_update">Update</string>
+    <string name="fab_icon_bookmark">Bookmark</string>
+    <string name="fab_icon_favorite">Favorite</string>
+    <string name="fab_icon_mark_as_read">Mark as read</string>
+    <string name="fab_icon_check_circle">Check circle</string>
     <string name="fab_select_icon_description">Select %1$s icon</string>
     <string name="fab_settings_title">FAB buttons</string>
     <string name="fab_shortcuts_title">Home-screen shortcuts</string>
@@ -1337,9 +1317,6 @@
     <string name="fab_description_stop_wechat">Terminate the WeChat process</string>
     <string name="fab_drag_to_reorder_description">Drag to reorder</string>
     <string name="fab_delete_description">Delete %1$s</string>
-    <string name="agent_name_required">Name cannot be empty</string>
-    <string name="agent_name_dot_invalid">Name cannot be “.” or “..”</string>
-    <string name="agent_name_illegal_characters">Name cannot contain / \ : * ? &quot; &lt; &gt; | or similar characters</string>
     <string name="panel_action_back">Back</string>
     <string name="panel_action_create">Create</string>
     <string name="panel_action_delete">Delete</string>
@@ -1382,14 +1359,14 @@
     <string name="panel_pack_name">Pack name</string>
     <string name="panel_pack_picker_create_hint">Create a new pack and save to it</string>
     <string name="panel_pack_picker_empty">No existing packs. Create one first.</string>
-    <string name="panel_progress_completed">%1$d/%2$d completed</string>
-    <string name="panel_progress_failed_suffix">, %1$d failed</string>
-    <string name="panel_progress_processed">%1$d/%2$d processed</string>
+    <string name="panel_progress_completed">Completed: %1$d/%2$d</string>
+    <string name="panel_progress_failed_suffix">, failed: %1$d</string>
+    <string name="panel_progress_processed">Processed: %1$d/%2$d</string>
     <string name="panel_recent">Recently used</string>
-    <string name="panel_save_progress_summary">%1$d/%2$d completed, %3$d failed</string>
+    <string name="panel_save_progress_summary">Completed: %1$d/%2$d, failed: %3$d</string>
     <string name="panel_search_clear">Clear search</string>
     <string name="panel_search_close">Close search</string>
-    <string name="panel_selection_count">%1$d/%2$d selected</string>
+    <string name="panel_selection_count">Selected: %1$d/%2$d</string>
     <string name="panel_setting_auto_close">Automatically close panel after sending</string>
     <string name="panel_setting_conversion_concurrency">Conversion concurrency</string>
     <string name="panel_setting_custom_number_summary">%1$d · Tap to enter a custom value</string>
@@ -1437,7 +1414,10 @@
     <string name="sticker_panel_delete_item_message">Delete this sticker from the local sticker pack?</string>
     <string name="sticker_panel_delete_pack">Delete sticker pack</string>
     <string name="sticker_panel_delete_pack_message">Delete “%1$s” and all stickers in it?</string>
-    <string name="sticker_panel_deleted_count">Deleted %1$d stickers</string>
+    <plurals name="sticker_panel_deleted_count">
+        <item quantity="one">Deleted %1$d sticker</item>
+        <item quantity="other">Deleted %1$d stickers</item>
+    </plurals>
     <string name="sticker_panel_empty_local_packs">No local sticker packs</string>
     <string name="sticker_panel_empty_local_packs_hint">Create a sticker pack to import into it</string>
     <string name="sticker_panel_empty_never_sent">No stickers have been sent yet</string>
@@ -1505,10 +1485,13 @@
     <string name="sticker_panel_progress_update_pack">Updating sticker pack “%1$s”</string>
     <string name="sticker_panel_progress_upload">Uploading sticker pack</string>
     <string name="sticker_panel_rename_pack">Rename sticker pack</string>
-    <string name="sticker_panel_save_result">Save complete: %1$d succeeded, %2$d failed</string>
+    <string name="sticker_panel_save_result">Save complete (succeeded: %1$d, failed: %2$d)</string>
     <string name="sticker_panel_save_to_local">Save locally</string>
     <string name="sticker_panel_save_to_pack">Save to sticker pack</string>
-    <string name="sticker_panel_saved_count">Saved %1$d stickers</string>
+    <plurals name="sticker_panel_saved_count">
+        <item quantity="one">Saved %1$d sticker</item>
+        <item quantity="other">Saved %1$d stickers</item>
+    </plurals>
     <string name="sticker_panel_search_action_hint">Tap Search to find online stickers</string>
     <string name="sticker_panel_search_prompt">Enter keywords to search for online stickers</string>
     <string name="sticker_panel_search_similar">Search for similar stickers</string>
@@ -1520,12 +1503,15 @@
     <string name="sticker_panel_sort_default">Default</string>
     <string name="sticker_panel_sort_download_count">Download count</string>
     <string name="sticker_panel_sort_upload_time">Upload time</string>
-    <string name="sticker_panel_source_recovery_result">Recovered online sources for %1$d/%2$d local packs; %3$d already linked; %4$d unmatched</string>
+    <string name="sticker_panel_source_recovery_result">Online sources recovered for local packs: %1$d/%2$d (already linked: %3$d, unmatched: %4$d)</string>
     <string name="sticker_panel_title_cleared">Sticker name cleared</string>
     <string name="sticker_panel_title_saved">Sticker name saved</string>
     <string name="sticker_panel_update_from_online">Update from online sticker pack</string>
-    <string name="sticker_panel_update_result">Update complete: %1$d succeeded, %2$d failed</string>
-    <string name="sticker_panel_updated_count">Updated %1$d stickers</string>
+    <string name="sticker_panel_update_result">Update complete (succeeded: %1$d, failed: %2$d)</string>
+    <plurals name="sticker_panel_updated_count">
+        <item quantity="one">Updated %1$d sticker</item>
+        <item quantity="other">Updated %1$d stickers</item>
+    </plurals>
     <string name="sticker_panel_upload_and_search">Upload and search</string>
     <string name="sticker_panel_upload_pack">Upload sticker pack</string>
     <string name="sticker_panel_view_online_pack">View online sticker pack</string>
@@ -1617,7 +1603,10 @@
     <string name="voice_panel_delete_pack_message">Delete “%1$s” and its voices?</string>
     <string name="voice_panel_delete_shared_pack_message">Delete voice pack “%1$s”?</string>
     <string name="voice_panel_delete_voices">Delete voices</string>
-    <string name="voice_panel_deleted_count">Deleted %1$d voices</string>
+    <plurals name="voice_panel_deleted_count">
+        <item quantity="one">Deleted %1$d voice</item>
+        <item quantity="other">Deleted %1$d voices</item>
+    </plurals>
     <string name="voice_panel_empty_current_page_no_match">No matching voices on this page</string>
     <string name="voice_panel_empty_create_pack_hint">Create a voice pack first</string>
     <string name="voice_panel_empty_example_groups">No voice example directories are available on the server</string>
@@ -1693,9 +1682,12 @@
     <string name="voice_panel_progress_tts_synthesize">Synthesizing voice…</string>
     <string name="voice_panel_progress_upload">Uploading voice…</string>
     <string name="voice_panel_rename_pack">Rename voice pack</string>
-    <string name="voice_panel_save_result">Save complete: %1$d succeeded, %2$d failed</string>
+    <string name="voice_panel_save_result">Save complete (succeeded: %1$d, failed: %2$d)</string>
     <string name="voice_panel_save_to_pack">Save to voice pack</string>
-    <string name="voice_panel_saved_count">Saved %1$d voices</string>
+    <plurals name="voice_panel_saved_count">
+        <item quantity="one">Saved %1$d voice</item>
+        <item quantity="other">Saved %1$d voices</item>
+    </plurals>
     <string name="voice_panel_search_action_hint">Tap Search to find online voices</string>
     <string name="voice_panel_search_prompt">Enter keywords to search for online voices</string>
     <string name="voice_panel_select_pack">Select a voice pack</string>
@@ -1707,7 +1699,10 @@
     <string name="voice_panel_tts">Text to speech</string>
     <string name="voice_panel_tts_choose_voice_first">Choose a voice first</string>
     <string name="voice_panel_tts_empty">Text to convert cannot be empty</string>
-    <string name="voice_panel_tts_too_long">Text to convert cannot exceed %1$d characters</string>
+    <plurals name="voice_panel_tts_too_long">
+        <item quantity="one">Text to convert cannot exceed %1$d character</item>
+        <item quantity="other">Text to convert cannot exceed %1$d characters</item>
+    </plurals>
     <string name="voice_panel_upload_voice">Upload voice</string>
     <string name="voice_panel_voice_examples">Voice examples</string>
     <string name="voice_setting_pack_layout">Top-level layout for local and shared voice packs</string>
@@ -1786,7 +1781,7 @@
     <string name="chat_anti_recall_migrate">Migrate legacy recall notices</string>
     <string name="chat_anti_recall_migrate_description">Convert legacy system-message recall notices to the new style and remove them; reopen a conversation to see the result</string>
     <string name="chat_anti_recall_migrating">Migrating…</string>
-    <string name="chat_anti_recall_migrated">Migrated %1$d notices; %2$d messages could not be located</string>
+    <string name="chat_anti_recall_migrated">Notices migrated: %1$d; messages that could not be located: %2$d</string>
     <string name="chat_anti_recall_migration_failed">Migration failed</string>
     <string name="chat_anti_recall_badge_type">Badge type</string>
     <string name="chat_anti_recall_badge_type_icon">Icon</string>
@@ -1800,7 +1795,6 @@
     <string name="chat_hide_avatar_incoming_description">Hide the other person’s avatar in private chats only</string>
     <string name="chat_hide_avatar_outgoing">Hide avatars on sent messages</string>
     <string name="chat_hide_avatar_outgoing_description">Hide your avatar on messages you send</string>
-    <string name="chat_half_screen_album_height">Height: %1$d%%</string>
     <string name="chat_half_screen_album_height_label">Window height</string>
     <string name="chat_modify_text_menu">Modify content</string>
     <string name="chat_modify_text_title">Modify message display</string>
@@ -1867,7 +1861,6 @@
     <string name="chat_group_role_owner">Owner</string>
     <string name="chat_group_role_admin">Admin</string>
     <string name="chat_group_role_member">Member</string>
-    <string name="chat_group_role_show_member">Show the “Member” badge</string>
     <string name="chat_group_role_show_label">Show label</string>
     <string name="chat_group_role_owner_background">Background color</string>
     <string name="chat_group_role_owner_foreground">Foreground color</string>
@@ -1959,7 +1952,7 @@
     <string name="chat_emoji_game_morra_input">Enter 1: Scissors, 2: Rock, 3: Paper</string>
     <string name="chat_emoji_game_random">Random</string>
     <string name="chat_emoji_game_send">Send</string>
-    <string name="chat_emoji_game_send_index_failed">Send %1$d failed</string>
+    <string name="chat_emoji_game_send_index_failed">Failed to send item %1$d</string>
     <plurals name="chat_emoji_game_sent_count">
         <item quantity="one">Sent %1$d time</item>
         <item quantity="other">Sent %1$d times</item>
@@ -2013,10 +2006,10 @@
     <string name="chat_sticker_manager_exporting">Exporting…</string>
     <plurals name="chat_sticker_manager_exported"><item quantity="one">Saved %1$d sticker to %2$s</item><item quantity="other">Saved %1$d stickers to %2$s</item></plurals>
     <!-- Chat-input-bar-menu and API-core resources. -->
-    <string name="mention_members_settings_title">@everyone settings</string>
+    <string name="mention_members_settings_title">\@everyone settings</string>
     <string name="mention_members_stealth_label">Stealth @everyone</string>
     <string name="mention_members_stealth_description">When enabled, confirming member selection sends the input text natively (no @name prefix); recipients get the "mentioned you" notification but see no @ text in the bubble. Groups over 200 members notify only the first 200. When disabled, the message starts with @name text.</string>
-    <string name="mention_members_action_label">@everyone (long-press to configure)</string>
+    <string name="mention_members_action_label">\@everyone (long-press to configure)</string>
     <string name="mention_members_group_only">This action is only available in groups.</string>
     <string name="mention_members_sent_unseen">Sent (you cannot see this message yourself)</string>
     <string name="mention_members_input_empty">The input box is empty.</string>
@@ -2066,84 +2059,6 @@
     <string name="message_type_unknown">Unknown type</string>
     <string name="message_type_music">Music link</string>
     <string name="message_type_file">File</string>
-    <string name="chat_auto_reply_title">Chat auto-reply</string>
-    <string name="chat_auto_reply_global_settings">Global settings</string>
-    <string name="chat_auto_reply_global_settings_summary">Configure default auto-reply tasks and behavior</string>
-    <string name="chat_auto_reply_contact_settings">Per-contact settings</string>
-    <string name="chat_auto_reply_contact_settings_summary">Override global settings for contacts, groups, or group members</string>
-    <string name="chat_auto_reply_global_saved">Global settings saved</string>
-    <string name="chat_auto_reply_group_settings">Group settings</string>
-    <string name="chat_auto_reply_follows_global">Follows global settings</string>
-    <plurals name="chat_auto_reply_group_overridden_count">
-        <item quantity="one">Group settings · %1$d override</item>
-        <item quantity="other">Group settings · %1$d overrides</item>
-    </plurals>
-    <plurals name="chat_auto_reply_overridden_count">
-        <item quantity="one">%1$d override</item>
-        <item quantity="other">%1$d overrides</item>
-    </plurals>
-    <string name="chat_auto_reply_group_global_settings">Group-wide settings</string>
-    <string name="chat_auto_reply_group_member_settings">Per-member settings</string>
-    <string name="chat_auto_reply_all_members_follow_group">All members follow group-wide settings</string>
-    <plurals name="chat_auto_reply_configured_member_count">
-        <item quantity="one">%1$d member configured</item>
-        <item quantity="other">%1$d members configured</item>
-    </plurals>
-    <string name="chat_auto_reply_group_member_settings_title">%1$s · Per-member settings</string>
-    <string name="chat_auto_reply_follows_group">Follows group-wide settings</string>
-    <string name="chat_auto_reply_settings_saved">Settings saved</string>
-    <string name="chat_auto_reply_task_settings">Task settings</string>
-    <string name="chat_auto_reply_enabled_title">Auto-reply</string>
-    <string name="chat_auto_reply_enabled_summary">Match incoming text messages against the tasks below and reply automatically</string>
-    <string name="chat_auto_reply_disabled_summary">Do not reply automatically</string>
-    <string name="chat_auto_reply_time_range_title">Auto-reply schedule</string>
-    <string name="chat_auto_reply_time_unrestricted">No schedule restriction</string>
-    <string name="chat_auto_reply_tasks_title">Tasks (matched in order)</string>
-    <string name="chat_auto_reply_no_tasks">No tasks added</string>
-    <plurals name="chat_auto_reply_task_count_summary">
-        <item quantity="one">Touch and hold the handle to reorder · %1$d task</item>
-        <item quantity="other">Touch and hold the handle to reorder · %1$d tasks</item>
-    </plurals>
-    <string name="chat_auto_reply_drag_task">Drag task</string>
-    <string name="chat_auto_reply_task_number">Task %1$d</string>
-    <string name="chat_auto_reply_delete_task">Delete task</string>
-    <string name="chat_auto_reply_add_task">Add task</string>
-    <string name="chat_auto_reply_add_task_summary">Configure keywords, reply content, and delay</string>
-    <string name="chat_auto_reply_task_name">Task name</string>
-    <string name="chat_auto_reply_enable_task">Enable task</string>
-    <string name="chat_auto_reply_type_text">Text</string>
-    <string name="chat_auto_reply_type_image">Image</string>
-    <string name="chat_auto_reply_type_video">Video</string>
-    <string name="chat_auto_reply_type_voice">Voice</string>
-    <string name="chat_auto_reply_reply_content">Reply content</string>
-    <string name="chat_auto_reply_voice_duration_ms">Voice duration (ms)</string>
-    <string name="chat_auto_reply_delay_ms">Reply delay (ms, 0–60000)</string>
-    <string name="chat_auto_reply_cooldown_ms">Cooldown (ms)</string>
-    <string name="chat_auto_reply_stop_after_match">Stop matching later tasks after a match</string>
-    <string name="chat_auto_reply_image_path">Image path</string>
-    <string name="chat_auto_reply_video_path">Video path</string>
-    <string name="chat_auto_reply_voice_path">Voice file path (amr/silk)</string>
-    <string name="chat_auto_reply_import">Import</string>
-    <string name="chat_auto_reply_keyword_unrestricted">Any keyword</string>
-    <plurals name="chat_auto_reply_keyword_list_summary">
-        <item quantity="one">Matches any string in the list (%1$d)</item>
-        <item quantity="other">Matches any string in the list (%1$d)</item>
-    </plurals>
-    <plurals name="chat_auto_reply_keyword_exact_summary">
-        <item quantity="one">Exactly matches any string in the list (%1$d)</item>
-        <item quantity="other">Exactly matches any string in the list (%1$d)</item>
-    </plurals>
-    <string name="chat_auto_reply_keyword_regex_empty">No regular expression entered</string>
-    <string name="chat_auto_reply_keyword_regex_summary">Matches one regular expression</string>
-    <string name="chat_auto_reply_task_error">Task “%1$s”: %2$s</string>
-    <string name="chat_auto_reply_error_keyword_list_empty">The keyword list cannot be empty</string>
-    <string name="chat_auto_reply_error_keyword_regex_empty">The keyword regular expression cannot be empty</string>
-    <string name="chat_auto_reply_error_keyword_regex_invalid">The keyword regular expression is invalid</string>
-    <string name="chat_auto_reply_error_text_empty">Text reply content cannot be empty</string>
-    <string name="chat_auto_reply_error_path_empty">The reply file path cannot be empty</string>
-    <string name="chat_auto_reply_error_voice_duration">Voice duration must be between 1 and 60000 ms</string>
-    <string name="chat_auto_reply_error_delay">Delay must be between 0 and 60000 ms</string>
-    <string name="chat_auto_reply_error_cooldown">Cooldown cannot be negative</string>
     <string name="chat_message_details_menu">Details</string>
     <string name="chat_message_details_type">Type</string>
     <string name="chat_message_details_talker_id">Contact/group ID</string>
@@ -2166,11 +2081,11 @@
         <item quantity="other">%1$d hours ago</item>
     </plurals>
     <string name="chat_message_time_group_announcement">Group announcement</string>
-    <string name="chat_message_time_everyone">@Everyone</string>
-    <string name="chat_message_time_me">@Me</string>
+    <string name="chat_message_time_everyone">\@Everyone</string>
+    <string name="chat_message_time_me">\@Me</string>
     <plurals name="chat_message_time_mentioned_people">
-        <item quantity="one">@%1$d person</item>
-        <item quantity="other">@%1$d people</item>
+        <item quantity="one">\@%1$d person</item>
+        <item quantity="other">\@%1$d people</item>
     </plurals>
     <string name="chat_message_time_title">Message time enhancements</string>
     <string name="chat_message_time_display_template">Display template</string>
@@ -2187,15 +2102,11 @@
     <string name="chat_floating_header_title">Floating header</string>
     <string name="chat_floating_header_restart_hint">Changes apply immediately</string>
     <string name="chat_floating_header_summary">Show the header and cards below it, such as pinned messages, as floating cards</string>
+    <string name="chat_floating_header_overflow_badge" translatable="false">+%1$d</string>
     <string name="chat_floating_header_style_label">Header style</string>
     <string name="chat_floating_header_style_integrated">Integrated</string>
     <string name="chat_floating_header_style_separated">Separated</string>
     <string name="chat_floating_component_gap_label">Minimum component spacing</string>
-    <string name="chat_floating_corner_radius">Corner radius: %1$d dp</string>
-    <string name="chat_floating_side_margin">Side margin: %1$d dp</string>
-    <string name="chat_floating_top_gap">Top spacing: %1$d dp</string>
-    <string name="chat_floating_card_gap">Spacing below cards: %1$d dp</string>
-    <string name="chat_floating_elevation">Shadow strength: %1$d dp</string>
     <string name="chat_floating_corner_radius_label">Corner radius</string>
     <string name="chat_floating_side_margin_label">Side margin</string>
     <string name="chat_floating_top_gap_label">Top spacing</string>
@@ -2204,7 +2115,6 @@
     <string name="chat_floating_footer_title">Floating input bar</string>
     <string name="chat_floating_footer_panel_above">Show menus above the input bar</string>
     <string name="chat_floating_footer_panel_above_summary">Expand emoji and tool menus upward while keeping the input bar in place; turn this off to retain WeChat’s layout</string>
-    <string name="chat_floating_bottom_gap">Bottom spacing: %1$d dp</string>
     <string name="chat_floating_bottom_gap_label">Bottom spacing</string>
     <string name="chat_real_name_bruteforce_title">Discover group member’s real-name initial</string>
     <string name="chat_real_name_bruteforce_first_char">Initial: %1$s</string>
@@ -2215,10 +2125,10 @@
     <string name="chat_real_name_bruteforce_error_probe_timeout">The order probe timed out</string>
     <string name="chat_real_name_bruteforce_error_missing_name_message">The response did not include namemessage</string>
     <string name="chat_real_name_bruteforce_error_missing_signature">The response did not include checkname_sign</string>
-    <string name="chat_real_name_bruteforce_error_exhausted">Tried all %1$d common surnames without a match</string>
+    <string name="chat_real_name_bruteforce_error_exhausted">No match found among all common surnames (tried: %1$d)</string>
     <string name="chat_real_name_bruteforce_warning">Warning</string>
     <string name="chat_real_name_bruteforce_warning_message">This feature repeatedly creates transfer orders for the chosen amount to test the member’s real-name initial. It only creates orders and does not charge you. This may trigger WeChat risk controls; proceed at your own risk.\n\nThe amount must be high enough to trigger name verification (the default is ¥100,000). Combine this with “Show group member’s real-name suffix” to reconstruct the name.</string>
-    <string name="chat_real_name_bruteforce_resume_message">A previous run was paused by risk controls (%1$d/%2$d tried) and can continue from “%3$s”. Tap Continue to resume, or Restart to begin again.</string>
+    <string name="chat_real_name_bruteforce_resume_message">A previous run was paused by risk controls (tried: %1$d/%2$d) and can continue from “%3$s”. Tap Continue to resume, or Restart to begin again.</string>
     <string name="chat_real_name_bruteforce_amount">Transfer amount (CNY)</string>
     <string name="chat_real_name_bruteforce_running">Trying candidates, please wait…\nTried: %1$d/%2$d</string>
     <string name="chat_real_name_bruteforce_found">Match found! The real-name initial is “%1$s”.\n\nVerification mask: ?%2$s</string>
@@ -2273,7 +2183,6 @@
     <string name="chat_aggregation_index_rebuilt">Folder index rebuilt</string>
     <string name="chat_aggregation_reload">Reload</string>
     <string name="chat_aggregation_create">Create</string>
-    <string name="chat_aggregation_saved_restart">Saved. Restart WeChat to apply.</string>
     <string name="chat_aggregation_create_folder">Create folder</string>
     <string name="chat_aggregation_edit_folder">Edit folder</string>
     <string name="chat_aggregation_mode_manual">Manual selection</string>
@@ -2385,7 +2294,10 @@
     <string name="chat_funbox_status_published">Published</string>
     <string name="chat_funbox_status_rejected">Rejected</string>
     <string name="chat_funbox_conversion_text_empty">Conversion text cannot be empty</string>
-    <string name="chat_funbox_conversion_text_too_long">Conversion text cannot exceed %1$d characters</string>
+    <plurals name="chat_funbox_conversion_text_too_long">
+        <item quantity="one">Conversion text cannot exceed %1$d character</item>
+        <item quantity="other">Conversion text cannot exceed %1$d characters</item>
+    </plurals>
     <string name="chat_funbox_clone_synthesis_failed">Clone voice synthesis failed</string>
     <string name="chat_funbox_voice_example_load_failed">Failed to load voice example</string>
     <string name="chat_telegram_invalid_file_path">Telegram returned an invalid file path</string>
@@ -2425,7 +2337,6 @@
     <string name="chat_voice_category_western">Western music</string>
     <string name="chat_sticker_online_source_empty">Online sticker pack ID cannot be empty</string>
     <string name="chat_sticker_pack_delete_failed">Failed to delete sticker pack</string>
-    <string name="chat_panel_imported">Imported</string>
     <string name="chat_sticker_image_empty">Image file is empty</string>
     <string name="chat_sticker_unsupported_format">Unsupported or unrecognized image format</string>
     <string name="chat_voice_pack_name_empty">Voice pack name cannot be empty</string>
@@ -2588,7 +2499,6 @@
     <plurals name="contacts_detect_scanning"><item quantity="one">Scanning; please wait…\nCompleted: %1$d/%2$d friend</item><item quantity="other">Scanning; please wait…\nCompleted: %1$d/%2$d friends</item></plurals>
     <plurals name="contacts_detect_scan_done"><item quantity="one">Scan complete; %1$d friend has an abnormal status</item><item quantity="other">Scan complete; %1$d friends have an abnormal status</item></plurals>
     <plurals name="contacts_detect_unresolved"><item quantity="one">%1$d friend could not be determined and was not included in the results.</item><item quantity="other">%1$d friends could not be determined and were not included in the results.</item></plurals>
-    <string name="contacts_detect_status_abnormal">Status: Abnormal</string>
     <string name="contacts_detect_nickname">Nickname: %1$s</string>
     <string name="contacts_detect_remark">Remark: %1$s</string>
     <string name="contacts_detect_wechat_number">WeChat number: %1$s</string>
@@ -2670,7 +2580,6 @@
     <string name="action_clear_image">Clear image</string>
     <string name="settings_saved">Settings saved</string>
     <string name="copied_to_clipboard">Copied</string>
-    <string name="current_value">Current value: %1$d</string>
     <string name="light_mode">Light mode</string>
     <string name="dark_mode">Dark mode</string>
     <string name="imported">Imported</string>
@@ -2757,11 +2666,9 @@
     <string name="moments_custom_source_preset_title">Choose preset app</string>
     <string name="moments_custom_source_search">Search by ID or name</string>
     <string name="moments_display_details_title">Detailed Moments footer</string>
-    <string name="moments_display_details_placeholders">Placeholders: %1$s %2$s %3$s %4$s %5$s</string>
     <string name="moments_display_details_text_format">Text format</string>
     <string name="moments_display_details_time_format">Time format</string>
     <string name="moments_display_details_hide_visibility_icon">Hide visibility icon</string>
-    <string name="moments_display_details_saved">Saved. Reopen Moments to apply.</string>
     <string name="moments_fake_likes_menu">Fake likes</string>
     <string name="moments_fake_likes_method_title">Fake-like method</string>
     <string name="moments_fake_likes_select_users">Select fake-like users</string>
@@ -2843,7 +2750,10 @@
     <string name="moments_automation_age_unrestricted">No publication-time restriction</string>
     <string name="moments_automation_maximum_age_hours">Maximum post age (hours)</string>
     <string name="moments_automation_invalid_interval">Enter a valid action interval</string>
-    <string name="moments_automation_interval_too_large">The action interval cannot exceed %1$d milliseconds</string>
+    <plurals name="moments_automation_interval_too_large">
+        <item quantity="one">The action interval cannot exceed %1$d millisecond</item>
+        <item quantity="other">The action interval cannot exceed %1$d milliseconds</item>
+    </plurals>
     <string name="moments_automation_select_type">Select at least one Moments post type</string>
     <string name="moments_automation_invalid_maximum_age">Enter a valid maximum post age</string>
     <string name="moments_content_type_image">Image</string>
@@ -2878,7 +2788,7 @@
     <string name="shortvideos_link">Link</string>
     <string name="shortvideos_unknown_media_type">Unknown media type</string>
     <string name="shortvideos_image_download_started">Starting download of image %1$d</string>
-    <string name="shortvideos_image_download_reported_success">Image %1$d download completed</string>
+    <string name="shortvideos_image_download_reported_success">Download completed for image %1$d</string>
     <string name="shortvideos_image_downloaded_to">Image saved to /sdcard/Download/WeKit/%1$s</string>
     <string name="shortvideos_downloading_video">Downloading video…</string>
     <string name="shortvideos_decrypting_video">Decrypting video…</string>
@@ -2902,12 +2812,6 @@
     <string name="beautify_theme_saved">Theme saved. Restart WeChat to apply.</string>
     <string name="home_side_panel_wechat_user">WeChat user</string>
     <string name="home_side_panel_scan">Scan</string>
-    <string name="home_side_panel_payments">Pay and receive</string>
-    <string name="home_side_panel_favorites">Favorites</string>
-    <string name="home_side_panel_moments">Moments</string>
-    <string name="home_side_panel_channels">Channels</string>
-    <string name="home_side_panel_mark_all_read">Mark all as read</string>
-    <string name="home_side_panel_wekit_settings">WeKit settings</string>
     <string name="home_side_panel_open_profile">Open profile</string>
     <string name="home_side_panel_settings">Side panel settings</string>
     <string name="home_side_panel_online">Online</string>
@@ -3193,19 +3097,11 @@
     <string name="payment_transfer_received">Received a transfer from “%1$s”: %2$s</string>
     <string name="payment_wallet_balance_optional">Wallet balance (leave blank to keep unchanged)</string>
     <string name="payment_wealth_balance_optional">Wealth balance (leave blank to keep unchanged)</string>
-    <string name="payment_business_balance_optional">Business account balance (leave blank to keep unchanged)</string>
-    <string name="payment_balance_display_amount">Displayed amount</string>
     <string name="payment_wallet_balance_expression">Balance expression</string>
     <string name="payment_wallet_balance_expression_hint" formatted="false">value is the real balance. Supports +, -, *, /, ^, **, //, %, sqrt, and round.</string>
     <string name="payment_wallet_balance_title">Wallet balance</string>
     <string name="payment_wealth_balance_title">Wealth balance</string>
     <string name="payment_business_balance_title">Business account</string>
-    <string name="payment_wallet_balance_mode">Wallet balance mode</string>
-    <string name="payment_wealth_balance_mode">Wealth balance mode</string>
-    <string name="payment_business_balance_mode">Business balance mode</string>
-    <string name="payment_wallet_balance_mode_fixed">Show fixed amount</string>
-    <string name="payment_wallet_balance_mode_increase">Add to real balance</string>
-    <string name="payment_wallet_balance_mode_decrease">Subtract from real balance</string>
     <string name="payment_transfer_wallet_balance">Wallet (remaining %1$s)</string>
     <string name="payment_transfer_wealth_balance">Wealth (remaining %1$s)</string>
     <string name="payment_red_packet_date_today">HH:mm:ss</string>
@@ -3312,7 +3208,6 @@
     <string name="voip_block_outgoing_summary">Block the ringtone played while placing an audio or video call</string>
     <string name="voip_block_incoming">Block incoming ringtone</string>
     <string name="voip_block_incoming_summary">Block the ringtone played when receiving an audio or video call</string>
-    <string name="voip_pip_zygisk_unavailable">The picture-in-picture window must be hosted by an Activity in the module app whose manifest declares supportsPictureInPicture; WeChat has no such Activity. Because the module app is not installed in Zygisk mode, this feature is available only in LSPosed mode.</string>
     <string name="voip_virtual_video_title">Virtual video call settings</string>
     <string name="voip_virtual_video_source">Video source</string>
     <string name="voip_virtual_video_local_file">Local file</string>
@@ -3407,7 +3302,6 @@
     <string name="clear_profile_details_send_failure_details">type: %1$s, code: %2$s, msg: %3$s</string>
     <string name="image_rotation_only_avatars">Apply to avatars only</string>
     <string name="image_rotation_period_milliseconds">Rotation period (milliseconds)</string>
-    <string name="image_rotation_period_requirement">Enter a number of milliseconds greater than 0</string>
     <string name="java_scripts_dialog_title">Java scripts</string>
     <string name="java_scripts_empty">No scripts</string>
     <string name="java_script_status_enabled">Enabled</string>
@@ -3421,7 +3315,6 @@
     <string name="notifications_action_reply">Reply</string>
     <string name="notifications_reply_hint">Enter a reply…</string>
     <string name="notifications_self">Me</string>
-    <string name="notifications_unknown_content">Unknown content (please report this to the module developer)</string>
     <string name="notifications_unknown_conversation">Unknown conversation (please report this to the module developer)</string>
     <string name="notifications_settings_title">Enhanced notification settings</string>
     <string name="notifications_image_behavior">Image messages</string>
@@ -3479,13 +3372,9 @@
     <string name="system_link_wechat_summary">Open links inside WeChat</string>
     <string name="system_loading">Loading…</string>
     <string name="system_none">None</string>
-    <string name="system_predictive_back_unsupported">Predictive back is not supported by this Android version</string>
     <string name="system_prevent_xposed_google_play_warning">This feature is unavailable in the Google Play build of WeChat.</string>
     <string name="system_risky_feature_warning">This feature may cause account risk. Continue only if you understand the consequences.</string>
     <string name="system_sports_active_value">Active upload step count</string>
-    <string name="system_sports_fixed">Fixed</string>
-    <string name="system_sports_multiplier">Multiplier</string>
-    <string name="system_sports_passive_mode">Passive modification</string>
     <string name="system_sports_passive_value">Passive upload step expression</string>
     <string name="system_sports_passive_expression_hint">value is the original step count; for example: value * 2 + 1000</string>
     <string name="system_sports_upload">Upload</string>
@@ -3495,8 +3384,10 @@
     <string name="system_qr_code_record_copy">Copy content</string>
     <string name="system_qr_code_record_open">Open in WeChat</string>
     <string name="system_qr_code_record_open_in_system">Open in system</string>
-    <string name="qr_code_record_home_menu_description">Show in WeChat’s + menu while scan recording is enabled</string>
-    <string name="qr_code_record_count">%1$d scan records</string>
+    <plurals name="qr_code_record_count">
+        <item quantity="one">%1$d scan record</item>
+        <item quantity="other">%1$d scan records</item>
+    </plurals>
     <string name="qr_code_record_native_open_description">Open with WeChat’s scanner to handle contact, group and other codes.</string>
     <string name="qr_code_record_empty_description">Enable scan recording to keep the codes you scan here.</string>
     <string name="qr_code_record_open_failed">Could not open WeChat’s scan handler. See the logs for details.</string>
@@ -3585,7 +3476,7 @@
     <string name="telegram_database_scan_failed">Failed to scan Telegram databases: %1$s</string>
     <string name="telegram_root_command_failed">The root command failed</string>
     <string name="telegram_database_not_found">No cache4.db was found. Make sure Telegram is signed in and has been opened at least once.</string>
-    <string name="telegram_database_app_unrecognized">Found %1$d cache4.db files, but their apps were not recognized as Telegram: %2$s</string>
+    <string name="telegram_database_app_unrecognized">Found cache4.db files (%1$d), but their apps were not recognized as Telegram: %2$s</string>
     <string name="telegram_database_path_unavailable">The Telegram database path is unavailable</string>
     <string name="telegram_database_temp_directory_failed">Could not create the temporary database directory</string>
     <string name="telegram_database_copy_failed">Failed to copy the Telegram database</string>
@@ -3603,7 +3494,7 @@
     <string name="agent_delete_prompt_confirm">Delete this prompt? This action cannot be undone.</string>
     <string name="agent_delete_skill_confirm">Delete this skill? This action cannot be undone.</string>
     <string name="agent_delete_trigger_confirm">Delete this trigger? This action cannot be undone.</string>
-    <string name="agent_models_imported_result">%1$d added, %1$d overwritten</string>
+    <string name="agent_models_imported_result">Added: %1$d, overwritten: %2$d</string>
     <string name="agent_import_overwrite_hint">Selecting an already imported model overwrites its existing configuration with the import defaults</string>
     <string name="agent_regex_invalid">Invalid regular expression: %1$s</string>
     <string name="agent_save_failed">Save failed: %1$s</string>

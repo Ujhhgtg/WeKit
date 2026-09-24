@@ -63,6 +63,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.runtime.mutableFloatStateOf
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -536,7 +537,7 @@ private fun PanelActionStrip(
     val density = LocalDensity.current
     var stripPosition by remember { mutableStateOf(Offset.Zero) }
     var searchCenterInWindow by remember { mutableStateOf<Offset?>(null) }
-    var stripWidthPx by remember { mutableStateOf(1f) }
+    var stripWidthPx by remember { mutableFloatStateOf(1f) }
     val originFraction = searchCenterInWindow
         ?.let { ((it.x - stripPosition.x) / stripWidthPx).coerceIn(0f, 1f) }
         ?: 0.5f

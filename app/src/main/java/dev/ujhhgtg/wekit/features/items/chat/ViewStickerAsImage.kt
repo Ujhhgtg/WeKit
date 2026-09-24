@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
+import androidx.core.graphics.createBitmap
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createTempFile
 import kotlin.io.path.getLastModifiedTime
@@ -188,11 +189,7 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
         return try {
             prunePreviewDirectory(directory, ".png")
             output = createTempFile(directory, "sticker-preview-", ".png")
-            bitmap = Bitmap.createBitmap(
-                outputWidth,
-                outputHeight,
-                Bitmap.Config.ARGB_8888,
-            )
+            bitmap = createBitmap(outputWidth, outputHeight)
             val canvas = Canvas(bitmap)
             canvas.scale(
                 outputWidth.toFloat() / sourceWidth,

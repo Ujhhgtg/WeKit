@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -52,7 +53,7 @@ fun SkillsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     // SkillStore is filesystem-backed (no Flow); reload via a tick after each mutation.
-    var reloadTick by remember { mutableStateOf(0) }
+    var reloadTick by remember { mutableIntStateOf(0) }
     var skills by remember { mutableStateOf<List<SkillStore.Skill>>(emptyList()) }
     androidx.compose.runtime.LaunchedEffect(reloadTick) {
         skills = withContext(Dispatchers.IO) { SkillStore.list() }

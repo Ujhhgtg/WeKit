@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -83,7 +84,7 @@ fun HomeSidePanelHome(
         .filterNot { it.value.id == draggedCardId }
     val cardInsertionIndex = dragSnapshot?.visualCardInsertionIndex(state.renderedLayout.cards)
     val editorMotion = remember { Animatable(0f) }
-    var editorMotionDirection by remember { mutableStateOf(1f) }
+    var editorMotionDirection by remember { mutableFloatStateOf(1f) }
     var previousRoute by remember { mutableStateOf<HomeSidePanelRoute?>(null) }
     LaunchedEffect(state.route) {
         val previous = previousRoute

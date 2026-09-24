@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.api.core
 
-import android.annotation.SuppressLint
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -17,7 +16,6 @@ object WeUnsafeApi : ApiFeature() {
     private lateinit var theUnsafe: Any
     private lateinit var mAllocateInstance: Method
 
-    @SuppressLint("DiscouragedPrivateApi")
     override fun onEnable() {
         val unsafeClass = Class.forName("sun.misc.Unsafe")
         val theUnsafeField = unsafeClass.getDeclaredField("theUnsafe")

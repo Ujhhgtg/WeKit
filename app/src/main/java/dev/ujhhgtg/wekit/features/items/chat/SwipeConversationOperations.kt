@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Path
@@ -529,7 +528,6 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
         val state: SwipeState,
         val delegate: View.OnTouchListener?,
     ) : View.OnTouchListener {
-        @SuppressLint("ClickableViewAccessibility")
         override fun onTouch(v: View, event: MotionEvent): Boolean {
             val consumed = handleSwipe(v, state, event)
             // Always let WeChat's listener observe the event too (it only sets a ripple hotspot and
@@ -539,7 +537,6 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
         }
     }
 
-    @SuppressLint("ClickableViewAccessibility")
     private fun attachSwipeListener(view: View, state: SwipeState) {
         val current = getAttachedTouchListener(view)
         if (current is SwipeTouchListener) return // already wrapped for this stream

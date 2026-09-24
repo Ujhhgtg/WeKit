@@ -571,8 +571,9 @@ private fun StickerPanelContent(
         )
         refreshLocal()
         operationMessage = if (failed == 0) {
-            panelUiText(
-                if (update) R.string.sticker_panel_updated_count else R.string.sticker_panel_saved_count,
+            panelUiQuantity(
+                if (update) R.plurals.sticker_panel_updated_count else R.plurals.sticker_panel_saved_count,
+                succeeded,
                 succeeded,
             )
         } else {
@@ -1653,7 +1654,7 @@ private fun StickerPanelContent(
                         val result = withContext(Dispatchers.IO) { actions.deleteStickers(paths) }
                         prompt = null
                         operationMessage = result.fold(
-                            onSuccess = { panelUiText(R.string.sticker_panel_deleted_count, it) },
+                            onSuccess = { panelUiQuantity(R.plurals.sticker_panel_deleted_count, it, it) },
                             onFailure = { it.toPanelUiText(R.string.sticker_panel_error_delete_items) },
                         )
                         if (result.isSuccess) {

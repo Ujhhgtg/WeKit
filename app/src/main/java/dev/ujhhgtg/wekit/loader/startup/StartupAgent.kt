@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.loader.startup
 
-import android.annotation.SuppressLint
 import android.app.Application
 import android.os.Build
 import dev.ujhhgtg.reflekt.utils.ReflectionClassLoader
@@ -121,7 +120,6 @@ object StartupAgent {
         }
     }
 
-    @SuppressLint("BlockedPrivateApi", "PrivateApi")
     fun isHiddenApiAccessible(): Boolean {
         val kContextImpl = runCatching {
             Class.forName("android.app.ContextImpl")

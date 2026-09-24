@@ -94,6 +94,7 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePreview
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceProviderPage
 import dev.ujhhgtg.wekit.features.items.chat.panel.parallelForEachWithProgress
 import dev.ujhhgtg.wekit.features.items.chat.panel.panelUiText
+import dev.ujhhgtg.wekit.features.items.chat.panel.panelUiQuantity
 import dev.ujhhgtg.wekit.features.items.chat.panel.toPanelUiText
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoiceProvider
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoiceProviderRegistry
@@ -795,7 +796,7 @@ private fun VoicePanelContent(
         val count = ttsText.codePointCount(0, ttsText.length)
         when {
             ttsText.isBlank() -> operationMessage = panelUiText(R.string.voice_panel_tts_empty)
-            count > 256 -> operationMessage = panelUiText(R.string.voice_panel_tts_too_long, 256)
+            count > 256 -> operationMessage = panelUiQuantity(R.plurals.voice_panel_tts_too_long, 256, 256)
             ttsMode == TtsMode.CLONE && selectedClone == null -> operationMessage = panelUiText(R.string.voice_panel_tts_choose_voice_first)
             else -> {
                 clearConvertedTts()
@@ -959,7 +960,7 @@ private fun VoicePanelContent(
             }
             refreshLocal()
             operationMessage = if (failed == 0) {
-                panelUiText(R.string.voice_panel_saved_count, succeeded)
+                panelUiQuantity(R.plurals.voice_panel_saved_count, succeeded, succeeded)
             } else {
                 panelUiText(R.string.voice_panel_save_result, succeeded, failed)
             }
@@ -1442,7 +1443,7 @@ private fun VoicePanelContent(
                         onSynthesize = {
                             val count = ttsText.codePointCount(0, ttsText.length)
                             if (ttsText.isBlank()) operationMessage = panelUiText(R.string.voice_panel_tts_empty)
-                            else if (count > 256) operationMessage = panelUiText(R.string.voice_panel_tts_too_long, 256)
+                            else if (count > 256) operationMessage = panelUiQuantity(R.plurals.voice_panel_tts_too_long, 256, 256)
                             else {
                                 progressMessage = panelUiText(R.string.voice_panel_progress_tts_synthesize)
                                 scope.launch {
@@ -1873,7 +1874,7 @@ private fun VoicePanelContent(
                     val result = actions.deleteLocalVoices(paths)
                     prompt = null
                     operationMessage = result.fold(
-                        onSuccess = { panelUiText(R.string.voice_panel_deleted_count, it) },
+                        onSuccess = { panelUiQuantity(R.plurals.voice_panel_deleted_count, it, it) },
                         onFailure = { it.toPanelUiText(R.string.voice_panel_error_delete_voices) },
                     )
                     if (result.isSuccess) {

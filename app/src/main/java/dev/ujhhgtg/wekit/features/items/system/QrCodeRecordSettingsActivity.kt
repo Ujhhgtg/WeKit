@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -152,7 +153,7 @@ private fun QrCodeRecordSettingsScreen(
                 item {
                     BaseWidget(
                         icon = MaterialSymbols.Outlined.History,
-                        title = stringResource(R.string.qr_code_record_count, records.size),
+                        title = pluralStringResource(R.plurals.qr_code_record_count, records.size, records.size),
                         description = stringResource(R.string.qr_code_record_native_open_description),
                         selected = true,
                         trailingContent = {

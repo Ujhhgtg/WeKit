@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.loader.entry.frida
 
-import android.annotation.SuppressLint
 import android.app.ActivityThread
 import android.util.Log
 import androidx.annotation.Keep
@@ -10,7 +9,6 @@ import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 
 @Keep
-@SuppressLint("PrivateApi")
 object FridaInjectEntry {
 
     private const val TAG = "FridaInjectEntry"

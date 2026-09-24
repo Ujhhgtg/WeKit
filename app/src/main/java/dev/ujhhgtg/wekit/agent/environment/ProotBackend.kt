@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.environment
 
+import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.copyTo
 import dev.ujhhgtg.wekit.utils.fs.copyFrom
 import kotlin.io.path.createDirectories
@@ -257,7 +258,7 @@ class ProotBackend constructor(
     companion object {
         private const val TAG = "ProotBackend"
         private val APPROVED_STORAGE_ROOTS = listOf(
-            "/storage/emulated".asPath, "/storage/self/primary".asPath, "/sdcard".asPath,
+            "/storage/emulated".asPath, "/storage/self/primary".asPath, KnownPaths.internalStorage,
         )
     }
 }
