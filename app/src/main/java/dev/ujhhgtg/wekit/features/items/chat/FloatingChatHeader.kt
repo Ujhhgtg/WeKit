@@ -56,6 +56,7 @@ import com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout
 import com.tencent.mm.ui.chatting.view.MMChattingListView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -118,6 +119,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** 标题栏容器, 微信把 ViewStub(bkr) inflate 成这个 androidx 控件。 */
     private const val ACTION_BAR_CONTAINER_CLASS = "androidx.appcompat.widget.ActionBarContainer"
     private const val ACTION_BAR_OVERLAY_LAYOUT_CLASS = "androidx.appcompat.widget.ActionBarOverlayLayout"
+    private const val EDGE_TO_EDGE_WRAPPER_CLASS = "com.tencent.mm.ui.widget.EdgeToEdgeWrapperLayout"
+
+    /** 分体式返回按钮未读角标: 左缘压进箭头右缘、上缘高出箭头上缘的距离。 */
+    private const val BACK_BADGE_OVERLAP_X_DP = 8f
+    private const val BACK_BADGE_OVERLAP_Y_DP = 6f
 
     /** 独立聊天 Activity 的公共基类; 这类页面使用窗口级标题栏。 */
     private const val CHATTING_UI_ACTIVITY_CLASS = "com.tencent.mm.ui.chatting.ChattingUI"
@@ -135,7 +141,6 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private const val CHATTING_CONTENT_CLASS = "com.tencent.mm.pluginsdk.ui.chat.ChattingContent"
 
     private const val TOOLBAR_CLASS = "androidx.appcompat.widget.Toolbar"
-    private const val ACTION_MENU_VIEW_CLASS = "com.tencent.mm.ui.widget.WXActionMenuView"
 
     /** 内容宿主里这些子 View 不是"标题下挂件", 排除在悬浮卡之外。 */
     private const val ME_HOLDER_VIEW_CLASS = "com.tencent.mm.magicbrush.plugin.emoji.ui.MEHolderView"
@@ -259,11 +264,17 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** 每个会话页布局当前生效的状态栏偏移。 */
     private val statusBarOffsets = WeakHashMap<View, Int>()
 
+    /** 每个会话页窗口上报的原始状态栏 inset; 非零即表示 insets 已就绪。 */
+    private val statusBarInsets = WeakHashMap<View, Int>()
+
     /** 每个会话页布局的状态栏偏移刷新监听。 */
     private val statusBarPreDraws = WeakHashMap<View, ViewTreeObserver.OnPreDrawListener>()
 
     /** 已把微信 EdgeToEdgeWrapperLayout 的状态栏 padding/色块压掉的窗口包装。 */
     private val statusBarWrappersNeutralized = WeakHashMap<View, Boolean>()
+
+    /** 上一帧因修正宿主顶部 padding 而取消了绘制的会话布局。 */
+    private val statusBarDrawSkipped = WeakHashMap<View, Boolean>()
 
     /** 每个会话页布局 (ChattingUILayout) 对应的标题栏容器。 */
     private val headerViews = WeakHashMap<View, View>()
@@ -479,6 +490,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val surfaceColor: Int,
         val visualStates: List<HeaderVisualState>,
         val clipStates: List<HeaderClipState>,
+        /** 左右按钮区被对称平移前的原始 translationX。 */
+        val leftBaseTranslationX: Float,
+        val rightBaseTranslationX: Float,
+        /** 返回箭头右侧的未读数; 分体式下改成箭头右上角的角标。 */
+        val backBadge: BackBadgeState?,
     ) {
         val layoutListeners = HashMap<View, View.OnLayoutChangeListener>()
         val menuActionViews = HashSet<View>()
@@ -489,6 +505,13 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         var menuRetryListener: ViewTreeObserver.OnGlobalLayoutListener? = null
         var updatePosted = false
     }
+
+    /** 未读数 TextView 被挪成角标前的原始布局参数, 退出分体式时还原。 */
+    private class BackBadgeState(
+        val anchor: ImageView,
+        val badge: TextView,
+        val layoutParams: LinearLayout.LayoutParams,
+    )
 
     private class SeparatedHeaderDecorationView(context: Context) : View(context) {
         private val leftRect = RectF()
@@ -627,43 +650,55 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             scheduleReconcile(layout, RECONCILE_TIPS)
         }
 
-        ChattingUILayout::class.reflekt().firstConstructorOrNull {
+        ChattingUILayout::class.reflekt().firstConstructor {
             parameters(Context::class, AttributeSet::class)
-        }?.hookAfter {
-            val layout = thisObject as? ChattingUILayout ?: return@hookAfter
-            ensureLayoutAttachListener(layout)
-        } ?: WeLogger.w(TAG, "ChattingUILayout constructor hook target not found")
+        }.hookAfter {
+            ensureLayoutAttachListener(thisObject as ChattingUILayout)
+        }
 
         // 通知半屏/全屏路径下 ChatFooter 一定存在且稳定 attach, 借它兜底追踪 ChattingUILayout:
         // 这些路径的 ChattingUILayout 可能由微信布局预取线程提前 inflate, 构造 hook/attach 监听会漏。
-        ChatFooter::class.reflekt().firstMethodOrNull { name = "onAttachedToWindow" }?.hookAfter {
-            val footer = thisObject as? ChatFooter ?: return@hookAfter
-            footer.findAncestorChattingUILayout()?.let { layout ->
+        ChatFooter::class.reflekt().firstMethod { name = "onAttachedToWindow" }.hookAfter {
+            (thisObject as ChatFooter).findAncestorChattingUILayout()?.let { layout ->
                 ensureLayoutAttachListener(layout)
                 trackLayout(layout)
             }
-        } ?: WeLogger.w(TAG, "ChatFooter.onAttachedToWindow hook target not found")
+        }
 
         // 运行中才打开本特性时, 已有会话的布局早已构造完, attach 监听不会再触发;
         // 下一次布局 (切会话/键盘/旋转) 到来时补挂追踪, 之后的 pre-draw 完成全部改造。
         // onLayout 沿继承链命中 KeyboardLinearLayout.onLayout —— ChattingUILayout 运行时
         // 实际派发的 override, 只影响这一小簇布局类, 不会波及全进程。
-        ChattingUILayout::class.reflekt().firstMethodOrNull {
+        ChattingUILayout::class.reflekt().firstMethod {
             name = "onLayout"
             superclass()
-        }?.hookAfter {
+        }.hookAfter {
             val layout = thisObject
             if (layout !is ChattingUILayout) return@hookAfter
             trackLayout(layout)
             scheduleReconcile(layout, RECONCILE_LAYOUT)
-        } ?: WeLogger.w(TAG, "onLayout hook target not found")
+        }
 
         // 状态栏沉浸后，微信仍会把状态栏 inset 吃进 ChattingUILayout.paddingTop。
         // 只清顶部；导航栏相关的底部 padding 由 FloatingChatFooter 独立处理。
-        ChattingUILayout::class.reflekt().firstMethodOrNull { name = "fitSystemWindows" }
-            ?.hookAfter {
-                zeroChatLayoutTopPadding(thisObject as View)
-            } ?: WeLogger.w(TAG, "ChattingUILayout.fitSystemWindows hook target not found")
+        ChattingUILayout::class.reflekt().firstMethod { name = "fitSystemWindows" }.hookAfter {
+            zeroChatLayoutTopPadding(thisObject as View)
+        }
+
+        // 通知半屏点「全屏」时微信把包装层策略改回 ALWAYS_AVOID 并立即重算 padding, 之后每次
+        // insets 变化 (如收起键盘) 都会先画出一帧整页下移一个状态栏高度。已接管的包装层
+        // 始终保持 ALWAYS_HIDE。包装层 8.0.72 起才有, 旧版本没有这个类。
+        EDGE_TO_EDGE_WRAPPER_CLASS.toClassOrNull()?.reflekt()?.firstMethod {
+            name = "setStatusBarStrategy"
+            parameterCount = 1
+        }?.hookBefore {
+            if (statusBarWrappersNeutralized[thisObject as View] != true) return@hookBefore
+            val strategy = args[0] as Enum<*>
+            if (strategy.name == "ALWAYS_HIDE") return@hookBefore
+            args[0] = strategy.javaClass.enumConstants!!.single {
+                (it as Enum<*>).name == "ALWAYS_HIDE"
+            }
+        }
 
         // 外部应用进入的全屏 ChattingMainUI 也使用窗口标题栏。AppCompat 在每次派发
         // insets 时会用系统栏尺寸覆盖它的三边 margin; 等到 pre-draw 才恢复会让本帧
@@ -683,42 +718,41 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         // ConvBox.onCreate 尾部的 FullScreenHelper 会 post 把 actionBarSize 写入
         // layout nn 根布局的 paddingTop。edge-to-edge 下清掉这份根补偿，
         // 再把会话容器 jmc 对齐到标题栏最终下沿，不影响并列的 bjy。
-        CONV_BOX_ACTIVITY_CLASS.toClass().reflekt().firstMethodOrNull {
+        CONV_BOX_ACTIVITY_CLASS.toClass().reflekt().firstMethod {
             name = "onCreate"
             parameters(Bundle::class)
-        }?.hookAfter {
+        }.hookAfter {
             val activity = thisObject as Activity
             val decor = activity.window.decorView
             decor.post {
                 if (!isActive) return@post
                 applyConvBoxEdgeToEdge(activity)
             }
-        } ?: WeLogger.w(TAG, "ConvBoxServiceConversationUI.onCreate hook target not found")
+        }
 
         // IdleHandler 首次预加载聊天容器会重包原窗口树；退出聊天后也要
         // 重新收敛列表布局。两条路径最后都调用 resumeMainFragment。
-        BASE_CONVERSATION_ACTIVITY_CLASS.toClass().reflekt().firstMethodOrNull {
+        BASE_CONVERSATION_ACTIVITY_CLASS.toClass().reflekt().firstMethod {
             name = "resumeMainFragment"
             parameters()
-        }?.hookAfter {
+        }.hookAfter {
             val activity = thisObject as Activity
             if (activity.javaClass.name != CONV_BOX_ACTIVITY_CLASS) return@hookAfter
             activity.window.decorView.post {
                 if (isActive) applyConvBoxEdgeToEdge(activity)
             }
-        } ?: WeLogger.w(TAG, "BaseConversationUI.resumeMainFragment hook target not found")
+        }
 
         // 置顶消息卡展开/收起时, 微信通过 ChatTipsBarGroup.setListViewPaddingTop 自己给消息
         // 列表补 recycler 高度。它与我们算的悬浮 padding 叠加会重复, 直接关掉这个补偿,
         // 顶部 padding 完全由本特性统一计算。
-        "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup".toClass().reflekt().firstMethodOrNull {
+        "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup".toClass().reflekt().firstMethod {
             name = "setListViewPaddingTop"
-        }?.hookBefore {
-            val group = thisObject as? View
-            val layout = group?.let(::ownerLayoutForTipsGroup)
+        }.hookBefore {
+            val layout = ownerLayoutForTipsGroup(thisObject as View)
             result = null
             if (layout != null) scheduleReconcile(layout, RECONCILE_TIPS)
-        } ?: WeLogger.w(TAG, "ChatTipsBarGroup.setListViewPaddingTop hook target not found")
+        }
 
         // 历史消息预加载保存的是首个可见消息的 View.top, 恢复时却直接传给
         // setSelectionFromTop → LinearLayoutManager.scrollToPositionWithOffset。
@@ -740,12 +774,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
         // ChatTipsBarGroup 在树里的实际父容器不猜了: 构造时拿到实例, attach 后反查所属
         // ChattingUILayout 登记。悬浮与 dim 压制都直接走这份登记, 版本差异也能兜住。
-        "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup".toClass().reflekt().firstConstructorOrNull {
+        "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup".toClass().reflekt().firstConstructor {
             parameters(Context::class, AttributeSet::class)
-        }?.hookAfter {
-            val group = thisObject as? View ?: return@hookAfter
-            ensureTipsGroupAttachListener(group)
-        } ?: WeLogger.w(TAG, "ChatTipsBarGroup constructor hook target not found")
+        }.hookAfter {
+            ensureTipsGroupAttachListener(thisObject as View)
+        }
 
     }
 
@@ -997,7 +1030,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             // 窗口级 ActionBarContainer 不能重挂 (AppCompat 的 ActionBarOverlayLayout
             // 会继续用它的 LayoutParams, 重挂会类型崩溃), 改为原位 overlay 悬浮。
             // overlay 悬浮依赖本特性维护的状态栏偏移；偏移尚未就绪时只做卡片样式。
-            if (windowBarHeaders[layout] == true && statusBarOffset(layout) > 0) {
+            if (windowBarHeaders[layout] == true && (statusBarInsets[layout] ?: 0) > 0) {
                 headerTopOffsets[layout] = layout.top + layout.paddingTop
                 ensureWindowBarOverlay(header)
             }
@@ -1192,6 +1225,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             surfaceColor = surfaceColor,
             visualStates = visualStates,
             clipStates = clipStates,
+            leftBaseTranslationX = parts.left.translationX,
+            rightBaseTranslationX = parts.right.translationX,
+            backBadge = findBackBadge(parts.left),
         )
         state.attachListener = object : View.OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(v: View) {
@@ -1199,9 +1235,14 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             }
 
             override fun onViewDetachedFromWindow(v: View) {
-                if (separatedHeaderStates[layout] === state) {
-                    disposeSeparatedHeader(state, restoreVisuals = true)
-                    scheduleReconcile(layout, RECONCILE_LAYOUT)
+                // 键盘弹出/收起时微信会把 Toolbar 的自定义标题 View 摘下再挂回。立即销毁会让
+                // 下一帧重建出尚未布局的装饰层, 气泡底色闪没一帧; 等一轮 post 仍未挂回才销毁。
+                // 会话布局自己被摘下时 post 不会执行, 由 disposeTracker 负责清理。
+                layout.post {
+                    if (separatedHeaderStates[layout] === state && !state.root.isAttachedToWindow) {
+                        disposeSeparatedHeader(state, restoreVisuals = true)
+                        scheduleReconcile(layout, RECONCILE_LAYOUT)
+                    }
                 }
             }
         }
@@ -1270,12 +1311,12 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     private fun isVisibleMenuAction(view: View): Boolean {
         if (!view.isVisible || view.width <= 0 || view.height <= 0) return false
-        if (view.javaClass.name != ACTION_MENU_VIEW_CLASS) return true
         // 半屏切全屏时微信会保留一个外层可见、但内部图标和文字均为空的 action 槽位。
+        // 新版里槽位是普通 LinearLayout 而非 WXActionMenuView, 所以不按类名过滤, 一律看内容。
         return view.allViews.drop(1).any { content ->
-            content.isShown && when (content) {
+            content.isShown && content.width > 0 && content.height > 0 && when (content) {
                 is ImageView -> content.drawable != null
-                is TextView -> content.text.isNotEmpty()
+                is TextView -> content.text.isNotBlank()
                 else -> false
             }
         }
@@ -1373,43 +1414,64 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             params.topMargin = -shadowPadding
             state.decoration.layoutParams = params
         }
+        // 装饰层可能刚在 pre-draw 里新建或改尺寸, 等下一轮布局会先画出一帧空白气泡;
+        // 这里就地测量布局, 让本帧即按最终尺寸绘制。
+        val layer = state.decorationLayer
+        if (layer.width != state.root.width || layer.height != state.root.height ||
+            state.decoration.width != targetWidth || state.decoration.height != targetHeight
+        ) {
+            layer.measure(
+                View.MeasureSpec.makeMeasureSpec(state.root.width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(state.root.height, View.MeasureSpec.EXACTLY),
+            )
+            layer.layout(0, 0, state.root.width, state.root.height)
+        }
 
         val rootHeight = state.root.height.toFloat()
         val buttonDiameter = rootHeight
-        val backIcon = state.left.allViews.firstOrNull { it is ImageView && it.isVisible }
-        val backBounds = RectF()
-        val leftBounds = RectF()
-        boundsInHeaderRoot(state.left, state.root, leftBounds)
-        val leftCenterX = if (backIcon != null) {
-            boundsInHeaderRoot(backIcon, state.root, backBounds)
-            backBounds.left + backIcon.paddingLeft +
-                (backIcon.width - backIcon.paddingLeft - backIcon.paddingRight) / 2f
-        } else {
-            leftBounds.centerX()
-        }
-        val leftCard = RectF(
-            leftCenterX - buttonDiameter / 2f,
-            0f,
-            leftCenterX + buttonDiameter / 2f,
-            rootHeight,
-        )
+        val buttonRadius = buttonDiameter / 2f
+        val rootWidth = state.root.width.toFloat()
+        // 测量值含上一轮的对称平移, 先扣掉得到微信原始布局下的位置。
+        val leftApplied = state.left.translationX - state.leftBaseTranslationX
+        val rightApplied = state.right.translationX - state.rightBaseTranslationX
+        val leftCenterX = iconCenterXInHeaderRoot(state.left, state.root) - leftApplied
 
         val rightCard = RectF()
         state.menuHost?.let { menuHost ->
             for (index in 0 until menuHost.childCount) {
                 val child = menuHost.getChildAt(index)
                 if (!isVisibleMenuAction(child)) continue
-                val bounds = RectF()
-                boundsInHeaderRoot(child, state.root, bounds)
+                val centerX = iconCenterXInHeaderRoot(child, state.root) - rightApplied
                 val actionCard = RectF(
-                    bounds.centerX() - buttonDiameter / 2f,
+                    centerX - buttonRadius,
                     0f,
-                    bounds.centerX() + buttonDiameter / 2f,
+                    centerX + buttonRadius,
                     rootHeight,
                 )
                 if (rightCard.isEmpty) rightCard.set(actionCard) else rightCard.union(actionCard)
             }
         }
+
+        // 返回图标槽位比右侧 action 槽位窄, 各自按图标居中时两颗按钮离边缘的距离不同,
+        // 居中的名称卡两侧间距就必然不等。统一成同一个边缘距离 (且按钮不超出标题栏),
+        // 再平移图标区让图标仍落在按钮正中。
+        val leftEdgeDistance = leftCenterX
+        val rightEdgeDistance = if (rightCard.isEmpty) 0f else rootWidth - rightCard.right + buttonRadius
+        val edgeDistance = maxOf(leftEdgeDistance, rightEdgeDistance, buttonRadius)
+        val leftShift = edgeDistance - leftEdgeDistance
+        val rightShift = if (rightCard.isEmpty) 0f else rightEdgeDistance - edgeDistance
+        rightCard.offset(rightShift, 0f)
+        val leftTarget = state.leftBaseTranslationX + leftShift
+        if (state.left.translationX != leftTarget) state.left.translationX = leftTarget
+        val rightTarget = state.rightBaseTranslationX + rightShift
+        if (state.right.translationX != rightTarget) state.right.translationX = rightTarget
+        state.backBadge?.let { positionBackBadge(it, density) }
+        val leftCard = RectF(
+            edgeDistance - buttonRadius,
+            0f,
+            edgeDistance + buttonRadius,
+            rootHeight,
+        )
 
         val gapPx = componentGapDp * density
         val leftReserve = leftCard.right + gapPx
@@ -1497,6 +1559,84 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         }
     }
 
+    /**
+     * 按钮区内图标实际绘制位置的水平中心。微信的图标 View 常带不对称 padding
+     * (全屏的「…」就是), 按 View 边界居中会让圆形底和图标错位。
+     */
+    private fun iconCenterXInHeaderRoot(container: View, root: View): Float {
+        val bounds = RectF()
+        val icon = container.allViews.firstOrNull {
+            it is ImageView && it.isShown && it.width > 0 && it.height > 0 && it.drawable != null
+        } as ImageView?
+        if (icon == null) {
+            boundsInHeaderRoot(container, root, bounds)
+            return bounds.centerX()
+        }
+        boundsInHeaderRoot(icon, root, bounds)
+        val drawn = RectF()
+        drawnIconRect(icon, drawn)
+        return bounds.left + drawn.centerX()
+    }
+
+    /** 图标在 ImageView 自身坐标系里的实际绘制区域 (含 padding 与 imageMatrix)。 */
+    private fun drawnIconRect(icon: ImageView, out: RectF) {
+        val drawable = icon.drawable
+        if (drawable == null || drawable.bounds.isEmpty) {
+            out.set(
+                icon.paddingLeft.toFloat(),
+                icon.paddingTop.toFloat(),
+                (icon.width - icon.paddingRight).toFloat(),
+                (icon.height - icon.paddingBottom).toFloat(),
+            )
+            return
+        }
+        out.set(drawable.bounds)
+        icon.imageMatrix.mapRect(out)
+        out.offset(icon.paddingLeft.toFloat(), icon.paddingTop.toFloat())
+    }
+
+    /**
+     * 返回箭头旁的未读数 (微信 ChattingUI 标题栏的 osp): 与箭头同在 actionbar_up_indicator
+     * 这个横向 LinearLayout 里, 紧跟在箭头之后。微信之后只改它的可见性和文字。
+     */
+    private fun findBackBadge(left: View): BackBadgeState? {
+        val anchor = left.allViews.firstOrNull { it is ImageView } as ImageView? ?: return null
+        val parent = anchor.parent as? LinearLayout ?: return null
+        val badge = parent.getChildAt(parent.indexOfChild(anchor) + 1) as? TextView ?: return null
+        val lp = badge.layoutParams as? LinearLayout.LayoutParams ?: return null
+        return BackBadgeState(anchor, badge, LinearLayout.LayoutParams(lp))
+    }
+
+    /**
+     * 用负 leftMargin 把角标拉回到箭头右上角, 而不是 translation: 位置在正常布局里算好,
+     * 未读数从 GONE 变可见的第一帧就在正确位置。只依赖箭头几何, 箭头布局好后即可算。
+     */
+    private fun positionBackBadge(state: BackBadgeState, density: Float) {
+        val anchor = state.anchor
+        if (anchor.width <= 0 || anchor.height <= 0) return
+        val glyph = RectF()
+        drawnIconRect(anchor, glyph)
+        glyph.offset(anchor.left.toFloat(), anchor.top.toFloat())
+        val anchorLp = anchor.layoutParams as ViewGroup.MarginLayoutParams
+        val parent = anchor.parent as View
+        val leftMargin = (glyph.right - BACK_BADGE_OVERLAP_X_DP * density -
+            (anchor.right + anchorLp.rightMargin)).roundToInt()
+        val topMargin = (glyph.top - BACK_BADGE_OVERLAP_Y_DP * density - parent.paddingTop)
+            .roundToInt()
+        val lp = state.badge.layoutParams as LinearLayout.LayoutParams
+        if (lp.gravity == Gravity.TOP && lp.leftMargin == leftMargin && lp.topMargin == topMargin) {
+            return
+        }
+        lp.gravity = Gravity.TOP
+        lp.leftMargin = leftMargin
+        lp.topMargin = topMargin
+        state.badge.layoutParams = lp
+    }
+
+    private fun restoreBackBadge(state: BackBadgeState) {
+        state.badge.layoutParams = LinearLayout.LayoutParams(state.layoutParams)
+    }
+
     private fun boundsInHeaderRoot(view: View, root: View, out: RectF) {
         val rootLocation = IntArray(2)
         val viewLocation = IntArray(2)
@@ -1539,6 +1679,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         if (state.decorationLayer.parent === state.root) {
             state.root.removeView(state.decorationLayer)
         }
+        state.left.translationX = state.leftBaseTranslationX
+        state.right.translationX = state.rightBaseTranslationX
+        state.backBadge?.let(::restoreBackBadge)
         if (restoreVisuals) {
             state.visualStates.forEach { original ->
                 original.view.background = original.background
@@ -2422,11 +2565,27 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         neutralizeStatusBarWrapper(layout)
     }
 
-    private fun currentStatusBarOffset(layout: View): Int {
+    private fun currentStatusBarInset(layout: View): Int {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return 0
         // 照片全屏过渡会隐藏状态栏；聊天页仍需保留其占位，避免背后的标题卡和列表上跳。
         return layout.rootWindowInsets
             ?.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars())?.top ?: 0
+    }
+
+    private fun currentStatusBarOffset(layout: View, insetTop: Int): Int {
+        if (insetTop <= 0) return 0
+        // 通知半屏的窗口仍是全屏, inset 照报状态栏高度, 但内容从屏幕中部开始;
+        // 只补偿实际与状态栏重叠的部分。量 DecorView 下的顶层容器而不是会话布局本身,
+        // 否则宿主瞬时重设的包装层 padding 会让下一帧把偏移算成 0, 标题卡上跳一帧。
+        var container: View = layout
+        while (true) {
+            val parent = container.parent as? View ?: break
+            if (parent === layout.rootView) break
+            container = parent
+        }
+        val location = IntArray(2)
+        container.getLocationOnScreen(location)
+        return (insetTop - location[1]).coerceIn(0, insetTop)
     }
 
     private fun zeroChatLayoutTopPadding(layout: View) {
@@ -2439,18 +2598,30 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private fun trackStatusBarOffset(layout: View) {
         if (statusBarPreDraws[layout] != null) return
         val listener = ViewTreeObserver.OnPreDrawListener {
-            val offset = currentStatusBarOffset(layout)
+            val inset = currentStatusBarInset(layout)
+            val previousInset = statusBarInsets.put(layout, inset)
+            val offset = currentStatusBarOffset(layout, inset)
             val previous = statusBarOffsets.put(layout, offset)
             reassertEdgeToEdgeStatusBar(layout)
-            zeroStandaloneChatBodyTopPadding(layout)
-            neutralizeStatusBarWrapper(layout)
+            val paddingFixed = zeroStandaloneChatBodyTopPadding(layout) or
+                neutralizeStatusBarWrapper(layout)
             // 通知入口的独立 ChattingUI 首次 pre-draw 时 insets 可能尚未就绪；
             // 后续拿到有效状态栏高度后必须重跑完整布局，才能切换窗口标题栏 overlay，
             // 并同步标题卡、提示卡和消息列表的位置与样式。
-            if (previous != null && previous != offset) {
+            // 半屏的偏移始终为 0, 所以 inset 就绪本身也要触发重跑。
+            if ((previous != null && previous != offset) ||
+                (previousInset != null && previousInset != inset)
+            ) {
                 scheduleReconcile(layout, RECONCILE_LAYOUT)
             }
-            true
+            // 本帧已按宿主重设的 padding 布局完, 照画会闪一帧整页下移; 取消这帧, 下一帧按
+            // 修正后的布局绘制。最多连续取消一帧, 避免与持续重设 padding 的宿主逻辑卡死。
+            if (paddingFixed && statusBarDrawSkipped.put(layout, true) == null) {
+                false
+            } else {
+                if (!paddingFixed) statusBarDrawSkipped.remove(layout)
+                true
+            }
         }
         statusBarPreDraws[layout] = listener
         layout.viewTreeObserver.addOnPreDrawListener(listener)
@@ -2472,17 +2643,21 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
      * paddingTop。标题栏已经切成 overlay 后，这份 173px 左右的补偿会让整个消息背景仍从
      * 标题栏下方开始；清掉它后由标题卡和列表 padding 各自处理遮挡关系。
      */
-    private fun zeroStandaloneChatBodyTopPadding(layout: View) {
-        if (!layout.isInStandaloneChattingUi()) return
+    /** 返回本次是否清掉了 Fragment body 的顶部 padding。 */
+    private fun zeroStandaloneChatBodyTopPadding(layout: View): Boolean {
+        if (!layout.isInStandaloneChattingUi()) return false
         val body = layout.parent as RelativeLayout
         if (body.paddingTop != 0) {
             body.setPadding(body.paddingLeft, 0, body.paddingRight, body.paddingBottom)
+            return true
         }
+        return false
     }
 
     /** 只处理 EdgeToEdgeWrapperLayout 的顶部，底部由 FloatingChatFooter 负责。 */
-    private fun neutralizeStatusBarWrapper(layout: View) {
-        val wrapper = layout.findEdgeToEdgeWrapper() ?: return
+    /** 返回本次是否清掉了包装层的顶部 padding。 */
+    private fun neutralizeStatusBarWrapper(layout: View): Boolean {
+        val wrapper = layout.findEdgeToEdgeWrapper() ?: return false
         if (statusBarWrappersNeutralized[wrapper] != true) {
             // 高版本 ChattingUI 的 wrapper 默认 ALWAYS_AVOID，ADB 显示它会把整个内容子树
             // 下移一个状态栏高度。先把策略切到 ALWAYS_HIDE，使后续 insets 回调保持 top=0。
@@ -2505,13 +2680,15 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         // setter 只更新策略字段，不会同步重算已经收到的 inset；当前帧立即移除 160px。
         if (wrapper.paddingTop != 0) {
             wrapper.setPadding(wrapper.paddingLeft, 0, wrapper.paddingRight, wrapper.paddingBottom)
+            return true
         }
+        return false
     }
 
     private fun View.findEdgeToEdgeWrapper(): View? {
         var current: View? = this
         while (current != null) {
-            if (current.javaClass.name == "com.tencent.mm.ui.widget.EdgeToEdgeWrapperLayout") {
+            if (current.javaClass.name == EDGE_TO_EDGE_WRAPPER_CLASS) {
                 return current
             }
             current = current.parent as? View
@@ -2754,11 +2931,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         ) {
             return true
         }
-        // 兜底: 用视图自己的 classloader 判定宿主 RecyclerView 子类
-        val hostRecycler = runCatching {
-            "androidx.recyclerview.widget.RecyclerView".toClass(javaClass.classLoader)
-        }.getOrNull() ?: return false
-        return hostRecycler.isInstance(this)
+        // 兜底: 用宿主 classloader 判定 RecyclerView 子类 (框架 View 的 boot loader 里没有 androidx)
+        return "androidx.recyclerview.widget.RecyclerView".toClass().isInstance(this)
     }
 
     private fun scheduleAllLayouts(flags: Int) {
@@ -2773,6 +2947,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             runCatching { layout.viewTreeObserver.removeOnPreDrawListener(listener) }
         }
         statusBarOffsets.remove(layout)
+        statusBarInsets.remove(layout)
+        statusBarDrawSkipped.remove(layout)
         val tracker = layoutTrackers.remove(layout) ?: return
         tracker.active = false
         tracker.oneShotPreDraw?.let { listener ->
@@ -2915,6 +3091,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         separatedHeaderWarned.clear()
         statusBarPreDraws.clear()
         statusBarOffsets.clear()
+        statusBarInsets.clear()
+        statusBarDrawSkipped.clear()
         statusBarWrappersNeutralized.clear()
         edgeToEdgeApplied.clear()
     }
