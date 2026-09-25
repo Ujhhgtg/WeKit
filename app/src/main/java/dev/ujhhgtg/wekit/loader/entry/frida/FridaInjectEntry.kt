@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.loader.entry.frida
 import android.app.ActivityThread
 import android.util.Log
 import androidx.annotation.Keep
-import dev.ujhhgtg.wekit.loader.entry.common.ModuleLoader
+import dev.ujhhgtg.wekit.loader.startup.ModuleLoader
 import java.io.File
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
@@ -59,12 +59,10 @@ object FridaInjectEntry {
         }
         val cl = findHostClassLoader()
         ModuleLoader.init(
-            hostDataDir.absolutePath,
             cl,
             FridaStartupImpl,
             null,
             modulePath.absolutePath,
-            false
         )
     }
 

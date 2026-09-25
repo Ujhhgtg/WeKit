@@ -4,7 +4,7 @@ package dev.ujhhgtg.wekit.loader.entry.lxp
 
 import androidx.annotation.Keep
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.loader.entry.common.ModuleLoader
+import dev.ujhhgtg.wekit.loader.startup.ModuleLoader
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
@@ -19,14 +19,11 @@ class LxpHookEntry : XposedModule() {
     override fun onPackageReady(param: PackageReadyParam) {
         if (PackageNames.isWeChat(param.packageName)) {
             if (param.isFirstPackage) {
-                val ai = param.applicationInfo
                 ModuleLoader.init(
-                    ai.dataDir,
                     param.classLoader,
                     LxpHookImpl,
                     LxpHookImpl,
                     this.moduleApplicationInfo.sourceDir,
-                    true
                 )
             }
         }

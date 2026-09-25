@@ -46,7 +46,7 @@
 
 - Xposed entries: `dev.ujhhgtg.wekit.loader.entry.lxp.LxpHookEntry` (libxposed 101 ~ 102) and
   `dev.ujhhgtg.wekit.loader.entry.xp51.Xp51HookEntry` (legacy Xposed API 51+)
-- Unified flow: `UnifiedEntryPoint.entry()` → `StartupAgent.startup()` → `WeLauncher.init()`
+- Unified flow: entry point → `ModuleLoader.init()` → (after `Application.onCreate`) `ModuleLoader.startup()` → `launch()` → `FeaturesLoader.loadFeatures()`
 - Feature objects inherit `BaseFeature` and declare `technicalId`/resource/category metadata as
   override properties; extension pack objects implement `ExtensionPack` with a required
   `displayOrder`. Both are auto-discovered by KSP from their source subtype at compile time.

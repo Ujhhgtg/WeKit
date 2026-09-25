@@ -10,7 +10,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.setEnabled
-import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.Path
 import kotlin.io.path.deleteRecursively
 
@@ -29,7 +28,6 @@ object DisableHostHotUpdates : SwitchFeature() {
     )
 
     @SuppressLint("SdCardPath")
-    @OptIn(ExperimentalPathApi::class)
     override fun onEnable() {
         runCatching { Path("/data/data/${HostInfo.packageName}/tinker").deleteRecursively() }
 

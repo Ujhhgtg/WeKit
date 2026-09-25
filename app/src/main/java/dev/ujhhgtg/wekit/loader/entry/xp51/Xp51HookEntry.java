@@ -6,7 +6,7 @@ import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.IXposedHookZygoteInit;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import dev.ujhhgtg.wekit.constants.PackageNames;
-import dev.ujhhgtg.wekit.loader.entry.common.ModuleLoader;
+import dev.ujhhgtg.wekit.loader.startup.ModuleLoader;
 
 @Keep
 public class Xp51HookEntry implements IXposedHookLoadPackage, IXposedHookZygoteInit {
@@ -44,12 +44,10 @@ public class Xp51HookEntry implements IXposedHookLoadPackage, IXposedHookZygoteI
                 throw new IllegalStateException("handleLoadPackage: sInitZygoteStartupParam is null");
             }
             ModuleLoader.init(
-                    lpparam.appInfo.dataDir,
                     lpparam.classLoader,
                     Xp51HookImpl.INSTANCE,
                     Xp51HookImpl.INSTANCE,
-                    getModulePath(),
-                    true
+                    getModulePath()
             );
         }
     }

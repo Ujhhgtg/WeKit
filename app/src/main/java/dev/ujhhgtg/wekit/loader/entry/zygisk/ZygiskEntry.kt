@@ -8,7 +8,7 @@ import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
-import dev.ujhhgtg.wekit.loader.entry.common.ModuleLoader
+import dev.ujhhgtg.wekit.loader.startup.ModuleLoader
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.atomic.AtomicBoolean
@@ -36,7 +36,6 @@ object ZygiskEntry {
     private val finalClassLoaderHookInstalled = AtomicBoolean(false)
     private var loaderService: ZygiskLoaderService? = null
     private var hookBridge: ArtHookBridge? = null
-    private var hostDataDir: String = ""
     private var modulePath: String = ""
 
     @Keep
@@ -66,7 +65,6 @@ object ZygiskEntry {
                     versionCode = BuildConfig.VERSION_CODE,
                 )
                 val bridge = ArtHookBridge()
-                hostDataDir = dataDir
                 modulePath = apkPath
                 loaderService = service
                 hookBridge = bridge
@@ -97,7 +95,6 @@ object ZygiskEntry {
                 // roll them back when installation itself fails so init can retry.
                 loaderService = null
                 hookBridge = null
-                hostDataDir = ""
                 modulePath = ""
                 moduleStarted.set(false)
                 finalClassLoaderHookInstalled.set(false)
@@ -177,12 +174,10 @@ object ZygiskEntry {
             val service = loaderService ?: error("Zygisk loader service not initialized")
             val bridge = hookBridge ?: error("Zygisk hook bridge not initialized")
             ModuleLoader.init(
-                hostDataDir = hostDataDir,
                 initialClassLoader = hostClassLoader,
                 loaderService = service,
                 hookBridge = bridge,
                 modulePath = modulePath,
-                allowDynamicLoad = false,
             )
         } catch (t: Throwable) {
             WeLogger.e(TAG, "failed to start WeKit module", t)

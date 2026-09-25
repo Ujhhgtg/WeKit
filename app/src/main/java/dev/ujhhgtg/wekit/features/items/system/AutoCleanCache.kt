@@ -17,7 +17,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.nio.file.Path
-import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.deleteRecursively
 import kotlin.io.path.div
 import kotlin.io.path.exists
@@ -76,7 +75,6 @@ object AutoCleanCache : ClickableFeature() {
         }
     }
 
-    @OptIn(ExperimentalPathApi::class)
     private fun performClean(): Long {
         var totalDeletedBytes = 0L
         cleanPaths.forEach { path ->
