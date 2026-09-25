@@ -52,7 +52,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Code
 import com.composables.icons.materialsymbols.outlined.Open_in_new
+import com.composables.icons.materialsymbols.outlined.Send
 import com.composables.icons.materialsymbols.outlined.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Check_circle
 import com.composables.icons.materialsymbols.outlinedfilled.Info
@@ -70,8 +72,6 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
-import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleAppTheme
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.androidUserId
@@ -804,13 +804,13 @@ class MainActivity : ComponentActivity() {
                 )
 
                 LinkCard(
-                    icon = GitHubIcon,
+                    icon = MaterialSymbols.Outlined.Code,
                     title = stringResource(R.string.brand_github),
                     subtitle = "Ujhhgtg/WeKit",
                     onClick = { onUrlClick("https://github.com/Ujhhgtg/WeKit") }
                 )
                 LinkCard(
-                    icon = TelegramIcon,
+                    icon = MaterialSymbols.Outlined.Send,
                     title = stringResource(R.string.brand_telegram),
                     subtitle = "https://t.me/+7j5dJ6g16B43OWVl",
                     onClick = { onUrlClick("https://t.me/+7j5dJ6g16B43OWVl") }

@@ -96,6 +96,7 @@ import com.composables.icons.materialsymbols.outlined.Person
 import com.composables.icons.materialsymbols.outlined.Refresh
 import com.composables.icons.materialsymbols.outlined.Save
 import com.composables.icons.materialsymbols.outlined.Select_all
+import com.composables.icons.materialsymbols.outlined.Send
 import com.composables.icons.materialsymbols.outlined.Settings
 import com.composables.icons.materialsymbols.outlined.Sort
 import com.composables.icons.materialsymbols.outlined.Sync
@@ -130,7 +131,6 @@ import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
 import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskTelegramRootClient
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.ui.content.GlobalImageLoader
-import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -2788,7 +2788,7 @@ private fun StickerImportPrompt(
                         mode = StickerImportMode.TELEGRAM_SINGLE,
                         title = stringResource(R.string.sticker_telegram_single_title),
                         description = stringResource(R.string.sticker_telegram_single_description),
-                        icon = TelegramIcon,
+                        icon = MaterialSymbols.Outlined.Send,
                     ),
                 )
                 add(
@@ -2796,7 +2796,7 @@ private fun StickerImportPrompt(
                         mode = StickerImportMode.TELEGRAM_BATCH,
                         title = stringResource(R.string.sticker_telegram_batch_title),
                         description = stringResource(R.string.sticker_telegram_batch_description),
-                        icon = TelegramIcon,
+                        icon = MaterialSymbols.Outlined.Send,
                     ),
                 )
             }
@@ -2856,7 +2856,7 @@ private fun TelegramDatabaseSourcePrompt(
                 mode = TelegramDatabaseSource.ROOT,
                 title = stringResource(R.string.sticker_telegram_source_root_title),
                 description = stringResource(R.string.sticker_telegram_source_root_description),
-                icon = TelegramIcon,
+                icon = MaterialSymbols.Outlined.Send,
             ),
             PanelImportOption(
                 mode = TelegramDatabaseSource.MANUAL,

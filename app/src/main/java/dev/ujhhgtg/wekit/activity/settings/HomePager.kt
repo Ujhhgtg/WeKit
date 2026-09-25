@@ -29,7 +29,14 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Android
+import com.composables.icons.materialsymbols.outlined.Chat
 import com.composables.icons.materialsymbols.outlined.Check_circle
+import com.composables.icons.materialsymbols.outlined.Deployed_code
+import com.composables.icons.materialsymbols.outlined.Layers
+import com.composables.icons.materialsymbols.outlined.Menu_book
+import com.composables.icons.materialsymbols.outlined.Schedule
+import com.composables.icons.materialsymbols.outlined.Smartphone
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.openLsposedManager
@@ -162,14 +169,14 @@ private fun DeviceInformation() {
     SegmentedColumn(title = stringResource(R.string.home_device_info_title)) {
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Chat,
                 title = stringResource(R.string.home_wechat_version),
                 description = stringResource(R.string.home_version_value, HostInfo.versionName, HostInfo.versionCode),
             )
         }
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Deployed_code,
                 title = stringResource(R.string.home_module_version),
                 description = stringResource(
                     R.string.home_version_value,
@@ -180,21 +187,21 @@ private fun DeviceInformation() {
         }
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Schedule,
                 title = stringResource(R.string.home_build_time),
                 description = formatEpoch(BuildConfig.BUILD_TIMESTAMP, true),
             )
         }
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Smartphone,
                 title = stringResource(R.string.home_device_model),
                 description = stringResource(R.string.home_device_model_value, Build.MANUFACTURER, Build.MODEL),
             )
         }
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Android,
                 title = stringResource(R.string.home_android_version),
                 description = stringResource(
                     R.string.home_android_version_value,
@@ -205,7 +212,7 @@ private fun DeviceInformation() {
         }
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Layers,
                 title = stringResource(R.string.home_loading_environment),
                 description = stringResource(
                     R.string.home_loading_environment_value,
@@ -223,7 +230,7 @@ private fun LearnMore() {
     SegmentedColumn(title = stringResource(R.string.home_learn_more_title)) {
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Menu_book,
                 title = stringResource(R.string.home_learn_more_item_title),
                 description = stringResource(R.string.home_learn_more_item_summary),
                 onClick = { uriHandler.openUri("https://docs.wekit.ujhhgtg.dev") },

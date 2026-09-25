@@ -68,6 +68,7 @@ import com.composables.icons.materialsymbols.outlined.Brightness_medium
 import com.composables.icons.materialsymbols.outlined.Build_circle
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Close
+import com.composables.icons.materialsymbols.outlined.Code
 import com.composables.icons.materialsymbols.outlined.Colorize
 import com.composables.icons.materialsymbols.outlined.Contrast
 import com.composables.icons.materialsymbols.outlined.Delete_forever
@@ -80,6 +81,7 @@ import com.composables.icons.materialsymbols.outlined.License
 import com.composables.icons.materialsymbols.outlined.Notifications
 import com.composables.icons.materialsymbols.outlined.Rule_settings
 import com.composables.icons.materialsymbols.outlined.Search
+import com.composables.icons.materialsymbols.outlined.Send
 import com.composables.icons.materialsymbols.outlined.Shield
 import com.composables.icons.materialsymbols.outlined.Style
 import com.composables.icons.materialsymbols.outlined.Swipe
@@ -123,8 +125,6 @@ import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
 import dev.ujhhgtg.wekit.ui.content.m3AppBarColor
 import dev.ujhhgtg.wekit.ui.content.m3BackdropLayer
 import dev.ujhhgtg.wekit.ui.content.rememberMaterial3BlurBackdrop
-import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
-import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.ui.utils.theme.AppColorSpec
 import dev.ujhhgtg.wekit.ui.utils.theme.AppPaletteStyle
@@ -334,14 +334,14 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                     PrefArrow(
                         title = stringResource(R.string.brand_github),
                         summary = "Ujhhgtg/WeKit",
-                        icon = GitHubIcon,
+                        icon = MaterialSymbols.Outlined.Code,
                         onClick = { "https://github.com/Ujhhgtg/WeKit".toUri().openInSystem(context, true) })
                 }
                 item {
                     PrefArrow(
                         title = stringResource(R.string.brand_telegram),
                         summary = "https://t.me/+7j5dJ6g16B43OWVl",
-                        icon = TelegramIcon,
+                        icon = MaterialSymbols.Outlined.Send,
                         onClick = { "https://t.me/+7j5dJ6g16B43OWVl".toUri().openInSystem(context, true) })
                 }
             }
