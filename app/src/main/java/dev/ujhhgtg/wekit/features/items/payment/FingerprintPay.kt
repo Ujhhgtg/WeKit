@@ -35,7 +35,6 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -136,7 +135,6 @@ object FingerprintPay : ClickableFeature() {
                     )
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                     TextButton(onClick = {
                         val rawEncData = encryptedData ?: run {
                             showToast(localizedPaymentString(R.string.payment_fingerprint_password_missing))
@@ -154,12 +152,13 @@ object FingerprintPay : ClickableFeature() {
                             )
                         }
                     }) { Text(stringResource(R.string.payment_fingerprint_test_decryption)) }
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         if (plaintext.length != 6) {
                             showToast(localizedPaymentString(R.string.payment_fingerprint_invalid_length))
-                            return@Button
+                            return@TextButton
                         }
                         onDismiss()
                         encryptWithBiometric(context, plaintext) { encData ->
@@ -282,7 +281,7 @@ object FingerprintPay : ClickableFeature() {
                             text = stringResource(R.string.payment_fingerprint_android_too_old_details)
                         )
                     },
-                    confirmButton = { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
+                    confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
                 )
             }
             showToast(localizedPaymentString(R.string.payment_fingerprint_android_too_old))
@@ -295,7 +294,7 @@ object FingerprintPay : ClickableFeature() {
                     title = { Text(text = stringResource(R.string.warning)) },
                     text = { Text(text = stringResource(R.string.payment_risk_warning)) },
                     confirmButton = {
-                        Button(onClick = {
+                        TextButton(onClick = {
                             applyToggle(true)
                             onDismiss()
                         }) { Text(stringResource(R.string.dialog_confirm)) }

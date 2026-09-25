@@ -662,7 +662,7 @@ class MainActivity : ComponentActivity() {
                             }) { Text(stringResource(R.string.dialog_cancel)) }
                         },
                         confirmButton = {
-                            Button(onClick = {
+                            TextButton(onClick = {
                                 showModifyHostPkgNameDialog = false
                                 prefs.edit {
                                     putString("host_pkg_name", pkgName)
@@ -704,7 +704,7 @@ class MainActivity : ComponentActivity() {
                             }) { Text(stringResource(R.string.dialog_cancel)) }
                         },
                         confirmButton = {
-                            Button(onClick = {
+                            TextButton(onClick = {
                                 showConfirmDeleteTinkerDialog = false
                                 if (!(Shell.isAppGrantedRoot() ?: false)) {
                                     showNoRootDialog = true
@@ -755,7 +755,7 @@ class MainActivity : ComponentActivity() {
                             }) { Text(stringResource(R.string.dialog_cancel)) }
                         },
                         confirmButton = {
-                            Button(onClick = {
+                            TextButton(onClick = {
                                 showConfirmDeleteModuleDataDialog = false
                                 if (!(Shell.isAppGrantedRoot() ?: false)) {
                                     showNoRootDialog = true
@@ -781,7 +781,7 @@ class MainActivity : ComponentActivity() {
                         title = { Text(stringResource(R.string.module_app_root_required_title)) },
                         text = { Text(stringResource(R.string.module_app_root_required_message)) },
                         confirmButton = {
-                            Button(onClick = {
+                            TextButton(onClick = {
                                 showNoRootDialog = false
                             }) { Text(stringResource(R.string.dialog_confirm)) }
                         })
@@ -793,7 +793,7 @@ class MainActivity : ComponentActivity() {
                         title = { Text(stringResource(R.string.module_app_operation_failed_title)) },
                         text = { Text(error) },
                         confirmButton = {
-                            Button(onClick = {
+                            TextButton(onClick = {
                                 shortcutError = null
                             }) { Text(stringResource(R.string.dialog_confirm)) }
                         })

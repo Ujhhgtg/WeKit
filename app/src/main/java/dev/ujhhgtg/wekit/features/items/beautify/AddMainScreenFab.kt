@@ -456,8 +456,11 @@ object AddMainScreenFab : ClickableFeature() {
                                 }
                                 FabMenuEntry(localizedName(localizedContext, item), icon, onClick = action)
                             }
-                            val backgroundColor = if (isSystemInDarkTheme()) Color(0xFF191919) else Color(0xFFF7F7F7)
-                            val activeColor = MaterialTheme.colorScheme.primary
+                            // Follow the Monet engine's palette when applied, WeChat's neutrals otherwise.
+                            val monet = MonetEngine.surfaceColors(isSystemInDarkTheme())
+                            val backgroundColor = monet?.surfaceHigh?.let(::Color)
+                                ?: if (isSystemInDarkTheme()) Color(0xFF191919) else Color(0xFFF7F7F7)
+                            val activeColor = monet?.primary?.let(::Color) ?: MaterialTheme.colorScheme.primary
                             val errorColor = MaterialTheme.colorScheme.error
                             val layoutDirection = LocalLayoutDirection.current
 
@@ -540,8 +543,9 @@ object AddMainScreenFab : ClickableFeature() {
                                     modifier = Modifier
                                         .align(Alignment.TopStart)
                                         .offset { IntOffset(fabLeft.roundToPx(), fabTop.roundToPx()) },
-                                    backgroundColor = backgroundColor,
-                                    activeColor = activeColor,
+                                    backgroundColor = monet?.primaryContainer?.let(::Color) ?: backgroundColor,
+                                    activeColor = monet?.onPrimaryContainer?.let(::Color) ?: activeColor,
+                                    saveColor = monet?.onPrimaryContainer?.let(::Color) ?: SAVE_GREEN,
                                     minDx = minDx,
                                     maxDx = maxDx,
                                     minDy = minDy,
@@ -666,6 +670,7 @@ object AddMainScreenFab : ClickableFeature() {
         modifier: Modifier,
         backgroundColor: Color,
         activeColor: Color,
+        saveColor: Color,
         minDx: Float,
         maxDx: Float,
         minDy: Float,
@@ -700,7 +705,7 @@ object AddMainScreenFab : ClickableFeature() {
                 Icon(
                     MaterialSymbols.OutlinedFilled.Check,
                     contentDescription = stringResource(R.string.fab_save_position_description),
-                    tint = SAVE_GREEN
+                    tint = saveColor
                 )
             } else {
                 val rotation by animateFloatAsState(if (expanded) 45f else 0f)

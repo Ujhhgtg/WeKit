@@ -111,20 +111,27 @@ fun WeColorField(
  *
  * Works in HSV rather than packed ARGB so that dragging value or saturation to zero doesn't collapse
  * the other components — a round trip through RGB would lose the hue of any black or gray.
+ *
+ * @param resetColor when set, a Reset button loads this color into the picker (still to be confirmed).
+ * @param showAlpha `false` for colors that must stay opaque: hides the opacity slider and forces
+ * full alpha on every edit.
  */
 @Composable
 fun WeColorPickerDialog(
     initial: Int,
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit,
+    resetColor: Int? = null,
+    showAlpha: Boolean = true,
 ) {
+    fun normalized(color: Int) = if (showAlpha) color else color or OPAQUE
     val initialHsv = remember(initial) { FloatArray(3).also { AndroidColor.colorToHSV(initial, it) } }
 
     var hue by remember { mutableFloatStateOf(initialHsv[0] / 360f) }
     var saturation by remember { mutableFloatStateOf(initialHsv[1]) }
     var brightness by remember { mutableFloatStateOf(initialHsv[2]) }
-    var alpha by remember { mutableFloatStateOf(AndroidColor.alpha(initial) / 255f) }
-    var hexText by remember { mutableStateOf(formatArgbHex(initial)) }
+    var alpha by remember { mutableFloatStateOf(AndroidColor.alpha(normalized(initial)) / 255f) }
+    var hexText by remember { mutableStateOf(formatArgbHex(normalized(initial))) }
 
     val current = argbOf(hue, saturation, brightness, alpha)
 
@@ -132,6 +139,15 @@ fun WeColorPickerDialog(
     fun onSliderChange(apply: () -> Unit) {
         apply()
         hexText = formatArgbHex(argbOf(hue, saturation, brightness, alpha))
+    }
+
+    /** Loads [color] into the sliders; the hex field is left to the caller. */
+    fun loadColor(color: Int) {
+        val hsv = FloatArray(3).also { AndroidColor.colorToHSV(color, it) }
+        hue = hsv[0] / 360f
+        saturation = hsv[1]
+        brightness = hsv[2]
+        alpha = AndroidColor.alpha(normalized(color)) / 255f
     }
 
     val hexError = runCatching { hexText.toColorInt() }.isFailure
@@ -180,30 +196,26 @@ fun WeColorPickerDialog(
                         )
                     ),
                 )
-                ColorSlider(
-                    label = stringResource(R.string.color_picker_opacity),
-                    value = alpha,
-                    onValueChange = { next -> onSliderChange { alpha = next } },
-                    trackBrush = Brush.horizontalGradient(
-                        listOf(
-                            ComposeColor(argbOf(hue, saturation, brightness, 0f)),
-                            ComposeColor(argbOf(hue, saturation, brightness, 1f)),
-                        )
-                    ),
-                    checkerboard = true,
-                )
+                if (showAlpha) {
+                    ColorSlider(
+                        label = stringResource(R.string.color_picker_opacity),
+                        value = alpha,
+                        onValueChange = { next -> onSliderChange { alpha = next } },
+                        trackBrush = Brush.horizontalGradient(
+                            listOf(
+                                ComposeColor(argbOf(hue, saturation, brightness, 0f)),
+                                ComposeColor(argbOf(hue, saturation, brightness, 1f)),
+                            )
+                        ),
+                        checkerboard = true,
+                    )
+                }
 
                 OutlinedTextField(
                     value = hexText,
                     onValueChange = { next ->
                         hexText = next
-                        runCatching { next.toColorInt() }.getOrNull()?.let { parsed ->
-                            val hsv = FloatArray(3).also { AndroidColor.colorToHSV(parsed, it) }
-                            hue = hsv[0] / 360f
-                            saturation = hsv[1]
-                            brightness = hsv[2]
-                            alpha = AndroidColor.alpha(parsed) / 255f
-                        }
+                        runCatching { next.toColorInt() }.getOrNull()?.let(::loadColor)
                     },
                     label = { Text(stringResource(R.string.color_picker_hex_value)) },
                     singleLine = true,
@@ -215,9 +227,17 @@ fun WeColorPickerDialog(
                 )
             }
         },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+        dismissButton = {
+            TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+            if (resetColor != null) {
+                TextButton(onClick = {
+                    loadColor(resetColor)
+                    hexText = formatArgbHex(normalized(resetColor))
+                }) { Text(stringResource(R.string.action_reset)) }
+            }
+        },
         confirmButton = {
-            Button(onClick = { onConfirm(current) }) {
+            TextButton(onClick = { onConfirm(current) }) {
                 Text(stringResource(R.string.dialog_confirm))
             }
         },
@@ -327,6 +347,7 @@ private fun argbOf(hue: Float, saturation: Float, brightness: Float, alpha: Floa
 fun formatArgbHex(argb: Int): String = "#%08X".format(argb)
 
 private const val HUE_STOPS = 12
+private const val OPAQUE = 0xFF000000.toInt()
 private val SLIDER_HEIGHT = 32.dp
 private val TRACK_HEIGHT = 16.dp
 private val THUMB_RADIUS = 10.dp

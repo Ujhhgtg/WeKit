@@ -35,7 +35,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -623,7 +622,7 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
                     }
                 },
                 confirmButton = {
-                    Button(
+                    TextButton(
                         enabled = balanceError == null && lqtError == null && businessError == null,
                         onClick = {
                             balanceExpression = balanceInput.trim()

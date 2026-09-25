@@ -18,6 +18,7 @@ object MonetApkResourceGraphLoader {
     ): MonetResourceGraph {
         val resources = linkedMapOf<Int, MutableResource>()
         val xmlDocuments = mutableListOf<OwnedXml>()
+        var typeNames = emptyList<String>()
 
         apkPaths.forEachIndexed { index, apk ->
             onProgress("打开 ${apk.name}", index, apkPaths.size)
@@ -34,6 +35,16 @@ object MonetApkResourceGraphLoader {
                 module.tableBlock.listPackages()
                     .filter { it.name == targetPackage }
                     .forEach { packageBlock ->
+                        // Splits carry the same type IDs as the base table but may omit trailing
+                        // types; keep the longest pool and require the others to be its prefix.
+                        val names = (1..packageBlock.typeStringPool.lastId).map { typeId ->
+                            requireNotNull(packageBlock.typeNameOf(typeId)) { "type $typeId has no name in $apk" }
+                        }
+                        val (longer, shorter) = if (names.size >= typeNames.size) names to typeNames else typeNames to names
+                        require(longer.subList(0, shorter.size) == shorter) {
+                            "type pool of $apk conflicts with earlier APKs: $names vs $typeNames"
+                        }
+                        typeNames = longer
                         packageBlock.getResources().asSequence().forEach { resource ->
                             resources.merge(resource, apk, fileStructures)
                         }
@@ -75,7 +86,12 @@ object MonetApkResourceGraphLoader {
             keySelector = { it.key.ownerId },
             valueTransform = Map.Entry<XmlIdentity, MonetXmlElement>::value,
         )
-        return MonetResourceGraph(resources.values.map(MutableResource::toNode), xmlByOwner)
+        return MonetResourceGraph(
+            resources.values.map(MutableResource::toNode),
+            xmlByOwner,
+            typeNames,
+            resources.values.filter { it.specFlags != 0 }.associate { it.id to it.specFlags },
+        )
     }
 
     private fun MutableMap<Int, MutableResource>.merge(
@@ -94,6 +110,7 @@ object MonetApkResourceGraphLoader {
             "resource 0x${id.toUInt().toString(16)} changes identity from ${merged.key} to $key in $apk"
         }
         resource.asSequence().forEach { entry ->
+            merged.specFlags = merged.specFlags or entry.specFlag.integer
             val qualifiers = entry.resConfig.qualifiers
             val value = if (entry.isComplex) {
                 val complex = requireNotNull(entry.resTableMapEntry) {
@@ -255,6 +272,7 @@ object MonetApkResourceGraphLoader {
         val id: Int,
         val key: MonetResourceKey,
         val valuesByQualifiers: MutableMap<String, MonetResourceValue> = linkedMapOf(),
+        var specFlags: Int = 0,
     ) {
         fun toNode() = MonetResourceNode(
             id = id,

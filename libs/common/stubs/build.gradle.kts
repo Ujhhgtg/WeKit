@@ -35,4 +35,7 @@ configure<LibraryExtension> {
 
 dependencies {
     compileOnly(libs.androidx.annotation)
+
+    annotationProcessor(libs.hiddenapirefine.annotation.processor)
+    compileOnly(libs.hiddenapirefine.annotation)
 }

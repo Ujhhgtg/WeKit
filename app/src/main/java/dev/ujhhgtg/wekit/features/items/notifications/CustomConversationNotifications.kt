@@ -574,7 +574,7 @@
 //            }
 //        },
 //        confirmButton = {
-//            Button(onClick = {
+//            TextButton(onClick = {
 //                // Persist global settings
 //                feature.globalSoundMode = globalSound
 //                feature.globalSoundUri = globalSoundUri
@@ -670,7 +670,7 @@
 //            }
 //        },
 //        confirmButton = {
-//            Button(onClick = {
+//            TextButton(onClick = {
 //                onSave(ConvNotifPrefs(sound, soundUri, vibration, priority, dnd))
 //            }) { Text("保存") }
 //        },

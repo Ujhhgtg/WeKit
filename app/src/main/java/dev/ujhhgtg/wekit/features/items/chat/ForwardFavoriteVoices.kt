@@ -16,7 +16,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
@@ -68,10 +67,6 @@ object ForwardFavoriteVoices : SwitchFeature() {
                     dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                     confirmButton = {
                         TextButton({
-                            copyToClipboard(ctx, voice.filePath)
-                            showToast(ctx, ctx.localizedChatString(R.string.chat_path_copied))
-                        }) { Text(stringResource(R.string.chat_copy_path)) }
-                        Button({
                             WeMessageApi.sendVoice(
                                 WeCurrentConversationApi.value,
                                 voice.filePath,
@@ -81,6 +76,10 @@ object ForwardFavoriteVoices : SwitchFeature() {
                             onDismiss()
                             getTopMostActivity()?.finish()
                         }) { Text(stringResource(R.string.dialog_confirm)) }
+                        TextButton({
+                            copyToClipboard(ctx, voice.filePath)
+                            showToast(ctx, ctx.localizedChatString(R.string.chat_path_copied))
+                        }) { Text(stringResource(R.string.chat_copy_path)) }
                     })
             }
 

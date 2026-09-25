@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
@@ -33,7 +32,7 @@ object ResetDexCache : ClickableFeature() {
                 },
                 dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         CoroutineScope(Dispatchers.IO).launch {
                             showToastSuspend(localizedDebugString(R.string.debug_reset_dex_cache_clearing))
                             DexCacheManager.clearAllCache()

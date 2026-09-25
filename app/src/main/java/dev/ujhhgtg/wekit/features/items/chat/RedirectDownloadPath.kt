@@ -17,7 +17,6 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -96,6 +95,7 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
                     }
                 },
                 dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                     TextButton(onClick = {
                         pathInput = defaultSaveDir()
                         saveDir = pathInput
@@ -103,10 +103,9 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
                     }) {
                         Text(stringResource(R.string.chat_redirect_restore_default))
                     }
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         val saveDir = normalizeSaveDir(pathInput)
                         this@RedirectDownloadPath.saveDir = saveDir
                         runCatching { File(saveDir).mkdirs() }

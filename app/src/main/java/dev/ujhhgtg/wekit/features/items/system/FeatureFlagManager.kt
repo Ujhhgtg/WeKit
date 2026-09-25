@@ -52,7 +52,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
@@ -650,7 +649,6 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss, enabled = !saving) { Text(stringResource(R.string.dialog_cancel)) }
                 TextButton(enabled = !saving, onClick = {
                     if (overrides[runtimeKey] == null) {
                         showToast(localizedSystemString(R.string.system_feature_flags_override_not_found))
@@ -661,9 +659,10 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                         overrides = overrides - runtimeKey
                     }
                 }) { Text(stringResource(R.string.action_clear)) }
+                TextButton(onClick = onDismiss, enabled = !saving) { Text(stringResource(R.string.dialog_cancel)) }
             },
             confirmButton = {
-                Button(enabled = !saving, onClick = {
+                TextButton(enabled = !saving, onClick = {
                     val rawValueStr = rawValue
                     // Validate value based on type
                     val validated = when (type) {
@@ -672,7 +671,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                             val v = rawValueStr.toIntOrNull()
                             if (v == null) {
                                 showToast(localizedSystemString(R.string.system_feature_flags_invalid_value))
-                                return@Button
+                                return@TextButton
                             }
                             FeatureFlagOverrideEntity(runtimeKey, "i", rawValueStr)
                         }
@@ -681,7 +680,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                             val v = rawValueStr.toLongOrNull()
                             if (v == null) {
                                 showToast(localizedSystemString(R.string.system_feature_flags_invalid_value))
-                                return@Button
+                                return@TextButton
                             }
                             FeatureFlagOverrideEntity(runtimeKey, "l", rawValueStr)
                         }
@@ -690,14 +689,14 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                             val v = rawValueStr.toFloatOrNull()
                             if (v == null) {
                                 showToast(localizedSystemString(R.string.system_feature_flags_invalid_value))
-                                return@Button
+                                return@TextButton
                             }
                             FeatureFlagOverrideEntity(runtimeKey, "f", rawValueStr)
                         }
 
                         else -> {
                             showToast(localizedSystemString(R.string.system_feature_flags_invalid_type))
-                            return@Button
+                            return@TextButton
                         }
                     }
 

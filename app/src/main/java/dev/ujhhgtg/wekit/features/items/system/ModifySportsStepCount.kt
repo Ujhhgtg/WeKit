@@ -29,7 +29,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -192,7 +191,7 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                     }
                 },
                 confirmButton = {
-                    Button(
+                    TextButton(
                         enabled = passiveError == null,
                         onClick = {
                             passiveExpression = passiveInput.trim()
@@ -219,7 +218,7 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                     title = { Text(text = stringResource(R.string.warning)) },
                     text = { Text(text = stringResource(R.string.system_risky_feature_warning)) },
                     confirmButton = {
-                        Button(onClick = {
+                        TextButton(onClick = {
                             applyToggle(true)
                             onDismiss()
                         }) {

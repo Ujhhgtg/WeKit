@@ -20,7 +20,6 @@ import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -113,10 +112,10 @@ object MassSendMessage : ClickableFeature() {
             },
             dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
             confirmButton = {
-                Button(onClick = {
+                TextButton(onClick = {
                     if (text.isBlank()) {
                         showToast(context.localizedBatchString(R.string.batch_mass_send_enter_content))
-                        return@Button
+                        return@TextButton
                     }
 
                     onDismiss()

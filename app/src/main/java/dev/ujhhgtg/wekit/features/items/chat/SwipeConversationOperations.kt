@@ -685,7 +685,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                             title = { Text(stringResource(R.string.chat_conversation_delete_title)) },
                             text = { Text(stringResource(R.string.chat_conversation_delete_message)) },
                             confirmButton = {
-                                Button(onClick = {
+                                TextButton(onClick = {
                                     onDismiss()
                                     WeConversationApi.deleteConversation(talker, conversation)
                                     showToast(localizedChatString(R.string.chat_conversation_deleted))

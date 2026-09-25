@@ -44,7 +44,7 @@ object ActivityProxy {
         if (initialized) return
 
         runCatching {
-            val clazzActivityThread = Class.forName("android.app.ActivityThread")
+            val clazzActivityThread = ActivityThread::class.java
             val currentActivityThread = ActivityThread.currentActivityThread()
 
             // Hook Instrumentation

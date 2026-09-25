@@ -490,9 +490,7 @@ fun BaseContactSelector(
     }
 
     AlertDialogContent(
-        modifier = modifier
-            .fillMaxWidth()
-            .fillMaxHeight(),
+        modifier = modifier.fillMaxWidth(),
         title = { Text(title) },
         text = {
             Column(modifier = Modifier.fillMaxSize()) {

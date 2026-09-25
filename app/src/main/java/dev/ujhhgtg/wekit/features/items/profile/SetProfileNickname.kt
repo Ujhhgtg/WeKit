@@ -16,7 +16,6 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.SetNicknameProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -44,7 +43,7 @@ object SetProfileNickname : ClickableFeature() {
                 },
                 dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         val reqBytes = OpLog.encodeSingle(
                             OpLog.CMD_SET_NICKNAME, SetNicknameProto(nickname = nickname)
                         )

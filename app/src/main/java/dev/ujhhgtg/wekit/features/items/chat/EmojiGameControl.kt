@@ -43,7 +43,6 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
@@ -437,16 +436,16 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                 }
             },
             dismissButton = {
-                TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 TextButton(onClick = {
                     onRandom(isSingleMode)
                     onDismiss()
                 }) { Text(stringResource(R.string.chat_emoji_game_random)) }
+                TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
             },
             confirmButton = {
                 // In single mode the option buttons send directly; only show confirm in multimode
                 if (!isSingleMode) {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         onSend(false, inputText)
                         onDismiss()
                     }) { Text(stringResource(R.string.chat_emoji_game_send)) }

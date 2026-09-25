@@ -138,6 +138,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi.ConversationUnreadState
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.features.items.beautify.MonetEngine
 import dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel.HomeSidePanel
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
 import dev.ujhhgtg.wekit.i18n.HostLocalizedStrings
@@ -244,7 +245,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 title = { Text(stringResource(R.string.conversation_grouping_floating_recommend_title)) },
                 text = { Text(stringResource(R.string.conversation_grouping_floating_recommend_message)) },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         updateTabStyle(TAB_STYLE_FLOATING)
                         onDismiss()
                     }) {
@@ -924,7 +925,6 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             var countOfficialUnread by remember { mutableStateOf(includeOfficialUnread) }
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_conversation_grouping_name)) },
-                textTopSpacing = 0.dp,
                 text = {
                     LazyColumn(Modifier.fillMaxWidth()) {
                         item {
@@ -1330,7 +1330,8 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         onDeleteGroup: (ChatGroup) -> Unit,
         onReorder: suspend (List<String>) -> Unit,
         modifier: Modifier = Modifier,
-        containerColor: Color = if (isSystemInDarkTheme()) Color(0xFF111111) else Color(0xFFEDEDED),
+        containerColor: Color = MonetEngine.surfaceColors(isSystemInDarkTheme())?.page?.let(::Color)
+            ?: if (isSystemInDarkTheme()) Color(0xFF111111) else Color(0xFFEDEDED),
     ) {
         val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
         val commitScope = rememberCoroutineScope()
@@ -1348,8 +1349,10 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         val backdrop = if (capsuleStyle && isRuntimeShaderSupported()) {
             rememberViewBackdrop(sourceView, lifecycleOwner)
         } else null
-        val glassTint = if (darkTheme) Color(0xFF1C1C1E).copy(alpha = 0.55f)
-            else Color.White.copy(alpha = 0.58f)
+        // The floating islands follow the Monet card surface when the engine is applied.
+        val monetSurface = MonetEngine.surfaceColors(darkTheme)?.surface?.let(::Color)
+        val glassTint = if (darkTheme) (monetSurface ?: Color(0xFF1C1C1E)).copy(alpha = 0.55f)
+            else (monetSurface ?: Color.White).copy(alpha = 0.58f)
         val glassSurface = if (backdrop != null) {
             Modifier.drawBackdrop(
                 backdrop = backdrop,
@@ -2196,7 +2199,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 },
                 dismissButton = { TextButton(onDismiss, enabled = !saving) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
-                    Button(enabled = !saving, onClick = {
+                    TextButton(enabled = !saving, onClick = {
                         saving = true
                         scope.launch {
                             try {
@@ -2272,7 +2275,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                     TextButton(onDismiss, enabled = !saving) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    Button(enabled = !saving, onClick = {
+                    TextButton(enabled = !saving, onClick = {
                         submit(group.copy(name = name.trim()))
                     }) { Text(stringResource(R.string.dialog_confirm)) }
                 }
@@ -2303,9 +2306,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         }
 
         AlertDialogContent(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(),
+            modifier = Modifier.fillMaxWidth(),
             title = {
                 Column {
                     Text(stringResource(titleRes))
@@ -2477,13 +2478,13 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 }
             },
             dismissButton = {
+                TextButton(onDismiss, enabled = !saving) { Text(stringResource(R.string.dialog_cancel)) }
                 if (onDelete != null) {
                     TextButton(onDelete, enabled = !saving) { Text(stringResource(R.string.conversation_group_action_delete)) }
                 }
-                TextButton(onDismiss, enabled = !saving) { Text(stringResource(R.string.dialog_cancel)) }
             },
             confirmButton = {
-                Button(
+                TextButton(
                     enabled = !saving && (name.isNotBlank() || builtInLabel != null),
                     onClick = {
                         val next = ChatGroup(

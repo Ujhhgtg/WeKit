@@ -32,7 +32,6 @@ import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.sendPlaceOrder
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -212,7 +211,7 @@ object Experiments : ClickableFeature() {
             confirmButton = {
                 when (phase) {
                     is Phase.Idle -> {
-                        Button(
+                        TextButton(
                             onClick = {
                                 if (selectedWxId != null) phase = Phase.Running
                             },
@@ -220,7 +219,7 @@ object Experiments : ClickableFeature() {
                         ) { Text(stringResource(R.string.debug_experiments_start)) }
                     }
 
-                    is Phase.Done -> Button(onDismiss) { Text(stringResource(R.string.action_close)) }
+                    is Phase.Done -> TextButton(onDismiss) { Text(stringResource(R.string.action_close)) }
                     else -> {}
                 }
             },

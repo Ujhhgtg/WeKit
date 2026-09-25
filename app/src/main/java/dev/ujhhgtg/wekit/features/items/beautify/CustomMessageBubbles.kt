@@ -706,17 +706,14 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                         TextButton(onClick = { pendingDeletion = null }) { Text(stringResource(R.string.dialog_cancel)) }
                     },
                     confirmButton = {
-                        Button(
+                        TextButton(
                             onClick = {
                                 if (deleteBubbleImage(context, deleteSide)) {
                                     updateForm(deleteSide) { it.copy(imageExists = false) }
                                     pendingDeletion = null
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError,
-                            ),
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                         ) {
                             Text(stringResource(R.string.action_delete))
                         }
@@ -763,7 +760,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                     },
                     dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                     confirmButton = {
-                        Button(
+                        TextButton(
                             enabled = otherForm.hasValidColors && selfForm.hasValidColors,
                             onClick = {
                                 thatLight = otherForm.foregroundLight

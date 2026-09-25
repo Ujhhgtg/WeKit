@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -1486,9 +1485,7 @@ object ConversationAggregation : ClickableFeature(),
             var folders by remember { mutableStateOf(loadFolders()) }
 
             AlertDialogContent(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(),
+                modifier = Modifier.fillMaxWidth(),
                 title = { Text(stringResource(R.string.chat_aggregation_title)) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1516,17 +1513,17 @@ object ConversationAggregation : ClickableFeature(),
                 },
                 dismissButton = {
                     TextButton(onClick = {
-                        syncFoldersToDatabase()
-                        showToast(localizedChatString(R.string.chat_aggregation_index_rebuilt))
-                    }) { Text(stringResource(R.string.chat_aggregation_reload)) }
-                    TextButton(onClick = {
                         showCreateFolderDialog(context) {
                             folders = loadFolders()
                         }
                     }) { Text(stringResource(R.string.chat_aggregation_create)) }
+                    TextButton(onClick = {
+                        syncFoldersToDatabase()
+                        showToast(localizedChatString(R.string.chat_aggregation_index_rebuilt))
+                    }) { Text(stringResource(R.string.chat_aggregation_reload)) }
                 },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         onDismiss()
                     }) { Text(stringResource(R.string.dialog_close)) }
                 }
@@ -1678,9 +1675,7 @@ object ConversationAggregation : ClickableFeature(),
         }
 
         AlertDialogContent(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(),
+            modifier = Modifier.fillMaxWidth(),
             title = {
                 Column {
                     Text(title)
@@ -1960,13 +1955,13 @@ object ConversationAggregation : ClickableFeature(),
                 }
             },
             dismissButton = {
+                TextButton(onDismiss, enabled = !saving) { Text(stringResource(R.string.dialog_cancel)) }
                 if (onDelete != null) {
                     TextButton(onClick = { submit { onDelete() } }, enabled = !saving) { Text(stringResource(R.string.action_delete)) }
                 }
-                TextButton(onDismiss, enabled = !saving) { Text(stringResource(R.string.dialog_cancel)) }
             },
             confirmButton = {
-                Button(
+                TextButton(
                     enabled = !saving && name.isNotBlank(),
                     onClick = {
                         val next = ChatFolder(

@@ -101,7 +101,7 @@ object ForceTabletMode : SwitchFeature(), IResolveDex {
                     title = { Text(text = stringResource(R.string.warning)) },
                     text = { Text(text = stringResource(R.string.system_risky_feature_warning)) },
                     confirmButton = {
-                        Button(onClick = {
+                        TextButton(onClick = {
                             applyToggle(true)
                             onDismiss()
                         }) {

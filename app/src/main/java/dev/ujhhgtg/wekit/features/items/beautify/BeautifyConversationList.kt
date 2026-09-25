@@ -225,7 +225,9 @@ object BeautifyConversationList : ClickableFeature() {
             if (unread) {
                 val previous = backgrounds[row]
                 val original = if (previous != null) previous.original else row.background
-                val highlight = (if (row.context.isDarkMode) 0x243CB371 else 0x143CB371).toDrawable()
+                val dark = row.context.isDarkMode
+                val accent = MonetEngine.surfaceColors(dark)?.primary?.and(0x00ffffff) ?: 0x3CB371
+                val highlight = (accent or if (dark) 0x24000000 else 0x14000000).toDrawable()
                 replaceBackground(row, LayerDrawable(arrayOf(original ?: ColorDrawable(), highlight)))
             } else {
                 restoreBackground(row)
@@ -275,7 +277,8 @@ object BeautifyConversationList : ClickableFeature() {
 
     private fun paintEmptyFooters(container: View) {
         // The list itself must keep WeChat's background and its recent-page alpha animation.
-        val color = if (container.context.isDarkMode) 0xFF101012.toInt() else 0xFFF0F0F3.toInt()
+        val dark = container.context.isDarkMode
+        val color = MonetEngine.surfaceColors(dark)?.page ?: if (dark) 0xFF101012.toInt() else 0xFFF0F0F3.toInt()
         if (footerColors[container] == color) return
 
         val footers = WeConversationListViewApi.emptyFooterViews(container)
@@ -366,20 +369,25 @@ object BeautifyConversationList : ClickableFeature() {
                 ))
                 hasGapBefore = gapBefore
             }
+            // Follow the Monet engine's palette when it is applied, WeChat's neutrals otherwise.
+            val monet = MonetEngine.surfaceColors(dark)
             val top = if (first) radius else 0f
             val bottom = if (last) radius else 0f
             val corners = floatArrayOf(top, top, top, top, bottom, bottom, bottom, bottom)
             surface.cornerRadii = corners
             mask.cornerRadii = corners
-            page.color = if (dark) 0xFF101012.toInt() else 0xFFF0F0F3.toInt()
+            page.color = monet?.page ?: if (dark) 0xFF101012.toInt() else 0xFFF0F0F3.toInt()
             surface.setColor(when {
+                unread && monet != null -> monet.primaryContainer
                 unread && dark -> 0xFF20372C.toInt()
                 unread -> 0xFFECF6EF.toInt()
+                monet != null -> monet.surface
                 dark -> 0xFF1C1C1E.toInt()
                 else -> Color.WHITE
             })
             divider.color = when {
                 last || hideDivider -> Color.TRANSPARENT
+                monet != null -> monet.divider
                 dark -> 0xFF303033.toInt()
                 else -> 0xFFEDEDEF.toInt()
             }

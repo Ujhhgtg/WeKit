@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.payment
 import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -37,7 +36,6 @@ import dev.ujhhgtg.wekit.features.items.automationKeywordSummary
 import dev.ujhhgtg.wekit.features.items.formatAutomationMinute
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -219,9 +217,7 @@ object RedPacketSettings {
             }
 
             AlertDialogContent(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(),
+                modifier = Modifier.fillMaxWidth(),
                 title = { Text(stringResource(R.string.automation_global_settings)) },
                 text = {
                     AutomationSaveContent(saveState) {
@@ -238,7 +234,7 @@ object RedPacketSettings {
                     }
                 },
                 confirmButton = {
-                    Button(
+                    TextButton(
                         enabled = validationError == null && !saveState.saving,
                         onClick = {
                             saveState.submit(save = { putRule("GLOBAL", "", "", draft.asOverrides()) }, onSuccess = {
@@ -447,9 +443,7 @@ object RedPacketSettings {
             }
 
             AlertDialogContent(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(),
+                modifier = Modifier.fillMaxWidth(),
                 title = { Text(title.resolve()) },
                 text = {
                     AutomationSaveContent(saveState) {
@@ -466,7 +460,7 @@ object RedPacketSettings {
                     }
                 },
                 confirmButton = {
-                    Button(
+                    TextButton(
                         enabled = validationError == null && !saveState.saving,
                         onClick = {
                             saveState.submit(save = { onSave(draft) }, onSuccess = {

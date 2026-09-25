@@ -6,7 +6,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -51,7 +50,6 @@ import dev.ujhhgtg.wekit.features.items.payment.keywordItems
 import dev.ujhhgtg.wekit.features.items.payment.timeRangeItems
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -273,9 +271,7 @@ class MomentsAutomationSettings private constructor(
                 return@showComposeDialog
             }
             AlertDialogContent(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(),
+                modifier = Modifier.fillMaxWidth(),
                 title = { Text(stringResource(R.string.moments_automation_global_settings)) },
                 text = {
                     AutomationSaveContent(saveState) {
@@ -292,7 +288,7 @@ class MomentsAutomationSettings private constructor(
                     }
                 },
                 confirmButton = {
-                    Button(
+                    TextButton(
                         enabled = validationError == null && !saveState.saving,
                         onClick = {
                             saveState.submit(save = { putRule("GLOBAL", "", draft.asOverrides()) }, onSuccess = {
@@ -371,9 +367,7 @@ class MomentsAutomationSettings private constructor(
                 return@showComposeDialog
             }
             AlertDialogContent(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(),
+                modifier = Modifier.fillMaxWidth(),
                 title = { Text(title) },
                 text = {
                     AutomationSaveContent(saveState) {
@@ -390,7 +384,7 @@ class MomentsAutomationSettings private constructor(
                     }
                 },
                 confirmButton = {
-                    Button(
+                    TextButton(
                         enabled = validationError == null && !saveState.saving,
                         onClick = {
                             saveState.submit(save = { onSave(draft) }, onSuccess = {

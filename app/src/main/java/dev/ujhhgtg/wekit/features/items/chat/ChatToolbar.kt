@@ -95,7 +95,6 @@ import dev.ujhhgtg.wekit.features.items.chat.ChatToolbar.scheduleGridInitWatchdo
 import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
@@ -734,7 +733,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                     }
                 },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         itemsOrder = currentOrder.joinToString(",")
                         enabledItems = currentEnabled.toSet()
                         displayModeValue = currentDisplayMode.preferenceValue
@@ -809,7 +808,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                 },
                 dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
-                    Button(
+                    TextButton(
                         onClick = {
                             onSave(value.trim())
                             onDismiss()
@@ -933,7 +932,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                     }
                 },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         saveQuickReplies(replies.map { it.text.trim() }.filter { it.isNotEmpty() })
                         onDismiss()
                     }) {

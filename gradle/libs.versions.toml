@@ -1,5 +1,6 @@
 [versions]
 agp = "9.4.1"
+hiddenapirefine = "4.4.0"
 coil = "3.6.3"
 compose-bom = "2026.09.00"
 dexkit = "2.3.0"
@@ -43,7 +44,6 @@ dynamicanimation = "1.1.0"
 jsch = "2.28.7"
 sqliteJdbc = "3.53.4.0"
 arsclib = "1.4.0"
-apksig = "9.4.1"
 bouncycastle = "1.86"
 pythonRuntimeChaquopy = "17.0.0"
 pythonRuntimeChaquopyRevision = "e01057c72fdd737f202bd1be1de85af51e06cad0"
@@ -119,13 +119,15 @@ scripta-editor = { module = "scripta:editor" }
 dexkit = { module = "org.luckypray:dexkit", version.ref = "dexkit" }
 dexmaker = { module = "com.linkedin.dexmaker:dexmaker", version.ref = "dexmaker" }
 arsclib = { module = "io.github.reandroid:ARSCLib", version.ref = "arsclib" }
-apksig = { module = "com.android.tools.build:apksig", version.ref = "apksig" }
 bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 bouncycastle-pkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hidden-api-bypass" }
 libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsu" }
 libxposed-api = { module = "io.github.libxposed:api", version.ref = "libxposed" }
 libxposed-service = { module = "io.github.libxposed:service", version.ref = "libxposed" }
+hiddenapirefine-annotation-processor = { module = "dev.rikka.tools.refine:annotation-processor", version.ref = "hiddenapirefine" }
+hiddenapirefine-annotation = { module = "dev.rikka.tools.refine:annotation", version.ref = "hiddenapirefine" }
+hiddenapirefine-runtime = { module = "dev.rikka.tools.refine:runtime", version.ref = "hiddenapirefine" }
 
 ksp = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
 kotlinpoet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlinpoet" }
@@ -159,3 +161,4 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 aboutlibraries = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "aboutlibraries" }
 aboutlibraries-android = { id = "com.mikepenz.aboutlibraries.plugin.android", version.ref = "aboutlibraries" }
+hiddenapirefine = { id = "dev.rikka.tools.refine", version.ref = "hiddenapirefine" }

@@ -34,7 +34,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.ShowComposeDialogScope
@@ -403,7 +402,7 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
                     is Phase.Idle -> {
                         if (resumeIndex != null) {
                             // Two buttons when there is saved progress: resume (primary) and restart
-                            Button(enabled = !restarting, onClick = {
+                            TextButton(enabled = !restarting, onClick = {
                                 phase = Phase.Running(
                                     RunState(mutableIntStateOf(0), remaining, startIndex = resumeIndex)
                                 )
@@ -417,7 +416,7 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
                                 )
                             }
                         } else {
-                            Button(enabled = !restarting, onClick = {
+                            TextButton(enabled = !restarting, onClick = {
                                 phase = Phase.Running(
                                     RunState(mutableIntStateOf(0), COMMON_SURNAMES.size)
                                 )
@@ -425,7 +424,7 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
                         }
                     }
 
-                    is Phase.Done -> Button(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                    is Phase.Done -> TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
                     else -> {}
                 }
             },

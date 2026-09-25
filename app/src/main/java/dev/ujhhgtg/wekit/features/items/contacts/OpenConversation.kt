@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -50,8 +49,8 @@ fun showOpenConversationDialog(context: Context) {
                         showToast(context, context.localizedContactsString(R.string.contacts_wechat_id_empty))
                         return@TextButton
                     }
-                    WeApi.openContact(context, wxId, WeApi.OpenContactDestination.HOMEPAGE)
-                }) { Text(stringResource(R.string.contacts_open_homepage)) }
+                    WeApi.openContact(context, wxId, WeApi.OpenContactDestination.CONVERSATION)
+                }) { Text(stringResource(R.string.contacts_open_chat)) }
 
                 TextButton(onClick = {
                     if (wxId.isBlank()) {
@@ -61,13 +60,13 @@ fun showOpenConversationDialog(context: Context) {
                     WeApi.openContact(context, wxId, WeApi.OpenContactDestination.SETTINGS)
                 }) { Text(stringResource(R.string.contacts_open_settings)) }
 
-                Button(onClick = {
+                TextButton(onClick = {
                     if (wxId.isBlank()) {
                         showToast(context, context.localizedContactsString(R.string.contacts_wechat_id_empty))
-                        return@Button
+                        return@TextButton
                     }
-                    WeApi.openContact(context, wxId, WeApi.OpenContactDestination.CONVERSATION)
-                }) { Text(stringResource(R.string.contacts_open_chat)) }
+                    WeApi.openContact(context, wxId, WeApi.OpenContactDestination.HOMEPAGE)
+                }) { Text(stringResource(R.string.contacts_open_homepage)) }
             })
     }
 }

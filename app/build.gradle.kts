@@ -12,6 +12,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.aboutlibraries.android)
+    alias(libs.plugins.hiddenapirefine)
 }
 
 // Keep Git values lazy: reading them during configuration invalidates the configuration cache
@@ -171,8 +172,8 @@ android {
         )
     }
 
-    @Suppress("UnstableApiUsage")
     androidResources {
+        @Suppress("UnstableApiUsage")
         localeFilters += setOf("zh-rCN", "zh-rTW")
         additionalParameters += listOf("--allow-reserved-package-id", "--package-id", "0x69")
     }
@@ -362,7 +363,6 @@ dependencies {
     implementation(project(":libs:common:bsh"))
     add(arsclibSource.name, libs.arsclib)
     implementation(files(prepareAndroidArsclib))
-    implementation(libs.apksig)
     implementation(libs.bouncycastle.prov)
     implementation(libs.bouncycastle.pkix)
 
@@ -412,6 +412,7 @@ dependencies {
     implementation(libs.osmdroid.android)
 
     compileOnly(project(":libs:common:stubs"))
+    implementation(libs.hiddenapirefine.runtime)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(project(":libs:common:stubs"))
@@ -439,6 +440,7 @@ val monetCorpus = providers.gradleProperty("wekit.monetCorpus").map(String::toBo
 
 tasks.withType<Test>().configureEach {
     systemProperty("wekit.monetCorpus", monetCorpus.get())
+    systemProperty("wekit.monetRuntime.dump", providers.gradleProperty("wekit.monetRuntime.dump").orNull.orEmpty())
     // Monet resource-graph tests load complete host APKs.
     maxHeapSize = "4g"
     if (dexTestWorker.get()) {

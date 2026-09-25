@@ -23,6 +23,7 @@ import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
+import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.LocalSegmentedItemShape
 import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
@@ -134,7 +135,7 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
                         }
                     }
                 },
-                confirmButton = { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
+                confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }

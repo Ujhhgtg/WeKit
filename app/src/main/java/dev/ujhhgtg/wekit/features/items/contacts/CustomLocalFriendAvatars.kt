@@ -62,7 +62,6 @@ import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.BaseContactSelector
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -751,7 +750,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
                             )
                             onDismiss()
                         }) { Text(stringResource(R.string.contacts_custom_avatar_clear)) }
-                        Button(onClick = {
+                        TextButton(onClick = {
                             onDismiss()
                             selectAvatarImage(context, wxId)
                         }) { Text(stringResource(R.string.contacts_custom_avatar_change_action)) }

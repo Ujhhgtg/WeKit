@@ -38,7 +38,6 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ColorPickerWidget
@@ -417,11 +416,11 @@ object MessageTimeEnhancements : ClickableFeature(),
                     }
                 },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         val textSizeInput = textSizeInputRaw.toIntOrNull()
                         if (textSizeInput == null || textSizeInput <= 0) {
                             showToast(localizedContext.getString(R.string.chat_message_time_invalid_number))
-                            return@Button
+                            return@TextButton
                         }
 
                         displayFormat = displayFormatInput.text

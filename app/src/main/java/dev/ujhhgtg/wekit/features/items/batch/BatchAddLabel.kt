@@ -132,7 +132,7 @@ object BatchAddLabel : ClickableFeature() {
             },
             dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
             confirmButton = {
-                Button(
+                TextButton(
                     enabled = newLabelName.isNotBlank(),
                     onClick = { onPick(newLabelName.trim()) }
                 ) { Text(stringResource(R.string.batch_add_label_create_and_apply)) }

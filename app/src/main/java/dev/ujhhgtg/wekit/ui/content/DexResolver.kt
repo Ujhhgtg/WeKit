@@ -253,12 +253,12 @@ fun DexResolver(
         },
         confirmButton = {
             if (phase is DialogPhase.Idle) {
-                Button(onClick = ::startResolution) {
+                TextButton(onClick = ::startResolution) {
                     Text(stringResource(R.string.dex_cache_start_local_resolution))
                 }
             }
             if (phase is DialogPhase.Done || phase is DialogPhase.Error) {
-                Button(
+                TextButton(
                     onClick = {
                         dismiss()
                         restartHost()

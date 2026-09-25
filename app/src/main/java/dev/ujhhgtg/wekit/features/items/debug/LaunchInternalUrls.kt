@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -50,7 +49,7 @@ object LaunchInternalUrls : ClickableFeature(), IResolveDex {
                 },
                 dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         onDismiss()
                         val args = if (argsInput.isBlank()) emptyList() else argsInput.split("\n")
                         methodOpenUrl.method.invoke(

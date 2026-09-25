@@ -16,7 +16,6 @@ import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.AudioUtils
@@ -98,11 +97,11 @@ fun selectAndSendVoice(context: Context, currentConv: String) {
                                 }) { Text(stringResource(R.string.dialog_cancel)) }
                             },
                             confirmButton = {
-                                Button(onClick = {
+                                TextButton(onClick = {
                                     val durMs = durationInput.toLongOrNull()
                                     if (durMs == null) {
                                         showToast(localizedChatString(R.string.chat_voice_file_invalid_duration))
-                                        return@Button
+                                        return@TextButton
                                     }
 
                                     val tempSilkPath = PanelPaths.panelCacheDir / "picked-${UUID.randomUUID()}.silk"

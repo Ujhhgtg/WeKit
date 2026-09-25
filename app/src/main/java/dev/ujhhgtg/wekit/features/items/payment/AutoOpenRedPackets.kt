@@ -28,7 +28,6 @@ import dev.ujhhgtg.wekit.features.items.payment.RedPacketSettings.ReceiveMode
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -443,7 +442,7 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
                     title = { Text(text = stringResource(R.string.warning)) },
                     text = { Text(text = stringResource(R.string.payment_risk_warning)) },
                     confirmButton = {
-                        Button(onClick = {
+                        TextButton(onClick = {
                             applyToggle(true)
                             onDismiss()
                         }) { Text(stringResource(R.string.dialog_confirm)) }

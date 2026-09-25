@@ -5,7 +5,6 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -30,7 +29,7 @@ object SafeMode {
                 title = { Text(stringResource(R.string.system_safe_mode_enable_title)) },
                 text = { Text(stringResource(R.string.system_safe_mode_enable_message)) },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         onDismiss()
                         onConfirmed()
                     }) { Text(stringResource(R.string.system_safe_mode_enable)) }

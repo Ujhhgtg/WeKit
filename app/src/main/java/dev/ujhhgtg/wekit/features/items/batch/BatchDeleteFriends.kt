@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -74,14 +73,14 @@ object BatchDeleteFriends : ClickableFeature() {
                 },
                 dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
-                    Button(onClick = {
-                        onDismiss()
-                        deleteFriends(wxIds, WeContactApi.DeleteMode.BLOCK_AND_DELETE)
-                    }) { Text(stringResource(R.string.batch_delete_friends_block_and_delete)) }
-                    Button(onClick = {
+                    TextButton(onClick = {
                         onDismiss()
                         deleteFriends(wxIds, WeContactApi.DeleteMode.DELETE_ONLY)
                     }) { Text(stringResource(R.string.action_delete)) }
+                    TextButton(onClick = {
+                        onDismiss()
+                        deleteFriends(wxIds, WeContactApi.DeleteMode.BLOCK_AND_DELETE)
+                    }) { Text(stringResource(R.string.batch_delete_friends_block_and_delete)) }
                 }
             )
         }

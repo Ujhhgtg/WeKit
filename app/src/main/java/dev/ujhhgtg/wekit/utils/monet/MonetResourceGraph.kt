@@ -51,6 +51,10 @@ data class MonetXmlAttribute(
 class MonetResourceGraph(
     nodes: List<MonetResourceNode>,
     private val xmlByOwner: Map<Int, List<MonetXmlElement>> = emptyMap(),
+    /** The host package's type string pool in table order (`typeId == index + 1`). */
+    val typeNames: List<String> = emptyList(),
+    /** Resource-table spec flags (config-change sensitivity) by resource ID, OR-ed across splits. */
+    private val specFlags: Map<Int, Int> = emptyMap(),
 ) : Serializable {
     private val byId = nodes.associateBy(MonetResourceNode::id)
     private val byKey = nodes.associateBy(MonetResourceNode::key)
@@ -79,8 +83,10 @@ class MonetResourceGraph(
     fun nodes(type: String): List<MonetResourceNode> = byId.values.filter { it.key.type == type }
     fun xmlTrees(ownerId: Int): List<MonetXmlElement> = xmlByOwner[ownerId].orEmpty()
 
+    fun specFlags(id: Int): Int = specFlags[id] ?: 0
+
     fun withXmlTree(ownerId: Int, tree: MonetXmlElement): MonetResourceGraph =
-        MonetResourceGraph(byId.values.toList(), xmlByOwner + (ownerId to xmlTrees(ownerId) + tree))
+        MonetResourceGraph(byId.values.toList(), xmlByOwner + (ownerId to xmlTrees(ownerId) + tree), typeNames, specFlags)
 
     fun outgoing(id: Int): Set<Int> = outgoingById[id].orEmpty()
     fun incoming(id: Int): Set<Int> = incomingById[id].orEmpty()

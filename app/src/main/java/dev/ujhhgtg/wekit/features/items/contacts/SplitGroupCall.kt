@@ -41,7 +41,6 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.SplitGroupCall.resolveDex
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -421,19 +420,19 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                     TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         val count = repeatCount.toIntOrNull()
                         if (count == null || count <= 0) {
                             showToast(
                                 context.localizedContactsString(R.string.contacts_split_call_invalid_repeat),
                             )
-                            return@Button
+                            return@TextButton
                         }
                         if (!batchRunning.compareAndSet(false, true)) {
                             showToast(
                                 context.localizedContactsString(R.string.contacts_split_call_already_running),
                             )
-                            return@Button
+                            return@TextButton
                         }
 
                         onDismiss()

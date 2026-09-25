@@ -38,7 +38,6 @@ import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
 import dev.ujhhgtg.wekit.features.items.contacts.localizedContactsQuantity
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -303,7 +302,7 @@ fun HideContacts.showSchedulesDialog(context: Context) {
                 }
             },
             confirmButton = {
-                Button(onClick = {
+                TextButton(onClick = {
                     val draft = schedules.toList()
                     val added = addedIds.toSet()
                     // The sole write path: persists and re-arms every alarm in one guarded step.
@@ -506,7 +505,7 @@ private fun showScheduleEditor(
                 }
             },
             confirmButton = {
-                Button(
+                TextButton(
                     enabled = canSave,
                     onClick = {
                         // Null only for an unparseable 单次 timestamp, which `canSave` already blocks.

@@ -34,7 +34,7 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.MergeChatMessageContextMenuItems
 import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
+import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.ExtensionDrawable
@@ -448,7 +448,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                         }
                     }
                 },
-                confirmButton = { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
+                confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }
@@ -511,8 +511,6 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                         ),
                     )
                 },
-                // The first section title already has its own top spacing.
-                textTopSpacing = 0.dp,
                 text = {
                     LazyColumn(Modifier.fillMaxWidth()) {
                         if (adaptedRows.isNotEmpty()) {
@@ -535,7 +533,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                         }
                     }
                 },
-                confirmButton = { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
+                confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
             )
         }
     }

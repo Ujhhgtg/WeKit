@@ -1,11 +1,20 @@
 package dev.ujhhgtg.wekit.utils.monet
 
-import dev.ujhhgtg.wekit.utils.monet.MonetOverlayApkWriter.DrawableTarget
-import dev.ujhhgtg.wekit.utils.monet.MonetOverlayApkWriter.XmlAttribute
-import dev.ujhhgtg.wekit.utils.monet.MonetOverlayApkWriter.XmlNode
-import dev.ujhhgtg.wekit.utils.monet.MonetOverlayApkWriter.XmlValue
+import dev.ujhhgtg.wekit.utils.monet.MonetRuntimePackageWriter.ColorTarget
+import dev.ujhhgtg.wekit.utils.monet.MonetRuntimePackageWriter.ColorValue
+import dev.ujhhgtg.wekit.utils.monet.MonetRuntimePackageWriter.DrawableTarget
+import dev.ujhhgtg.wekit.utils.monet.MonetRuntimePackageWriter.XmlAttribute
+import dev.ujhhgtg.wekit.utils.monet.MonetRuntimePackageWriter.XmlNode
+import dev.ujhhgtg.wekit.utils.monet.MonetRuntimePackageWriter.XmlValue
 
-object MonetCustomOverlays {
+/**
+ * Turns resolved bindings plus the current theme state into the runtime resource set.
+ *
+ * Colors are carried as ints: a value whose high byte is `0x01` is a framework color resource ID
+ * (system Monet, resolved by the platform), anything else is a literal ARGB (seed palette colors
+ * are always opaque, so the two never collide).
+ */
+object MonetThemeRenderer {
     data class Palette(
         val surfaceLight: Int,
         val surfaceDark: Int,
@@ -25,18 +34,113 @@ object MonetCustomOverlays {
         val neutral2_700: Int,
     )
 
-    fun baseVisuals(
-        resolved: Map<String, MonetResourceNode>,
+    data class Options(
+        val bubbleStyle: MonetBubbleStyle,
+        val multiSceneCorners: Boolean,
+        /** Also recolor WeChat's error/destructive reds ([ERROR_ROLES]); off keeps them red. */
+        val errorColors: Boolean,
+    )
+
+    data class Output(val colors: List<ColorTarget>, val drawables: List<DrawableTarget>)
+
+    /**
+     * @param color framework color name (e.g. `system_primary_light`) → encoded color, or `null`
+     * when the source cannot provide it (older platforms lack the M3 surface-container names).
+     */
+    fun palette(color: (String) -> Int?): Palette {
+        fun pick(vararg names: String): Int = names.firstNotNullOfOrNull(color)
+            ?: error("Monet color unavailable: ${names.joinToString()}")
+        return Palette(
+            surfaceLight = pick("system_surface_light"),
+            surfaceDark = pick("system_surface_dark"),
+            surfaceContainerLight = pick(*SURFACE_CONTAINER_LIGHT),
+            surfaceContainerDark = pick(*SURFACE_CONTAINER_DARK),
+            surfaceContainerHighLight = pick(
+                "system_surface_container_high_light", "system_surface_container_light", "system_surface_light",
+            ),
+            surfaceContainerHighDark = pick(
+                "system_surface_container_high_dark", "system_surface_container_dark", "system_surface_dark",
+            ),
+            primaryLight = pick("system_primary_light", "system_accent1_500"),
+            primaryDark = pick("system_primary_dark", "system_accent1_200"),
+            primaryContainerLight = pick("system_primary_container_light", "system_accent1_100"),
+            primaryContainerDark = pick("system_primary_container_dark", "system_accent1_800"),
+            accent1_300 = pick("system_accent1_300"),
+            accent1_400 = pick("system_accent1_400"),
+            accent1_500 = pick("system_accent1_500"),
+            accent1_700 = pick("system_accent1_700"),
+            accent2_100 = pick("system_accent2_100"),
+            neutral2_700 = pick("system_neutral2_700", "system_surface_dark"),
+        )
+    }
+
+    fun render(
+        bindings: MonetBindings,
         palette: Palette,
-        splashIconId: Int,
+        options: Options,
+        color: (String) -> Int?,
+    ): Output {
+        val resolved = bindings.roles
+        // The bottom tab bar is left to WeChat (and WeKit's navigation bar features); error reds
+        // stay WeChat's unless the user opts in.
+        val skipped = if (options.errorColors) UNRENDERED_ROLES else UNRENDERED_ROLES + ERROR_ROLES
+        val colors = MONET_RULES.filter { it.type == "color" && it.id !in skipped }.mapNotNull { rule ->
+            val binding = resolved[rule.id] ?: return@mapNotNull null
+            val (light, night) = themeColor(rule.id, color)
+            if (light == null && night == null) null else ColorTarget(binding, light, night)
+        }
+        // Later groups replace earlier ones for the same resource, like the old overlay priorities.
+        val drawables = linkedMapOf<Int, DrawableTarget>()
+        fun put(targets: List<DrawableTarget>) = targets.forEach { drawables[it.binding.id] = it }
+        put(baseVisuals(resolved, palette))
+        put(modernBubbles(resolved, palette))
+        when (options.bubbleStyle) {
+            MonetBubbleStyle.MODERN -> Unit
+            MonetBubbleStyle.CLASSIC -> put(classicBubbles(resolved, palette))
+            MonetBubbleStyle.PRO -> put(proBubbles(resolved, palette))
+        }
+        if (options.multiSceneCorners) put(corners(resolved, palette))
+        // Brand-green tints as one-item color state lists: a framework color reference cannot carry
+        // alpha as a plain value, a color XML item can.
+        val tints = bindings.tints.map { tint ->
+            DrawableTarget(
+                tint.binding,
+                tintColor(palette.primaryLight, tint.lightAlpha),
+                tint.nightAlpha?.let { tintColor(palette.primaryDark, it) },
+            )
+        }
+        return Output(colors, drawables.values.toList() + tints)
+    }
+
+    /** Parses `theme.color.<light>--<night>.slot-NN` role IDs into light/night values. */
+    private fun themeColor(roleId: String, color: (String) -> Int?): Pair<ColorValue?, ColorValue?> {
+        val semantic = roleId.removePrefix("theme.color.").substringBefore(".slot-")
+        val parts = semantic.split("--", limit = 2)
+        fun resolve(token: String): ColorValue? {
+            if (token == "unknown") return null
+            if (token.length == 8 && token.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
+                return ColorValue.Literal(token.toUInt(16).toInt())
+            }
+            require(token.startsWith("system-")) { "unsupported Monet color token: $token" }
+            val names = when (val normalized = token.replace('-', '_')) {
+                "system_surface_container_light" -> SURFACE_CONTAINER_LIGHT
+                "system_surface_container_dark" -> SURFACE_CONTAINER_DARK
+                else -> arrayOf(normalized)
+            }
+            val value = names.firstNotNullOfOrNull(color) ?: error("Monet color unavailable: ${names.joinToString()}")
+            return resourceColor(value)
+        }
+        return resolve(parts.first()) to resolve(parts.getOrElse(1) { parts.first() })
+    }
+
+    private fun resourceColor(value: Int): ColorValue =
+        if (value ushr 24 == 0x01) ColorValue.Reference(value) else ColorValue.Literal(value)
+
+    private fun baseVisuals(
+        resolved: Map<String, MonetBinding>,
+        palette: Palette,
     ): List<DrawableTarget> = buildList {
         addPair(resolved, "brand.circular.background", oval(palette.accent1_300), oval(palette.accent1_300))
-        addPair(
-            resolved,
-            "launcher.splash.background",
-            splash(XmlValue.Color(0xfff4fbf5.toInt()), splashIconId),
-            splash(XmlValue.Reference(palette.surfaceDark), splashIconId),
-        )
         addPair(
             resolved,
             "chat.brand-action.background",
@@ -74,8 +178,8 @@ object MonetCustomOverlays {
         )
     }
 
-    fun modernBubbles(
-        resolved: Map<String, MonetResourceNode>,
+    private fun modernBubbles(
+        resolved: Map<String, MonetBinding>,
         palette: Palette,
     ): List<DrawableTarget> = buildList {
         addPair(
@@ -129,8 +233,8 @@ object MonetCustomOverlays {
         addPair(resolved, "chat.voice-to-text.background", voiceLight, voiceNight)
     }
 
-    fun proBubbles(
-        resolved: Map<String, MonetResourceNode>,
+    private fun proBubbles(
+        resolved: Map<String, MonetBinding>,
         palette: Palette,
     ): List<DrawableTarget> = buildList {
         val incomingLight = proBubble(palette.surfaceContainerHighLight, 0x26000000)
@@ -143,8 +247,8 @@ object MonetCustomOverlays {
         addPair(resolved, "chat.bubble.outgoing.link.mask", rounded(0x00000000, 20f), rounded(0x26000000, 20f))
     }
 
-    fun classicBubbles(
-        resolved: Map<String, MonetResourceNode>,
+    private fun classicBubbles(
+        resolved: Map<String, MonetBinding>,
         palette: Palette,
     ): List<DrawableTarget> = buildList {
         addPair(
@@ -211,8 +315,8 @@ object MonetCustomOverlays {
         }
     }
 
-    fun corners(
-        resolved: Map<String, MonetResourceNode>,
+    private fun corners(
+        resolved: Map<String, MonetBinding>,
         palette: Palette,
     ): List<DrawableTarget> = buildList {
         addPair(resolved, "chat.input.background", rounded(palette.surfaceLight, 12f), rounded(palette.surfaceDark, 12f))
@@ -225,34 +329,14 @@ object MonetCustomOverlays {
         )
     }
 
-    fun themedIcon(
-        resolved: Map<String, MonetResourceNode>,
-        palette: Palette,
-    ): List<DrawableTarget> {
-        val targetName = requireNotNull(resolved["launcher.themed.icon"]).key.name
-        val adaptive = XmlNode(
-            "adaptive-icon",
-            children = listOf(
-                XmlNode("background", listOf(android("drawable", ATTR_DRAWABLE, XmlValue.NamedReference("drawable", "wekit_icon_bg")))),
-                XmlNode("foreground", listOf(android("drawable", ATTR_DRAWABLE, XmlValue.NamedReference("drawable", "wekit_icon_fg")))),
-                XmlNode("monochrome", listOf(android("drawable", ATTR_DRAWABLE, XmlValue.NamedReference("drawable", "wekit_icon_mono")))),
-            ),
-        )
-        return listOf(
-            DrawableTarget("wekit_icon_bg", solid(0xfff4fbf5.toInt()), solid(palette.surfaceDark)),
-            DrawableTarget("wekit_icon_fg", foregroundIcon()),
-            DrawableTarget("wekit_icon_mono", monochromeIcon()),
-            DrawableTarget(targetName, adaptive, type = "mipmap", lightQualifiers = "-anydpi-v26"),
-        )
-    }
-
+    /** Roles the resolver could not pin down on this WeChat build are skipped, not fatal. */
     private fun MutableList<DrawableTarget>.addPair(
-        resolved: Map<String, MonetResourceNode>,
+        resolved: Map<String, MonetBinding>,
         role: String,
         light: XmlNode,
         night: XmlNode,
     ) {
-        add(DrawableTarget(requireNotNull(resolved[role]) { role }.key.name, light, night))
+        add(DrawableTarget(resolved[role] ?: return, light, night))
     }
 
     private fun solid(color: Int): XmlNode = solid(colorValue(color))
@@ -270,6 +354,14 @@ object MonetCustomOverlays {
             add(XmlNode("corners", listOf(android("radius", ATTR_RADIUS, XmlValue.Dimension(radius)))))
             padding?.let { add(it.node()) }
         },
+    )
+
+    private fun tintColor(color: Int, alpha: Int): XmlNode = XmlNode(
+        "selector",
+        children = listOf(XmlNode("item", listOf(
+            android("color", ATTR_COLOR, colorValue(color)),
+            android("alpha", ATTR_ALPHA, XmlValue.Float(alpha / 255f)),
+        ))),
     )
 
     private fun oval(color: Int): XmlNode = XmlNode(
@@ -364,60 +456,11 @@ object MonetCustomOverlays {
     private fun stateItem(name: String, id: Int, child: XmlNode, value: Boolean = true): XmlNode =
         XmlNode("item", listOf(android(name, id, XmlValue.Boolean(value))), listOf(child))
 
-    private fun splash(color: XmlValue, iconId: Int): XmlNode = XmlNode(
-        "layer-list",
-        listOf(android("opacity", ATTR_OPACITY, XmlValue.Integer(-1))),
-        listOf(
-            XmlNode("item", children = listOf(solid(color))),
-            XmlNode("item", listOf(
-                android("gravity", ATTR_GRAVITY, XmlValue.Integer(17)),
-                android("drawable", ATTR_DRAWABLE, XmlValue.Reference(iconId)),
-            )),
-        ),
-    )
-
     private fun header(surface: Int, accent: Int): XmlNode = XmlNode(
         "layer-list",
         children = listOf(
             XmlNode("item", children = listOf(solid(surface))),
             XmlNode("item", listOf(android("top", ATTR_TOP, XmlValue.Dimension(120f))), listOf(solid(accent))),
-        ),
-    )
-
-    private fun foregroundIcon(): XmlNode = vector(listOf(
-        path(0xff5bb974.toInt(), "M87,145a54,45 0 0 1 108,0a54,45 0 0 1 -108,0Z"),
-        path(0xff5bb974.toInt(), "M106,179a4.627,4.627,0,0,1,1,4c-0.641,2.143-3,9-3,9s-0.942,4.954,4,2,14-9,14-9l-9-8Z"),
-        path(0xff00ac47.toInt(), SECOND_BUBBLE_PATH),
-        path(0xff00ac47.toInt(), "M221.3,206.689a4,4,0,0,0-.864,3.459c.554,1.853,2.594,7.781,2.594,7.781s.814,4.283-3.459,1.729-12.1-7.781-12.1-7.781l7.781-6.917Z"),
-        XmlNode("group", children = listOf(
-            XmlNode("clip-path", listOf(android("pathData", ATTR_PATH_DATA, XmlValue.String("M87,145a54,45 0 0 1 108,0a54,45 0 0 1 -108,0Z")))),
-            path(0xff00832d.toInt(), SECOND_BUBBLE_PATH),
-        )),
-    ))
-
-    private fun monochromeIcon(): XmlNode = vector(listOf(
-        path(0x0106000c, "M191,138c-27.062,0-49,18.132-49,40.5a34.025,34.025,0,0,0,1.991,11.428C143,189.973,142,190,141,190c-29.823,0-54-20.147-54-45s24.177-45,54-45c27.01,0,49.388,16.526,53.369,38.106C193.255,138.043,192.134,138,191,138Z"),
-        path(0x0106000c, "M106,179a4.627,4.627,0,0,1,1,4c-0.641,2.143-3,9-3,9s-0.942,4.954,4,2,14-9,14-9l-9-8Z"),
-        path(0x0106000c, SECOND_BUBBLE_PATH),
-        path(0x0106000c, "M221.3,206.689a4,4,0,0,0-.864,3.459c.554,1.853,2.594,7.781,2.594,7.781s.814,4.283-3.459,1.729-12.1-7.781-12.1-7.781l7.781-6.917Z"),
-    ))
-
-    private fun vector(children: List<XmlNode>): XmlNode = XmlNode(
-        "vector",
-        listOf(
-            android("height", ATTR_HEIGHT, XmlValue.Dimension(324f)),
-            android("width", ATTR_WIDTH, XmlValue.Dimension(324f)),
-            android("viewportWidth", ATTR_VIEWPORT_WIDTH, XmlValue.Float(324f)),
-            android("viewportHeight", ATTR_VIEWPORT_HEIGHT, XmlValue.Float(324f)),
-        ),
-        children,
-    )
-
-    private fun path(color: Int, data: String): XmlNode = XmlNode(
-        "path",
-        listOf(
-            android("fillColor", ATTR_FILL_COLOR, colorValue(color)),
-            android("pathData", ATTR_PATH_DATA, XmlValue.String(data)),
         ),
     )
 
@@ -442,6 +485,24 @@ object MonetCustomOverlays {
     private val INCOMING_LINK_PADDING = Padding(0f, 5f, 5f, 5f)
     private val OUTGOING_LINK_PADDING = Padding(5f, 5f, 0f, 5f)
 
+    private val UNRENDERED_ROLES = setOf("main.tab.background")
+
+    /**
+     * WeChat's reds that mean error/destructive (verified against 8.0.76 usage). The other red
+     * roles (`Red_90` Finder likes, `ph` / `n1` / `dl` Finder and mini-program accents) are brand
+     * accents and are always recolored.
+     */
+    val ERROR_ROLES = setOf(
+        // `ac` / `Red_100` (#FA5151): unread badges and dots, failed-message icons, 删除 / 移除 actions,
+        // error banners.
+        "theme.color.system-primary-light--system-primary-dark.slot-18",
+        "theme.color.system-primary-light--system-primary-dark.slot-19",
+        // `ch` (#FF3E3E): the destructive dialog button.
+        "theme.color.system-primary-light--system-primary-dark.slot-27",
+    )
+    private val SURFACE_CONTAINER_LIGHT = arrayOf("system_surface_container_light", "system_neutral2_50", "system_surface_light")
+    private val SURFACE_CONTAINER_DARK = arrayOf("system_surface_container_dark", "system_neutral2_800", "system_surface_dark")
+
     private val PRO_INCOMING = listOf(
         "chat.bubble.incoming.normal", "chat.bubble.incoming.link",
         "chat.bubble.incoming.pro", "chat.bubble.incoming.pro.handled",
@@ -451,17 +512,14 @@ object MonetCustomOverlays {
         "chat.bubble.outgoing.pro", "chat.bubble.outgoing.pro.handled",
     )
 
-    private const val SECOND_BUBBLE_PATH = "M 191.5 141 C 179.437 141 167.856 144.954 159.327 151.983 C 150.797 159.013 146 168.558 146 178.5 C 146 188.442 150.797 197.987 159.327 205.017 C 167.856 212.046 179.437 216 191.5 216 C 203.563 216 215.144 212.046 223.673 205.017 C 232.203 197.987 237 188.442 237 178.5 C 237 168.558 232.203 159.013 223.673 151.983 C 215.144 144.954 203.563 141 191.5 141 Z"
-
     private const val ATTR_STATE_FOCUSED = 0x0101009c
     private const val ATTR_STATE_ENABLED = 0x0101009e
     private const val ATTR_STATE_SELECTED = 0x010100a1
     private const val ATTR_STATE_PRESSED = 0x010100a7
-    private const val ATTR_GRAVITY = 0x010100af
     private const val ATTR_WIDTH = 0x01010159
-    private const val ATTR_HEIGHT = 0x01010155
     private const val ATTR_SHAPE = 0x0101019a
     private const val ATTR_COLOR = 0x010101a5
+    private const val ATTR_ALPHA = 0x0101031f
     private const val ATTR_RADIUS = 0x010101a8
     private const val ATTR_TOP_LEFT_RADIUS = 0x010101a9
     private const val ATTR_TOP_RIGHT_RADIUS = 0x010101aa
@@ -471,10 +529,4 @@ object MonetCustomOverlays {
     private const val ATTR_TOP = 0x010101ae
     private const val ATTR_RIGHT = 0x010101af
     private const val ATTR_BOTTOM = 0x010101b0
-    private const val ATTR_DRAWABLE = 0x01010199
-    private const val ATTR_OPACITY = 0x0101031e
-    private const val ATTR_VIEWPORT_WIDTH = 0x01010402
-    private const val ATTR_VIEWPORT_HEIGHT = 0x01010403
-    private const val ATTR_FILL_COLOR = 0x01010404
-    private const val ATTR_PATH_DATA = 0x01010405
 }

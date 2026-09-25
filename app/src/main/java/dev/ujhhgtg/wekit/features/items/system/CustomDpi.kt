@@ -23,7 +23,6 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -84,11 +83,11 @@ object CustomDpi : ClickableFeature(), IResolveDex {
                     TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         val dpiInput = value.toIntOrNull()
                         if (dpiInput == null || dpiInput <= 0) {
                             showToast(localizedSystemString(R.string.system_invalid_number))
-                            return@Button
+                            return@TextButton
                         }
                         customDpi = dpiInput
                         onDismiss()

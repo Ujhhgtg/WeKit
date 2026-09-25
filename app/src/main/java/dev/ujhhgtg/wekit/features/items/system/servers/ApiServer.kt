@@ -17,7 +17,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.system.localizedSystemString
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -2301,11 +2300,11 @@ object ApiServer : ClickableFeature() {
                     TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         val serverPort = serverPortInput.toIntOrNull()
                         if (serverPort == null || serverPort !in 1024..65535) {
                             showToast(localizedSystemString(R.string.system_api_server_invalid_port))
-                            return@Button
+                            return@TextButton
                         }
 
                         ApiServer.serverPort = serverPort

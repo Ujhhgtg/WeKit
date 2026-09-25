@@ -4,7 +4,6 @@ import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -123,9 +122,7 @@ private fun ChatRecordXmlGeneratorDialog(
     }
 
     AlertDialogContent(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(),
+        modifier = Modifier.fillMaxWidth(),
         title = { Text(stringResource(R.string.chat_fabricate_record_title)) },
         text = {
             Column(
@@ -336,21 +333,7 @@ private fun ChatRecordXmlGeneratorDialog(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
         },
         confirmButton = {
-            Button(
-                enabled = canGenerate,
-                onClick = {
-                    val xml = buildWeChatRecordXml(
-                        outerTitle = outerTitle,
-                        outerDesc = outerDesc,
-                        rows = rows.map { it.toSnapshot() },
-                        contacts = contacts
-                    )
-
-                    copyToClipboard(context, xml)
-                    showToast(context, localizedContext.getString(R.string.chat_message_details_copied))
-                }
-            ) { Text(stringResource(R.string.chat_fabricate_record_copy)) }
-            Button(
+            TextButton(
                 enabled = canGenerate,
                 onClick = {
                     val xml = buildWeChatRecordXml(
@@ -374,6 +357,20 @@ private fun ChatRecordXmlGeneratorDialog(
                     }
                 }
             ) { Text(stringResource(R.string.chat_fabricate_record_send)) }
+            TextButton(
+                enabled = canGenerate,
+                onClick = {
+                    val xml = buildWeChatRecordXml(
+                        outerTitle = outerTitle,
+                        outerDesc = outerDesc,
+                        rows = rows.map { it.toSnapshot() },
+                        contacts = contacts
+                    )
+
+                    copyToClipboard(context, xml)
+                    showToast(context, localizedContext.getString(R.string.chat_message_details_copied))
+                }
+            ) { Text(stringResource(R.string.chat_fabricate_record_copy)) }
         }
     )
 }

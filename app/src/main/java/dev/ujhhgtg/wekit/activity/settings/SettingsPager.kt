@@ -33,15 +33,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -113,6 +110,7 @@ import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.i18n.SupportedLocale
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.ui.content.WeColorPickerDialog
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.CornerRadius
@@ -128,6 +126,7 @@ import dev.ujhhgtg.wekit.ui.content.m3BackdropLayer
 import dev.ujhhgtg.wekit.ui.content.rememberMaterial3BlurBackdrop
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
 import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
+import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.ui.utils.theme.AppColorSpec
 import dev.ujhhgtg.wekit.ui.utils.theme.AppPaletteStyle
 import dev.ujhhgtg.wekit.ui.utils.theme.AppThemeMode
@@ -144,7 +143,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import android.graphics.Color as AndroidColor
 
 // ---------------------------------------------------------------------------
 //  Page 2 — Settings
@@ -520,8 +518,7 @@ private fun ThemeSection() {
         PageTransitionAnimation.MIUIX to stringResource(R.string.settings_page_transition_animation_miuix),
     )
     var dynamicWallpaper by remember { mutableStateOf(ThemeSettings.dynamicWallpaper) }
-    var showColorPicker by remember { mutableStateOf(false) }
-    SeedColorPickerDialog(show = showColorPicker, onDismiss = { showColorPicker = false })
+    val context = LocalContext.current
 
     SegmentedColumn(title = stringResource(R.string.settings_section_interface)) {
         item {
@@ -593,7 +590,20 @@ private fun ThemeSection() {
                 title = stringResource(R.string.settings_seed_color_title),
                 description = stringResource(R.string.settings_seed_color_summary),
                 icon = MaterialSymbols.Outlined.Colorize,
-                onClick = { showColorPicker = true },
+                onClick = {
+                    showComposeDialog(context) {
+                        WeColorPickerDialog(
+                            initial = ThemeSettings.seedColor,
+                            onDismiss = onDismiss,
+                            onConfirm = { picked ->
+                                ThemeSettings.updateSeedColor(picked)
+                                onDismiss()
+                            },
+                            resetColor = ThemeSettings.DEFAULT_SEED_COLOR,
+                            showAlpha = false,
+                        )
+                    }
+                },
             ) {
                 Box(
                     modifier = Modifier
@@ -649,99 +659,6 @@ private fun ThemeSection() {
                 icon = MaterialSymbols.Outlined.Contrast,
             )
         }
-    }
-}
-
-/**
- * HSV color-picker dialog for the custom seed color; commits to ThemeSettings on confirm.
- * Simplified vs the old miuix ColorPicker: three labeled sliders (Hue / Saturation / Value)
- * plus a live preview, no alpha channel (the seed color is opaque anyway).
- */
-@Composable
-private fun SeedColorPickerDialog(show: Boolean, onDismiss: () -> Unit) {
-    if (!show) return
-
-    val initialHsv = remember {
-        FloatArray(3).also { AndroidColor.colorToHSV(ThemeSettings.seedColor, it) }
-    }
-    var hue by remember { mutableFloatStateOf(initialHsv[0]) }
-    var saturation by remember { mutableFloatStateOf(initialHsv[1] * 100f) }
-    var value by remember { mutableFloatStateOf(initialHsv[2] * 100f) }
-    val picked = AndroidColor.HSVToColor(floatArrayOf(hue, saturation / 100f, value / 100f))
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_seed_color_title)) },
-        text = {
-            Column {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(picked)),
-                )
-                Spacer(Modifier.height(16.dp))
-                HsvSlider(
-                    label = stringResource(R.string.color_picker_hue),
-                    value = hue,
-                    onValueChange = { hue = it },
-                    valueRange = 0f..360f,
-                )
-                HsvSlider(
-                    label = stringResource(R.string.color_picker_saturation),
-                    value = saturation,
-                    onValueChange = { saturation = it },
-                    valueRange = 0f..100f,
-                )
-                HsvSlider(
-                    label = stringResource(R.string.color_picker_value),
-                    value = value,
-                    onValueChange = { value = it },
-                    valueRange = 0f..100f,
-                )
-                TextButton(onClick = {
-                    val reset = FloatArray(3).also { AndroidColor.colorToHSV(ThemeSettings.DEFAULT_SEED_COLOR, it) }
-                    hue = reset[0]
-                    saturation = reset[1] * 100f
-                    value = reset[2] * 100f
-                }) {
-                    Text(stringResource(R.string.action_reset))
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                ThemeSettings.updateSeedColor(AndroidColor.HSVToColor(floatArrayOf(hue, saturation / 100f, value / 100f)))
-                onDismiss()
-            }) { Text(stringResource(R.string.dialog_confirm)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-        },
-    )
-}
-
-@Composable
-private fun HsvSlider(
-    label: String,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float>,
-) {
-    val sliderState = remember(valueRange) { SliderState(value = value, trackRange = valueRange) }
-    sliderState.value = value
-
-    Column {
-        Text(
-            text = "$label: ${value.toInt()}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Slider(
-            state = sliderState,
-            onValueChange = onValueChange,
-        )
     }
 }
 

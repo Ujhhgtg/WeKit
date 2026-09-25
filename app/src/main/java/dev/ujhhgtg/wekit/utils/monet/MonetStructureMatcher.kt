@@ -30,6 +30,38 @@ object MonetStructureMatcher {
         return resolved
     }
 
+    data class Resolution(
+        val resolved: Map<String, MonetResourceNode>,
+        /** Required roles left without exactly one resource of their own on this build. */
+        val unresolved: List<String>,
+    )
+
+    /**
+     * Runtime variant of [resolveAll]: a role that is missing, still ambiguous, or shares its
+     * resource with another role is reported instead of failing the whole resolution, so one
+     * drifted role on a new WeChat build only loses that role.
+     */
+    fun resolveAvailable(
+        graph: MonetResourceGraph,
+        dexProvider: MonetDexEvidenceProvider,
+        onProgress: (completed: Int?, total: Int?, detail: String) -> Unit = { _, _, _ -> },
+    ): Resolution {
+        val audited = resolveCandidateIds(graph, dexProvider, onProgress)
+        val single = MONET_RULES.mapNotNull { rule ->
+            audited.getValue(rule).singleOrNull()?.let(graph::node)?.let { rule.id to it }
+        }.toMap()
+        val shared = single.entries.groupBy { it.value.id }.values
+            .filter { it.size > 1 }
+            .flatMapTo(hashSetOf()) { roles -> roles.map { it.key } }
+        val resolved = single - shared
+        val unresolved = MONET_RULES.filter { rule ->
+            val optional = rule.optional || rule.optionalWhenResourceAbsent?.let { graph.node(it) == null } == true
+            rule.id !in resolved && !(optional && audited.getValue(rule).isEmpty())
+        }.map(MonetSemanticRule::id)
+        onProgress(MONET_RULES.size, MONET_RULES.size, "语义角色解析完成")
+        return Resolution(resolved, unresolved)
+    }
+
     fun audit(
         graph: MonetResourceGraph,
         dexProvider: MonetDexEvidenceProvider? = null,

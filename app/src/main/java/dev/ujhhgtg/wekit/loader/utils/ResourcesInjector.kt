@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.loader.utils
 
-import android.content.res.AssetManager
 import android.content.res.Resources
 import android.content.res.loader.ResourcesLoader
 import android.content.res.loader.ResourcesProvider
@@ -12,6 +11,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.extensions.PackFs
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.reflection.asHidden
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
@@ -84,10 +84,7 @@ object ResourcesInjector {
 
     @Suppress("JavaReflectionMemberAccess")
     private fun injectResLt30(resources: Resources, apk: File, sha256: String): InjectionHandle {
-        val addAssetPath = AssetManager::class.java
-            .getDeclaredMethod("addAssetPath", String::class.java)
-            .apply { isAccessible = true }
-        val cookie = addAssetPath.invoke(resources.assets, apk.absolutePath) as Int
+        val cookie = resources.assets.asHidden().addAssetPath(apk.absolutePath)
         require(cookie != 0) { "AssetManager rejected ${apk.absolutePath}" }
         return InjectionHandle(apk, sha256, cookie, resources.assets)
     }

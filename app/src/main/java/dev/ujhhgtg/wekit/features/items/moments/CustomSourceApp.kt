@@ -116,7 +116,7 @@ object CustomSourceApp : ClickableFeature(), IResolveDex {
                 },
                 dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
                 confirmButton = {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         appId = appIdInput
                         appName = appNameInput
                         onDismiss()
