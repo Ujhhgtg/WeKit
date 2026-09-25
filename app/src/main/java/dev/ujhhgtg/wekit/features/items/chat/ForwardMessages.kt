@@ -120,7 +120,7 @@ object ForwardMessages : SwitchFeature(),
     }
 
     @Suppress("DEPRECATION")
-    private fun sendTo(toUser: String, msgInfo: MessageInfo): Boolean {
+    private suspend fun sendTo(toUser: String, msgInfo: MessageInfo): Boolean {
         return runCatching {
             when (msgInfo.type) {
                 MessageType.TEXT -> WeMessageApi.sendText(toUser, msgInfo.actualContent)
@@ -131,7 +131,7 @@ object ForwardMessages : SwitchFeature(),
                 MessageType.APP -> WeMessageApi.sendXmlAppMsg(toUser, msgInfo.actualContent)
                 MessageType.QUOTE -> WeMessageApi.sendText(toUser, msgInfo.quoteMsgActualContent!!)
                 else -> {
-                    showToast(localizedChatString(R.string.chat_forward_untested_type_warning))
+                    showToastSuspend(localizedChatString(R.string.chat_forward_untested_type_warning))
                     WeMessageApi.sendXmlAppMsg(toUser, msgInfo.actualContent)
                 }
             }
