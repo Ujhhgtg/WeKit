@@ -24,7 +24,7 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.runOnUiThread
+import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Modifier
 import java.lang.ref.WeakReference
@@ -387,8 +387,8 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     }
 
     fun refresh(resetListViewPosition: Boolean = false) {
-        runOnUiThread {
-            val adapter = latestAdapter?.get() ?: return@runOnUiThread
+        postOnUiThread {
+            val adapter = latestAdapter?.get() ?: return@postOnUiThread
             when (latestBackend) {
                 Backend.LIST_VIEW -> {
                     val listView = latestContainer?.get() as? ListView
@@ -396,7 +396,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
                     val realInstalledAdapter =
                         (installedAdapter as? HeaderViewListAdapter)?.wrappedAdapter ?: installedAdapter
                     if (realInstalledAdapter != null && realInstalledAdapter !== adapter) {
-                        return@runOnUiThread
+                        return@postOnUiThread
                     }
                     dividerCoordinator.applyListView(listView)
                     (adapter as BaseAdapter).notifyDataSetChanged()
@@ -413,7 +413,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
                     notifyAdapterChanged(adapter)
                 }
 
-                null -> return@runOnUiThread
+                null -> return@postOnUiThread
             }
         }
     }

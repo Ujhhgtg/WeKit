@@ -10,14 +10,13 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.WeGroup
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.features.items.contacts.DeleteFakeGroups.LEGIT_CHATROOM_REGEX
 import dev.ujhhgtg.wekit.features.items.contacts.DeleteFakeGroups.isFakeGroup
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.runOnUiThread
+import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlin.concurrent.thread
 
@@ -88,7 +87,7 @@ object DeleteFakeGroups : ClickableFeature() {
                                 selectedIds,
                                 fakeGroups.associate { it.wxId to it.nickname },
                             )
-                            runOnUiThread {
+                            postOnUiThread {
                                 showToast(
                                     localizedContactsQuantity(
                                         R.plurals.contacts_delete_fake_done,

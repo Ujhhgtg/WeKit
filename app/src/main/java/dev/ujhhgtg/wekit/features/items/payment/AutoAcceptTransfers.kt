@@ -2,8 +2,6 @@ package dev.ujhhgtg.wekit.features.items.payment
 
 import android.content.ContentValues
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
@@ -21,7 +19,7 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.runOnUiThread
+import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import dev.ujhhgtg.wekit.utils.android.showToast
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -134,7 +132,7 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
 
                 val displayName = WeDatabaseApi.getDisplayName(payerUsername)
 
-                runOnUiThread {
+                postOnUiThread {
                     showToast(
                         localizedPaymentString(
                             R.string.payment_transfer_received,

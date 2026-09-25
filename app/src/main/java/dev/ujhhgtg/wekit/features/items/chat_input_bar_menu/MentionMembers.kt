@@ -33,7 +33,7 @@ import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import dev.ujhhgtg.wekit.utils.android.runOnUiThread
+import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 
@@ -233,7 +233,7 @@ object MentionMembers : SwitchFeature(), IResolveDex {
                     }
                 },
                 onLongClick = { context, _ ->
-                    runOnUiThread {
+                    postOnUiThread {
                         showSettingsDialog(context)
                     }
                 }

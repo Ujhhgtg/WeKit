@@ -39,7 +39,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoPro
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.features.items.contacts.SplitGroupCall.resolveDex
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -47,7 +46,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.currentWxId
-import dev.ujhhgtg.wekit.utils.android.runOnUiThread
+import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.int
@@ -502,7 +501,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                 }
                 batchRunning.set(false)
 
-                runOnUiThread {
+                postOnUiThread {
                     showToast(
                         context.localizedContactsQuantity(
                             if (cleanupFailed) R.plurals.contacts_split_call_done_cleanup_failed
@@ -694,7 +693,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     private fun runOnUiThreadAndWait(action: () -> Unit) {
         val latch = CountDownLatch(1)
         var failure: Throwable? = null
-        runOnUiThread {
+        postOnUiThread {
             try {
                 action()
             } catch (e: Throwable) {

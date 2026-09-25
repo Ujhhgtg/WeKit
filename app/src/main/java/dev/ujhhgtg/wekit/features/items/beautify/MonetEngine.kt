@@ -58,7 +58,7 @@ import dev.ujhhgtg.wekit.ui.utils.theme.SeedResolver
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.runOnUiThread
+import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.monet.MonetAssetInjector
@@ -233,7 +233,7 @@ object MonetEngine : ClickableFeature() {
         configCallbacks?.let(HostInfo.application::unregisterComponentCallbacks)
         configCallbacks = null
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            runOnUiThread {
+            postOnUiThread {
                 MonetAssetInjector.swap(null)
                 currentProvider = null
                 appliedKey = null
@@ -408,7 +408,7 @@ object MonetEngine : ClickableFeature() {
                     onProgress(it)
                 }.also { MonetResourceResolver.store(cacheDir, it) }
             }
-            runOnUiThread {
+            postOnUiThread {
                 resolving.value = false
                 result.onSuccess { bindings ->
                     WeLogger.i(TAG, "resolved ${bindings.roles.size} roles, unresolved: ${bindings.unresolved}")
@@ -543,7 +543,7 @@ object MonetEngine : ClickableFeature() {
                 resolveInBackground(
                     apks,
                     MonetResourceResolver.fingerprint(apks.map(::File)),
-                    onProgress = { runOnUiThread { progress = it } },
+                    onProgress = { postOnUiThread { progress = it } },
                     onDone = { error ->
                         if (error == null) {
                             onDismiss()

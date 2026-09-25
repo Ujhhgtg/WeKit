@@ -32,14 +32,13 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.BeautifyConversationList
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.runOnUiThread
+import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import dev.ujhhgtg.wekit.utils.android.showToast
 import java.lang.ref.WeakReference
 import kotlin.math.abs
@@ -671,14 +670,14 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
         val talker = s.talker
         val conversation = s.conversation
         if (talker.isNullOrBlank()) return
-        runOnUiThread {
+        postOnUiThread {
             when (action) {
                 Action.DELETE -> {
                     settleClosed(s)
                     if (openState === s) openState = null
                     val ctx = context ?: run {
                         WeLogger.w(TAG, "DELETE action missing context for $talker")
-                        return@runOnUiThread
+                        return@postOnUiThread
                     }
                     showComposeDialog(ctx) {
                         AlertDialogContent(

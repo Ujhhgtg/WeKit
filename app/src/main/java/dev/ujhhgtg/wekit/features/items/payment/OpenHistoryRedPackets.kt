@@ -35,7 +35,7 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.runOnUiThread
+import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -236,7 +236,7 @@ object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContact
     }
 
     private fun updateLog(@StringRes messageRes: Int, vararg formatArgs: Any) {
-        runOnUiThread {
+        postOnUiThread {
             logList.add(HistoryLog(messageRes, formatArgs.toList()))
         }
     }

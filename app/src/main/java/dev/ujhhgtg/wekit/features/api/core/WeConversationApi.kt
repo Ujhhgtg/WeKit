@@ -7,13 +7,11 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.api.core.WeConversationApi.hideConversation
-import dev.ujhhgtg.wekit.features.api.core.WeConversationApi.reloadConversations
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.runOnUiThread
+import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
@@ -467,7 +465,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
         // "content of the adapter has changed but ListView did not receive a notification"
         // crash. Callers like AggregateChats' folder-refresh run on a worker thread, so
         // always marshal the notify onto the main thread.
-        runOnUiThread {
+        postOnUiThread {
             try {
                 notifyConversationChanged("", 5)
             } catch (ex: Exception) {

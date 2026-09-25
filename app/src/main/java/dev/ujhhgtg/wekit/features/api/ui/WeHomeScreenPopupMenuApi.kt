@@ -19,7 +19,7 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.runOnUiThread
+import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.bool
@@ -171,7 +171,7 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
                             classMenuItemWrapper.clazz.createInstance(itemData)
                         items.put(items.size, itemWrapper)
 
-                        runOnUiThread {
+                        postOnUiThread {
                             baseAdapter.notifyDataSetChanged()
                         }
                     }
@@ -184,7 +184,7 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
                 }
             }
 
-            runOnUiThread {
+            postOnUiThread {
                 baseAdapter.notifyDataSetChanged()
             }
         }

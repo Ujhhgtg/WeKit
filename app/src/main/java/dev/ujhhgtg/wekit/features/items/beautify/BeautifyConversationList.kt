@@ -40,7 +40,7 @@ import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
-import dev.ujhhgtg.wekit.utils.android.runOnUiThread
+import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 
@@ -139,7 +139,7 @@ object BeautifyConversationList : ClickableFeature() {
 
     override fun onDisable() {
         WeConversationListViewApi.removeListener(bindListener)
-        runOnUiThread {
+        postOnUiThread {
             restoreAppearance()
             WeConversationListViewApi.removeDividerOwner(this)
         }
@@ -205,7 +205,7 @@ object BeautifyConversationList : ClickableFeature() {
     }
 
     private fun refreshAppearance() {
-        runOnUiThread {
+        postOnUiThread {
             restoreAppearance()
             // Islands supply their own inset, one-pixel separators. Native separators would
             // leave seams between the rows that make up the continuous surface.
