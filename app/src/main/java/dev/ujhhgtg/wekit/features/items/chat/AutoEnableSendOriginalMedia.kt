@@ -7,7 +7,6 @@ import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.utils.reflection.bool
 
 object AutoEnableSendOriginalMedia : SwitchFeature() {
 
@@ -17,8 +16,9 @@ object AutoEnableSendOriginalMedia : SwitchFeature() {
     override val descriptionRes = R.string.feature_auto_enable_send_original_media_description
 
     /**
-     * The 8.0.78 chat picker keeps its initial original-image state in this
-     * feature-arguments object instead of an Activity extra. Older hosts do
+     * The 8.0.78+ chat picker (the half-screen album, A/B tested via
+     * clicfg_local_media_picker_chatting_opt) keeps its initial original-image
+     * state in this feature-arguments object instead of an Activity extra. Older hosts do
      * not have the class, so the optional reflection hook is deliberately
      * resolved at runtime.
      */
@@ -37,22 +37,17 @@ object AutoEnableSendOriginalMedia : SwitchFeature() {
             }
         }
 
+        // Both picker state holders read this getter once at startup, so the
+        // user can still untick the option afterwards. Hooking the getter
+        // avoids depending on the constructor signature.
         LOCAL_PICKER_ARGUMENTS.toClassOrNull()
             ?.reflekt()
-            ?.firstConstructorOrNull {
-                parameters(
-                    String::class.java,
-                    String::class.java,
-                    bool,
-                    bool,
-                    String::class.java,
-                    String::class.java,
-                    Long::class.javaPrimitiveType!!,
-                )
+            ?.firstMethod {
+                name = "getInitialSendOriginal"
+                parameters()
             }
             ?.hookBefore {
-                // initialSendOriginal is the fourth constructor argument.
-                args[3] = true
+                result = true
             }
 
         // MediaTabPickerUI embeds MediaTabAlbumUI as a VAS fragment, so its

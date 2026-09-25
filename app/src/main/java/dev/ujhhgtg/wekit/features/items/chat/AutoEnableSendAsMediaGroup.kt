@@ -1,18 +1,21 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import android.app.Activity
-import android.view.View
 import android.widget.CheckBox
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.bool
+import org.luckypray.dexkit.DexKitBridge
+import java.util.Collections
+import java.util.WeakHashMap
 
 object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
 
@@ -24,8 +27,6 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
     private const val ALBUM_PREVIEW_UI = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
     private const val IMAGE_PREVIEW_UI = "com.tencent.mm.plugin.gallery.ui.ImagePreviewUI"
     private const val KEY_SEND_AS_MEDIA_GROUP = "key_send_as_media_group"
-    private const val LOCAL_PICKER_MEDIA_GROUP_BAR =
-        "com.tencent.mm.plugin.picker.chrome.LocalMediaPickerMediaGroupBarView"
     private const val MEDIA_TAB_ALBUM_UI = "com.tencent.mm.plugin.gallery.ui.MediaTabAlbumUI"
 
     /**
@@ -73,7 +74,44 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
         }
     }
 
+    /** The half-screen picker's data-class state, identified by its toString() literal. */
+    private val classLocalPickerState by dexClass()
+
+    /** State reducer run on every selection change: (state, selectionSnapshot) -> state. */
+    private val methodLocalPickerSelectionReducer by dexMethod()
+
+    private val localPickerStateVisible = Collections.synchronizedMap(WeakHashMap<Any, Boolean>())
+    private val forceMediaGroupChecked = ThreadLocal<Boolean>()
+
+    override fun resolveDex(dexKit: DexKitBridge) {
+        // Probe: only hosts with the half-screen chat picker have this state class
+        val states = dexKit.findClass {
+            matcher {
+                usingEqStrings("ChattingLocalMediaPickerState(selection=")
+            }
+        }
+        if (states.isEmpty()) {
+            val reason = "host has no half-screen chat media picker"
+            classLocalPickerState.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
+            methodLocalPickerSelectionReducer.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
+            return
+        }
+        val state = states.single()
+        classLocalPickerState.setDescriptor(state)
+        methodLocalPickerSelectionReducer.setDescriptor(
+            dexKit.findMethod {
+                matcher {
+                    returnType = state.name
+                    paramTypes(state.name, null)
+                    usingNumbers(3)
+                }
+            }.single()
+        )
+    }
+
     override fun onEnable() {
+        if (!classLocalPickerState.isPlaceholder) hookLocalPicker()
+
         if (
             methodInitSendAsMediaGroupingViews.isPlaceholder ||
             methodUpdateSendAsMediaGroupViews.isPlaceholder ||
@@ -115,34 +153,34 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
             val activity = thisObject as Activity
             activity.intent.putExtra(KEY_SEND_AS_MEDIA_GROUP, true)
         }
+    }
 
-        // The 8.0.78 local chat picker stores this option in its StateCenter;
-        // it has no AlbumPreviewUI field or CheckBox for the old hook to touch.
-        // Trigger the native click callback so the reducer and send plan stay
-        // in sync with the visible control.
-        LOCAL_PICKER_MEDIA_GROUP_BAR.toClassOrNull()
-            ?.reflekt()
-            ?.firstMethodOrNull {
-                name = "setMediaGroupChecked"
-                parameters(bool)
+    private fun hookLocalPicker() {
+        // The 8.0.78+ half-screen chat picker (A/B tested via
+        // clicfg_local_media_picker_chatting_opt) keeps this option in its
+        // StateCenter. The selection reducer derives
+        // checked = old.checked && visible, so selecting the first image
+        // clears it and reaching 3 images never restores it. Force it on when
+        // the option turns visible; the user can still untick it afterwards.
+        methodLocalPickerSelectionReducer.hookBefore {
+            forceMediaGroupChecked.set(localPickerStateVisible[args[0]] != true)
+        }
+        methodLocalPickerSelectionReducer.hookAfter {
+            forceMediaGroupChecked.remove()
+        }
+
+        // ChattingLocalMediaPickerState(selection, selectionKey, sendOriginal,
+        //     mediaGroupAvailableCount, mediaGroupVisible, mediaGroupChecked, ...)
+        val stateConstructor = classLocalPickerState.reflekt().firstConstructor {
+            parameters { it.size > 5 && it[4] == bool && it[5] == bool }
+        }
+        stateConstructor.hookBefore {
+            if (forceMediaGroupChecked.get() == true && args[4] as Boolean) {
+                args[5] = true
             }
-            ?.hookAfter {
-                if (args[0] as Boolean) return@hookAfter
-                val view = thisObject as View
-                view.post {
-                    if (view.visibility != View.VISIBLE) return@post
-                    val callback = view.reflekt()
-                        .firstMethodOrNull {
-                            name = "getOnMediaGroupClicked"
-                            parameters()
-                        }
-                        ?.invoke()
-                        ?: return@post
-                    callback.reflekt().firstMethod {
-                        name = "invoke"
-                        parameters()
-                    }.invoke()
-                }
-            }
+        }
+        stateConstructor.hookAfter {
+            localPickerStateVisible[thisObject] = args[4] as Boolean
+        }
     }
 }
