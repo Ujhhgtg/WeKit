@@ -11,6 +11,9 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.collections.LruCache
+import dev.ujhhgtg.wekit.utils.reflection.bool
+import dev.ujhhgtg.wekit.utils.reflection.int
+import dev.ujhhgtg.wekit.utils.reflection.void
 import java.lang.reflect.InvocationTargetException
 
 object AutoSpeechToText : SwitchFeature(),
@@ -68,18 +71,21 @@ object AutoSpeechToText : SwitchFeature(),
         runCatching { WeMessageApi.markVoicePlayed(msgInfo) }
 
         if (WeMessageApi.methodGetIsTransformed.method.invoke(msgInfo.instance) as Boolean) return
-        try {
-            api.reflekt()
-                .firstMethod {
-                    parameters(
-                        WeMessageApi.classMsgInfo.clazz,
-                        Boolean::class,
-                        Int::class,
-                        Int::class
-                    )
-                    returnType = Void::class.javaPrimitiveType
+
+        // 8.0.79+ appends an extra int (report source) to (MsgInfo, boolean, int, int)
+        val transformMethod = api.reflekt()
+            .firstMethod {
+                parameters { types ->
+                    (types.size == 4 || types.size == 5) &&
+                            types[0] == WeMessageApi.classMsgInfo.clazz &&
+                            types[1] == bool &&
+                            types.drop(2).all { it == int }
                 }
-                .invoke(msgInfo.instance, false, -1, 0)
+                returnType = void
+            }
+        val extraArgs = List(transformMethod.parameterTypes.size - 4) { 0 }
+        try {
+            transformMethod.invoke(msgInfo.instance, false, -1, 0, *extraArgs.toTypedArray())
         } catch (_: InvocationTargetException) {
             // WeChat throws `java.lang.NullPointerException: getImgPath(...) must not be null`,
             // but that's not what we should care about and doesn't affect functionality
