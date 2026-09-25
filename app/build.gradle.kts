@@ -28,6 +28,12 @@ val gitHash = providers.exec {
     commandLine("git", "rev-parse", "--short=8", "HEAD")
 }.standardOutput.asText.map { it.trim() }
 
+// Committer timestamp of HEAD in milliseconds, so builds of the same commit are reproducible.
+val commitTimestamp = providers.exec {
+    workingDir(rootProject.layout.projectDirectory)
+    commandLine("git", "log", "-1", "--format=%ct", "HEAD")
+}.standardOutput.asText.map { it.trim().toLong() * 1000L }
+
 android {
     namespace = libs.versions.namespace.get()
     compileSdk {
@@ -48,7 +54,6 @@ android {
         }
 
         buildConfigField("String", "TAG", "\"WeKit\"")
-        buildConfigField("long", "BUILD_TIMESTAMP", "${System.currentTimeMillis()}L")
     }
 
     lint {
@@ -211,6 +216,9 @@ androidComponents {
         }
         variant.buildConfigFields!!.put("COMMIT_HASH", gitHash.map {
             BuildConfigField("String", "\"$it\"", null)
+        })
+        variant.buildConfigFields!!.put("COMMIT_TIMESTAMP", commitTimestamp.map {
+            BuildConfigField("long", "${it}L", null)
         })
 
         val generateZygiskResources = tasks.register<GenerateZygiskResourcesTask>(

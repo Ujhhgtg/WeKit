@@ -520,7 +520,7 @@ class MainActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.height(8.dp))
                         InfoItem(
                             stringResource(R.string.module_app_build_commit_time_label),
-                            formatEpoch(BuildConfig.BUILD_TIMESTAMP, true)
+                            formatEpoch(BuildConfig.COMMIT_TIMESTAMP, true)
                         )
                     }
                 }

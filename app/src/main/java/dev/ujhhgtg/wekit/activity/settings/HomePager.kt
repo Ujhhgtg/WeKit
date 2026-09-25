@@ -189,7 +189,7 @@ private fun DeviceInformation() {
             BaseWidget(
                 icon = MaterialSymbols.Outlined.Schedule,
                 title = stringResource(R.string.home_build_time),
-                description = formatEpoch(BuildConfig.BUILD_TIMESTAMP, true),
+                description = formatEpoch(BuildConfig.COMMIT_TIMESTAMP, true),
             )
         }
         item {

@@ -303,7 +303,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                 item {
                     PrefArrow(
                         title = stringResource(R.string.settings_build_commit_time_title),
-                        summary = formatEpoch(BuildConfig.BUILD_TIMESTAMP, true),
+                        summary = formatEpoch(BuildConfig.COMMIT_TIMESTAMP, true),
                         icon = MaterialSymbols.Outlined.Build_circle,
                     )
                 }
