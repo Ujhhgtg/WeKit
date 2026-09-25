@@ -299,41 +299,11 @@ object AddMainScreenFab : ClickableFeature() {
     private fun loadConfig(): List<FabItemConfig> {
         val jsonStr = KvStore.getString(KEY_FAB_CONFIG) ?: return defaultList
         return try {
-            Json.decodeFromString<List<FabItemConfig>>(jsonStr).map(::migrateLegacyBuiltInLabel)
+            Json.decodeFromString<List<FabItemConfig>>(jsonStr)
         } catch (e: Exception) {
             WeLogger.e(TAG, "解析依赖失败，还原默认配置", e)
             defaultList
         }
-    }
-
-    private fun migrateLegacyBuiltInLabel(item: FabItemConfig): FabItemConfig {
-        if (item.builtInLabel != null) return item
-        val label = when (item.type) {
-            FabType.START_ACTIVITY if item.name == "扫一扫" &&
-                    item.targetActivity == "com.tencent.mm.plugin.scanner.ui.BaseScanUI" -> BuiltInFabLabel.SCAN
-
-            FabType.START_ACTIVITY if item.name == "朋友圈" &&
-                    item.targetActivity == "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI" -> BuiltInFabLabel.MOMENTS
-
-            FabType.START_ACTIVITY if item.name == "钱包" &&
-                    item.targetActivity == "com.tencent.mm.plugin.mall.ui.MallIndexUIv2" -> BuiltInFabLabel.WALLET
-
-            FabType.START_ACTIVITY if item.name == "视频号" &&
-                    item.targetActivity == "com.tencent.mm.plugin.finder.ui.FinderHomeAffinityUI" -> BuiltInFabLabel.CHANNELS
-
-            FabType.START_ACTIVITY if item.name == "设置" &&
-                    item.targetActivity == "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI" -> BuiltInFabLabel.SETTINGS
-
-            FabType.START_ACTIVITY if item.name == "收藏夹" &&
-                    item.targetActivity == "com.tencent.mm.plugin.fav.ui.FavoriteIndexUI" -> BuiltInFabLabel.FAVORITES
-
-            FabType.MODULE_SETTINGS if item.name == "模块设置" -> BuiltInFabLabel.MODULE_SETTINGS
-            FabType.RESTART_HOST if item.name == "重启微信" -> BuiltInFabLabel.RESTART_WECHAT
-            FabType.FORCE_STOP if item.name == "强行停止" -> BuiltInFabLabel.FORCE_STOP
-            FabType.MARK_ALL_READ if item.name == "清空未读" -> BuiltInFabLabel.MARK_ALL_READ
-            else -> null
-        }
-        return if (label == null) item else item.copy(name = "", builtInLabel = label)
     }
 
     private fun saveConfig(list: List<FabItemConfig>) {

@@ -26,8 +26,6 @@ class BackupReplacementRollbackException(
  * replacement restores only completed operations, in reverse order.
  */
 object BackupManagedDataReplacement {
-    const val MARKER_NAME = ".restored-backup"
-
     fun replace(
         root: File,
         staging: File,
@@ -45,7 +43,7 @@ object BackupManagedDataReplacement {
                 relative.split('/').none { it.isEmpty() || it == "." || it == ".." } && '\\' !in relative) {
                 "Invalid managed replacement path"
             }
-            require(relative != MARKER_NAME && owned.none { it != relative && relative.startsWith("$it/") }) {
+            require(owned.none { it != relative && relative.startsWith("$it/") }) {
                 "Managed replacement paths overlap"
             }
         }
@@ -61,12 +59,6 @@ object BackupManagedDataReplacement {
         try {
             databaseFiles.forEach { current -> saveExisting(current, File(oldRoot, current.name), undo) }
             install(File(staging, stagedDatabaseName), liveDatabase, directory = false, required = true, undo)
-
-            // Only existence matters: never import the archive's marker contents.
-            val replacementMarker = File(staging, ".restore-marker")
-            replacementMarker.writeText("1")
-            saveExisting(File(root, MARKER_NAME), File(oldRoot, MARKER_NAME), undo)
-            install(replacementMarker, File(root, MARKER_NAME), directory = false, required = true, undo)
 
             managedDirectories.forEach { relative ->
                 replaceOwned(root, staging, oldRoot, relative, directory = true, undo)

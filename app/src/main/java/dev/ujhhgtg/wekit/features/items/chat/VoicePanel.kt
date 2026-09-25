@@ -137,8 +137,8 @@ object VoicePanel : SwitchFeature() {
             if (preview.temporary) preview.path.asPath.deleteIfExists()
         },
         send = { sendVoice(WeCurrentConversationApi.value, it) },
-        ensureLocalPack = { name, legacyName ->
-            withContext(Dispatchers.IO) { VoicePanelRepository.ensurePack(name, legacyName) }
+        ensureLocalPack = { name ->
+            withContext(Dispatchers.IO) { VoicePanelRepository.ensurePack(name) }
         },
         addToLocal = addToLocal@{ packId, item ->
             if (VoicePanelRepository.hasOnlineVoice(packId, item)) return@addToLocal Result.success(Unit)

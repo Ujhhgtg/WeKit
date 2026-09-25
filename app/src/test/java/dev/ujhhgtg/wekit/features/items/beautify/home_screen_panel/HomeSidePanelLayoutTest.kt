@@ -14,47 +14,6 @@ class HomeSidePanelLayoutTest {
     }
 
     @Test
-    fun migrationPreservesSettingsAndDefaultOrder() {
-        val layout = defaultHomeSidePanelLayout(
-            LegacyHomeSidePanelSnapshot(
-                weatherCity = DEFAULT_WEATHER_CITY.copy(
-                    city = "上海",
-                    cityNum = "101020100",
-                ),
-                hideWalletBalance = true,
-                hitokotoSettings = HitokotoSettings(
-                    categories = setOf("a"),
-                    showAuthor = false,
-                ),
-            ),
-            SequenceIds(),
-        )
-
-        assertEquals(
-            listOf(
-                HomeSidePanelCardType.DATE_TIME,
-                HomeSidePanelCardType.WEATHER,
-                HomeSidePanelCardType.WALLET,
-                HomeSidePanelCardType.VERTICAL_ACTIONS,
-                HomeSidePanelCardType.HITOKOTO,
-            ),
-            layout.cards.map { it.type },
-        )
-        assertEquals("101020100", (layout.cards[1] as WeatherCardConfig).city.cityNum)
-        assertTrue((layout.cards[2] as WalletCardConfig).hideBalanceByDefault)
-        assertEquals(
-            listOf(
-                HomeSidePanelActionKind.ADD_FRIEND,
-                HomeSidePanelActionKind.MOMENTS,
-                HomeSidePanelActionKind.CHANNELS,
-                HomeSidePanelActionKind.MARK_ALL_READ,
-                HomeSidePanelActionKind.WEKIT_SETTINGS,
-            ),
-            (layout.cards[3] as VerticalActionsCardConfig).actions.map { it.kind },
-        )
-    }
-
-    @Test
     fun codecRoundTripsDuplicateKindsWithUniqueIds() {
         val layout = HomeSidePanelLayout(
             cards = listOf(
@@ -105,7 +64,6 @@ class HomeSidePanelLayoutTest {
     fun invalidRawIsPreservedAndDuplicateIdsFail() {
         val fallback = HomeSidePanelLayoutCodec.load(
             "{not-json",
-            LegacyHomeSidePanelSnapshot.defaults(),
             SequenceIds(),
         ) as HomeSidePanelLayoutLoad.Fallback
         assertEquals("{not-json", fallback.invalidRaw)
@@ -189,7 +147,6 @@ class HomeSidePanelLayoutTest {
         }
         val fallback = HomeSidePanelLayoutCodec.load(
             raw,
-            LegacyHomeSidePanelSnapshot.defaults(),
             SequenceIds(),
         ) as HomeSidePanelLayoutLoad.Fallback
 
@@ -248,7 +205,6 @@ class HomeSidePanelLayoutTest {
 
         val loaded = HomeSidePanelLayoutCodec.load(
             raw = raw,
-            legacy = LegacyHomeSidePanelSnapshot.defaults(),
             idGenerator = SequenceIds(),
         )
 

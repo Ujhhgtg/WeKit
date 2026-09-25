@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.agent.data
 
-import dev.ujhhgtg.wekit.agent.data.WeAgentSettings.KEY_OVERLAY_FOREGROUND_ONLY
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings.KEY_OVERLAY_MODE
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings.clear
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings.clearCached
@@ -33,9 +32,6 @@ object WeAgentSettings {
     const val KEY_NATIVE_LINUX_ENVIRONMENT_VARIABLES = "native_linux_environment_variables"
     const val KEY_SEND_WHILE_RUNNING = "send_while_running"         // QUEUE_AFTER_TURN | QUEUE_AS_STEER
     const val KEY_OVERLAY_MODE = "overlay_mode"                     // DISABLED | FOREGROUND_ONLY | ALWAYS
-
-    /** Superseded by [KEY_OVERLAY_MODE]; still read once for migration of existing installs. */
-    const val KEY_OVERLAY_FOREGROUND_ONLY = "overlay_foreground_only"
 
     suspend fun load() {
         cache.clear()
@@ -104,26 +100,10 @@ object WeAgentSettings {
     suspend fun defaultLinuxEnvironmentId(): String? =
         get(KEY_DEFAULT_LINUX_ENVIRONMENT_ID)?.takeIf { it.isNotBlank() }
 
-    /**
-     * When the floating ball should be attached. An explicit [KEY_OVERLAY_MODE] value is
-     * authoritative. When none exists yet, the mode is migrated once from the legacy feature
-     * preference ([legacyFeatureEnabled]): enabled installs keep their old behavior
-     * ([KEY_OVERLAY_FOREGROUND_ONLY] → [OverlayMode.FOREGROUND_ONLY], else [OverlayMode.ALWAYS]),
-     * disabled/absent installs become [OverlayMode.DISABLED] — and the result is persisted.
-     */
-    suspend fun overlayMode(legacyFeatureEnabled: Boolean? = null): OverlayMode {
-        get(KEY_OVERLAY_MODE)?.let { stored ->
-            return OverlayMode.entries.firstOrNull { it.name == stored } ?: OverlayMode.DISABLED
-        }
-        val migrated = when (legacyFeatureEnabled) {
-            true if get(KEY_OVERLAY_FOREGROUND_ONLY)?.toBoolean() == true ->
-                OverlayMode.FOREGROUND_ONLY
-
-            true -> OverlayMode.ALWAYS
-            else -> OverlayMode.DISABLED
-        }
-        set(KEY_OVERLAY_MODE, migrated.name)
-        return migrated
+    /** When the floating ball should be attached, defaulting to [OverlayMode.DISABLED]. */
+    suspend fun overlayMode(): OverlayMode {
+        val stored = get(KEY_OVERLAY_MODE)
+        return OverlayMode.entries.firstOrNull { it.name == stored } ?: OverlayMode.DISABLED
     }
 
     /** Reads the send-while-running mode, defaulting to QUEUE_AFTER_TURN. */

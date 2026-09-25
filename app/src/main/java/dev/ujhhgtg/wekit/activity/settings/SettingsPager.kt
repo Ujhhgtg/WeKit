@@ -71,7 +71,6 @@ import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Colorize
 import com.composables.icons.materialsymbols.outlined.Contrast
 import com.composables.icons.materialsymbols.outlined.Delete_forever
-import com.composables.icons.materialsymbols.outlined.Delete_sweep
 import com.composables.icons.materialsymbols.outlined.Download
 import com.composables.icons.materialsymbols.outlined.Extension
 import com.composables.icons.materialsymbols.outlined.Frame_bug
@@ -155,15 +154,10 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
     val currentLocalizedContext = rememberUpdatedState(LocalWeKitLocalizedContext.current)
 
     var showClearConfirm by remember { mutableStateOf(false) }
-    var showLegacyCleanupConfirm by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<UpdateResult.UpdateAvailable?>(null) }
     var updateError by remember { mutableStateOf<String?>(null) }
 
     ClearConfigDialog(show = showClearConfirm, onDismiss = { showClearConfirm = false })
-    LegacyCleanupDialog(
-        show = showLegacyCleanupConfirm,
-        onDismiss = { showLegacyCleanupConfirm = false },
-    )
     UpdateAvailableDialog(info = updateInfo, onDismiss = { updateInfo = null }, context = context)
     UpdateErrorDialog(message = updateError, onDismiss = { updateError = null })
 
@@ -258,14 +252,6 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         summary = stringResource(R.string.settings_clear_config_summary),
                         icon = MaterialSymbols.Outlined.Delete_forever,
                         onClick = { showClearConfirm = true },
-                    )
-                }
-                item {
-                    PrefArrow(
-                        title = stringResource(R.string.settings_cleanup_legacy_title),
-                        summary = stringResource(R.string.settings_cleanup_legacy_summary),
-                        icon = MaterialSymbols.Outlined.Delete_sweep,
-                        onClick = { showLegacyCleanupConfirm = true },
                     )
                 }
             }
@@ -760,26 +746,6 @@ private fun ClearConfigDialog(show: Boolean, onDismiss: () -> Unit) {
                 showToastSuspend(localizedContext.getString(R.string.config_clearing))
                 SettingsConfigActions.clearAndRestart()
                 showToastSuspend(localizedContext.getString(R.string.config_clear_success))
-            }
-        },
-    )
-}
-
-@Composable
-private fun LegacyCleanupDialog(show: Boolean, onDismiss: () -> Unit) {
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
-    ConfirmDialog(
-        show = show,
-        title = stringResource(R.string.cleanup_legacy_dialog_title),
-        message = stringResource(R.string.cleanup_legacy_dialog_message),
-        confirmText = stringResource(R.string.action_clear),
-        onDismiss = onDismiss,
-        onConfirm = {
-            onDismiss()
-            CoroutineScope(Dispatchers.IO).launch {
-                showToastSuspend(localizedContext.getString(R.string.config_clearing))
-                SettingsConfigActions.clearLegacyData()
-                showToastSuspend(localizedContext.getString(R.string.cleanup_legacy_success))
             }
         },
     )

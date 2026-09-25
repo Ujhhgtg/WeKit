@@ -22,7 +22,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
-import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.data.structured.asOverrides
 import dev.ujhhgtg.wekit.features.items.AutomationSaveContent
@@ -34,7 +33,6 @@ import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.items.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.items.automationKeywordSummary
 import dev.ujhhgtg.wekit.features.items.formatAutomationMinute
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
@@ -42,7 +40,6 @@ import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -137,12 +134,6 @@ object RedPacketSettings {
         val groupMembers: Map<String, Map<String, RuleOverrides>> = emptyMap()
     )
 
-    @Serializable
-    private data class LegacyGroupMemberRule(
-        val groupId: String = "",
-        val useWhitelist: Boolean = false,
-        val members: List<String> = emptyList()
-    )
 
     private enum class RuleKey {
         GRAB,
@@ -171,10 +162,6 @@ object RedPacketSettings {
     }
 
     fun showMainDialog(context: Context) {
-        if (!JsonDataMigration.isCompleted("json", "RedPacketSettings")) {
-            showToast(context, context.localizedPaymentString(R.string.structured_storage_unavailable))
-            return
-        }
         showComposeDialog(context) {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_auto_open_red_packets_name)) },
@@ -867,7 +854,6 @@ object RedPacketSettings {
     }
 
     private fun loadConfig(): StoredConfig {
-        JsonDataMigration.requireCompleted("json", "RedPacketSettings")
         cachedConfig?.let { return it }
         return runBlocking(Dispatchers.IO) {
             WeKitDatabase.instance.automationDao().getRedPacketConfig()
@@ -876,7 +862,6 @@ object RedPacketSettings {
     }
 
     private suspend fun putRule(scopeType: String, talkerId: String, memberId: String, rules: RuleOverrides) {
-        JsonDataMigration.requireCompleted("json", "RedPacketSettings")
         withContext(Dispatchers.IO) {
             try {
                 WeKitDatabase.instance.automationDao().putRedPacketRule(scopeType, talkerId, memberId, rules)
@@ -887,101 +872,5 @@ object RedPacketSettings {
         }
     }
 
-    fun migrateLegacyConfig(legacyGroupMembersRaw: String?): StoredConfig {
-        KvStore.requireMigrationKeys(legacyPreferenceKeys)
-        val hasLegacyPrefs = legacyPreferenceKeys.any(KvStore::containsKey)
-        val legacyUseWhitelist = hasLegacyPrefs &&
-                KvStore.getBoolOrDef("red_packet_use_whitelist", false)
-        val legacySelectedContacts = if (!hasLegacyPrefs) {
-            emptySet()
-        } else if (legacyUseWhitelist) {
-            KvStore.getStringSetOrDef("red_packet_whitelist", emptySet())
-        } else {
-            KvStore.getStringSetOrDef("red_packet_blacklist", emptySet())
-        }
-        val legacyDelayRange = KvStore.getStringOrDef("red_packet_delay_random_range", "300")
-        val legacyDelayBase = if (KvStore.containsKey("red_packet_delay_custom")) {
-            KvStore.getStringOrDef("red_packet_delay_custom", "0")
-        } else {
-            "500"
-        }
-        val migratedDelayBase = if (
-            legacyDelayRange.toLongOrNull() ?: 0L > 0L &&
-            legacyDelayBase.toLongOrNull() ?: 0L <= 0L
-        ) {
-            "1000"
-        } else {
-            legacyDelayBase
-        }
-        val global = if (hasLegacyPrefs) {
-            RuleSet(
-                grab = AutomationToggleRule(enabled = !legacyUseWhitelist),
-                grabSelf = AutomationToggleRule(KvStore.getBoolOrDef("red_packet_self", false)),
-                delay = DelayRule(
-                    enabled = true,
-                    baseMs = migratedDelayBase,
-                    randomRangeMs = legacyDelayRange
-                ),
-                notification = AutomationToggleRule(KvStore.getBoolOrDef("red_packet_notification", false)),
-                autoReply = KvStore.getStringOrDef("red_packet_auto_reply", "").let {
-                    ReplyRule(enabled = it.isNotBlank(), text = it)
-                }
-            )
-        } else {
-            RuleSet()
-        }
-
-        val contacts = mutableMapOf<String, RuleOverrides>()
-        if (hasLegacyPrefs) {
-            legacySelectedContacts.forEach { wxId ->
-                contacts[wxId] = RuleOverrides(grab = AutomationToggleRule(enabled = legacyUseWhitelist))
-            }
-        }
-
-        val groupMembers = mutableMapOf<String, MutableMap<String, RuleOverrides>>()
-        val legacyGroupRules = if (legacyGroupMembersRaw == null) emptyList() else {
-            DefaultJson.decodeFromString<List<LegacyGroupMemberRule>>(legacyGroupMembersRaw)
-        }
-
-        legacyGroupRules.forEach { rule ->
-            if (!rule.groupId.isGroupChatWxId) return@forEach
-            val conversationWasAllowed = if (legacyUseWhitelist) {
-                rule.groupId in legacySelectedContacts
-            } else {
-                rule.groupId !in legacySelectedContacts
-            }
-            if (!conversationWasAllowed) return@forEach
-            if (rule.useWhitelist) {
-                val existing = contacts[rule.groupId] ?: RuleOverrides()
-                contacts[rule.groupId] = existing.copy(grab = AutomationToggleRule(enabled = false))
-            }
-            val memberRules = groupMembers.getOrPut(rule.groupId) { mutableMapOf() }
-            rule.members.filter(String::isNotBlank).forEach { memberId ->
-                memberRules[memberId] = RuleOverrides(
-                    grab = AutomationToggleRule(enabled = rule.useWhitelist)
-                )
-            }
-        }
-
-        if (hasLegacyPrefs || legacyGroupRules.isNotEmpty()) {
-            WeLogger.i(TAG, "migrated legacy red packet settings")
-        }
-        return StoredConfig(
-            global = global,
-            contacts = contacts,
-            groupMembers = groupMembers
-        )
-    }
-
     private const val MAX_DELAY_DIGITS = 7
-    private val legacyPreferenceKeys = listOf(
-        "red_packet_notification",
-        "red_packet_self",
-        "red_packet_use_whitelist",
-        "red_packet_whitelist",
-        "red_packet_blacklist",
-        "red_packet_delay_custom",
-        "red_packet_delay_random_range",
-        "red_packet_auto_reply"
-    )
 }

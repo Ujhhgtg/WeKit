@@ -8,20 +8,15 @@ data class HomeSidePanelRuntimeDelta(
     val reconfigure: Set<String> = emptySet(),
 )
 
-enum class HomeSidePanelLiveCachePolicy(
-    val importLegacyCaches: Boolean,
-    val persistLiveCaches: Boolean,
-) {
-    STORED(importLegacyCaches = false, persistLiveCaches = true),
-    MIGRATED(importLegacyCaches = true, persistLiveCaches = true),
-    FALLBACK(importLegacyCaches = false, persistLiveCaches = false),
+enum class HomeSidePanelLiveCachePolicy(val persistLiveCaches: Boolean) {
+    STORED(persistLiveCaches = true),
+    FALLBACK(persistLiveCaches = false),
 }
 
 fun homeSidePanelLiveCachePolicy(
     load: HomeSidePanelLayoutLoad,
 ): HomeSidePanelLiveCachePolicy = when (load) {
     is HomeSidePanelLayoutLoad.Stored -> HomeSidePanelLiveCachePolicy.STORED
-    is HomeSidePanelLayoutLoad.Migrated -> HomeSidePanelLiveCachePolicy.MIGRATED
     is HomeSidePanelLayoutLoad.Fallback -> HomeSidePanelLiveCachePolicy.FALLBACK
 }
 

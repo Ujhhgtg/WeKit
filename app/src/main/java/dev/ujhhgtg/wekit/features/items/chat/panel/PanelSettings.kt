@@ -20,8 +20,6 @@ object PanelSettings {
     var voiceMaxHistory by prefOption("voice_panel_max_history", 50L)
     var stickerRecentSortMode by prefOption("sticker_panel_recent_sort_mode", 0)
     var voiceRecentSortMode by prefOption("voice_panel_recent_sort_mode", 0)
-    private var legacyStickerSortType by prefOption("sticker_panel_sort_type", 0)
-    private var legacyVoiceSortType by prefOption("voice_panel_sort_type", 0)
     private var stickerPackSortModeValue by prefOption("sticker_panel_pack_sort_mode", "")
     private var stickerItemSortModeValue by prefOption("sticker_panel_item_sort_mode", "")
     private var voicePackSortModeValue by prefOption("voice_panel_pack_sort_mode", "")
@@ -41,7 +39,6 @@ object PanelSettings {
         "panel_conversion_concurrency",
         DEFAULT_PANEL_CONVERSION_CONCURRENCY,
     )
-    private var legacyOnlineStickerPacksUseList by prefOption("sticker_panel_online_packs_use_list", false)
     private var localStickerPackLayoutValue by prefOption("sticker_panel_local_pack_layout", "TABS")
     private var onlineStickerPackLayoutValue by prefOption("sticker_panel_online_pack_layout", "")
     private var localVoicePackLayoutValue by prefOption("voice_panel_local_pack_layout", "TABS")
@@ -80,11 +77,10 @@ object PanelSettings {
     var onlineStickerPackLayout: StickerPackLayout
         get() = StickerPackLayout.entries
             .firstOrNull { it != StickerPackLayout.TABS && it.name == onlineStickerPackLayoutValue }
-            ?: if (legacyOnlineStickerPacksUseList) StickerPackLayout.LIST else StickerPackLayout.GRID
+            ?: StickerPackLayout.GRID
         set(value) {
             val normalized = value.takeUnless { it == StickerPackLayout.TABS } ?: StickerPackLayout.GRID
             onlineStickerPackLayoutValue = normalized.name
-            legacyOnlineStickerPacksUseList = normalized == StickerPackLayout.LIST
         }
 
     var localVoicePackLayout: VoicePackLayout
@@ -95,25 +91,25 @@ object PanelSettings {
         }
 
     var stickerPackSortMode: LocalSortMode
-        get() = sortMode(stickerPackSortModeValue, legacyStickerSortType)
+        get() = sortMode(stickerPackSortModeValue)
         set(value) {
             stickerPackSortModeValue = value.name
         }
 
     var stickerItemSortMode: LocalSortMode
-        get() = sortMode(stickerItemSortModeValue, legacyStickerSortType)
+        get() = sortMode(stickerItemSortModeValue)
         set(value) {
             stickerItemSortModeValue = value.name
         }
 
     var voicePackSortMode: LocalSortMode
-        get() = sortMode(voicePackSortModeValue, legacyVoiceSortType)
+        get() = sortMode(voicePackSortModeValue)
         set(value) {
             voicePackSortModeValue = value.name
         }
 
     var voiceItemSortMode: LocalSortMode
-        get() = sortMode(voiceItemSortModeValue, legacyVoiceSortType)
+        get() = sortMode(voiceItemSortModeValue)
         set(value) {
             voiceItemSortModeValue = value.name
         }
@@ -146,9 +142,8 @@ object PanelSettings {
     fun isValidTelegramBotToken(value: String): Boolean =
         TELEGRAM_BOT_TOKEN_REGEX.matches(value.trim())
 
-    private fun sortMode(value: String, legacyValue: Int): LocalSortMode =
-        LocalSortMode.entries.firstOrNull { it.name == value }
-            ?: if (legacyValue == 1) LocalSortMode.MODIFIED else LocalSortMode.NAME
+    private fun sortMode(value: String): LocalSortMode =
+        LocalSortMode.entries.firstOrNull { it.name == value } ?: LocalSortMode.NAME
 
     private val FUNBOX_WXID_REGEX = Regex("[A-Za-z][A-Za-z0-9_-]{5,63}")
     private val TELEGRAM_BOT_TOKEN_REGEX = Regex("[0-9]{6,12}:[A-Za-z0-9_-]{30,64}")

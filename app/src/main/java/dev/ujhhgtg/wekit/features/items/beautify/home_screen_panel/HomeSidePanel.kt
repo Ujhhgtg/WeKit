@@ -377,7 +377,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private val panelView = ComposeView(activity)
         private val stateScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         private val layoutStore = HomeSidePanelLayoutStore
-        private val cityIndex = HomeSidePanelCityIndex(activity)
+        private val cityIndex = HomeSidePanelCityIndex()
         private val weather = HomeSidePanelWeather(
             cityIndex = cityIndex,
             client = homeSidePanelHttpClient,

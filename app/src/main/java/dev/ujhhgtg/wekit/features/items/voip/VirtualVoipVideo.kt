@@ -45,12 +45,9 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.fs.LegacyPaths
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.reflection.int
 import kotlin.io.path.div
-import kotlin.io.path.exists
-import kotlin.io.path.moveTo
 
 object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
@@ -63,16 +60,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
     private const val VIDEO_FILE = "virtual_voip_video.mp4"
 
-    private val VIDEO_PATH by lazy {
-        val target = KnownPaths.moduleAssets / VIDEO_FILE
-        // Older releases stored imported videos at the root of the external module directory.
-        val legacy = LegacyPaths.externalModuleRoot / VIDEO_FILE
-        if (legacy.exists() && !target.exists()) {
-            runCatching { legacy.moveTo(target) }
-                .onFailure { WeLogger.w(TAG, "failed to migrate virtual voip video into moduleAssets", it) }
-        }
-        target
-    }
+    private val VIDEO_PATH by lazy { KnownPaths.moduleAssets / VIDEO_FILE }
 
     private var sourceType by prefOption("virtual_voip_source_type", "file")
     private var streamUrl by prefOption("virtual_voip_stream_url", "")

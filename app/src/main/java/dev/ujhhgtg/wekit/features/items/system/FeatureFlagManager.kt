@@ -61,7 +61,6 @@ import dev.ujhhgtg.wekit.ui.utils.ShowComposeDialogScope
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.data.entity.FeatureFlagOverrideEntity
 import dev.ujhhgtg.wekit.data.WeKitDatabase
-import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.reflection.withDexKit
@@ -184,7 +183,6 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
     private var overrides: Map<String, FeatureFlagOverrideEntity> = emptyMap()
 
     private fun loadOverrides() = runBlocking(Dispatchers.IO) {
-        JsonDataMigration.requireCompleted("feature_flags", "overrides")
         val saved = WeKitDatabase.instance.simpleStructuredDao().getFlagOverrides()
         overrides = saved.associateBy { it.runtimeKey }
     }

@@ -311,7 +311,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * The keys remain the exact host labels and legacy preference identities. Only presentation is
+     * The keys remain the exact host labels and saved preference identities. Only presentation is
      * localized, so changing WeKit's language never rewrites the saved order or host matching.
      */
     @StringRes
@@ -336,9 +336,8 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         else -> error("unsupported toolbar item: $name")
     }
 
-    // Ensures every supported item is present while preserving the user's saved order. Legacy
-    // configs that predate quick replies get that item inserted first, and ones that predate the
-    // WeAgent entry get it inserted right before 快捷回复.
+    // Ensures every supported item is present while preserving the user's saved order. A missing
+    // quick-reply item is inserted first, and a missing WeAgent entry right before 快捷回复.
     private fun normalizeOrder(order: List<String>): List<String> {
         val supportedItems = setOf(QUICK_REPLY_NAME, WEAGENT_NAME) + NAME_TO_ICON_MAP.keys
         val result = order.filter { it in supportedItems }.distinct().toMutableList()

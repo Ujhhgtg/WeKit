@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
@@ -33,12 +32,9 @@ object WeAgent : ClickableFeature() {
     override val noSwitchWidget = true
 
     override fun onEnable() {
-        // Capture the legacy feature preference before it becomes irrelevant; it seeds the
-        // one-time overlay-mode migration in [WeAgentSettings.overlayMode].
-        val legacyFeatureEnabled = KvStore.getBoolOrDef(technicalId, false)
         WeAgentService.init()
         MainScope().launch {
-            val mode = withContext(Dispatchers.IO) { WeAgentSettings.overlayMode(legacyFeatureEnabled) }
+            val mode = withContext(Dispatchers.IO) { WeAgentSettings.overlayMode() }
             withContext(Dispatchers.Main) {
                 // Apply the overlay mode before mounting so the initial attach is gated.
                 WeAgentOverlayController.setMode(mode)

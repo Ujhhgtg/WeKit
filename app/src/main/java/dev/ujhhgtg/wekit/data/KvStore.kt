@@ -2,71 +2,39 @@ package dev.ujhhgtg.wekit.data
 
 import android.database.Cursor
 import dev.ujhhgtg.wekit.data.entity.PreferenceEntryEntity
-import dev.ujhhgtg.wekit.utils.fs.LegacyPaths
-import dev.ujhhgtg.wekit.utils.HostInfo
-import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
-import java.nio.file.Files
 
 /**
  * Global key-value store backed by the unified Room database.
  *
  * The SQL work is deliberately kept small and indexed so host hooks can read synchronously;
- * larger documents and assets use their own repositories. Values from the legacy MMKV file
- * (`filesDir/mmkv/wekit_prefs`) are migrated per key through [MmkvReadonlyReader] on first
- * open, resuming an interrupted migration without overwriting already-migrated keys.
+ * larger documents and assets use their own repositories.
  */
 object KvStore {
-    private const val TAG = "KvStore"
-
-    /** Room namespace, named after the legacy MMKV instance it migrated. */
+    /** Room namespace of every global preference row. */
     private const val NAMESPACE = "wekit_prefs"
 
     private val database get() = WeKitDatabase.instance
     private val sql get() = database.openHelper.writableDatabase
 
     @Volatile
-    private var migrationDone = false
-
-    private var migrationFailure: Exception? = null
+    private var initialized = false
 
     /**
-     * Defers database opening and the legacy MMKV migration to the first preference access.
-     * Feature classes initialize their `prefOption` delegates at class-init time and must stay
-     * initializable on the desktop test JVM, where no host environment exists.
+     * Defers database opening to the first preference access. Feature classes initialize their
+     * `prefOption` delegates at class-init time and must stay initializable on the desktop test
+     * JVM, where no host environment exists.
      */
-    private fun ensureMigrated() {
-        if (migrationDone) return
+    private fun ensureInitialized() {
+        if (initialized) return
         synchronized(this) {
-            if (migrationDone) return
-            // Marked before running so migration's own writes cannot re-enter this block.
-            migrationDone = true
-            try {
-                transaction {
-                    // A partially completed StringSet write must never leave orphan members.
-                    cleanupOrphanStringSetMembers()
-                }
-                migrateLegacyIfNeeded()
-                migrationFailure = null
-            } catch (error: Exception) {
-                migrationFailure = error
-                WeLogger.e(TAG, "failed to migrate legacy preferences; sources retained", error)
+            if (initialized) return
+            transaction {
+                // A partially completed StringSet write must never leave orphan members.
+                cleanupOrphanStringSetMembers()
             }
-        }
-    }
-
-    /** Strict prerequisite for converting old settings into a new authoritative domain. */
-    fun requireMigrationKeys(keys: Collection<String>) {
-        if (migrationFailure != null) migrationDone = false
-        ensureMigrated()
-        check(migrationFailure == null || keys.all { read(it) != null }) { "Legacy preference migration has not completed" }
-        keys.forEach { key ->
-            val entry = read(key) ?: return@forEach
-            check(entry.exportable) { "Unsupported non-exportable legacy preference: $key" }
-            check(getObject(key) != null && !(entry.valueType == TYPE_STRING_SET && entry.valueBlob != null)) {
-                "Unreadable legacy preference value for $key"
-            }
+            initialized = true
         }
     }
 
@@ -113,7 +81,7 @@ object KvStore {
     }
 
     fun putStringSet(key: String, values: Set<String>) {
-        ensureMigrated()
+        ensureInitialized()
         transaction {
             write(key, TYPE_STRING_SET)
             sql.execSQL("DELETE FROM preference_set_members WHERE namespace = ? AND `key` = ?", arrayOf(NAMESPACE, key))
@@ -150,7 +118,7 @@ object KvStore {
     }
 
     fun remove(key: String) {
-        ensureMigrated()
+        ensureInitialized()
         transaction {
             sql.execSQL("DELETE FROM preference_entries WHERE namespace = ? AND `key` = ?", arrayOf(NAMESPACE, key))
             sql.execSQL("DELETE FROM preference_set_members WHERE namespace = ? AND `key` = ?", arrayOf(NAMESPACE, key))
@@ -158,7 +126,7 @@ object KvStore {
     }
 
     fun clear() {
-        ensureMigrated()
+        ensureInitialized()
         transaction {
             sql.execSQL("DELETE FROM preference_entries WHERE namespace = ?", arrayOf(NAMESPACE))
             sql.execSQL("DELETE FROM preference_set_members WHERE namespace = ?", arrayOf(NAMESPACE))
@@ -281,7 +249,7 @@ object KvStore {
     private fun getString(key: String, defValue: String?): String? = read(key)?.valueText ?: defValue
 
     private fun getStringSet(key: String, defValues: Set<String>?): Set<String>? {
-        ensureMigrated()
+        ensureInitialized()
         // Read the type marker and normalized members in one statement.  Separate queries can
         // straddle another process's atomic replacement and return a mixed generation.
         var valueType: String? = null
@@ -303,7 +271,7 @@ object KvStore {
     }
 
     private fun read(key: String): PreferenceEntryEntity? {
-        ensureMigrated()
+        ensureInitialized()
         sql.query(
             "SELECT namespace, `key`, valueType, valueText, valueLong, valueDouble, valueBlob, encodingVersion, revision, updatedAt, exportable FROM preference_entries WHERE namespace = ? AND `key` = ?",
             arrayOf(NAMESPACE, key),
@@ -318,7 +286,7 @@ object KvStore {
     }
 
     private fun write(key: String, type: String, text: String? = null, long: Long? = null, double: Double? = null, blob: ByteArray? = null) {
-        ensureMigrated()
+        ensureInitialized()
         transaction {
             sql.execSQL(
                 "INSERT OR REPLACE INTO preference_entries(namespace, `key`, valueType, valueText, valueLong, valueDouble, valueBlob, encodingVersion, revision, updatedAt, exportable) VALUES (?, ?, ?, ?, ?, ?, ?, 1, COALESCE((SELECT revision + 1 FROM preference_entries WHERE namespace = ? AND `key` = ?), 1), ?, ?)",
@@ -343,7 +311,7 @@ object KvStore {
         else -> null
     }
 
-    /** Runs a small preference mutation atomically, reusing an enclosing migration transaction. */
+    /** Runs a small preference mutation atomically, reusing an enclosing transaction. */
     private inline fun <T> transaction(block: () -> T): T {
         if (sql.inTransaction()) return block()
         sql.beginTransaction()
@@ -364,55 +332,6 @@ object KvStore {
                     "AND e.valueType = ?)",
             arrayOf(NAMESPACE, TYPE_STRING_SET),
         )
-    }
-
-    private fun writeLegacy(key: String, type: String, bytes: ByteArray?) {
-        sql.execSQL(
-            "INSERT OR REPLACE INTO preference_entries(namespace, `key`, valueType, valueBlob, encodingVersion, revision, updatedAt, exportable) VALUES (?, ?, ?, ?, 1, 1, ?, ?)",
-            arrayOf(NAMESPACE, key, type, bytes, System.currentTimeMillis(), if (key == "payment_pswd_encdata") 0 else 1),
-        )
-        if (type != TYPE_STRING_SET) {
-            sql.execSQL("DELETE FROM preference_set_members WHERE namespace = ? AND `key` = ?", arrayOf(NAMESPACE, key))
-        }
-    }
-
-    /**
-     * Migrates the legacy MMKV file by key so a previous interrupted/partial migration can
-     * resume and does not strand remaining legacy values merely because one Room row already
-     * exists. Unknown or undecodable entries are preserved as raw blobs for later inspection.
-     */
-    private fun migrateLegacyIfNeeded() {
-        // A full restore must not import this installation's pre-restore MMKV over the backup.
-        if (!LegacyPaths.localSourcesAllowed) return
-        val root = HostInfo.application.filesDir.resolve("mmkv")
-        val file = root.resolve(NAMESPACE)
-        val crcFile = root.resolve("$NAMESPACE.crc")
-        if (Files.notExists(file.toPath()) && Files.notExists(crcFile.toPath())) return
-        check(file.isFile && crcFile.isFile) {
-            "Legacy MMKV data/CRC pair is incomplete"
-        }
-
-        val entries = MmkvReadonlyReader.read(file, crcFile)
-        transaction {
-            entries.forEach { entry ->
-                val alreadyMigrated = sql.query(
-                    "SELECT 1 FROM preference_entries WHERE namespace = ? AND `key` = ? LIMIT 1",
-                    arrayOf(NAMESPACE, entry.key),
-                ).use { it.moveToFirst() }
-                if (alreadyMigrated) return@forEach
-
-                val value = runCatching { MmkvReadonlyReader.decode(entry) }.getOrElse { error ->
-                    WeLogger.w(TAG, "failed to decode legacy MMKV entry ${entry.key}", error)
-                    null
-                }
-                if (value != null) {
-                    putObject(entry.key, value)
-                } else {
-                    writeLegacy(entry.key, MmkvReadonlyReader.typeName(entry.marker) ?: "legacy:unknown", entry.bytes)
-                }
-            }
-            cleanupOrphanStringSetMembers()
-        }
     }
 
     private const val TYPE_BOOL = "bool"

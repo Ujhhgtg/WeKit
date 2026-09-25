@@ -49,7 +49,6 @@ object VoicePanelRepository {
     private data class VoiceStats(val sendCount: Long = 0, val lastSentAt: Long = 0)
 
     fun loadPacks(): List<VoicePack> {
-        migrateLegacyRootVoices()
         val root = PanelPaths.voicePanelDir
         val stats = readStats()
         val orders = readOrders()
@@ -148,23 +147,10 @@ object VoicePanelRepository {
         safeName
     }
 
-    /**
-     * Returns an existing stable pack or creates it. If an older release stored this provider
-     * category under its display title, keep using that directory so its content is not split.
-     */
-    fun ensurePack(name: String, legacyName: String? = null): Result<String> = runCatching {
+    /** Returns an existing stable pack or creates it. */
+    fun ensurePack(name: String): Result<String> = runCatching {
         val safeName = requirePackName(name)
-        val stablePath = packPath(safeName)
-        if (stablePath.isDirectory()) return@runCatching safeName
-
-        val safeLegacyName = legacyName?.let(::sanitizeName)
-            ?.takeIf { it.isNotBlank() && it != safeName }
-            ?.let(::requirePackName)
-        if (safeLegacyName != null && packPath(safeLegacyName).isDirectory()) {
-            return@runCatching safeLegacyName
-        }
-
-        stablePath.createDirectories()
+        packPath(safeName).createDirectories()
         safeName
     }
 
@@ -402,23 +388,6 @@ object VoicePanelRepository {
         .coerceIn(1L, Int.MAX_VALUE.toLong())
         .toInt()
 
-    private fun migrateLegacyRootVoices() {
-        val legacyFiles = PanelPaths.voicePanelDir.listDirectoryEntries().filter(::isVoiceFile)
-        if (legacyFiles.isEmpty()) return
-        val destinationDir = packPath(LEGACY_IMPORT_PACK).also { it.createDirectories() }
-        val migratedPaths = buildMap {
-            legacyFiles.forEach { source ->
-                val destination = uniquePath(destinationDir, source.name)
-                runCatching { source.moveTo(destination) }.onSuccess {
-                    put(source.absolutePathString(), destination.absolutePathString())
-                }
-            }
-        }
-        if (migratedPaths.isEmpty()) return
-        val migratedStats = readStats().mapKeys { (path, _) -> migratedPaths[path] ?: path }
-        atomicWrite(statsFile, DefaultJson.encodeToString(migratedStats))
-    }
-
     @Synchronized
     private fun atomicWrite(path: java.nio.file.Path, value: String) {
         val temporary = path.resolveSibling("${path.name}.tmp")
@@ -530,5 +499,4 @@ object VoicePanelRepository {
 
     private val reservedNames = setOf(".", "..", "clone_voices", RECENT_PACK_ID)
 
-    private const val LEGACY_IMPORT_PACK = "已导入"
 }

@@ -57,8 +57,10 @@
 若模块加载成功, 上传模块运行日志:
 
 ```text
-/sdcard/Android/data/<宿主包名>/WeKit/logs/
+<模块数据目录>/logs/
 ```
+
+也可以在模块设置「日志」Tab 中直接分享或保存日志文件。模块数据目录的位置见 [模块数据目录](configuration.md#模块数据目录)。
 
 ## 高质量的 Issue 应当包含
 

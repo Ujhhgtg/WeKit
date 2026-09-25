@@ -13,14 +13,11 @@ import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
@@ -34,15 +31,12 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeXmlParserApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
-import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -54,9 +48,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.util.Collections
 import java.util.WeakHashMap
 
@@ -429,127 +420,12 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
         }
     }
 
-    // ── legacy notice migration ────────────────────────────────────────────────
-
-    private sealed interface MigrationState {
-        data object Idle : MigrationState
-        data object Running : MigrationState
-        data class Done(val migrated: Int, val unmatched: Int) : MigrationState
-        data object Failed : MigrationState
-    }
-
-    private data class LegacyNotice(val msgId: Long, val talker: String, val createTime: Long)
-
-    /**
-     * Finds the system-message rows rendered from the old notice template, records their original
-     * messages into the new persisted list, and deletes the notice rows.
-     */
-    private fun migrateLegacyNotices(): Pair<Int, Int> {
-        // The 提示格式 option was removed; the last stored template survives in MMKV and is what
-        // old notices were rendered with. The MMKV key only exists if the user ever saved a custom
-        // value (defaults are applied at read time), so fall back to the historical default.
-        val template = KvStore.getString("recall_pattern")
-            ?: $$"「$sender」尝试撤回上一条消息 (已阻止)"
-        val regex = buildLegacyNoticeRegex(template)
-            ?: throw IllegalStateException("invalid stored recall pattern")
-
-        val notices = mutableListOf<LegacyNotice>()
-        WeDatabaseApi.rawQuery(
-            "SELECT msgId, talker, content, createTime FROM message WHERE type = ${MessageType.SYSTEM.code}",
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                val content = cursor.getString(2) ?: continue
-                if (!regex.matches(content)) continue
-                notices += LegacyNotice(
-                    msgId = cursor.getLong(0),
-                    talker = cursor.getString(1) ?: continue,
-                    createTime = cursor.getLong(3),
-                )
-            }
-        }
-
-        var migrated = 0
-        var unmatched = 0
-        val newKeys = mutableSetOf<String>()
-        for (notice in notices) {
-            val originalServerId = findOriginalMessage(notice)
-            if (originalServerId == null) {
-                unmatched++
-                continue
-            }
-            newKeys += encodeKey(notice.talker, originalServerId)
-            WeDatabaseApi.delete("message", "msgId = ?", arrayOf(notice.msgId.toString()))
-            migrated++
-        }
-
-        if (newKeys.isNotEmpty()) {
-            recalledKeyCache = recalledKeyCache + newKeys
-            recalledRecords = recalledKeyCache
-        }
-        return migrated to unmatched
-    }
-
-    // Legacy notices were injected at original.createTime + 1 (createTime is in seconds), so the
-    // original lives one second before the notice in the same chat; fall back to the nearest
-    // earlier regular message when that exact second has no surviving row.
-    @Suppress("DEPRECATION")
-    private fun findOriginalMessage(notice: LegacyNotice): Long? {
-        val systemTypes = listOf(
-            MessageType.SYSTEM.code,
-            MessageType.SYSTEM_NOTICE.code,
-            MessageType.RECALL.code,
-            MessageType.SYSTEM_LOCATION.code,
-        ).joinToString(",")
-        val beforeNotice = (notice.createTime - 1).toString()
-
-        WeDatabaseApi.rawQuery(
-            "SELECT msgSvrId FROM message WHERE talker = ? AND createTime = ? AND type NOT IN ($systemTypes) ORDER BY msgId DESC LIMIT 1",
-            arrayOf(notice.talker, beforeNotice)
-        ).use { cursor ->
-            if (cursor.moveToFirst()) return cursor.getLong(0).takeIf { it != 0L }
-        }
-        WeDatabaseApi.rawQuery(
-            "SELECT msgSvrId FROM message WHERE talker = ? AND createTime < ? AND type NOT IN ($systemTypes) ORDER BY createTime DESC, msgId DESC LIMIT 1",
-            arrayOf(notice.talker, beforeNotice)
-        ).use { cursor ->
-            if (cursor.moveToFirst()) return cursor.getLong(0).takeIf { it != 0L }
-        }
-        return null
-    }
-
-    private fun buildLegacyNoticeRegex(template: String): Regex? {
-        if (template.isBlank()) return null
-
-        val placeholders = listOf($$"$sender", $$"$sendTime", $$"$recallTime", $$"$content")
-        val builder = StringBuilder("^")
-        var rest = template
-        while (rest.isNotEmpty()) {
-            val match = placeholders
-                .mapNotNull { placeholder ->
-                    rest.indexOf(placeholder).takeIf { it >= 0 }?.let { placeholder to it }
-                }
-                .minByOrNull { it.second }
-            if (match == null) {
-                builder.append(Regex.escape(rest))
-                break
-            }
-            val (placeholder, index) = match
-            if (index > 0) builder.append(Regex.escape(rest.substring(0, index)))
-            builder.append(if (placeholder == $$"$content") """[\s\S]*""" else """[\s\S]+?""")
-            rest = rest.substring(index + placeholder.length)
-        }
-        builder.append('$')
-
-        return runCatching { Regex(builder.toString()) }.getOrNull()
-    }
-
     // ── config dialog ──────────────────────────────────────────────────────────
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var recallOutgoingInput by remember { mutableStateOf(recallOutgoing) }
             var badgeTypeInput by remember { mutableStateOf(badgeType) }
-            var migrationState by remember { mutableStateOf<MigrationState>(MigrationState.Idle) }
 
             AlertDialogContent(
                     title = { Text(stringResource(R.string.feature_anti_message_recall_name)) },
@@ -580,45 +456,6 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
                                     onValueChange = {
                                         badgeTypeInput = it
                                         badgeType = it
-                                    },
-                                )
-                            }
-                            item {
-                                val migrating = migrationState == MigrationState.Running
-                                BaseWidget(
-                                    iconPlaceholder = false,
-                                    title = stringResource(R.string.chat_anti_recall_migrate),
-                                    description = when (val state = migrationState) {
-                                        MigrationState.Idle -> stringResource(R.string.chat_anti_recall_migrate_description)
-                                        MigrationState.Running -> stringResource(R.string.chat_anti_recall_migrating)
-                                        is MigrationState.Done -> stringResource(
-                                            R.string.chat_anti_recall_migrated,
-                                            state.migrated,
-                                            state.unmatched,
-                                        )
-                                        MigrationState.Failed -> stringResource(R.string.chat_anti_recall_migration_failed)
-                                    },
-                                    isError = migrationState is MigrationState.Failed,
-                                    enabled = !migrating,
-                                    onClick = {
-                                        migrationState = MigrationState.Running
-                                        CoroutineScope(Dispatchers.IO).launch {
-                                            migrationState = runCatching { migrateLegacyNotices() }
-                                                .fold(
-                                                    onSuccess = { (migrated, unmatched) ->
-                                                        MigrationState.Done(migrated, unmatched)
-                                                    },
-                                                    onFailure = {
-                                                        WeLogger.e(TAG, "legacy notice migration failed", it)
-                                                        MigrationState.Failed
-                                                    },
-                                                )
-                                        }
-                                    },
-                                    trailingContent = {
-                                        if (migrating) {
-                                            CircularProgressIndicator(modifier = Modifier.size(18.dp))
-                                        }
                                     },
                                 )
                             }

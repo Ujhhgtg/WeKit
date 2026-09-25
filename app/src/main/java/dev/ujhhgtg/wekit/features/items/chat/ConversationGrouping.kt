@@ -120,9 +120,9 @@ import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.base.CustomViewPager
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.data.WeKitDatabase
+import dev.ujhhgtg.wekit.data.structured.ALL_CONVERSATIONS_GROUP_ID
 import dev.ujhhgtg.wekit.data.structured.BuiltInGroupLabel
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
@@ -201,7 +201,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     // edited; it cannot be deleted, and selecting it applies no filter. It's stored as an
     // ordinary ChatGroup entry (identified solely by this id) so the list order is enough to
     // remember where it sits.
-    private const val ALL_TAB_ID = "${GROUP_PREFIX}all"
+    private const val ALL_TAB_ID = ALL_CONVERSATIONS_GROUP_ID
     private const val TAB_STYLE_KEY = "conversation_grouping_tab_style"
     private const val TAB_STYLE_FULL_WIDTH = 0
     private const val TAB_STYLE_FLOATING = 1
@@ -224,15 +224,8 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     val usesFloatingTabs: Boolean
         get() = tabStyleState.intValue == TAB_STYLE_FLOATING
 
-    /** Called once at startup, before any feature UI can change the old beauty preference. */
-    fun migrateTabStyle(legacyFloatingTabs: Boolean) {
-        if (KvStore.containsKey(TAB_STYLE_KEY)) return
-        // Persist the full-width result too: future beauty toggles must never repeat migration.
-        updateTabStyle(if (legacyFloatingTabs) TAB_STYLE_FLOATING else TAB_STYLE_FULL_WIDTH)
-    }
-
     private fun updateTabStyle(style: Int) {
-        if (KvStore.containsKey(TAB_STYLE_KEY) && tabStyle == style) return
+        if (tabStyle == style) return
         swipeSessions.values.mapNotNull { it.get() }.forEach { it.cancelImmediately() }
         tabStyle = style
         tabStyleState.intValue = style
@@ -914,10 +907,6 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         }
 
     override fun onClick(context: ComponentActivity) {
-        if (!JsonDataMigration.isCompleted("chat", "groups")) {
-            showToast(context, context.localizedChatString(R.string.structured_storage_unavailable))
-            return
-        }
         showComposeDialog(context) {
             var pinTabsEnabled by remember { mutableStateOf(pinTabs) }
             var takeOverScroll by remember { mutableStateOf(takeOverHorizontalScroll) }
@@ -2603,9 +2592,21 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     private fun loadGroups(): List<ChatGroup> {
         groupsCache?.let { return it }
         return runBlocking(Dispatchers.IO) {
-            JsonDataMigration.requireCompleted("chat", "groups")
-            WeKitDatabase.instance.conversationCollectionDao().getGroups()
+            WeKitDatabase.instance.conversationCollectionDao().getGroupsOrSeed(defaultGroups())
         }.also { groupsCache = it }
+    }
+
+    private fun defaultGroups(): List<ChatGroup> {
+        val seed = System.currentTimeMillis()
+        val presets = listOf(
+            GroupType.PRESET_UNREAD to BuiltInGroupLabel.UNREAD,
+            GroupType.PRESET_GROUPS to BuiltInGroupLabel.GROUPS,
+            GroupType.PRESET_FRIENDS to BuiltInGroupLabel.FRIENDS,
+            GroupType.PRESET_OFFICIALS to BuiltInGroupLabel.OFFICIALS,
+        )
+        return listOf(allTab()) + presets.mapIndexed { index, (type, label) ->
+            ChatGroup(id = "$GROUP_PREFIX${seed + index}", type = type, builtInLabel = label)
+        }
     }
 
     private fun invalidateGroups() {

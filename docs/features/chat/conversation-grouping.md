@@ -21,4 +21,4 @@
 - 显示未读：默认开启，在分组标签上显示未读数字和红点。
 - 计入公众号未读：默认关闭，仅在开启「显示未读」时显示此选项，开关时以动画展开或收起。
 
-分组数据保存在 `<模块数据>/conversation_groups.json`。若主页下滑「最近」页与标签手势冲突，可以启用[隐藏主页下滑「最近」页](../beautify/hide-home-screen-swipe-down-page.md)。
+分组数据保存在模块数据库中。若主页下滑「最近」页与标签手势冲突，可以启用[隐藏主页下滑「最近」页](../beautify/hide-home-screen-swipe-down-page.md)。

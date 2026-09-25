@@ -9,8 +9,6 @@ import dev.ujhhgtg.reflekt.utils.ReflectionClassLoader
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.data.JsonDataMigration
-import dev.ujhhgtg.wekit.data.LegacyDocumentMigration
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.FeaturesLoader
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
@@ -29,7 +27,6 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.fs.LegacyStorageMigration
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import org.lsposed.hiddenapibypass.HiddenApiBypass
@@ -41,8 +38,7 @@ import java.lang.reflect.Field
  *
  * 1. [init] — called by an entry point: installs [HybridClassLoader] as the module loader's
  *    parent and hooks the host `Application` creation.
- * 2. [startup] — after `Instrumentation.callApplicationOnCreate`: host info, native libraries,
- *    one-shot migrations.
+ * 2. [startup] — after `Instrumentation.callApplicationOnCreate`: host info, native libraries.
  * 3. [launch] — in non-isolated processes: injects resources and loads features.
  */
 object ModuleLoader {
@@ -157,14 +153,6 @@ object ModuleLoader {
 
         HostInfo.init(application)
         NativeLoader.init()
-        // Legacy storage and document migrations are one-shot writers.  Only the main WeChat
-        // process owns that responsibility; push/worker processes may still open Room later,
-        // but must not race the migration or initialize it from an isolated process.
-        if (TargetProcesses.isInMain) {
-            LegacyStorageMigration.run(application)
-            LegacyDocumentMigration.run(application)
-            JsonDataMigration.run()
-        }
         if (hookBridge is ArtHookBridge) {
             hideModuleLibraries(hookBridge)
         }

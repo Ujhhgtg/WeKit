@@ -23,13 +23,13 @@ The base APK contains only the loader-neutral SPI, plugin manager, host services
 ./x extensions pack --only python-runtime
 ```
 
-This produces `dist/extensions/python-runtime-<content-hash>.apk` and `wekit-python-sdk.zip`. The runtime APK is an unsigned APK-shaped container stored under WeChat's private `filesDir/wekit-extensions/python-runtime`; PackageManager never installs it.
+This produces `dist/extensions/python-runtime-<content-hash>.apk` and `wekit-python-sdk.zip`. The runtime APK is an unsigned APK-shaped container stored under WeChat's private `filesDir/wekit/extensions/python-runtime`; PackageManager never installs it.
 
 `RuntimeEntrypoint` first loads the manifest-ordered native libraries by absolute path. It then creates `WeKitAndroidPlatform`, the integration replacement for Chaquopy 17.0 revision `e01057c72fdd737f202bd1be1de85af51e06cad0`'s `AndroidPlatform`: native loading is skipped because it has already completed, assets come from the injected runtime APK, bootstrap assets retain Chaquopy's original layout, and `java.android.importer.nativeLibraryDir` is set to the mounted version's extracted native directory. The documented Chaquopy patch changes the native `FindClass` cache and `dynamic_proxy` loader to the supplied `ClassLoaders.HYBRID`; callback and Python-created threads also set and restore that loader as TCCL. Runtime DEX still uses `ClassLoaders.MODULE` as its parent.
 
 ## Plugins
 
-Plugins live in `WeKit/scripts_python/<reverse-dns-id>/` and contain `plugin.json` plus an entry module. New plugins are disabled by default. Enabling one starts the process-local runtime on demand and calls `setup(ctx)` in a private `_wekit_plugins.<encoded-id>` namespace. `ctx.defer`, hook tokens and task handles are released in LIFO order during disable or reload.
+Plugins live in `<module data>/scripts_python/<reverse-dns-id>/` and contain `plugin.json` plus an entry module. New plugins are disabled by default. Enabling one starts the process-local runtime on demand and calls `setup(ctx)` in a private `_wekit_plugins.<encoded-id>` namespace. `ctx.defer`, hook tokens and task handles are released in LIFO order during disable or reload.
 
 `wekit.dexkit` is generated from DexKit 2.2.0's AAR. It exposes every public
 matcher, matcher collection and query enum as a typed Python class, with

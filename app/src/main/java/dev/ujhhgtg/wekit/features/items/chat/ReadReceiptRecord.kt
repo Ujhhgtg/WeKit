@@ -67,8 +67,7 @@ object ReadReceiptRecordCodec {
     fun decode(value: String): ReadReceiptRecord? = runCatching {
         val objectValue = DefaultJson.parseToJsonElement(value).jsonObject
         val version = objectValue["version"]?.strictIntOrNull() ?: return null
-        if (version != 1 && version != SCHEMA_VERSION) return null
-        if (version == 1 && objectValue["backend"]?.stringOrNull() != "THIRD_PARTY") return null
+        if (version != SCHEMA_VERSION) return null
 
         val id = objectValue["id"]?.stringOrNull() ?: return null
         val wxId = objectValue["wxId"]?.stringOrNull() ?: return null

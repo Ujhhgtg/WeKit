@@ -82,11 +82,6 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
 
     private const val KEY_CONTACTS = "hidden_contacts"
 
-    // One-time flag: older versions hid chats by writing parentRef='hidden_conv_parent'. Once we've
-    // cleared that stale marker for the current hidden set (so #show / un-hide work again), we never
-    // need to re-check. New hides rely purely on the query-time filter and never set the marker.
-    private const val KEY_LEGACY_MIGRATED = "hidden_parentref_migrated"
-
     var hiddenContacts
         get() = KvStore.getStringSetOrDef(KEY_CONTACTS, emptySet())
         set(value) {
@@ -217,8 +212,6 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
         hookPatMessage()
 
         WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
-            migrateLegacyHiddenParentRef()
-
             val context = thisObject!!.reflekt()
                 .firstField { type { it isSubclassOf Activity::class } }
                 .get()!! as Activity
@@ -405,41 +398,6 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     }
 
     override fun onQuery(sql: String): String? = rewriteMomentsFeedSql(sql)
-
-    // The parentRef marker older versions wrote via WeConversationApi.setConversationsVisibility to
-    // hide a chat. WeChat's native list filter (m4.O) hides rows whose parentRef isn't null/empty.
-    private const val LEGACY_HIDDEN_PARENT_REF = "hidden_conv_parent"
-
-    // One-time cleanup for users upgrading from the parentRef-based hiding: clear the stale marker
-    // for our currently-hidden chats. Without this, WeChat's own filter keeps hiding a chat (until
-    // its next message resets parentRef) even after the user un-hides it, since un-hiding only drops
-    // it from our set and never touched parentRef. Scoped to our hidden set so we don't disturb rows
-    // hidden by 显隐全部对话 (ToggleAllConversationsVisibility), which shares the same marker.
-    private fun migrateLegacyHiddenParentRef() {
-        if (KvStore.getBoolOrFalse(KEY_LEGACY_MIGRATED)) return
-
-        val hidden = hiddenContacts
-        if (hidden.isEmpty()) {
-            KvStore.putBool(KEY_LEGACY_MIGRATED, true)
-            return
-        }
-
-        // DB not ready yet: leave the flag unset so we retry on the next launch.
-        if (!WeDatabaseApi.isReady) return
-
-        try {
-            val inClause = hidden.joinToString(",") { "'${it.replace("'", "''")}'" }
-            WeDatabaseApi.execStatement(
-                "UPDATE rconversation SET parentRef = '' " +
-                        "WHERE parentRef = '$LEGACY_HIDDEN_PARENT_REF' " +
-                        "AND username IN ($inClause)"
-            )
-            KvStore.putBool(KEY_LEGACY_MIGRATED, true)
-            WeLogger.d(TAG, "cleared legacy hidden parentRef markers for ${hidden.size} chats")
-        } catch (ex: Exception) {
-            WeLogger.w(TAG, "failed to clear legacy hidden parentRef markers", ex)
-        }
-    }
 
     private var temporarilyShown = false
 

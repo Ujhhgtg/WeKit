@@ -6,10 +6,7 @@ import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.utils.HostInfo
-import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.restartHost
-import dev.ujhhgtg.wekit.utils.fs.LegacyPaths
-import dev.ujhhgtg.wekit.utils.fs.LegacyStorageMigration
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.File
@@ -57,21 +54,7 @@ object BackupCoordinator {
     )
 
     /** Explicitly owned root files. Caches and logs are intentionally excluded. */
-    private val managedFiles = listOf(
-        "conversation_groups.json",
-        "chat_folders.json",
-        "moments_custom_bottom_details.json",
-        "feature_flag_overrides.json",
-        "red_packet_settings.json",
-        "red_packet_group_members.json",
-        "auto_accept_transfer_settings.json",
-        "auto_like_moments_settings.json",
-        "auto_repost_moments_settings.json",
-        "real_names.json",
-        "real_names_first_char.json",
-        "real_names_first_char_progress.json",
-        "custom_avatars_map.json",
-    )
+    private val managedFiles = emptyList<String>()
 
     data class Result(val output: File, val fileCount: Int)
 
@@ -192,44 +175,10 @@ object BackupCoordinator {
         beforeDatabaseReplace?.invoke()
         val root = storageRoot(context)
         root.deleteRecursively()
-        // Remove old module-owned roots and artifacts, but never the host's shared MMKV directory
-        // wholesale. The old external root is module-specific and is safe to remove only here,
-        // after the user explicitly chose destructive clearing.
-        LegacyPaths.externalModuleRoot.toFile().deleteRecursively()
-        LegacyPaths.privateExtensionRoot.toFile().deleteRecursively()
-        LegacyPaths.privateAgentRoot.toFile().deleteRecursively()
-        File(HostInfo.application.filesDir, "wekit-python").deleteRecursively()
-        File(HostInfo.application.filesDir, "wekit_skip_rewarded_js").deleteRecursively()
-        File(HostInfo.application.filesDir, ".wekit-native").deleteRecursively()
+        // Runtime artifacts kept outside the managed root.
+        File(HostInfo.application.dataDir, ".wekit-native").deleteRecursively()
         File(HostInfo.application.codeCacheDir, "generated_proxy_classes").deleteRecursively()
-        val mmkv = File(HostInfo.application.filesDir, "mmkv")
-        listOf("wekit_prefs", "wekit_prefs.crc").forEach { File(mmkv, it).delete() }
-        mmkv.listFiles()
-            .orEmpty()
-            .filter { it.name.startsWith(".wekit-bootstrap-") }
-            .forEach(File::delete)
     }
-
-    /**
-     * Removes only the source roots left by the pre-private-storage migration.
-     *
-     * The current WeKit root is intentionally untouched: this operation is for reclaiming
-     * space after migration, while [clearAll] remains the destructive reset action.
-     */
-    fun clearLegacyData(context: Context): LegacyStorageMigration.LegacyCleanupResult =
-        withStorageLock(context) {
-            val result = LegacyStorageMigration.cleanupOldData(context)
-            result.blockedReason?.let {
-                WeLogger.w("BackupCoordinator", "legacy storage cleanup skipped: $it")
-            }
-            if (result.retainedPaths.isNotEmpty()) {
-                WeLogger.w(
-                    "BackupCoordinator",
-                    "legacy storage cleanup retained ${result.retainedPaths.size} incomplete or unknown path(s)",
-                )
-            }
-            result
-        }
 
     fun storageRoot(context: Context): File = File(context.filesDir, "wekit")
 
@@ -450,7 +399,7 @@ object BackupCoordinator {
             android.database.sqlite.SQLiteDatabase.OPEN_READWRITE,
         )
         sqlite.use { db ->
-            for (table in listOf("preference_entries", "preference_set_members", "documents", "settings", "legacy_mmkv_entries")) {
+            for (table in listOf("preference_entries", "preference_set_members", "documents", "settings")) {
                 if (!tableExists(db, table)) continue
                 val columns = db.rawQuery("PRAGMA table_info(\"$table\")", null).use { cursor ->
                     buildList {

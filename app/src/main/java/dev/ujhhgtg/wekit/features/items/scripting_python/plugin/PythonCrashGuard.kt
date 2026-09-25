@@ -3,13 +3,14 @@ package dev.ujhhgtg.wekit.features.items.scripting_python.plugin
 import kotlin.io.path.moveTo
 import android.os.SystemClock
 import dev.ujhhgtg.wekit.extensions.PythonRuntimePack
-import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.TargetProcesses
+import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.nio.file.StandardCopyOption
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.io.path.div
 
 @Serializable
 data class PythonCrashMarker(
@@ -25,7 +26,7 @@ object PythonCrashGuard {
     private val json = Json
     private val activeMarkers = LinkedHashMap<Long, PythonCrashMarker>()
     private val tokens = AtomicLong()
-    private val directory: File get() = File(HostInfo.application.filesDir, "wekit-python")
+    private val directory: File get() = (KnownPaths.moduleRoot / "python").toFile()
     private val markerFile: File get() = File(directory, "execution-marker.json")
 
     fun begin(pluginId: String, phase: String): Long = synchronized(lock) {

@@ -14,7 +14,7 @@ Zygisk 模式先确认 WebUI 中对应 Android 用户和微信的开关已经打
 
 ## 3. 模块数据在哪?
 
-`/sdcard/Android/data/<宿主包名>/WeKit`
+`/data/data/<宿主包名>/files/wekit/` (访问需要 Root), 详见 [模块数据目录](configuration.md#模块数据目录)。
 
 ## 4. 不受支持的旧版本启动一直弹 DEX 缓存更新怎么办?
 

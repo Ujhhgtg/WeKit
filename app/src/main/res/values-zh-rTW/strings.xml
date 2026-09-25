@@ -41,7 +41,7 @@
     <string name="module_app_host_package_label">宿主包名 (默認爲 %1$s)</string>
     <string name="module_app_repair_loading_message">本操作將嘗試修復微信熱更新導致的模塊不加載, 執行後請重啓微信\n將清空以下路徑的內容, 並將其權限遞歸設置爲 000 以阻止微信重讀寫, 請確認無誤後再繼續!\n%1$s</string>
     <string name="module_app_repair_loading_success">操作成功!</string>
-    <string name="module_app_clear_data_message">本操作將刪除模塊的功能配置, 用於解決部分功能導致微信無限閃退, 刪除後請重啓微信\n將刪除以下路徑的文件, 請確認無誤後再刪除!\n%1$s</string>
+    <string name="module_app_clear_data_message">本操作將刪除全部模塊數據 (數據庫、功能配置、腳本、擴展包、日誌和緩存), 用於解決部分功能導致微信無限閃退, 刪除後請重啓微信\n將刪除以下路徑的文件, 請確認無誤後再刪除!\n%1$s</string>
     <string name="module_app_clear_data_success">刪除成功!</string>
     <string name="module_app_root_required_title">未授予 Root 權限</string>
     <string name="module_app_root_required_message">請授予 Root 權限以執行此操作</string>
@@ -266,8 +266,6 @@
     <string name="settings_import_config_summary">驗證備份後替換全部模組資料並重新啟動微信</string>
     <string name="settings_clear_config_title">清除資料</string>
     <string name="settings_clear_config_summary">刪除模組資料庫、腳本、擴充套件、快取和暫存檔</string>
-    <string name="settings_cleanup_legacy_title">清理舊資料</string>
-    <string name="settings_cleanup_legacy_summary">刪除遷移後保留在舊儲存位置的檔案</string>
     <string name="settings_section_update">更新</string>
     <string name="settings_check_update_title">檢查更新</string>
     <string name="settings_check_update_summary">立即檢查模塊是否有新版本並自動下載</string>
@@ -338,9 +336,6 @@
     <string name="clear_config_dialog_message">確定刪除 Room 資料庫、腳本、擴充套件、日誌、崩潰記錄、快取和暫存檔嗎？此操作不可逆。</string>
     <string name="config_clearing">正在清除…</string>
     <string name="config_clear_success">清除成功!</string>
-    <string name="cleanup_legacy_dialog_title">清理舊資料</string>
-    <string name="cleanup_legacy_dialog_message">確定刪除遷移後保留在舊位置的 WeKit 檔案嗎？目前模組資料不會受到影響。</string>
-    <string name="cleanup_legacy_success">舊資料清理成功!</string>
     <string name="update_available_title">檢測到新版本</string>
     <string name="update_available_message">當前版本: %1$s\n新版本: %2$s\n是否下載並安裝?</string>
     <string name="update_download_failed">下載更新失敗: %1$s</string>
@@ -1703,11 +1698,6 @@
     <string name="chat_add_folder_manual_summary">手動文件夾</string>
     <string name="chat_anti_recall_outgoing">防撤回自己的消息</string>
     <string name="chat_anti_recall_outgoing_description">是否對自己發出的消息也生效</string>
-    <string name="chat_anti_recall_migrate">遷移舊版撤回提示</string>
-    <string name="chat_anti_recall_migrate_description">將舊版以系統訊息插入的撤回提示遷移為新樣式，並刪除舊提示；重新進入會話後生效</string>
-    <string name="chat_anti_recall_migrating">正在遷移…</string>
-    <string name="chat_anti_recall_migrated">已遷移 %1$d 條提示，%2$d 條無法定位原訊息</string>
-    <string name="chat_anti_recall_migration_failed">遷移失敗</string>
     <string name="chat_anti_recall_badge_type">徽標類型</string>
     <string name="chat_anti_recall_badge_type_icon">圖標</string>
     <string name="chat_anti_recall_badge_type_text">文本</string>
@@ -3539,5 +3529,4 @@
 
     <string name="structured_storage_saving">正在儲存…</string>
     <string name="structured_storage_save_failed">儲存失敗，先前的設定未變更。請檢查記錄後重試。</string>
-    <string name="structured_storage_unavailable">此功能的資料無法載入。請檢查遷移記錄並重新啟動微信重試。</string>
 </resources>

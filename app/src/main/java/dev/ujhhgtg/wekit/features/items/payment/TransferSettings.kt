@@ -23,7 +23,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
-import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.data.structured.asOverrides
 import dev.ujhhgtg.wekit.features.items.AutomationSaveContent
@@ -35,7 +34,6 @@ import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.items.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.items.automationKeywordSummary
 import dev.ujhhgtg.wekit.features.items.formatAutomationMinute
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -169,10 +167,6 @@ object TransferSettings {
     }
 
     fun showMainDialog(context: Context) {
-        if (!JsonDataMigration.isCompleted("json", "TransferSettings")) {
-            showToast(context, context.localizedPaymentString(R.string.structured_storage_unavailable))
-            return
-        }
         showComposeDialog(context) {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_auto_accept_transfers_name)) },
@@ -865,7 +859,6 @@ object TransferSettings {
     }
 
     private fun loadConfig(): StoredConfig {
-        JsonDataMigration.requireCompleted("json", "TransferSettings")
         cachedConfig?.let { return it }
         return runBlocking(Dispatchers.IO) {
             WeKitDatabase.instance.automationDao().getTransferConfig()
@@ -874,7 +867,6 @@ object TransferSettings {
     }
 
     private suspend fun putRule(scopeType: String, talkerId: String, memberId: String, rules: RuleOverrides) {
-        JsonDataMigration.requireCompleted("json", "TransferSettings")
         withContext(Dispatchers.IO) {
             try {
                 WeKitDatabase.instance.automationDao().putTransferRule(scopeType, talkerId, memberId, rules)
@@ -884,42 +876,4 @@ object TransferSettings {
             }
         }
     }
-
-    fun migrateLegacyConfig(): StoredConfig {
-        KvStore.requireMigrationKeys(legacyPreferenceKeys)
-        val hasLegacyPrefs = legacyPreferenceKeys.any(KvStore::containsKey)
-        if (!hasLegacyPrefs) return StoredConfig()
-
-        val useWhitelist = KvStore.getBoolOrDef("transfer_use_whitelist", false)
-        val selected = if (useWhitelist) {
-            KvStore.getStringSetOrDef("transfer_whitelist", emptySet())
-        } else {
-            KvStore.getStringSetOrDef("transfer_blacklist", emptySet())
-        }
-        val delayBase = KvStore.getStringOrDef("transfer_delay_custom", "500")
-        val delayRange = KvStore.getStringOrDef("transfer_delay_random_range", "300")
-        val global = RuleSet(
-            accept = AutomationToggleRule(enabled = !useWhitelist),
-            delay = DelayRule(enabled = true, baseMs = delayBase, randomRangeMs = delayRange),
-            notification = AutomationToggleRule(KvStore.getBoolOrDef("transfer_notification", false)),
-            autoReply = KvStore.getStringOrDef("transfer_auto_reply", "").let {
-                ReplyRule(enabled = it.isNotBlank(), text = it)
-            }
-        )
-        val contacts = selected.associateWith {
-            RuleOverrides(accept = AutomationToggleRule(enabled = useWhitelist))
-        }
-        WeLogger.i(TAG, "migrated legacy transfer settings")
-        return StoredConfig(global = global, contacts = contacts)
-    }
-
-    private val legacyPreferenceKeys = listOf(
-        "transfer_notification",
-        "transfer_use_whitelist",
-        "transfer_whitelist",
-        "transfer_blacklist",
-        "transfer_delay_custom",
-        "transfer_delay_random_range",
-        "transfer_auto_reply"
-    )
 }

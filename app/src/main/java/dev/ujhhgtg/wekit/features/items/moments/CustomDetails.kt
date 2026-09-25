@@ -31,7 +31,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.data.entity.MomentCustomDetailEntity
-import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -61,7 +60,6 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
 
     override fun onEnable() {
         runBlocking(Dispatchers.IO) {
-            JsonDataMigration.requireCompleted("moments", "custom_bottom_details")
             val saved = WeKitDatabase.instance.simpleStructuredDao().getCustomDetails()
             customDetails.clear()
             customDetails.putAll(saved.associate { it.snsId to it.text })

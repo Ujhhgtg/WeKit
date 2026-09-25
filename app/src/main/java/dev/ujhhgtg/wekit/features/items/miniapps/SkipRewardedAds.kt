@@ -7,13 +7,14 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import org.json.JSONObject
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.io.path.div
 
 /**
  * 跳过小程序激励广告。
@@ -184,7 +185,7 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
         if (!DUMP_SDK_FILES) return
         if (!dumpedNames.add(path)) return
         runCatching {
-            val dir = File(HostInfo.application.filesDir, "wekit_skip_rewarded_js").apply { mkdirs() }
+            val dir = (KnownPaths.moduleCache / "skip-rewarded-ads").toFile().apply { mkdirs() }
             val safeName = path.substringAfterLast('/').ifBlank { path.hashCode().toString() }
             val target = File(dir, safeName)
             target.writeText(content)

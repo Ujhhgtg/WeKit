@@ -26,7 +26,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -41,8 +40,6 @@ import java.math.RoundingMode
 object ModifySportsStepCount : ClickableFeature(), IResolveDex {
 
     private const val KEY_PASSIVE_EXPRESSION = "step_passive_expression"
-    private const val LEGACY_MODE = "step_passive_mode"
-    private const val LEGACY_VALUE = "step_passive_value"
     private const val VALUE_VARIABLE = "value"
     private const val TAG = "ModifySportsStepCount"
 
@@ -65,7 +62,6 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
     }
 
     override fun onEnable() {
-        migrateLegacySettings()
         methodGetSteps.hookAfter {
             val original = result as Long
             evaluatePassiveExpression(original)?.let { result = it }
@@ -100,16 +96,7 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
         DecimalExpression.parse(expression, setOf(VALUE_VARIABLE))
     }.exceptionOrNull()?.message
 
-    private fun migrateLegacySettings() {
-        if (KvStore.contains(KEY_PASSIVE_EXPRESSION)) return
-        val mode = KvStore.getStringOrDef(LEGACY_MODE, "FIXED")
-        val value = KvStore.getLongOrDef(LEGACY_VALUE, -1L)
-        passiveExpression = migrateSportsStepExpression(mode, value)
-        WeLogger.i(TAG, "migrated legacy passive step settings to an expression")
-    }
-
     override fun onClick(context: ComponentActivity) {
-        migrateLegacySettings()
         showComposeDialog(context) {
             var passiveInput by remember { mutableStateOf(passiveExpression) }
             var activeInput by remember { mutableStateOf("") }
@@ -237,10 +224,4 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
 
         return true
     }
-}
-
-fun migrateSportsStepExpression(mode: String, value: Long): String = when {
-    value < 0 -> "value"
-    mode == "MULTIPLIER" -> "value * $value"
-    else -> value.toString()
 }

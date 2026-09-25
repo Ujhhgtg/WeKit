@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
-import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.data.structured.asOverrides
 import dev.ujhhgtg.wekit.features.items.AutomationSaveContent
@@ -48,7 +47,6 @@ import dev.ujhhgtg.wekit.features.items.payment.PaymentTextEditDialog
 import dev.ujhhgtg.wekit.features.items.payment.PaymentTextEditMode
 import dev.ujhhgtg.wekit.features.items.payment.keywordItems
 import dev.ujhhgtg.wekit.features.items.payment.timeRangeItems
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
@@ -184,14 +182,7 @@ data class StoredMomentAutomationConfig(
 class MomentsAutomationSettings private constructor(
     @StringRes private val featureNameRes: Int,
     private val logTag: String,
-    private val includeAction: Boolean,
-    private val legacyPreferenceKeys: List<String>,
-    private val legacyUseWhitelistKey: String,
-    private val legacyWhitelistKey: String,
-    private val legacyBlacklistKey: String,
-    private val legacyModeKey: String,
-    private val legacyDelayKey: String,
-    private val legacyActionKey: String? = null
+    private val includeAction: Boolean
 ) {
     private enum class RuleKey {
         PROCESS,
@@ -227,10 +218,6 @@ class MomentsAutomationSettings private constructor(
     }
 
     fun showMainDialog(context: Context, onSettingsChanged: () -> Unit) {
-        if (!JsonDataMigration.isCompleted("json", logTag)) {
-            showToast(context, context.localizedMomentsString(R.string.structured_storage_unavailable))
-            return
-        }
         showComposeDialog(context) {
             AlertDialogContent(
                 title = { Text(stringResource(featureNameRes)) },
@@ -788,7 +775,6 @@ class MomentsAutomationSettings private constructor(
     }
 
     private fun loadConfig(): StoredMomentAutomationConfig {
-        JsonDataMigration.requireCompleted("json", logTag)
         cachedConfig?.let { return it }
         return runBlocking(Dispatchers.IO) {
             WeKitDatabase.instance.automationDao().getMomentAutomationConfig(featureKind)
@@ -797,7 +783,6 @@ class MomentsAutomationSettings private constructor(
     }
 
     private suspend fun putRule(scopeType: String, ownerId: String, rules: MomentAutomationOverrides) {
-        JsonDataMigration.requireCompleted("json", logTag)
         withContext(Dispatchers.IO) {
             try {
                 WeKitDatabase.instance.automationDao().putMomentAutomationRule(featureKind, scopeType, ownerId, rules)
@@ -808,88 +793,20 @@ class MomentsAutomationSettings private constructor(
         }
     }
 
-    fun migrateLegacyConfig(): StoredMomentAutomationConfig {
-        KvStore.requireMigrationKeys(legacyPreferenceKeys)
-        val hasLegacyPrefs = legacyPreferenceKeys.any(KvStore::containsKey)
-        if (!hasLegacyPrefs) return StoredMomentAutomationConfig()
-
-        val useWhitelist = KvStore.getBoolOrDef(legacyUseWhitelistKey, true)
-        val selected = if (useWhitelist) {
-            KvStore.getStringSetOrDef(legacyWhitelistKey, emptySet())
-        } else {
-            KvStore.getStringSetOrDef(legacyBlacklistKey, emptySet())
-        }
-        val mode = if (KvStore.getIntOrDef(legacyModeKey, LEGACY_MODE_WHEN_SEEN) == LEGACY_MODE_ALL_LOADED) {
-            MomentAutomationMode.ALL_LOADED
-        } else {
-            MomentAutomationMode.WHEN_SEEN
-        }
-        val delay = KvStore.getLongOrDef(legacyDelayKey, 0L).coerceIn(0L, MAX_ACTION_DELAY_MS)
-        val action = if (
-            includeAction && legacyActionKey != null &&
-            KvStore.getIntOrDef(legacyActionKey, LEGACY_ACTION_LIKE) == LEGACY_ACTION_UNLIKE
-        ) {
-            MomentAutomationAction.UNLIKE
-        } else {
-            MomentAutomationAction.LIKE
-        }
-        val global = MomentAutomationRuleSet(
-            process = AutomationToggleRule(enabled = !useWhitelist),
-            action = MomentActionRule(enabled = includeAction, action = action),
-            mode = MomentModeRule(enabled = true, mode = mode),
-            interval = MomentIntervalRule(enabled = delay > 0L, milliseconds = delay.toString())
-        )
-        val contacts = selected.associateWith {
-            MomentAutomationOverrides(process = AutomationToggleRule(enabled = useWhitelist))
-        }
-        WeLogger.i(logTag, "migrated legacy settings")
-        return StoredMomentAutomationConfig(global = global, contacts = contacts)
-    }
-
     companion object {
         val Like = MomentsAutomationSettings(
             featureNameRes = R.string.feature_auto_like_moments_name,
             logTag = "AutoLikeMomentsSettings",
-            includeAction = true,
-            legacyPreferenceKeys = listOf(
-                "moments_auto_like_mode",
-                "moments_auto_like_action",
-                "moments_auto_like_action_delay_ms",
-                "moments_use_whitelist",
-                "moments_whitelist",
-                "moments_blacklist"
-            ),
-            legacyUseWhitelistKey = "moments_use_whitelist",
-            legacyWhitelistKey = "moments_whitelist",
-            legacyBlacklistKey = "moments_blacklist",
-            legacyModeKey = "moments_auto_like_mode",
-            legacyDelayKey = "moments_auto_like_action_delay_ms",
-            legacyActionKey = "moments_auto_like_action"
+            includeAction = true
         )
 
         val Repost = MomentsAutomationSettings(
             featureNameRes = R.string.feature_auto_repost_moments_name,
             logTag = "AutoRepostMomentsSettings",
-            includeAction = false,
-            legacyPreferenceKeys = listOf(
-                "moments_auto_forward_mode",
-                "moments_auto_forward_action_delay_ms",
-                "moments_auto_forward_use_whitelist",
-                "moments_auto_forward_whitelist",
-                "moments_auto_forward_blacklist"
-            ),
-            legacyUseWhitelistKey = "moments_auto_forward_use_whitelist",
-            legacyWhitelistKey = "moments_auto_forward_whitelist",
-            legacyBlacklistKey = "moments_auto_forward_blacklist",
-            legacyModeKey = "moments_auto_forward_mode",
-            legacyDelayKey = "moments_auto_forward_action_delay_ms"
+            includeAction = false
         )
     }
 }
 
 private const val CONFIG_VERSION = 1
 private const val MAX_ACTION_DELAY_MS = 300_000L
-private const val LEGACY_MODE_WHEN_SEEN = 0
-private const val LEGACY_MODE_ALL_LOADED = 1
-private const val LEGACY_ACTION_LIKE = 0
-private const val LEGACY_ACTION_UNLIKE = 1

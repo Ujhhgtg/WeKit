@@ -61,19 +61,26 @@
 
 ### 一般数据
 
-模块运行时的文件存放在以下位置:
+模块数据存放在微信的私有目录中 (访问需要 Root):
+
+- **单用户**: `/data/data/<宿主包名>/files/wekit/`
+- **多用户 (如双开微信)**: `/data/user/<宿主安卓用户 ID>/<宿主包名>/files/wekit/`
 
 ```text
-/sdcard/Android/data/<宿主包名>/WeKit/
+<模块数据>/
+├── wekit.db                  # 模块数据库 (功能开关、功能配置、DEX 缓存等)
 ├── logs/                     # 运行日志
-├── assets/                   # 媒体资源 (需手动创建)
-├── scripts_java/             # Java 脚本 (需手动创建)
+├── crashes/                  # 崩溃日志 (需启用「调试/崩溃拦截」)
+├── assets/                   # 媒体资源
+├── scripts_java/             # Java 脚本
 ├── scripts_python/           # Python 插件
+├── python/                   # Python 插件数据
 ├── sticker_panel/            # 表情面板本地数据
 ├── voice_panel/              # 语音面板本地数据
 ├── themes/                   # 界面主题
-├── crashes/                  # 崩溃日志 (需启用「调试/崩溃拦截」)
-└── dex_cache/                # DEX 缓存 (自动生成)
+├── extensions/               # 扩展包
+├── agent/                    # WeAgent 技能与运行环境
+└── cache/                    # 缓存
 ```
 
 #### 媒体资源目录
@@ -92,14 +99,11 @@ Java 脚本目录存放于 `<模块数据>/scripts_java/` 目录下, 该目录�
 
 详见 [表情面板](features/chat/sticker-panel.md)。
 
-### KV 存储
+### 数据库
 
-模块的配置数据 (MMKV 文件) 存放在:
+功能开关与各功能配置统一保存在 `<模块数据>/wekit.db`。
 
-- **单用户**: `/data/data/<宿主包名>/files/mmkv/{wekit_prefs,wekit_prefs.crc}`
-- **多用户 (如双开微信)**: `/data/user/<宿主安卓用户 ID>/<宿主包名>/files/mmkv/{wekit_prefs,wekit_prefs.crc}`
-
-> 如果模块功能失效或设置异常, 可以尝试清除上述 MMKV 文件 (会丢失所有设置)。
+> 如果模块功能失效或设置异常, 可以在「设置 → 配置 → 清除数据」中清除全部模块数据 (会丢失所有设置)。清除前可先导出完整备份。
 
 ## 扩展包
 

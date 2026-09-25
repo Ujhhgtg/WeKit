@@ -54,7 +54,7 @@
     <string name="module_app_repair_loading_message">This operation attempts to repair module loading broken by a WeChat hot update. Restart WeChat afterward.\nThe following paths will be cleared and recursively set to permission 000 to prevent WeChat from reading or writing them again. Verify them before continuing:\n%1$s</string>
     <string name="module_app_repair_loading_success">Operation succeeded!</string>
     <!-- Destructive data-reset warning. %1$s is a newline-separated path list. -->
-    <string name="module_app_clear_data_message">This operation deletes the feature configuration for the module to recover from repeated WeChat crashes caused by some features. Restart WeChat afterward.\nVerify the following files before deleting them:\n%1$s</string>
+    <string name="module_app_clear_data_message">This operation deletes all module data (database, feature configuration, scripts, extension packs, logs and caches) to recover from repeated WeChat crashes caused by some features. Restart WeChat afterward.\nVerify the following files before deleting them:\n%1$s</string>
     <string name="module_app_clear_data_success">Deleted successfully!</string>
     <string name="module_app_root_required_title">Root access not granted</string>
     <string name="module_app_root_required_message">Grant root access to perform this operation.</string>
@@ -297,8 +297,6 @@
     <string name="settings_import_config_summary">Replace all module data from a verified backup and restart WeChat</string>
     <string name="settings_clear_config_title">Clear data</string>
     <string name="settings_clear_config_summary">Delete all module data, scripts, extensions and caches</string>
-    <string name="settings_cleanup_legacy_title">Clean up old data</string>
-    <string name="settings_cleanup_legacy_summary">Delete files kept in the old storage locations after migration</string>
     <string name="settings_section_update">Updates</string>
     <string name="settings_check_update_title">Check for updates</string>
     <string name="settings_check_update_summary">Check for a new module version and download it automatically</string>
@@ -371,9 +369,6 @@
     <string name="clear_config_dialog_message">Delete the Room database, scripts, extensions, logs, crash records, caches and temporary files? This action cannot be undone.</string>
     <string name="config_clearing">Clearing…</string>
     <string name="config_clear_success">Cleared successfully!</string>
-    <string name="cleanup_legacy_dialog_title">Clean up old data</string>
-    <string name="cleanup_legacy_dialog_message">Delete the legacy WeKit storage locations left after migration? Current module data will not be changed.</string>
-    <string name="cleanup_legacy_success">Old data cleaned successfully!</string>
     <string name="update_available_title">New version available</string>
     <string name="update_available_message">Current version: %1$s\nNew version: %2$s\nDownload and install it?</string>
     <string name="update_download_failed">Failed to download update: %1$s</string>
@@ -1762,11 +1757,6 @@
     <string name="chat_add_folder_manual_summary">Manual folder</string>
     <string name="chat_anti_recall_outgoing">Prevent recalls of your own messages</string>
     <string name="chat_anti_recall_outgoing_description">Also apply to messages you sent</string>
-    <string name="chat_anti_recall_migrate">Migrate legacy recall notices</string>
-    <string name="chat_anti_recall_migrate_description">Convert legacy system-message recall notices to the new style and remove them; reopen a conversation to see the result</string>
-    <string name="chat_anti_recall_migrating">Migrating…</string>
-    <string name="chat_anti_recall_migrated">Notices migrated: %1$d; messages that could not be located: %2$d</string>
-    <string name="chat_anti_recall_migration_failed">Migration failed</string>
     <string name="chat_anti_recall_badge_type">Badge type</string>
     <string name="chat_anti_recall_badge_type_icon">Icon</string>
     <string name="chat_anti_recall_badge_type_text">Text</string>
@@ -3531,5 +3521,4 @@
 
     <string name="structured_storage_saving">Saving…</string>
     <string name="structured_storage_save_failed">Could not save. Your previous settings are unchanged. Check the logs and try again.</string>
-    <string name="structured_storage_unavailable">This feature’s data could not be loaded. Check the migration logs and restart WeChat to retry.</string>
 </resources>

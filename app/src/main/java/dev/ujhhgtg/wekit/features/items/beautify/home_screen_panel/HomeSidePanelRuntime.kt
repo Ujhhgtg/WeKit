@@ -82,9 +82,6 @@ class HomeSidePanelRuntimeStore(
             "The live side-panel runtime is already initialized"
         }
         liveCachePolicy = homeSidePanelLiveCachePolicy(load)
-        if (liveCachePolicy.importLegacyCaches) {
-            cacheStore.migrateLegacyCaches(load.layout)
-        }
         reconcile(
             namespace = HomeSidePanelRuntimeNamespace.Live,
             old = null,

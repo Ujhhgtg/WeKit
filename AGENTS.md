@@ -62,7 +62,10 @@
   `methodTarget.hookBefore { ... }`, `methodTarget.method`, `classTarget.clazz`
 - UI: Jetpack Compose + Material 3; dialogs via `showComposeDialog` and `AlertDialogContent`;
   settings screens follow Material 3 UI Standards below
-- Config: `KvStore` (Room-backed key-value store, legacy MMKV migrated via `MmkvReadonlyReader`)
+- Storage: everything lives in the host's private `filesDir/wekit/`; the Room database
+  `WeKitDatabase` (`wekit.db`) holds preferences (`KvStore`), structured feature configs, and the
+  Dex cache. Only Room schema migrations exist; pre-Room data (MMKV, JSON files, old
+  external/private roots) is not imported.
 - Logging: via `WeLogger`
 
 ## Desktop DexKit Validation

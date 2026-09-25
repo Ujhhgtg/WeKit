@@ -120,15 +120,7 @@ object NavBarPrefs {
     private const val KEY_TAB_ORDER = "nav_bar_tab_order"
     private const val KEY_ENABLED_TABS = "nav_bar_enabled_tabs"
 
-    // Options folded into the style / icon / label dropdowns and the per-tab badge toggles.
-    private const val LEGACY_USE_FLOATING = "nav_bar_use_floating"
-    private const val LEGACY_USE_BACKDROP = "nav_bar_use_backdrop"
-    private const val LEGACY_USE_WECHAT_ICONS = "nav_bar_use_wechat_icons"
-    private const val LEGACY_HIDE_LABELS = "nav_bar_hide_labels"
-    private const val LEGACY_SHOW_FINDER_BADGE = "nav_bar_show_finder_badge"
-
     fun load(): NavBarConfig {
-        if (!KvStore.contains(KEY_STYLE)) migrateLegacy()
         return NavBarConfig(
             style = enumValueOf(KvStore.getStringOrDef(KEY_STYLE, NavBarStyle.LIQUID_GLASS.name)),
             iconStyle = enumValueOf(KvStore.getStringOrDef(KEY_ICON_STYLE, NavIconStyle.NATIVE.name)),
@@ -162,32 +154,4 @@ object NavBarPrefs {
 
     private fun defaultBadgeTabs(): Set<String> =
         NAV_TABS.filter(NavTab::supportsBadge).mapTo(linkedSetOf()) { it.index.toString() }
-
-    private fun migrateLegacy() {
-        val enabled = KvStore.getStringSetOrDef(KEY_ENABLED_TABS, allTabs())
-        // Disabling every page used to be the only way to hide the bar.
-        val style = when {
-            enabled.isEmpty() -> NavBarStyle.HIDDEN
-            !KvStore.getBoolOrDef(LEGACY_USE_FLOATING, true) -> NavBarStyle.DOCKED
-            !KvStore.getBoolOrDef(LEGACY_USE_BACKDROP, true) -> NavBarStyle.FLOATING
-            else -> NavBarStyle.LIQUID_GLASS
-        }
-        if (enabled.isEmpty()) KvStore.putStringSet(KEY_ENABLED_TABS, allTabs())
-        KvStore.putString(KEY_STYLE, style.name)
-
-        if (KvStore.contains(LEGACY_USE_WECHAT_ICONS)) {
-            val native = KvStore.getBoolOrDef(LEGACY_USE_WECHAT_ICONS, false)
-            KvStore.putString(KEY_ICON_STYLE, if (native) NavIconStyle.NATIVE.name else NavIconStyle.MATERIAL.name)
-        }
-        if (KvStore.getBoolOrDef(LEGACY_HIDE_LABELS, false)) {
-            KvStore.putString(KEY_LABEL_MODE, NavLabelMode.ICON.name)
-        }
-        if (!KvStore.getBoolOrDef(LEGACY_SHOW_FINDER_BADGE, true)) {
-            KvStore.putStringSet(KEY_BADGE_TABS, defaultBadgeTabs() - TAB_DISCOVER.toString())
-        }
-        listOf(
-            LEGACY_USE_FLOATING, LEGACY_USE_BACKDROP, LEGACY_USE_WECHAT_ICONS,
-            LEGACY_HIDE_LABELS, LEGACY_SHOW_FINDER_BADGE,
-        ).forEach(KvStore::remove)
-    }
 }

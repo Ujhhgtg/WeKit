@@ -27,18 +27,11 @@ object ReadReceiptsConfigurationCodec {
 
     fun decode(value: String): ReadReceiptsConfiguration? = runCatching {
         val objectValue = DefaultJson.parseToJsonElement(value).jsonObject
-        val version = objectValue["version"]?.strictIntOrNull()
-        require(version == 1 || version == SCHEMA_VERSION)
-        val url = objectValue["thirdPartyUrl"]?.stringOrNull()
-            ?: error("missing third-party URL")
+        require(objectValue["version"]?.strictIntOrNull() == SCHEMA_VERSION)
         validate(
             ReadReceiptsConfiguration(
-                // Older snapshots could retain an invalid inactive URL; leave it unconfigured.
-                thirdPartyUrl = if (version == 1) {
-                    normalizeThirdPartyReadReceiptEndpoint(url) ?: ""
-                } else {
-                    url
-                },
+                thirdPartyUrl = objectValue["thirdPartyUrl"]?.stringOrNull()
+                    ?: error("missing third-party URL"),
                 pollIntervalSecs = objectValue["pollIntervalSecs"]?.strictIntOrNull()
                     ?: error("missing poll interval"),
             ),

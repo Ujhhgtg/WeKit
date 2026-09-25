@@ -10,7 +10,7 @@ import java.security.MessageDigest
 
 /** Runtime access to assets imported into the Room catalog. */
 object AssetStore {
-    /** Chunk size matching [LegacyDocumentMigration]; keeps large media out of single Room objects. */
+    /** Chunk size that keeps large media out of single Room objects. */
     private const val CHUNK_SIZE = 256 * 1024
 
     fun readBinding(owner: String, slot: String): ByteArray? = runCatching {

@@ -505,16 +505,14 @@ object WeAgentRepository {
 
     /**
      * Fallback row lookup for when [pendingToolCallRowIds] has no entry for a wire call id — the
-     * process was restarted mid-turn, or the row predates locally-minted ids (legacy rows are keyed
-     * by the wire id itself). Picks the oldest still-pending call of the same tool on the session's
-     * last assistant message.
+     * process was restarted mid-turn. Picks the oldest still-pending call of the same tool on the
+     * session's last assistant message.
      */
     private suspend fun recoverToolCallRowId(
         sessionId: String,
         callId: String,
         toolName: String,
     ): String? {
-        db.toolCallDao().getById(callId)?.let { return it.id } // legacy row keyed by the wire id
         val lastAssistant = db.messageDao().getForSession(sessionId)
             .lastOrNull { it.role == MessageRole.ASSISTANT } ?: return null
         return db.toolCallDao().getForMessage(lastAssistant.id)

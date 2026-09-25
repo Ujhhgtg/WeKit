@@ -3,9 +3,7 @@ package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.Context
 import android.content.pm.PackageManager
-import android.database.sqlite.SQLiteDatabase
 import android.icu.text.Transliterator
 import android.location.Address
 import android.location.Geocoder
@@ -20,7 +18,6 @@ import androidx.annotation.StringRes
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.beautify.BeautifyText
 import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
-import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.coroutines.CancellationException
@@ -40,7 +37,6 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import java.io.File
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.Locale
@@ -481,11 +477,10 @@ class HomeSidePanelCityMatcher(
         listOf(countryCode, province, city, district.orEmpty()).joinToString("\u0000")
 }
 
-class HomeSidePanelCityIndex(context: Context) {
+class HomeSidePanelCityIndex {
 
-    private val appContext = context.applicationContext
     private val matcher by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-        HomeSidePanelCityMatcher(loadCities())
+        HomeSidePanelCityMatcher(WEATHER_CITIES)
     }
 
     suspend fun search(query: String): List<WeatherCity> = withContext(Dispatchers.IO) {
@@ -505,68 +500,6 @@ class HomeSidePanelCityIndex(context: Context) {
         city: String,
     ): WeatherCityMatchResult = withContext(Dispatchers.IO) {
         matcher.matchLocation(province, city)
-    }
-
-    private fun loadCities(): List<WeatherCity> {
-        val databaseFile = copyDatabaseAssetOnce()
-        val database = SQLiteDatabase.openDatabase(
-            databaseFile.absolutePath,
-            null,
-            SQLiteDatabase.OPEN_READONLY or SQLiteDatabase.NO_LOCALIZED_COLLATORS,
-        )
-        return database.use { db ->
-            db.rawQuery(CITY_QUERY, null).use { cursor ->
-                buildList {
-                    while (cursor.moveToNext()) {
-                        val provinceId = cursor.getInt(0)
-                        val rawName = cursor.getString(1)
-                        val separatorIndex = rawName.indexOf('.')
-                        val city = if (separatorIndex < 0) rawName else rawName.substring(0, separatorIndex)
-                        val district = if (separatorIndex < 0) null else rawName.substring(separatorIndex + 1)
-                        add(
-                            WeatherCity(
-                                countryCode = provinceId.toCountryCode(),
-                                province = cursor.getString(3),
-                                city = city,
-                                district = district,
-                                cityNum = cursor.getString(2),
-                            ),
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private fun copyDatabaseAssetOnce(): File {
-        val directory = File(appContext.noBackupFilesDir, ASSET_DIRECTORY).apply { mkdirs() }
-        val databaseFile = File(directory, ASSET_FILE_NAME)
-        if (!databaseFile.exists()) {
-            ResourcesInjector.injectModuleRes(appContext.resources)
-            appContext.assets.open(ASSET_PATH).use { input ->
-                databaseFile.outputStream().use(input::copyTo)
-            }
-        }
-        return databaseFile
-    }
-
-    private fun Int.toCountryCode(): String = when (this) {
-        31 -> "HK"
-        32 -> "MO"
-        33 -> "TW"
-        else -> "CN"
-    }
-
-    private companion object {
-        const val ASSET_DIRECTORY = "home_side_panel"
-        const val ASSET_FILE_NAME = "xiaomi_weather.db"
-        const val ASSET_PATH = "$ASSET_DIRECTORY/$ASSET_FILE_NAME"
-        const val CITY_QUERY = """
-            SELECT c.province_id, c.name, c.city_num, p.name AS province
-            FROM citys c
-            LEFT JOIN provinces p ON p._id = c.province_id + 1
-            ORDER BY c._id
-        """
     }
 }
 

@@ -102,16 +102,12 @@ class HomeSidePanelRuntimeRulesTest {
     }
 
     @Test
-    fun layoutProvenanceSelectsOneTimeMigrationAndPersistencePolicy() {
+    fun layoutProvenanceSelectsPersistencePolicy() {
         val layout = HomeSidePanelLayout(cards = emptyList())
 
         assertEquals(
             HomeSidePanelLiveCachePolicy.STORED,
             homeSidePanelLiveCachePolicy(HomeSidePanelLayoutLoad.Stored(layout)),
-        )
-        assertEquals(
-            HomeSidePanelLiveCachePolicy.MIGRATED,
-            homeSidePanelLiveCachePolicy(HomeSidePanelLayoutLoad.Migrated(layout)),
         )
         assertEquals(
             HomeSidePanelLiveCachePolicy.FALLBACK,
@@ -123,11 +119,7 @@ class HomeSidePanelRuntimeRulesTest {
                 ),
             ),
         )
-        assertFalse(HomeSidePanelLiveCachePolicy.STORED.importLegacyCaches)
         assertTrue(HomeSidePanelLiveCachePolicy.STORED.persistLiveCaches)
-        assertTrue(HomeSidePanelLiveCachePolicy.MIGRATED.importLegacyCaches)
-        assertTrue(HomeSidePanelLiveCachePolicy.MIGRATED.persistLiveCaches)
-        assertFalse(HomeSidePanelLiveCachePolicy.FALLBACK.importLegacyCaches)
         assertFalse(HomeSidePanelLiveCachePolicy.FALLBACK.persistLiveCaches)
     }
 }

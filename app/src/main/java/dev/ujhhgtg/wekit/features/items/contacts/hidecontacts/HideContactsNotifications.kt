@@ -27,8 +27,8 @@ import dev.ujhhgtg.wekit.utils.WeLogger
  *
  * Widening [HideContacts]'s process set is not an option: its `onEnable` is almost entirely
  * main-process work (SQL hooks, LauncherUI/ChattingUI hooks, the screen-off receiver, the shake
- * detector, the one-shot legacy `parentRef` DB migration) that would be wrong — and in the migration's
- * case racy — if it ran a second time in `:push`. So only the two notification hooks live here, in a
+ * detector) that would be wrong if it ran a second time in `:push`. So only the two notification
+ * hooks live here, in a
  * feature modelled on
  * [dev.ujhhgtg.wekit.features.items.notifications.NotificationsEvolved], which already opts into
  * main + push the same way.

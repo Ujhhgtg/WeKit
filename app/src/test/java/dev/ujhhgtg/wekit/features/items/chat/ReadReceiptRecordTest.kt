@@ -52,24 +52,6 @@ class ReadReceiptRecordTest {
     }
 
     @Test
-    fun `migrates third party records and discards removed local records`() {
-        val legacy = """
-            {"version":1,"id":"abcdef0123456789","wxId":"wxid_b","backend":"THIRD_PARTY",
-             "endpoint":"https://receipts.example/","createdAtMillis":1700000000000}
-        """.trimIndent()
-        assertEquals(
-            ReadReceiptRecord("abcdef0123456789", "wxid_b", "https://receipts.example", 1_700_000_000_000),
-            ReadReceiptRecordCodec.decode(legacy),
-        )
-        assertNull(
-            ReadReceiptRecordCodec.decode(
-                legacy.replace("THIRD_PARTY", "BUILT_IN")
-                    .replace("https://receipts.example/", "builtin://local"),
-            ),
-        )
-    }
-
-    @Test
     fun `rejects unsupported schema version`() {
         assertNull(ReadReceiptRecordCodec.decode("{\"version\":99}"))
     }
@@ -78,7 +60,7 @@ class ReadReceiptRecordTest {
     fun `rejects malformed id`() {
         assertNull(
             ReadReceiptRecordCodec.decode(
-                "{\"version\":1,\"id\":\"not-hex\",\"wxId\":\"wxid\",\"backend\":\"THIRD_PARTY\",\"endpoint\":\"https://x\",\"createdAtMillis\":1}"
+                "{\"version\":2,\"id\":\"not-hex\",\"wxId\":\"wxid\",\"endpoint\":\"https://x\",\"createdAtMillis\":1}"
             )
         )
     }
@@ -87,21 +69,12 @@ class ReadReceiptRecordTest {
     fun `rejects malformed wxId`() {
         assertNull(
             ReadReceiptRecordCodec.decode(
-                "{\"version\":1,\"id\":\"0123456789abcdef\",\"wxId\":\"\",\"backend\":\"THIRD_PARTY\",\"endpoint\":\"https://x\",\"createdAtMillis\":1}"
+                "{\"version\":2,\"id\":\"0123456789abcdef\",\"wxId\":\"\",\"endpoint\":\"https://x\",\"createdAtMillis\":1}"
             )
         )
         assertNull(
             ReadReceiptRecordCodec.decode(
-                "{\"version\":1,\"id\":\"0123456789abcdef\",\"wxId\":\"${"界".repeat(43)}\",\"backend\":\"THIRD_PARTY\",\"endpoint\":\"https://x\",\"createdAtMillis\":1}"
-            )
-        )
-    }
-
-    @Test
-    fun `rejects malformed backend`() {
-        assertNull(
-            ReadReceiptRecordCodec.decode(
-                "{\"version\":1,\"id\":\"0123456789abcdef\",\"wxId\":\"wxid\",\"backend\":\"UNKNOWN\",\"endpoint\":\"https://x\",\"createdAtMillis\":1}"
+                "{\"version\":2,\"id\":\"0123456789abcdef\",\"wxId\":\"${"界".repeat(43)}\",\"endpoint\":\"https://x\",\"createdAtMillis\":1}"
             )
         )
     }
@@ -123,7 +96,7 @@ class ReadReceiptRecordTest {
         ) {
             assertNull(
                 ReadReceiptRecordCodec.decode(
-                    "{\"version\":1,\"id\":\"0123456789abcdef\",\"wxId\":\"wxid\",\"backend\":\"THIRD_PARTY\",\"endpoint\":\"$endpoint\",\"createdAtMillis\":1}"
+                    "{\"version\":2,\"id\":\"0123456789abcdef\",\"wxId\":\"wxid\",\"endpoint\":\"$endpoint\",\"createdAtMillis\":1}"
                 ),
                 endpoint,
             )
@@ -134,7 +107,7 @@ class ReadReceiptRecordTest {
     fun `rejects malformed timestamp`() {
         assertNull(
             ReadReceiptRecordCodec.decode(
-                "{\"version\":1,\"id\":\"0123456789abcdef\",\"wxId\":\"wxid\",\"backend\":\"THIRD_PARTY\",\"endpoint\":\"https://x\",\"createdAtMillis\":0}"
+                "{\"version\":2,\"id\":\"0123456789abcdef\",\"wxId\":\"wxid\",\"endpoint\":\"https://x\",\"createdAtMillis\":0}"
             )
         )
     }

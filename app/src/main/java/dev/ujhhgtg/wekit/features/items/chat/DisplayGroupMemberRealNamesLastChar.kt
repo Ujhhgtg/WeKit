@@ -16,7 +16,6 @@ import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.data.entity.ContactRealNamePartEntity
-import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferRespProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferReqProto
@@ -104,7 +103,6 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
 
     override fun onEnable() {
         runBlocking(Dispatchers.IO) {
-            JsonDataMigration.requireCompleted("chat", "real_names_last_char")
             val saved = WeKitDatabase.instance.simpleStructuredDao().getRealNameParts("MASKED")
             realNames.clear()
             realNames.putAll(saved.associate { it.wxId to it.value })

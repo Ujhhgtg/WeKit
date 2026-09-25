@@ -25,7 +25,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.data.entity.RealNameScanProgressEntity
-import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.fetchBeforeTransfer
@@ -87,8 +86,6 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
 
     override fun onEnable() {
         runBlocking(Dispatchers.IO) {
-            JsonDataMigration.requireCompleted("chat", "real_names_first_char")
-            JsonDataMigration.requireCompleted("chat", "real_names_first_char_progress")
             val dao = WeKitDatabase.instance.simpleStructuredDao()
             val names = dao.getRealNameParts("FIRST")
             val progress = dao.getScanProgress()

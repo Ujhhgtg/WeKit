@@ -75,31 +75,9 @@ class ReadReceiptsConfigurationTest {
     }
 
     @Test
-    fun `migrates legacy snapshots without requiring removed configuration fields`() {
-        val legacy = """
-            {"version":1,"mode":"BUILT_IN","thirdPartyUrl":"HTTPS://Example.COM/receipts/",
-             "pollIntervalSecs":11,"automaticPort":false,"builtInPort":3000,"tunnelMode":"TOKEN"}
-        """.trimIndent()
-        assertEquals(
-            ReadReceiptsConfiguration("https://example.com/receipts", 11),
-            ReadReceiptsConfigurationCodec.decode(legacy),
-        )
-        assertEquals(
-            ReadReceiptsConfiguration("", 11),
-            ReadReceiptsConfigurationCodec.decode(
-                legacy.replace("HTTPS://Example.COM/receipts/", "ftp://inactive.example"),
-            ),
-        )
-    }
-
-    @Test
     fun `rejects unsupported and malformed snapshots`() {
         assertNull(ReadReceiptsConfigurationCodec.decode("{\"version\":99}"))
         assertNull(ReadReceiptsConfigurationCodec.decode("not json"))
-        assertNull(
-            ReadReceiptsConfigurationCodec.decode(
-                "{\"version\":1,\"mode\":\"UNKNOWN\"}",
-            ),
-        )
+        assertNull(ReadReceiptsConfigurationCodec.decode("{\"version\":1,\"thirdPartyUrl\":\"\",\"pollIntervalSecs\":5}"))
     }
 }

@@ -93,19 +93,10 @@ abstract class AutomationDao {
             }
         }
         return RedPacketSettings.StoredConfig(
-            global = requireNotNull(global) { "Global RedPacket rule is missing" },
+            global = global ?: RedPacketSettings.RuleSet(),
             contacts = contacts,
             groupMembers = groups,
         )
-    }
-
-    @Transaction
-    open suspend fun insertRedPacketConfig(value: RedPacketSettings.StoredConfig) {
-        saveRedPacketRule("GLOBAL", "", "", value.global.asOverrides())
-        value.contacts.forEach { (id, rules) -> saveRedPacketRule("CONTACT", id, "", rules) }
-        value.groupMembers.forEach { (group, members) ->
-            members.forEach { (member, rules) -> saveRedPacketRule("GROUP_MEMBER", group, member, rules) }
-        }
     }
 
     @Transaction
@@ -154,19 +145,10 @@ abstract class AutomationDao {
             }
         }
         return TransferSettings.StoredConfig(
-            global = requireNotNull(global) { "Global Transfer rule is missing" },
+            global = global ?: TransferSettings.RuleSet(),
             contacts = contacts,
             groupMembers = groups,
         )
-    }
-
-    @Transaction
-    open suspend fun insertTransferConfig(value: TransferSettings.StoredConfig) {
-        saveTransferRule("GLOBAL", "", "", value.global.asOverrides())
-        value.contacts.forEach { (id, rules) -> saveTransferRule("CONTACT", id, "", rules) }
-        value.groupMembers.forEach { (group, members) ->
-            members.forEach { (member, rules) -> saveTransferRule("GROUP_MEMBER", group, member, rules) }
-        }
     }
 
     @Transaction
@@ -212,15 +194,9 @@ abstract class AutomationDao {
             }
         }
         return StoredMomentAutomationConfig(
-            global = requireNotNull(global) { "Global moment automation rule is missing" },
+            global = global ?: MomentAutomationRuleSet(),
             contacts = contacts,
         )
-    }
-
-    @Transaction
-    open suspend fun insertMomentAutomationConfig(featureKind: String, value: StoredMomentAutomationConfig) {
-        saveMomentAutomationRule(featureKind, "GLOBAL", "", value.global.asOverrides())
-        value.contacts.forEach { (id, rules) -> saveMomentAutomationRule(featureKind, "CONTACT", id, rules) }
     }
 
     @Transaction

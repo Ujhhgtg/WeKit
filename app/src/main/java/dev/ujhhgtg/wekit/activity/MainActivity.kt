@@ -732,10 +732,7 @@ class MainActivity : ComponentActivity() {
                 if (showConfirmDeleteModuleDataDialog) {
                     val paths = remember {
                         @Suppress("SdCardPath")
-                        listOf(
-                            "/data/data/${PackageNames.WECHAT}/files/mmkv/wekit_prefs",
-                            "/data/data/${PackageNames.WECHAT}/files/mmkv/wekit_prefs.crc",
-                        )
+                        listOf("/data/data/${PackageNames.WECHAT}/files/wekit")
                     }
 
                     AlertDialog(

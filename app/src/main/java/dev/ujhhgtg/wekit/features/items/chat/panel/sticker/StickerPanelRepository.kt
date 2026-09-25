@@ -42,7 +42,7 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
 object StickerPanelRepository {
-    private const val LEGACY_IMPORT_PACK = "导入"
+    private const val DEFAULT_IMPORT_PACK = "导入"
     private val recentsFile get() = PanelPaths.stickerPanelDir / "recents.json"
     private val onlineRecentsFile get() = PanelPaths.stickerPanelDir / ".online_recents.json"
     private val statsFile get() = PanelPaths.stickerPanelDir / ".stats.json"
@@ -196,7 +196,7 @@ object StickerPanelRepository {
     }
 
     fun importSticker(packName: String, displayName: String, input: InputStream): Result<StickerItem> = runCatching {
-        val safePack = requirePackName(sanitizeName(packName).ifBlank { LEGACY_IMPORT_PACK })
+        val safePack = requirePackName(sanitizeName(packName).ifBlank { DEFAULT_IMPORT_PACK })
         val packDir = packPath(safePack).also { it.createDirectories() }
         val temporary = packDir / ".import-${UUID.randomUUID()}.part"
         try {
@@ -437,12 +437,6 @@ object StickerPanelRepository {
         return runCatching {
             DefaultJson.decodeFromString<List<StickerItem>>(onlineRecentsFile.readText())
                 .filter { it.localPath == null && it.remoteObjectId != null }
-                // Older online-recents records only stored the thumbnail URL. Preserve those
-                // records while upgrading their preview target to FunBox's original object URL.
-                .map { item ->
-                    if (!item.imageUrl.isNullOrBlank()) item
-                    else item.copy(imageUrl = item.thumbnailUrl?.replace("/vfile/thumb/", "/vfile/image/"))
-                }
         }.getOrDefault(emptyList())
     }
 

@@ -156,7 +156,6 @@ object UoiceVoiceProvider : VoiceProvider {
                         metadata = mapOf(
                             "category" to category.sourceName,
                             "localPackId" to "uoice-${category.sourceName}",
-                            "legacyPackName" to category.sourceName,
                         ),
                     )
                 },
@@ -244,18 +243,17 @@ object RingDuoDuoVoiceProvider : VoiceProvider {
 
     private data class Category(
         val id: Int,
-        val legacyName: String,
         @StringRes val titleRes: Int,
     )
 
     private val categories = listOf(
-        Category(20, "彩铃", R.string.chat_voice_category_ringback),
-        Category(1, "最热", R.string.chat_voice_category_hottest),
-        Category(5, "短信", R.string.chat_voice_category_sms),
-        Category(6, "DJ榜", R.string.chat_voice_category_dj_chart),
-        Category(8, "情感", R.string.chat_voice_category_emotion),
-        Category(11, "铃声", R.string.chat_voice_category_ringtone),
-        Category(33, "欧美馆", R.string.chat_voice_category_western),
+        Category(20, R.string.chat_voice_category_ringback),
+        Category(1, R.string.chat_voice_category_hottest),
+        Category(5, R.string.chat_voice_category_sms),
+        Category(6, R.string.chat_voice_category_dj_chart),
+        Category(8, R.string.chat_voice_category_emotion),
+        Category(11, R.string.chat_voice_category_ringtone),
+        Category(33, R.string.chat_voice_category_western),
     )
 
     override suspend fun browse(parent: VoiceItem?, page: Int): Result<VoiceProviderPage> = runCatching {
@@ -270,7 +268,6 @@ object RingDuoDuoVoiceProvider : VoiceProvider {
                         metadata = mapOf(
                             "category" to category.id.toString(),
                             "localPackId" to "ring-${category.id}",
-                            "legacyPackName" to category.legacyName,
                         ),
                     )
                 },

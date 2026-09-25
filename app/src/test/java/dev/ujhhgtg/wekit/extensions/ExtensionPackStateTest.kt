@@ -41,12 +41,4 @@ class ExtensionPackStateTest {
             classifyPackState(manifest("0123456789ab"), entry("6b3b3087a5e2")),
         )
     }
-
-    @Test
-    fun `legacy date-prefixed version is not an update when content matches`() {
-        assertEquals(
-            Installed("20260818-6b3b3087a5e2"),
-            classifyPackState(manifest("20260818-6b3b3087a5e2"), entry("6b3b3087a5e2")),
-        )
-    }
 }

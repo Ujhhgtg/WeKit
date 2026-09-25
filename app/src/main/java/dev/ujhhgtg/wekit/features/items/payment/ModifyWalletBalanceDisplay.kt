@@ -32,7 +32,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -61,28 +60,14 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.PAYMENT)
     override val descriptionRes = R.string.feature_modify_wallet_balance_display_description
 
-    private const val LEGACY_BALANCE = "fake_wallet_balance"
-    private const val LEGACY_LQT = "fake_wallet_balance_lqt"
-    private const val LEGACY_BUSINESS = "fake_wallet_balance_business"
-
-    private const val KEY_BALANCE = "fake_wallet_balance_amount"
-    private const val KEY_LQT = "fake_wallet_lqt_amount"
-    private const val KEY_BUSINESS = "fake_wallet_business_amount"
     private const val KEY_ENABLE_BALANCE = "fake_wallet_balance_enable_balance"
     private const val KEY_ENABLE_LQT = "fake_wallet_balance_enable_lqt"
     private const val KEY_ENABLE_BUSINESS = "fake_wallet_balance_enable_business"
-    private const val KEY_GLOBAL_ENABLE = "fake_wallet_balance_enable"
-    private const val KEY_MODE_BALANCE = "fake_wallet_balance_mode_balance"
-    private const val KEY_MODE_LQT = "fake_wallet_balance_mode_lqt"
-    private const val KEY_MODE_BUSINESS = "fake_wallet_balance_mode_business"
 
     private const val KEY_EXPRESSION_BALANCE = "fake_wallet_balance_expression_balance"
     private const val KEY_EXPRESSION_LQT = "fake_wallet_balance_expression_lqt"
     private const val KEY_EXPRESSION_BUSINESS = "fake_wallet_balance_expression_business"
 
-    private const val MODE_FIXED = "fixed"
-    private const val MODE_INCREASE = "increase"
-    private const val MODE_DECREASE = "decrease"
     private const val VALUE_VARIABLE = "value"
     private const val TAG = "ModifyWalletBalanceDisplay"
 
@@ -119,17 +104,11 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
             get() = when (this) {
                 BALANCE -> balanceExpression
                 LQT -> lqtExpression
-                BUSINESS -> if (KvStore.contains(KEY_EXPRESSION_BUSINESS)) {
-                    businessExpression
-                } else {
-                    lqtExpression
-                }
+                BUSINESS -> businessExpression
             }
     }
 
     override fun onEnable() {
-        migrateLegacySettings()
-
         val wcClazz = "com.tencent.mm.plugin.wallet_core.ui.view.WcPayMoneyLoadingView".toClass()
         wcClazz.reflekt().methods {
             parameters { params ->
@@ -306,24 +285,10 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
         if (stack.isEmpty()) callStack.remove()
     }
 
-    private fun isEnabled(target: Target): Boolean {
-        val key = when (target) {
-            Target.BALANCE -> KEY_ENABLE_BALANCE
-            Target.LQT -> KEY_ENABLE_LQT
-            Target.BUSINESS -> KEY_ENABLE_BUSINESS
-        }
-        if (!KvStore.contains(key)) {
-            val hasConfiguredAmount = KvStore.contains(KEY_BALANCE) ||
-                KvStore.contains(KEY_LQT) || KvStore.contains(KEY_BUSINESS) ||
-                KvStore.contains(LEGACY_BALANCE) || KvStore.contains(LEGACY_LQT) ||
-                KvStore.contains(LEGACY_BUSINESS)
-            return KvStore.getBoolOrDef(KEY_GLOBAL_ENABLE, isActive && hasConfiguredAmount)
-        }
-        return when (target) {
-            Target.BALANCE -> enableBalance
-            Target.LQT -> enableLqt
-            Target.BUSINESS -> enableBusiness
-        }
+    private fun isEnabled(target: Target): Boolean = when (target) {
+        Target.BALANCE -> enableBalance
+        Target.LQT -> enableLqt
+        Target.BUSINESS -> enableBusiness
     }
 
     private fun isLqtOrBusiness(target: Target) = target == Target.LQT || target == Target.BUSINESS
@@ -368,21 +333,6 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
         val match = Regex("[+-]?\\d+(?:\\.\\d+)?").find(value.replace(",", ""))
         return match?.value?.toBigDecimalOrNull()?.setScale(2, RoundingMode.HALF_UP)
             ?: BigDecimal.ZERO.setScale(2)
-    }
-
-    private fun resolveMode(key: String, configured: String, fallback: String): String {
-        if (KvStore.contains(key)) {
-            return when (KvStore.getString(key)) {
-                MODE_FIXED, MODE_INCREASE, MODE_DECREASE -> KvStore.getString(key)!!
-                else -> fallback
-            }
-        }
-        val normalized = configured.replace(",", "").replace("¥", "").replace("￥", "").trim()
-        return when {
-            normalized.startsWith('+') -> MODE_INCREASE
-            normalized.startsWith('-') -> MODE_DECREASE
-            else -> fallback
-        }
     }
 
     private fun targetFor(view: View): Target? {
@@ -473,63 +423,11 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
         }
     }
 
-    private fun migrateLegacySettings() {
-        if (!KvStore.contains(KEY_BALANCE) && KvStore.contains(LEGACY_BALANCE))
-            KvStore.putString(KEY_BALANCE, KvStore.getString(LEGACY_BALANCE)!!)
-        if (!KvStore.contains(KEY_LQT) && KvStore.contains(LEGACY_LQT))
-            KvStore.putString(KEY_LQT, KvStore.getString(LEGACY_LQT)!!)
-        if (!KvStore.contains(KEY_BUSINESS) && KvStore.contains(LEGACY_BUSINESS))
-            KvStore.putString(KEY_BUSINESS, KvStore.getString(LEGACY_BUSINESS)!!)
-
-        var migrated = false
-        if (shouldMigrateWalletExpression(
-                hasExpression = KvStore.contains(KEY_EXPRESSION_BALANCE),
-                hasLegacyAmount = KvStore.contains(KEY_BALANCE),
-                hasLegacyMode = KvStore.contains(KEY_MODE_BALANCE),
-            )
-        ) {
-            val configured = KvStore.getStringOrDef(KEY_BALANCE, "0.00")
-            val mode = resolveMode(KEY_MODE_BALANCE, configured, MODE_FIXED)
-            KvStore.putString(KEY_EXPRESSION_BALANCE, migrateExpression(configured, mode))
-            migrated = true
-        }
-        if (shouldMigrateWalletExpression(
-                hasExpression = KvStore.contains(KEY_EXPRESSION_LQT),
-                hasLegacyAmount = KvStore.contains(KEY_LQT),
-                hasLegacyMode = KvStore.contains(KEY_MODE_LQT),
-            )
-        ) {
-            val configured = KvStore.getStringOrDef(KEY_LQT, "0.00")
-            val mode = resolveMode(KEY_MODE_LQT, configured, MODE_FIXED)
-            KvStore.putString(KEY_EXPRESSION_LQT, migrateExpression(configured, mode))
-            migrated = true
-        }
-        if (shouldMigrateWalletExpression(
-                hasExpression = KvStore.contains(KEY_EXPRESSION_BUSINESS),
-                hasLegacyAmount = KvStore.contains(KEY_BUSINESS),
-                hasLegacyMode = KvStore.contains(KEY_MODE_BUSINESS),
-            )
-        ) {
-            val lqtConfigured = KvStore.getStringOrDef(KEY_LQT, "0.00")
-            val configured = KvStore.getString(KEY_BUSINESS) ?: lqtConfigured
-            val lqtMode = resolveMode(KEY_MODE_LQT, lqtConfigured, MODE_FIXED)
-            val mode = resolveMode(KEY_MODE_BUSINESS, configured, lqtMode)
-            KvStore.putString(KEY_EXPRESSION_BUSINESS, migrateExpression(configured, mode))
-            migrated = true
-        }
-        if (migrated) WeLogger.i(TAG, "migrated legacy wallet balance settings to expressions")
-    }
-
-    private fun migrateExpression(configured: String, mode: String): String {
-        return migrateWalletBalanceExpression(configured, mode)
-    }
-
     private fun expressionError(expression: String): String? = runCatching {
         DecimalExpression.parse(expression, setOf(VALUE_VARIABLE))
     }.exceptionOrNull()?.message
 
     override fun onClick(context: ComponentActivity) {
-        migrateLegacySettings()
         showComposeDialog(context) {
             var balanceInput by remember { mutableStateOf(balanceExpression) }
             var lqtInput by remember { mutableStateOf(lqtExpression) }
@@ -641,25 +539,3 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
         }
     }
 }
-
-fun migrateWalletBalanceExpression(configured: String, mode: String): String {
-    val operand = Regex("[+-]?\\d+(?:\\.\\d+)?")
-        .find(configured.replace(",", ""))
-        ?.value
-        ?.toBigDecimalOrNull()
-        ?.setScale(2, RoundingMode.HALF_UP)
-        ?.abs()
-        ?: BigDecimal.ZERO.setScale(2)
-    val normalized = operand.stripTrailingZeros().toPlainString()
-    return when (mode) {
-        "increase" -> "value + $normalized"
-        "decrease" -> "value - $normalized"
-        else -> normalized
-    }
-}
-
-fun shouldMigrateWalletExpression(
-    hasExpression: Boolean,
-    hasLegacyAmount: Boolean,
-    hasLegacyMode: Boolean,
-): Boolean = !hasExpression && (hasLegacyAmount || hasLegacyMode)

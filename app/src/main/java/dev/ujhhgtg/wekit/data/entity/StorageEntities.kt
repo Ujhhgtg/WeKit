@@ -4,12 +4,11 @@ import androidx.room.Entity
 import androidx.room.Index
 
 /**
- * A typed value migrated from WeKit's legacy preference stores.
+ * A typed global preference value written by [dev.ujhhgtg.wekit.data.KvStore].
  *
  * Values are deliberately represented as a small set of nullable columns instead of a
- * polymorphic blob.  This keeps the database exportable without depending on the implementation
- * of MMKV or Java serialization.  [valueType] identifies which column is populated and is kept
- * as a string so unknown legacy types can be preserved during a migration.
+ * polymorphic blob.  This keeps the database exportable without depending on Java
+ * serialization.  [valueType] identifies which column is populated.
  */
 @Entity(
     tableName = "preference_entries",
@@ -30,7 +29,7 @@ data class PreferenceEntryEntity(
     val exportable: Boolean = true,
 )
 
-/** A normalized member index for legacy StringSet preferences. */
+/** A normalized member index for StringSet preferences. */
 @Entity(
     tableName = "preference_set_members",
     primaryKeys = ["namespace", "key", "member"],

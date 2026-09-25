@@ -25,7 +25,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Opacity
@@ -132,8 +131,6 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
     )
 
     override fun onEnable() {
-        migrateLegacyBackgroundUri()
-
         Activity::class.reflekt().apply {
             firstMethod {
                 name = "onCreate"
@@ -218,30 +215,6 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
 
     private const val MIN_OPACITY_PERCENT = 1
     private const val MAX_OPACITY_PERCENT = 80
-
-    /**
-     * Old versions stored the SAF content:// uri of the picked image. Copy that image into
-     * moduleAssets once and rewrite the pref to a file uri. On failure the legacy value is
-     * kept so a transient failure (e.g. storage not ready yet) retries on the next startup.
-     */
-    private fun migrateLegacyBackgroundUri() {
-        val legacy = backgroundUri ?: return
-        if (!legacy.startsWith("content://")) return
-
-        val migrated = runCatching {
-            HostInfo.application.contentResolver.openInputStream(legacy.toUri())?.use { input ->
-                backgroundImageFile.toFile().outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            } != null
-        }.onFailure {
-            WeLogger.w(TAG, "failed to migrate legacy background image", it)
-        }.isSuccess
-
-        if (migrated) {
-            backgroundUri = backgroundImageFile.asAndroidUri.toString()
-        }
-    }
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {

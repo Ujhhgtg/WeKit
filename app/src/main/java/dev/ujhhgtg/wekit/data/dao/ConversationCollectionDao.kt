@@ -11,12 +11,12 @@ import dev.ujhhgtg.wekit.data.entity.ConversationFolderEntity
 import dev.ujhhgtg.wekit.data.entity.ConversationFolderMemberEntity
 import dev.ujhhgtg.wekit.data.entity.ConversationGroupEntity
 import dev.ujhhgtg.wekit.data.entity.ConversationGroupMemberEntity
+import dev.ujhhgtg.wekit.data.structured.ALL_CONVERSATIONS_GROUP_ID
 import dev.ujhhgtg.wekit.data.structured.BuiltInGroupLabel
 import dev.ujhhgtg.wekit.data.structured.ConversationFolder
 import dev.ujhhgtg.wekit.data.structured.ConversationFolderType
 import dev.ujhhgtg.wekit.data.structured.ConversationGroup
 import dev.ujhhgtg.wekit.data.structured.ConversationGroupType
-import dev.ujhhgtg.wekit.data.structured.LegacyConversationCollections
 
 data class ConversationGroupRows(
     @Embedded val group: ConversationGroupEntity,
@@ -116,7 +116,7 @@ interface ConversationCollectionDao {
 
     @Transaction
     suspend fun removeGroup(id: String) {
-        require(id != LegacyConversationCollections.ALL_TAB_ID) { "The all-conversations group cannot be deleted" }
+        require(id != ALL_CONVERSATIONS_GROUP_ID) { "The all-conversations group cannot be deleted" }
         deleteGroupRow(id)
     }
 
@@ -158,13 +158,10 @@ interface ConversationCollectionDao {
         flags.forEach { (id, flag) -> putFolderPinFlag(id, flag) }
     }
 
+    /** The all-conversations group can't be deleted, so an empty table means it was never seeded. */
     @Transaction
-    suspend fun importGroups(groups: List<ConversationGroup>) {
-        groups.forEach { putGroup(it) }
-    }
-
-    @Transaction
-    suspend fun importFolders(folders: List<ConversationFolder>) {
-        folders.forEach { putFolder(it) }
+    suspend fun getGroupsOrSeed(defaults: List<ConversationGroup>): List<ConversationGroup> {
+        if (groupIds().isEmpty()) defaults.forEach { putGroup(it) }
+        return getGroups()
     }
 }

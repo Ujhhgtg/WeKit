@@ -36,7 +36,6 @@ import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
-import androidx.core.net.toUri
 import dev.ujhhgtg.reflekt.fields
 import dev.ujhhgtg.reflekt.firstField
 import dev.ujhhgtg.reflekt.firstMethod
@@ -74,14 +73,9 @@ import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.currentWxId
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Field
 import java.lang.reflect.Method
@@ -90,9 +84,6 @@ import java.util.Collections
 import java.util.Locale
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.io.path.div
-import kotlin.io.path.exists
-import kotlin.io.path.readText
 import kotlin.math.min
 
 object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IResolveDex {
@@ -109,9 +100,6 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
 
     private const val TAG = "CustomLocalFriendAvatars"
     private const val AVATAR_ASSET_OWNER = "custom-avatar"
-
-    /** Pre-unified storage location; reconciled into the asset catalog once per launch, never written. */
-    private val avatarMapFile by lazy { KnownPaths.moduleRoot / "custom_avatars_map.json" }
 
     private enum class AvatarScope(val key: String, @StringRes val titleRes: Int) {
         CHAT("chat", R.string.contacts_custom_avatar_scope_chat),
@@ -342,8 +330,6 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
             result = bitmap.copy(Bitmap.Config.ARGB_8888, false)
         }
         if (!TargetProcesses.isInMain) return
-
-        importLegacyAvatars()
 
         methodAddressLayout.hookAfter {
             // MvvmAddressUI's root and row holders are generic Views/obfuscated classes;
@@ -860,53 +846,6 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
             name = "setAdapter"
             parameters(SpinnerAdapter::class)
         }.self.makeAccessible()
-    }
-
-    /**
-     * Reconciles the pre-unified `custom_avatars_map.json` into the asset catalog. Only
-     * usernames without a binding are imported, so re-running is idempotent and covers entries
-     * added after [LegacyDocumentMigration]'s one-shot import. Entries whose URI is no longer
-     * readable are skipped until the user re-picks; the file itself is kept for rollback.
-     */
-    private fun importLegacyAvatars() {
-        CoroutineScope(Dispatchers.IO).launch {
-            val legacy = runCatching {
-                if (!avatarMapFile.exists()) return@launch
-                Json.decodeFromString<Map<String, String>>(avatarMapFile.readText())
-            }.getOrElse {
-                WeLogger.e(TAG, "failed to parse legacy custom avatar map", it)
-                return@launch
-            }
-
-            var imported = 0
-            legacy.forEach { (username, uri) ->
-                if (username.isBlank() || uri.isBlank()) return@forEach
-                if (username in avatarUsernames) return@forEach
-                val bytes = runCatching {
-                    HostInfo.application.contentResolver.openInputStream(uri.toUri())?.use { it.readBytes() }
-                }.getOrNull()
-                if (bytes == null || bytes.isEmpty()) {
-                    WeLogger.w(TAG, "legacy avatar uri no longer readable, skipping: $username")
-                    return@forEach
-                }
-                val importedNow = AssetStore.importBinding(
-                    owner = AVATAR_ASSET_OWNER,
-                    slot = username,
-                    bytes = bytes,
-                    mimeType = HostInfo.application.contentResolver.getType(uri.toUri())
-                        ?: "application/octet-stream",
-                    metadataJson = DefaultJson.encodeToString(mapOf("uri" to uri)),
-                )
-                if (importedNow) imported++
-            }
-            if (imported > 0) {
-                synchronized(this@CustomLocalFriendAvatars) {
-                    avatarRevision += 1L
-                    avatarUsernamesCache = null
-                    clearBitmapCaches()
-                }
-            }
-        }
     }
 
     private fun loadContacts(): List<IWeContact> {

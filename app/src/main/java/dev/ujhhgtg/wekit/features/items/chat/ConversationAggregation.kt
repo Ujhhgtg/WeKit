@@ -72,7 +72,6 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.data.structured.ConversationFolder as ChatFolder
 import dev.ujhhgtg.wekit.data.structured.ConversationFolderType as FolderType
-import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import kotlinx.coroutines.runBlocking
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -298,10 +297,6 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     override fun onClick(context: ComponentActivity) {
-        if (!JsonDataMigration.isCompleted("chat", "folders")) {
-            showToast(context, context.localizedChatString(R.string.structured_storage_unavailable))
-            return
-        }
         showManagerDialog(context)
     }
 
@@ -2088,7 +2083,6 @@ object ConversationAggregation : ClickableFeature(),
     private fun loadFolders(): List<ChatFolder> {
         foldersCache?.let { return it }
         return runBlocking(Dispatchers.IO) {
-            JsonDataMigration.requireCompleted("chat", "folders")
             WeKitDatabase.instance.conversationCollectionDao().getFolders()
         }.also { foldersCache = it }
     }

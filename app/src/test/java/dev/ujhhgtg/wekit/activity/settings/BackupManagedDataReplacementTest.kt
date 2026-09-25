@@ -4,7 +4,6 @@ import java.io.File
 import java.nio.file.Path
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -17,7 +16,6 @@ class BackupManagedDataReplacementTest {
     private val staging get() = temp.resolve("staging").toFile()
     private val oldRoot get() = temp.resolve("old").toFile()
     private val database get() = File(root, "wekit.db")
-    private val marker get() = File(root, BackupManagedDataReplacement.MARKER_NAME)
 
     private fun write(file: File, text: String): File = file.apply {
         parentFile!!.mkdirs()
@@ -28,7 +26,6 @@ class BackupManagedDataReplacementTest {
         write(database, "old database")
         write(File(root, "wekit.db-wal"), "old wal")
         write(File(root, "wekit.db-shm"), "old shm")
-        write(marker, "old marker")
         write(File(staging, "wekit.sqlite"), "new database")
         write(File(root, "first/item"), "old first")
         write(File(root, "second/item"), "old second")
@@ -37,9 +34,8 @@ class BackupManagedDataReplacementTest {
     }
 
     @Test
-    fun `successful replacement renews provenance marker and retains originals until caller cleans up`() {
+    fun `successful replacement retains originals until caller cleans up`() {
         prepare()
-        write(File(staging, BackupManagedDataReplacement.MARKER_NAME), "archive marker must not be used")
         BackupManagedDataReplacement.replace(root, staging, oldRoot, database,
             managedDirectories = listOf("first", "second"), managedFiles = emptyList())
         assertEquals("new database", database.readText())
@@ -50,9 +46,6 @@ class BackupManagedDataReplacementTest {
         assertTrue(File(root, "second").isDirectory)
         assertTrue(File(root, "second").list()!!.isEmpty())
         assertEquals("untouched", File(root, "untouched/item").readText())
-        assertNotEquals("old marker", marker.readText())
-        assertNotEquals("archive marker must not be used", marker.readText())
-        assertEquals("old marker", File(oldRoot, BackupManagedDataReplacement.MARKER_NAME).readText())
     }
 
     @Test
@@ -69,7 +62,7 @@ class BackupManagedDataReplacementTest {
     }
 
     @Test
-    fun `midway directory failure restores completed moves database sidecars and old marker`() {
+    fun `midway directory failure restores completed moves and database sidecars`() {
         prepare()
         write(File(staging, "second"), "wrong type for directory")
         assertThrows(IllegalStateException::class.java) {
@@ -114,7 +107,6 @@ class BackupManagedDataReplacementTest {
         assertTrue(failure.originalFailure is IllegalStateException)
         assertEquals("old database", File(oldRoot, "wekit.db").readText())
         assertEquals("new database", database.readText())
-        assertEquals("old marker", marker.readText())
         assertEquals("old first", File(root, "first/item").readText())
         assertEquals("old second", File(root, "second/item").readText())
         assertEquals("untouched", File(root, "untouched/item").readText())
@@ -124,7 +116,6 @@ class BackupManagedDataReplacementTest {
         assertEquals("old database", database.readText())
         assertEquals("old wal", File(root, "wekit.db-wal").readText())
         assertEquals("old shm", File(root, "wekit.db-shm").readText())
-        assertEquals("old marker", marker.readText())
         assertEquals("old first", File(root, "first/item").readText())
         assertEquals("old second", File(root, "second/item").readText())
         assertEquals("untouched", File(root, "untouched/item").readText())

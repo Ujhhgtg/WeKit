@@ -22,7 +22,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -129,11 +128,7 @@ object ReadReceipts : ClickableFeature(),
             val serialized = serializedConfiguration
             val persisted = serialized.takeIf(String::isNotBlank)
                 ?.let(ReadReceiptsConfigurationCodec::decode)
-            val value = when {
-                persisted != null -> persisted
-                serialized.isBlank() -> migrateLegacyConfiguration()
-                else -> ReadReceiptsConfiguration()
-            }
+            val value = persisted ?: ReadReceiptsConfiguration()
             if (persisted == null) {
                 serializedConfiguration = ReadReceiptsConfigurationCodec.encode(value)
             }
@@ -149,16 +144,6 @@ object ReadReceipts : ClickableFeature(),
             serializedConfiguration = encoded
             loadedConfiguration = canonical
         }
-    }
-
-    private fun migrateLegacyConfiguration(): ReadReceiptsConfiguration {
-        return ReadReceiptsConfiguration(
-            thirdPartyUrl = normalizeThirdPartyReadReceiptEndpoint(
-                KvStore.getStringOrDef("read_receipts_third_party_url", ""),
-            ) ?: "",
-            pollIntervalSecs = KvStore.getIntOrDef("read_receipts_poll_interval", 5)
-                .takeIf { it > 0 } ?: 5,
-        )
     }
 
     // ── HTTP ────────────────────────────────────────────────────────────────

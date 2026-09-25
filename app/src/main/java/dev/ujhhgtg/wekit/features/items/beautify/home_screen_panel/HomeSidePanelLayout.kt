@@ -246,29 +246,14 @@ object HomeSidePanelLayoutCodec {
 
     fun load(
         raw: String,
-        legacy: LegacyHomeSidePanelSnapshot,
         idGenerator: HomeSidePanelIdGenerator,
     ): HomeSidePanelLayoutLoad = try {
         HomeSidePanelLayoutLoad.Stored(decode(raw))
     } catch (error: Exception) {
         HomeSidePanelLayoutLoad.Fallback(
-            layout = defaultHomeSidePanelLayout(legacy, idGenerator),
+            layout = defaultHomeSidePanelLayout(idGenerator),
             invalidRaw = raw,
             reason = error.message ?: error::class.simpleName.orEmpty(),
-        )
-    }
-}
-
-data class LegacyHomeSidePanelSnapshot(
-    val weatherCity: WeatherCity,
-    val hideWalletBalance: Boolean,
-    val hitokotoSettings: HitokotoSettings,
-) {
-    companion object {
-        fun defaults() = LegacyHomeSidePanelSnapshot(
-            DEFAULT_WEATHER_CITY,
-            false,
-            HitokotoSettings(),
         )
     }
 }
@@ -277,7 +262,6 @@ sealed interface HomeSidePanelLayoutLoad {
     val layout: HomeSidePanelLayout
 
     data class Stored(override val layout: HomeSidePanelLayout) : HomeSidePanelLayoutLoad
-    data class Migrated(override val layout: HomeSidePanelLayout) : HomeSidePanelLayoutLoad
     data class Fallback(
         override val layout: HomeSidePanelLayout,
         val invalidRaw: String,
@@ -286,13 +270,12 @@ sealed interface HomeSidePanelLayoutLoad {
 }
 
 fun defaultHomeSidePanelLayout(
-    legacy: LegacyHomeSidePanelSnapshot,
     idGenerator: HomeSidePanelIdGenerator = UuidHomeSidePanelIdGenerator,
 ): HomeSidePanelLayout = HomeSidePanelLayout(
     cards = listOf(
         DateTimeCardConfig(idGenerator.nextId()),
-        WeatherCardConfig(idGenerator.nextId(), legacy.weatherCity),
-        WalletCardConfig(idGenerator.nextId(), legacy.hideWalletBalance),
+        WeatherCardConfig(idGenerator.nextId(), DEFAULT_WEATHER_CITY),
+        WalletCardConfig(idGenerator.nextId(), false),
         VerticalActionsCardConfig(
             idGenerator.nextId(),
             listOf(
@@ -303,6 +286,6 @@ fun defaultHomeSidePanelLayout(
                 HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.WEKIT_SETTINGS),
             ),
         ),
-        HitokotoCardConfig(idGenerator.nextId(), legacy.hitokotoSettings),
+        HitokotoCardConfig(idGenerator.nextId(), HitokotoSettings()),
     ),
 )
