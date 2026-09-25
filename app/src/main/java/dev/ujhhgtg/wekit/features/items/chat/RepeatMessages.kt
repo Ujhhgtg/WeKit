@@ -1,8 +1,8 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
-import dev.ujhhgtg.wekit.R
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Exposure_plus_1
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -25,7 +25,7 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_repeat_messages_description
 
-    private val TAG = RepeatMessages::class.java.simpleName
+    private const val TAG = "RepeatMessages"
 
     override fun onEnable() {
         WeChatMessageContextMenuApi.addProvider(this)
@@ -42,6 +42,7 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
         MessageType.APP,
         MessageType.IMAGE,
         MessageType.VOICE,
+        MessageType.VIDEO,
         MessageType.MICRO_VIDEO,
         MessageType.STICKER,
         MessageType.SO_GOU_EMOJI
