@@ -51,6 +51,10 @@ android {
         buildConfigField("long", "BUILD_TIMESTAMP", "${System.currentTimeMillis()}L")
     }
 
+    lint {
+        checkReleaseBuilds = false
+    }
+
     splits {
         abi {
             isEnable = false
