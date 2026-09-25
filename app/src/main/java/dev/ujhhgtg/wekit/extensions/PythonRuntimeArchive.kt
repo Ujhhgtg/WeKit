@@ -79,14 +79,14 @@ object PythonRuntimeArchive {
                 val match = dexName.matchEntire(entry.name)
                 if (match == null) {
                     require(!entry.name.startsWith("classes") || !entry.name.endsWith(".dex")) {
-                        "Invalid runtime DEX name: ${entry.name}"
+                        "Invalid runtime Dex name: ${entry.name}"
                     }
                     return@mapNotNull null
                 }
                 val index = match.groupValues[1].ifBlank { "1" }.toInt()
                 index to entry.name
             }.sortedBy { it.first }
-            require(dexEntries.isNotEmpty()) { "Python runtime APK contains no DEX" }
+            require(dexEntries.isNotEmpty()) { "Python runtime APK contains no Dex" }
             dexEntries.forEachIndexed { index, (number, _) ->
                 require(number == index + 1) { "Python runtime APK has a gap before classes${index + 1}.dex" }
             }
@@ -94,7 +94,7 @@ object PythonRuntimeArchive {
                 zip.getInputStream(zip.getEntry(name)).use { input ->
                     String(input.readBytes(), StandardCharsets.ISO_8859_1).contains(ENTRYPOINT_DESCRIPTOR)
                 }
-            }) { "Python runtime entrypoint is missing from DEX" }
+            }) { "Python runtime entrypoint is missing from Dex" }
 
             val allNativeEntries = entries.filter { !it.isDirectory && it.name.startsWith("lib/") }
             require(allNativeEntries.all { it.name.startsWith(NATIVE_PREFIX) }) {

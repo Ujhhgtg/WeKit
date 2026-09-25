@@ -175,3 +175,17 @@ data class DexCacheDescriptorEntity(
     val descriptorKey: String,
     val descriptorValue: String,
 )
+
+/** A failed resolution for one resolver hash; the item is not resolved again until it changes. */
+@Entity(
+    tableName = "dex_cache_failures",
+    primaryKeys = ["hostVersion", "technicalId"],
+    indices = [Index("hostVersion")],
+)
+data class DexCacheFailureEntity(
+    val hostVersion: String,
+    val technicalId: String,
+    val methodHash: String,
+    val message: String,
+    val timestamp: Long,
+)

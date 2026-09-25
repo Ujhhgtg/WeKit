@@ -7,6 +7,8 @@ import androidx.annotation.StringRes
 import dev.ujhhgtg.reflekt.reflected.BaseReflectedMethod
 import dev.ujhhgtg.reflekt.reflected.ReflectedConstructor
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.cache.DexItemState
 import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.DexConstructorDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.DexMethodDelegate
@@ -44,6 +46,20 @@ abstract class BaseFeature {
 
     fun localizedDescription(context: Context): String =
         descriptionRes?.let(context::getString).orEmpty()
+
+    /**
+     * Restrictions this feature declares itself (e.g. an unsupported host build), as string
+     * resources. Evaluated on every read; each one becomes a [FeatureError.Declared].
+     */
+    open val declaredErrors: List<Int>
+        get() = emptyList()
+
+    /** Persisted Dex state for the current host; set by [FeaturesLoader]. Always valid for non-Dex features. */
+    var dexState: DexItemState = if (this is IResolveDex) DexItemState.NeedsResolution else DexItemState.Valid
+
+    /** Every reason this feature must not start or be enabled; empty when it may. */
+    val errors: List<FeatureError>
+        get() = FeatureError.of(this)
 
     open fun startup() {
         error("You shouldn't inherit BaseFeature")

@@ -1,19 +1,11 @@
 package dev.ujhhgtg.wekit.features.items.system
 
-import android.content.Context
-import androidx.compose.material3.Text
-import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.i18n.HostLocalizedStrings
-import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
-import dev.ujhhgtg.wekit.utils.android.showToast
 
 object PreventXposedDetection : SwitchFeature(), IResolveDex {
 
@@ -32,33 +24,14 @@ object PreventXposedDetection : SwitchFeature(), IResolveDex {
         }
     }
 
-    override fun onEnable() {
-        if (HostInfo.isHostGooglePlay) {
-            showToast(HostLocalizedStrings.get(R.string.system_prevent_xposed_google_play_warning))
-            applyToggle(false)
-            return
-        }
+    override val declaredErrors
+        get() = if (HostInfo.isHostGooglePlay) listOf(R.string.feature_error_google_play_unsupported) else emptyList()
 
+    override fun onEnable() {
         if (methodCheckStackTraceElements.isPlaceholder) return
 
         methodCheckStackTraceElements.hookBefore {
             result = false
         }
-    }
-
-    override fun onBeforeToggle(newState: Boolean, context: Context): Boolean {
-        if (newState && HostInfo.isHostGooglePlay) {
-            showComposeDialog(context) {
-                AlertDialogContent(
-                    title = { Text(stringResource(R.string.feature_prevent_xposed_detection_name)) },
-                    text = {
-                        Text(stringResource(R.string.system_prevent_xposed_google_play_warning))
-                    },
-                    confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } })
-            }
-            return false
-        }
-
-        return true
     }
 }

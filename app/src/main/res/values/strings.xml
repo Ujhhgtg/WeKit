@@ -99,25 +99,24 @@
     <string name="dex_cache_status_resolving">Resolving…</string>
     <string name="dex_cache_status_completed">Completed: %1$s</string>
     <string name="dex_cache_status_failed">Failed: %1$s</string>
-    <string name="dex_cache_resolution_error">An error occurred during resolution: %1$s</string>
-    <string name="dex_cache_update_title">DEX cache update</string>
-    <plurals name="dex_cache_update_required_message">
-        <item quantity="one">%1$d feature needs its DEX cache updated. Resolve it from the cloud or on this device. If you close this dialog, that feature will not be loaded.</item>
-        <item quantity="other">%1$d features need their DEX caches updated. Resolve them from the cloud or on this device. If you close this dialog, those features will not be loaded.</item>
-    </plurals>
-    <string name="dex_cache_resolution_success">Resolution complete. All DEX caches were updated successfully.</string>
-    <plurals name="dex_cache_resolution_partial_failure">
-        <item quantity="one">Resolution complete, but %1$d feature failed. Other features are unaffected.</item>
-        <item quantity="other">Resolution complete, but %1$d features failed. Other features are unaffected.</item>
-    </plurals>
+    <string name="dex_cache_update_title">Dex cache update</string>
     <string name="dex_cache_cloud_downloading">Downloading and validating the cloud resolution report…</string>
-    <string name="dex_cache_cloud_complete">Cloud resolution complete. Restart WeChat to load the resolved features.</string>
     <string name="dex_cache_total_progress">Total progress: %1$d/%2$d</string>
     <string name="dex_cache_start_local_resolution">Start resolution</string>
-    <string name="dex_cache_failure_detail">%1$d. %2$s\n   Error: %3$s\n\n</string>
-    <string name="dex_cache_copy_error_information">Copy error information</string>
-    <string name="dex_error_report_title">=== WeKit DEX Scan Error Report ===</string>
+    <string name="dex_error_report_title">=== WeKit Dex Scan Error Report ===</string>
     <string name="dex_error_report_entry">%1$d. %2$s\n   Error: %3$s\n   Stack trace:\n%4$s\n\n</string>
+    <plurals name="dex_cache_rerun_message">
+        <item quantity="one">All Dex caches will be cleared and %1$d feature will be resolved again. WeChat restarts automatically when finished.</item>
+        <item quantity="other">All Dex caches will be cleared and %1$d features will be resolved again. WeChat restarts automatically when finished.</item>
+    </plurals>
+    <string name="dex_cache_batch_failure_subject">All remaining features</string>
+    <string name="dex_cache_error_report_copied">Resolution errors were copied to the clipboard</string>
+    <string name="feature_error_dex_incomplete">Error: Feature Dex resolution is incomplete</string>
+    <string name="feature_error_dex_failed">Error: Feature Dex resolution failed</string>
+    <string name="feature_error_dependency_dex_incomplete">Error: Dex resolution of dependency “%1$s” is incomplete</string>
+    <string name="feature_error_dependency_dex_failed">Error: Dex resolution of dependency “%1$s” failed</string>
+    <string name="feature_error_google_play_unsupported">Error: Feature is unavailable on the Google Play version of WeChat</string>
+    <string name="feature_error_host_version_unsupported">Error: Feature does not support the current WeChat version</string>
     <string name="location_picker_instruction">Tap the map or the coordinates below to choose a virtual location.</string>
     <string name="location_picker_title">Choose location on map</string>
     <string name="location_latitude">Latitude</string>
@@ -289,13 +288,8 @@
     <string name="settings_startup_toast_summary">Show a toast after all features finish loading</string>
     <string name="settings_generic_wxid_title">Allow nonstandard IDs when removing WeChat ID prefixes from messages</string>
     <string name="settings_generic_wxid_summary">Allow IDs without the wxid_ prefix. This may accidentally modify original message content (experimental).</string>
-    <string name="settings_section_compatibility">Compatibility</string>
-    <string name="settings_disable_resolution_title">Disable DEX resolution</string>
-    <string name="settings_disable_resolution_summary">Do not show the DEX resolution dialog; unresolved features will not be loaded</string>
-    <string name="settings_reset_resolution_title">Reset resolution cache</string>
-    <string name="settings_reset_resolution_summary">Clear the DEX cache and resolve again on the next startup</string>
-    <string name="settings_hot_update_resolution_title">Resolve again after host hot updates</string>
-    <string name="settings_hot_update_resolution_summary">Reset the DEX cache after host hot updates. This may cause frequent resolution (experimental).</string>
+    <string name="settings_rerun_dex_resolution_title">Re-run Dex resolution</string>
+    <string name="settings_rerun_dex_resolution_summary">Clear all Dex caches, resolve every feature again, then restart WeChat</string>
     <string name="settings_section_configuration">Configuration</string>
     <string name="settings_export_config_title">Export full backup</string>
     <string name="settings_export_config_summary">Export the Room database, scripts and Python data</string>
@@ -312,7 +306,7 @@
     <string name="settings_extensions_summary">Manage downloadable extension packs</string>
     <string name="extensions_screen_title">Extension packs</string>
     <string name="extensions_pack_script_deps_name">Java script dependencies</string>
-    <string name="extensions_pack_script_deps_desc">Unobfuscated fastjson2 and okhttp DEX for the Java script engine</string>
+    <string name="extensions_pack_script_deps_desc">Unobfuscated fastjson2 and okhttp Dex for the Java script engine</string>
     <string name="extensions_pack_python_runtime_name">Python Runtime</string>
     <string name="extensions_pack_python_runtime_desc">CPython and Chaquopy runtime for Python plugins</string>
     <string name="extensions_pack_python_restart_required">Update installed; restart WeChat to use it</string>
@@ -733,8 +727,6 @@
     <string name="feature_profile_memory_description">Analyze WeChat memory usage composition</string>
     <string name="feature_redirect_host_logs_name">Redirect WeChat logs</string>
     <string name="feature_redirect_host_logs_description">Print WeChat internal logs to module logs</string>
-    <string name="feature_reset_dex_cache_name">Reset resolution cache</string>
-    <string name="feature_reset_dex_cache_description">Clear all DEX resolution caches and resolve again on the next startup</string>
     <string name="feature_send_packet_name">Packet debugging</string>
     <string name="feature_send_packet_description">Send custom data packets to WeChat server</string>
     <string name="feature_trigger_crash_name">Trigger test crash</string>
@@ -819,7 +811,6 @@
     <string name="feature_remove_official_account_ads_description">Clear the advertising content in the Official Account information flow\n(subscription account information flow/recommendation flow/advertising placement on the aggregation page)</string>
     <string name="feature_use_legacy_official_accounts_view_name">Restore legacy Official Account list</string>
     <string name="feature_use_legacy_official_accounts_view_description">!!! Only applicable to the old version of WeChat !!!\nThe new version has removed the old UI in the code, and this function can no longer be used.</string>
-    <string name="official_accounts_legacy_ui_missing">The legacy Official Account UI (NewBizConversationUI) does not exist in this WeChat version, so this feature is unavailable.</string>
     <string name="feature_use_multi_web_view_for_official_accounts_name">Open multiple Official Account pages</string>
     <string name="feature_use_multi_web_view_for_official_accounts_description">Enable multitasking for preloading web pages for official account timelines</string>
     <string name="feature_allow_private_chat_receive_outgoing_red_packets_name">Open your own private-chat red packets</string>
@@ -3253,10 +3244,6 @@
     <string name="debug_native_crash_detected">Native crash detected</string>
     <string name="debug_native_crash_preparing_report">Preparing crash report…</string>
     <string name="debug_redirect_host_logs_title">Redirect WeChat logs</string>
-    <string name="debug_reset_dex_cache_clearing">Clearing resolution cache…</string>
-    <string name="debug_reset_dex_cache_confirmation">Clear the entire DEX resolution cache?</string>
-    <string name="debug_reset_dex_cache_success">Resolution cache cleared</string>
-    <string name="debug_reset_dex_cache_title">Reset resolution cache</string>
     <string name="debug_trigger_crash_category_java">Java-layer crash</string>
     <string name="debug_trigger_crash_category_native">Native-layer crash</string>
     <string name="debug_trigger_crash_select_category">Select crash category</string>
@@ -3365,7 +3352,6 @@
     <string name="system_link_wechat_summary">Open links inside WeChat</string>
     <string name="system_loading">Loading…</string>
     <string name="system_none">None</string>
-    <string name="system_prevent_xposed_google_play_warning">This feature is unavailable in the Google Play build of WeChat.</string>
     <string name="system_risky_feature_warning">This feature may cause account risk. Continue only if you understand the consequences.</string>
     <string name="system_sports_active_value">Active upload step count</string>
     <string name="system_sports_passive_value">Passive upload step expression</string>

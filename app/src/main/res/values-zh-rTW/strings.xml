@@ -84,23 +84,23 @@
     <string name="dex_cache_status_resolving">正在解析…</string>
     <string name="dex_cache_status_completed">已完成: %1$s</string>
     <string name="dex_cache_status_failed">失敗: %1$s</string>
-    <string name="dex_cache_resolution_error">解析過程中發生錯誤: %1$s</string>
-    <string name="dex_cache_update_title">DEX 緩存更新</string>
-    <plurals name="dex_cache_update_required_message">
-        <item quantity="other">檢測到 %1$d 個功能需要更新 DEX 緩存，可從雲端解析或在本機解析。若直接關閉對話框，相關功能將不會被加載</item>
-    </plurals>
-    <string name="dex_cache_resolution_success">解析完成！所有功能已成功更新 DEX 緩存</string>
-    <plurals name="dex_cache_resolution_partial_failure">
-        <item quantity="other">解析完成，但有 %1$d 個功能失敗（不影響其他功能使用）</item>
-    </plurals>
+    <string name="dex_cache_update_title">Dex 緩存更新</string>
     <string name="dex_cache_cloud_downloading">正在下載並校驗雲端解析報告…</string>
-    <string name="dex_cache_cloud_complete">雲端解析完成，請重啓微信以加載已解析的功能</string>
     <string name="dex_cache_total_progress">總進度: %1$d/%2$d</string>
     <string name="dex_cache_start_local_resolution">開始解析</string>
-    <string name="dex_cache_failure_detail">%1$d. %2$s\n   錯誤: %3$s\n\n</string>
-    <string name="dex_cache_copy_error_information">複製錯誤信息</string>
-    <string name="dex_error_report_title">=== WeKit DEX 掃描錯誤報告 ===</string>
+    <string name="dex_error_report_title">=== WeKit Dex 掃描錯誤報告 ===</string>
     <string name="dex_error_report_entry">%1$d. %2$s\n   錯誤信息: %3$s\n   堆棧跟蹤:\n%4$s\n\n</string>
+    <plurals name="dex_cache_rerun_message">
+        <item quantity="other">開始後將清除全部 Dex 緩存，並重新解析 %1$d 個功能。完成後將自動重啟微信</item>
+    </plurals>
+    <string name="dex_cache_batch_failure_subject">所有剩餘功能</string>
+    <string name="dex_cache_error_report_copied">解析錯誤詳情已複製到剪貼簿</string>
+    <string name="feature_error_dex_incomplete">錯誤：功能 Dex 解析未完成</string>
+    <string name="feature_error_dex_failed">錯誤：功能 Dex 解析失敗</string>
+    <string name="feature_error_dependency_dex_incomplete">錯誤：依賴功能「%1$s」Dex 解析未完成</string>
+    <string name="feature_error_dependency_dex_failed">錯誤：依賴功能「%1$s」Dex 解析失敗</string>
+    <string name="feature_error_google_play_unsupported">錯誤：功能在 Google Play 版微信上不可用</string>
+    <string name="feature_error_host_version_unsupported">錯誤：功能不支援當前版本微信</string>
     <string name="location_picker_instruction">點擊地圖或下方座標以選擇虛擬位置</string>
     <string name="location_picker_title">地圖選點</string>
     <string name="location_latitude">緯度</string>
@@ -257,13 +257,8 @@
     <string name="settings_startup_toast_summary">全部功能加載完成後顯示 Toast 提示</string>
     <string name="settings_generic_wxid_title">清理消息內容微信 ID 前綴時允許非標準 ID</string>
     <string name="settings_generic_wxid_summary">允許處理不帶 wxid_ 前綴的微信 ID，可能導致誤傷消息原始內容（實驗性）</string>
-    <string name="settings_section_compatibility">兼容</string>
-    <string name="settings_disable_resolution_title">禁用 DEX 解析</string>
-    <string name="settings_disable_resolution_summary">不彈出 DEX 解析對話框，未解析功能將不會被加載</string>
-    <string name="settings_reset_resolution_title">重置解析緩存</string>
-    <string name="settings_reset_resolution_summary">清除 DEX 緩存，等待下次啓動時重新解析</string>
-    <string name="settings_hot_update_resolution_title">宿主熱更新時重新解析</string>
-    <string name="settings_hot_update_resolution_summary">宿主熱更新時是否重置 DEX 緩存，可能導致頻繁重新解析（實驗性）</string>
+    <string name="settings_rerun_dex_resolution_title">重新執行 Dex 解析</string>
+    <string name="settings_rerun_dex_resolution_summary">清除全部 Dex 緩存並重新解析所有功能，完成後重啟微信</string>
     <string name="settings_section_configuration">配置</string>
     <string name="settings_export_config_title">導出完整備份</string>
     <string name="settings_export_config_summary">導出 Room 資料庫、腳本檔案和 Python 資料</string>
@@ -280,7 +275,7 @@
     <string name="settings_extensions_summary">管理可下載的擴展包</string>
     <string name="extensions_screen_title">擴展包</string>
     <string name="extensions_pack_script_deps_name">Java 腳本依賴</string>
-    <string name="extensions_pack_script_deps_desc">供 Java 腳本引擎使用的未混淆 fastjson2 與 okhttp DEX</string>
+    <string name="extensions_pack_script_deps_desc">供 Java 腳本引擎使用的未混淆 fastjson2 與 okhttp Dex</string>
     <string name="extensions_pack_python_runtime_name">Python 執行環境</string>
     <string name="extensions_pack_python_runtime_desc">Python 外掛使用的 CPython 與 Chaquopy 執行環境</string>
     <string name="extensions_pack_python_restart_required">更新已安裝；重新啟動微信後使用</string>
@@ -694,8 +689,6 @@
     <string name="feature_profile_memory_description">分析微信內存佔用組成</string>
     <string name="feature_redirect_host_logs_name">重定向微信日誌</string>
     <string name="feature_redirect_host_logs_description">將微信內部日誌打印至模塊日誌</string>
-    <string name="feature_reset_dex_cache_name">重置解析緩存</string>
-    <string name="feature_reset_dex_cache_description">清除全部 DEX 解析緩存，等待下次啓動時重新解析</string>
     <string name="feature_send_packet_name">發包調試</string>
     <string name="feature_send_packet_description">發送自定義數據包到微信服務器</string>
     <string name="feature_trigger_crash_name">測試崩潰</string>
@@ -780,7 +773,6 @@
     <string name="feature_remove_official_account_ads_description">清除公衆號信息流中的廣告內容\n（訂閱號信息流 / 推薦流 / 聚合頁的廣告投放位）</string>
     <string name="feature_use_legacy_official_accounts_view_name">恢復舊版公衆號列表</string>
     <string name="feature_use_legacy_official_accounts_view_description">!!! 僅適用於舊版本微信 !!!\n新版本已在代碼中移除舊 UI, 無法繼續使用本功能</string>
-    <string name="official_accounts_legacy_ui_missing">當前微信版本不存在舊版公衆號頁面 (NewBizConversationUI), 此功能不可用</string>
     <string name="feature_use_multi_web_view_for_official_accounts_name">允許公衆號網頁多開</string>
     <string name="feature_use_multi_web_view_for_official_accounts_description">爲公衆號時間線預加載網頁啓用多任務</string>
     <string name="feature_allow_private_chat_receive_outgoing_red_packets_name">允許領取私聊紅包</string>
@@ -3267,10 +3259,6 @@
     <string name="debug_native_crash_detected">檢測到 Native 崩潰</string>
     <string name="debug_native_crash_preparing_report">正在生成崩潰報告…</string>
     <string name="debug_redirect_host_logs_title">重定向微信日誌</string>
-    <string name="debug_reset_dex_cache_clearing">正在清除解析緩存…</string>
-    <string name="debug_reset_dex_cache_confirmation">確定清除全部 DEX 解析緩存嗎？</string>
-    <string name="debug_reset_dex_cache_success">解析緩存已清除</string>
-    <string name="debug_reset_dex_cache_title">重置解析緩存</string>
     <string name="debug_trigger_crash_category_java">Java 層崩潰</string>
     <string name="debug_trigger_crash_category_native">Native 層崩潰</string>
     <string name="debug_trigger_crash_select_category">選擇崩潰類別</string>
@@ -3378,7 +3366,6 @@
     <string name="system_link_wechat_summary">在微信內打開鏈接</string>
     <string name="system_loading">加載中…</string>
     <string name="system_none">無</string>
-    <string name="system_prevent_xposed_google_play_warning">微信 Google Play 版本無法使用此功能。</string>
     <string name="system_risky_feature_warning">此功能可能帶來賬號風險，請在瞭解後果的情況下繼續。</string>
     <string name="system_sports_active_value">主動上傳步數</string>
     <string name="system_sports_passive_value">被動上傳步數表達式</string>

@@ -1,30 +1,22 @@
 package dev.ujhhgtg.wekit.features.core
 
-import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
+import dev.ujhhgtg.wekit.dexkit.cache.DexItemState
 import dev.ujhhgtg.wekit.features.items.beautify.BeautifyConversationList
 import dev.ujhhgtg.wekit.features.items.chat.ConversationGrouping
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
-import dev.ujhhgtg.wekit.ui.content.DexResolver
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.ui.content.DexResolutionMode
+import dev.ujhhgtg.wekit.ui.content.DexResolutionPrompt
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.measureTime
 
 object FeaturesLoader {
@@ -53,28 +45,29 @@ object FeaturesLoader {
                     "skipping ${allFeatures.size - featuresToStart.size} feature(s)",
             )
         }
-        val allDexItems = featuresToStart.filterIsInstance<IResolveDex>()
 
-        val outdatedItems = DexCacheManager.getOutdatedItems(allDexItems)
-        val validItems = allDexItems - outdatedItems.toSet()
+        // States are loaded for every Dex feature so settings can show errors even for features
+        // that SafeMode keeps from starting; only features about to start can request resolution.
+        allFeatures.filterIsInstance<IResolveDex>().forEach(::loadDexState)
+        val needsResolution = featuresToStart
+            .filterIsInstance<IResolveDex>()
+            .filter { (it as BaseFeature).dexState == DexItemState.NeedsResolution }
 
-        if (outdatedItems.isNotEmpty())
-            WeLogger.i(TAG, "found ${validItems.size} valid items, ${outdatedItems.size} outdated items")
-
-        // Load what we can from cache. Items with *some* missing keys are still partially loaded —
-        // their valid delegates work immediately; only the item itself is queued for re-resolution.
-        val cacheFailedItems = loadDescriptorsFromCache(validItems)
-        val allBrokenItems = (outdatedItems + cacheFailedItems).distinct()
-
-        if (allBrokenItems.isNotEmpty())
-            handleBrokenItems(allBrokenItems)
+        if (needsResolution.isNotEmpty()) {
+            // Starting any feature now could run it against a missing dependency; the resolution
+            // dialog restarts WeChat once the caches are rebuilt, and every process starts clean.
+            WeLogger.i(TAG, "${needsResolution.size} item(s) need Dex resolution; not starting any feature")
+            if (TargetProcesses.isInMain) {
+                DexResolutionPrompt.showWhenLauncherReady(needsResolution, DexResolutionMode.Startup)
+            }
+            return
+        }
 
         val elapsed = measureTime {
             featuresToStart.forEach { feature ->
-                val isBroken = feature is IResolveDex && allBrokenItems.contains(feature)
-
-                if (isBroken) {
-                    WeLogger.w(TAG, "skipping ${feature.technicalId} — incomplete cache, awaiting re-resolution")
+                val errors = feature.errors
+                if (errors.isNotEmpty()) {
+                    WeLogger.w(TAG, "skipping ${feature.technicalPath}: $errors")
                     return@forEach
                 }
 
@@ -96,76 +89,26 @@ object FeaturesLoader {
     // ---------------------------------------------------------------------------
 
     /**
-     * 逐委托从缓存恢复状态。
-     *
-     * - 某个委托的 key 缺失 → 其他委托不受影响，仍正常加载。
-     * - 有任意 key 缺失的 item 加入返回列表，等待 DexKit 重新扫描。
-     * - 缓存文件整体读取失败 → 删除损坏文件，整个 item 加入返回列表。
+     * Reads the persisted state of [item] and, when valid, restores its delegates from the cache.
+     * A cache that cannot be restored is deleted, and the item needs resolution again.
      */
-    private fun loadDescriptorsFromCache(items: List<IResolveDex>): List<IResolveDex> {
-        val failedItems = mutableListOf<IResolveDex>()
-
-        for (item in items) {
-            val path = (item as BaseFeature).technicalPath
-            try {
-                val cache = DexCacheManager.loadItemCache(item)
-                if (cache == null) {
-                    WeLogger.w(TAG, "cache missing for $path")
-                    failedItems += item
-                    continue
-                }
-
-                // loadFromCache 逐委托加载；返回未命中的 key 集合
-                val missingKeys = item.loadFromCache(cache)
-                if (missingKeys.isNotEmpty()) {
-                    val total = item.dexDelegates.size
-                    val loaded = total - missingKeys.size
-                    WeLogger.w(TAG, "$path: loaded $loaded/$total delegates from cache, missing: $missingKeys")
-                    failedItems += item
-                    // 已命中的委托此时已经可用；hook 仍然跳过（见 loadFeatures），
-                    // 等 DexKit 把缺失的部分补齐、cache 更新后下次启动即完整。
-                }
+    private fun loadDexState(item: IResolveDex) {
+        val feature = item as BaseFeature
+        val path = feature.technicalPath
+        val state = DexCacheManager.stateOf(item)
+        feature.dexState = state
+        when (state) {
+            DexItemState.Valid -> try {
+                val missingKeys = item.loadFromCache(DexCacheManager.loadItemCache(item)!!)
+                check(missingKeys.isEmpty()) { "cache lost keys while loading: $missingKeys" }
             } catch (e: Exception) {
                 WeLogger.e(TAG, "cache load failed for $path", e)
-                runCatching { DexCacheManager.deleteCache((item as BaseFeature).technicalId) }
-                failedItems += item
-            }
-        }
-
-        return failedItems
-    }
-
-    private fun handleBrokenItems(brokenItems: List<IResolveDex>) {
-        if (Preferences.noDexResolve) return
-        if (!TargetProcesses.isInMain) return
-
-        WeLogger.i(TAG, "launching background coroutine to repair ${brokenItems.size} items")
-
-        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
-            var activity = LauncherUI.getInstance()
-            var waited = 0L
-            while (activity == null && waited < 30_000L) {
-                delay(1_000.milliseconds)
-                waited += 1_000
-                activity = LauncherUI.getInstance()
+                runCatching { DexCacheManager.deleteCache(feature.technicalId) }
+                feature.dexState = DexItemState.NeedsResolution
             }
 
-            if (activity == null) {
-                WeLogger.w(TAG, "no LauncherUI available for dex-repair dialog; skipping")
-                return@launch
-            }
-
-            val boundActivity = activity
-            withContext(Dispatchers.Main) {
-                showComposeDialog(boundActivity, directlyDismissable = false) {
-                    DexResolver(
-                        boundActivity,
-                        brokenItems,
-                        MainScope(),
-                        onDismiss
-                    )
-                }
-            }
+            DexItemState.NeedsResolution -> WeLogger.w(TAG, "$path needs Dex resolution")
+            is DexItemState.Failed -> WeLogger.w(TAG, "$path has a recorded Dex failure: ${state.message}")
         }
     }
 }

@@ -37,6 +37,10 @@ abstract class SwitchFeature : BaseFeature() {
         get() = _isEnabled
         set(value) {
             if (_isEnabled == value) return
+            if (value && errors.isNotEmpty()) {
+                WeLogger.w("SwitchFeature", "refusing to enable $technicalPath: $errors")
+                return
+            }
             _isEnabled = value
             if (value) {
                 WeLogger.i("SwitchFeature", "enabling $technicalPath...")
@@ -56,6 +60,10 @@ abstract class SwitchFeature : BaseFeature() {
     }
 
     fun applyToggle(newState: Boolean) {
+        if (newState && errors.isNotEmpty()) {
+            WeLogger.w("SwitchFeature", "refusing to enable $technicalPath: $errors")
+            return
+        }
         KvStore.putBool(technicalId, newState)
         isEnabled = newState
         toggleCompletionCallback?.run()

@@ -56,6 +56,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.BridgeToolAuditEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
 import dev.ujhhgtg.wekit.data.entity.DexCacheDescriptorEntity
 import dev.ujhhgtg.wekit.data.entity.DexCacheEntryEntity
+import dev.ujhhgtg.wekit.data.entity.DexCacheFailureEntity
 import dev.ujhhgtg.wekit.data.entity.DocumentEntity
 import dev.ujhhgtg.wekit.data.entity.ExtensionInstallEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ExternalServiceEntity
@@ -111,6 +112,7 @@ import java.io.File
         ManagedDataEntryEntity::class,
         DexCacheEntryEntity::class,
         DexCacheDescriptorEntity::class,
+        DexCacheFailureEntity::class,
         ConversationGroupEntity::class,
         ConversationGroupMemberEntity::class,
         ConversationFolderEntity::class,
@@ -127,7 +129,7 @@ import java.io.File
         MomentAutomationKeywordEntity::class,
         MomentAutomationContentTypeEntity::class,
     ],
-    version = 22,
+    version = 23,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 9, to = 10), // adds external_services table
@@ -165,7 +167,7 @@ abstract class WeKitDatabase : RoomDatabase() {
         private const val TAG = "WeKitDatabase"
 
         const val FILE_NAME = "wekit.db"
-        const val SCHEMA_VERSION = 22
+        const val SCHEMA_VERSION = 23
 
         /** Location of the unified database after the path migration has completed. */
         val file: File
@@ -349,6 +351,13 @@ abstract class WeKitDatabase : RoomDatabase() {
             "DROP TABLE structured_store_state",
         )
 
+        val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `dex_cache_failures` (`hostVersion` TEXT NOT NULL, `technicalId` TEXT NOT NULL, `methodHash` TEXT NOT NULL, `message` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, PRIMARY KEY(`hostVersion`, `technicalId`))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_dex_cache_failures_hostVersion` ON `dex_cache_failures` (`hostVersion`)")
+            }
+        }
+
         val migration17To18Sql = listOf(
             "CREATE TABLE IF NOT EXISTS `preference_entries` (`namespace` TEXT NOT NULL, `key` TEXT NOT NULL, `valueType` TEXT NOT NULL, `valueText` TEXT, `valueLong` INTEGER, `valueDouble` REAL, `valueBlob` BLOB, `encodingVersion` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `exportable` INTEGER NOT NULL, PRIMARY KEY(`namespace`, `key`))",
             "CREATE INDEX IF NOT EXISTS `index_preference_entries_namespace` ON `preference_entries` (`namespace`)",
@@ -465,7 +474,7 @@ abstract class WeKitDatabase : RoomDatabase() {
             dbFile.toString()
         )
             .setJournalMode(journalMode)
-            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
+            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
             // Destructive fallback is scoped to the pre-release schemas (1–8) only, which no
             // migration path was ever written for. From 9 onwards every step must have a
             // migration: a missing one then fails loudly at open time instead of silently

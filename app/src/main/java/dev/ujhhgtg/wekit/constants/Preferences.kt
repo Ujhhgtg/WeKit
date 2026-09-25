@@ -5,9 +5,7 @@ import dev.ujhhgtg.wekit.data.KvStore.prefOption
 object Preferences {
 
     const val VERBOSE_LOG = "verbose_log"
-    const val NO_DEX_RESOLVE = "no_dex_resolve"
     const val SHOW_STARTUP_TOAST = "toast_startup"
-    const val RESET_DEX_ON_HOT_UPDATE = "reset_dex_on_hot_upd"
     const val MATCH_GENERIC_WXID_EXP = "match_generic_wxid"
     const val UI_LANGUAGE = "ui_language"
 
@@ -24,9 +22,7 @@ object Preferences {
     const val PYTHON_EDITOR_SOFT_WRAP = "python_editor_soft_wrap"
 
     var verboseLog by prefOption(VERBOSE_LOG, false)
-    var noDexResolve by prefOption(NO_DEX_RESOLVE, false)
     var showStartupToast by prefOption(SHOW_STARTUP_TOAST, false)
-    var resetDexCacheOnHotUpdate by prefOption(RESET_DEX_ON_HOT_UPDATE, false)
 
     // ALWAYS check whether sender is group chat!!!
     var matchGenericWxIdExp by prefOption(MATCH_GENERIC_WXID_EXP, true)

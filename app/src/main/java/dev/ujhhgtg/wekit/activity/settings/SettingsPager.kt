@@ -4,8 +4,8 @@ package dev.ujhhgtg.wekit.activity.settings
 import android.content.Context
 import android.content.Intent
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,8 +64,6 @@ import androidx.lifecycle.lifecycleScope
 import coil3.compose.AsyncImage
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Account_circle
-import com.composables.icons.materialsymbols.outlined.Auto_delete
-import com.composables.icons.materialsymbols.outlined.Block
 import com.composables.icons.materialsymbols.outlined.Brightness_medium
 import com.composables.icons.materialsymbols.outlined.Build_circle
 import com.composables.icons.materialsymbols.outlined.Chevron_right
@@ -86,7 +84,6 @@ import com.composables.icons.materialsymbols.outlined.Search
 import com.composables.icons.materialsymbols.outlined.Shield
 import com.composables.icons.materialsymbols.outlined.Style
 import com.composables.icons.materialsymbols.outlined.Swipe
-import com.composables.icons.materialsymbols.outlined.Sync
 import com.composables.icons.materialsymbols.outlined.Update
 import com.composables.icons.materialsymbols.outlined.Upload
 import com.composables.icons.materialsymbols.outlined.Volunteer_activism
@@ -102,14 +99,17 @@ import com.mikepenz.aboutlibraries.ui.compose.variant.LibraryRow
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.Preferences
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.features.api.core.WeApi
-import dev.ujhhgtg.wekit.features.items.debug.ResetDexCache
+import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.i18n.LanguageSelection
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.i18n.SupportedLocale
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
-import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.ui.content.DexResolutionMode
+import dev.ujhhgtg.wekit.ui.content.DexResolutionPrompt
 import dev.ujhhgtg.wekit.ui.content.WeColorPickerDialog
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -208,34 +208,18 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         default = true,
                     )
                 }
-            }
-        }
-
-        // 兼容
-        item {
-            SegmentedColumn(title = stringResource(R.string.settings_section_compatibility)) {
-                item {
-                    PrefSwitch(
-                        key = Preferences.NO_DEX_RESOLVE,
-                        title = stringResource(R.string.settings_disable_resolution_title),
-                        summary = stringResource(R.string.settings_disable_resolution_summary),
-                        icon = MaterialSymbols.Outlined.Block,
-                    )
-                }
                 item {
                     PrefArrow(
-                        title = stringResource(R.string.settings_reset_resolution_title),
-                        summary = stringResource(R.string.settings_reset_resolution_summary),
+                        title = stringResource(R.string.settings_rerun_dex_resolution_title),
+                        summary = stringResource(R.string.settings_rerun_dex_resolution_summary),
                         icon = MaterialSymbols.Outlined.Build_circle,
-                        onClick = { ResetDexCache.onClick(context) },
-                    )
-                }
-                item {
-                    PrefSwitch(
-                        key = Preferences.RESET_DEX_ON_HOT_UPDATE,
-                        title = stringResource(R.string.settings_hot_update_resolution_title),
-                        summary = stringResource(R.string.settings_hot_update_resolution_summary),
-                        icon = MaterialSymbols.Outlined.Auto_delete,
+                        onClick = {
+                            DexResolutionPrompt.show(
+                                context,
+                                FeaturesProvider.ALL_FEATURES.filterIsInstance<IResolveDex>(),
+                                DexResolutionMode.Rerun,
+                            )
+                        },
                     )
                 }
             }

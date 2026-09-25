@@ -29,7 +29,9 @@ import com.composables.icons.materialsymbols.outlined.Close
  * @param icon The [ImageVector] to be displayed at the start of the widget.
  * @param title The primary text displayed in the widget.
  * @param description Optional supporting text displayed below the title.
+ * @param errorLines Lines shown below the [description] in the error color, one per error.
  * @param enabled Whether the widget is enabled and interactive.
+ * @param switchEnabled Whether the switch itself can be toggled; the main area keeps following [enabled].
  * @param onClick Optional callback for the main/left area. When omitted, the main area toggles the switch for backwards compatibility.
  * @param checked Whether the switch is currently on or off.
  * @param trailingDivider Whether to display a vertical divider before the switch.
@@ -43,7 +45,9 @@ fun SwitchWidget(
     iconPlaceholder: Boolean = false,
     title: String,
     description: String? = null,
+    errorLines: List<String> = emptyList(),
     enabled: Boolean = true,
+    switchEnabled: Boolean = enabled,
     isError: Boolean = false,
     onClick: (() -> Unit)? = null,
     trailingDivider: Boolean = false,
@@ -63,7 +67,7 @@ fun SwitchWidget(
 
     val leftClickAction = if (onClick == null) {
         {
-            if (enabled) {
+            if (enabled && switchEnabled) {
                 handleCheckedChange(!checked)
             }
         }
@@ -90,11 +94,12 @@ fun SwitchWidget(
         trailingDivider = trailingDivider,
         onClick = leftClickAction,
         clickHaptic = null,
-        description = description
+        description = description,
+        errorLines = errorLines
     ) { interactionSource ->
         Switch(
             modifier = Modifier.clearAndSetSemantics {},
-            enabled = enabled,
+            enabled = enabled && switchEnabled,
             checked = checked,
             interactionSource = interactionSource,
             colors = SwitchDefaults.colors(

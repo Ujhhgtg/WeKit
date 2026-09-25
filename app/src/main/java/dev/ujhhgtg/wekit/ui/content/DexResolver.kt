@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -31,6 +31,11 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.CloudDexResolver
+import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
+import dev.ujhhgtg.wekit.dexkit.resolution.LocalDexFailure
+import dev.ujhhgtg.wekit.dexkit.resolution.LocalDexProgress
+import dev.ujhhgtg.wekit.dexkit.resolution.LocalDexResolver
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -43,31 +48,35 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private sealed interface DialogPhase {
-    data object Idle : DialogPhase
-    data object DownloadingCloud : DialogPhase
-    data class ResolvingLocal(val total: Int) : DialogPhase
-    data class Done(
-        val source: CompletionSource,
-        val failures: List<LocalDexFailure>,
-    ) : DialogPhase
+enum class DexResolutionMode {
+    /** Items need resolution at startup: resolution starts as soon as the dialog is shown. */
+    Startup,
 
-    data class Error(val message: String) : DialogPhase
+    /** User-requested full re-run: waits for confirmation, then clears every cache first. */
+    Rerun,
 }
 
-private enum class CompletionSource { Cloud, Local }
+private sealed interface DialogPhase {
+    data object Ready : DialogPhase
+    data object DownloadingCloud : DialogPhase
+    data class ResolvingLocal(val total: Int) : DialogPhase
+}
 
 private const val TAG = "DexResolver"
 
+/** Below this many items, local resolution is fast enough that the cloud report is not worth fetching. */
+private const val CLOUD_MIN_ITEMS = 20
+
 @Composable
 fun DexResolver(
-    context: Context,
-    outdatedItems: List<IResolveDex>,
+    items: List<IResolveDex>,
+    mode: DexResolutionMode,
     scope: CoroutineScope,
     dismiss: () -> Unit,
 ) {
-    var phase by remember { mutableStateOf<DialogPhase>(DialogPhase.Idle) }
-    var pendingItems by remember { mutableStateOf(outdatedItems) }
+    val localizedContext = LocalWeKitLocalizedContext.current
+    var phase by remember { mutableStateOf<DialogPhase>(DialogPhase.Ready) }
+    var pendingItems by remember { mutableStateOf(items) }
     var currentTask by remember { mutableStateOf<LocalDexProgress?>(null) }
     var completed by remember { mutableIntStateOf(0) }
     val localResults = remember { mutableStateMapOf<String, LocalDexProgress>() }
@@ -81,48 +90,66 @@ fun DexResolver(
     }
 
     fun startResolution() {
-        val currentItems = pendingItems
-        phase = DialogPhase.DownloadingCloud
+        phase = if (items.size < CLOUD_MIN_ITEMS) DialogPhase.ResolvingLocal(items.size) else DialogPhase.DownloadingCloud
         scope.launch {
-            val remainingItems = try {
-                CloudDexResolver.resolve(currentItems).remainingItems
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                WeLogger.e(TAG, "cloud resolution failed", error)
-                currentItems
+            if (mode == DexResolutionMode.Rerun) {
+                withContext(Dispatchers.IO) { DexCacheManager.clearAllCache() }
+            }
+            val remainingItems = if (items.size < CLOUD_MIN_ITEMS) {
+                items
+            } else {
+                try {
+                    CloudDexResolver.resolve(items).remainingItems
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    WeLogger.e(TAG, "cloud resolution failed", error)
+                    items
+                }
             }
             withContext(Dispatchers.Main.immediate) {
                 pendingItems = remainingItems
             }
-            if (remainingItems.isEmpty()) {
+
+            val errorReport = if (remainingItems.isEmpty()) {
+                null
+            } else {
                 withContext(Dispatchers.Main.immediate) {
-                    phase = DialogPhase.Done(CompletionSource.Cloud, emptyList())
+                    currentTask = null
+                    completed = 0
+                    localResults.clear()
+                    phase = DialogPhase.ResolvingLocal(remainingItems.size)
                 }
-                return@launch
+                try {
+                    val result = LocalDexResolver.resolve(remainingItems) { progress ->
+                        withContext(Dispatchers.Main.immediate) { updateProgress(progress) }
+                    }
+                    result.failures.takeIf { it.isNotEmpty() }?.let { buildErrorReport(localizedContext, it) }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    // LocalDexResolver has recorded every unfinished item as failed with this error.
+                    WeLogger.e(TAG, "local resolution failed", error)
+                    buildErrorReport(
+                        localizedContext,
+                        listOf(LocalDexFailure(localizedContext.getString(R.string.dex_cache_batch_failure_subject), error)),
+                    )
+                }
             }
-            withContext(Dispatchers.Main.immediate) {
-                currentTask = null
-                completed = 0
-                localResults.clear()
-                phase = DialogPhase.ResolvingLocal(remainingItems.size)
-            }
-            try {
-                val result = LocalDexResolver.resolve(remainingItems) { progress ->
-                    withContext(Dispatchers.Main.immediate) { updateProgress(progress) }
+
+            withContext(Dispatchers.Main) {
+                if (errorReport != null) {
+                    copyToClipboard(localizedContext, errorReport)
+                    showToast(localizedContext, localizedContext.getString(R.string.dex_cache_error_report_copied))
                 }
-                withContext(Dispatchers.Main.immediate) {
-                    phase = DialogPhase.Done(CompletionSource.Local, result.failures)
-                }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                WeLogger.e(TAG, "local resolution failed", error)
-                withContext(Dispatchers.Main.immediate) {
-                    phase = DialogPhase.Error(error.message.orEmpty())
-                }
+                dismiss()
+                restartHost()
             }
         }
+    }
+
+    LaunchedEffect(Unit) {
+        if (mode == DexResolutionMode.Startup) startResolution()
     }
 
     AlertDialogContent(
@@ -134,22 +161,17 @@ fun DexResolver(
             ) {
                 Text(text = stringResource(R.string.dex_cache_update_title))
 
-                if (phase is DialogPhase.Idle ||
-                    phase is DialogPhase.DownloadingCloud ||
-                    phase is DialogPhase.ResolvingLocal
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                    ) {
-                        Text(
-                            text = "${pendingItems.size}",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
+                    Text(
+                        text = "${pendingItems.size}",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             }
         },
@@ -158,30 +180,12 @@ fun DexResolver(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                val unknownError = stringResource(R.string.error_unknown)
-                val tipText = when (val currentPhase = phase) {
-                    is DialogPhase.Idle ->
-                        pluralStringResource(R.plurals.dex_cache_update_required_message, pendingItems.size, pendingItems.size)
-
+                val tipText = when (phase) {
+                    is DialogPhase.Ready ->
+                        pluralStringResource(R.plurals.dex_cache_rerun_message, pendingItems.size, pendingItems.size)
                     is DialogPhase.DownloadingCloud ->
                         stringResource(R.string.dex_cache_cloud_downloading)
                     is DialogPhase.ResolvingLocal -> null
-                    is DialogPhase.Done -> when {
-                        currentPhase.source == CompletionSource.Cloud ->
-                            stringResource(R.string.dex_cache_cloud_complete)
-                        currentPhase.failures.isEmpty() ->
-                            stringResource(R.string.dex_cache_resolution_success)
-                        else -> pluralStringResource(
-                            R.plurals.dex_cache_resolution_partial_failure,
-                            currentPhase.failures.size,
-                            currentPhase.failures.size,
-                        )
-                    }
-
-                    is DialogPhase.Error -> stringResource(
-                        R.string.dex_cache_resolution_error,
-                        currentPhase.message.ifBlank { unknownError },
-                    )
                 }
                 if (tipText != null) {
                     Text(text = tipText, style = MaterialTheme.typography.bodyMedium)
@@ -230,82 +234,21 @@ fun DexResolver(
                         LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
                     }
                 }
-
-                val donePhase = phase as? DialogPhase.Done
-                AnimatedVisibility(visible = donePhase?.failures?.isNotEmpty() == true) {
-                    donePhase?.failures?.let { failures ->
-                        ErrorDetailsSection(
-                            failedResults = failures,
-                            onCopy = {
-                                copyToClipboard(context, buildErrorReport(context, failures))
-                                showToast(context, context.getString(R.string.clipboard_copied))
-                            },
-                        )
-                    }
-                }
             }
         },
         dismissButton = {
-            val isBusy = phase is DialogPhase.DownloadingCloud || phase is DialogPhase.ResolvingLocal
-            if (!isBusy) {
-                TextButton(onClick = dismiss) { Text(stringResource(R.string.dialog_close)) }
+            if (phase is DialogPhase.Ready) {
+                TextButton(onClick = dismiss) { Text(stringResource(R.string.dialog_cancel)) }
             }
         },
         confirmButton = {
-            if (phase is DialogPhase.Idle) {
+            if (phase is DialogPhase.Ready) {
                 TextButton(onClick = ::startResolution) {
                     Text(stringResource(R.string.dex_cache_start_local_resolution))
                 }
             }
-            if (phase is DialogPhase.Done || phase is DialogPhase.Error) {
-                TextButton(
-                    onClick = {
-                        dismiss()
-                        restartHost()
-                    },
-                ) { Text(stringResource(R.string.restart_wechat)) }
-            }
         },
     )
-}
-
-@Composable
-private fun ErrorDetailsSection(
-    failedResults: List<LocalDexFailure>,
-    onCopy: () -> Unit,
-) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.errorContainer,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            val unknownError = stringResource(R.string.error_unknown)
-            val errorText = failedResults.mapIndexed { index, result ->
-                stringResource(
-                    R.string.dex_cache_failure_detail,
-                    index + 1,
-                    result.displayName,
-                    result.error.message ?: unknownError,
-                )
-            }.joinToString("")
-            Text(
-                text = errorText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 160.dp)
-                    .verticalScroll(rememberScrollState()),
-            )
-            TextButton(onClick = onCopy) {
-                Text(stringResource(R.string.dex_cache_copy_error_information))
-            }
-        }
-    }
 }
 
 private fun buildErrorReport(

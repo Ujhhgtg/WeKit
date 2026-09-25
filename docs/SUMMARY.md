@@ -167,7 +167,6 @@
 * [启动微信内部 URL](features/debug/launch-internal-urls.md)
 * [内存分析](features/debug/profile-memory.md)
 * [重定向微信日志](features/debug/redirect-host-logs.md)
-* [重置适配信息](features/debug/reset-dex-cache.md)
 * [发包调试](features/debug/send-packet.md)
 * [测试崩溃](features/debug/trigger-crash.md)
 * [测试](features/debug/experiments.md)

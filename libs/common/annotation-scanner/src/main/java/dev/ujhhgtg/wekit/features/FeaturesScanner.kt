@@ -75,6 +75,7 @@ class FeaturesScanner(
 
         generateFeaturesProvider(features)
         generateDexResolutionRegistry(features.filter { it.isSubtypeOf(RESOLVER_INTERFACE) })
+        generateFeatureDependencies(features)
         generateExtensionPacksProvider(extensionPacks)
         return emptyList()
     }
@@ -168,6 +169,58 @@ class FeaturesScanner(
             .build()
         FileSpec.builder(FEATURES_CORE_PACKAGE, "DexResolutionTestRegistry")
             .addType(entryClass)
+            .addType(registry)
+            .build()
+            .writeTo(codeGenerator, dependencies(symbols))
+    }
+
+    /**
+     * Direct Feature → Feature references found in each feature's source (see
+     * [FeatureReferenceScanner]); the app derives transitive dependencies at runtime.
+     */
+    private fun generateFeatureDependencies(symbols: List<KSClassDeclaration>) {
+        val featureSymbols = symbols.associateWith { symbol ->
+            FeatureReferenceScanner.FeatureSymbol(
+                qualifiedName = symbol.qualifiedName!!.asString(),
+                simpleName = symbol.simpleName.asString(),
+                packageName = symbol.packageName.asString(),
+            )
+        }
+        val byQualifiedName = symbols.associateBy { it.qualifiedName!!.asString() }
+        val direct = sortedMapOf<String, Set<String>>()
+        symbols.groupBy { it.containingFile!! }.forEach { (file, fileSymbols) ->
+            direct += FeatureReferenceScanner.scan(
+                source = java.io.File(file.filePath).readText(),
+                packageName = file.packageName.asString(),
+                fileFeatures = fileSymbols.map(featureSymbols::getValue),
+                features = featureSymbols.values.toList(),
+            )
+        }
+
+        val baseFeature = ClassName(FEATURES_CORE_PACKAGE, "BaseFeature")
+        val mapType = ClassName("kotlin.collections", "Map").parameterizedBy(
+            baseFeature,
+            ClassName("kotlin.collections", "List").parameterizedBy(baseFeature),
+        )
+        val initializer = CodeBlock.builder().apply {
+            add("mapOf(\n")
+            indent()
+            direct.filterValues { it.isNotEmpty() }.forEach { (feature, dependencies) ->
+                add("%T to listOf(", byQualifiedName.getValue(feature).toClassName())
+                dependencies.sorted().forEachIndexed { index, dependency ->
+                    if (index > 0) add(", ")
+                    add("%T", byQualifiedName.getValue(dependency).toClassName())
+                }
+                add("),\n")
+            }
+            unindent()
+            add(")")
+        }.build()
+        val registry = TypeSpec.objectBuilder("GeneratedFeatureDependencies")
+            .addProperty(PropertySpec.builder("DIRECT", mapType).initializer(initializer).build())
+            .addKdoc("Auto-generated direct Feature dependencies scanned from source. Do not edit manually.\n")
+            .build()
+        FileSpec.builder(FEATURES_CORE_PACKAGE, "GeneratedFeatureDependencies")
             .addType(registry)
             .build()
             .writeTo(codeGenerator, dependencies(symbols))

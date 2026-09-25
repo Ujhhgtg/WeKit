@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -60,6 +61,7 @@ val LocalSegmentedItemShape = compositionLocalOf<Shape> { RoundedCornerShape(Cor
  * @param titleStyle The [TextStyle] applied to the [title].
  * @param description Optional supporting text displayed below the title.
  * @param descriptionStyle The [TextStyle] applied to the [description].
+ * @param errorLines Lines shown below the [description] in the error color, one per error.
  * @param descriptionColor Optional color applied to the [description] text.
  * If null, an adaptive color derived from the resolved content color is used.
  * @param enabled Controls the enabled state of the widget.
@@ -84,6 +86,7 @@ fun BaseWidget(
     titleStyle: TextStyle = MaterialTheme.typography.titleMedium,
     description: String? = null,
     descriptionStyle: TextStyle = MaterialTheme.typography.bodyMedium,
+    errorLines: List<String> = emptyList(),
     descriptionColor: Color? = null,
     enabled: Boolean = true,
     isError: Boolean = false,
@@ -203,16 +206,30 @@ fun BaseWidget(
         }
 
     val supportingContent: (@Composable () -> Unit)? =
-        description?.let { text ->
+        if (description != null || errorLines.isNotEmpty()) {
             {
-                Text(
-                    text = text,
-                    style = descriptionStyle,
+                Column(
                     modifier = Modifier
                         .alpha(alpha)
                         .padding(bottom = dynamicInternalPadding)
-                )
+                ) {
+                    if (description != null) {
+                        Text(
+                            text = description,
+                            style = descriptionStyle
+                        )
+                    }
+                    errorLines.forEach { line ->
+                        Text(
+                            text = line,
+                            style = descriptionStyle,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
             }
+        } else {
+            null
         }
 
     val trailing: @Composable () -> Unit = {
@@ -250,7 +267,7 @@ fun BaseWidget(
                 .alpha(alpha)
                 .padding(
                     top = dynamicInternalPadding,
-                    bottom = if (description == null) dynamicInternalPadding else 0.dp
+                    bottom = if (supportingContent == null) dynamicInternalPadding else 0.dp
                 )
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {

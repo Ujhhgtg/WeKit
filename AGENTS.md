@@ -27,7 +27,8 @@
 
 - `app/` — main Android module, entrypoints, hooks, UI, native Rust lib
 - `libs/common/annotation-scanner/` — KSP processors: source-subtype discovery for
-  `BaseFeature`/`ExtensionPack` objects plus the `@AgentTool` scanner
+  `BaseFeature`/`ExtensionPack` objects, the Feature → Feature reference scan
+  (`GeneratedFeatureDependencies.DIRECT`), plus the `@AgentTool` scanner
 - `libs/common/libxposed-api/` — compileOnly LibXposed API stubs (provided by the user's Xposed framework)
 - `libs/common/bsh/` — submodule: forked BeanShell interpreter with snapshot serialization
   (`BshSnapshot`, `BshSnapshotHelper`); snapshots are encrypted AST bytes used by the WAuxiliary
@@ -53,6 +54,10 @@
   (always-on), `BaseFeature` (abstract base, do not use directly)
 - DEX analysis via DexKit with `IResolveDex`; resolver bodies are MD5-hashed as the cache key
   (`GenerateMethodHashesTask`)
+- If any started feature needs Dex resolution, no feature starts (in any process); the dialog
+  resolves and restarts WeChat. Failures are persisted per resolver hash. A feature with
+  `BaseFeature.errors` (own/transitive-dependency Dex state or `declaredErrors`) never starts
+  and can't be enabled — declare host restrictions via `declaredErrors`, not toasts in `onEnable`
 - DEX-resolved targets DSL: `val methodTarget by dexMethod()` / `val classTarget by dexClass()` →
   `methodTarget.hookBefore { ... }`, `methodTarget.method`, `classTarget.clazz`
 - UI: Jetpack Compose + Material 3; dialogs via `showComposeDialog` and `AlertDialogContent`;

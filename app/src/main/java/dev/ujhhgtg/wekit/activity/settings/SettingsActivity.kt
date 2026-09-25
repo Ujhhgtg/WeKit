@@ -382,6 +382,11 @@ fun FeatureRow(
     val configKey = item.technicalId
     val localizedName = item.localizedName(localizedContext)
     val localizedDescription = item.localizedDescription(localizedContext)
+    val errorLines = remember(configKey, localizedContext) {
+        item.errors.map { it.localizedMessage(localizedContext) }
+    }
+    // A feature with errors can still be turned off, but never turned on.
+    val switchEnabled = errorLines.isEmpty() || checked
 
     DisposableEffect(configKey) {
         (item as SwitchFeature).setToggleCompletionCallback {
@@ -393,6 +398,7 @@ fun FeatureRow(
 
     fun toggle(requested: Boolean) {
         item as SwitchFeature
+        if (requested && errorLines.isNotEmpty()) return
         if (item.onBeforeToggle(requested, context)) {
             KvStore.putBool(configKey, requested)
             item.isEnabled = requested
@@ -414,6 +420,7 @@ fun FeatureRow(
                     iconPlaceholder = false,
                     title = localizedName,
                     description = localizedDescription,
+                    errorLines = errorLines,
                     onClick = openConfig,
                     trailingContent = {
                         Icon(
@@ -430,6 +437,8 @@ fun FeatureRow(
                     iconPlaceholder = false,
                     title = localizedName,
                     description = localizedDescription,
+                    errorLines = errorLines,
+                    switchEnabled = switchEnabled,
                     onClick = openConfig,
                     trailingDivider = true,
                     checked = checked,
@@ -442,6 +451,8 @@ fun FeatureRow(
             iconPlaceholder = false,
             title = localizedName,
             description = localizedDescription,
+            errorLines = errorLines,
+            switchEnabled = switchEnabled,
             checked = checked,
             onCheckedChange = { toggle(it) },
         )
