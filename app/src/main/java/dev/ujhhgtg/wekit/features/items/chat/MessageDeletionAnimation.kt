@@ -91,8 +91,7 @@ object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
 
     /**
      * MsgInfoStorageLogic 的 `static int (long msgId, String talker)`: 查出消息、发布
-     * DeleteMsgEvent 后按 id 删除。8.0.65-8.0.78 中该类仅此一个此签名的方法
-     * (8.0.65 `zt0.h9.f` / 8.0.76 `e01.x9.f` / 8.0.78 `aa.g`), 所有支持版本均存在。
+     * DeleteMsgEvent 后按 id 删除
      */
     private val methodDeleteMsgById by dexMethod {
         matcher {

@@ -20,13 +20,14 @@ object AutoAddNearbyFriends : ClickableFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
     override val descriptionRes = R.string.feature_auto_add_nearby_friends_description
 
-    private val methodCreateMenu by dexMethod {
+    // finder NearbyPersonFragment/NearbyPersonV1UIC were removed in 8.0.79
+    private val methodCreateMenu by dexMethod(allowFailure = true) {
         matcher {
             usingEqStrings("NearbyPersonUIC", "showLiveBottomSheet create menu.")
         }
     }
 
-    private val methodMenuOnClick by dexMethod {
+    private val methodMenuOnClick by dexMethod(allowFailure = true) {
         matcher {
             usingEqStrings("com.tencent.mm.plugin.nearby.ui.NearbySayHiListUI")
             name = "onMMMenuItemSelected"
@@ -34,6 +35,8 @@ object AutoAddNearbyFriends : ClickableFeature(), IResolveDex {
     }
 
     override fun onEnable() {
+        if (methodCreateMenu.isPlaceholder || methodMenuOnClick.isPlaceholder) return
+
         methodCreateMenu.hookBefore {
             args[0]!!.reflekt().firstMethod {
                 parameters(int, CharSequence::class)

@@ -32,8 +32,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.api.core.WeMessageApi.cacheFile
-import dev.ujhhgtg.wekit.features.api.core.WeMessageApi.downloadFile
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
@@ -191,7 +189,24 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
         }
     }
-    private val classImportMultiVideo by dexClass {
+    /** 8.0.79+ VideoMsgSendFeatureService.forwardVideo(VideoSendElement, toUser). */
+    private val methodForwardVideo by dexMethod(allowFailure = true) {
+        matcher {
+            usingEqStrings("MicroMsg.VideoMsg.VideoMsgSendFeatureService", "forwardVideo, videoSendElement:")
+            paramCount = 2
+            returnType = "boolean"
+        }
+    }
+    private val methodGenVideoFileName by dexMethod(allowFailure = true) {
+        matcher {
+            modifiers = Modifier.STATIC
+            usingEqStrings("yyMMddHHmmss")
+            paramTypes("java.lang.String")
+            returnType = "java.lang.String"
+        }
+    }
+    /** Legacy ImportMultiVideo thread, removed in 8.0.79; still preferred where present. */
+    private val classImportMultiVideo by dexClass(allowFailure = true) {
         matcher {
             usingEqStrings("MicroMsg.GetVideoMetadata", "get video file name, dataString ")
         }
@@ -1392,6 +1407,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     fun sendVideo(toUser: String, videoPath: String): Boolean {
         return try {
             WeLogger.i(TAG, "sending video: $videoPath to $toUser")
+            if (classImportMultiVideo.isPlaceholder) return sendVideoViaFeatureService(toUser, videoPath)
             val thread = classImportMultiVideo.clazz.createInstance(
                 HostInfo.application,
                 java.util.Collections.singletonList(videoPath),
@@ -1402,6 +1418,18 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         } catch (e: Exception) {
             WeLogger.e(TAG, "sendVideo failed", e); false
         }
+    }
+
+    // mirrors MsgRetransmitUI: VideoSendElement(genFileName(toUser), path, thumb = "", sendRaw = false, length = 0,
+    // VideoSendCrossData(writeImportPath = true), forwardInfo = null)
+    private fun sendVideoViaFeatureService(toUser: String, videoPath: String): Boolean {
+        val forwardVideo = methodForwardVideo.method
+        val elementCtor = forwardVideo.parameterTypes[0].declaredConstructors.single { it.parameterCount == 7 }
+        val crossParams = elementCtor.parameterTypes[5].createInstance(null, null, null, null, null, null, false, null, null, null, false, false, true)
+        val fileName = methodGenVideoFileName.method.invoke(null, toUser)
+        val element = elementCtor.newInstance(fileName, videoPath, "", false, 0, crossParams, null)
+        val service = WeServiceApi.getServiceByClass(forwardVideo.declaringClass.interfaces[0])
+        return forwardVideo.invoke(service, element, toUser) as Boolean
     }
 
     override fun onEnable() {

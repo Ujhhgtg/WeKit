@@ -47,10 +47,6 @@ object KnownPaths {
         (moduleRoot / "assets").createDirsSafe()
     }
 
-    val userAssets by lazy {
-        (moduleAssets / "user").createDirsSafe()
-    }
-
     val downloads by lazy {
         (Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toPath() / BuildConfig.TAG)
             .createDirsSafe()
