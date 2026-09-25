@@ -36,15 +36,25 @@ object MonetApkResourceGraphLoader {
                     .filter { it.name == targetPackage }
                     .forEach { packageBlock ->
                         // Splits carry the same type IDs as the base table but may omit trailing
-                        // types; keep the longest pool and require the others to be its prefix.
+                        // types, and bundletool names types a table doesn't use "?<id>"; merge
+                        // the pools slot by slot, letting a placeholder yield to a real name.
                         val names = (1..packageBlock.typeStringPool.lastId).map { typeId ->
                             requireNotNull(packageBlock.typeNameOf(typeId)) { "type $typeId has no name in $apk" }
                         }
-                        val (longer, shorter) = if (names.size >= typeNames.size) names to typeNames else typeNames to names
-                        require(longer.subList(0, shorter.size) == shorter) {
-                            "type pool of $apk conflicts with earlier APKs: $names vs $typeNames"
+                        typeNames = List(maxOf(names.size, typeNames.size)) { index ->
+                            val ours = names.getOrNull(index)
+                            val theirs = typeNames.getOrNull(index)
+                            when {
+                                ours == null || ours.isTypePlaceholder(index) -> theirs ?: ours!!
+                                theirs == null || theirs.isTypePlaceholder(index) -> ours
+                                else -> {
+                                    require(ours == theirs) {
+                                        "type pool of $apk conflicts with earlier APKs: $names vs $typeNames"
+                                    }
+                                    ours
+                                }
+                            }
                         }
-                        typeNames = longer
                         packageBlock.getResources().asSequence().forEach { resource ->
                             resources.merge(resource, apk, fileStructures)
                         }
@@ -293,6 +303,8 @@ object MonetApkResourceGraphLoader {
         val identity: XmlIdentity,
         val xml: MonetBinaryXml,
     )
+
+    private fun String.isTypePlaceholder(index: Int) = this == "?${index + 1}"
 
     private val MONET_XML_RESOURCE_TYPES = setOf("color", "drawable", "layout")
 }
