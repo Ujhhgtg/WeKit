@@ -1,11 +1,9 @@
 # AGENTS.md
 
-## Superpowers
+## Artifacts
 
-- All Superpowers workflow artifacts for WeKit (plans, specs/designs, SDD ledgers and
-  reports, brainstorm sessions) are written, edited, and committed **only** in
-  `~/coding/wekit_dev/superpowers` (its own git repo; read its `AGENTS.md` for layout and
-  rules). Never create, edit, or commit `.superpowers/` or `docs/superpowers/` inside this
+- All development artifacts for WeKit (plans, specs, designs) are written, edited, and committed **only** in
+  `~/coding/wekit_dev/artifacts`. Never create, edit, or commit inside this
   repo — those paths are gitignored here by design.
 
 ## Build
@@ -20,9 +18,8 @@
 - **When working in a Git worktree, initialize submodules before starting any work:**
   `git submodule update --init --recursive`. Worktrees do not automatically populate submodule
   contents, and builds will fail when `libs/common/bsh` and `libs/common/reflekt` are empty.
-- **When working in a Git worktree, work directly on `dev` unless the user explicitly requests
-  another branch or isolated history.** This is because commits made on a detached worktree are not automatically
-  transferred by Codex's “local checkout” action and can appear to be lost.
+- When working, work directly on `dev` unless the user explicitly requests
+  another branch or isolated history.
 - Every standard/legacy debug/release APK is dual-format: install normally as an APK, or rename
   to `.zip` and install through a root manager. Module files enter the APK before AGP signs it;
   never modify or repack the signed output. There is no separate `zygisk build` command.
@@ -151,17 +148,12 @@
 
 ## Testing Strategy
 
-- These repository-specific testing constraints take precedence over the generic Superpowers
-  skills' TDD workflow. Do not add tests for host hooks, Compose UI, WeChat runtime behavior, or
-  database integration when they fall outside the qualifying conditions below; use the required
-  build, static checks, and manual host validation instead.
-
 - TDD and new automated tests are allowed only when all core logic under test lives in WeKit,
   has low coupling to WeChat, and does not depend on WeChat host classes, runtime state, UI, or
   behavior.
 - Do not add tests for simple logic that is easy to verify by static review, such as constants,
   direct mappings, boolean expressions, identity functions, or straightforward arithmetic. Do not
-  add tests merely to satisfy a workflow or a skill such as Superpowers.
+  add tests merely to satisfy a workflow or a skill.
 - Do not increase production-code complexity to create a test seam. In particular, do not split a
   simple object singleton into an interface plus implementation, introduce unnecessary wrappers or
   dependency injection, or extract simple one-use logic into a standalone function solely so it can
