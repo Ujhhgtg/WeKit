@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 
 object WeLauncher {
 
@@ -21,9 +20,7 @@ object WeLauncher {
 
         ParcelableFixer.init()
 
-        DexCacheManager.init(
-            KnownPaths.hostVersionKey()
-        )
+        DexCacheManager.init()
 
         val appContext = context.applicationContext ?: context
         ResourcesInjector.injectModuleRes(appContext.resources)

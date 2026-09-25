@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.dexkit.cache
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.features.core.BaseFeature
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.unreachable
 
@@ -11,9 +12,19 @@ object DexCacheManager {
     private const val TAG = "DexCacheManager"
     private lateinit var hostVersion: String
 
-    fun init(currentVer: String) {
-        hostVersion = currentVer
-        WeLogger.i(TAG, "using Room Dex cache version: $currentVer")
+    /**
+     * A Dex cache is tied to both the WeChat build and its distribution channel.  Domestic and
+     * Google Play builds can share a version name/code while exposing different DEX layouts, so
+     * they must never address the same cache partition.
+     */
+    private fun hostVersionKey(): String {
+        val channel = if (HostInfo.isHostGooglePlay) "play" else "domestic"
+        return "${HostInfo.versionName}-${HostInfo.versionCode}-$channel"
+    }
+
+    fun init() {
+        hostVersion = hostVersionKey()
+        WeLogger.i(TAG, "using Room Dex cache version: $hostVersion")
     }
 
     fun isItemCacheValid(item: IResolveDex): Boolean {
