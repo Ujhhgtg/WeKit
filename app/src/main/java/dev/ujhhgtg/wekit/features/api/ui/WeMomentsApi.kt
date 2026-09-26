@@ -221,6 +221,16 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
+    // SnsInfoStorage.update(long snsId, SnsInfo): writes the whole row by snsId
+    val methodUpdateSnsInfo by dexMethod {
+        matcher {
+            declaredClass(methodGetSnsInfoByLocalId.data.declaredClassName)
+            paramTypes("long", SNS_INFO_CLASS)
+            returnType("boolean")
+            usingEqStrings("update", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
+        }
+    }
+
     private val snsInfoClass by lazy { SNS_INFO_CLASS.toClass() }
 
     private val sendLikeMethod: Method by lazy {
@@ -1004,6 +1014,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             null
         }
     }
+
+    fun updateSnsInfo(snsId: Long, snsInfo: Any): Boolean =
+        methodUpdateSnsInfo.method.invoke(methodGetSnsInfoStorage.method.invoke(null), snsId, snsInfo) as Boolean
 
     private const val TIMELINE_OBJECT_CLASS = "com.tencent.mm.protocal.protobuf.TimeLineObject"
 

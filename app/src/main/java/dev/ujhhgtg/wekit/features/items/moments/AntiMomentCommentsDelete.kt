@@ -1,24 +1,30 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
-import android.content.ContentValues
-import android.database.Cursor
+import com.tencent.mm.protocal.protobuf.SnsObject
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.reflekt.utils.Modifiers
-import dev.ujhhgtg.reflekt.utils.isBuiltin
+import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.api.net.models.protobuf.SnsCommentActionProto
+import dev.ujhhgtg.wekit.features.api.core.WeApi
+import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.features.items.moments.AntiMomentCommentsDelete.INTERCEPTED_FLAG
-import dev.ujhhgtg.wekit.features.items.moments.AntiMomentCommentsDelete.INTERCEPT_MARKER
-import dev.ujhhgtg.wekit.utils.HookParam
+import dev.ujhhgtg.wekit.features.items.moments.AntiMomentsDelete.INTERCEPT_MARKER
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.reflection.BString
-import dev.ujhhgtg.wekit.utils.reflection.StrArr
-import dev.ujhhgtg.wekit.utils.reflection.int
+import dev.ujhhgtg.wekit.utils.serialization.ProtoWire
 
+/**
+ * Keeps comments that were deleted under a moment, marking text comments with [INTERCEPT_MARKER].
+ *
+ * The comments shown under a moment live in `SnsInfo.attrBuf` (`SnsObject.CommentUserList`), not
+ * in the SnsComment table (which only feeds the notification list). They are removed by:
+ * - `processCommentDelAction`, the sync push for a deleted comment, which also flags the
+ *   notification row. It's skipped entirely, so the notification entry survives too.
+ * - every refresh of the moment, which replaces attrBuf with the server's copy. WeChat's own
+ *   `checkLocalDeletedComment` merge step runs first, so comments the server dropped are put back
+ *   there.
+ */
 object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
 
     override val technicalId = "朋友圈评论防撤回"
@@ -28,246 +34,94 @@ object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
 
     private const val TAG = "AntiMomentCommentsDelete"
 
-    // Bit 8 (value 256) — unused by WeChat; persists the "intercepted" state in the DB.
-    private const val INTERCEPTED_FLAG = 256
+    // SnsCommentInfo (CommentUserList element) field numbers
+    private const val COMMENT_CONTENT = 5
+    private const val COMMENT_CREATE_TIME = 6
+    private const val COMMENT_ID = 7
+    /** Set by WeChat on your own comment that the moment's author deleted; WeChat shows its own tip. */
+    private const val COMMENT_DELETE_FLAG = 13
 
-    private const val SNS_COMMENT = "SnsComment"
+    // SnsActionInfo (sync action) field numbers
+    private const val ACTION_FROM_USERNAME = 1
+    private const val ACTION_COMMENT_ID = 10
 
-    // Share the same marker string as the moments-level feature.
-    private val INTERCEPT_MARKER get() = AntiMomentsDelete.INTERCEPT_MARKER
-
-    // ── dex matchers ────────────────────────────────────────────────────────────
-
-    // Safety-net: low-level SQL executor inside SnsSqliteDB / SnsCommentStorage
-    private val methodSnsSqliteDbExecSql1 by dexMethod {
+    // NetSceneSnsSync.processCommentDelAction(action, actionInfo, snsId, parentId, clientId, handler)
+    private val methodProcessCommentDelAction by dexMethod {
         matcher {
-            usingEqStrings("com.tencent.mm.plugin.sns.storage.SnsSqliteDB", "execSQL")
-            paramCount = 2
-        }
-    }
-    private val methodSnsSqliteDbExecSql2 by dexMethod(allowFailure = true) {
-        matcher {
-            usingEqStrings("com.tencent.mm.plugin.sns.storage.SnsSqliteDB", "execSQL")
-            paramCount = 3
+            usingEqStrings("processCommentDelAction", "com.tencent.mm.plugin.sns.model.NetSceneSnsSync")
         }
     }
 
-    // SnsCommentStorage.deleteComment(snsId, commentSvrId, type)
-    private val methodSnsCommentStorageDeleteComment by dexMethod {
+    // SnsInfoStorageLogic.checkLocalDeletedComment(SnsInfo local, SnsObject incoming)
+    private val methodCheckLocalDeletedComment by dexMethod {
         matcher {
-            usingEqStrings("deleteComment", "com.tencent.mm.plugin.sns.storage.SnsCommentStorage")
+            usingEqStrings("checkLocalDeletedComment", "com.tencent.mm.plugin.sns.model.SnsInfoStorageLogic")
         }
     }
-
-    // SnsCommentStorage.deleteBySnsId(snsId)
-    private val methodSnsCommentStorageDeleteCommentBySnsId by dexMethod {
-        matcher {
-            usingEqStrings("deleteBySnsId", "com.tencent.mm.plugin.sns.storage.SnsCommentStorage")
-        }
-    }
-
-    // SnsComment.setCommentDelFlag() — prevents WeChat's in-memory soft-delete flag
-    private val methodSnsCommentSetCommentDelFlag by dexMethod {
-        matcher {
-            usingEqStrings("setCommentDelFlag", "com.tencent.mm.plugin.sns.storage.SnsComment")
-        }
-    }
-
-    // SnsComment.convertFrom(Cursor) — called when WeChat reads a comment row from DB
-    private val methodSnsCommentConvertFromCursor by dexMethod {
-        matcher {
-            usingEqStrings("convertFrom", "com.tencent.mm.plugin.sns.storage.SnsComment")
-        }
-    }
-
-    // ── DB helpers ───────────────────────────────────────────────────────────────
-
-    /**
-     * Retrieves the l75.k0 DB handle from a SnsCommentStorage instance.
-     * w1 (SnsCommentStorage) holds it as the sole non-builtin final instance field.
-     */
-    private fun getSnsSqliteDb(param: HookParam): Any {
-        return param.thisObject!!.reflekt().firstField {
-            type { !it.isBuiltin }
-            modifiers(Modifiers.FINAL)
-        }.get()!!
-    }
-
-    /**
-     * update(table, ContentValues, whereClause, whereArgs) — present in all known versions.
-     * 8.0.72: y55.i0.e  |  8.0.74+: l75.k0.p
-     * Using ContentValues avoids the execSQL(table, sql, Object[]) overload that is absent
-     * in older builds, and handles BLOB columns (curActionBuf) natively.
-     */
-    private fun updateRow(
-        param: HookParam,
-        table: String,
-        values: ContentValues,
-        whereClause: String,
-        whereArgs: Array<String>,
-    ): Int {
-        return getSnsSqliteDb(param).reflekt().firstMethod {
-            parameters(BString, ContentValues::class, BString, StrArr)
-            returnType = int
-        }.invoke(table, values, whereClause, whereArgs) as Int
-    }
-
-    /** k0.B / y55.i0.j — raw query returning a Cursor */
-    private fun rawQuery(
-        param: HookParam,
-        sql: String,
-        args: Array<String>,
-    ): Cursor {
-        return getSnsSqliteDb(param).reflekt().firstMethod {
-            parameters(BString, StrArr)
-            returnType = Cursor::class
-        }.invoke(sql, args) as Cursor
-    }
-
-    // ── hooks ────────────────────────────────────────────────────────────────────
 
     override fun onEnable() {
-        // Safety net: block any raw DELETE SQL that bypasses the storage methods.
-        listOf(
-            methodSnsSqliteDbExecSql1,
-            methodSnsSqliteDbExecSql2
-        ).forEach {
-            if (it.isPlaceholder) return@forEach
-            it.hookBefore {
-                val table = args.getOrNull(0) as? String ?: return@hookBefore
-                val sql = args.getOrNull(1) as? String ?: return@hookBefore
-                if (table == SNS_COMMENT && sql.lowercase().contains("delete from")) {
-                    result = false
-                }
-            }
+        methodProcessCommentDelAction.hookBefore {
+            val action = args[1]!!.toProtoBytes()
+            // You deleted it yourself, e.g. from another device
+            if (ProtoWire.string(action, ACTION_FROM_USERNAME) == WeApi.selfWxId) return@hookBefore
+            val snsId = args[2] as Long
+            markComment(snsId, ProtoWire.varint(action, ACTION_COMMENT_ID)!!.toInt())
+            WeLogger.i(TAG, "blocked sync delete of a comment on moment $snsId")
+            result = true
         }
 
-        // Block WeChat's own in-memory soft-delete bit so the object stays "live".
-        methodSnsCommentSetCommentDelFlag.hookBefore {
-            result = null
-        }
-
-        // Rescue comments that were soft-deleted before the module was active.
-        // These rows are still in the DB but carry WeChat's delete bit (bit 0) in commentflag.
-        // hookAfter ensures all fields are populated from the cursor before we inspect them.
-        methodSnsCommentConvertFromCursor.hookAfter {
-            val flagField = thisObject!!.reflekt().firstField {
-                name = "field_commentflag"
-                superclass()
-            }
-            val flag = flagField.get() as? Int ?: return@hookAfter
-
-            // Bit 0 = WeChat's own delete marker; bit 8 = our INTERCEPTED_FLAG.
-            // Only act on rows WeChat deleted but we haven't yet processed.
-            if (flag and 1 == 0) return@hookAfter
-
-            // Clear WeChat's delete bit so the comment is treated as live,
-            // and stamp our intercepted bit so markAndBlockDelete skips it on future deletes.
-            flagField.set(flag and 1.inv() or INTERCEPTED_FLAG)
-
-            // Inject the visual marker into the comment text in memory.
-            val bufField = thisObject!!.reflekt().firstField {
-                name = "field_curActionBuf"
-                superclass()
-            }
-            val buf = bufField.get() as? ByteArray ?: return@hookAfter
-            bufField.set(injectMarkerIntoBuf(buf))
-        }
-
-        // deleteComment(snsId: Long, commentSvrId: Long, type: Int) — single comment
-        methodSnsCommentStorageDeleteComment.hookBefore {
-            val snsId = args[0] as Long
-            val commentSvrId = args[1] as Long
-            markAndBlockDelete(
-                param = this,
-                whereClause = "snsID = ? AND commentSvrID = ?",
-                whereArgs = arrayOf(snsId.toString(), commentSvrId.toString()),
-            )
-        }
-
-        // deleteBySnsId(snsId: Long) — all comments on a moment
-        methodSnsCommentStorageDeleteCommentBySnsId.hookBefore {
-            val snsId = args[0] as Long
-            markAndBlockDelete(
-                param = this,
-                whereClause = "snsID = ?",
-                whereArgs = arrayOf(snsId.toString()),
-            )
+        methodCheckLocalDeletedComment.hookAfter {
+            val local = args[0] ?: return@hookAfter
+            val incoming = args[1] as? SnsObject? ?: return@hookAfter
+            restoreMissingComments(local, incoming)
         }
     }
 
-    // ── core logic ───────────────────────────────────────────────────────────────
+    private fun markComment(snsId: Long, commentId: Int) {
+        val snsInfo = WeMomentsApi.getSnsInfoBySnsId(snsId) ?: return
+        val reflekt = snsInfo.reflekt()
+        val snsObject = parseSnsObject(reflekt.getField("field_attrBuf", true) as? ByteArray? ?: return)
+        val comments = snsObject.CommentUserList
+        val index = comments.indexOfFirst { it.commentId == commentId }
+        if (index < 0) return
+        comments[index] = markedCopy(comments[index]) ?: return
 
-    /**
-     * Iterates over every comment matching [whereClause], injects [INTERCEPT_MARKER] into
-     * the text field of the curActionBuf protobuf, sets [INTERCEPTED_FLAG] in commentflag,
-     * persists both back to DB, then cancels the deletion by setting result = true.
-     *
-     * Uses rowid for per-row updates so that each comment's curActionBuf is updated
-     * independently (important for deleteBySnsId which may match many rows).
-     */
-    private fun markAndBlockDelete(
-        param: HookParam,
-        whereClause: String,
-        whereArgs: Array<String>,
-    ) {
-        WeLogger.i(TAG, "intercepted delete: $whereClause / ${whereArgs.toList()}")
-        try {
-            val cursor = rawQuery(
-                param,
-                "SELECT rowid, curActionBuf, commentflag FROM $SNS_COMMENT WHERE $whereClause",
-                whereArgs,
-            )
-            cursor.use { cursor ->
-                while (cursor.moveToNext()) {
-                    val rowId = cursor.getLong(0)
-                    val actionBuf = cursor.getBlob(1)     // nullable — some rows may have no buf
-                    val currentFlag = cursor.getInt(2)
+        reflekt.invokeMethod("setAttrBuf", snsObject.toByteArray())
+        WeMomentsApi.updateSnsInfo(snsId, snsInfo)
+    }
 
-                    // Skip if already marked (idempotent).
-                    if (currentFlag and INTERCEPTED_FLAG != 0) continue
-
-                    val newFlag = currentFlag or INTERCEPTED_FLAG
-                    val newBuf = injectMarkerIntoBuf(actionBuf)
-
-                    val cv = ContentValues().apply {
-                        put("curActionBuf", newBuf)
-                        put("commentflag", newFlag)
-                    }
-                    updateRow(param, SNS_COMMENT, cv, "rowid = ?", arrayOf(rowId.toString()))
-                }
-            }
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "markAndBlockDelete failed", e)
+    private fun restoreMissingComments(local: Any, incoming: SnsObject) {
+        val localBuf = local.reflekt().getField("field_attrBuf", true) as? ByteArray? ?: return
+        val incomingIds = incoming.CommentUserList.mapTo(HashSet()) { it.commentId }
+        val missing = parseSnsObject(localBuf).CommentUserList.filter {
+            val id = it.commentId
+            id != 0 && id !in incomingIds && ProtoWire.varint(it.toProtoBytes(), COMMENT_DELETE_FLAG) ?: 0L == 0L
         }
-        // Cancel the deletion regardless of whether the marker injection succeeded.
-        param.result = true
+        if (missing.isEmpty()) return
+
+        incoming.CommentUserList.addAll(missing.map { markedCopy(it) ?: it })
+        incoming.CommentUserList.sortBy { ProtoWire.varint(it.toProtoBytes(), COMMENT_CREATE_TIME) ?: 0L }
+        WeLogger.i(TAG, "restored ${missing.size} deleted comment(s)")
     }
 
     /**
-     * Decodes [buf] as [SnsCommentActionProto], prepends [INTERCEPT_MARKER] to
-     * [SnsCommentActionProto.content] (field 1), and re-encodes.
-     *
-     * For sticker/emoji comments field 1 is null or absent — those return [buf] unchanged.
-     * WeChat renders stickers from the opaque sub-messages at fields 14/16, so a missing
-     * or modified field 1 has no effect on sticker display. The [INTERCEPTED_FLAG] bit in
-     * `commentflag` still marks the row in the DB.
-     *
-     * Returns [buf] unchanged on any parse or encode failure.
+     * Returns a copy of [comment] with [INTERCEPT_MARKER] prepended to its text, or null when it's
+     * already marked or has no text (sticker comments, which may render differently with text added).
      */
-    private fun injectMarkerIntoBuf(buf: ByteArray?): ByteArray {
-        if (buf == null || buf.isEmpty()) return buf ?: ByteArray(0)
-        return try {
-            val proto = SnsCommentActionProto.decode(buf)
-            val content = proto.content
-                ?: return buf  // field 1 absent — sticker/emoji comment, nothing to mark
-            if (content.contains(INTERCEPT_MARKER)) return buf
-            proto.copy(content = "$INTERCEPT_MARKER $content")
-                .encode()
-                .takeIf { it.isNotEmpty() } ?: buf
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "injectMarkerIntoBuf failed", e)
-            buf
+    private fun markedCopy(comment: Any): Any? {
+        val bytes = comment.toProtoBytes()
+        val content = ProtoWire.string(bytes, COMMENT_CONTENT)
+        if (content.isNullOrEmpty() || content.contains(INTERCEPT_MARKER)) return null
+        return comment.javaClass.createInstance().apply {
+            reflekt().invokeMethod("parseFrom", ProtoWire.withString(bytes, COMMENT_CONTENT, "$INTERCEPT_MARKER $content"), superclass = true)
         }
     }
+
+    private fun parseSnsObject(bytes: ByteArray) =
+        SnsObject().apply { reflekt().invokeMethod("parseFrom", bytes, superclass = true) }
+
+    private fun Any.toProtoBytes() = reflekt().invokeMethod("toByteArray", superclass = true) as ByteArray
+
+    private val Any.commentId: Int
+        get() = ProtoWire.varint(toProtoBytes(), COMMENT_ID)?.toInt() ?: 0
 }
