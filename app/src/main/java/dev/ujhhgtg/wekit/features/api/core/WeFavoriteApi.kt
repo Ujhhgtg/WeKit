@@ -152,7 +152,6 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
     }
 
     /** The cached voice of a voice favorite (type 3), or null for other favorite types. */
-    @OptIn(ExperimentalSerializationApi::class)
     fun voiceOf(favItem: Any): FavoriteVoice? {
         val type = favItem.reflekt().firstField { name = "field_type"; superclass() }.get() as Int
         if (type != 3) return null

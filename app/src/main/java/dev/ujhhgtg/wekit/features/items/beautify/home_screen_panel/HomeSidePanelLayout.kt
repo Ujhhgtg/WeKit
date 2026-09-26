@@ -61,7 +61,6 @@ data class HomeSidePanelActionConfig(
 )
 
 @Serializable
-@OptIn(ExperimentalSerializationApi::class)
 @JsonClassDiscriminator("cardType")
 sealed class HomeSidePanelCardConfig {
     abstract val id: String

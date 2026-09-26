@@ -32,7 +32,6 @@ import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 import java.lang.reflect.Modifier
 
-@OptIn(ExperimentalSerializationApi::class)
 @SuppressLint("DiscouragedApi")
 object WeDatabaseApi : ApiFeature(), IResolveDex {
 

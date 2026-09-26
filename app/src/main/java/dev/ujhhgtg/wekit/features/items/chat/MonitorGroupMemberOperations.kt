@@ -151,7 +151,6 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
         }
     }
 
-    @OptIn(ExperimentalSerializationApi::class)
     private fun parseRoomData(blob: ByteArray?): Map<String, String> {
         if (blob == null || blob.isEmpty()) return emptyMap()
         return runCatching {

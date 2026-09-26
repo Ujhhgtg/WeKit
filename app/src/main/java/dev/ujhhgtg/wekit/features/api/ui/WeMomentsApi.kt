@@ -929,7 +929,6 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         return normalized.reflekt().firstFieldOrNull { name = "field_content"; superclass() }?.get() as? ByteArray
     }
 
-    @OptIn(ExperimentalSerializationApi::class)
     fun getContentText(snsInfo: Any?): String? {
         val bytes = getContent(snsInfo) ?: return null
         return try {
@@ -941,7 +940,6 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
-    @OptIn(ExperimentalSerializationApi::class)
     fun getTimelineProto(snsInfo: Any?): TimelineObjectProto? {
         val bytes = getContent(snsInfo) ?: return null
         return try {

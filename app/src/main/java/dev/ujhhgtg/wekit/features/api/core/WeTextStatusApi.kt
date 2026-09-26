@@ -278,7 +278,6 @@ private fun MethodData.usesFieldThroughDirectInvoke(fieldName: String): Boolean 
         }
 
 @Serializable
-@OptIn(ExperimentalSerializationApi::class)
 private data class TextStatusEmojiProto(
     @ProtoNumber(1) val md5: String = "",
     @ProtoNumber(2) val url: String = "",
@@ -286,7 +285,6 @@ private data class TextStatusEmojiProto(
     @ProtoNumber(11) val attachedText: String = "",
 )
 
-@OptIn(ExperimentalSerializationApi::class)
 private fun parseEmojiInfo(bytes: ByteArray?): TextStatusEmoji? {
     val payload = bytes ?: return null
     if (payload.isEmpty()) return null
