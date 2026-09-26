@@ -23,14 +23,7 @@ object Preferences {
 
     var verboseLog by prefOption(VERBOSE_LOG, false)
     var showStartupToast by prefOption(SHOW_STARTUP_TOAST, false)
-
-    // ALWAYS check whether sender is group chat!!!
     var matchGenericWxIdExp by prefOption(MATCH_GENERIC_WXID_EXP, true)
-
-    // use this when Google fucked up itself again
-//    var useActivityInsteadOfDialog: Boolean
-//        get() = false
-//        set(value) { KvStore.putBool(USE_ACTIVITY_INSTEAD_OF_DIALOG, value) }
 
     var pythonEditorSoftWrap by prefOption(PYTHON_EDITOR_SOFT_WRAP, false)
 }
