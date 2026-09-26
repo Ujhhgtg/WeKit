@@ -48,6 +48,7 @@ import dev.ujhhgtg.reflekt.utils.fastJavaMethod
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -97,6 +98,7 @@ object ConversationAggregation : ClickableFeature(),
     WeDatabaseListenerApi.IInsertListener,
     WeDatabaseListenerApi.IUpdateListener,
     WeStartActivityApi.IStartActivityListener,
+    WeConversationContextMenuApi.IMenuItemsProvider,
     IResolveDex {
 
     override val technicalId = "对话归拢"
@@ -108,9 +110,6 @@ object ConversationAggregation : ClickableFeature(),
     const val FOLDER_PREFIX = "wekit_folder_"
     private const val FOLDER_CONFIG_MENU_ID = 0x0721C0DE
     private const val REMOVE_FROM_FOLDER_MENU_ID = 777020
-
-    // Order pushes our item to the end of the container's context menu (its own items use 0).
-    private const val REMOVE_FROM_FOLDER_MENU_ORDER = 1000
 
     // rconversation.flag packing (see WeChat xg3.b.c): high 8 bits = pin / move-up state
     // owned by WeChat (setPlacedTop / unSetPlacedTop), low 56 bits = conversationTime.
@@ -174,22 +173,6 @@ object ConversationAggregation : ClickableFeature(),
     // attrflag bit on that exact row — wiping our folder's badge just for opening and leaving the
     // folder without touching any member. We no-op it for folder ids so the aggregate row keeps
     // reflecting its members' (still-unread) state.
-    // com.tencent.mm.ui.widget.menu.MMPopupMenu#showMenu(view, pos, id, onCreateListener, selectCb, x, y)
-    // The shared long-press popup used by both the homepage list and the folder container. We hook
-    // it (gated on activeFolderId) to inject a "remove from folder" item only inside our folders.
-    private val methodShowPopupMenu by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass {
-                usingStrings("MicroMsg.MMPopupMenu")
-            }
-            paramTypes(
-                "android.view.View", "int", "long",
-                $$"android.view.View$OnCreateContextMenuListener", null, "int", "int"
-            )
-            returnType("void")
-        }
-    }
-
     @Volatile
     private var activeFolderId: String? = null
 
@@ -237,7 +220,7 @@ object ConversationAggregation : ClickableFeature(),
         hookMainUiRefresh()
         hookOpenFolder()
         hookConversationPages()
-        hookFolderContextMenu()
+        WeConversationContextMenuApi.addProvider(this)
         hookSelectConversationUi()
         hookMvvmContactListItemClick()
         hookSqliteWrapperQuery()
@@ -263,6 +246,7 @@ object ConversationAggregation : ClickableFeature(),
     override fun onDisable() {
         WeDatabaseListenerApi.removeListener(this)
         WeStartActivityApi.removeListener(this)
+        WeConversationContextMenuApi.removeProvider(this)
         CustomLocalFriendAvatars.fallbackUsernameProvider = null
         stopRefreshThread()
 
@@ -581,63 +565,20 @@ object ConversationAggregation : ClickableFeature(),
         }
     }
 
-    // The folder container (ConvBoxServiceConversationUI) does NOT use the homepage's
-    // ConversationLongClickListener that WeConversationContextMenuApi hooks; it builds its long-press
-    // menu through the shared MMPopupMenu.showMenu(...). We hook that chokepoint, gated on
-    // activeFolderId (null on the homepage, so that path is untouched), and inject a "remove from
-    // folder" item by wrapping the menu-create listener and the (obfuscated) select callback.
-    private fun hookFolderContextMenu() {
-        if (methodShowPopupMenu.isPlaceholder) return
-
-        // The 5th parameter's declared type is the obfuscated select-callback interface (db5.t4,
-        // with the single method onMMMenuItemSelected). We proxy it to intercept our own item.
-        val selectCallbackInterface = methodShowPopupMenu.method.parameterTypes[4]
-
-        methodShowPopupMenu.hookBefore {
-            val folderId = activeFolderId ?: return@hookBefore
-            val folder = folderById(folderId) ?: return@hookBefore
-            if (folder.type != FolderType.MANUAL) return@hookBefore
-
-            val createListener = args[3] as? View.OnCreateContextMenuListener ?: return@hookBefore
-            val originalSelect = args[4] ?: return@hookBefore
-            val position = args[1] as? Int ?: return@hookBefore
-
-            val talker = runCatching { extractFolderTalker(createListener, position) }
-                .onFailure { WeLogger.w(TAG, "failed to resolve long-pressed conversation", it) }
-                .getOrNull() ?: return@hookBefore
-
-            // Only offer removal on a row that is actually a member of this manual folder.
-            if (talker !in folder.members) return@hookBefore
-
-            args[3] = View.OnCreateContextMenuListener { menu, view, menuInfo ->
-                createListener.onCreateContextMenu(menu, view, menuInfo)
-                runCatching {
-                    menu.add(
-                        0,
-                        REMOVE_FROM_FOLDER_MENU_ID,
-                        REMOVE_FROM_FOLDER_MENU_ORDER,
-                        localizedChatString(R.string.chat_aggregation_remove_from_folder),
-                    )
-                }.onFailure { WeLogger.e(TAG, "failed to add folder menu item", it) }
-            }
-
-            args[4] = Proxy.newProxyInstance(
-                selectCallbackInterface.classLoader,
-                arrayOf(selectCallbackInterface)
-            ) { _, method, methodArgs ->
-                val params = methodArgs ?: emptyArray()
-                if (method.name == "onMMMenuItemSelected") {
-                    val menuItem = params.getOrNull(0) as? MenuItem
-                    if (menuItem?.itemId == REMOVE_FROM_FOLDER_MENU_ID) {
-                        runCatching { removeMemberFromFolder(folderId, talker) }
-                            .onFailure { WeLogger.e(TAG, "failed to remove from folder", it) }
-                        return@newProxyInstance null
-                    }
-                }
-                method.invoke(originalSelect, *params)
-            }
-        }
-    }
+    /** "Remove from folder" on members of a manual folder, inside that folder's container. */
+    override fun getMenuItems(): List<WeConversationContextMenuApi.MenuItem> = listOf(
+        WeConversationContextMenuApi.MenuItem(
+            id = REMOVE_FROM_FOLDER_MENU_ID,
+            text = localizedChatString(R.string.chat_aggregation_remove_from_folder),
+            drawable = null,
+            scope = WeConversationContextMenuApi.MenuScope.AGGREGATED,
+            shouldShow = { context, _ ->
+                val folder = context.folderId?.let(::folderById)
+                folder != null && folder.type == FolderType.MANUAL && context.talker in folder.members
+            },
+            onClick = { context -> removeMemberFromFolder(context.folderId!!, context.talker) },
+        )
+    )
 
     // Intercepts the "share to conversation" picker (SelectConversationUI) before WeChat's share
     // machinery runs. Our folder rows appear in that list because their parentRef is '' (root-level),
@@ -790,31 +731,6 @@ object ConversationAggregation : ClickableFeature(),
             },
             onItemClick = { contact -> onSelect(contact.wxId) }
         )
-    }
-
-    // Resolves the long-pressed conversation's username from the menu-create listener WeChat passes
-    // into MMPopupMenu.showMenu. Chain: createListener -> its OnItemLongClickListener -> the
-    // container fragment -> its list adapter -> adapter.getItem(position) (an rconversation row) ->
-    // its field_username (kept unobfuscated by WeChat's auto-DB ORM).
-    private fun extractFolderTalker(createListener: Any, position: Int): String? {
-        val longClickListener = createListener.reflekt()
-            .firstFieldOrNull { type { it isSubclassOf AdapterView.OnItemLongClickListener::class } }
-            ?.get() ?: return null
-
-        val fragment = longClickListener.reflekt()
-            .firstFieldOrNull { type { it.name.endsWith("ConvBoxServiceConversationFmUI") } }
-            ?.get() ?: return null
-
-        val adapter = fragment.reflekt()
-            .firstFieldOrNull { type { it isSubclassOf android.widget.Adapter::class } }
-            ?.get() as? android.widget.Adapter ?: return null
-
-        if (position < 0 || position >= adapter.count) return null
-        val conversation = adapter.getItem(position) ?: return null
-
-        return conversation.reflekt()
-            .firstFieldOrNull { name = "field_username"; superclass() }
-            ?.get() as? String
     }
 
     private fun hookSqliteWrapperQuery() {
