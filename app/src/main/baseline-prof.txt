@@ -12,7 +12,6 @@ Ldev/ujhhgtg/wekit/features/api/core/WeDatabaseApi;
 Ldev/ujhhgtg/wekit/features/api/core/WeDatabaseListenerApi;
 Ldev/ujhhgtg/wekit/features/api/core/WeMessageApi;
 Ldev/ujhhgtg/wekit/features/api/core/WeServiceApi;
-Ldev/ujhhgtg/wekit/features/api/core/WeUnsafeApi;
 Ldev/ujhhgtg/wekit/features/api/net/WeNetSceneApi;
 Ldev/ujhhgtg/wekit/features/api/net/WePacketHelper;
 Ldev/ujhhgtg/wekit/features/api/net/listener/WePacketDispatcher;
