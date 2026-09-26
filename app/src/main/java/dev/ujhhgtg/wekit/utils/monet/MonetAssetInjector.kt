@@ -39,8 +39,6 @@ object MonetAssetInjector {
     private val canonicalPaths = HashMap<String, String>()
     private var ownedPaths: Set<String> = emptySet()
 
-    private val resourcesImplClass by lazy { ResourcesImpl::class.java }
-
     /**
      * WeChat's resource APKs as actually loaded by [assets] (base, resource splits, or a Tinker
      * patched `resources.apk` under the data dir), base first. Loader assets, the framework and
@@ -112,7 +110,7 @@ object MonetAssetInjector {
     // WeChat subclasses Resources.
     private fun flush(impl: ResourcesImpl) {
         CACHE_FIELDS.forEach { field ->
-            val cache = resourcesImplClass.reflekt().firstField { name = field }.get(impl)!!
+            val cache = ResourcesImpl::class.reflekt().firstField { name = field }.get(impl)!!
             cache.reflekt().firstMethod {
                 name = "clear"
                 parameterCount = 0
