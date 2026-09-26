@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
-import android.view.View
 import android.widget.ImageButton
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.wekit.R
@@ -9,6 +8,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.features.items.chat_input_bar_menu.InputBarMenu
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 
@@ -50,13 +50,19 @@ object ChatFooterHooks : ApiFeature(), IResolveDex {
                 }
             }
 
-            val menuBtn = imgButtons.last()
-            val sendBtn = WeChatInputBarMenuApi.findSendButton(chatFooter)
+            if (InputBarMenu.isEnabled) {
+                val menuBtn = imgButtons.last()
+                val sendBtn = WeChatInputBarMenuApi.findSendButton(chatFooter)
 
-            listOf(menuBtn, sendBtn).forEach {
-                it.setOnLongClickListener { view ->
-                    WeChatInputBarMenuApi.showMenu(view.context, chatFooter)
-                    true
+                listOf(menuBtn, sendBtn).forEach {
+                    it.setOnLongClickListener { view ->
+                        if (InputBarMenu.isEnabled) {
+                            WeChatInputBarMenuApi.showMenu(view.context, chatFooter)
+                            true
+                        } else {
+                            false
+                        }
+                    }
                 }
             }
         }

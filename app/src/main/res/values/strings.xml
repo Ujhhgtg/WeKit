@@ -381,6 +381,7 @@
 
     <!-- Feature categories -->
     <string name="feature_category_chat_title">Chat</string>
+    <string name="feature_category_chat_input_bar_menu_title">Input bar menu</string>
     <string name="feature_category_contacts_groups_title">Contacts and groups</string>
     <string name="feature_category_payment_title">Payments</string>
     <string name="feature_category_moments_title">Moments</string>
@@ -527,6 +528,8 @@
     <string name="feature_bypass_risk_file_blocking_description">Bypass the prompt "This file has been complained by users and verified to be a security risk and cannot be received/cannot be opened" and allows the marked files to be received and opened normally.</string>
     <string name="feature_chat_footer_hooks_name">Chat input bar hooks</string>
     <string name="feature_chat_footer_hooks_description">Centrally provide hooks related to the chat input field</string>
+    <string name="feature_input_bar_menu_name">Input bar menu</string>
+    <string name="feature_input_bar_menu_description">Long press the plus or send button to open the input bar menu</string>
     <string name="feature_chat_toolbar_name">Chat toolbar</string>
     <string name="feature_chat_toolbar_description">Add a toolbar above the input box</string>
     <string name="feature_conversation_aggregation_name">Conversation aggregation</string>

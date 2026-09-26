@@ -138,6 +138,7 @@ data class FeatureCategory(
 
 val FEATURE_CATEGORIES = listOf(
     FeatureCategory(FeatureCategoryIds.CHAT, R.string.feature_category_chat_title, MaterialSymbols.Outlined.Chat),
+    FeatureCategory(FeatureCategoryIds.CHAT_INPUT_BAR_MENU, R.string.feature_category_chat_input_bar_menu_title, MaterialSymbols.Outlined.Add_circle),
     FeatureCategory(FeatureCategoryIds.CONTACTS_GROUPS, R.string.feature_category_contacts_groups_title, MaterialSymbols.Outlined.Contacts),
     FeatureCategory(FeatureCategoryIds.PAYMENT, R.string.feature_category_payment_title, MaterialSymbols.Outlined.Payments),
     FeatureCategory(FeatureCategoryIds.MOMENTS, R.string.feature_category_moments_title, MaterialSymbols.Outlined.Camera),

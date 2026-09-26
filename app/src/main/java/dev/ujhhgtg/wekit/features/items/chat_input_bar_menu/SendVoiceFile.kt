@@ -13,7 +13,7 @@ object SendVoiceFile : SwitchFeature() {
 
     override val technicalId = "发送语音文件"
     override val nameRes = R.string.feature_send_voice_file_name
-    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.CHAT_INPUT_BAR_MENU)
     override val descriptionRes = R.string.feature_send_voice_file_description
 
     private val provider = WeChatInputBarMenuApi.IActionItemsProvider {

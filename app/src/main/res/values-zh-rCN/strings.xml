@@ -347,6 +347,7 @@
     <string name="licenses_no_license_text">暂无许可证文本</string>
     <!-- Feature categories -->
     <string name="feature_category_chat_title">聊天</string>
+    <string name="feature_category_chat_input_bar_menu_title">聊天输入栏菜单</string>
     <string name="feature_category_contacts_groups_title">联系人与群组</string>
     <string name="feature_category_payment_title">红包与支付</string>
     <string name="feature_category_moments_title">朋友圈</string>
@@ -491,6 +492,8 @@
     <string name="feature_bypass_risk_file_blocking_description">绕过“此文件已被用户投诉并核实存在安全风险，无法接收/无法打开”的提示，允许正常接收和打开被标记的文件</string>
     <string name="feature_chat_footer_hooks_name">聊天输入栏钩子</string>
     <string name="feature_chat_footer_hooks_description">集中提供聊天输入栏相关钩子</string>
+    <string name="feature_input_bar_menu_name">聊天输入栏菜单</string>
+    <string name="feature_input_bar_menu_description">长按加号或发送按钮打开输入栏菜单</string>
     <string name="feature_chat_toolbar_name">聊天工具栏</string>
     <string name="feature_chat_toolbar_description">在输入框上方添加工具栏</string>
     <string name="feature_conversation_aggregation_name">对话归拢</string>

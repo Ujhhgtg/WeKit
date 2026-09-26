@@ -61,7 +61,7 @@ object MentionMembers : SwitchFeature(), IResolveDex {
 
     override val technicalId = "@所有人"
     override val nameRes = R.string.feature_mention_members_name
-    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.CHAT_INPUT_BAR_MENU)
     override val descriptionRes = R.string.feature_mention_members_description
 
     /** 微信服务器对 atuserlist 人数的上限, 超出部分静默截断 */

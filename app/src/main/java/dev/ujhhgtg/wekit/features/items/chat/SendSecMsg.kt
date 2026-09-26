@@ -58,7 +58,7 @@ object SendSecMsg : ClickableFeature(), IResolveDex {
 
     override val technicalId = "安全消息发送"
     override val nameRes = R.string.feature_send_sec_msg_name
-    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.CHAT_INPUT_BAR_MENU)
     override val descriptionRes = R.string.feature_send_sec_msg_description
 
     /** 被动模式: 所有自己发出的文本消息一律注入标记 */

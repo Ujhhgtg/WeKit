@@ -89,7 +89,7 @@ object ReadReceipts : ClickableFeature(),
 
     override val technicalId = "已读追踪"
     override val nameRes = R.string.feature_read_receipts_name
-    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.CHAT_INPUT_BAR_MENU)
     override val descriptionRes = R.string.feature_read_receipts_description
 
     private const val TAG = "ReadReceipts"

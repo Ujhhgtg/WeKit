@@ -346,6 +346,7 @@
     <string name="licenses_visit_home_page">訪問主頁</string>
     <string name="licenses_no_license_text">暫無許可證文本</string>
     <string name="feature_category_chat_title">聊天</string>
+    <string name="feature_category_chat_input_bar_menu_title">聊天輸入欄選單</string>
     <string name="feature_category_contacts_groups_title">聯繫人與羣組</string>
     <string name="feature_category_payment_title">紅包與支付</string>
     <string name="feature_category_moments_title">朋友圈</string>
@@ -489,6 +490,8 @@
     <string name="feature_bypass_risk_file_blocking_description">繞過“此文件已被用戶投訴並覈實存在安全風險，無法接收/無法打開”的提示，允許正常接收和打開被標記的文件</string>
     <string name="feature_chat_footer_hooks_name">聊天輸入欄鉤子</string>
     <string name="feature_chat_footer_hooks_description">集中提供聊天輸入欄相關鉤子</string>
+    <string name="feature_input_bar_menu_name">聊天輸入欄選單</string>
+    <string name="feature_input_bar_menu_description">長按加號或傳送按鈕開啟輸入欄選單</string>
     <string name="feature_chat_toolbar_name">聊天工具欄</string>
     <string name="feature_chat_toolbar_description">在輸入框上方添加工具欄</string>
     <string name="feature_conversation_aggregation_name">對話歸攏</string>

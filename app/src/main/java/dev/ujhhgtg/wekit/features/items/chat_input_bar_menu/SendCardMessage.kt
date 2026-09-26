@@ -14,7 +14,7 @@ object SendCardMessage : SwitchFeature() {
 
     override val technicalId = "发送卡片消息"
     override val nameRes = R.string.feature_send_card_message_name
-    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT_INPUT_BAR_MENU)
     override val descriptionRes = R.string.feature_send_card_message_description
 
     private val provider = WeChatInputBarMenuApi.IActionItemsProvider {
