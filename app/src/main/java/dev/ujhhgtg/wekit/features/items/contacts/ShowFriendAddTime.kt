@@ -36,14 +36,21 @@ object ShowFriendAddTime : SwitchFeature(),
         if (activity.javaClass.name != ChatroomInfoUI::class.java.name) {
             return emptyList()
         }
-        val addTime = readContactAddTime(activity) ?: return emptyList()
         return listOf(
             WeContactPrefsScreenApi.PreferenceItem(
                 title = activity.localizedContactsString(
                     R.string.contacts_add_time_value,
-                    addTime,
+                    activity.localizedContactsString(R.string.loading),
                 ),
                 position = 1,
+                // The group lookup scans the group's system messages; on a cold database that
+                // takes hundreds of milliseconds of disk reads, too slow for initView.
+                loadTitle = {
+                    activity.localizedContactsString(
+                        R.string.contacts_add_time_value,
+                        readContactAddTime(activity) ?: activity.localizedContactsString(R.string.contacts_get_failed),
+                    )
+                },
             )
         )
     }

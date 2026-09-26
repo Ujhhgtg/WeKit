@@ -15,6 +15,10 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
@@ -41,6 +45,11 @@ object WeContactPrefsScreenApi : ApiFeature() {
         val summary: String? = null,
         val position: Int = -1,
         val onClick: ((Activity) -> Unit)? = null,
+        /**
+         * Loads the real title off the main thread, for rows that need I/O such as host database
+         * queries; [title] is shown as a placeholder until then.
+         */
+        val loadTitle: (() -> String)? = null,
     )
 
     private const val TAG = "WeContactPrefsScreenApi"
@@ -102,6 +111,15 @@ object WeContactPrefsScreenApi : ApiFeature() {
                                     setTitleMethod.invoke(pref, item.title)
                                     item.summary?.let { summary -> setSummaryMethod.invoke(pref, summary) }
                                     addPreferenceMethod.invoke(adapterInstance, pref, item.position)
+                                    item.loadTitle?.let { loadTitle ->
+                                        loadTitleInBackground(
+                                            thisObject as Activity,
+                                            adapterInstance as BaseAdapter,
+                                            pref,
+                                            provider,
+                                            loadTitle,
+                                        )
+                                    }
                                 }
                             } catch (ex: Exception) {
                                 WeLogger.e(
@@ -139,6 +157,28 @@ object WeContactPrefsScreenApi : ApiFeature() {
                         result = true
                     }
                 }
+            }
+        }
+    }
+
+    private fun loadTitleInBackground(
+        activity: Activity,
+        adapter: BaseAdapter,
+        pref: Any,
+        provider: IContactInfoProvider,
+        loadTitle: () -> String,
+    ) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val title = try {
+                loadTitle()
+            } catch (ex: Exception) {
+                WeLogger.e(TAG, "provider ${provider.javaClass.name} threw while loading contact info item title", ex)
+                return@launch
+            }
+            withContext(Dispatchers.Main) {
+                if (activity.isDestroyed) return@withContext
+                setTitleMethod.invoke(pref, title)
+                adapter.notifyDataSetChanged()
             }
         }
     }
