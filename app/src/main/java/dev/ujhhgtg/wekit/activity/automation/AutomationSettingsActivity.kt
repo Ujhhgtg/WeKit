@@ -17,12 +17,15 @@ import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
 import dev.ujhhgtg.wekit.ui.animation.predictiveback.weKitNavTransition
 import dev.ujhhgtg.wekit.ui.automation.AutomationBatchScreen
+import dev.ujhhgtg.wekit.ui.automation.AutomationContactPicker
+import dev.ujhhgtg.wekit.ui.automation.AutomationContactPickerScreen
 import dev.ujhhgtg.wekit.ui.automation.AutomationContactsScreen
 import dev.ujhhgtg.wekit.ui.automation.AutomationHomeScreen
 import dev.ujhhgtg.wekit.ui.automation.AutomationItemsScreen
 import dev.ujhhgtg.wekit.ui.automation.AutomationMembersScreen
 import dev.ujhhgtg.wekit.ui.automation.AutomationPresetsScreen
 import dev.ujhhgtg.wekit.ui.automation.AutomationScopeScreen
+import dev.ujhhgtg.wekit.ui.automation.LocalAutomationContactPicker
 import dev.ujhhgtg.wekit.ui.navigation.LocalNavigator
 import dev.ujhhgtg.wekit.ui.navigation.Navigator
 import dev.ujhhgtg.wekit.ui.navigation.rememberM3NavEffects
@@ -89,6 +92,10 @@ sealed interface AutomationRoute : NavKey {
 
     @Serializable
     data class Batch(val scopes: List<AutomationScope>) : AutomationRoute
+
+    /** A contact screen for the pending [AutomationContactPicker] request [id]. */
+    @Serializable
+    data class ContactPicker(val id: String) : AutomationRoute
 }
 
 @Composable
@@ -96,8 +103,9 @@ private fun AutomationSettingsRoot(spec: AutomationSpec, onFinish: () -> Unit) {
     val backStack = rememberNavBackStack<AutomationRoute>(AutomationRoute.Home)
     val navigator = remember(backStack) { Navigator(backStack) }
     val back = { if (navigator.backStackSize() <= 1) onFinish() else navigator.pop() }
+    val contactPicker = remember(navigator) { AutomationContactPicker(navigator) }
 
-    CompositionLocalProvider(LocalNavigator provides navigator) {
+    CompositionLocalProvider(LocalNavigator provides navigator, LocalAutomationContactPicker provides contactPicker) {
         NavDisplay(
             backStack = backStack,
             onBack = back,
@@ -124,6 +132,9 @@ private fun AutomationSettingsRoot(spec: AutomationSpec, onFinish: () -> Unit) {
             }
             entry<AutomationRoute.Batch>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
                 AutomationBatchScreen(spec, key.scopes, onBack = back)
+            }
+            entry<AutomationRoute.ContactPicker>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
+                AutomationContactPickerScreen(contactPicker, key.id, onBack = back)
             }
         }
     }

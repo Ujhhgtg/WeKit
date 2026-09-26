@@ -33,7 +33,7 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
-import dev.ujhhgtg.wekit.ui.content.SingleContactSelector
+import dev.ujhhgtg.wekit.ui.content.contacts.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.ShowComposeDialogScope
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog

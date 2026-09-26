@@ -38,7 +38,6 @@ import dev.ujhhgtg.wekit.features.automation.AutomationSpec
 import dev.ujhhgtg.wekit.features.automation.AutomationStoredScope
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
-import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
@@ -319,7 +318,7 @@ fun AutomationScopeScreen(
         }
     }
 
-    val context = AutomationEditorContext(activity, scope, { editText = it }, pickFiles)
+    val context = AutomationEditorContext(activity, scope, { editText = it }, pickFiles, LocalAutomationContactPicker.current)
     val parentLabel = parentLabel(spec, scope)
 
     SettingsScaffold(
@@ -511,7 +510,7 @@ private fun PresetPicker(
 
 @Composable
 fun AutomationContactsScreen(spec: AutomationSpec, onBack: () -> Unit, onOpen: (AutomationRoute) -> Unit) {
-    val activity = LocalActivity.current as ComponentActivity
+    val picker = LocalAutomationContactPicker.current
     val snapshot = rememberAutomationSnapshot(spec)
     val configured = snapshot.ofType(AutomationScopeType.CONTACT)
     val memberGroups = snapshot.scopes.keys.filter { it.type == AutomationScopeType.GROUP_MEMBER }
@@ -528,21 +527,15 @@ fun AutomationContactsScreen(spec: AutomationSpec, onBack: () -> Unit, onOpen: (
                         value = "",
                         trailingIcon = MaterialSymbols.Outlined.Add,
                         onClick = {
-                            val contacts = loadAutomationContacts(spec.contactKinds)
-                            showComposeDialog(activity) {
-                                AutomationContactSettingsSelector(
+                            picker.open(
+                                AutomationContactPick.Single(
                                     title = title,
-                                    contacts = contacts,
-                                    selectionKey = snapshot,
-                                    subtitle = { it.wxId },
-                                    isConfigured = { c -> snapshot.scopes.containsKey(AutomationScope.contact(c.wxId)) },
-                                    onDismiss = onDismiss,
-                                    onOpen = { contact ->
-                                        onDismiss()
-                                        onOpen(AutomationRoute.Scope(AutomationScope.contact(contact.wxId)))
-                                    },
+                                    loadContacts = { loadAutomationContacts(spec.contactKinds) },
+                                    markedKey = snapshot,
+                                    isMarked = { c -> snapshot.scopes.containsKey(AutomationScope.contact(c.wxId)) },
+                                    onPick = { contact -> AutomationRoute.Scope(AutomationScope.contact(contact.wxId)) },
                                 )
-                            }
+                            )
                         },
                     )
                 }
@@ -551,13 +544,16 @@ fun AutomationContactsScreen(spec: AutomationSpec, onBack: () -> Unit, onOpen: (
                         title = batchTitle,
                         description = stringResource(R.string.automation_batch_edit_summary),
                         onClick = {
-                            val contacts = loadAutomationContacts(spec.contactKinds)
-                            showComposeDialog(activity) {
-                                ContactsSelector(title = batchTitle, contacts = contacts, initialSelectedWxIds = emptySet(), onDismiss = onDismiss) { ids ->
-                                    onDismiss()
-                                    if (ids.isNotEmpty()) onOpen(AutomationRoute.Batch(ids.map(AutomationScope::contact)))
-                                }
-                            }
+                            picker.open(
+                                AutomationContactPick.Multiple(
+                                    title = batchTitle,
+                                    loadContacts = { loadAutomationContacts(spec.contactKinds) },
+                                    initialSelected = emptySet(),
+                                    onConfirm = { ids ->
+                                        if (ids.isEmpty()) null else AutomationRoute.Batch(ids.map(AutomationScope::contact))
+                                    },
+                                )
+                            )
                         },
                     )
                 }
@@ -594,7 +590,7 @@ fun AutomationContactsScreen(spec: AutomationSpec, onBack: () -> Unit, onOpen: (
 
 @Composable
 fun AutomationMembersScreen(spec: AutomationSpec, groupId: String, onBack: () -> Unit, onOpen: (AutomationRoute) -> Unit) {
-    val activity = LocalActivity.current as ComponentActivity
+    val picker = LocalAutomationContactPicker.current
     val snapshot = rememberAutomationSnapshot(spec)
     val configured = snapshot.membersOf(groupId)
     val groupName = remember(groupId) { WeDatabaseApi.getDisplayName(groupId) }
@@ -610,21 +606,15 @@ fun AutomationMembersScreen(spec: AutomationSpec, groupId: String, onBack: () ->
                         value = "",
                         trailingIcon = MaterialSymbols.Outlined.Add,
                         onClick = {
-                            val members = loadGroupMembers(groupId)
-                            showComposeDialog(activity) {
-                                AutomationContactSettingsSelector(
+                            picker.open(
+                                AutomationContactPick.Single(
                                     title = title,
-                                    contacts = members,
-                                    selectionKey = snapshot,
-                                    subtitle = { it.wxId },
-                                    isConfigured = { m -> snapshot.scopes.containsKey(AutomationScope.member(groupId, m.wxId)) },
-                                    onDismiss = onDismiss,
-                                    onOpen = { member ->
-                                        onDismiss()
-                                        onOpen(AutomationRoute.Scope(AutomationScope.member(groupId, member.wxId)))
-                                    },
+                                    loadContacts = { loadGroupMembers(groupId) },
+                                    markedKey = snapshot,
+                                    isMarked = { m -> snapshot.scopes.containsKey(AutomationScope.member(groupId, m.wxId)) },
+                                    onPick = { member -> AutomationRoute.Scope(AutomationScope.member(groupId, member.wxId)) },
                                 )
-                            }
+                            )
                         },
                     )
                 }
@@ -633,13 +623,16 @@ fun AutomationMembersScreen(spec: AutomationSpec, groupId: String, onBack: () ->
                         title = batchTitle,
                         description = stringResource(R.string.automation_batch_edit_summary),
                         onClick = {
-                            val members = loadGroupMembers(groupId)
-                            showComposeDialog(activity) {
-                                ContactsSelector(title = batchTitle, contacts = members, initialSelectedWxIds = emptySet(), onDismiss = onDismiss) { ids ->
-                                    onDismiss()
-                                    if (ids.isNotEmpty()) onOpen(AutomationRoute.Batch(ids.map { AutomationScope.member(groupId, it) }))
-                                }
-                            }
+                            picker.open(
+                                AutomationContactPick.Multiple(
+                                    title = batchTitle,
+                                    loadContacts = { loadGroupMembers(groupId) },
+                                    initialSelected = emptySet(),
+                                    onConfirm = { ids ->
+                                        if (ids.isEmpty()) null else AutomationRoute.Batch(ids.map { AutomationScope.member(groupId, it) })
+                                    },
+                                )
+                            )
                         },
                     )
                 }
@@ -818,7 +811,7 @@ fun AutomationBatchScreen(spec: AutomationSpec, scopes: List<AutomationScope>, o
     val validationError = spec.validate(effective, draft.keyIds)
     val savedText = stringResource(R.string.settings_saved)
     val failedText = stringResource(R.string.structured_storage_save_failed)
-    val context = AutomationEditorContext(activity, scopes.first(), { editText = it }, pickFiles)
+    val context = AutomationEditorContext(activity, scopes.first(), { editText = it }, pickFiles, LocalAutomationContactPicker.current)
     val currentLabel = stringResource(R.string.automation_batch_current)
 
     SettingsScaffold(

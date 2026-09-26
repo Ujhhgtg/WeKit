@@ -18,9 +18,8 @@ import dev.ujhhgtg.wekit.ui.automation.AutomationEditorContext
 import dev.ujhhgtg.wekit.ui.automation.AutomationEditorDetails
 import dev.ujhhgtg.wekit.ui.automation.AutomationNavigationRow
 import dev.ujhhgtg.wekit.ui.automation.loadGroupMembers
-import dev.ujhhgtg.wekit.ui.content.ContactsSelector
+import dev.ujhhgtg.wekit.ui.automation.AutomationContactPick
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumnScope
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.ui.automation.AutomationRuleEditor
 import dev.ujhhgtg.wekit.ui.automation.AutomationValueRow
 import dev.ujhhgtg.wekit.ui.automation.choiceEditor
@@ -263,12 +262,17 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
                 onClick = {
                     val members = loadGroupMembers(groupId)
                     val memberIds = members.map { it.wxId }.toSet()
-                    showComposeDialog(context.activity) {
-                        ContactsSelector(title, members, tokens.filter { it in memberIds }.toSet(), onDismiss) { picked ->
-                            onChange(tokens.filterNot { it in memberIds } + picked)
-                            onDismiss()
-                        }
-                    }
+                    context.contactPicker.open(
+                        AutomationContactPick.Multiple(
+                            title = title,
+                            loadContacts = { members },
+                            initialSelected = tokens.filter { it in memberIds }.toSet(),
+                            onConfirm = { picked ->
+                                onChange(tokens.filterNot { it in memberIds } + picked)
+                                null
+                            },
+                        )
+                    )
                 },
             )
         }

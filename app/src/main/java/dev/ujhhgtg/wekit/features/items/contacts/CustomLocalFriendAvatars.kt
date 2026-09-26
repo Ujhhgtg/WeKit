@@ -60,7 +60,7 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.BaseContactSelector
+import dev.ujhhgtg.wekit.ui.content.contacts.BaseContactSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -79,9 +79,7 @@ import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Field
 import java.lang.reflect.Method
-import java.text.Collator
 import java.util.Collections
-import java.util.Locale
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.min
@@ -865,8 +863,6 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
         onSelectImage: (String) -> Unit,
         onRemove: (String) -> Unit
     ) {
-        var searchQuery by remember { mutableStateOf("") }
-        val chinaCollator = remember { Collator.getInstance(Locale.CHINA) }
         val localizedContext = LocalWeKitLocalizedContext.current
 
         val fullContactsList = remember(contacts, entries) {
@@ -876,21 +872,9 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
             (entryContacts + contacts).distinctBy { it.wxId }
         }
 
-        val filteredContacts = remember(searchQuery, fullContactsList, chinaCollator) {
-            fullContactsList.filter {
-                it.displayName.contains(searchQuery, ignoreCase = true) ||
-                        it.wxId.contains(searchQuery, ignoreCase = true)
-            }.sortedWith(
-                compareBy<IWeContact> { it.displayName.isBlank() }
-                    .thenComparator { c1, c2 -> chinaCollator.compare(c1.displayName, c2.displayName) }
-            )
-        }
-
         BaseContactSelector(
             title = stringResource(R.string.feature_custom_local_friend_avatars_name),
-            searchQuery = searchQuery,
-            onSearchQueryChange = { searchQuery = it },
-            filteredContacts = filteredContacts,
+            contacts = fullContactsList,
             confirmButtonText = "",
             confirmButtonEnabled = false,
             showConfirmButton = false,

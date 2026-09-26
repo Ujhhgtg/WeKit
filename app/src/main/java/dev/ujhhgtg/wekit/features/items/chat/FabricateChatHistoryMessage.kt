@@ -47,7 +47,7 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
-import dev.ujhhgtg.wekit.ui.content.SingleContactSelector
+import dev.ujhhgtg.wekit.ui.content.contacts.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.WeDateTimeField
 import dev.ujhhgtg.wekit.ui.content.WeDateTimeMode

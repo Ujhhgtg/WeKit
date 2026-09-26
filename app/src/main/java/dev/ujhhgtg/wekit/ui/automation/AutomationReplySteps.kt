@@ -36,7 +36,6 @@ import dev.ujhhgtg.wekit.features.automation.AutomationReplyStep
 import dev.ujhhgtg.wekit.features.automation.AutomationReplyStepKind
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.splitReplyValues
-import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
@@ -176,6 +175,9 @@ private fun ReplyStepDialog(
     var content by remember { mutableStateOf(initial.content) }
     var delay by remember { mutableStateOf(initial.delayMs.toString()) }
     var randomDelay by remember { mutableStateOf(initial.randomDelay) }
+    // Hidden while a contact screen is open on top; this composable (and its state) stays.
+    var pickingContacts by remember { mutableStateOf(false) }
+    if (pickingContacts) return
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -219,21 +221,24 @@ private fun ReplyStepDialog(
                         val groups = kind == AutomationReplyStepKind.INVITE_GROUP
                         val pickerTitle = stringResource(REPLY_STEP_KIND_LABELS.getValue(kind))
                         OutlinedButton(onClick = {
-                            val contacts = loadAutomationContacts(
-                                if (groups) setOf(AutomationTalkerCategory.GROUP)
-                                else setOf(AutomationTalkerCategory.PRIVATE, AutomationTalkerCategory.OFFICIAL)
-                            )
-                            showComposeDialog(context.activity) {
-                                ContactsSelector(
+                            pickingContacts = true
+                            context.contactPicker.open(
+                                AutomationContactPick.Multiple(
                                     title = pickerTitle,
-                                    contacts = contacts,
-                                    initialSelectedWxIds = splitReplyValues(content).toSet(),
-                                    onDismiss = onDismiss,
-                                ) { selected ->
-                                    content = selected.joinToString("\n")
-                                    onDismiss()
-                                }
-                            }
+                                    loadContacts = {
+                                        loadAutomationContacts(
+                                            if (groups) setOf(AutomationTalkerCategory.GROUP)
+                                            else setOf(AutomationTalkerCategory.PRIVATE, AutomationTalkerCategory.OFFICIAL)
+                                        )
+                                    },
+                                    initialSelected = splitReplyValues(content).toSet(),
+                                    onClose = { pickingContacts = false },
+                                    onConfirm = { selected ->
+                                        content = selected.joinToString("\n")
+                                        null
+                                    },
+                                )
+                            )
                         }) { Text(stringResource(R.string.automation_pick_contacts)) }
                     }
 

@@ -51,7 +51,7 @@ import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.uninstallSchedules
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.ContactsSelector
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn

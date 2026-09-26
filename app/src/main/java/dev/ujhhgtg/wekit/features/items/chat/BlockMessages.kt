@@ -35,7 +35,7 @@ import dev.ujhhgtg.wekit.ui.automation.loadAutomationContacts
 import dev.ujhhgtg.wekit.ui.automation.messageTypeEditor
 import dev.ujhhgtg.wekit.ui.automation.toggleEditor
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.ContactsSelector
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger

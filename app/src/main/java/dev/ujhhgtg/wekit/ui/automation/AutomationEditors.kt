@@ -26,13 +26,10 @@ import dev.ujhhgtg.wekit.features.automation.AutomationTargetRule
 import dev.ujhhgtg.wekit.features.automation.AutomationTextRule
 import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
-import dev.ujhhgtg.wekit.ui.content.ContactsSelector
-import dev.ujhhgtg.wekit.ui.content.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.content.formatSecondOfDay
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumnScope
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 /** What an editor may ask the hosting screen for. */
@@ -42,6 +39,8 @@ class AutomationEditorContext(
     val editText: (AutomationTextEditRequest) -> Unit,
     /** Opens the system file picker; picked files are copied into module storage. */
     val pickFiles: (mimeTypes: Array<String>, onPicked: (List<String>) -> Unit) -> Unit,
+    /** Opens contact screens on top of the current one. */
+    val contactPicker: AutomationContactPicker,
 )
 
 typealias AutomationEditorDetails<T> =
@@ -519,18 +518,17 @@ fun SegmentedColumnScope.contactSetItem(
             else pluralStringResource(R.plurals.automation_selected_count, ids.size, ids.size),
             enabled = editable,
             onClick = {
-                val contacts = loadAutomationContacts(kinds)
-                showComposeDialog(context.activity) {
-                    ContactsSelector(
+                context.contactPicker.open(
+                    AutomationContactPick.Multiple(
                         title = title,
-                        contacts = contacts,
-                        initialSelectedWxIds = ids,
-                        onDismiss = onDismiss,
-                    ) { selected ->
-                        onChange(selected)
-                        onDismiss()
-                    }
-                }
+                        loadContacts = { loadAutomationContacts(kinds) },
+                        initialSelected = ids,
+                        onConfirm = { selected ->
+                            onChange(selected)
+                            null
+                        },
+                    )
+                )
             },
         )
     }
@@ -555,35 +553,29 @@ fun SegmentedColumnScope.memberSetItem(
             enabled = editable,
             onClick = {
                 val pickMembers = { groupId: String ->
-                    val members = loadGroupMembers(groupId)
                     val prefix = "$groupId/"
-                    showComposeDialog(context.activity) {
-                        ContactsSelector(
-                            title = WeDatabaseApi.getDisplayName(groupId),
-                            contacts = members,
-                            initialSelectedWxIds = tokens.filter { it.startsWith(prefix) }.map { it.removePrefix(prefix) }.toSet(),
-                            onDismiss = onDismiss,
-                        ) { selected ->
+                    AutomationContactPick.Multiple(
+                        title = WeDatabaseApi.getDisplayName(groupId),
+                        loadContacts = { loadGroupMembers(groupId) },
+                        initialSelected = tokens.filter { it.startsWith(prefix) }.map { it.removePrefix(prefix) }.toSet(),
+                        onConfirm = { selected ->
                             onChange(tokens.filterNot { it.startsWith(prefix) }.toSet() + selected.map { prefix + it })
-                            onDismiss()
-                        }
-                    }
+                            null
+                        },
+                    )
                 }
+                val picker = context.contactPicker
                 if (fixedGroupId != null) {
-                    pickMembers(fixedGroupId)
+                    picker.open(pickMembers(fixedGroupId))
                 } else {
-                    val groups = loadAutomationContacts(setOf(AutomationTalkerCategory.GROUP))
-                    showComposeDialog(context.activity) {
-                        SingleContactSelector(
+                    // Picking a group replaces this screen with its member picker.
+                    picker.open(
+                        AutomationContactPick.Single(
                             title = title,
-                            contacts = groups,
-                            initialSelectedWxId = null,
-                            onDismiss = onDismiss,
-                        ) { groupId ->
-                            onDismiss()
-                            pickMembers(groupId)
-                        }
-                    }
+                            loadContacts = { loadAutomationContacts(setOf(AutomationTalkerCategory.GROUP)) },
+                            onPick = { group -> picker.route(pickMembers(group.wxId)) },
+                        )
+                    )
                 }
             },
         )

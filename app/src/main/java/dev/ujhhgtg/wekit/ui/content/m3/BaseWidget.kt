@@ -96,6 +96,8 @@ fun BaseWidget(
     clickHaptic: HapticFeedbackType? = HapticFeedbackType.VirtualKey,
     trailingDivider: Boolean = false,
     headlineTrailingContent: @Composable RowScope.() -> Unit = {},
+    /** Replaces the [icon] slot, e.g. with an avatar. */
+    leadingContent: (@Composable () -> Unit)? = null,
     foreContent: @Composable BoxScope.() -> Unit = {},
     trailingContent: @Composable BoxScope.(interactionSource: MutableInteractionSource) -> Unit = {}
 ) {
@@ -181,8 +183,10 @@ fun BaseWidget(
 
     val itemModifier = modifier.fillMaxWidth()
 
-    val leadingContent: (@Composable () -> Unit)? =
-        if (icon != null || iconPlaceholder) {
+    val leading: (@Composable () -> Unit)? =
+        if (leadingContent != null) {
+            { Box(modifier = Modifier.alpha(alpha)) { leadingContent() } }
+        } else if (icon != null || iconPlaceholder) {
             {
                 Box(
                     modifier = Modifier
@@ -294,7 +298,7 @@ fun BaseWidget(
             colors = colors,
             shapes = shapes,
             verticalAlignment = Alignment.CenterVertically,
-            leadingContent = leadingContent,
+            leadingContent = leading,
             supportingContent = supportingContent,
             trailingContent = trailing,
             interactionSource = interactionSource,
@@ -320,7 +324,7 @@ fun BaseWidget(
                 ),
             colors = colors,
             verticalAlignment = Alignment.CenterVertically,
-            leadingContent = leadingContent,
+            leadingContent = leading,
             supportingContent = supportingContent,
             trailingContent = trailing,
             content = headline

@@ -1,8 +1,10 @@
 package dev.ujhhgtg.wekit.ui.content.m3
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -16,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -57,12 +61,19 @@ val SETTINGS_CONTENT_BOTTOM_INSET = 32.dp
  * Shared settings scaffold: collapsing blurred
  * [ExpressiveCollapsingTopAppBar] with an optional back button + a scroll-through-blur [LazyColumn], mirroring
  * [dev.ujhhgtg.wekit.activity.settings.M3ListScaffold] with back and action callbacks.
+ *
+ * A [pinnedHeader] stays below the app bar while the list scrolls under both; they then share one
+ * Gaussian blur (like `LogsPager`'s tab row), since a progressive blur would fade out behind the
+ * header. [overlay] is drawn above the list, inside the scaffold's content padding.
  */
 @Composable
 fun SettingsScaffold(
     title: String,
     onBack: (() -> Unit)?,
     actions: @Composable RowScope.() -> Unit = {},
+    listState: LazyListState = rememberLazyListState(),
+    pinnedHeader: (@Composable ColumnScope.() -> Unit)? = null,
+    overlay: @Composable BoxScope.() -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -73,30 +84,53 @@ fun SettingsScaffold(
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
-            ExpressiveCollapsingTopAppBar(
-                modifier = Modifier.m3AppBarBlur(barBackdrop),
-                title = title,
-                navigationIcon = {
-                    if (onBack != null) {
-                        ExpressiveBackButton(onClick = onBack)
-                    }
-                },
-                actions = actions,
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = barBackdrop.m3AppBarColor(),
-                    scrolledContainerColor = barBackdrop.m3AppBarColor(),
-                ),
-            )
+            val appBar: @Composable (Modifier) -> Unit = { modifier ->
+                ExpressiveCollapsingTopAppBar(
+                    modifier = modifier,
+                    title = title,
+                    navigationIcon = {
+                        if (onBack != null) {
+                            ExpressiveBackButton(onClick = onBack)
+                        }
+                    },
+                    actions = actions,
+                    scrollBehavior = scrollBehavior,
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = barBackdrop.m3AppBarColor(),
+                        scrolledContainerColor = barBackdrop.m3AppBarColor(),
+                    ),
+                )
+            }
+            if (pinnedHeader == null) {
+                appBar(Modifier.m3AppBarBlur(barBackdrop))
+            } else {
+                Column(
+                    modifier = Modifier
+                        .m3AppBarBlur(barBackdrop, progressive = false)
+                        .background(barBackdrop.m3AppBarColor()),
+                ) {
+                    appBar(Modifier)
+                    pinnedHeader()
+                }
+            }
         },
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .m3BackdropLayer(barBackdrop),
-            contentPadding = innerPadding,
-            content = content,
-        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .m3BackdropLayer(barBackdrop),
+                state = listState,
+                contentPadding = innerPadding,
+                content = content,
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                content = overlay,
+            )
+        }
     }
 }
 
