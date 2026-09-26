@@ -144,8 +144,12 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
         }?.take(120).orEmpty()
     }
 
-    /** A cached favorite voice file with its duration. */
-    data class FavoriteVoice(val filePath: String, val durationMs: Int)
+    /** A cached favorite voice file with its duration and the size the favorite records for it. */
+    data class FavoriteVoice(val filePath: String, val durationMs: Int, val fileSize: Int) {
+        /** The file has the recorded size; a missing (non-positive) size only needs the file to exist. */
+        val isDownloaded: Boolean
+            get() = File(filePath).let { if (fileSize > 0) it.length() == fileSize.toLong() else it.isFile }
+    }
 
     /** The cached voice of a voice favorite (type 3), or null for other favorite types. */
     @OptIn(ExperimentalSerializationApi::class)
@@ -158,7 +162,7 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
         val cacheName = voiceInfo.fileCacheName
         val bucketId = cacheName.hashCode() and 0xFF
         val cacheDir = RuntimeConfig.userDataDir / "favorite" / bucketId.toString()
-        return FavoriteVoice((cacheDir / "$cacheName.${voiceInfo.fileCacheType}").absolutePathString(), voiceInfo.duration)
+        return FavoriteVoice((cacheDir / "$cacheName.${voiceInfo.fileCacheType}").absolutePathString(), voiceInfo.duration, voiceInfo.fileSize)
     }
 
     /** "talker:localId" of voice favorites waiting for their download. */
@@ -175,7 +179,7 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
             return false
         }
         voiceOf(item)?.let { voice ->
-            if (File(voice.filePath).isFile) return WeMessageApi.sendVoice(talker, voice.filePath, voice.durationMs)
+            if (voice.isDownloaded) return WeMessageApi.sendVoice(talker, voice.filePath, voice.durationMs)
             sendAfterDownload(talker, localId, item, voice)
             return true
         }
@@ -193,15 +197,9 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
         runOnUiThread { methodRestartItemDownload.method.invoke(null, item, true) }
         thread(name = "$TAG-voice") {
             try {
-                val file = File(voice.filePath)
-                var lastLength = -1L
                 repeat(VOICE_DOWNLOAD_POLLS) {
                     Thread.sleep(VOICE_DOWNLOAD_POLL_MS)
-                    // Sent once the file exists and stopped growing between two polls.
-                    val length = if (file.isFile) file.length() else -1L
-                    val settled = length > 0 && length == lastLength
-                    lastLength = length
-                    if (settled) {
+                    if (voice.isDownloaded) {
                         if (!WeMessageApi.sendVoice(talker, voice.filePath, voice.durationMs)) {
                             WeLogger.w(TAG, "failed to send downloaded voice favorite $localId")
                         }
