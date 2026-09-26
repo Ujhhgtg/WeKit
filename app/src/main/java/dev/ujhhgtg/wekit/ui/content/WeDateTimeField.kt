@@ -27,11 +27,15 @@ import java.util.Date
 import java.util.Locale
 
 const val MINUTES_PER_DAY: Int = 24 * 60
+const val SECONDS_PER_DAY: Int = MINUTES_PER_DAY * 60
 
 /** Text pattern a [WeDateTimeField] accepts, and which native picker chain its icon opens. */
 enum class WeDateTimeMode(val pattern: String) {
     /** A time of day, `HH:mm`. Opens a [TimePickerDialog]. */
     TIME_ONLY("HH:mm"),
+
+    /** A time of day with seconds, `HH:mm:ss` (`HH:mm` is accepted too). Opens a [TimePickerDialog]. */
+    TIME_WITH_SECONDS("HH:mm:ss"),
 
     /** A full timestamp, `yyyy-MM-dd HH:mm:ss`. Opens a [DatePickerDialog] then a [TimePickerDialog]. */
     DATE_TIME("yyyy-MM-dd HH:mm:ss"),
@@ -56,6 +60,7 @@ fun WeDateTimeField(
     val context = LocalContext.current
     val isError = value.isNotBlank() && when (mode) {
         WeDateTimeMode.TIME_ONLY -> parseMinuteOfDay(value) == null
+        WeDateTimeMode.TIME_WITH_SECONDS -> parseSecondOfDay(value) == null
         WeDateTimeMode.DATE_TIME -> parseDateTime(value) == null
     }
 
@@ -79,6 +84,13 @@ fun WeDateTimeField(
                             context = context,
                             initialMinute = parseMinuteOfDay(value) ?: currentMinuteOfDay(),
                             onSelected = { onValueChange(formatMinuteOfDay(it)) },
+                        )
+
+                        // The native picker has no seconds: a picked time starts at :00.
+                        WeDateTimeMode.TIME_WITH_SECONDS -> showNativeTimePicker(
+                            context = context,
+                            initialMinute = (parseSecondOfDay(value) ?: (currentMinuteOfDay() * 60)) / 60,
+                            onSelected = { onValueChange(formatSecondOfDay(it * 60)) },
                         )
 
                         WeDateTimeMode.DATE_TIME -> showNativeDateTimePicker(
@@ -131,6 +143,50 @@ fun WeTimeOfDayField(
         modifier = modifier,
         enabled = enabled,
     )
+}
+
+/** [WeTimeOfDayField] for callers that store a second-of-day [Int], edited as `HH:mm:ss`. */
+@Composable
+fun WeTimeOfDaySecondsField(
+    secondOfDay: Int,
+    onSecondChange: (Int) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    var text by remember { mutableStateOf(formatSecondOfDay(secondOfDay)) }
+
+    LaunchedEffect(secondOfDay) {
+        if (parseSecondOfDay(text) != secondOfDay) text = formatSecondOfDay(secondOfDay)
+    }
+
+    WeDateTimeField(
+        value = text,
+        onValueChange = { next ->
+            text = next
+            parseSecondOfDay(next)?.let(onSecondChange)
+        },
+        label = label,
+        mode = WeDateTimeMode.TIME_WITH_SECONDS,
+        modifier = modifier,
+        enabled = enabled,
+    )
+}
+
+/** Formats a second-of-day as `HH:mm:ss`, coercing out-of-range input into the day. */
+fun formatSecondOfDay(value: Int): String {
+    val second = value.coerceIn(0, SECONDS_PER_DAY - 1)
+    return "%02d:%02d:%02d".format(Locale.ROOT, second / 3600, second / 60 % 60, second % 60)
+}
+
+/** Parses `H:mm[:ss]` / `HH:mm[:ss]` into a second-of-day, or null when the text isn't a valid time. */
+fun parseSecondOfDay(text: String): Int? {
+    val match = TIME_OF_DAY_SECONDS_REGEX.matchEntire(text.trim()) ?: return null
+    val hour = match.groupValues[1].toInt()
+    val minute = match.groupValues[2].toInt()
+    val second = match.groupValues[3].ifEmpty { "0" }.toInt()
+    if (hour > 23 || minute > 59 || second > 59) return null
+    return hour * 3600 + minute * 60 + second
 }
 
 /** Formats a minute-of-day as `HH:mm`, coercing out-of-range input into the day. */
@@ -213,3 +269,4 @@ private fun showNativeDateTimePicker(context: Context, initialMillis: Long, onSe
 }
 
 private val TIME_OF_DAY_REGEX = Regex("""(\d{1,2}):(\d{2})""")
+private val TIME_OF_DAY_SECONDS_REGEX = Regex("""(\d{1,2}):(\d{2})(?::(\d{2}))?""")

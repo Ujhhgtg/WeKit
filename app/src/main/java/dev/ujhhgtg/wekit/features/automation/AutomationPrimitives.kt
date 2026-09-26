@@ -4,7 +4,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
-import dev.ujhhgtg.wekit.ui.content.MINUTES_PER_DAY
+import dev.ujhhgtg.wekit.ui.content.SECONDS_PER_DAY
 import dev.ujhhgtg.wekit.utils.HostInfo
 import java.util.Calendar
 import kotlin.random.Random
@@ -16,25 +16,26 @@ import kotlin.random.Random
 
 data class AutomationToggleRule(val enabled: Boolean = false)
 
+/** A daily window in seconds of the day, as precise as Hchat's `HH:mm:ss` windows. */
 data class AutomationTimeRangeRule(
     val enabled: Boolean = false,
-    val startMinute: Int = 0,
-    val endMinute: Int = 0,
+    val startSecond: Int = 0,
+    val endSecond: Int = 0,
 ) {
     /** True when the rule is disabled or [now] falls inside the (possibly overnight) range. */
     fun matches(now: Calendar = Calendar.getInstance()): Boolean {
         if (!enabled) return true
-        return containsMinute(now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE))
+        return containsSecond(now.get(Calendar.HOUR_OF_DAY) * 3600 + now.get(Calendar.MINUTE) * 60 + now.get(Calendar.SECOND))
     }
 
     /** Like [matches] but false when disabled: "is this window currently active". */
     fun isActive(now: Calendar = Calendar.getInstance()): Boolean = enabled && matches(now)
 
-    fun containsMinute(minute: Int): Boolean {
-        val start = startMinute.coerceIn(0, MINUTES_PER_DAY - 1)
-        val end = endMinute.coerceIn(0, MINUTES_PER_DAY - 1)
+    fun containsSecond(second: Int): Boolean {
+        val start = startSecond.coerceIn(0, SECONDS_PER_DAY - 1)
+        val end = endSecond.coerceIn(0, SECONDS_PER_DAY - 1)
         if (start == end) return true
-        return if (start < end) minute in start until end else minute !in end..<start
+        return if (start < end) second in start until end else second !in end..<start
     }
 }
 

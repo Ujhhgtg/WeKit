@@ -66,4 +66,13 @@ class BlockMessagesTest {
         val quick = blocking.overlay(AutomationRuleValues().with(spec.blockAll, AutomationToggleRule(true)))
         assertTrue(spec.shouldBlock(listOf(quick), listOf(exclusion), AutomationMessageKind.TEXT, "hello"))
     }
+
+    @Test
+    fun `switched-off chats are left alone unless quick-blocked`() {
+        val blocking = AutomationRules.Defaults.overlay(AutomationRuleValues().with(spec.block, AutomationToggleRule(true)))
+        val off = AutomationRuleValues().with(spec.active, AutomationToggleRule(false))
+        assertFalse(spec.shouldBlock(listOf(blocking), listOf(off), AutomationMessageKind.IMAGE, ""))
+        assertTrue(spec.shouldBlock(listOf(blocking), listOf(off, AutomationRuleValues()), AutomationMessageKind.IMAGE, ""))
+        assertTrue(spec.shouldBlock(listOf(blocking), listOf(off.with(spec.blockAll, AutomationToggleRule(true))), AutomationMessageKind.TEXT, "x"))
+    }
 }

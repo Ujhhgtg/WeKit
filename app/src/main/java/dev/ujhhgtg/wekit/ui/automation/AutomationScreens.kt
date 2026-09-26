@@ -37,11 +37,13 @@ import dev.ujhhgtg.wekit.features.automation.AutomationSnapshot
 import dev.ujhhgtg.wekit.features.automation.AutomationSpec
 import dev.ujhhgtg.wekit.features.automation.AutomationStoredScope
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
+import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
 import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.m3.rememberCreationBackGuard
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -117,8 +119,8 @@ fun categoryDefaultLabel(category: AutomationTalkerCategory): Int = when (catego
 }
 
 @Composable
-private fun scopeSummary(stored: AutomationStoredScope): String {
-    val count = stored.values.size
+private fun scopeSummary(spec: AutomationSpec, stored: AutomationStoredScope): String {
+    val count = ruleCount(spec, stored)
     val presets = stored.presets.size
     return when {
         count == 0 && presets == 0 -> stringResource(R.string.automation_follow_parent_settings)
@@ -126,6 +128,52 @@ private fun scopeSummary(stored: AutomationStoredScope): String {
         else -> pluralStringResource(R.plurals.automation_overrides, count, count) + " · " +
                 pluralStringResource(R.plurals.automation_preset_count, presets, presets)
     }
+}
+
+/** Stored rules shown as overrides, not counting the [AutomationSpec.scopeSwitch]. */
+private fun ruleCount(spec: AutomationSpec, stored: AutomationStoredScope): Int =
+    stored.values.size - if (spec.scopeSwitch?.let { it in stored.values } == true) 1 else 0
+
+/**
+ * A configured chat, member or preset row. When [spec] has a [AutomationSpec.scopeSwitch], the
+ * trailing switch turns the scope off without touching its rules.
+ */
+@Composable
+private fun ConfiguredScopeRow(
+    spec: AutomationSpec,
+    stored: AutomationStoredScope,
+    title: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    val key = spec.scopeSwitch
+    if (key == null) {
+        AutomationNavigationRow(title = title, description = description, onClick = onClick)
+        return
+    }
+    val activity = LocalActivity.current as ComponentActivity
+    val coroutineScope = rememberCoroutineScope()
+    val failedText = stringResource(R.string.structured_storage_save_failed)
+    SwitchWidget(
+        title = title,
+        description = description,
+        onClick = onClick,
+        trailingDivider = true,
+        checked = stored.values[key]?.enabled != false,
+        onCheckedChange = { on ->
+            coroutineScope.launch {
+                try {
+                    val values = if (on) stored.values.without(key) else stored.values.with(key, AutomationToggleRule(false))
+                    spec.store.save(stored.copy(values = values))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    WeLogger.e(TAG, "failed to switch ${spec.id} ${stored.scope}", e)
+                    showToast(activity, failedText)
+                }
+            }
+        },
+    )
 }
 
 // ---- home ------------------------------------------------------------------------------------
@@ -149,7 +197,7 @@ fun AutomationHomeScreen(spec: AutomationSpec, onBack: () -> Unit, onOpen: (Auto
                         item(key = "category_$category") {
                             AutomationNavigationRow(
                                 title = stringResource(categoryDefaultLabel(category)),
-                                description = scopeSummary(snapshot[scope]),
+                                description = scopeSummary(spec, snapshot[scope]),
                                 onClick = { onOpen(AutomationRoute.Scope(scope)) },
                             )
                         }
@@ -520,9 +568,11 @@ fun AutomationContactsScreen(spec: AutomationSpec, onBack: () -> Unit, onOpen: (
                 SegmentedColumn(title = stringResource(R.string.automation_configured)) {
                     configured.forEach { stored ->
                         item(key = stored.scope.scopeId) {
-                            AutomationNavigationRow(
+                            ConfiguredScopeRow(
+                                spec = spec,
+                                stored = stored,
                                 title = automationScopeTitle(spec, stored),
-                                description = scopeSummary(stored),
+                                description = scopeSummary(spec, stored),
                                 onClick = { onOpen(AutomationRoute.Scope(stored.scope)) },
                             )
                         }
@@ -600,9 +650,11 @@ fun AutomationMembersScreen(spec: AutomationSpec, groupId: String, onBack: () ->
                 SegmentedColumn(title = stringResource(R.string.automation_configured)) {
                     configured.forEach { stored ->
                         item(key = stored.scope.memberId) {
-                            AutomationNavigationRow(
+                            ConfiguredScopeRow(
+                                spec = spec,
+                                stored = stored,
                                 title = automationScopeTitle(spec, stored),
-                                description = scopeSummary(stored),
+                                description = scopeSummary(spec, stored),
                                 onClick = { onOpen(AutomationRoute.Scope(stored.scope)) },
                             )
                         }
@@ -704,6 +756,17 @@ private fun NamedScopeListScreen(
                 SegmentedColumn {
                     entries.forEachIndexed { index, stored ->
                         item(key = stored.scope.scopeId) {
+                            if (type == AutomationScopeType.PRESET && spec.scopeSwitch != null) {
+                                val count = ruleCount(spec, stored)
+                                ConfiguredScopeRow(
+                                    spec = spec,
+                                    stored = stored,
+                                    title = stored.name ?: stored.scope.scopeId,
+                                    description = pluralStringResource(R.plurals.automation_overrides, count, count),
+                                    onClick = { onOpen(AutomationRoute.Scope(stored.scope)) },
+                                )
+                                return@item
+                            }
                             BaseWidget(
                                 iconPlaceholder = false,
                                 title = stored.name ?: stored.scope.scopeId,

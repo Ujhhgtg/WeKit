@@ -28,6 +28,7 @@ import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.SingleContactSelector
+import dev.ujhhgtg.wekit.ui.content.formatSecondOfDay
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumnScope
@@ -208,7 +209,7 @@ fun timeRangeEditor(
     key = key,
     titleRes = titleRes,
     summary = {
-        if (it.enabled) "${formatAutomationMinute(it.startMinute)} - ${formatAutomationMinute(it.endMinute)}"
+        if (it.enabled) "${formatSecondOfDay(it.startSecond)} - ${formatSecondOfDay(it.endSecond)}"
         else stringResource(offRes)
     },
     isOn = { it.enabled },

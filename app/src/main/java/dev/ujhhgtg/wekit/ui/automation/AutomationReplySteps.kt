@@ -237,6 +237,21 @@ private fun ReplyStepDialog(
                         }) { Text(stringResource(R.string.automation_pick_contacts)) }
                     }
 
+                    kind == AutomationReplyStepKind.FAVORITE -> {
+                        val pickerTitle = stringResource(R.string.automation_pick_favorites)
+                        OutlinedButton(onClick = {
+                            showComposeDialog(context.activity) {
+                                AutomationFavoritePicker(
+                                    title = pickerTitle,
+                                    initialSelected = splitReplyValues(content).mapNotNull(String::toLongOrNull).toSet(),
+                                    onDismiss = onDismiss,
+                                ) { ids ->
+                                    content = ids.joinToString("\n")
+                                    onDismiss()
+                                }
+                            }
+                        }) { Text(pickerTitle) }
+                    }
                 }
                 OutlinedTextField(
                     value = delay,

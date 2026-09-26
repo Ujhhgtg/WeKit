@@ -38,8 +38,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.automation.AutomationKeywordMode
 import dev.ujhhgtg.wekit.features.automation.AutomationKeywordRule
 import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
-import dev.ujhhgtg.wekit.ui.content.WeTimeOfDayField
-import dev.ujhhgtg.wekit.ui.content.formatMinuteOfDay
+import dev.ujhhgtg.wekit.ui.content.WeTimeOfDaySecondsField
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -253,19 +252,19 @@ fun SegmentedColumnScope.timeRangeItems(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                WeTimeOfDayField(
+                WeTimeOfDaySecondsField(
                     modifier = Modifier.weight(1f),
                     label = stringResource(R.string.automation_start),
-                    minuteOfDay = rule.startMinute,
+                    secondOfDay = rule.startSecond,
                     enabled = editable,
-                    onMinuteChange = { onChange(rule.copy(startMinute = it)) }
+                    onSecondChange = { onChange(rule.copy(startSecond = it)) }
                 )
-                WeTimeOfDayField(
+                WeTimeOfDaySecondsField(
                     modifier = Modifier.weight(1f),
                     label = stringResource(R.string.automation_end),
-                    minuteOfDay = rule.endMinute,
+                    secondOfDay = rule.endSecond,
                     enabled = editable,
-                    onMinuteChange = { onChange(rule.copy(endMinute = it)) }
+                    onSecondChange = { onChange(rule.copy(endSecond = it)) }
                 )
             }
         }
@@ -478,8 +477,6 @@ fun SegmentedColumnScope.delayItems(
         )
     }
 }
-
-fun formatAutomationMinute(value: Int): String = formatMinuteOfDay(value)
 
 @Composable
 fun automationKeywordSummary(rule: AutomationKeywordRule, unrestrictedText: String): String {

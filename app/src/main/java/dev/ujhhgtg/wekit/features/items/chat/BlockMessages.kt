@@ -6,22 +6,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Text
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.stringResource
-import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
-import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
-import dev.ujhhgtg.wekit.ui.automation.loadAutomationContacts
-import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.ContactsSelector
-import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import dev.ujhhgtg.wekit.utils.android.showToast
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.launch
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
+import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
+import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.AddMsgProto
 import dev.ujhhgtg.wekit.features.automation.AutomationCodecs
 import dev.ujhhgtg.wekit.features.automation.AutomationKeywordRule
@@ -39,22 +31,33 @@ import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.automation.keywordEditor
+import dev.ujhhgtg.wekit.ui.automation.loadAutomationContacts
 import dev.ujhhgtg.wekit.ui.automation.messageTypeEditor
 import dev.ujhhgtg.wekit.ui.automation.toggleEditor
+import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.ContactsSelector
+import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.showToast
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 /**
  * Rules of [BlockMessages] on the scope hierarchy, with Hchat's precedence: `blockAll` ("quick
- * block all", set from conversation groups) wins outright; a chat or member explicitly set to not
- * block is an exclusion that beats blocking elsewhere; otherwise the resolved rules decide.
+ * block all", set from conversation groups) wins outright; a configured chat or member whose
+ * switch is off is left alone; a chat or member explicitly set to not block is an exclusion that
+ * beats blocking elsewhere; otherwise the resolved rules decide.
  */
 object BlockMessagesAutomation : AutomationSpec("MESSAGE_BLOCK") {
     val blockAll = AutomationRuleKey("blockAll", AutomationCodecs.toggle, AutomationToggleRule())
     val block = AutomationRuleKey("block", AutomationCodecs.toggle, AutomationToggleRule())
     val types = AutomationRuleKey("types", AutomationCodecs.messageTypes, AutomationMessageTypeRule())
     val textKeyword = AutomationRuleKey("textKeyword", AutomationCodecs.keyword, AutomationKeywordRule(ignoreCase = true))
+    val active = AutomationRuleKey("active", AutomationCodecs.toggle, AutomationToggleRule(true))
 
-    override val keys = listOf(blockAll, block, types, textKeyword)
+    override val keys = listOf(blockAll, block, types, textKeyword, active)
+    override val scopeSwitch = active
     override val scopeTypes = setOf(
         AutomationScopeType.GLOBAL, AutomationScopeType.CATEGORY, AutomationScopeType.CONTACT,
         AutomationScopeType.GROUP_MEMBER, AutomationScopeType.PRESET,
@@ -78,8 +81,9 @@ object BlockMessagesAutomation : AutomationSpec("MESSAGE_BLOCK") {
     }
 
     /**
-     * [chain] holds the chat's own and member's own stored overrides. Blocks when any preset
-     * variant blocks (Hchat: a binding blocks if any of its templates matches).
+     * [chain] holds the stored overrides of the chat and member scopes that exist, including
+     * switched-off ones; [variants] are resolved without those. Blocks when any preset variant
+     * blocks (Hchat: a binding blocks if any of its templates matches).
      */
     fun shouldBlock(
         variants: List<AutomationRules>,
@@ -87,8 +91,10 @@ object BlockMessagesAutomation : AutomationSpec("MESSAGE_BLOCK") {
         kind: AutomationMessageKind,
         text: String,
     ): Boolean {
-        if (variants.any { it[blockAll].enabled }) return true
-        if (chain.any { it[block]?.enabled == false }) return false
+        if (chain.any { it[blockAll]?.enabled == true } || variants.any { it[blockAll].enabled }) return true
+        val switchedOn = chain.filter { it[active]?.enabled != false }
+        if (chain.isNotEmpty() && switchedOn.isEmpty()) return false
+        if (switchedOn.any { it[block]?.enabled == false }) return false
         return variants.any { rules -> rules[block].enabled && ruleMatches(rules[types], rules[textKeyword], kind, text) }
     }
 
@@ -99,7 +105,7 @@ object BlockMessagesAutomation : AutomationSpec("MESSAGE_BLOCK") {
     fun ruleMatches(types: AutomationMessageTypeRule, keyword: AutomationKeywordRule, kind: AutomationMessageKind, text: String): Boolean {
         if (kind.isTextLike && !keyword.matches(text)) return false
         if (types.all) return true
-        return kind in types.kinds || (kind == AutomationMessageKind.QUOTE && AutomationMessageKind.TEXT in types.kinds)
+        return kind in types.kinds || kind == AutomationMessageKind.QUOTE && AutomationMessageKind.TEXT in types.kinds
     }
 
     /** Sets or clears "quick block all" on every chat in [talkers], keeping their other rules. */
@@ -169,12 +175,12 @@ object BlockMessages : ClickableFeature(), IResolveDex {
         if (sender == self) return false
         val kind = AutomationMessageKind.classify(addMsg.msgType, content)
         val snapshot = BlockMessagesAutomation.store.snapshot()
-        val chain = buildList {
-            add(snapshot[AutomationScope.contact(talker)].values)
+        val chain = listOfNotNull(
+            snapshot.scopes[AutomationScope.contact(talker)]?.values,
             if (sender != talker && AutomationTalkerCategory.of(talker) == AutomationTalkerCategory.GROUP) {
-                add(snapshot[AutomationScope.member(talker, sender)].values)
-            }
-        }
+                snapshot.scopes[AutomationScope.member(talker, sender)]?.values
+            } else null,
+        )
         val text = AutomationMessageKind.textOf(kind, content)
         if (!BlockMessagesAutomation.shouldBlock(snapshot.resolveVariants(talker, sender), chain, kind, text)) return false
         WeLogger.i(TAG, "blocked $kind message ${addMsg.newMsgId} from $sender in $talker")

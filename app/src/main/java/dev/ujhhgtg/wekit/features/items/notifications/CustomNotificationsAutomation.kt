@@ -133,7 +133,7 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
     val showDetail = AutomationRuleKey("showDetail", AutomationCodecs.toggle, AutomationToggleRule(enabled = true))
     val ignoreWechatDnd = AutomationRuleKey("ignoreWechatDnd", AutomationCodecs.toggle, AutomationToggleRule())
     val muteWindow = AutomationRuleKey(
-        "muteWindow", AutomationCodecs.timeRange, AutomationTimeRangeRule(startMinute = 23 * 60, endMinute = 7 * 60),
+        "muteWindow", AutomationCodecs.timeRange, AutomationTimeRangeRule(startSecond = 23 * 3600, endSecond = 7 * 3600),
     )
     val mentions = AutomationRuleKey("mentions", mentionCodec, MentionBlockRule())
     val senders = AutomationRuleKey("senders", senderCodec, SenderFilterRule())

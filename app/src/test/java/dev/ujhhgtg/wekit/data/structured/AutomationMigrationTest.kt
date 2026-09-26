@@ -72,7 +72,7 @@ class AutomationMigrationTest {
             val redPacket = connection.snapshot(RedPacketAutomation)
             val global = redPacket.resolve(null)
             assertEquals(RedPacketAutomation.ReceiveMode.CLICK, global[RedPacketAutomation.receiveMode])
-            assertEquals(60, global[RedPacketAutomation.timeRange].startMinute)
+            assertEquals(3600, global[RedPacketAutomation.timeRange].startSecond)
             assertEquals(listOf("a", "b"), global[RedPacketAutomation.keyword].strings)
             assertEquals(
                 listOf(AutomationReplyStep(AutomationReplyStepKind.TEXT, "thanks \$amount")),
@@ -100,6 +100,25 @@ class AutomationMigrationTest {
 
             val repost = connection.snapshot(MomentsAutomation.Repost)[AutomationScope.Global]
             assertTrue(repost.values.isEmpty())
+        }
+    }
+
+    @Test
+    fun `migration 25 to 26 turns minute time ranges into seconds`() {
+        DriverManager.getConnection("jdbc:sqlite::memory:").use { connection ->
+            connection.createStatement().use { statement ->
+                automationSchemaSql.forEach(statement::execute)
+                statement.execute("INSERT INTO automation_scopes VALUES ('${RedPacketAutomation.id}', 'GLOBAL', '', '', NULL, 0)")
+                statement.execute(
+                    "INSERT INTO automation_scope_fields VALUES ('${RedPacketAutomation.id}', 'GLOBAL', '', '', 'timeRange', 'enabled', 'true'), " +
+                            "('${RedPacketAutomation.id}', 'GLOBAL', '', '', 'timeRange', 'startMinute', '1380'), " +
+                            "('${RedPacketAutomation.id}', 'GLOBAL', '', '', 'timeRange', 'endMinute', '420')"
+                )
+                migration25To26Sql.forEach(statement::execute)
+            }
+            val range = connection.snapshot(RedPacketAutomation).resolve(null)[RedPacketAutomation.timeRange]
+            assertEquals(23 * 3600, range.startSecond)
+            assertEquals(7 * 3600, range.endSecond)
         }
     }
 

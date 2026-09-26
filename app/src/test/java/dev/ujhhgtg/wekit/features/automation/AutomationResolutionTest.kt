@@ -91,12 +91,37 @@ class AutomationResolutionTest {
     }
 
     @Test
+    fun `switched-off chats and presets are skipped at runtime`() {
+        val switchable = object : AutomationSpec("SWITCH") {
+            override val keys = listOf(Spec.on, Spec.limit)
+            override val scopeSwitch = Spec.on
+            override val scopeTypes = AutomationScopeType.entries.toSet()
+            override val titleRes = 0
+            override val editors = emptyList<AutomationRuleEditor<*>>()
+        }
+        val off = AutomationToggleRule(false)
+        val snapshot = AutomationSnapshot(
+            switchable,
+            mapOf(
+                stored(AutomationScope.Global, Spec.limit to limit(1)),
+                stored(AutomationScope.preset("a"), Spec.limit to limit(2)),
+                stored(AutomationScope.preset("b"), Spec.limit to limit(3), Spec.on to off),
+                stored(AutomationScope.contact("friend"), presets = listOf("a", "b")),
+                stored(AutomationScope.contact("paused"), Spec.limit to limit(4), Spec.on to off),
+            ),
+        )
+        assertEquals(listOf(limit(2)), snapshot.resolveVariants("friend").map { it[Spec.limit] })
+        assertEquals(limit(1), snapshot.resolve("paused")[Spec.limit])
+        assertFalse(snapshot.isSwitchedOn(AutomationScope.contact("paused")))
+    }
+
+    @Test
     fun `time range handles overnight windows and equal bounds`() {
-        val overnight = AutomationTimeRangeRule(true, 22 * 60, 6 * 60)
-        assertTrue(overnight.containsMinute(23 * 60))
-        assertTrue(overnight.containsMinute(5 * 60 + 59))
-        assertFalse(overnight.containsMinute(6 * 60))
-        assertFalse(overnight.containsMinute(12 * 60))
-        assertTrue(AutomationTimeRangeRule(true, 600, 600).containsMinute(0))
+        val overnight = AutomationTimeRangeRule(true, 22 * 3600, 6 * 3600 + 30)
+        assertTrue(overnight.containsSecond(23 * 3600))
+        assertTrue(overnight.containsSecond(6 * 3600 + 29))
+        assertFalse(overnight.containsSecond(6 * 3600 + 30))
+        assertFalse(overnight.containsSecond(12 * 3600))
+        assertTrue(AutomationTimeRangeRule(true, 600, 600).containsSecond(0))
     }
 }

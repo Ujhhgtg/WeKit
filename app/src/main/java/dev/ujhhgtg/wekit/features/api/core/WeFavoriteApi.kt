@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.api.core
 
 import android.content.Context
+import android.text.Html
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -14,11 +15,14 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
+import dev.ujhhgtg.wekit.utils.android.runOnUiThread
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 import java.io.File
 import java.lang.reflect.Modifier
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.concurrent.thread
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.div
 
@@ -31,6 +35,8 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
     override val descriptionRes = R.string.feature_we_favorite_api_description
 
     private const val TAG = "WeFavoriteApi"
+    private const val VOICE_DOWNLOAD_POLLS = 120
+    private const val VOICE_DOWNLOAD_POLL_MS = 500L
 
     private val classPluginFav by dexClass {
         matcher {
@@ -42,6 +48,23 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
     private val methodFavStorageGetByLocalId by dexMethod {
         matcher {
             usingEqStrings("MicroMsg.Fav.FavItemInfoStorage", "getBtLocalId, but db is null, return")
+        }
+    }
+
+    /** `FavItemInfoStorage.getFirstPageList(type, limit, blockList, blockTypes, filter)`: newest first; type -1 is all. */
+    private val methodFavStorageGetFirstPage by dexMethod {
+        matcher {
+            declaredClass(methodFavStorageGetByLocalId.data.declaredClassName)
+            usingEqStrings("MicroMsg.Fav.FavItemInfoStorage", "getFirstPageList::block set contains target type, error, do return null")
+        }
+    }
+
+    /** `FavApiLogic.restartItemDownload(FavItemInfo, force)`: re-downloads a failed or done item's data. */
+    private val methodRestartItemDownload by dexMethod {
+        matcher {
+            modifiers(Modifier.STATIC)
+            usingEqStrings("status not download failed or done!")
+            paramTypes(methodFavStorageGetByLocalId.data.returnTypeName, "boolean")
         }
     }
 
@@ -79,6 +102,48 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
             parameters(Long::class.javaPrimitiveType!!)
         }.invoke(localId)
 
+    /** A favorite as offered by pickers. */
+    data class FavoriteSummary(val localId: Long, val type: Int, val title: String, val updateTimeMs: Long)
+
+    /** The newest [limit] favorites of every type, newest first (WeChat's own first-page query). */
+    fun listFavorites(limit: Int): List<FavoriteSummary> {
+        val items = favStorage.reflekt().firstMethod {
+            name = methodFavStorageGetFirstPage.method.name
+            parameterCount = 5
+        }.invoke(-1, limit, emptyList<Any>(), emptySet<Any>(), null) as List<*>
+        return items.map { item ->
+            fun field(name: String) = item!!.reflekt().firstField { this.name = name; superclass() }.get()
+            val type = field("field_type") as Int
+            val updateTime = field("field_updateTime") as Long
+            FavoriteSummary(
+                localId = field("field_localId") as Long,
+                type = type,
+                title = titleOf(type, field("field_xml") as String? ?: ""),
+                // Older items store seconds.
+                updateTimeMs = if (updateTime in 1..<10_000_000_000L) updateTime * 1000 else updateTime,
+            )
+        }
+    }
+
+    /** The first non-blank of the tags WeChat's list shows for [type] (as Hchat reads them). */
+    private fun titleOf(type: Int, xml: String): String {
+        val tags = when (type) {
+            1 -> listOf("desc", "content", "title")
+            5 -> listOf("pagetitle", "datatitle", "title", "pagedesc", "datadesc")
+            6 -> listOf("label", "poiname", "locationname", "title", "desc")
+            7 -> listOf("datatitle", "songname", "title", "datadesc", "desc")
+            8 -> listOf("datatitle", "filename", "fileName", "title", "datadesc", "desc")
+            19 -> listOf("datatitle", "title", "sourcedisplayname", "appname", "desc")
+            else -> listOf("title", "desc", "datatitle", "description", "content", "filename", "fileName")
+        }
+        return tags.firstNotNullOfOrNull { tag ->
+            Regex("<$tag(?:\\s[^>]*)?>(.*?)</$tag>", RegexOption.DOT_MATCHES_ALL).find(xml)?.groupValues?.get(1)
+                ?.removePrefix("<![CDATA[")?.removeSuffix("]]>")
+                ?.let { Html.fromHtml(it, Html.FROM_HTML_MODE_LEGACY).toString() }
+                ?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.isNotEmpty() }
+        }?.take(120).orEmpty()
+    }
+
     /** A cached favorite voice file with its duration. */
     data class FavoriteVoice(val filePath: String, val durationMs: Int)
 
@@ -96,9 +161,13 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
         return FavoriteVoice((cacheDir / "$cacheName.${voiceInfo.fileCacheType}").absolutePathString(), voiceInfo.duration)
     }
 
+    /** "talker:localId" of voice favorites waiting for their download. */
+    private val pendingVoiceSends = ConcurrentHashMap.newKeySet<String>()
+
     /**
      * Sends favorite [localId] to [talker]. WeChat's FavSendLogic can't send voice favorites, so
-     * those are sent as voice messages from the local favorite cache (as Hchat does).
+     * those are sent as voice messages from the local favorite cache (as Hchat does); a voice not
+     * downloaded yet is downloaded first and sent once it arrives, and counts as sent.
      */
     fun send(talker: String, localId: Long): Boolean {
         val item = getFavItem(localId) ?: run {
@@ -106,15 +175,43 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
             return false
         }
         voiceOf(item)?.let { voice ->
-            if (!File(voice.filePath).isFile) {
-                WeLogger.w(TAG, "voice favorite $localId isn't downloaded yet: ${voice.filePath}")
-                return false
-            }
-            return WeMessageApi.sendVoice(talker, voice.filePath, voice.durationMs)
+            if (File(voice.filePath).isFile) return WeMessageApi.sendVoice(talker, voice.filePath, voice.durationMs)
+            sendAfterDownload(talker, localId, item, voice)
+            return true
         }
         val context: Context = getTopMostActivity() ?: HostInfo.application
         methodSendFavItem.method.invoke(null, context, talker, "", false, item, null)
         WeLogger.i(TAG, "sent favorite $localId to $talker")
         return true
+    }
+
+    private fun sendAfterDownload(talker: String, localId: Long, item: Any, voice: FavoriteVoice) {
+        val key = "$talker:$localId"
+        if (!pendingVoiceSends.add(key)) return
+        WeLogger.i(TAG, "downloading voice favorite $localId before sending it to $talker")
+        // WeChat's detail page restarts the download on the main thread; it ignores items already downloading.
+        runOnUiThread { methodRestartItemDownload.method.invoke(null, item, true) }
+        thread(name = "$TAG-voice") {
+            try {
+                val file = File(voice.filePath)
+                var lastLength = -1L
+                repeat(VOICE_DOWNLOAD_POLLS) {
+                    Thread.sleep(VOICE_DOWNLOAD_POLL_MS)
+                    // Sent once the file exists and stopped growing between two polls.
+                    val length = if (file.isFile) file.length() else -1L
+                    val settled = length > 0 && length == lastLength
+                    lastLength = length
+                    if (settled) {
+                        if (!WeMessageApi.sendVoice(talker, voice.filePath, voice.durationMs)) {
+                            WeLogger.w(TAG, "failed to send downloaded voice favorite $localId")
+                        }
+                        return@thread
+                    }
+                }
+                WeLogger.w(TAG, "timed out downloading voice favorite $localId")
+            } finally {
+                pendingVoiceSends.remove(key)
+            }
+        }
     }
 }

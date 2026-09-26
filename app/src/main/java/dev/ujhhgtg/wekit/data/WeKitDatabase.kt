@@ -26,6 +26,7 @@ import dev.ujhhgtg.wekit.data.entity.AutomationScopePresetEntity
 import dev.ujhhgtg.wekit.data.entity.collectionSchemaSql
 import dev.ujhhgtg.wekit.data.structured.migration23To24Sql
 import dev.ujhhgtg.wekit.data.structured.migration24To25Sql
+import dev.ujhhgtg.wekit.data.structured.migration25To26Sql
 import dev.ujhhgtg.wekit.data.entity.simpleStructuredSchemaSql
 import dev.ujhhgtg.wekit.data.structured.legacyAutomationSchemaSql
 import dev.ujhhgtg.wekit.agent.data.dao.BridgeToolAuditDao
@@ -123,7 +124,7 @@ import java.io.File
         AutomationScopeListValueEntity::class,
         AutomationScopePresetEntity::class,
     ],
-    version = 25,
+    version = 26,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 9, to = 10), // adds external_services table
@@ -343,6 +344,13 @@ abstract class WeKitDatabase : RoomDatabase() {
             }
         }
 
+        // 25 → 26: automation time ranges in seconds instead of minutes.
+        val MIGRATION_25_26 = object : Migration(25, 26) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                migration25To26Sql.forEach(db::execSQL)
+            }
+        }
+
         val migration17To18Sql = listOf(
             "CREATE TABLE IF NOT EXISTS `preference_entries` (`namespace` TEXT NOT NULL, `key` TEXT NOT NULL, `valueType` TEXT NOT NULL, `valueText` TEXT, `valueLong` INTEGER, `valueDouble` REAL, `valueBlob` BLOB, `encodingVersion` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `exportable` INTEGER NOT NULL, PRIMARY KEY(`namespace`, `key`))",
             "CREATE INDEX IF NOT EXISTS `index_preference_entries_namespace` ON `preference_entries` (`namespace`)",
@@ -377,7 +385,7 @@ abstract class WeKitDatabase : RoomDatabase() {
             file.toString()
         )
             .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25)
+            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26)
             // Destructive fallback is scoped to the pre-release schemas (1–8) only, which no
             // migration path was ever written for. From 9 onwards every step must have a
             // migration: a missing one then fails loudly at open time instead of silently

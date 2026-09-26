@@ -29,8 +29,8 @@ val migration23To24Sql: List<String> = buildList {
 
     fun timeRange(src: Source, ruleKey: String) {
         toggle(src, ruleKey, "timeEnabled")
-        scalar(src, ruleKey, "startMinute", "CAST(`timeStartMinute` AS TEXT)", "timeEnabled")
-        scalar(src, ruleKey, "endMinute", "CAST(`timeEndMinute` AS TEXT)", "timeEnabled")
+        scalar(src, ruleKey, "startSecond", "CAST(`timeStartMinute` * 60 AS TEXT)", "timeEnabled")
+        scalar(src, ruleKey, "endSecond", "CAST(`timeEndMinute` * 60 AS TEXT)", "timeEnabled")
     }
 
     fun keyword(src: Source, ruleKey: String, prefix: String) {
@@ -192,4 +192,10 @@ val migration24To25Sql: List<String> = buildList {
     ).joinToString(", ") { "'$it'" }
     add("DELETE FROM `preference_set_members` WHERE `namespace` = $prefs AND `key` IN ($legacyKeys)")
     add("DELETE FROM `preference_entries` WHERE `namespace` = $prefs AND `key` IN ($legacyKeys)")
+}
+
+/** 25 → 26: time-range rules move from minutes to seconds of the day (Hchat's precision). */
+val migration25To26Sql: List<String> = listOf("start", "end").map { bound ->
+    "UPDATE `automation_scope_fields` SET `field` = '${bound}Second', `value` = CAST(CAST(`value` AS INTEGER) * 60 AS TEXT) " +
+            "WHERE `field` = '${bound}Minute'"
 }

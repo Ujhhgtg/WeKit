@@ -110,6 +110,12 @@ abstract class AutomationSpec(val id: String) {
     open val contactKinds: Set<AutomationTalkerCategory> =
         setOf(AutomationTalkerCategory.PRIVATE, AutomationTalkerCategory.GROUP)
 
+    /**
+     * Optional on/off switch shown on configured chat, member and preset rows. A scope stored as
+     * switched off is skipped at runtime but keeps its rules. Must also be listed in [keys].
+     */
+    open val scopeSwitch: AutomationRuleKey<AutomationToggleRule>? = null
+
     val store by lazy { AutomationStore(this) }
 
     // ---- settings UI -------------------------------------------------------------------------

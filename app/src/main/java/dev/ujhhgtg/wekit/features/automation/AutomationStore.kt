@@ -61,9 +61,18 @@ class AutomationSnapshot(private val spec: AutomationSpec, val scopes: Map<Autom
     /** Rules effective at [scope] itself (its presets and values applied). */
     fun effectiveRules(scope: AutomationScope): AutomationRules = applyScope(parentRules(scope), scope)
 
+    /** False when [scope] is stored as switched off by [AutomationSpec.scopeSwitch]. */
+    fun isSwitchedOn(scope: AutomationScope): Boolean {
+        val key = spec.scopeSwitch ?: return true
+        return scopes[scope]?.values?.get(key)?.enabled != false
+    }
+
+    private fun activePresets(stored: AutomationStoredScope): List<String> =
+        stored.presets.filter { isSwitchedOn(AutomationScope.preset(it)) }
+
     private fun applyScope(rules: AutomationRules, scope: AutomationScope, presetsOverride: List<String>? = null): AutomationRules {
         val stored = scopes[scope] ?: return rules
-        val withPresets = (presetsOverride ?: stored.presets).fold(rules) { acc, presetId ->
+        val withPresets = (presetsOverride ?: activePresets(stored)).fold(rules) { acc, presetId ->
             acc.overlay(scopes[AutomationScope.preset(presetId)]?.values)
         }
         return withPresets.overlay(stored.values)
@@ -78,7 +87,7 @@ class AutomationSnapshot(private val spec: AutomationSpec, val scopes: Map<Autom
         if (AutomationScopeType.GROUP_MEMBER in spec.scopeTypes &&
             category == AutomationTalkerCategory.GROUP && !sender.isNullOrEmpty()
         ) add(AutomationScope.member(talker, sender))
-    }
+    }.filter(::isSwitchedOn)
 
     fun resolve(talker: String?, sender: String? = null): AutomationRules =
         chainFor(talker, sender).fold(AutomationRules.Defaults) { rules, scope -> applyScope(rules, scope) }
@@ -89,10 +98,10 @@ class AutomationSnapshot(private val spec: AutomationSpec, val scopes: Map<Autom
      */
     fun resolveVariants(talker: String?, sender: String? = null): List<AutomationRules> {
         val chain = chainFor(talker, sender)
-        val branchIndex = chain.indexOfLast { (scopes[it]?.presets?.size ?: 0) > 1 }
+        val branchIndex = chain.indexOfLast { scope -> scopes[scope]?.let(::activePresets).orEmpty().size > 1 }
         if (branchIndex < 0) return listOf(resolve(talker, sender))
         val branchScope = chain[branchIndex]
-        return scopes[branchScope]!!.presets.map { presetId ->
+        return activePresets(scopes[branchScope]!!).map { presetId ->
             chain.foldIndexed(AutomationRules.Defaults) { index, rules, scope ->
                 applyScope(rules, scope, presetsOverride = if (index == branchIndex) listOf(presetId) else null)
             }

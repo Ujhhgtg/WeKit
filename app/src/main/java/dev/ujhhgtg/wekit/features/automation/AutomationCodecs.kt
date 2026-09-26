@@ -74,12 +74,12 @@ object AutomationCodecs {
     val timeRange = object : AutomationValueCodec<AutomationTimeRangeRule> {
         override fun write(value: AutomationTimeRangeRule, out: AutomationFieldWriter) {
             out.put("enabled", value.enabled)
-            out.put("startMinute", value.startMinute)
-            out.put("endMinute", value.endMinute)
+            out.put("startSecond", value.startSecond)
+            out.put("endSecond", value.endSecond)
         }
 
         override fun read(input: AutomationFieldReader) = AutomationTimeRangeRule(
-            input.boolean("enabled"), input.int("startMinute"), input.int("endMinute"),
+            input.boolean("enabled"), input.int("startSecond"), input.int("endSecond"),
         )
     }
 
