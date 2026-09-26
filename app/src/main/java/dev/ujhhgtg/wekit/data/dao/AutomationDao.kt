@@ -5,230 +5,105 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
-import dev.ujhhgtg.wekit.data.entity.*
-import dev.ujhhgtg.wekit.data.structured.*
-import dev.ujhhgtg.wekit.features.items.moments.MomentAutomationOverrides
-import dev.ujhhgtg.wekit.features.items.moments.MomentAutomationRuleSet
-import dev.ujhhgtg.wekit.features.items.moments.StoredMomentAutomationConfig
-import dev.ujhhgtg.wekit.features.items.payment.RedPacketSettings
-import dev.ujhhgtg.wekit.features.items.payment.TransferSettings
+import dev.ujhhgtg.wekit.data.entity.AutomationScopeEntity
+import dev.ujhhgtg.wekit.data.entity.AutomationScopeFieldEntity
+import dev.ujhhgtg.wekit.data.entity.AutomationScopeListValueEntity
+import dev.ujhhgtg.wekit.data.entity.AutomationScopePresetEntity
+
+/** All rows of one automation feature, decoded by [dev.ujhhgtg.wekit.features.automation.AutomationStore]. */
+class AutomationFeatureRows(
+    val scopes: List<AutomationScopeEntity>,
+    val fields: List<AutomationScopeFieldEntity>,
+    val listValues: List<AutomationScopeListValueEntity>,
+    val presets: List<AutomationScopePresetEntity>,
+)
+
+/** One scope's complete replacement content. */
+class AutomationScopeRows(
+    val scope: AutomationScopeEntity,
+    val fields: List<AutomationScopeFieldEntity>,
+    val listValues: List<AutomationScopeListValueEntity>,
+    val presets: List<AutomationScopePresetEntity>,
+)
 
 @Dao
 abstract class AutomationDao {
-    @Query("SELECT * FROM red_packet_rules ORDER BY scopeType, talkerId, memberId")
-    abstract suspend fun readRedPacketRules(): List<RedPacketRuleEntity>
+    @Query("SELECT * FROM automation_scopes WHERE feature = :feature ORDER BY scopeType, position, scopeId, memberId")
+    abstract suspend fun readScopes(feature: String): List<AutomationScopeEntity>
+
+    @Query("SELECT * FROM automation_scope_fields WHERE feature = :feature")
+    abstract suspend fun readFields(feature: String): List<AutomationScopeFieldEntity>
+
+    @Query("SELECT * FROM automation_scope_list_values WHERE feature = :feature ORDER BY position")
+    abstract suspend fun readListValues(feature: String): List<AutomationScopeListValueEntity>
+
+    @Query("SELECT * FROM automation_scope_presets WHERE feature = :feature ORDER BY position")
+    abstract suspend fun readPresetRefs(feature: String): List<AutomationScopePresetEntity>
 
     @Upsert
-    abstract suspend fun upsert(row: RedPacketRuleEntity)
-
-    @Query("DELETE FROM red_packet_rules WHERE scopeType = :scopeType AND talkerId = :talkerId AND memberId = :memberId")
-    abstract suspend fun deleteRedPacketRule(scopeType: String, talkerId: String, memberId: String)
-
-    @Query("SELECT * FROM transfer_rules ORDER BY scopeType, talkerId, memberId")
-    abstract suspend fun readTransferRules(): List<TransferRuleEntity>
-
-    @Upsert
-    abstract suspend fun upsert(row: TransferRuleEntity)
-
-    @Query("DELETE FROM transfer_rules WHERE scopeType = :scopeType AND talkerId = :talkerId AND memberId = :memberId")
-    abstract suspend fun deleteTransferRule(scopeType: String, talkerId: String, memberId: String)
-
-    @Query("SELECT * FROM moment_automation_rules WHERE featureKind = :featureKind ORDER BY featureKind, scopeType, ownerId")
-    abstract suspend fun readMomentAutomationRules(featureKind: String): List<MomentAutomationRuleEntity>
-
-    @Upsert
-    abstract suspend fun upsert(row: MomentAutomationRuleEntity)
-
-    @Query("DELETE FROM moment_automation_rules WHERE featureKind = :featureKind AND scopeType = :scopeType AND ownerId = :ownerId")
-    abstract suspend fun deleteMomentAutomationRule(featureKind: String, scopeType: String, ownerId: String)
-
-    @Query("SELECT * FROM red_packet_keywords ORDER BY scopeType, talkerId, memberId, ruleKind, position")
-    abstract suspend fun readRedPacketKeywords(): List<RedPacketKeywordEntity>
+    abstract suspend fun upsertScope(row: AutomationScopeEntity)
 
     @Insert
-    abstract suspend fun insertRedPacketKeywords(rows: List<RedPacketKeywordEntity>)
-
-    @Query("DELETE FROM red_packet_keywords WHERE scopeType = :scopeType AND talkerId = :talkerId AND memberId = :memberId AND ruleKind = :ruleKind")
-    abstract suspend fun deleteRedPacketKeywords(scopeType: String, talkerId: String, memberId: String, ruleKind: String)
-
-    @Query("SELECT * FROM transfer_keywords ORDER BY scopeType, talkerId, memberId, position")
-    abstract suspend fun readTransferKeywords(): List<TransferKeywordEntity>
+    abstract suspend fun insertFields(rows: List<AutomationScopeFieldEntity>)
 
     @Insert
-    abstract suspend fun insertTransferKeywords(rows: List<TransferKeywordEntity>)
-
-    @Query("DELETE FROM transfer_keywords WHERE scopeType = :scopeType AND talkerId = :talkerId AND memberId = :memberId")
-    abstract suspend fun deleteTransferKeywords(scopeType: String, talkerId: String, memberId: String)
-
-    @Query("SELECT * FROM moment_automation_keywords WHERE featureKind = :featureKind ORDER BY featureKind, scopeType, ownerId, position")
-    abstract suspend fun readMomentAutomationKeywords(featureKind: String): List<MomentAutomationKeywordEntity>
+    abstract suspend fun insertListValues(rows: List<AutomationScopeListValueEntity>)
 
     @Insert
-    abstract suspend fun insertMomentAutomationKeywords(rows: List<MomentAutomationKeywordEntity>)
+    abstract suspend fun insertPresetRefs(rows: List<AutomationScopePresetEntity>)
 
-    @Query("DELETE FROM moment_automation_keywords WHERE featureKind = :featureKind AND scopeType = :scopeType AND ownerId = :ownerId")
-    abstract suspend fun deleteMomentAutomationKeywords(featureKind: String, scopeType: String, ownerId: String)
+    @Query("DELETE FROM automation_scopes WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = :memberId")
+    abstract suspend fun deleteScope(feature: String, scopeType: String, scopeId: String, memberId: String)
 
-    @Query("SELECT * FROM moment_automation_content_types WHERE featureKind = :featureKind ORDER BY featureKind, scopeType, ownerId, typeId")
-    abstract suspend fun readMomentAutomationContentTypes(featureKind: String): List<MomentAutomationContentTypeEntity>
+    @Query("DELETE FROM automation_scope_fields WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = :memberId")
+    abstract suspend fun deleteFields(feature: String, scopeType: String, scopeId: String, memberId: String)
 
-    @Insert
-    abstract suspend fun insertMomentAutomationContentTypes(rows: List<MomentAutomationContentTypeEntity>)
+    @Query("DELETE FROM automation_scope_list_values WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = :memberId")
+    abstract suspend fun deleteListValues(feature: String, scopeType: String, scopeId: String, memberId: String)
 
-    @Query("DELETE FROM moment_automation_content_types WHERE featureKind = :featureKind AND scopeType = :scopeType AND ownerId = :ownerId")
-    abstract suspend fun deleteMomentAutomationContentTypes(featureKind: String, scopeType: String, ownerId: String)
+    @Query("DELETE FROM automation_scope_presets WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = :memberId")
+    abstract suspend fun deletePresetRefs(feature: String, scopeType: String, scopeId: String, memberId: String)
 
-    @Transaction
-    open suspend fun getRedPacketConfig(): RedPacketSettings.StoredConfig {
-        val keywords = readRedPacketKeywords().groupBy { Triple(it.scopeType, it.talkerId, it.memberId) }
-        val contacts = linkedMapOf<String, RedPacketSettings.RuleOverrides>()
-        val groups = linkedMapOf<String, MutableMap<String, RedPacketSettings.RuleOverrides>>()
-        var global: RedPacketSettings.RuleSet? = null
-        readRedPacketRules().forEach { row ->
-            val value = row.toOverrides(keywords[Triple(row.scopeType, row.talkerId, row.memberId)].orEmpty())
-            when (row.scopeType) {
-                "GLOBAL" -> global = value.asGlobalRules()
-                "CONTACT" -> contacts[row.talkerId] = value
-                "GROUP_MEMBER" -> groups.getOrPut(row.talkerId) { linkedMapOf() }[row.memberId] = value
-            }
-        }
-        return RedPacketSettings.StoredConfig(
-            global = global ?: RedPacketSettings.RuleSet(),
-            contacts = contacts,
-            groupMembers = groups,
-        )
-    }
+    @Query("DELETE FROM automation_scope_presets WHERE feature = :feature AND presetId = :presetId")
+    abstract suspend fun deleteReferencesTo(feature: String, presetId: String)
+
+    @Query("UPDATE automation_scopes SET position = :position WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = ''")
+    abstract suspend fun updatePosition(feature: String, scopeType: String, scopeId: String, position: Int)
 
     @Transaction
-    open suspend fun putRedPacketRule(
-        scopeType: String,
-        talkerId: String,
-        memberId: String,
-        rules: RedPacketSettings.RuleOverrides,
-    ) {
-        validatePaymentScope(scopeType, talkerId, memberId)
-        if (scopeType != "GLOBAL" && rules.isEmpty()) {
-            deleteRedPacketRule(scopeType, talkerId, memberId)
-        } else {
-            saveRedPacketRule(scopeType, talkerId, memberId, rules)
+    open suspend fun readFeature(feature: String) = AutomationFeatureRows(
+        scopes = readScopes(feature),
+        fields = readFields(feature),
+        listValues = readListValues(feature),
+        presets = readPresetRefs(feature),
+    )
+
+    /** Replaces one scope, or deletes it when [keepScope] is false. */
+    @Transaction
+    open suspend fun replaceScope(rows: AutomationScopeRows, keepScope: Boolean) {
+        val s = rows.scope
+        if (!keepScope) {
+            deleteScope(s.feature, s.scopeType, s.scopeId, s.memberId)
+            if (s.scopeType == "PRESET") deleteReferencesTo(s.feature, s.scopeId)
+            return
         }
+        upsertScope(s)
+        deleteFields(s.feature, s.scopeType, s.scopeId, s.memberId)
+        deleteListValues(s.feature, s.scopeType, s.scopeId, s.memberId)
+        deletePresetRefs(s.feature, s.scopeType, s.scopeId, s.memberId)
+        insertFields(rows.fields)
+        insertListValues(rows.listValues)
+        insertPresetRefs(rows.presets)
     }
 
-    private suspend fun saveRedPacketRule(
-        scopeType: String,
-        talkerId: String,
-        memberId: String,
-        rules: RedPacketSettings.RuleOverrides,
-    ) {
-        upsert(rules.toEntity(scopeType, talkerId, memberId))
-        deleteRedPacketKeywords(scopeType, talkerId, memberId, "KEYWORD")
-        deleteRedPacketKeywords(scopeType, talkerId, memberId, "SKIP_KEYWORD")
-        insertRedPacketKeywords(rules.keyword?.strings.orEmpty().mapIndexed { index, text ->
-            RedPacketKeywordEntity(scopeType, talkerId, memberId, "KEYWORD", index, text)
-        } + rules.skipKeyword?.strings.orEmpty().mapIndexed { index, text ->
-            RedPacketKeywordEntity(scopeType, talkerId, memberId, "SKIP_KEYWORD", index, text)
-        })
+    /** Applies several scope replacements atomically (batch editor, bulk block). */
+    @Transaction
+    open suspend fun replaceScopes(rows: List<Pair<AutomationScopeRows, Boolean>>) {
+        rows.forEach { (scope, keep) -> replaceScope(scope, keep) }
     }
 
     @Transaction
-    open suspend fun getTransferConfig(): TransferSettings.StoredConfig {
-        val keywords = readTransferKeywords().groupBy { Triple(it.scopeType, it.talkerId, it.memberId) }
-        val contacts = linkedMapOf<String, TransferSettings.RuleOverrides>()
-        val groups = linkedMapOf<String, MutableMap<String, TransferSettings.RuleOverrides>>()
-        var global: TransferSettings.RuleSet? = null
-        readTransferRules().forEach { row ->
-            val value = row.toOverrides(keywords[Triple(row.scopeType, row.talkerId, row.memberId)].orEmpty())
-            when (row.scopeType) {
-                "GLOBAL" -> global = value.asGlobalRules()
-                "CONTACT" -> contacts[row.talkerId] = value
-                "GROUP_MEMBER" -> groups.getOrPut(row.talkerId) { linkedMapOf() }[row.memberId] = value
-            }
-        }
-        return TransferSettings.StoredConfig(
-            global = global ?: TransferSettings.RuleSet(),
-            contacts = contacts,
-            groupMembers = groups,
-        )
-    }
-
-    @Transaction
-    open suspend fun putTransferRule(
-        scopeType: String,
-        talkerId: String,
-        memberId: String,
-        rules: TransferSettings.RuleOverrides,
-    ) {
-        validatePaymentScope(scopeType, talkerId, memberId)
-        if (scopeType != "GLOBAL" && rules.isEmpty()) {
-            deleteTransferRule(scopeType, talkerId, memberId)
-        } else {
-            saveTransferRule(scopeType, talkerId, memberId, rules)
-        }
-    }
-
-    private suspend fun saveTransferRule(
-        scopeType: String,
-        talkerId: String,
-        memberId: String,
-        rules: TransferSettings.RuleOverrides,
-    ) {
-        upsert(rules.toEntity(scopeType, talkerId, memberId))
-        deleteTransferKeywords(scopeType, talkerId, memberId)
-        insertTransferKeywords(rules.memoKeyword?.strings.orEmpty().mapIndexed { index, text ->
-            TransferKeywordEntity(scopeType, talkerId, memberId, index, text)
-        })
-    }
-
-    @Transaction
-    open suspend fun getMomentAutomationConfig(featureKind: String): StoredMomentAutomationConfig {
-        val keywords = readMomentAutomationKeywords(featureKind).groupBy { it.scopeType to it.ownerId }
-        val types = readMomentAutomationContentTypes(featureKind).groupBy { it.scopeType to it.ownerId }
-        val contacts = linkedMapOf<String, MomentAutomationOverrides>()
-        var global: MomentAutomationRuleSet? = null
-        readMomentAutomationRules(featureKind).forEach { row ->
-            val key = row.scopeType to row.ownerId
-            val value = row.toOverrides(keywords[key].orEmpty(), types[key].orEmpty())
-            when (row.scopeType) {
-                "GLOBAL" -> global = value.asGlobalRules()
-                "CONTACT" -> contacts[row.ownerId] = value
-            }
-        }
-        return StoredMomentAutomationConfig(
-            global = global ?: MomentAutomationRuleSet(),
-            contacts = contacts,
-        )
-    }
-
-    @Transaction
-    open suspend fun putMomentAutomationRule(
-        featureKind: String,
-        scopeType: String,
-        ownerId: String,
-        rules: MomentAutomationOverrides,
-    ) {
-        validateMomentScope(featureKind, scopeType, ownerId)
-        // REPOST hides action in the editor, but historical action overrides remain data.
-        if (scopeType != "GLOBAL" && rules.isEmpty(includeAction = true)) {
-            deleteMomentAutomationRule(featureKind, scopeType, ownerId)
-        } else {
-            saveMomentAutomationRule(featureKind, scopeType, ownerId, rules)
-        }
-    }
-
-    private suspend fun saveMomentAutomationRule(
-        featureKind: String,
-        scopeType: String,
-        ownerId: String,
-        rules: MomentAutomationOverrides,
-    ) {
-        upsert(rules.toEntity(featureKind, scopeType, ownerId))
-        deleteMomentAutomationKeywords(featureKind, scopeType, ownerId)
-        insertMomentAutomationKeywords(rules.keyword?.strings.orEmpty().mapIndexed { index, text ->
-            MomentAutomationKeywordEntity(featureKind, scopeType, ownerId, index, text)
-        })
-        deleteMomentAutomationContentTypes(featureKind, scopeType, ownerId)
-        insertMomentAutomationContentTypes(rules.contentType?.typeIds.orEmpty().map {
-            MomentAutomationContentTypeEntity(featureKind, scopeType, ownerId, it)
-        })
+    open suspend fun reorder(feature: String, scopeType: String, orderedIds: List<String>) {
+        orderedIds.forEachIndexed { index, id -> updatePosition(feature, scopeType, id, index) }
     }
 }

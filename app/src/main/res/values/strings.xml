@@ -3521,4 +3521,110 @@
 
     <string name="structured_storage_saving">Saving…</string>
     <string name="structured_storage_save_failed">Could not save. Your previous settings are unchanged. Check the logs and try again.</string>
+    <string name="automation_add_contact">Add contact or group</string>
+    <string name="automation_add_item">Add</string>
+    <string name="automation_add_member">Add member</string>
+    <string name="automation_add_preset">Add preset</string>
+    <string name="automation_add_step">Add step</string>
+    <string name="automation_apply_presets">Apply presets</string>
+    <string name="automation_available_placeholders">Available placeholders: %1$s</string>
+    <string name="automation_batch_current">Current settings</string>
+    <string name="automation_batch_edit">Batch edit</string>
+    <string name="automation_batch_edit_summary">Apply the same rules to several entries at once</string>
+    <string name="automation_batch_hint">Only the rules you enable here are applied; other rules of each entry stay unchanged</string>
+    <string name="automation_category_group">Groups</string>
+    <string name="automation_category_group_default">Group defaults</string>
+    <string name="automation_category_official">Official accounts</string>
+    <string name="automation_category_official_default">Official account defaults</string>
+    <string name="automation_category_private">Private chats</string>
+    <string name="automation_category_private_default">Private chat defaults</string>
+    <string name="automation_configured">Configured</string>
+    <string name="automation_delete_scope_message">Its own rules are removed and it follows its parent settings again.</string>
+    <string name="automation_delete_scope_title">Delete these settings?</string>
+    <string name="automation_discard_changes_message">Your unsaved changes will be lost.</string>
+    <string name="automation_edit_step">Edit step</string>
+    <string name="automation_follow_parent_settings">Follows parent settings</string>
+    <string name="automation_global_settings_summary">Default rules for every chat</string>
+    <string name="automation_item_disabled">Disabled</string>
+    <string name="automation_item_enabled">Enabled</string>
+    <string name="automation_name">Name</string>
+    <string name="automation_name_required">Enter a name</string>
+    <string name="automation_new_preset_name">Preset %1$d</string>
+    <string name="automation_new_rule_name">Rule %1$d</string>
+    <string name="automation_none_selected">None selected</string>
+    <string name="automation_pick_contacts">Pick contacts</string>
+    <string name="automation_pick_files">Pick files</string>
+    <string name="automation_preset_order">Applied #%1$d</string>
+    <string name="automation_presets">Presets</string>
+    <string name="automation_presets_summary">Reusable rule sets that contacts and groups can apply</string>
+    <string name="automation_reply_as_quote">Reply as quote</string>
+    <string name="automation_reply_as_quote_summary">Text replies quote the triggering message (except messages with mentions)</string>
+    <string name="automation_section_rules">Rules</string>
+    <string name="automation_step_ai">AI reply</string>
+    <string name="automation_step_ai_hint">Optional extra instruction added to the AI system prompt</string>
+    <string name="automation_step_card">Contact card</string>
+    <string name="automation_step_card_hint">wxids of the contacts to share, one per line</string>
+    <string name="automation_step_content">Content</string>
+    <string name="automation_step_delay">after %1$s ms</string>
+    <string name="automation_step_delay_ms">Delay before this step (ms)</string>
+    <string name="automation_step_delay_random">after %1$s ms + random 0–2 s</string>
+    <string name="automation_step_emoji">Sticker</string>
+    <string name="automation_step_empty">(empty)</string>
+    <string name="automation_step_favorite">Favorite</string>
+    <string name="automation_step_favorite_hint">Local ids of favorite items, one per line</string>
+    <string name="automation_step_file">File</string>
+    <string name="automation_step_files_hint">File paths, one per line; each is sent in turn</string>
+    <string name="automation_step_image">Image</string>
+    <string name="automation_step_invite_group">Invite to group</string>
+    <string name="automation_step_invite_group_hint">Group ids to invite the sender into, one per line</string>
+    <string name="automation_step_kind">Step type</string>
+    <string name="automation_step_random_delay">Add a random 0–2 s delay</string>
+    <string name="automation_step_random_voice">Random voice</string>
+    <string name="automation_step_random_voice_hint">Audio files or folders; one random audio file is sent</string>
+    <string name="automation_step_text">Text</string>
+    <string name="automation_step_text_hint">“|” separates several messages; [AtWx=wxid] mentions someone</string>
+    <string name="automation_step_video">Video</string>
+    <string name="automation_step_voice">Voice</string>
+    <string name="automation_step_xml">XML message</string>
+    <string name="automation_step_xml_hint">AppMsg XML; plain text is wrapped automatically</string>
+    <string name="automation_target_all">All chats</string>
+    <string name="automation_target_categories">Chat types</string>
+    <string name="automation_target_exclude">Excluded contacts and groups</string>
+    <string name="automation_target_exclude_members">Excluded group members</string>
+    <string name="automation_target_include">Contacts and groups</string>
+    <string name="automation_target_include_members">Group members</string>
+    <string name="automation_target_nothing">No chat type selected</string>
+    <string name="automation_target_specific">Specific chats</string>
+    <plurals name="automation_batch_title">
+        <item quantity="one">Batch edit · %1$d entry</item>
+        <item quantity="other">Batch edit · %1$d entries</item>
+    </plurals>
+    <plurals name="automation_configured_contacts">
+        <item quantity="one">%1$d configured</item>
+        <item quantity="other">%1$d configured</item>
+    </plurals>
+    <plurals name="automation_item_count">
+        <item quantity="one">%1$d entry</item>
+        <item quantity="other">%1$d entries</item>
+    </plurals>
+    <plurals name="automation_preset_count">
+        <item quantity="one">%1$d preset</item>
+        <item quantity="other">%1$d presets</item>
+    </plurals>
+    <plurals name="automation_reply_step_count">
+        <item quantity="one">%1$d step</item>
+        <item quantity="other">%1$d steps</item>
+    </plurals>
+    <plurals name="automation_selected_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+    <plurals name="automation_target_excluded_count">
+        <item quantity="one">%1$d excluded</item>
+        <item quantity="other">%1$d excluded</item>
+    </plurals>
+    <plurals name="automation_target_specific_count">
+        <item quantity="one">%1$d chat</item>
+        <item quantity="other">%1$d chats</item>
+    </plurals>
 </resources>

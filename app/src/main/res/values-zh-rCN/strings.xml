@@ -3547,4 +3547,102 @@
 
     <string name="structured_storage_saving">正在保存…</string>
     <string name="structured_storage_save_failed">保存失败，之前的设置未更改。请检查日志后重试。</string>
+    <string name="automation_add_contact">添加联系人或群聊</string>
+    <string name="automation_add_item">添加</string>
+    <string name="automation_add_member">添加成员</string>
+    <string name="automation_add_preset">添加预设</string>
+    <string name="automation_add_step">添加步骤</string>
+    <string name="automation_apply_presets">应用预设</string>
+    <string name="automation_available_placeholders">可用占位符：%1$s</string>
+    <string name="automation_batch_current">当前设置</string>
+    <string name="automation_batch_edit">批量编辑</string>
+    <string name="automation_batch_edit_summary">将相同规则一次应用到多个条目</string>
+    <string name="automation_batch_hint">仅应用在此启用的规则，各条目的其他规则保持不变</string>
+    <string name="automation_category_group">群聊</string>
+    <string name="automation_category_group_default">群聊默认设置</string>
+    <string name="automation_category_official">公众号</string>
+    <string name="automation_category_official_default">公众号默认设置</string>
+    <string name="automation_category_private">私聊</string>
+    <string name="automation_category_private_default">私聊默认设置</string>
+    <string name="automation_configured">已配置</string>
+    <string name="automation_delete_scope_message">其自身规则将被移除，并重新跟随上级设置。</string>
+    <string name="automation_delete_scope_title">删除这些设置？</string>
+    <string name="automation_discard_changes_message">未保存的更改将会丢失。</string>
+    <string name="automation_edit_step">编辑步骤</string>
+    <string name="automation_follow_parent_settings">跟随上级设置</string>
+    <string name="automation_global_settings_summary">所有聊天的默认规则</string>
+    <string name="automation_item_disabled">已禁用</string>
+    <string name="automation_item_enabled">已启用</string>
+    <string name="automation_name">名称</string>
+    <string name="automation_name_required">请输入名称</string>
+    <string name="automation_new_preset_name">预设 %1$d</string>
+    <string name="automation_new_rule_name">规则 %1$d</string>
+    <string name="automation_none_selected">未选择</string>
+    <string name="automation_pick_contacts">选择联系人</string>
+    <string name="automation_pick_files">选择文件</string>
+    <string name="automation_preset_order">第 %1$d 个应用</string>
+    <string name="automation_presets">预设</string>
+    <string name="automation_presets_summary">可被联系人和群聊引用的可复用规则集</string>
+    <string name="automation_reply_as_quote">以引用方式回复</string>
+    <string name="automation_reply_as_quote_summary">文本回复会引用触发消息（含 @ 的消息除外）</string>
+    <string name="automation_section_rules">规则</string>
+    <string name="automation_step_ai">AI 回复</string>
+    <string name="automation_step_ai_hint">可选：附加到 AI 系统提示词的额外指令</string>
+    <string name="automation_step_card">名片</string>
+    <string name="automation_step_card_hint">要分享的联系人 wxid，每行一个</string>
+    <string name="automation_step_content">内容</string>
+    <string name="automation_step_delay">延迟 %1$s 毫秒</string>
+    <string name="automation_step_delay_ms">此步骤前的延迟（毫秒）</string>
+    <string name="automation_step_delay_random">延迟 %1$s 毫秒 + 随机 0–2 秒</string>
+    <string name="automation_step_emoji">表情</string>
+    <string name="automation_step_empty">（空）</string>
+    <string name="automation_step_favorite">收藏</string>
+    <string name="automation_step_favorite_hint">收藏项的本地 ID，每行一个</string>
+    <string name="automation_step_file">文件</string>
+    <string name="automation_step_files_hint">文件路径，每行一个，依次发送</string>
+    <string name="automation_step_image">图片</string>
+    <string name="automation_step_invite_group">邀请进群</string>
+    <string name="automation_step_invite_group_hint">邀请发送者加入的群 ID，每行一个</string>
+    <string name="automation_step_kind">步骤类型</string>
+    <string name="automation_step_random_delay">额外随机延迟 0–2 秒</string>
+    <string name="automation_step_random_voice">随机语音</string>
+    <string name="automation_step_random_voice_hint">音频文件或文件夹，随机发送其中一个音频</string>
+    <string name="automation_step_text">文本</string>
+    <string name="automation_step_text_hint">“|” 分隔多条消息；[AtWx=wxid] 可 @ 某人</string>
+    <string name="automation_step_video">视频</string>
+    <string name="automation_step_voice">语音</string>
+    <string name="automation_step_xml">XML 消息</string>
+    <string name="automation_step_xml_hint">AppMsg XML；纯文本会被自动包装</string>
+    <string name="automation_target_all">所有聊天</string>
+    <string name="automation_target_categories">按聊天类型</string>
+    <string name="automation_target_exclude">排除的联系人和群聊</string>
+    <string name="automation_target_exclude_members">排除的群成员</string>
+    <string name="automation_target_include">指定联系人和群聊</string>
+    <string name="automation_target_include_members">指定群成员</string>
+    <string name="automation_target_nothing">未选择聊天类型</string>
+    <string name="automation_target_specific">指定聊天</string>
+    <plurals name="automation_batch_title">
+        <item quantity="other">批量编辑 · %1$d 项</item>
+    </plurals>
+    <plurals name="automation_configured_contacts">
+        <item quantity="other">已配置 %1$d 个</item>
+    </plurals>
+    <plurals name="automation_item_count">
+        <item quantity="other">%1$d 项</item>
+    </plurals>
+    <plurals name="automation_preset_count">
+        <item quantity="other">%1$d 个预设</item>
+    </plurals>
+    <plurals name="automation_reply_step_count">
+        <item quantity="other">%1$d 个步骤</item>
+    </plurals>
+    <plurals name="automation_selected_count">
+        <item quantity="other">已选择 %1$d 个</item>
+    </plurals>
+    <plurals name="automation_target_excluded_count">
+        <item quantity="other">排除 %1$d 个</item>
+    </plurals>
+    <plurals name="automation_target_specific_count">
+        <item quantity="other">%1$d 个聊天</item>
+    </plurals>
 </resources>

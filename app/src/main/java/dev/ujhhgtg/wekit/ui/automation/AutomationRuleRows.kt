@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.features.items.payment
+package dev.ujhhgtg.wekit.ui.automation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -33,11 +35,11 @@ import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Edit
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.features.items.AutomationKeywordMode
-import dev.ujhhgtg.wekit.features.items.AutomationKeywordRule
-import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeRule
-import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.features.automation.AutomationKeywordMode
+import dev.ujhhgtg.wekit.features.automation.AutomationKeywordRule
+import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.ui.content.WeTimeOfDayField
+import dev.ujhhgtg.wekit.ui.content.formatMinuteOfDay
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -46,46 +48,45 @@ import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumnScope
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 
-/**
- * Free-form value being edited through an in-dialog edit view. The payment dialogs live in a
- * single [dev.ujhhgtg.wekit.ui.utils.showComposeDialog] window, so text values swap the dialog
- * content instead of opening a second window.
- */
-class PaymentTextEditMode(
+/** A free-form value edited in [AutomationTextEditDialog]. */
+class AutomationTextEditRequest(
     val title: String,
     val initial: String,
     val keyboardType: KeyboardType = KeyboardType.Text,
     val filter: (String) -> String = { it },
     val supportingText: String? = null,
+    val singleLine: Boolean = true,
     val validator: ((String) -> String?)? = null,
     val onCommit: (String) -> Unit,
 )
 
 @Composable
-fun PaymentTextEditDialog(
-    mode: PaymentTextEditMode,
+fun AutomationTextEditDialog(
+    request: AutomationTextEditRequest,
     onClose: () -> Unit,
 ) {
-    var draft by remember(mode) { mutableStateOf(mode.initial) }
-    val validationError = mode.validator?.invoke(draft)
+    var draft by remember(request) { mutableStateOf(request.initial) }
+    val validationError = request.validator?.invoke(draft)
 
-    AlertDialogContent(
-        title = { Text(mode.title) },
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(request.title) },
         text = {
             OutlinedTextField(
                 value = draft,
-                onValueChange = { draft = mode.filter(it) },
-                keyboardOptions = KeyboardOptions(keyboardType = mode.keyboardType),
-                supportingText = (validationError ?: mode.supportingText)?.let { text -> { Text(text) } },
+                onValueChange = { draft = request.filter(it) },
+                keyboardOptions = KeyboardOptions(keyboardType = request.keyboardType),
+                supportingText = (validationError ?: request.supportingText)?.let { text -> { Text(text) } },
                 isError = validationError != null,
-                singleLine = true,
+                singleLine = request.singleLine,
+                minLines = if (request.singleLine) 1 else 3,
                 modifier = Modifier.fillMaxWidth(),
             )
         },
         confirmButton = {
             TextButton(
                 enabled = validationError == null,
-                onClick = { mode.onCommit(draft); onClose() },
+                onClick = { request.onCommit(draft); onClose() },
             ) {
                 Text(stringResource(R.string.dialog_confirm))
             }
@@ -96,17 +97,19 @@ fun PaymentTextEditDialog(
     )
 }
 
-/** Navigation entry inside a payment settings dialog, e.g. "Global settings" with a chevron. */
+/** Navigation entry inside an automation settings screen, e.g. "Global settings" with a chevron. */
 @Composable
-fun PaymentNavigationRow(
+fun AutomationNavigationRow(
     title: String,
-    description: String,
+    description: String?,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     BaseWidget(
         iconPlaceholder = false,
         title = title,
         description = description,
+        enabled = enabled,
         onClick = onClick,
         trailingContent = {
             Icon(
@@ -124,7 +127,7 @@ fun PaymentNavigationRow(
  * parent summary, activates on row tap, and exposes a reset action once activated.
  */
 @Composable
-fun PaymentRuleRow(
+fun AutomationRuleRow(
     title: String,
     summary: String,
     checked: Boolean,
@@ -180,9 +183,9 @@ fun PaymentRuleRow(
     }
 }
 
-/** Switch-less variant of [PaymentRuleRow] for rules whose value is a choice, not a toggle. */
+/** Switch-less variant of [AutomationRuleRow] for rules whose value is a choice, not a toggle. */
 @Composable
-fun PaymentModeRuleRow(
+fun AutomationModeRuleRow(
     title: String,
     summary: String,
     overridden: Boolean?,
@@ -209,9 +212,9 @@ fun PaymentModeRuleRow(
     )
 }
 
-/** Row showing a stored value that is edited through an in-dialog [PaymentTextEditMode]. */
+/** Row showing a stored value that is edited through an [AutomationTextEditRequest]. */
 @Composable
-fun PaymentValueRow(
+fun AutomationValueRow(
     title: String,
     value: String,
     onClick: () -> Unit,
@@ -230,18 +233,19 @@ fun PaymentValueRow(
 }
 
 @Composable
-fun PaymentErrorRow(message: String) {
+fun AutomationErrorRow(message: String) {
     BaseWidget(iconPlaceholder = false, title = message, isError = true)
 }
 
 /** Time-range fields shown while the owning rule is enabled. */
 fun SegmentedColumnScope.timeRangeItems(
+    keyPrefix: String,
     rule: AutomationTimeRangeRule,
     editable: Boolean,
     visible: Boolean,
     onChange: (AutomationTimeRangeRule) -> Unit,
 ) {
-    item(key = "time_range_fields", animatedVisibility = visible) {
+    item(key = "${keyPrefix}_fields", animatedVisibility = visible) {
         BaseItemContainer {
             Row(
                 modifier = Modifier
@@ -276,7 +280,7 @@ fun SegmentedColumnScope.keywordItems(
     visible: Boolean,
     modes: List<AutomationKeywordMode>,
     onChange: (AutomationKeywordRule) -> Unit,
-    onEditText: (PaymentTextEditMode) -> Unit,
+    onEditText: (AutomationTextEditRequest) -> Unit,
     inlineTextFields: Boolean = false,
 ) {
     item(key = "${keyPrefix}_mode", animatedVisibility = visible) {
@@ -331,14 +335,14 @@ fun SegmentedColumnScope.keywordItems(
                     )
                 }
             } else {
-                PaymentValueRow(
+                AutomationValueRow(
                     title = regexTitle,
                     value = rule.regex,
                     enabled = editable,
                     valueHint = stringResource(R.string.automation_regex_empty_summary),
                     onClick = {
                         onEditText(
-                            PaymentTextEditMode(
+                            AutomationTextEditRequest(
                                 title = regexTitle,
                                 initial = rule.regex,
                                 validator = { input ->
@@ -395,13 +399,13 @@ fun SegmentedColumnScope.keywordItems(
                 )
             }
         } else {
-            PaymentValueRow(
+            AutomationValueRow(
                 title = addTitle,
                 value = "",
                 enabled = editable,
                 onClick = {
                     onEditText(
-                        PaymentTextEditMode(
+                        AutomationTextEditRequest(
                             title = addTitle,
                             initial = "",
                             onCommit = { input ->
@@ -421,6 +425,7 @@ fun SegmentedColumnScope.keywordItems(
 
 /** Delay value rows shown while the delay rule is enabled. */
 fun SegmentedColumnScope.delayItems(
+    keyPrefix: String,
     baseMs: String,
     randomRangeMs: String,
     editable: Boolean,
@@ -428,20 +433,20 @@ fun SegmentedColumnScope.delayItems(
     maxDigits: Int,
     onBaseChange: (String) -> Unit,
     onRandomRangeChange: (String) -> Unit,
-    onEditText: (PaymentTextEditMode) -> Unit,
+    onEditText: (AutomationTextEditRequest) -> Unit,
 ) {
     val digitFilter: (String) -> String = { it.filter(Char::isDigit).take(maxDigits) }
 
-    item(key = "delay_base", animatedVisibility = visible) {
+    item(key = "${keyPrefix}_base", animatedVisibility = visible) {
         val baseTitle = stringResource(R.string.automation_base_delay_ms)
-        PaymentValueRow(
+        AutomationValueRow(
             title = baseTitle,
             value = baseMs,
             enabled = editable,
             valueHint = "0",
             onClick = {
                 onEditText(
-                    PaymentTextEditMode(
+                    AutomationTextEditRequest(
                         title = baseTitle,
                         initial = baseMs,
                         keyboardType = KeyboardType.Number,
@@ -452,16 +457,16 @@ fun SegmentedColumnScope.delayItems(
             },
         )
     }
-    item(key = "delay_random", animatedVisibility = visible) {
+    item(key = "${keyPrefix}_random", animatedVisibility = visible) {
         val randomTitle = stringResource(R.string.automation_random_delay_ms)
-        PaymentValueRow(
+        AutomationValueRow(
             title = randomTitle,
             value = randomRangeMs,
             enabled = editable,
             valueHint = "0",
             onClick = {
                 onEditText(
-                    PaymentTextEditMode(
+                    AutomationTextEditRequest(
                         title = randomTitle,
                         initial = randomRangeMs,
                         keyboardType = KeyboardType.Number,
@@ -471,5 +476,29 @@ fun SegmentedColumnScope.delayItems(
                 )
             },
         )
+    }
+}
+
+fun formatAutomationMinute(value: Int): String = formatMinuteOfDay(value)
+
+@Composable
+fun automationKeywordSummary(rule: AutomationKeywordRule, unrestrictedText: String): String {
+    if (!rule.enabled) return unrestrictedText
+    return when (rule.mode) {
+        AutomationKeywordMode.STRING_LIST -> pluralStringResource(
+            R.plurals.automation_keyword_contains_summary,
+            rule.strings.size,
+            rule.strings.size,
+        )
+        AutomationKeywordMode.EXACT -> pluralStringResource(
+            R.plurals.automation_keyword_exact_summary,
+            rule.strings.size,
+            rule.strings.size,
+        )
+        AutomationKeywordMode.REGEX -> if (rule.regex.isBlank()) {
+            stringResource(R.string.automation_regex_empty_summary)
+        } else {
+            stringResource(R.string.automation_regex_summary)
+        }
     }
 }

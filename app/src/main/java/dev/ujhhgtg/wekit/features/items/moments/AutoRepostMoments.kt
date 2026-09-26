@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
+import dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity
 import android.content.ContentValues
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
@@ -29,7 +30,12 @@ object AutoRepostMoments : AutoMomentsBase(),
     private const val RETRY_INTERVAL_MS = 30_000L
     private const val MAX_FORWARDED_RECORDS = 1000
 
-    private val settings = MomentsAutomationSettings.Repost
+    private val settings = MomentsAutomation.Repost
+    private val onSettingsChanged: () -> Unit = {
+        handledSnsIds.clear()
+        lastAttemptAt.clear()
+        if (settings.hasAllLoadedTargets()) scanCachedTargetMoments()
+    }
     private val handledSnsIds = ConcurrentHashMap.newKeySet<String>()
     private val lastAttemptAt = ConcurrentHashMap<String, Long>()
     private val actionLock = Any()
@@ -43,7 +49,8 @@ object AutoRepostMoments : AutoMomentsBase(),
     )
 
     override fun onEnable() {
-        MomentsAutomationSettings.Repost.requireReady()
+        settings.store.snapshot()
+        settings.store.addListener(onSettingsChanged)
         startAutomation()
         handledSnsIds.clear()
         lastAttemptAt.clear()
@@ -54,6 +61,7 @@ object AutoRepostMoments : AutoMomentsBase(),
     }
 
     override fun onDisable() {
+        settings.store.removeListener(onSettingsChanged)
         stopAutomation()
         WeDatabaseListenerApi.removeListener(this)
         AutoRefresh.removeListener(this)
@@ -64,11 +72,7 @@ object AutoRepostMoments : AutoMomentsBase(),
     }
 
     override fun onClick(context: ComponentActivity) {
-        settings.showMainDialog(context) {
-            handledSnsIds.clear()
-            lastAttemptAt.clear()
-            if (settings.hasAllLoadedTargets()) scanCachedTargetMoments()
-        }
+        AutomationSettingsActivity.start(context, settings)
     }
 
     override fun onInsert(table: String, values: ContentValues) {

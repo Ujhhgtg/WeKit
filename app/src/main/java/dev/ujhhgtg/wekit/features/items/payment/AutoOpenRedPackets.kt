@@ -24,7 +24,11 @@ import dev.ujhhgtg.wekit.features.api.core.WePaymentApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
-import dev.ujhhgtg.wekit.features.items.payment.RedPacketSettings.ReceiveMode
+import dev.ujhhgtg.wekit.features.automation.AutomationReplyContext
+import dev.ujhhgtg.wekit.features.automation.AutomationReplyExecutor
+import dev.ujhhgtg.wekit.features.automation.AutomationReplyRule
+import dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity
+import dev.ujhhgtg.wekit.features.items.payment.RedPacketAutomation.ReceiveMode
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -116,7 +120,9 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
         val headImg: String = "",
         val nickName: String = "",
         val notificationEnabled: Boolean = false,
-        val autoReply: String = ""
+        val autoReply: AutomationReplyRule = AutomationReplyRule(),
+        val sender: String = talker,
+        val msgId: Long = 0L,
     )
 
     /** 8.0.74+ 的 union 打开请求多了 left_button_continue 参数 */
@@ -125,7 +131,7 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
     }
 
     override fun onEnable() {
-        RedPacketSettings.requireReady()
+        RedPacketAutomation.store.snapshot()
         WeDatabaseListenerApi.addListener(this)
 
         WePaymentApi.methodReceiveLuckyMoneyOnGYNetEnd.hookAfter {
@@ -179,17 +185,17 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
             val content = msgInfo.content
             val isGroupChat = msgInfo.isInGroupChat
             val sender = msgInfo.sender
-            val settings = RedPacketSettings.resolve(talker, sender.takeIf { isGroupChat })
+            val settings = RedPacketAutomation.store.resolve(talker, sender.takeIf { isGroupChat })
 
-            if (!settings.grab.enabled) {
+            if (!settings[RedPacketAutomation.grab].enabled) {
                 WeLogger.i(TAG, "skipping packet from $sender in $talker: grabbing disabled")
                 return
             }
-            if (msgInfo.isSelfSender && !settings.grabSelf.enabled) {
+            if (msgInfo.isSelfSender && !settings[RedPacketAutomation.grabSelf].enabled) {
                 WeLogger.i(TAG, "skipping self-sent packet in $talker")
                 return
             }
-            if (!settings.isInActiveTime()) {
+            if (!settings[RedPacketAutomation.timeRange].matches()) {
                 WeLogger.i(TAG, "skipping packet from $sender in $talker: outside active time range")
                 return
             }
@@ -211,11 +217,11 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
             val nickName = extractXmlParam(xmlContent, "sendertitle")
 
             if (sendId.isEmpty()) return
-            if (settings.skipKeyword.enabled && settings.skipKeyword.matches(nickName)) {
+            if (settings[RedPacketAutomation.skipKeyword].excludes(nickName)) {
                 WeLogger.i(TAG, "skipping packet from $sender in $talker: skip keyword matched")
                 return
             }
-            if (!settings.matchesKeyword(nickName)) {
+            if (!settings[RedPacketAutomation.keyword].matches(nickName)) {
                 WeLogger.i(TAG, "skipping packet from $sender in $talker: keyword did not match")
                 return
             }
@@ -229,15 +235,17 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
                 msgType = msgType,
                 channelId = channelId,
                 sceneId = sceneId,
-                receiveMode = settings.receiveMode,
+                receiveMode = settings[RedPacketAutomation.receiveMode],
                 headImg = headImg,
                 nickName = nickName,
-                notificationEnabled = settings.notification.enabled,
-                autoReply = settings.autoReply.text.takeIf { settings.autoReply.enabled }.orEmpty()
+                notificationEnabled = settings[RedPacketAutomation.notification].enabled,
+                autoReply = settings[RedPacketAutomation.reply],
+                sender = sender,
+                msgId = msgInfo.id,
             )
             currentRedPacketMap[sendId] = info
 
-            val delayTime = settings.delayMillis()
+            val delayTime = settings[RedPacketAutomation.delay].millis()
             WeLogger.i(TAG, "resolved delay: ${delayTime}ms (sendId=$sendId)")
 
             thread(name = "ReceiveRedPacketThread") {
@@ -384,10 +392,15 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
 
         val displayAmount = amount / 100.0
 
-        val reply = info.autoReply
-        if (reply.isNotBlank()) {
-            WeMessageApi.sendText(info.talker, reply.replace($$"$amount", "¥$displayAmount"))
-        }
+        AutomationReplyExecutor.launch(
+            info.autoReply,
+            AutomationReplyContext(
+                talker = info.talker,
+                sender = info.sender,
+                msgId = info.msgId,
+                variables = mapOf("amount" to "¥$displayAmount"),
+            ),
+        )
 
         if (!info.notificationEnabled) return
 
@@ -432,7 +445,7 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
     }
 
     override fun onClick(context: ComponentActivity) {
-        RedPacketSettings.showMainDialog(context)
+        AutomationSettingsActivity.start(context, RedPacketAutomation)
     }
 
     override fun onBeforeToggle(newState: Boolean, context: Context): Boolean {

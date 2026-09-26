@@ -1579,14 +1579,35 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
-    private fun createSendMsgScene(toUser: String, content: String): Any {
+    private fun createSendMsgScene(toUser: String, content: String, msgSource: String = ""): Any {
         val constructor = ctorNetSceneSendMsg.constructor
         // The six-argument signature accepts an explicit msgsource. Empty preserves
         // the host-generated source used by the original five-argument constructor.
         return if (constructor.parameterCount == 6) {
-            constructor.newInstance(toUser, content, 1, 0, null, "")
+            constructor.newInstance(toUser, content, 1, 0, null, msgSource)
         } else {
             constructor.newInstance(toUser, content, 1, 0, null)
+        }
+    }
+
+    /**
+     * Sends [text] mentioning [atWxIds] (`notify@all` mentions everyone). The mention list travels in
+     * the msgsource, which only the six-argument NetSceneSendMsg accepts; older hosts send plain text.
+     */
+    fun sendTextWithAtList(toUser: String, text: String, atWxIds: List<String>): Boolean {
+        if (atWxIds.isEmpty()) return sendText(toUser, text)
+        if (ctorNetSceneSendMsg.constructor.parameterCount != 6) {
+            WeLogger.w(TAG, "host NetSceneSendMsg has no msgsource parameter; sending mentions as plain text")
+            return sendText(toUser, text)
+        }
+        return try {
+            val sendMsgObject = methodGetSendMsgObject.method.invoke(null) ?: return false
+            val msgSource = "<msgsource><atuserlist><![CDATA[${atWxIds.joinToString(",")}]]></atuserlist></msgsource>"
+            val msgObj = createSendMsgScene(toUser, text, msgSource)
+            methodPostToQueue.method.invoke(sendMsgObject, msgObj) as? Boolean ?: false
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "failed to send text message with mentions", e)
+            false
         }
     }
 

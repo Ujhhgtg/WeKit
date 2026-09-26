@@ -19,16 +19,14 @@ import dev.ujhhgtg.wekit.data.entity.MomentCustomDetailEntity
 import dev.ujhhgtg.wekit.data.entity.FeatureFlagOverrideEntity
 import dev.ujhhgtg.wekit.data.entity.ContactRealNamePartEntity
 import dev.ujhhgtg.wekit.data.entity.RealNameScanProgressEntity
-import dev.ujhhgtg.wekit.data.entity.RedPacketRuleEntity
-import dev.ujhhgtg.wekit.data.entity.RedPacketKeywordEntity
-import dev.ujhhgtg.wekit.data.entity.TransferRuleEntity
-import dev.ujhhgtg.wekit.data.entity.TransferKeywordEntity
-import dev.ujhhgtg.wekit.data.entity.MomentAutomationRuleEntity
-import dev.ujhhgtg.wekit.data.entity.MomentAutomationKeywordEntity
-import dev.ujhhgtg.wekit.data.entity.MomentAutomationContentTypeEntity
+import dev.ujhhgtg.wekit.data.entity.AutomationScopeEntity
+import dev.ujhhgtg.wekit.data.entity.AutomationScopeFieldEntity
+import dev.ujhhgtg.wekit.data.entity.AutomationScopeListValueEntity
+import dev.ujhhgtg.wekit.data.entity.AutomationScopePresetEntity
 import dev.ujhhgtg.wekit.data.entity.collectionSchemaSql
+import dev.ujhhgtg.wekit.data.structured.migration23To24Sql
 import dev.ujhhgtg.wekit.data.entity.simpleStructuredSchemaSql
-import dev.ujhhgtg.wekit.data.structured.automationSchemaSql
+import dev.ujhhgtg.wekit.data.structured.legacyAutomationSchemaSql
 import dev.ujhhgtg.wekit.agent.data.dao.BridgeToolAuditDao
 import dev.ujhhgtg.wekit.agent.data.dao.ConditionalPromptDao
 import dev.ujhhgtg.wekit.data.dao.DocumentDao
@@ -119,15 +117,12 @@ import java.io.File
         FeatureFlagOverrideEntity::class,
         ContactRealNamePartEntity::class,
         RealNameScanProgressEntity::class,
-        RedPacketRuleEntity::class,
-        RedPacketKeywordEntity::class,
-        TransferRuleEntity::class,
-        TransferKeywordEntity::class,
-        MomentAutomationRuleEntity::class,
-        MomentAutomationKeywordEntity::class,
-        MomentAutomationContentTypeEntity::class,
+        AutomationScopeEntity::class,
+        AutomationScopeFieldEntity::class,
+        AutomationScopeListValueEntity::class,
+        AutomationScopePresetEntity::class,
     ],
-    version = 23,
+    version = 24,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 9, to = 10), // adds external_services table
@@ -163,7 +158,7 @@ abstract class WeKitDatabase : RoomDatabase() {
 
     companion object {
         const val FILE_NAME = "wekit.db"
-        const val SCHEMA_VERSION = 23
+        const val SCHEMA_VERSION = 24
 
         val file: File
             get() = KnownPaths.moduleRoot.resolve(FILE_NAME).toFile()
@@ -317,7 +312,7 @@ abstract class WeKitDatabase : RoomDatabase() {
         }
 
         val migration20To21Sql = collectionSchemaSql +
-                simpleStructuredSchemaSql + automationSchemaSql
+                simpleStructuredSchemaSql + legacyAutomationSchemaSql
 
         // Drops the retired import-state table, which only one of the schema-21 builds had.
         val MIGRATION_21_22 = object : Migration(21, 22) {
@@ -330,6 +325,13 @@ abstract class WeKitDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `dex_cache_failures` (`hostVersion` TEXT NOT NULL, `technicalId` TEXT NOT NULL, `methodHash` TEXT NOT NULL, `message` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, PRIMARY KEY(`hostVersion`, `technicalId`))")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_dex_cache_failures_hostVersion` ON `dex_cache_failures` (`hostVersion`)")
+            }
+        }
+
+        // 23 → 24: per-feature automation rule tables → generic automation scope tables.
+        val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                migration23To24Sql.forEach(db::execSQL)
             }
         }
 
@@ -367,7 +369,7 @@ abstract class WeKitDatabase : RoomDatabase() {
             file.toString()
         )
             .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
+            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             // Destructive fallback is scoped to the pre-release schemas (1–8) only, which no
             // migration path was ever written for. From 9 onwards every step must have a
             // migration: a missing one then fails loudly at open time instead of silently

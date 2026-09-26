@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
+import dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity
 import android.content.ContentValues
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
@@ -26,7 +27,12 @@ object AutoLikeMoments : AutoMomentsBase(),
 
     private const val RETRY_INTERVAL_MS = 30_000L
 
-    private val settings = MomentsAutomationSettings.Like
+    private val settings = MomentsAutomation.Like
+    private val onSettingsChanged: () -> Unit = {
+        handledSnsIds.clear()
+        lastAttemptAt.clear()
+        if (settings.hasAllLoadedTargets()) scanCachedTargetMoments()
+    }
     private val handledSnsIds = ConcurrentHashMap.newKeySet<String>()
     private val lastAttemptAt = ConcurrentHashMap<String, Long>()
     private val actionLock = Any()
@@ -35,7 +41,8 @@ object AutoLikeMoments : AutoMomentsBase(),
     private var lastActionSentAt = 0L
 
     override fun onEnable() {
-        MomentsAutomationSettings.Like.requireReady()
+        settings.store.snapshot()
+        settings.store.addListener(onSettingsChanged)
         startAutomation()
         handledSnsIds.clear()
         lastAttemptAt.clear()
@@ -46,6 +53,7 @@ object AutoLikeMoments : AutoMomentsBase(),
     }
 
     override fun onDisable() {
+        settings.store.removeListener(onSettingsChanged)
         stopAutomation()
         WeDatabaseListenerApi.removeListener(this)
         AutoRefresh.removeListener(this)
@@ -56,11 +64,7 @@ object AutoLikeMoments : AutoMomentsBase(),
     }
 
     override fun onClick(context: ComponentActivity) {
-        settings.showMainDialog(context) {
-            handledSnsIds.clear()
-            lastAttemptAt.clear()
-            if (settings.hasAllLoadedTargets()) scanCachedTargetMoments()
-        }
+        AutomationSettingsActivity.start(context, settings)
     }
 
     override fun onInsert(table: String, values: ContentValues) {
