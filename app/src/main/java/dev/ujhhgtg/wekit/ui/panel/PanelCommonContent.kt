@@ -30,6 +30,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -168,6 +169,11 @@ fun PanelHistorySetting(
     onValueChange: (Long) -> Unit,
     onCustomValue: () -> Unit,
 ) {
+    val sliderState = remember {
+        SliderState(value = panelHistoryToSlider(value), trackRange = 0f..1f)
+    }
+    sliderState.value = panelHistoryToSlider(value)
+
     ListItem(
         modifier = Modifier.clickable(onClick = onCustomValue),
         colors = panelListItemColors(),
@@ -175,9 +181,8 @@ fun PanelHistorySetting(
         supportingContent = { Text(stringResource(R.string.panel_setting_custom_number_summary, value)) },
     )
     Slider(
-        value = panelHistoryToSlider(value),
+        state = sliderState,
         onValueChange = { onValueChange(panelSliderToHistory(it)) },
-        valueRange = 0f..1f,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),

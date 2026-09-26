@@ -139,7 +139,7 @@ class LinuxEnvironmentTest {
     fun `environment type is immutable at repository boundary`() {
         val existing = environment(LinuxEnvironmentType.PROOT)
         assertThrows(IllegalArgumentException::class.java) {
-            WeAgentRepository.validateLinuxEnvironmentUpdate(existing, existing.copy(type = LinuxEnvironmentType.CHROOT))
+            WeAgentRepository.validateLinuxEnvironmentUpdate(existing, existing.copy(type = LinuxEnvironmentType.SSH))
         }
     }
 
@@ -216,42 +216,6 @@ class LinuxEnvironmentTest {
     }
 
     @Test
-    fun `manager initialization recovers persisted chroot runs`(@TempDir directory: Path) = runBlocking {
-        val rootfs = Files.createDirectories(directory.resolve("arch/rootfs"))
-        var recoveries = 0
-        val manager = LinuxEnvironmentManager(
-            nativeSnapshot = nativeSnapshot(directory.resolve("native")),
-            storedEnvironments = { listOf(environment(LinuxEnvironmentType.CHROOT).copy(rootfsPath = rootfs.toString())) },
-            loadNativeConfiguration = { null to "{}" },
-            recoverChroot = { recoveredRootfs, _ ->
-                assertEquals(rootfs, recoveredRootfs)
-                recoveries++
-                ChrootRecoveryResult(1, emptyMap())
-            },
-        )
-
-        manager.initialize()
-        assertEquals(1, recoveries)
-    }
-
-    @Test
-    fun `deletion refuses persisted unresolved chroot run after restart`(@TempDir directory: Path) = runBlocking {
-        val rootfs = Files.createDirectories(directory.resolve("arch/rootfs"))
-        val stored = environment(LinuxEnvironmentType.CHROOT).copy(rootfsPath = rootfs.toString())
-        var deleted = false
-        val manager = LinuxEnvironmentManager(
-            nativeSnapshot = nativeSnapshot(directory.resolve("native")),
-            getEnvironment = { stored },
-            deleteEnvironment = { _, _, _ -> deleted = true; true },
-            recoverChroot = { _, _ -> ChrootRecoveryResult(0, mapOf("run-id" to "identity cannot be proven")) },
-        )
-
-        val error = assertThrows(IllegalStateException::class.java) { runBlocking { manager.delete(stored.id) } }
-        assertTrue(error.message!!.contains("identity cannot be proven"))
-        assertFalse(deleted)
-    }
-
-    @Test
     fun `throwing deletion notification still clears runtime state and returns committed result`(@TempDir directory: Path) = runBlocking {
         val stored = environment(LinuxEnvironmentType.SSH).copy(
             rootfsPath = null,
@@ -298,26 +262,6 @@ class LinuxEnvironmentTest {
         manager.exec(stored.id, "true", 1_000)
         assertEquals(2, backendCreations)
         assertTrue(manager.delete(stored.id))
-    }
-
-    @Test
-    fun `unresolved chroot metadata blocks new exec before backend launch`(@TempDir directory: Path) = runBlocking {
-        val rootfs = Files.createDirectories(directory.resolve("arch/rootfs"))
-        val stored = environment(LinuxEnvironmentType.CHROOT).copy(rootfsPath = rootfs.toString())
-        var backendCreated = false
-        val manager = LinuxEnvironmentManager(
-            nativeSnapshot = nativeSnapshot(directory.resolve("native")),
-            getEnvironment = { stored },
-            backendFactory = { backendCreated = true; error("must not create backend") },
-            highRiskApproval = { _, _ -> true },
-            recoverChroot = { _, _ -> ChrootRecoveryResult(0, mapOf("run-id" to "missing process identity")) },
-        )
-
-        val error = assertThrows(IllegalStateException::class.java) {
-            runBlocking { manager.exec(stored.id, "true", 1_000) }
-        }
-        assertTrue(error.message!!.contains("missing process identity"))
-        assertFalse(backendCreated)
     }
 
     @Test

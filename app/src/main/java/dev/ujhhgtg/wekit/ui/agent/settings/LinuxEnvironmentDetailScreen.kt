@@ -23,13 +23,13 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Play_arrow
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
-import dev.ujhhgtg.wekit.agent.ssh.SshCredentialStore
-import dev.ujhhgtg.wekit.agent.ssh.SshCredentials
 import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyException
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
@@ -62,7 +62,6 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
     var pendingHostKey by remember { mutableStateOf<SshHostKeyException?>(null) }
     var operation by remember { mutableStateOf<EnvironmentOperation?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
-    var pendingChrootOperation by remember { mutableStateOf<EnvironmentOperation?>(null) }
     val activity = LocalActivity.current ?: error("activity not provided")
     val privateKeyImporter = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -101,7 +100,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
         }
     }
 
-    AgentSettingsScaffold(
+    SettingsScaffold(
         title = stringResource(if (environmentId == null) R.string.agent_linux_environment_add else R.string.agent_linux_environment_detail),
         onBack = onBack,
     ) {
@@ -178,14 +177,10 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                         enabled = !busy,
                         onClick = {
                             if (busy) return@BaseWidget
-                            if (type == LinuxEnvironmentType.CHROOT && existing == null) {
-                                pendingChrootOperation = EnvironmentOperation.SAVE
-                                return@BaseWidget
-                            }
                             operation = EnvironmentOperation.SAVE
                             status = null
                             scope.launch {
-                                runCatching { saveOrCreate(environmentId, existing, name, type, workingDirectory, environmentVariablesJson, host, port, username, authenticationType, password, privateKey, passphrase, false) }
+                                runCatching { saveOrCreate(environmentId, existing, name, type, workingDirectory, environmentVariablesJson, host, port, username, authenticationType, password, privateKey, passphrase) }
                                     .onSuccess { created ->
                                         if (created) onBack()
                                     }.onFailure {
@@ -213,10 +208,6 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                             enabled = !busy,
                             onClick = {
                                 if (busy) return@BaseWidget
-                                if (type == LinuxEnvironmentType.CHROOT) {
-                                    pendingChrootOperation = EnvironmentOperation.TEST
-                                    return@BaseWidget
-                                }
                                 operation = EnvironmentOperation.TEST
                                 status = null
                                 scope.launch {
@@ -244,7 +235,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
         }
     }
     error?.let { message -> AlertDialog(onDismissRequest = { error = null }, title = { Text(stringResource(R.string.agent_linux_environment_error)) }, text = { Text(message) }, confirmButton = { TextButton(onClick = { error = null }) { Text(stringResource(android.R.string.ok)) } }) }
-    if (showDelete) AgentConfirmDialog(
+    if (showDelete) SettingsConfirmDialog(
         true,
         stringResource(R.string.action_delete),
         stringResource(R.string.agent_linux_environment_delete_confirm),
@@ -253,7 +244,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
         destructive = true,
         loading = operation == EnvironmentOperation.DELETE,
         onConfirm = {
-            if (busy) return@AgentConfirmDialog
+            if (busy) return@SettingsConfirmDialog
             operation = EnvironmentOperation.DELETE
             status = null
             scope.launch {
@@ -266,7 +257,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
         onDismiss = { if (!busy) showDelete = false },
     )
     pendingHostKey?.let { hostKeyError ->
-        AgentConfirmDialog(
+        SettingsConfirmDialog(
             true,
             stringResource(R.string.agent_linux_environment_host_key_title),
             stringResource(
@@ -278,7 +269,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
             stringResource(android.R.string.cancel),
             loading = operation == EnvironmentOperation.TRUST,
             onConfirm = {
-                if (busy) return@AgentConfirmDialog
+                if (busy) return@SettingsConfirmDialog
                 operation = EnvironmentOperation.TRUST
                 status = null
                 scope.launch {
@@ -299,46 +290,13 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
             onDismiss = { if (!busy) pendingHostKey = null },
         )
     }
-    if (pendingChrootOperation != null) {
-        AgentConfirmDialog(
-            true,
-            stringResource(R.string.agent_linux_environment_chroot_confirm_title),
-            stringResource(R.string.agent_linux_environment_chroot_confirm_message),
-            stringResource(android.R.string.ok),
-            stringResource(android.R.string.cancel),
-            destructive = true,
-            loading = busy,
-            onConfirm = {
-                val requested = pendingChrootOperation ?: return@AgentConfirmDialog
-                operation = requested
-                status = null
-                scope.launch {
-                    if (requested == EnvironmentOperation.SAVE) {
-                        runCatching { saveOrCreate(environmentId, existing, name, type, workingDirectory, environmentVariablesJson, host, port, username, authenticationType, password, privateKey, passphrase, true) }
-                            .onSuccess { if (it) onBack() }
-                            .onFailure {
-                                if (it is MissingArchPackException) ExtensionPackDialogs.requireArchLinux(activity)
-                                else error = it.message
-                            }
-                    } else {
-                        runCatching { WeAgentService.linuxEnvironmentManager.checkHealth(requireNotNull(environmentId), true) }
-                            .onSuccess { status = it.detail ?: healthyStatus }
-                            .onFailure { error = it.message }
-                    }
-                    operation = null
-                    pendingChrootOperation = null
-                }
-            },
-            onDismiss = { if (!busy) pendingChrootOperation = null },
-        )
-    }
 }
 
 private enum class EnvironmentOperation { SAVE, TEST, DELETE, TRUST }
 
 private class MissingArchPackException : IllegalStateException("Arch Linux extension pack is not installed")
 
-private suspend fun saveOrCreate(id: String?, existing: LinuxEnvironmentEntity?, name: String, type: LinuxEnvironmentType, workingDirectory: String, environmentVariablesJson: String, host: String, port: String, username: String, authenticationType: String, password: String, privateKey: String, passphrase: String, chrootApproved: Boolean): Boolean {
+private suspend fun saveOrCreate(id: String?, existing: LinuxEnvironmentEntity?, name: String, type: LinuxEnvironmentType, workingDirectory: String, environmentVariablesJson: String, host: String, port: String, username: String, authenticationType: String, password: String, privateKey: String, passphrase: String): Boolean {
     require(name.isNotBlank()) { "name is required" }
     val normalizedVariables = kotlinx.serialization.json.Json.parseToJsonElement(environmentVariablesJson).jsonObject
         .also { variables -> variables.forEach { (key, value) ->
@@ -353,8 +311,8 @@ private suspend fun saveOrCreate(id: String?, existing: LinuxEnvironmentEntity?,
     if (existing != null) {
         val credentials = when {
             type != LinuxEnvironmentType.SSH -> null
-            authenticationType == "PASSWORD" && password.isNotEmpty() -> SshCredentialStore.encrypt(SshCredentials.Password(password))
-            authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty() -> SshCredentialStore.encrypt(SshCredentials.PrivateKey(privateKey, passphrase.takeIf(String::isNotEmpty)))
+            authenticationType == "PASSWORD" && password.isNotEmpty() -> Unit
+            authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty() -> Unit
             authenticationType != existing.sshAuthenticationType -> error("credentials are required when changing SSH authentication type")
             else -> null
         }
@@ -364,8 +322,11 @@ private suspend fun saveOrCreate(id: String?, existing: LinuxEnvironmentEntity?,
             sshPort = if (type == LinuxEnvironmentType.SSH) port.toInt() else existing.sshPort,
             sshUsername = if (type == LinuxEnvironmentType.SSH) username else existing.sshUsername,
             sshAuthenticationType = if (type == LinuxEnvironmentType.SSH) authenticationType else existing.sshAuthenticationType,
-            sshCredentialCiphertext = credentials?.ciphertext ?: existing.sshCredentialCiphertext,
-            sshCredentialIv = credentials?.iv ?: existing.sshCredentialIv,
+            sshPassword = if (authenticationType == "PASSWORD" && password.isNotEmpty()) password else existing.sshPassword,
+            sshPrivateKey = if (authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty()) privateKey else existing.sshPrivateKey,
+            sshPrivateKeyPassphrase = if (authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty()) passphrase.takeIf(String::isNotEmpty) else existing.sshPrivateKeyPassphrase,
+            sshCredentialCiphertext = if (password.isNotEmpty() || privateKey.isNotEmpty()) null else existing.sshCredentialCiphertext,
+            sshCredentialIv = if (password.isNotEmpty() || privateKey.isNotEmpty()) null else existing.sshCredentialIv,
             sshHostKeyAlgorithm = if (credentials != null && (host != existing.sshHost || username != existing.sshUsername || port.toInt() != existing.sshPort)) null else existing.sshHostKeyAlgorithm,
             sshHostKeyFingerprint = if (credentials != null && (host != existing.sshHost || username != existing.sshUsername || port.toInt() != existing.sshPort)) null else existing.sshHostKeyFingerprint,
         ))
@@ -381,23 +342,9 @@ private suspend fun saveOrCreate(id: String?, existing: LinuxEnvironmentEntity?,
             is dev.ujhhgtg.wekit.agent.environment.ProotEnvironmentCreationResult.MissingPack -> throw MissingArchPackException()
         }
     }
-    if (type == LinuxEnvironmentType.CHROOT) {
-        return when (WeAgentService.linuxEnvironmentManager.createChrootEnvironment(
-            name,
-            workingDirectory = workingDirectory,
-            environmentVariablesJson = normalizedVariables,
-            highRiskApproved = chrootApproved,
-        )) {
-            is dev.ujhhgtg.wekit.agent.environment.ChrootEnvironmentCreationResult.Created -> true
-            is dev.ujhhgtg.wekit.agent.environment.ChrootEnvironmentCreationResult.MissingPack -> throw MissingArchPackException()
-        }
-    }
     require(type == LinuxEnvironmentType.SSH) { "unsupported environment type" }
-    val credentials = if (authenticationType == "PASSWORD") {
-        SshCredentialStore.encrypt(SshCredentials.Password(password.also { require(it.isNotEmpty()) { "password is required" } }))
-    } else {
-        SshCredentialStore.encrypt(SshCredentials.PrivateKey(privateKey.also { require(it.isNotEmpty()) { "private key is required" } }, passphrase.takeIf(String::isNotEmpty)))
-    }
-    WeAgentService.linuxEnvironmentManager.upsert(LinuxEnvironmentEntity(UUID.randomUUID().toString(), name, type, workingDirectory, environmentVariablesJson = normalizedVariables, sshHost = host, sshPort = port.toInt(), sshUsername = username, sshAuthenticationType = authenticationType, sshCredentialCiphertext = credentials.ciphertext, sshCredentialIv = credentials.iv))
+    val normalizedPassword = password.takeIf { authenticationType == "PASSWORD" }?.also { require(it.isNotEmpty()) { "password is required" } }
+    val normalizedPrivateKey = privateKey.takeIf { authenticationType == "PRIVATE_KEY" }?.also { require(it.isNotEmpty()) { "private key is required" } }
+    WeAgentService.linuxEnvironmentManager.upsert(LinuxEnvironmentEntity(UUID.randomUUID().toString(), name, type, workingDirectory, environmentVariablesJson = normalizedVariables, sshHost = host, sshPort = port.toInt(), sshUsername = username, sshAuthenticationType = authenticationType, sshPassword = normalizedPassword, sshPrivateKey = normalizedPrivateKey, sshPrivateKeyPassphrase = passphrase.takeIf { normalizedPrivateKey != null && it.isNotEmpty() }))
     return true
 }

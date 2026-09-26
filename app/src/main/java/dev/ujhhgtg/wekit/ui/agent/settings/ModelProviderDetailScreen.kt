@@ -12,15 +12,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,11 +42,12 @@ import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Cloud_download
 import com.composables.icons.materialsymbols.outlined.Save
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
+import dev.ujhhgtg.wekit.ui.content.m3.rememberCreationBackGuard
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.agent.model.local.LocalLlama
-import dev.ujhhgtg.wekit.agent.model.local.LOCAL_LLAMA_MIN_CONTEXT_WINDOW
-import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaModels
-import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
@@ -65,7 +63,6 @@ import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import dev.ujhhgtg.wekit.utils.android.showToast
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -120,7 +117,6 @@ fun ModelProviderDetailScreen(
      */
     fun commitProvider(transform: (ModelProviderEntity) -> ModelProviderEntity) {
         val current = provider ?: return
-        if (current.type == ModelProviderType.LOCAL_LLAMA) return
         if (!editing) {
             provider = transform(current)
             return
@@ -136,10 +132,9 @@ fun ModelProviderDetailScreen(
     }
 
     val savable = p?.baseUrl?.isNotBlank() == true
-    val noncanonicalLocal = p?.type == ModelProviderType.LOCAL_LLAMA
     val guardedBack = rememberCreationBackGuard(!editing && savable, onBack)
 
-    AgentSettingsScaffold(
+    SettingsScaffold(
         title = if (!editing) stringResource(R.string.agent_add_model_provider)
         else p?.name ?: stringResource(R.string.agent_provider_fallback_title),
         onBack = guardedBack,
@@ -153,7 +148,7 @@ fun ModelProviderDetailScreen(
                     CircularProgressIndicator(Modifier.size(28.dp))
                 }
             }
-            return@AgentSettingsScaffold
+            return@SettingsScaffold
         }
 
         item {
@@ -166,7 +161,6 @@ fun ModelProviderDetailScreen(
                         dialogTitle = stringResource(R.string.agent_field_name),
                         confirmLabel = stringResource(R.string.dialog_confirm),
                         dismissLabel = stringResource(R.string.dialog_cancel),
-                        enabled = !noncanonicalLocal,
                     )
                 }
                 item {
@@ -177,7 +171,6 @@ fun ModelProviderDetailScreen(
                         dialogTitle = stringResource(R.string.agent_base_url),
                         confirmLabel = stringResource(R.string.dialog_confirm),
                         dismissLabel = stringResource(R.string.dialog_cancel),
-                        enabled = !noncanonicalLocal,
                         keyboardType = KeyboardType.Uri,
                     )
                 }
@@ -189,7 +182,6 @@ fun ModelProviderDetailScreen(
                         dialogTitle = stringResource(R.string.agent_api_key_label),
                         confirmLabel = stringResource(R.string.dialog_confirm),
                         dismissLabel = stringResource(R.string.dialog_cancel),
-                        enabled = !noncanonicalLocal,
                         keyboardType = KeyboardType.Password,
                         password = true,
                     )
@@ -201,10 +193,7 @@ fun ModelProviderDetailScreen(
                         title = stringResource(R.string.agent_provider_api_type),
                         description = null,
                         value = p.type,
-                        options = (GENERIC_MODEL_PROVIDER_TYPES +
-                                listOfNotNull(ModelProviderType.LOCAL_LLAMA.takeIf { noncanonicalLocal }))
-                            .map { DropdownOption(it, it.label()) },
-                        enabled = !noncanonicalLocal,
+                        options = ModelProviderType.entries.map { DropdownOption(it, it.label()) },
                         onValueChange = { value -> commitProvider { it.copy(type = value) } },
                     )
                 }
@@ -215,8 +204,8 @@ fun ModelProviderDetailScreen(
             item {
                 // A blank name falls back to the provider type label, like the old add dialog did.
                 val fallbackName = p.type.label()
-                AgentActionRow {
-                    AgentListActionButton(
+                SettingsActionRow {
+                    SettingsListActionButton(
                         label = stringResource(R.string.action_save),
                         icon = MaterialSymbols.Outlined.Save,
                         enabled = savable,
@@ -237,9 +226,9 @@ fun ModelProviderDetailScreen(
                     )
                 }
             }
-        } else if (!noncanonicalLocal) {
+        } else {
             item {
-                AgentActionRow {
+                SettingsActionRow {
                     OutlinedButton(
                         onClick = { showDeleteProviderConfirm = true },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
@@ -275,8 +264,8 @@ fun ModelProviderDetailScreen(
                 }
             }
             item {
-                AgentActionRow {
-                    AgentListActionButton(
+                SettingsActionRow {
+                    SettingsListActionButton(
                         label = stringResource(R.string.agent_add_model),
                         icon = MaterialSymbols.Outlined.Add,
                         enabled = !importing,
@@ -284,7 +273,7 @@ fun ModelProviderDetailScreen(
                     )
                     // Auto-import is only meaningful for the OpenAI-style /models endpoint.
                     if (p.type != ModelProviderType.ANTHROPIC_MESSAGES) {
-                        AgentListActionButton(
+                        SettingsListActionButton(
                             label = stringResource(R.string.agent_auto_import_models),
                             icon = MaterialSymbols.Outlined.Cloud_download,
                             loading = importing,
@@ -314,8 +303,8 @@ fun ModelProviderDetailScreen(
         }
     }
 
-    if (p != null && !noncanonicalLocal) {
-        AgentConfirmDialog(
+    if (p != null) {
+        SettingsConfirmDialog(
             show = showDeleteProviderConfirm,
             title = stringResource(R.string.agent_delete_provider),
             message = stringResource(R.string.agent_delete_provider_confirm),
@@ -356,9 +345,6 @@ fun ModelProviderDetailScreen(
     )
 }
 
-private val GENERIC_MODEL_PROVIDER_TYPES =
-    ModelProviderType.entries.filterNot { it == ModelProviderType.LOCAL_LLAMA }
-
 /**
  * Per-model settings. Editing is instant-apply; a blank [modelId] starts a new model kept as an
  * in-memory draft: other rows stay disabled until a model id is entered, 保存 persists it and
@@ -367,14 +353,11 @@ private val GENERIC_MODEL_PROVIDER_TYPES =
 @Composable
 fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
     val creating = modelId.isBlank()
-    val locked = providerId == LocalLlama.PROVIDER_ID
     val scope = rememberCoroutineScope()
     val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     // Blank modelId = adding (a draft until saved); otherwise null until the entity loads.
     var model by remember { mutableStateOf<ModelEntity?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    var showCtxDialog by remember { mutableStateOf(false) }
-    var localCommitPending by remember { mutableStateOf(false) }
 
     LaunchedEffect(modelId) {
         model = if (creating) {
@@ -388,32 +371,7 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
     fun commitModel(transform: (ModelEntity) -> ModelEntity) {
         val current = model ?: return
         if (creating) {
-            if (locked) return
             model = transform(current)
-            return
-        }
-        if (locked) {
-            if (localCommitPending) return
-            val updated = transform(current).copy(providerId = providerId)
-            model = updated
-            localCommitPending = true
-            scope.launch {
-                try {
-                    WeAgentRepository.upsertModel(updated)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    model = current
-                    showToast(
-                        localizedContext.getString(
-                            R.string.agent_save_failed,
-                            e.message ?: e.javaClass.simpleName,
-                        )
-                    )
-                } finally {
-                    localCommitPending = false
-                }
-            }
             return
         }
         scope.launch {
@@ -427,18 +385,11 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
     }
 
     val m = model
-    val installedLocalModel = remember(locked, m?.modelIdRemote) {
-        if (locked) {
-            LocalLlamaModels.listInstalled().firstOrNull { it.id == m?.modelIdRemote }
-        } else {
-            null
-        }
-    }
     // Other fields describe a concrete remote model, so they wait for a non-blank model id.
     val ready = m?.modelIdRemote?.isNotBlank() == true
     val guardedBack = rememberCreationBackGuard(creating && ready, onBack)
 
-    AgentSettingsScaffold(
+    SettingsScaffold(
         title = stringResource(if (creating) R.string.agent_add_model else R.string.agent_edit_model),
         onBack = guardedBack,
     ) {
@@ -451,56 +402,40 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
                     CircularProgressIndicator(Modifier.size(28.dp))
                 }
             }
-            return@AgentSettingsScaffold
+            return@SettingsScaffold
         }
 
         item {
             SegmentedColumn {
                 item {
-                    if (locked) {
-                        BaseWidget(
-                            iconPlaceholder = false,
-                            title = stringResource(R.string.agent_model_id_label),
-                            description = m.modelIdRemote,
-                        )
-                    } else {
-                        TextFieldDialogWidget(
-                            title = stringResource(R.string.agent_model_id_label),
-                            value = m.modelIdRemote,
-                            onValueChange = { value ->
-                                commitModel { raw ->
-                                    val next = raw.copy(modelIdRemote = value)
-                                    if (next.displayName.isBlank() || next.displayName == next.modelIdRemote) {
-                                        next.copy(displayName = value)
-                                    } else {
-                                        next
-                                    }
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_model_id_label),
+                        value = m.modelIdRemote,
+                        onValueChange = { value ->
+                            commitModel { raw ->
+                                val next = raw.copy(modelIdRemote = value)
+                                if (next.displayName.isBlank() || next.displayName == next.modelIdRemote) {
+                                    next.copy(displayName = value)
+                                } else {
+                                    next
                                 }
-                            },
-                            dialogTitle = stringResource(R.string.agent_model_id_label),
-                            confirmLabel = stringResource(R.string.dialog_confirm),
-                            dismissLabel = stringResource(R.string.dialog_cancel),
-                        )
-                    }
+                            }
+                        },
+                        dialogTitle = stringResource(R.string.agent_model_id_label),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                    )
                 }
                 item {
-                    if (locked) {
-                        BaseWidget(
-                            iconPlaceholder = false,
-                            title = stringResource(R.string.agent_model_display_name_label),
-                            description = m.displayName,
-                        )
-                    } else {
-                        TextFieldDialogWidget(
-                            title = stringResource(R.string.agent_model_display_name_label),
-                            value = m.displayName,
-                            onValueChange = { value -> commitModel { it.copy(displayName = value) } },
-                            dialogTitle = stringResource(R.string.agent_model_display_name_label),
-                            confirmLabel = stringResource(R.string.dialog_confirm),
-                            dismissLabel = stringResource(R.string.dialog_cancel),
-                            enabled = ready,
-                        )
-                    }
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_model_display_name_label),
+                        value = m.displayName,
+                        onValueChange = { value -> commitModel { it.copy(displayName = value) } },
+                        dialogTitle = stringResource(R.string.agent_model_display_name_label),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = ready,
+                    )
                 }
                 item {
                     DropDownMenuWidget(
@@ -510,94 +445,71 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
                         description = null,
                         value = m.reasoningEffort ?: "off",
                         options = EFFORT_GEARS.map { DropdownOption(it, effortGearLabel(it)) },
-                        enabled = ready && (!locked || !localCommitPending),
+                        enabled = ready,
                         onValueChange = { value ->
                             commitModel { it.copy(reasoningEffort = value.takeIf { it != "off" }) }
                         },
                     )
                 }
                 item {
-                    if (locked) {
-                        BaseWidget(
-                            iconPlaceholder = false,
-                            title = stringResource(R.string.agent_context_window_label),
-                            description = (m.contextWindow
-                                ?: installedLocalModel?.defaultContextWindow
-                                ?: 32768).toString() + " · " +
-                                    stringResource(R.string.local_llm_backend_restart_note),
-                            enabled = ready && !localCommitPending,
-                            onClick = { showCtxDialog = true },
-                        )
-                    } else {
-                        TextFieldDialogWidget(
-                            title = stringResource(R.string.agent_context_window_label),
-                            value = m.contextWindow?.toString().orEmpty(),
-                            onValueChange = { value ->
-                                commitModel { it.copy(contextWindow = value.filter(Char::isDigit).take(9).toIntOrNull()) }
-                            },
-                            dialogTitle = stringResource(R.string.agent_context_window_label),
-                            confirmLabel = stringResource(R.string.dialog_confirm),
-                            dismissLabel = stringResource(R.string.dialog_cancel),
-                            enabled = ready,
-                            keyboardType = KeyboardType.Number,
-                            filter = { it.filter(Char::isDigit).take(9) },
-                        )
-                    }
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_context_window_label),
+                        value = m.contextWindow?.toString().orEmpty(),
+                        onValueChange = { value ->
+                            commitModel { it.copy(contextWindow = value.filter(Char::isDigit).take(9).toIntOrNull()) }
+                        },
+                        dialogTitle = stringResource(R.string.agent_context_window_label),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = ready,
+                        keyboardType = KeyboardType.Number,
+                        filter = { it.filter(Char::isDigit).take(9) },
+                    )
                 }
                 item {
-                    if (locked) {
-                        BaseWidget(
-                            iconPlaceholder = false,
-                            title = stringResource(R.string.agent_max_output_tokens_label),
-                            description = (installedLocalModel?.maxTokens ?: m.maxTokens)?.toString().orEmpty(),
-                        )
-                    } else {
-                        TextFieldDialogWidget(
-                            title = stringResource(R.string.agent_max_output_tokens_label),
-                            value = m.maxTokens?.toString().orEmpty(),
-                            onValueChange = { value ->
-                                commitModel { it.copy(maxTokens = value.filter(Char::isDigit).take(9).toIntOrNull()) }
-                            },
-                            dialogTitle = stringResource(R.string.agent_max_output_tokens_label),
-                            confirmLabel = stringResource(R.string.dialog_confirm),
-                            dismissLabel = stringResource(R.string.dialog_cancel),
-                            enabled = ready,
-                            keyboardType = KeyboardType.Number,
-                            filter = { it.filter(Char::isDigit).take(9) },
-                        )
-                    }
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_max_output_tokens_label),
+                        value = m.maxTokens?.toString().orEmpty(),
+                        onValueChange = { value ->
+                            commitModel { it.copy(maxTokens = value.filter(Char::isDigit).take(9).toIntOrNull()) }
+                        },
+                        dialogTitle = stringResource(R.string.agent_max_output_tokens_label),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = ready,
+                        keyboardType = KeyboardType.Number,
+                        filter = { it.filter(Char::isDigit).take(9) },
+                    )
                 }
-                if (!locked) {
-                    item {
-                        TextFieldDialogWidget(
-                            title = stringResource(R.string.agent_custom_json_label),
-                            value = m.customJsonOverride.orEmpty(),
-                            onValueChange = { value -> commitModel { it.copy(customJsonOverride = value.ifBlank { null }) } },
-                            dialogTitle = stringResource(R.string.agent_custom_json_label),
-                            confirmLabel = stringResource(R.string.dialog_confirm),
-                            dismissLabel = stringResource(R.string.dialog_cancel),
-                            enabled = ready,
-                            singleLine = false,
-                        )
-                    }
-                    item {
-                        SwitchWidget(
-                            iconPlaceholder = false,
-                            title = stringResource(R.string.agent_supports_vision),
-                            description = stringResource(R.string.agent_supports_vision_summary),
-                            enabled = ready,
-                            checked = m.supportsVision,
-                            onCheckedChange = { value -> commitModel { it.copy(supportsVision = value) } },
-                        )
-                    }
+                item {
+                    TextFieldDialogWidget(
+                        title = stringResource(R.string.agent_custom_json_label),
+                        value = m.customJsonOverride.orEmpty(),
+                        onValueChange = { value -> commitModel { it.copy(customJsonOverride = value.ifBlank { null }) } },
+                        dialogTitle = stringResource(R.string.agent_custom_json_label),
+                        confirmLabel = stringResource(R.string.dialog_confirm),
+                        dismissLabel = stringResource(R.string.dialog_cancel),
+                        enabled = ready,
+                        singleLine = false,
+                    )
+                }
+                item {
+                    SwitchWidget(
+                        iconPlaceholder = false,
+                        title = stringResource(R.string.agent_supports_vision),
+                        description = stringResource(R.string.agent_supports_vision_summary),
+                        enabled = ready,
+                        checked = m.supportsVision,
+                        onCheckedChange = { value -> commitModel { it.copy(supportsVision = value) } },
+                    )
                 }
             }
         }
 
-        if (creating && !locked) {
+        if (creating) {
             item {
-                AgentActionRow {
-                    AgentListActionButton(
+                SettingsActionRow {
+                    SettingsListActionButton(
                         label = stringResource(R.string.action_save),
                         icon = MaterialSymbols.Outlined.Save,
                         enabled = ready,
@@ -613,9 +525,9 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
                     )
                 }
             }
-        } else if (!locked) {
+        } else {
             item {
-                AgentActionRow {
+                SettingsActionRow {
                     OutlinedButton(
                         onClick = { showDeleteConfirm = true },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
@@ -625,21 +537,7 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
         }
     }
 
-    if (locked && m != null && installedLocalModel != null) {
-        LocalCtxDialog(
-            show = showCtxDialog,
-            initial = m.contextWindow ?: installedLocalModel.defaultContextWindow,
-            defaultValue = installedLocalModel.defaultContextWindow,
-            maxValue = installedLocalModel.maxContextWindow,
-            onDismiss = { showCtxDialog = false },
-            onConfirm = { contextWindow ->
-                showCtxDialog = false
-                commitModel { it.copy(contextWindow = contextWindow) }
-            },
-        )
-    }
-
-    AgentConfirmDialog(
+    SettingsConfirmDialog(
         show = showDeleteConfirm,
         title = stringResource(R.string.action_delete),
         message = stringResource(R.string.agent_delete_model_confirm),
@@ -659,67 +557,6 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
         },
         onDismiss = { showDeleteConfirm = false },
     )
-}
-
-@Composable
-private fun LocalCtxDialog(
-    show: Boolean,
-    initial: Int,
-    defaultValue: Int,
-    maxValue: Int,
-    onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit,
-) {
-    if (!show) return
-    var value by remember(initial) { mutableStateOf(initial.toString()) }
-    val parsed = value.toIntOrNull()
-    val valid = parsed != null && parsed in LOCAL_LLAMA_MIN_CONTEXT_WINDOW..maxValue
-
-    BasicAlertDialog(onDismissRequest = onDismiss) {
-        AlertDialogContent(
-            title = { Text(stringResource(R.string.agent_context_window_label)) },
-            text = {
-                Column {
-                    Text(
-                        text = stringResource(R.string.local_llm_ctx_warning),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    OutlinedTextField(
-                        value = value,
-                        onValueChange = { value = it.filter(Char::isDigit).take(9) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        isError = !valid,
-                        supportingText = {
-                            Text(
-                                stringResource(
-                                    R.string.local_llm_ctx_bounds,
-                                    LOCAL_LLAMA_MIN_CONTEXT_WINDOW,
-                                    maxValue,
-                                    defaultValue,
-                                )
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = valid,
-                    onClick = { onConfirm(requireNotNull(parsed)) },
-                ) {
-                    Text(stringResource(R.string.dialog_confirm))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.dialog_cancel))
-                }
-            },
-        )
-    }
 }
 
 /** Mirrors [SegmentedColumn]'s section title styling for sections whose rows are laid out lazily. */

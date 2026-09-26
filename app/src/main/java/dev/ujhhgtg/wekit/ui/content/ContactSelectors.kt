@@ -83,7 +83,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.WeGroup
 import dev.ujhhgtg.wekit.features.api.core.models.WeOfficialAccount
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation
 import dev.ujhhgtg.wekit.features.items.chat.ConversationGrouping
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.Dispatchers
@@ -112,7 +112,7 @@ private enum class ContactFilterMode(val icon: ImageVector, @StringRes val nameR
     GROUPING(MaterialSymbols.Outlined.Groups, R.string.contact_filter_mode_grouping),
 }
 
-private var persistedContactFilterMode by WePrefs.prefOption(
+private var persistedContactFilterMode by KvStore.prefOption(
     "contact_selector_filter_mode",
     ContactFilterMode.LABELS.name,
 )

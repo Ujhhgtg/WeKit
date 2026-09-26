@@ -39,6 +39,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.beautify.AddMainScreenFab
+import dev.ujhhgtg.wekit.features.items.chat.ConversationGrouping
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
@@ -49,6 +50,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
+import dev.ujhhgtg.wekit.utils.invokeOriginalMethod
 import dev.ujhhgtg.wekit.utils.reflection.float
 import dev.ujhhgtg.wekit.utils.reflection.int
 import kotlinx.coroutines.CoroutineScope
@@ -143,12 +145,15 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
     private const val TAG = "HomeSidePanel"
     private const val LAUNCHER_BOTTOM_TAB_VIEW_CLASS = "com.tencent.mm.ui.LauncherUIBottomTabView"
     private val sessions = WeakHashMap<WxViewPager, WeakReference<HomeSidePanelSession>>()
+
+    fun blocksConversationGroupSwipe(pager: ViewGroup): Boolean =
+        (pager as? WxViewPager)?.let { sessions[it]?.get()?.blocksConversationGroupSwipe() } == true
+
     private val pendingEdgeToEdgeAttachListeners =
         WeakHashMap<View, View.OnAttachStateChangeListener>()
     private val dispatchTouchEventMethod by lazy {
         CustomViewPager::class.java.getDeclaredMethod("dispatchTouchEvent", MotionEvent::class.java)
     }
-    private val pendingHostCancel = ThreadLocal<PendingHostCancel?>()
 
     override fun onEnable() {
         HomeSidePanelWalletBalanceSource.install {
@@ -214,28 +219,41 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             removePendingEdgeToEdgeAttachListener(activity)
             removeSessionsForActivity(activity)
         }
+        ViewGroup::class.reflekt().firstMethod {
+            name = "requestDisallowInterceptTouchEvent"
+            parameters(Boolean::class)
+        }.hookBefore {
+            val pager = thisObject as? WxViewPager ?: return@hookBefore
+            if (args[0] as Boolean) sessions[pager]?.get()?.onPagerChildClaimedGesture()
+        }
+        CustomViewPager::class.reflekt().firstMethod {
+            name = "onInterceptTouchEvent"
+            parameters(MotionEvent::class)
+        }.hookBefore {
+            val pager = thisObject as WxViewPager
+            val session = sessions[pager]?.get() ?: return@hookBefore
+            // The native pager must also give children the MOVE that can claim a rightward drag.
+            if (session.shouldDeferPagerInterception(args[0] as MotionEvent)) result = false
+        }
         dispatchTouchEventMethod.hookBefore {
-            pendingHostCancel.remove()
             val pager = thisObject as? WxViewPager ?: return@hookBefore
             val session = sessions[pager]?.get() ?: return@hookBefore
-            val event = args[0] as? MotionEvent ?: return@hookBefore
-            when (session.onPagerTouch(event)) {
-                PagerTouchResult.PASS -> Unit
-                PagerTouchResult.CANCEL_HOST -> {
-                    pendingHostCancel.set(PendingHostCancel(event, event.action))
-                    event.action = MotionEvent.ACTION_CANCEL
-                }
-
-                PagerTouchResult.CONSUME -> result = true
-            }
+            if (session.onPagerTouch(args[0] as MotionEvent)) result = true
         }
         dispatchTouchEventMethod.hookAfter {
-            val event = args[0] as? MotionEvent ?: return@hookAfter
-            val pending = pendingHostCancel.get() ?: return@hookAfter
-            if (pending.event !== event) return@hookAfter
-            event.action = pending.originalAction
-            result = true
-            pendingHostCancel.remove()
+            val pager = thisObject as? WxViewPager ?: return@hookAfter
+            val session = sessions[pager]?.get() ?: return@hookAfter
+            val event = args[0] as MotionEvent
+            if (session.onPagerTouchDispatched(event) {
+                    val cancel = MotionEvent.obtain(event)
+                    try {
+                        cancel.action = MotionEvent.ACTION_CANCEL
+                        invokeOriginalMethod(args = arrayOf(cancel))
+                    } finally {
+                        cancel.recycle()
+                    }
+                }
+            ) result = true
         }
         WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
             val activity = thisObject!!.reflekt()
@@ -320,11 +338,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         window.decorView.requestApplyInsets()
     }
 
-    private data class PendingHostCancel(
-        val event: MotionEvent,
-        val originalAction: Int,
-    )
-
     private data class ActionBarTransformSnapshot(
         val originalPivotX: Float,
         val originalPivotY: Float,
@@ -346,12 +359,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         val attach: View.OnAttachStateChangeListener,
         val layout: View.OnLayoutChangeListener,
     )
-
-    private enum class PagerTouchResult {
-        PASS,
-        CANCEL_HOST,
-        CONSUME,
-    }
 
     private class HomeSidePanelSession(
         private val activity: Activity,
@@ -404,6 +411,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private var drawerWidthPx = 1
         private var renderedProgress = 0f
         private var dragging = false
+        private var gestureStartX = 0f
         private var attached = false
         private var pendingSyncFlags = 0
         private var syncPosted = false
@@ -762,6 +770,8 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
 
         fun ownsActivity(candidate: Activity): Boolean = activity === candidate
 
+        fun blocksConversationGroupSwipe(): Boolean = renderedProgress > 0f || dragging
+
         fun onLauncherResumed() {
             panelState.onLauncherResumed()
             requestSync(SYNC_ALL)
@@ -841,61 +851,73 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             }
         }
 
-        fun onPagerTouch(event: MotionEvent): PagerTouchResult {
+        fun onPagerChildClaimedGesture() {
+            // A child owns the rest of this stream, even if it later allows interception again.
+            if (!dragging && gesture.isTracking) gesture.onCancel()
+        }
+
+        fun shouldDeferPagerInterception(event: MotionEvent): Boolean =
+            event.actionMasked == MotionEvent.ACTION_MOVE &&
+                !dragging && gesture.isTracking && event.x > gestureStartX
+
+        fun onPagerTouchDispatched(event: MotionEvent, cancelHost: () -> Unit): Boolean {
+            if (event.actionMasked != MotionEvent.ACTION_MOVE || dragging) return false
+            if (ConversationGrouping.shouldDeferHomeSidePanel(viewPager, event)) return false
+            // Compose scrolling and conversation swipes request disallow-intercept while dispatching
+            // this very MOVE. Only decide whether to open after they have had that opportunity.
+            if (gesture.onMove(event.x, event.y, event.eventTime) != HomeSidePanelGestureDecision.CONSUME) {
+                return false
+            }
+            dragging = true
+            cancelHost()
+            parent.requestDisallowInterceptTouchEvent(true)
+            applyProgress(gesture.progress)
+            return true
+        }
+
+        fun onPagerTouch(event: MotionEvent): Boolean {
             return when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     beginGesture(event)
-                    PagerTouchResult.PASS
+                    false
                 }
 
                 MotionEvent.ACTION_MOVE -> {
-                    when (gesture.onMove(event.x, event.y, event.eventTime)) {
-                        HomeSidePanelGestureDecision.PASS,
-                        HomeSidePanelGestureDecision.TRACKING,
-                        -> PagerTouchResult.PASS
-
-                        HomeSidePanelGestureDecision.CONSUME -> {
-                            applyProgress(gesture.progress)
-                            if (!dragging) {
-                                dragging = true
-                                parent.requestDisallowInterceptTouchEvent(true)
-                                PagerTouchResult.CANCEL_HOST
-                            } else {
-                                PagerTouchResult.CONSUME
-                            }
-                        }
-                    }
+                    if (!dragging) return false
+                    gesture.onMove(event.x, event.y, event.eventTime)
+                    applyProgress(gesture.progress)
+                    true
                 }
 
                 MotionEvent.ACTION_UP -> {
                     if (!dragging) {
                         gesture.onCancel()
-                        PagerTouchResult.PASS
+                        false
                     } else {
                         val from = renderedProgress
                         val target = gesture.onUp(event.eventTime)
                         dragging = false
                         parent.requestDisallowInterceptTouchEvent(false)
                         animateTo(target, from)
-                        PagerTouchResult.CONSUME
+                        true
                     }
                 }
 
                 MotionEvent.ACTION_CANCEL -> {
                     if (!dragging) {
                         gesture.onCancel()
-                        PagerTouchResult.PASS
+                        false
                     } else {
                         val from = renderedProgress
                         val target = gesture.onCancel()
                         dragging = false
                         parent.requestDisallowInterceptTouchEvent(false)
                         animateTo(target, from)
-                        PagerTouchResult.CONSUME
+                        true
                     }
                 }
 
-                else -> if (dragging) PagerTouchResult.CONSUME else PagerTouchResult.PASS
+                else -> dragging
             }
         }
 
@@ -992,6 +1014,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         }
 
         private fun beginGesture(event: MotionEvent) {
+            gestureStartX = event.x
             requestSync(SYNC_HIERARCHY or SYNC_GEOMETRY)
             animator?.cancel()
             animator = null

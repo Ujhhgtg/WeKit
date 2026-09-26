@@ -4,7 +4,6 @@
 //!
 //!   configure            Regenerate wekit-native/.cargo/config.toml from the local NDK.
 //!   build [OPTIONS]      Build the project (default: full Android debug build via Gradle).
-//!   cloudflared-build    Build the embedded cloudflared bridge for Android.
 //!   check [OPTIONS]      Run `cargo check` on the native library.
 //!   clippy [OPTIONS]     Run `cargo clippy` on the native library.
 //!   dex-test [OPTIONS]   Resolve WeKit DexKit targets against desktop APKs.
@@ -41,7 +40,6 @@ const MIN_SDK: u32 = 28;
 /// Minimum NDK major version accepted by `configure`; the pinned NDK must be at least this new.
 const MIN_NDK_MAJOR: u32 = 29;
 
-const CLOUDFLARED_COMMIT: &str = "8679787525edc8575b2948a7c4a50b6292c6d426";
 pub(crate) const PROOT_COMMIT: &str = "6f8ebfd8e24887dfba64c3f2d7d5fe9dc059b60e";
 
 // ── ABI table ─────────────────────────────────────────────────────────────────
@@ -57,11 +55,6 @@ struct AbiSpec {
     /// Prefix used for `CC_`, `CXX_`, `AR_` keys in `.cargo/config.toml`.
     /// Matches the hardcoded strings in `ConfigureCargoTask.kt`.
     env_key: &'static str,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-struct GoAndroidTarget {
-    arch: &'static str,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -116,10 +109,6 @@ enum Cmd {
     /// Pass --native-only to compile only the Rust .so and copy it to jniLibs/.
     Build(BuildArgs),
 
-    /// Build the pinned cloudflared C bridge for the cloudflared extension
-    /// pack (the pack zip is built from target/cloudflared).
-    CloudflaredBuild(NativeArgs),
-
     /// Build and install the app, or flash the same APK as a Zygisk module.
     ///
     /// Defaults to installStandardDebug. With --zygisk, assembles the selected
@@ -141,8 +130,7 @@ enum Cmd {
     /// Prepare inputs and outputs used by the cloud Dex resolution CI jobs.
     DexTestCi(dex_test_ci::DexTestCiArgs),
 
-    /// Build extension packs (script-deps DEX, cloudflared zip, llama-native zip) and their
-    /// manifest.json index (which always includes the static qwen3.8-4b-distill model entry).
+    /// Build extension packs and their manifest.json index.
     Extensions(extensions::ExtensionsArgs),
 
     /// Validate the Android English and Chinese resource catalogs.
@@ -256,7 +244,6 @@ fn main() -> Result<()> {
     match cli.command {
         Cmd::Configure => task_configure()?,
         Cmd::Build(args) => task_build(args)?,
-        Cmd::CloudflaredBuild(args) => task_build_cloudflared(&args.abis)?,
         Cmd::Run(args) => task_run(args)?,
         Cmd::Check(args) => task_cargo_cmd("check", &args.abis, &[])?,
         Cmd::Clippy(args) => task_cargo_cmd("clippy", &args.abis, &["--", "-D", "warnings"])?,
@@ -291,10 +278,6 @@ pub(crate) fn workspace_root() -> PathBuf {
 
 fn native_crate_dir(root: &Path) -> PathBuf {
     root.join("app/src/main/rust/wekit-native")
-}
-
-fn cloudflared_bridge_dir(root: &Path) -> PathBuf {
-    root.join("app/src/main/go/wekit-cloudflared")
 }
 
 fn jni_libs_dir(root: &Path) -> PathBuf {
@@ -363,17 +346,6 @@ fn invoke_tool_artifact_paths(root: &Path, spec: &AbiSpec) -> (PathBuf, PathBuf)
     )
 }
 
-fn chroot_cleanup_artifact_paths(root: &Path, spec: &AbiSpec) -> (PathBuf, PathBuf) {
-    (
-        root.join("target")
-            .join(spec.cargo_triple)
-            .join("release/chroot_cleanup"),
-        jni_libs_dir(root)
-            .join(spec.android_name)
-            .join("libchroot_cleanup.so"),
-    )
-}
-
 fn zygisk_dir(root: &Path) -> PathBuf {
     root.join("wekit-zygisk")
 }
@@ -409,13 +381,6 @@ fn resolve_abis<'a>(names: &[String]) -> Result<Vec<&'a AbiSpec>> {
 
 fn should_build_proot(abis: &[&AbiSpec]) -> bool {
     abis.iter().any(|abi| abi.android_name == "arm64-v8a")
-}
-
-fn go_android_target(spec: &AbiSpec) -> GoAndroidTarget {
-    match spec.android_name {
-        "arm64-v8a" => GoAndroidTarget { arch: "arm64" },
-        name => unreachable!("unsupported Android ABI {name}"),
-    }
 }
 
 // ── Android SDK / NDK discovery ────────────────────────────────────────────────
@@ -543,19 +508,17 @@ fn task_configure() -> Result<()> {
         .with_context(|| format!("failed to write {}", config_path.display()))?;
     println!("configure: wrote {}", config_path.display());
 
-    // Write for wekit-zygisk (same linker config + extra linker flags for symbol visibility)
+    // The C++ ART bridge uses exactly the same pinned NDK/API as Rust and AGP.
+    let ndk_dir = pinned_ndk_dir(&root, None)?;
+    let zygisk_out = format!(
+        "{out}WEKIT_ANDROID_NDK = \"{}\"\nWEKIT_ANDROID_API = \"{MIN_SDK}\"\n",
+        ndk_dir.to_string_lossy().replace('\\', "/")
+    );
     let zygisk_config_path = zygisk_dir(&root).join("native/.cargo/config.toml");
     fs::create_dir_all(zygisk_config_path.parent().unwrap())?;
-    fs::write(&zygisk_config_path, &out)
+    fs::write(&zygisk_config_path, &zygisk_out)
         .with_context(|| format!("failed to write {}", zygisk_config_path.display()))?;
     println!("configure: wrote {}", zygisk_config_path.display());
-
-    // Write for wekit-llama (same linker config; llama-cpp-sys-2's build.rs drives its own cmake)
-    let llama_config_path = root.join("app/src/main/rust/wekit-llama/.cargo/config.toml");
-    fs::create_dir_all(llama_config_path.parent().unwrap())?;
-    fs::write(&llama_config_path, &out)
-        .with_context(|| format!("failed to write {}", llama_config_path.display()))?;
-    println!("configure: wrote {}", llama_config_path.display());
 
     Ok(())
 }
@@ -854,15 +817,6 @@ fn task_build_native(abi_args: &[String]) -> Result<()> {
             )
         })?;
 
-        let (cleanup_src, cleanup_dst) = chroot_cleanup_artifact_paths(&root, spec);
-        copy_if_changed(&cleanup_src, &cleanup_dst).with_context(|| {
-            format!(
-                "could not copy chroot_cleanup PIE {} → {}",
-                cleanup_src.display(),
-                cleanup_dst.display()
-            )
-        })?;
-
         println!(
             "build(native):  {} → {}",
             so_src.display(),
@@ -873,115 +827,8 @@ fn task_build_native(abi_args: &[String]) -> Result<()> {
             invoke_tool_src.display(),
             invoke_tool_dst.display()
         );
-        println!(
-            "build(native):  {} → {}",
-            cleanup_src.display(),
-            cleanup_dst.display()
-        );
     }
 
-    Ok(())
-}
-
-fn verify_cloudflared_pin(root: &Path) -> Result<()> {
-    let source = root.join("third_party/cloudflared");
-    if !source.join("go.mod").is_file() {
-        bail!(
-            "cloudflared source is not initialized at {}; run `git submodule update --init --recursive`",
-            source.display()
-        );
-    }
-    verify_cloudflared_checkout(&source, CLOUDFLARED_COMMIT)
-}
-
-fn cloudflared_git_output(source: &Path, args: &[&str]) -> Result<String> {
-    let output = Command::new("git")
-        .args(args)
-        .current_dir(source)
-        .output()
-        .with_context(|| {
-            format!(
-                "failed to inspect cloudflared source at {}",
-                source.display()
-            )
-        })?;
-    if !output.status.success() {
-        bail!("`git {}` failed in {}", args.join(" "), source.display());
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
-}
-
-fn verify_cloudflared_checkout(source: &Path, expected_commit: &str) -> Result<()> {
-    let actual = cloudflared_git_output(source, &["rev-parse", "HEAD"])?;
-    if actual != expected_commit {
-        bail!("cloudflared source revision is {actual}, expected pinned {expected_commit}");
-    }
-
-    let changes = cloudflared_git_output(
-        source,
-        &["status", "--porcelain=v1", "--untracked-files=all"],
-    )?;
-    if !changes.is_empty() {
-        bail!(
-            "cloudflared source checkout is not clean; remove tracked or non-ignored untracked changes before building:\n{changes}"
-        );
-    }
-    Ok(())
-}
-
-pub(crate) fn task_build_cloudflared(abi_args: &[String]) -> Result<()> {
-    let root = workspace_root();
-    verify_cloudflared_pin(&root)?;
-    let bridge_dir = cloudflared_bridge_dir(&root);
-    let ndk_bin_dir = PathBuf::from(find_ndk_bin_dir(&root)?);
-    let abis = resolve_abis(abi_args)?;
-
-    for spec in abis {
-        let target = go_android_target(spec);
-        let cc = ndk_bin_dir.join(format!("{}{MIN_SDK}-clang", spec.clang_prefix));
-        if !cc.is_file() {
-            bail!("Android C compiler not found: {}", cc.display());
-        }
-
-        let build_dir = root.join("target/cloudflared").join(spec.android_name);
-        fs::create_dir_all(&build_dir)
-            .with_context(|| format!("could not create {}", build_dir.display()))?;
-        let so_src = build_dir.join("libwekit_cloudflared.so");
-        println!(
-            "cloudflared-build: {} (android/{})",
-            spec.android_name, target.arch
-        );
-        let mut command = Command::new("go");
-        command
-            .args([
-                "build",
-                "-mod=readonly",
-                "-buildmode=c-shared",
-                "-buildvcs=false",
-                "-trimpath",
-                "-ldflags=-s -w",
-                "-o",
-            ])
-            .arg(&so_src)
-            .arg(".")
-            .current_dir(&bridge_dir)
-            .env("CGO_ENABLED", "1")
-            .env("GOOS", "android")
-            .env("GOARCH", target.arch)
-            .env("CC", &cc);
-        let status = command.status().with_context(|| {
-            format!(
-                "failed to spawn Go cloudflared build for {}",
-                spec.android_name
-            )
-        })?;
-        if !status.success() {
-            bail!(
-                "Go cloudflared build for {} exited with {status}",
-                spec.android_name
-            );
-        }
-    }
     Ok(())
 }
 
@@ -1044,6 +891,34 @@ fn copy_if_changed(source: &Path, destination: &Path) -> Result<()> {
 }
 
 fn build_zygisk_native(root: &Path, abi_names: &[String], save_symbols: bool) -> Result<()> {
+    // Do not recursively initialize LSPlant's unrelated SSH test submodules.
+    // The explicit override checks out its pinned gitlink despite update=none.
+    run_cmd(
+        "git",
+        &[
+            "-c",
+            "submodule.third_party/lsplant.update=checkout",
+            "submodule",
+            "update",
+            "--init",
+            "--",
+            "third_party/lsplant",
+            "third_party/xz-embedded",
+        ],
+        root,
+    )?;
+    run_cmd(
+        "git",
+        &[
+            "submodule",
+            "update",
+            "--init",
+            "--recursive",
+            "--",
+            "lsplant/src/main/jni/external/dex_builder",
+        ],
+        &root.join("third_party/lsplant"),
+    )?;
     let ndk = pinned_ndk_dir(root, None)?;
     let strip = ndk
         .join("toolchains/llvm/prebuilt")
@@ -1395,7 +1270,7 @@ mod tests {
     fn test_git_repo() -> TestGitRepo {
         static NEXT_ID: AtomicU64 = AtomicU64::new(0);
         let path = env::temp_dir().join(format!(
-            "wekit-cloudflared-pin-test-{}-{}",
+            "wekit-source-pin-test-{}-{}",
             std::process::id(),
             NEXT_ID.fetch_add(1, Ordering::Relaxed),
         ));
@@ -1469,20 +1344,6 @@ mod tests {
         assert_eq!(
             destination,
             root.join("app/src/main/jniLibs/arm64-v8a/libinvoke_tool.so")
-        );
-    }
-
-    #[test]
-    fn chroot_cleanup_is_packaged_as_an_abi_native_artifact() {
-        let root = Path::new("/workspace");
-        let (source, destination) = chroot_cleanup_artifact_paths(root, &ABI_TABLE[0]);
-        assert_eq!(
-            source,
-            root.join("target/aarch64-linux-android/release/chroot_cleanup")
-        );
-        assert_eq!(
-            destination,
-            root.join("app/src/main/jniLibs/arm64-v8a/libchroot_cleanup.so")
         );
     }
 
@@ -1580,53 +1441,6 @@ mod tests {
         fs::create_dir(repo.path.join("ignored-build")).unwrap();
         fs::write(repo.path.join("ignored-build/generated.o"), "object\n").unwrap();
         verify_proot_source_checkout(&repo.path, &repo.head).unwrap();
-    }
-
-    #[test]
-    fn cloudflared_checkout_accepts_clean_pinned_revision() {
-        let repo = test_git_repo();
-        verify_cloudflared_checkout(&repo.path, &repo.head).unwrap();
-    }
-
-    #[test]
-    fn cloudflared_checkout_rejects_wrong_revision() {
-        let repo = test_git_repo();
-        let error =
-            verify_cloudflared_checkout(&repo.path, "0000000000000000000000000000000000000000")
-                .unwrap_err();
-        assert!(error.to_string().contains("expected pinned"));
-    }
-
-    #[test]
-    fn cloudflared_checkout_rejects_tracked_changes() {
-        let repo = test_git_repo();
-        fs::write(
-            repo.path.join("go.mod"),
-            "module example.invalid/modified\n",
-        )
-        .unwrap();
-        let error = verify_cloudflared_checkout(&repo.path, &repo.head).unwrap_err();
-        assert!(error.to_string().contains("not clean"));
-    }
-
-    #[test]
-    fn cloudflared_checkout_rejects_untracked_go_source() {
-        let repo = test_git_repo();
-        fs::write(repo.path.join("injected.go"), "package injected\n").unwrap();
-        let error = verify_cloudflared_checkout(&repo.path, &repo.head).unwrap_err();
-        assert!(error.to_string().contains("injected.go"));
-    }
-
-    #[test]
-    fn cloudflared_checkout_allows_ignored_build_artifacts() {
-        let repo = test_git_repo();
-        fs::create_dir(repo.path.join("ignored-build")).unwrap();
-        fs::write(
-            repo.path.join("ignored-build/generated.go"),
-            "package ignored\n",
-        )
-        .unwrap();
-        verify_cloudflared_checkout(&repo.path, &repo.head).unwrap();
     }
 
     #[test]

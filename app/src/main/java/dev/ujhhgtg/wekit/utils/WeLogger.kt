@@ -65,7 +65,7 @@ object WeLogger {
         currentLogDate = null
 
         val logsDir = runCatching {
-            (KnownPaths.moduleData / "logs").createDirsSafe()
+            (KnownPaths.moduleRoot / "logs").createDirsSafe()
         }.getOrNull() ?: return null
 
         // Clean up logs older than 3 days during rotation/initialization
@@ -235,9 +235,9 @@ object WeLogger {
 
     // ========== File Logging: public accessors (for the log viewer UI) ==========
 
-    /** The directory run logs are written to (`moduleData/logs`), created on first access. */
+    /** The directory run logs are written to (`filesDir/wekit/logs`), created on first access. */
     val logsDir: java.nio.file.Path?
-        get() = runCatching { (KnownPaths.moduleData / "logs").createDirsSafe() }.getOrNull()
+        get() = runCatching { (KnownPaths.moduleRoot / "logs").createDirsSafe() }.getOrNull()
 
     /**
      * All run-log files (`wekit-yyyy-MM-dd.log`), newest first. Flushes the active writer first so

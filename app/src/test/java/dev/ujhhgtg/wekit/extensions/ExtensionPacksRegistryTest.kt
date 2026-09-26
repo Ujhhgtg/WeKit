@@ -14,11 +14,8 @@ class ExtensionPacksRegistryTest {
         assertEquals(
             listOf(
                 "script-deps",
-                "cloudflared",
                 "python-runtime",
                 "archlinux-arm64",
-                "llama-native",
-                "qwen3.8-4b-distill",
             ),
             ExtensionPacksProvider.ALL_PACKS.map(ExtensionPack::id),
         )

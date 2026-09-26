@@ -3,12 +3,11 @@ package dev.ujhhgtg.wekit.features.api.agent
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import dev.ujhhgtg.wekit.agent.data.WeAgentDatabase
+import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus
 import dev.ujhhgtg.wekit.agent.data.entity.MessageRole
-import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
 import dev.ujhhgtg.wekit.agent.engine.AgentEvent
 import dev.ujhhgtg.wekit.agent.engine.AgentSessionContext
 import dev.ujhhgtg.wekit.agent.engine.AgentSessionEngine
@@ -24,15 +23,12 @@ import dev.ujhhgtg.wekit.agent.bridge.ToolBridgeServer
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
 import dev.ujhhgtg.wekit.agent.environment.ProotEnvironmentCreationResult
-import dev.ujhhgtg.wekit.agent.environment.ChrootEnvironmentCreationResult
 import dev.ujhhgtg.wekit.agent.terminal.EnvironmentTerminalBackend
 import dev.ujhhgtg.wekit.agent.terminal.SshTerminalBackend
 import dev.ujhhgtg.wekit.agent.terminal.TerminalManager
 import dev.ujhhgtg.wekit.agent.mcp.McpClientManager
 import dev.ujhhgtg.wekit.agent.model.LlmToolCall
 import dev.ujhhgtg.wekit.agent.model.ModelProviderManager
-import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaModels
-import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaSync
 import dev.ujhhgtg.wekit.agent.net.ExternalServiceId
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
 import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
@@ -86,18 +82,15 @@ object WeAgentService : TriggerManager.TriggerHost {
     // Visibility gating + session-level permission are unified outside the registry.
     private val registry = ToolRegistry(BuiltinToolProvider.all)
 
-    val linuxEnvironmentManager = LinuxEnvironmentManager(highRiskApproval = ::requestHighRiskApproval)
+    val linuxEnvironmentManager = LinuxEnvironmentManager()
 
     suspend fun createProotEnvironment(name: String): ProotEnvironmentCreationResult =
         linuxEnvironmentManager.createProotEnvironment(name)
-    suspend fun createChrootEnvironment(name: String): ChrootEnvironmentCreationResult =
-        linuxEnvironmentManager.createChrootEnvironment(name)
+
     val terminalManager = TerminalManager(EnvironmentTerminalBackend(
         ssh = SshTerminalBackend(linuxEnvironmentManager::sshConnection),
         acquireEnvironmentLease = linuxEnvironmentManager::acquirePersistentLease,
-        approveChrootStart = { environment ->
-        requestHighRiskApproval("start rooted chroot terminal", environment)
-    }))
+    ))
     val toolBridgeServer = ToolBridgeServer(
         registry = registry,
         executorFactory = { sessionId ->
@@ -263,8 +256,7 @@ object WeAgentService : TriggerManager.TriggerHost {
 
     private suspend fun initialize() {
         // Warm the DB, load settings.
-        WeAgentDatabase.instance
-        LocalLlamaSync.schedule()
+        WeKitDatabase.instance
         linuxEnvironmentManager.initialize()
         WeAgentSettings.load()
         toolBridgeServer.start()
@@ -976,17 +968,6 @@ object WeAgentService : TriggerManager.TriggerHost {
         }
     }
 
-    private suspend fun requestHighRiskApproval(operation: String, environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot?): Boolean {
-        val target = environment?.let { "${it.displayName} (${it.id})" } ?: "new Arch instance"
-        val pending = PendingApproval(
-            toolName = "rooted_chroot_high_risk",
-            providerName = "WeAgent Security",
-            argumentsJson = "{\"operation\":${kotlinx.serialization.json.JsonPrimitive(operation)},\"target\":${kotlinx.serialization.json.JsonPrimitive(target)}}",
-            modelExplanation = "This operation grants a process device root and host mount namespace access.",
-        )
-        return manualApprovalHandler.requestApproval(pending) is ManualApprovalResult.Approved
-    }
-
     private suspend fun resolveTurnConfig(sessionId: String): TurnConfig? {
         val session = WeAgentRepository.getSession(sessionId) ?: return null
         // null model / system prompt mean "默认": resolve to the live settings default at turn time
@@ -1001,20 +982,7 @@ object WeAgentService : TriggerManager.TriggerHost {
             withContext(Dispatchers.Main) { currentContextWindow.value = model.contextWindow }
         }
         val provider = WeAgentRepository.getModelProvider(model.providerId) ?: return null
-        val client = if (provider.type == ModelProviderType.LOCAL_LLAMA) {
-            LocalLlamaModels.resolveModelFile(model.modelIdRemote)
-                ?: return null // model pack uninstalled mid-selection; sync will clean the row
-            ModelProviderManager.localClientFor(
-                provider = provider,
-                modelIdRemote = model.modelIdRemote,
-                nCtx = model.contextWindow
-                    ?: LocalLlamaModels.defaultContextWindow(model.modelIdRemote)
-                    ?: 32768,
-                backend = WeAgentSettings.localComputeBackend(),
-            )
-        } else {
-            runCatching { ModelProviderManager.clientFor(provider) }.getOrNull() ?: return null
-        }
+        val client = runCatching { ModelProviderManager.clientFor(provider) }.getOrNull() ?: return null
         // systemPromptId semantics: null = "默认" (follow settings default), "" = "无" (explicitly none),
         // any other value = that specific prompt.
         val effectiveSystemPromptId = when (val sp = session.systemPromptId) {
@@ -1025,7 +993,7 @@ object WeAgentService : TriggerManager.TriggerHost {
         val systemPromptContent = WeAgentRepository.getSystemPromptContent(effectiveSystemPromptId)
         val perTurn = WeAgentRepository.getEnabledPerTurnPrompts().map { it.content }
         val conditionals = WeAgentRepository.getEnabledConditionalPrompts()
-        val req = ModelProviderManager.buildRequest(model, emptyList(), emptyList())
+        val req = ModelProviderManager.buildRequest(model, emptyList(), emptyList(), sessionId)
         // Conditional tool gating is snapshotted onto the TurnConfig, never written to a shared flag:
         // several sessions run concurrently (foreground chat + trigger-fired background turns) and the
         // tool list is rebuilt on every request, so a global would let whichever session resolved last
@@ -1061,20 +1029,7 @@ object WeAgentService : TriggerManager.TriggerHost {
             ?: return null
         val model = WeAgentRepository.getModel(modelId) ?: return null
         val provider = WeAgentRepository.getModelProvider(model.providerId) ?: return null
-        val client = if (provider.type == ModelProviderType.LOCAL_LLAMA) {
-            LocalLlamaModels.resolveModelFile(model.modelIdRemote)
-                ?: return null // model pack uninstalled mid-selection; sync will clean the row
-            ModelProviderManager.localClientFor(
-                provider = provider,
-                modelIdRemote = model.modelIdRemote,
-                nCtx = model.contextWindow
-                    ?: LocalLlamaModels.defaultContextWindow(model.modelIdRemote)
-                    ?: 32768,
-                backend = WeAgentSettings.localComputeBackend(),
-            )
-        } else {
-            runCatching { ModelProviderManager.clientFor(provider) }.getOrNull() ?: return null
-        }
+        val client = runCatching { ModelProviderManager.clientFor(provider) }.getOrNull() ?: return null
         return SmallModelRef(client, model.modelIdRemote, model.reasoningEffort, model.maxTokens)
     }
 
@@ -1087,7 +1042,7 @@ object WeAgentService : TriggerManager.TriggerHost {
         if (session.title != "新对话") return
         val small = resolveSmallModel(sessionId)
         val title = if (small != null) {
-            runCatching { TitleGenerator.generate(small, firstUserText) }.getOrNull()
+            runCatching { TitleGenerator.generate(small, sessionId, firstUserText) }.getOrNull()
         } else null
         WeAgentRepository.renameSession(sessionId, title ?: firstUserText.take(10))
     }

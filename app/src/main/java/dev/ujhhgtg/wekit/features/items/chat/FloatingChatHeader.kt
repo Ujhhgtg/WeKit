@@ -50,6 +50,7 @@ import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout
+import com.tencent.mm.ui.chatting.view.MMChattingListView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
@@ -57,7 +58,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -113,6 +114,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     /** 标题栏容器, 微信把 ViewStub(bkr) inflate 成这个 androidx 控件。 */
     private const val ACTION_BAR_CONTAINER_CLASS = "androidx.appcompat.widget.ActionBarContainer"
+    private const val ACTION_BAR_OVERLAY_LAYOUT_CLASS = "androidx.appcompat.widget.ActionBarOverlayLayout"
 
     /** 独立聊天 Activity 的公共基类; 这类页面使用窗口级标题栏。 */
     private const val CHATTING_UI_ACTIVITY_CLASS = "com.tencent.mm.ui.chatting.ChattingUI"
@@ -204,6 +206,24 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         }
     }
 
+    private val methodTipsToFoldMode by dexMethod {
+        matcher {
+            declaredClass = TIPS_BAR_GROUP_CLASS
+            paramTypes()
+            returnType = "void"
+            usingStrings("toFoldMode")
+        }
+    }
+
+    private val methodRemoveItemDecoration by dexMethod {
+        matcher {
+            declaredClass = "androidx.recyclerview.widget.RecyclerView"
+            paramCount(1)
+            returnType = "void"
+            usingStrings("Cannot remove item decoration during a scroll  or layout")
+        }
+    }
+
     private var cornerRadiusDp by prefOption("floating_chat_header_corner_radius", DEFAULT_CORNER_RADIUS)
     private var sideMarginDp by prefOption("floating_chat_header_side_margin", DEFAULT_SIDE_MARGIN)
     private var topGapDp by prefOption("floating_chat_header_top_gap", DEFAULT_TOP_GAP)
@@ -278,7 +298,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** ChatTipsBarGroup 到所属布局的直接映射, 动画回调只读这份缓存。 */
     private val tipsBarGroupLayouts = WeakHashMap<View, View>()
 
-    /** 半屏路径下使用窗口级 ActionBarContainer 时, 已把它所在 ActionBarOverlayLayout 切成 overlay。 */
+    /** 独立聊天页使用窗口级 ActionBarContainer 时, 已把它所在 ActionBarOverlayLayout 切成 overlay。 */
     private val windowBarOverlays = WeakHashMap<View, Boolean>()
 
     /** 标题栏来自窗口级 ActionBarContainer 的布局, 边距按 overlay 坐标算, 不再叠加 layout.paddingTop。 */
@@ -591,6 +611,15 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             val group = animationGroup(thisObject!!) ?: return@hookAfter
             onTipsAnimationFrame(group)
         }
+        // 相册等 Activity 返回后, 微信刷新 Tips 时会再次恢复折叠态的原生分割线和
+        // 叠层矩形。必须在下一次测量前隐藏, 否则 pre-draw 才处理会先画出多余底部高度。
+        methodTipsToFoldMode.hookAfter {
+            val group = thisObject as View
+            val layout = ownerLayoutForTipsGroup(group) ?: return@hookAfter
+            hideNativeTipsBarDecorations(group)
+            // 动画路径此刻尚未设好占位层, 完整的行/轮廓更新仍交给后续 reconciliation。
+            scheduleReconcile(layout, RECONCILE_TIPS)
+        }
 
         ChattingUILayout::class.reflekt().firstConstructorOrNull {
             parameters(Context::class, AttributeSet::class)
@@ -629,6 +658,21 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             ?.hookAfter {
                 zeroChatLayoutTopPadding(thisObject as View)
             } ?: WeLogger.w(TAG, "ChattingUILayout.fitSystemWindows hook target not found")
+
+        // 外部应用进入的全屏 ChattingMainUI 也使用窗口标题栏。AppCompat 在每次派发
+        // insets 时会用系统栏尺寸覆盖它的三边 margin; 等到 pre-draw 才恢复会让本帧
+        // 已按原生边距布局的标题栏先画出来。这里在测量/布局前恢复悬浮边距。
+        ACTION_BAR_OVERLAY_LAYOUT_CLASS.toClass().reflekt().firstMethod {
+            name = "fitSystemWindows"
+            parameters(Rect::class)
+        }.hookAfter {
+            val overlay = thisObject as ViewGroup
+            val (layout, header) = headerViews.entries.firstOrNull { (layout, header) ->
+                windowBarHeaders[layout] == true && header.parent === overlay &&
+                    isCachedHeaderValid(layout, header)
+            } ?: return@hookAfter
+            applyMargins(layout, header)
+        }
 
         // ConvBox.onCreate 尾部的 FullScreenHelper 会 post 把 actionBarSize 写入
         // layout nn 根布局的 paddingTop。edge-to-edge 下清掉这份根补偿，
@@ -669,6 +713,24 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             result = null
             if (layout != null) scheduleReconcile(layout, RECONCILE_TIPS)
         } ?: WeLogger.w(TAG, "ChatTipsBarGroup.setListViewPaddingTop hook target not found")
+
+        // 历史消息预加载保存的是首个可见消息的 View.top, 恢复时却直接传给
+        // setSelectionFromTop → LinearLayoutManager.scrollToPositionWithOffset。
+        // 后者会再加 paddingTop; 原生顶部为 0 时无事, 悬浮标题栏会让消息跳动一整段
+        // 顶部留白。只把这份预加载快照换算成 padding 内的偏移, 不改其他定位调用。
+        MMChattingListView::class.reflekt().firstMethod {
+            name = "getPreloadFirstVisitViewTop"
+            parameters()
+            returnType(Int::class)
+        }.hookAfter {
+            val top = result as Int
+            if (top == Int.MIN_VALUE) return@hookAfter
+            val layout = (thisObject as MMChattingListView).findAncestorChattingUILayout()
+                ?: return@hookAfter
+            val recycler = layout.chatRecycler() ?: return@hookAfter
+            if (!chatListBasePaddings.containsKey(recycler)) return@hookAfter
+            result = top - recycler.paddingTop
+        }
 
         // ChatTipsBarGroup 在树里的实际父容器不猜了: 构造时拿到实例, attach 后反查所属
         // ChattingUILayout 登记。悬浮与 dim 压制都直接走这份登记, 版本差异也能兜住。
@@ -960,7 +1022,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         if (windowBarOverlays[header] != null) return
         var parent = header.parent
         while (parent != null) {
-            if (parent.javaClass.name == "androidx.appcompat.widget.ActionBarOverlayLayout") {
+            if (parent.javaClass.name == ACTION_BAR_OVERLAY_LAYOUT_CLASS) {
                 val applied = runCatching {
                     parent.javaClass.getMethod("setOverlayMode", Boolean::class.javaPrimitiveType)
                         .invoke(parent, true)
@@ -1758,34 +1820,25 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /**
      * 摘掉微信给置顶消息列表加的 item offset 装饰 (每行底部 8dp): 折叠态这 8dp 造成
      * 内容偏上、展开态造成第二条起每行上空隙, 统一改成行内上下 4dp, 让行结构一致。
-     * 微信的 androidx 方法名被混淆 (构造器里 addItemDecoration 实际叫 N), 不能按名字
-     * 找; 装饰列表是 RecyclerView 上唯一的"元素声明了 getItemOffsets"的 public
-     * ArrayList 字段, 直接清空, 不依赖任何混淆名。
+     * 装饰列表按 Dex 定位的 removeItemDecoration 参数类型识别, 再逐个调用原生移除。
+     * 不能只清空列表后 requestLayout: RecyclerView 仍会复用已挂载/缓存行的 decor insets,
+     * 导致卡片底部保留旧的 8dp, 直到后续重新绑定才偶然恢复。
      */
     private fun removePinnedItemOffsets(recycler: View) {
         if (tipsBarOffsetsRemoved[recycler] != null) return
         runCatching {
-            // 装饰列表是 RecyclerView 上唯一的"元素声明了 getItemOffsets"的 public
-            // ArrayList 字段 (getItemDecorations/removeItemDecoration 被微信瘦身删掉了),
-            // 直接清空
-            var removed = 0
-            var current: Class<*>? = recycler.javaClass
-            while (current != null) {
-                for (field in current.declaredFields) {
-                    if (field.type != ArrayList::class.java) continue
-                    val list = field.get(recycler) as? ArrayList<*> ?: continue
-                    val sample = list.firstOrNull() ?: continue
-                    if (sample.javaClass.declaredMethods.any { it.name == "getItemOffsets" }) {
-                        removed = list.size
-                        list.clear()
-                        recycler.requestLayout()
-                        break
-                    }
-                }
-                if (removed > 0) break
-                current = current.superclass
+            val removeDecoration = methodRemoveItemDecoration.method
+            val decorationClass = removeDecoration.parameterTypes.single()
+            val decorations = recycler.reflekt().fields {
+                type = ArrayList::class
+                superclass()
+            }.mapNotNull { it.get() as ArrayList<*>? }.single { list ->
+                decorationClass.isInstance(list.firstOrNull())
             }
-            if (removed == 0) error("no item decoration list found")
+            // 原生移除同时标脏已挂载和缓存行的间距, 并请求下一次测量。
+            decorations.toList().forEach { decoration ->
+                removeDecoration.invoke(recycler, decoration)
+            }
             tipsBarOffsetsRemoved[recycler] = true
         }.onFailure {
             WeLogger.w(TAG, "pinned tips bar offset decoration removal failed, keeping native spacing", it)
@@ -1849,9 +1902,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             lp.bottomMargin = 0
             recycler.requestLayout()
         }
-        // 多条重叠矩形和原生分割线都不再需要, 分割线统一画在每行底部
-        tipsBarOverlapRect(group)?.visibility = View.GONE
-        tipsBarDivider(group)?.visibility = View.GONE
+        hideNativeTipsBarDecorations(group)
         // 展开态若残留折叠动画的占位层 (动画被打断时微信可能没把它归零), 会变成卡片
         // 背后一块灰色, 直接压掉
         if (expanded) {
@@ -1863,6 +1914,12 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             }
         }
         return true
+    }
+
+    /** 原生底部装饰会参与 wrap_content 测量; 自定义分割线已由行 overlay 绘制。 */
+    private fun hideNativeTipsBarDecorations(group: View) {
+        tipsBarOverlapRect(group)?.visibility = View.GONE
+        tipsBarDivider(group)?.visibility = View.GONE
     }
 
     /**
@@ -2361,7 +2418,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     private fun currentStatusBarOffset(layout: View): Int {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return 0
-        return layout.rootWindowInsets?.getInsets(WindowInsets.Type.statusBars())?.top ?: 0
+        // 照片全屏过渡会隐藏状态栏；聊天页仍需保留其占位，避免背后的标题卡和列表上跳。
+        return layout.rootWindowInsets
+            ?.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars())?.top ?: 0
     }
 
     private fun zeroChatLayoutTopPadding(layout: View) {

@@ -69,7 +69,6 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     override val descriptionRes = R.string.feature_split_group_call_description
 
     private const val TAG = "SplitGroupCall"
-    private const val PREF_KEY = "split_group_call"
     private const val OPERATION_DURATION_MS = 3000L
 
     private val batchRunning = AtomicBoolean(false)
@@ -332,19 +331,16 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
 
         return listOf(
             PreferenceItem(
-                key = PREF_KEY,
                 title = activity.localizedContactsString(R.string.feature_split_group_call_name),
-                position = 1
+                position = 1,
+                onClick = onClick@{ activity ->
+                    val clickedWxId = activity.currentWxId ?: return@onClick
+                    showSplitCallDialog(activity, clickedWxId)
+                },
             )
         )
     }
 
-    override fun onItemClick(activity: Activity, key: String): Boolean {
-        if (key != PREF_KEY) return false
-        val wxId = activity.currentWxId ?: return true
-        showSplitCallDialog(activity, wxId)
-        return true
-    }
 
     override fun onEnable() {
         WeContactPrefsScreenApi.addProvider(this)

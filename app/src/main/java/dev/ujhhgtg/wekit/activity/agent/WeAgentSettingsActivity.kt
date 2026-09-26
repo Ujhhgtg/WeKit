@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
-import dev.ujhhgtg.wekit.agent.model.local.LocalLlama
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
 import dev.ujhhgtg.wekit.ui.agent.settings.ExternalServicesScreen
@@ -17,7 +16,6 @@ import dev.ujhhgtg.wekit.ui.agent.settings.McpServerDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.McpServersScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.LinuxEnvironmentDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.LinuxEnvironmentsScreen
-import dev.ujhhgtg.wekit.ui.agent.settings.LocalLlamaProviderDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ModelDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ModelProviderDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.ModelProvidersScreen
@@ -120,24 +118,14 @@ private fun WeAgentSettingsRoot(onFinish: () -> Unit) {
                 )
             }
             entry<AgentSettingsRoute.ModelProviderDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
-                if (key.providerId == LocalLlama.PROVIDER_ID) {
-                    LocalLlamaProviderDetailScreen(
-                        onOpenModel = { providerId, modelId ->
-                            navigator.push(AgentSettingsRoute.ModelDetail(providerId, modelId))
-                        },
-                        onBack = { navigator.pop() },
-                    )
-                } else {
-                    ModelProviderDetailScreen(
-                        providerId = key.providerId,
-                        // providerId comes from the screen, not the route key: after creating a
-                        // provider in place the route entry still carries its blank creation id.
-                        onOpenModel = { providerId, modelId ->
-                            navigator.push(AgentSettingsRoute.ModelDetail(providerId, modelId))
-                        },
-                        onBack = { navigator.pop() },
-                    )
-                }
+                ModelProviderDetailScreen(
+                    providerId = key.providerId,
+                    // providerId comes from the screen: the route stays blank after creation.
+                    onOpenModel = { providerId, modelId ->
+                        navigator.push(AgentSettingsRoute.ModelDetail(providerId, modelId))
+                    },
+                    onBack = { navigator.pop() },
+                )
             }
             entry<AgentSettingsRoute.ModelDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { key ->
                 ModelDetailScreen(providerId = key.providerId, modelId = key.modelId, onBack = { navigator.pop() })

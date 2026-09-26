@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "dev.ujhhgtg.wekit.python.runtime"
-version = libs.versions.pythonRuntimeVersion.get()
+version = "0.1.0"
 
 val nativeLibraries = listOf(
     "libcrypto_chaquopy.so",
@@ -23,16 +23,16 @@ val nativeLibraries = listOf(
 val runtimeManifestValues = mapOf(
     "chaquopy" to libs.versions.pythonRuntimeChaquopy.get(),
     "agp" to libs.versions.agp.get(),
-    "gradle" to libs.versions.pythonRuntimeGradle.get(),
+    "gradle" to gradle.gradleVersion,
     "jdk" to libs.versions.jdk.get(),
     "python" to libs.versions.pythonRuntimeChaquopyTarget.get(),
-    "ndk" to libs.versions.pythonRuntimeNdk.get(),
-    "abi" to libs.versions.pythonRuntimeAbi.get(),
-    "patchRevision" to "${libs.versions.pythonRuntimeChaquopyRevision.get()}+${libs.versions.pythonRuntimePatchRevision.get()}",
-    "syncHookBudgetMs" to libs.versions.pythonRuntimeSyncHookBudgetMs.get(),
-    "taskDrainTimeoutMs" to libs.versions.pythonRuntimeTaskDrainTimeoutMs.get(),
-    "maxManifestBytes" to libs.versions.pythonRuntimeMaxManifestBytes.get(),
-    "maxPluginFileBytes" to libs.versions.pythonRuntimeMaxPluginFileBytes.get(),
+    "ndk" to libs.versions.ndk.get(),
+    "abi" to "arm64-v8a",
+    "patchRevision" to "${libs.versions.pythonRuntimeChaquopyRevision.get()}+wekit-platform-4",
+    "syncHookBudgetMs" to "5000",
+    "taskDrainTimeoutMs" to "3000",
+    "maxManifestBytes" to "262144",
+    "maxPluginFileBytes" to "8388608",
 )
 val generatedRuntimeAssets = layout.buildDirectory.dir("generated/runtimeManifest")
 val generateRuntimeManifest = tasks.register("generateRuntimeManifest") {
@@ -70,14 +70,14 @@ val generateRuntimeManifest = tasks.register("generateRuntimeManifest") {
 configure<ApplicationExtension> {
     namespace = "dev.ujhhgtg.wekit.python.runtime"
     compileSdk = libs.versions.compileSdk.get().toInt()
-    ndkVersion = libs.versions.pythonRuntimeNdk.get()
+    ndkVersion = libs.versions.ndk.get()
     defaultConfig {
         applicationId = "dev.ujhhgtg.wekit.python.runtime.container"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = libs.versions.pythonRuntimeVersionCode.get().toInt()
-        versionName = libs.versions.pythonRuntimeVersion.get()
-        ndk { abiFilters.add(libs.versions.pythonRuntimeAbi.get()) }
+        versionCode = 1
+        versionName = "0.1.0"
+        ndk { abiFilters.add("arm64-v8a") }
     }
     buildTypes { release { isMinifyEnabled = false } }
     lint { checkReleaseBuilds = false }
@@ -107,11 +107,10 @@ val dexKitCodegen = configurations.create("dexKitCodegen") {
 dependencies {
     // Supplied by xtask from a controlled local Maven repository; compile-only
     // prevents API classes from entering the runtime DEX.
-    val apiVersion = providers.gradleProperty("wekitPythonApiVersion").orElse(libs.versions.pythonRuntimeApiVersion)
+    val apiVersion = providers.gradleProperty("wekitPythonApiVersion").orElse("1.0.0")
     compileOnly("dev.ujhhgtg.wekit:python-runtime-api:${apiVersion.get()}")
     chaquopyTarget(
-        "com.chaquo.python:target:${libs.versions.pythonRuntimeChaquopyTarget.get()}:" +
-            "${libs.versions.pythonRuntimeAbi.get()}@zip",
+        "com.chaquo.python:target:${libs.versions.pythonRuntimeChaquopyTarget.get()}:arm64-v8a@zip",
     )
     dexKitCodegen("org.luckypray:dexkit:${libs.versions.dexkit.get()}")
 }

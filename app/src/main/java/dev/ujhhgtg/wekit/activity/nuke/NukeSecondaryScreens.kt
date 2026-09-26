@@ -46,6 +46,7 @@ import com.composables.icons.materialsymbols.outlined.Auto_delete
 import com.composables.icons.materialsymbols.outlined.Block
 import com.composables.icons.materialsymbols.outlined.Build_circle
 import com.composables.icons.materialsymbols.outlined.Delete_forever
+import com.composables.icons.materialsymbols.outlined.Delete_sweep
 import com.composables.icons.materialsymbols.outlined.Download
 import com.composables.icons.materialsymbols.outlined.Frame_bug
 import com.composables.icons.materialsymbols.outlined.Label
@@ -70,7 +71,7 @@ import dev.ujhhgtg.wekit.features.items.debug.ResetDexCache
 import dev.ujhhgtg.wekit.i18n.LanguageSelection
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.nuke.NukeButton
 import dev.ujhhgtg.wekit.ui.content.nuke.NukeCategoryIcon
 import dev.ujhhgtg.wekit.ui.content.nuke.NukeCountAndChevron
@@ -96,10 +97,12 @@ import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.utils.AppUpdater
 import dev.ujhhgtg.wekit.utils.UpdateResult
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import dev.ujhhgtg.wekit.utils.formatEpoch
 import dev.ujhhgtg.wekit.utils.openInSystem
 import dev.ujhhgtg.wekit.utils.restartHost
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.text.Collator
 import java.util.Locale
@@ -252,6 +255,7 @@ private fun NukeGeneralSettingsPage(onBack: (Offset) -> Unit) {
     val activity = LocalComponentActivity.current
     val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     var showClearConfirmation by remember { mutableStateOf(false) }
+    var showLegacyCleanupConfirmation by remember { mutableStateOf(false) }
 
     NukePageScaffold(title = stringResource(R.string.settings_general_title), onBack = onBack) {
         item(key = "language") {
@@ -368,6 +372,14 @@ private fun NukeGeneralSettingsPage(onBack: (Offset) -> Unit) {
                     trailing = { NukeCountAndChevron(text = null, error = true) },
                     onClick = { showClearConfirmation = true },
                 )
+                NukeDivider()
+                NukePreferenceRow(
+                    title = stringResource(R.string.settings_cleanup_legacy_title),
+                    description = stringResource(R.string.settings_cleanup_legacy_summary),
+                    leading = { NukeVectorCategoryIcon(MaterialSymbols.Outlined.Delete_sweep) },
+                    trailing = { NukeCountAndChevron(text = null) },
+                    onClick = { showLegacyCleanupConfirmation = true },
+                )
             }
         }
     }
@@ -378,8 +390,23 @@ private fun NukeGeneralSettingsPage(onBack: (Offset) -> Unit) {
             confirmText = stringResource(R.string.action_clear),
             onDismiss = { showClearConfirmation = false },
             onConfirm = {
-                SettingsConfigActions.clear()
+                SettingsConfigActions.clearAndRestart()
                 showClearConfirmation = false
+            },
+        )
+    }
+    if (showLegacyCleanupConfirmation) {
+        NukeConfirmDialog(
+            title = stringResource(R.string.cleanup_legacy_dialog_title),
+            message = stringResource(R.string.cleanup_legacy_dialog_message),
+            confirmText = stringResource(R.string.action_clear),
+            onDismiss = { showLegacyCleanupConfirmation = false },
+            onConfirm = {
+                showLegacyCleanupConfirmation = false
+                activity.lifecycleScope.launch(Dispatchers.IO) {
+                    SettingsConfigActions.clearLegacyData()
+                    showToastSuspend(localizedContext, localizedContext.getString(R.string.cleanup_legacy_success))
+                }
             },
         )
     }
@@ -393,7 +420,7 @@ private fun NukeBooleanPreference(
     imageVector: ImageVector,
     default: Boolean = false,
 ) {
-    var checked by remember(key, default) { mutableStateOf(WePrefs.getBoolOrDef(key, default)) }
+    var checked by remember(key, default) { mutableStateOf(KvStore.getBoolOrDef(key, default)) }
     NukePreferenceRow(
         title = title,
         description = description,
@@ -403,13 +430,13 @@ private fun NukeBooleanPreference(
                 checked = checked,
                 onCheckedChange = {
                     checked = it
-                    WePrefs.putBool(key, it)
+                    KvStore.putBool(key, it)
                 },
             )
         },
         onClick = {
             checked = !checked
-            WePrefs.putBool(key, checked)
+            KvStore.putBool(key, checked)
         },
     )
 }

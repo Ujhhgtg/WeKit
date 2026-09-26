@@ -120,7 +120,7 @@ fun rememberViewBackdrop(
 }
 
 @Stable
-class ViewBackdrop constructor(
+class ViewBackdrop(
     private val graphicsLayer: GraphicsLayer
 ) : Backdrop {
 
@@ -310,6 +310,7 @@ class ViewBackdrop constructor(
         }
     }
 
+    @Suppress("UnusedReceiverParameter")
     private fun DrawScope.noCapture() {
         offsetResidualX = 0f
         offsetResidualY = 0f

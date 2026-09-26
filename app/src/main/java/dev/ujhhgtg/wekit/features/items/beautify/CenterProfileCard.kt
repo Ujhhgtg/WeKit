@@ -41,7 +41,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -91,19 +91,19 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
     private const val KEY_ALIAS_TEXT = "account_info_center_alias_text"
     private const val KEY_SIGNATURE_TEXT = "account_info_center_signature_text"
 
-    private var avatarTopMarginPref by WePrefs.prefOption(KEY_AVATAR_TOP_MARGIN, DEFAULT_AVATAR_TOP_MARGIN_DP)
-    private var avatarSizePref by WePrefs.prefOption(KEY_AVATAR_SIZE, DEFAULT_AVATAR_SIZE_DP)
-    private var nameTopMarginPref by WePrefs.prefOption(KEY_NAME_TOP_MARGIN, DEFAULT_NAME_TOP_MARGIN_DP)
-    private var aliasTopMarginPref by WePrefs.prefOption(KEY_ALIAS_TOP_MARGIN, DEFAULT_ALIAS_TOP_MARGIN_DP)
-    private var signatureTopMarginPref by WePrefs.prefOption(KEY_SIGNATURE_TOP_MARGIN, DEFAULT_SIGNATURE_TOP_MARGIN_DP)
-    private var lightBgPref by WePrefs.prefOption(KEY_LIGHT_BG, DEFAULT_LIGHT_BG)
-    private var darkBgPref by WePrefs.prefOption(KEY_DARK_BG, DEFAULT_DARK_BG)
-    private var showNamePref by WePrefs.prefOption(KEY_SHOW_NAME, true)
-    private var showAliasPref by WePrefs.prefOption(KEY_SHOW_ALIAS, true)
-    private var showSignaturePref by WePrefs.prefOption(KEY_SHOW_SIGNATURE, true)
-    private var nameTextPref by WePrefs.prefOption(KEY_NAME_TEXT, "")
-    private var aliasTextPref by WePrefs.prefOption(KEY_ALIAS_TEXT, "")
-    private var signatureTextPref by WePrefs.prefOption(KEY_SIGNATURE_TEXT, "")
+    private var avatarTopMarginPref by KvStore.prefOption(KEY_AVATAR_TOP_MARGIN, DEFAULT_AVATAR_TOP_MARGIN_DP)
+    private var avatarSizePref by KvStore.prefOption(KEY_AVATAR_SIZE, DEFAULT_AVATAR_SIZE_DP)
+    private var nameTopMarginPref by KvStore.prefOption(KEY_NAME_TOP_MARGIN, DEFAULT_NAME_TOP_MARGIN_DP)
+    private var aliasTopMarginPref by KvStore.prefOption(KEY_ALIAS_TOP_MARGIN, DEFAULT_ALIAS_TOP_MARGIN_DP)
+    private var signatureTopMarginPref by KvStore.prefOption(KEY_SIGNATURE_TOP_MARGIN, DEFAULT_SIGNATURE_TOP_MARGIN_DP)
+    private var lightBgPref by KvStore.prefOption(KEY_LIGHT_BG, DEFAULT_LIGHT_BG)
+    private var darkBgPref by KvStore.prefOption(KEY_DARK_BG, DEFAULT_DARK_BG)
+    private var showNamePref by KvStore.prefOption(KEY_SHOW_NAME, true)
+    private var showAliasPref by KvStore.prefOption(KEY_SHOW_ALIAS, true)
+    private var showSignaturePref by KvStore.prefOption(KEY_SHOW_SIGNATURE, true)
+    private var nameTextPref by KvStore.prefOption(KEY_NAME_TEXT, "")
+    private var aliasTextPref by KvStore.prefOption(KEY_ALIAS_TEXT, "")
+    private var signatureTextPref by KvStore.prefOption(KEY_SIGNATURE_TEXT, "")
 
     private val methodBindAccountInfo by dexMethod {
         matcher {

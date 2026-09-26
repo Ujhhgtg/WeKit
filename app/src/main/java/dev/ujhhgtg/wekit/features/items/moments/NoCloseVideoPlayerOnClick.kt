@@ -2,18 +2,14 @@ package dev.ujhhgtg.wekit.features.items.moments
 
 import android.app.Activity
 import android.view.MotionEvent
-import android.widget.FrameLayout
+import android.view.View
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.reflekt.utils.isBuiltin
-import dev.ujhhgtg.reflekt.utils.isSubclassOf
-import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import java.lang.reflect.Field
-import java.lang.reflect.Method
 
 object NoCloseVideoPlayerOnClick : SwitchFeature(), IResolveDex {
 
@@ -22,48 +18,44 @@ object NoCloseVideoPlayerOnClick : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
     override val descriptionRes = R.string.feature_no_close_video_player_on_click_description
 
-    private lateinit var activityField: Field
-    private lateinit var viewStateField: Field
-    private lateinit var getToggleBtnMethod: Method
-
     override fun onEnable() {
         methodVideoOnTouchListenerOnTouch.hookBefore {
-            val event = args[1] as MotionEvent
-            if ((event.action and 0xFF) == MotionEvent.ACTION_UP) {
-                if (!::activityField.isInitialized) {
-                    activityField = thisObject!!.reflekt()
-                        .firstField { type { it isSubclassOf Activity::class } }
-                        .self
-                }
-
-                val activity = activityField.get(thisObject) as Activity
-
-                if (!::viewStateField.isInitialized) {
-                    viewStateField = activity.reflekt()
-                        .firstField {
-                            type { !it.isBuiltin }
-                        }.self
-                }
-
-                val viewState = viewStateField.get(activity)
-
-                // this doesn't actually inherit HeroSeekBarView
-                val expandableSeekBar = (viewState.reflekt()
-                    .firstFieldOrNull { type = "com.tencent.mm.pluginsdk.ui.seekbar.ExpandableHeroSeekBarView" }
-                    ?: return@hookBefore).get()!!
-
-                if (!::getToggleBtnMethod.isInitialized) {
-                    getToggleBtnMethod = expandableSeekBar.reflekt()
-                        .firstMethod { name = "getExpandBarBtn" }
-                        .self.makeAccessible()
-                }
-
-                val toggleBtn = getToggleBtnMethod.invoke(expandableSeekBar) as FrameLayout
-                toggleBtn.performClick()
-            }
-
-            // always consume
+            // Skip the host's closing gesture detector while preserving View long-click handling.
             result = false
+            val event = args[1] as MotionEvent
+            if (event.actionMasked != MotionEvent.ACTION_UP) return@hookBefore
+
+            val activity = thisObject!!.reflekt()
+                .firstField { type = "com.tencent.mm.plugin.sns.ui.SnsOnlineVideoActivity" }
+                .get() as Activity
+            val seekBarController = fieldSeekBarController.field.get(activity)!!
+
+            // The legacy controller has no expandable control bar.
+            val expandableSeekBar = (seekBarController.reflekt()
+                .firstFieldOrNull { type = "com.tencent.mm.pluginsdk.ui.seekbar.ExpandableHeroSeekBarView" }
+                ?: return@hookBefore).get()!!
+            val toggleBtn = expandableSeekBar.reflekt().invokeMethod("getExpandBarBtn") as View
+            toggleBtn.performClick()
+        }
+    }
+
+    private val fieldSeekBarController by dexField {
+        matcher {
+            declaredClass = "com.tencent.mm.plugin.sns.ui.SnsOnlineVideoActivity"
+            // Identify ISnsVideoSeekBar by its init signature, independent of field order.
+            type {
+                methods {
+                    add {
+                        returnType = "void"
+                        paramTypes(
+                            "android.app.Activity",
+                            "android.view.ViewStub",
+                            "com.tencent.mm.plugin.sns.ui.OnlineVideoView",
+                            null
+                        )
+                    }
+                }
+            }
         }
     }
 

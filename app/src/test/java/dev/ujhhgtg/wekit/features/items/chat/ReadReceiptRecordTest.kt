@@ -11,7 +11,6 @@ class ReadReceiptRecordTest {
         val record = ReadReceiptRecord(
             "0123456789abcdef",
             "wxid_a",
-            ReadReceiptBackend.THIRD_PARTY,
             "https://receipts.example",
             1_700_000_000_000,
         )
@@ -23,7 +22,6 @@ class ReadReceiptRecordTest {
         val submitted = ReadReceiptRecord(
             "0123456789abcdef",
             "wxid_a",
-            ReadReceiptBackend.THIRD_PARTY,
             "HTTPS://Example.COM/receipts/",
             1_700_000_000_000,
         )
@@ -54,15 +52,21 @@ class ReadReceiptRecordTest {
     }
 
     @Test
-    fun `round trips built in logical endpoint`() {
-        val record = ReadReceiptRecord(
-            "abcdef0123456789",
-            "wxid_b",
-            ReadReceiptBackend.BUILT_IN,
-            "builtin://local",
-            1_700_000_000_000,
+    fun `migrates third party records and discards removed local records`() {
+        val legacy = """
+            {"version":1,"id":"abcdef0123456789","wxId":"wxid_b","backend":"THIRD_PARTY",
+             "endpoint":"https://receipts.example/","createdAtMillis":1700000000000}
+        """.trimIndent()
+        assertEquals(
+            ReadReceiptRecord("abcdef0123456789", "wxid_b", "https://receipts.example", 1_700_000_000_000),
+            ReadReceiptRecordCodec.decode(legacy),
         )
-        assertEquals(record, ReadReceiptRecordCodec.decode(ReadReceiptRecordCodec.encode(record)))
+        assertNull(
+            ReadReceiptRecordCodec.decode(
+                legacy.replace("THIRD_PARTY", "BUILT_IN")
+                    .replace("https://receipts.example/", "builtin://local"),
+            ),
+        )
     }
 
     @Test
@@ -142,8 +146,7 @@ class ReadReceiptRecordTest {
         val boundary = ReadReceiptRecord(
             "0123456789abcdef",
             "wxid",
-            ReadReceiptBackend.BUILT_IN,
-            "builtin://local",
+            "https://receipts.example",
             now - retention,
         )
         val expired = boundary.copy(id = "abcdef0123456789", createdAtMillis = now - retention - 1)
@@ -158,7 +161,6 @@ class ReadReceiptRecordTest {
         val canonical = ReadReceiptRecord(
             "0123456789abcdef",
             "wxid",
-            ReadReceiptBackend.THIRD_PARTY,
             "https://receipts.example",
             1_700_000_000_000,
         )
@@ -178,8 +180,7 @@ class ReadReceiptRecordTest {
         val older = ReadReceiptRecord(
             "0123456789abcdef",
             "wxid",
-            ReadReceiptBackend.BUILT_IN,
-            "builtin://local",
+            "https://receipts.example",
             1_700_000_000_000,
         )
         val newer = older.copy(createdAtMillis = 1_700_000_000_001)

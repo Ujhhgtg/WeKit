@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -2987,10 +2988,17 @@ private fun VoicePreviewOverlay(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
+        val valueRange = 0f..durationMs.coerceAtLeast(1L).toFloat()
+        val sliderState = remember(valueRange) {
+            SliderState(
+                value = positionMs.coerceIn(0L, durationMs.coerceAtLeast(0L)).toFloat(),
+                trackRange = valueRange,
+            )
+        }
+        sliderState.value = positionMs.coerceIn(0L, durationMs.coerceAtLeast(0L)).toFloat()
         Slider(
-            value = positionMs.coerceIn(0L, durationMs.coerceAtLeast(0L)).toFloat(),
+            state = sliderState,
             onValueChange = { onSeek(it.toLong()) },
-            valueRange = 0f..durationMs.coerceAtLeast(1L).toFloat(),
             modifier = Modifier.fillMaxWidth(),
         )
         Row(

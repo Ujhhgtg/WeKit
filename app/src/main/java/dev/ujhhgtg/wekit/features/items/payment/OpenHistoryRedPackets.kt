@@ -53,7 +53,6 @@ object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContact
     override val descriptionRes = R.string.feature_open_history_red_packets_description
 
     private const val TAG = "OpenHistoryRedPackets"
-    private const val PREF_KEY = "open_history_red_packets"
 
     // 微信红包超过 24 小时即过期, 扫描更早的消息没有意义
     private const val RED_PACKET_EXPIRY_MILLIS = 24L * 60 * 60 * 1000
@@ -144,22 +143,17 @@ object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContact
 
         return listOf(
             WeContactPrefsScreenApi.PreferenceItem(
-                key = PREF_KEY,
                 title = activity.localizedPaymentString(R.string.feature_open_history_red_packets_name),
-                position = 1
+                position = 1,
+                onClick = onClick@{ activity ->
+                    val clickedConvId = WeCurrentConversationApi.value
+                    if (clickedConvId.isEmpty()) return@onClick
+                    showProgressDialog(activity, clickedConvId)
+                },
             )
         )
     }
 
-    override fun onItemClick(activity: Activity, key: String): Boolean {
-        if (key != PREF_KEY) return false
-
-        val convId = WeCurrentConversationApi.value
-        if (convId.isEmpty()) return true
-
-        showProgressDialog(activity, convId)
-        return true
-    }
 
     private suspend fun scanConversation(convId: String): Int {
         var pageIndex = 1

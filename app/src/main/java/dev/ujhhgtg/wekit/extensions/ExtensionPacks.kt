@@ -113,7 +113,6 @@ object ExtensionPacks {
         val flow = flows.getValue(pack.id)
         if (flow.value is Downloading || flow.value is Verifying) return false
         if (!pack.deleteInstalled()) return false
-        pack.onRemoved()
         refresh(pack)
         return true
     }
@@ -144,13 +143,13 @@ object ExtensionPacks {
         flow.value = Downloading(0f, 0, 0)
         try {
             val entry = remoteEntry(pack)
-            val url = entry.externalUrl ?: "$BASE_URL/${entry.asset}"
+            val url = "$BASE_URL/${entry.asset}"
             val call = httpClient.newCall(Request.Builder().url(url).build())
             synchronized(lock) { activeCalls[pack.id] = call }
             try {
                 call.execute().use { response ->
                     if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
-                    val total = entry.bytes ?: response.body.contentLength()
+                    val total = response.body.contentLength()
                     var downloaded = 0L
                     response.body.byteStream().use { input ->
                         FileOutputStream(tmp).use { output ->

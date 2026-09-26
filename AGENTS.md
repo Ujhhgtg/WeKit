@@ -65,7 +65,7 @@
 - UI: Jetpack Compose + Material 3, dialogs written using `showComposeDialog` and
   `AlertDialogContent`; settings screens follow the Material 3 UI Standards section below
   (`ui/content/m3/` widget family, InstallerX-Revived design)
-- Config: MMKV via `WePrefs`
+- Config: `KvStore` (Room-backed key-value store, legacy MMKV migrated via `MmkvReadonlyReader`)
 - Logging: via `WeLogger`
 
 ## Desktop DexKit Validation
@@ -190,7 +190,7 @@
 - Device behavior still requires manual testing on real WeChat; desktop JVM tests cover Dex
   resolution only and do not replace device validation.
 - NEVER wrap `hookBefore` and `hookAfter` in a `try-catch`/`runCatching` block. They should NOT fail. If they fail, then it's the module developer's problem.
-- Use `WePrefs.Companion.prefOption` delegates to declare & use preference items easily.
+- Use `KvStore.prefOption` delegates to declare & use preference items easily.
 - Teardown/revert on `onDisable` is **best-effort by design**, not a requirement. Many features
   irreversibly modify the host view tree; fully reverting them would need complex state management
   and syncing for little gain, so having the user restart WeChat is the accepted approach. Do NOT
@@ -232,7 +232,7 @@ WeKit's ported widget family lives in `app/src/main/java/dev/ujhhgtg/wekit/ui/co
   one group per concern, short `title` above each group). Do not hand-roll card layouts
   or use flat lists with dividers.
 - Use the shared scaffolds — `M3ListScaffold` (`activity/settings/SettingsActivity.kt`)
-  or `AgentSettingsScaffold` (`ui/agent/settings/AgentSettingsCommon.kt`): collapsing
+  or `SettingsScaffold` (`ui/content/m3/SettingsComponents.kt`): collapsing
   `LargeFlexibleTopAppBar` + blur + back button. Do not build per-screen scaffolds.
 - Multi-screen settings follow the miuix-nav `NavDisplay` pattern of
   `WeAgentSettingsActivity` / `ReadReceiptsSettingsActivity` (sealed `@Serializable`

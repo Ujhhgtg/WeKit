@@ -4,6 +4,8 @@
 
 WeKit 是一个功能丰富的微信增强模块, 支持通过 Xposed 框架或 Zygisk 模块加载, 提供大量微信增强功能。
 
+两种加载方式共用同一 APK: 直接安装用于 Xposed, 将扩展名改为 `.zip` 后通过 Root 管理器刷入用于 Zygisk。具体步骤见 [安装指南](installation.md)。
+
 [![CI 状态](https://github.com/Ujhhgtg/WeKit/actions/workflows/ci.yml/badge.svg)](https://github.com/Ujhhgtg/WeKit/actions/workflows/ci.yml)
 
 ## 导航

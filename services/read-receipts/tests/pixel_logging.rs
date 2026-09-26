@@ -16,9 +16,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tower::ServiceExt;
-use wekit_read_receipts_server::{
-    AppState, RouteProfile, ServerConfig, build_router, open_database,
-};
+use wekit_read_receipts_server::{AppState, build_router, initialize_database};
 
 struct TestDirectory(PathBuf);
 
@@ -74,7 +72,7 @@ async fn json_body(response: Response) -> Value {
 }
 
 #[test]
-fn pixel_info_logs_require_a_known_embedded_message_but_preserve_standalone_logging() {
+fn pixel_info_logs_include_message_and_direct_peer() {
     let captured = Arc::new(Mutex::new(Vec::new()));
     let writer = Arc::clone(&captured);
     let subscriber = tracing_subscriber::fmt()
@@ -92,30 +90,14 @@ fn pixel_info_logs_require_a_known_embedded_message_but_preserve_standalone_logg
             .unwrap()
             .block_on(async {
                 let directory = TestDirectory::new();
-                let mut config = ServerConfig {
-                    database_path: directory.path().join("read-receipts.db"),
-                    bind_addr: "127.0.0.1".parse().unwrap(),
-                    bind_port: 0,
-                    route_profile: RouteProfile::Embedded,
-                    connector_authenticator: None,
-                };
-                let database = open_database(&config).await.unwrap();
+                let database =
+                    libsql::Builder::new_local(directory.path().join("read-receipts.db"))
+                        .build()
+                        .await
+                        .unwrap();
+                initialize_database(&database).await.unwrap();
                 let state = Arc::new(AppState::new(database.connect().unwrap()));
-                let embedded = build_router(&config, Arc::clone(&state));
-
-                let unknown_id = "a".repeat(64);
-                let malformed_id = "malformed-id";
-                for id in [&unknown_id, malformed_id] {
-                    let response = request(
-                        &embedded,
-                        "GET",
-                        &format!("/pixel?wxId=wxid_sender&id={id}"),
-                        Body::empty(),
-                        "192.0.2.60:45000",
-                    )
-                    .await;
-                    assert_eq!(response.status(), StatusCode::OK);
-                }
+                let app = build_router(state);
 
                 let registration = json!({
                     "wxId": "wxid_sender",
@@ -123,7 +105,7 @@ fn pixel_info_logs_require_a_known_embedded_message_but_preserve_standalone_logg
                     "createTime": 1_700_000_000_456_i64,
                 });
                 let response = request(
-                    &embedded,
+                    &app,
                     "POST",
                     "/register",
                     Body::from(registration.to_string()),
@@ -132,7 +114,7 @@ fn pixel_info_logs_require_a_known_embedded_message_but_preserve_standalone_logg
                 .await;
                 let known_id = json_body(response).await["id"].as_str().unwrap().to_owned();
                 let response = request(
-                    &embedded,
+                    &app,
                     "GET",
                     &format!("/pixel?wxId=wxid_sender&id={known_id}"),
                     Body::empty(),
@@ -141,10 +123,8 @@ fn pixel_info_logs_require_a_known_embedded_message_but_preserve_standalone_logg
                 .await;
                 assert_eq!(response.status(), StatusCode::OK);
 
-                config.route_profile = RouteProfile::Standalone;
-                let standalone = build_router(&config, state);
                 let response = request(
-                    &standalone,
+                    &app,
                     "GET",
                     "/pixel?wxId=wxid_standalone&id=standalone-unknown",
                     Body::empty(),
@@ -154,8 +134,6 @@ fn pixel_info_logs_require_a_known_embedded_message_but_preserve_standalone_logg
                 assert_eq!(response.status(), StatusCode::OK);
 
                 let logs = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
-                assert!(!logs.contains(&format!("id = {unknown_id},")), "{logs}");
-                assert!(!logs.contains(&format!("id = {malformed_id},")), "{logs}");
                 assert!(
                     logs.contains(&format!(
                         "id = {known_id}, wxId = wxid_sender, client_ip = 192.0.2.61"

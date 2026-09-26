@@ -9,8 +9,6 @@ import android.view.View
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Receipt_long
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
@@ -24,8 +22,8 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -38,13 +36,11 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.buildJsonObject
@@ -67,7 +63,6 @@ import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicLong
 import javax.net.ssl.SSLException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -82,192 +77,11 @@ fun readReceiptNetworkFailureCategory(failure: Throwable): String = when (failur
     else -> "response"
 }
 
-class ReadReceiptsLocalFailure(
-    @StringRes val messageRes: Int,
-    vararg val formatArgs: Any,
-) : IllegalStateException()
-
-sealed interface ReadReceiptRuntimeError {
-    fun message(context: Context): String
-
-    class Resource(
-        @StringRes private val id: Int,
-        private vararg val formatArgs: Any,
-    ) : ReadReceiptRuntimeError {
-        override fun message(context: Context): String = context.localizedChatString(id, *formatArgs)
-    }
-
-    companion object {
-        fun from(failure: Throwable): ReadReceiptRuntimeError = when (failure) {
-            is ReadReceiptsTunnelException -> Resource(failure.errorCode.messageRes)
-            is BrowserLoginException -> Resource(failure.errorCode.messageRes)
-            is ReadReceiptsLocalFailure -> Resource(
-                failure.messageRes,
-                *failure.formatArgs,
-            )
-
-            else -> Resource(R.string.read_receipts_unknown_error)
-        }
-    }
-}
-
-sealed interface ReadReceiptsUiText {
-    @Composable
-    fun resolve(): String
-
-    fun resolve(context: Context): String
-
-    class Resource(
-        @StringRes private val id: Int,
-        vararg private val formatArgs: Any,
-    ) : ReadReceiptsUiText {
-        @Composable
-        override fun resolve(): String = stringResource(id, *formatArgs)
-
-        override fun resolve(context: Context): String =
-            context.localizedChatString(id, *formatArgs)
-    }
-
-    companion object {
-        fun from(
-            failure: Throwable,
-            @StringRes fallbackRes: Int,
-        ): ReadReceiptsUiText = when (failure) {
-            is ReadReceiptsTunnelException -> Resource(failure.errorCode.messageRes)
-            is BrowserLoginException -> Resource(failure.errorCode.messageRes)
-            is ReadReceiptsLocalFailure -> Resource(
-                failure.messageRes,
-                *failure.formatArgs,
-            )
-
-            else -> Resource(fallbackRes)
-        }
-    }
-}
-
-
-
-/** Owns configuration persistence across delayed connection and metadata continuations. */
-class ConfigurationTransactionOwnership {
-    private var nextOwnerId = 0L
-    private var currentOwnerId: Long? = null
-
-    @Synchronized
-    fun acquire(): ConfigurationTransactionOwner {
-        val ownerId = ++nextOwnerId
-        currentOwnerId = ownerId
-        return ConfigurationTransactionOwner(this, ownerId)
-    }
-
-    @Synchronized
-    fun supersede() {
-        currentOwnerId = null
-    }
-
-    @Synchronized
-    fun isCurrent(ownerId: Long): Boolean = currentOwnerId == ownerId
-
-    @Synchronized
-    fun runIfCurrent(ownerId: Long, action: () -> Unit): Boolean {
-        if (currentOwnerId != ownerId) return false
-        action()
-        return true
-    }
-
-    @Synchronized
-    fun finishIfCurrent(ownerId: Long, action: () -> Unit): Boolean {
-        if (currentOwnerId != ownerId) return false
-        action()
-        currentOwnerId = null
-        return true
-    }
-}
-
-class ConfigurationTransactionOwner(
-    private val ownership: ConfigurationTransactionOwnership,
-    private val ownerId: Long,
+class ReadReceiptError(
+    @StringRes private val id: Int,
+    private vararg val formatArgs: Any,
 ) {
-    fun isCurrent(): Boolean = ownership.isCurrent(ownerId)
-
-    fun runIfCurrent(action: () -> Unit): Boolean = ownership.runIfCurrent(ownerId, action)
-
-    fun finishIfCurrent(action: () -> Unit = {}): Boolean =
-        ownership.finishIfCurrent(ownerId, action)
-}
-
-
-fun finishBuiltInStackStop(
-    tunnelResult: Result<Unit>,
-    stopOrigin: (((Long, OriginRequestTerminal<Unit>) -> Unit) -> Unit),
-    onFinished: (Long, OriginRequestTerminal<Unit>) -> Unit,
-) {
-    stopOrigin { generation, originTerminal ->
-        val terminal = when (originTerminal) {
-            is OriginRequestTerminal.Completed -> OriginRequestTerminal.Completed(
-                tunnelResult.fold(
-                    onSuccess = { originTerminal.result },
-                    onFailure = { Result.failure(it) },
-                ),
-            )
-
-            OriginRequestTerminal.Superseded -> OriginRequestTerminal.Superseded
-        }
-        onFinished(generation, terminal)
-    }
-}
-
-fun configurationRollbackTerminal(
-    originalFailure: Throwable,
-    restartTerminal: OriginRequestTerminal<Unit>,
-): OriginRequestTerminal<Unit> = when (restartTerminal) {
-    is OriginRequestTerminal.Completed -> OriginRequestTerminal.Completed(
-        if (restartTerminal.result.isSuccess) {
-            Result.failure(originalFailure)
-        } else {
-            Result.failure(
-                ReadReceiptsLocalFailure(
-                    R.string.read_receipts_configuration_rollback_failed,
-                ),
-            )
-        },
-    )
-
-    OriginRequestTerminal.Superseded -> OriginRequestTerminal.Superseded
-}
-
-/** Coalesces a stack stop without collapsing [OriginRequestTerminal.Superseded] into failure. */
-class CoalescedOriginCallbacks<T> {
-    private var callbacks: MutableList<(OriginRequestTerminal<T>) -> Unit>? = null
-
-    @Synchronized
-    fun register(callback: ((OriginRequestTerminal<T>) -> Unit)?): Boolean {
-        val current = callbacks
-        if (current != null) {
-            if (callback != null) current += callback
-            return false
-        }
-        callbacks = mutableListOf<(OriginRequestTerminal<T>) -> Unit>().apply {
-            if (callback != null) add(callback)
-        }
-        return true
-    }
-
-    fun complete(
-        terminal: OriginRequestTerminal<T>,
-        isCurrent: () -> Boolean = { true },
-    ): Int {
-        val completed = synchronized(this) {
-            val current = callbacks ?: return 0
-            callbacks = null
-            current.toList()
-        }
-        completed.asReversed().forEachIndexed { index, callback ->
-            callback(
-                if (index == 0 && isCurrent()) terminal else OriginRequestTerminal.Superseded,
-            )
-        }
-        return completed.size
-    }
+    fun message(context: Context): String = context.localizedChatString(id, *formatArgs)
 }
 
 object ReadReceipts : ClickableFeature(),
@@ -294,11 +108,6 @@ object ReadReceipts : ClickableFeature(),
     private var serializedConfiguration by prefOption("read_receipts_configuration", "")
     var sendMode by prefOption("read_receipts_send_mode", MODE_ACTIVE_MENU)
     var triggerPrefix by prefOption("read_receipts_trigger_prefix", "#rr")
-    private var lastBuiltInPort by prefOption("read_receipts_last_built_in_port", 0)
-    private var lastBuiltInState by prefOption(
-        "read_receipts_last_built_in_state",
-        ReadReceiptsRuntimeState.STOPPED.name,
-    )
     private var serializedRecords by prefOption("read_receipts_records", emptySet())
 
     private val configurationLock = Any()
@@ -306,46 +115,12 @@ object ReadReceipts : ClickableFeature(),
     @Volatile
     private var loadedConfiguration: ReadReceiptsConfiguration? = null
 
-    private const val BUILT_IN_RECORD_ENDPOINT = "builtin://local"
     private const val RECORD_RETENTION_MILLIS = 180L * 24 * 60 * 60 * 1000
     private const val MAX_POLL_WORKERS = 4
     private const val MAX_FAILURE_BACKOFF_MILLIS = 5L * 60 * 1000
     private const val MAX_WX_ID_BYTES = 128
     private const val MAX_CONTENT_BYTES = 16 * 1024
     private const val MAX_REGISTRATION_BODY_BYTES = 20 * 1024
-    private const val ORIGIN_STOP_TIMEOUT_MILLIS = 10_000L
-    private const val TUNNEL_CANDIDATE_VERIFY_TIMEOUT_MILLIS = 30_000L
-    private const val BROWSER_METADATA_RECONCILE_ATTEMPTS = 50
-    private const val BROWSER_METADATA_RECONCILE_DELAY_MILLIS = 100L
-
-    private data class ResolvedBackend(
-        val backend: ReadReceiptBackend,
-        val requestEndpoint: String,
-        val pixelEndpoint: String,
-        val recordEndpoint: String,
-    )
-
-    @Volatile
-    var runtimeError: ReadReceiptRuntimeError? = null
-
-    fun originStatus(): ReadReceiptsStatus = originController.snapshot()
-
-    fun originActive(): Boolean = originController.status().let {
-        it != ReadReceiptsRuntimeState.STOPPED && it != ReadReceiptsRuntimeState.FAILED
-    }
-
-    private val originController = NativeReadReceiptsServerController()
-    private val originScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val originGeneration = AtomicLong()
-    private val originLifecycleMutex = Mutex()
-    private val builtInStopCallbacks = CoalescedOriginCallbacks<Unit>()
-    private val configurationTransactionOwnership = ConfigurationTransactionOwnership()
-
-    private data class OriginRequest(
-        val generation: Long,
-        val port: Int?,
-        val forceRestart: Boolean,
-    )
 
     fun configuration(): ReadReceiptsConfiguration {
         loadedConfiguration?.let { return it }
@@ -368,11 +143,6 @@ object ReadReceipts : ClickableFeature(),
     }
 
     fun saveConfiguration(value: ReadReceiptsConfiguration) {
-        configurationTransactionOwnership.supersede()
-        persistConfiguration(value)
-    }
-
-    private fun persistConfiguration(value: ReadReceiptsConfiguration) {
         val encoded = ReadReceiptsConfigurationCodec.encode(value)
         val canonical = ReadReceiptsConfigurationCodec.decode(encoded)!!
         synchronized(configurationLock) {
@@ -382,49 +152,12 @@ object ReadReceipts : ClickableFeature(),
     }
 
     private fun migrateLegacyConfiguration(): ReadReceiptsConfiguration {
-        val mode = WePrefs.getStringOrDef(
-            "read_receipts_backend_mode",
-            ReadReceiptsServerMode.THIRD_PARTY.name,
-        ).let { name ->
-            ReadReceiptsServerMode.entries.firstOrNull { it.name == name }
-                ?: ReadReceiptsServerMode.THIRD_PARTY
-        }
-        val legacyPort = WePrefs.getIntOrDef("read_receipts_built_in_port", 0)
-        val automaticPort = WePrefs.getBoolOrDef(
-            "read_receipts_automatic_port",
-            true,
-        )
         return ReadReceiptsConfiguration(
-            mode = mode,
-            thirdPartyUrl = WePrefs.getStringOrDef("read_receipts_third_party_url", ""),
-            pollIntervalSecs = WePrefs.getIntOrDef("read_receipts_poll_interval", 5)
+            thirdPartyUrl = normalizeThirdPartyReadReceiptEndpoint(
+                KvStore.getStringOrDef("read_receipts_third_party_url", ""),
+            ) ?: "",
+            pollIntervalSecs = KvStore.getIntOrDef("read_receipts_poll_interval", 5)
                 .takeIf { it > 0 } ?: 5,
-            automaticPort = automaticPort,
-            builtInPort = legacyPort.takeIf { it in 1..65535 } ?: 3000,
-            automaticLifecycle = WePrefs.getBoolOrDef(
-                "read_receipts_automatic_lifecycle",
-                true,
-            ),
-            tunnelMode = WePrefs.getStringOrDef("read_receipts_tunnel_mode", "QUICK")
-                .takeIf(String::isNotBlank)
-                ?: "QUICK",
-            hostname = WePrefs.getStringOrDef("read_receipts_hostname", ""),
-            selectedAccountId = WePrefs.getStringOrDef(
-                "read_receipts_selected_account_id",
-                "",
-            ),
-            selectedAccountName = WePrefs.getStringOrDef(
-                "read_receipts_selected_account_name",
-                "",
-            ),
-            selectedTunnelId = WePrefs.getStringOrDef(
-                "read_receipts_selected_tunnel_id",
-                "",
-            ),
-            selectedTunnelName = WePrefs.getStringOrDef(
-                "read_receipts_selected_tunnel_name",
-                "",
-            ),
         )
     }
 
@@ -464,14 +197,14 @@ object ReadReceipts : ClickableFeature(),
         wxId: String,
         content: String,
         createTime: Long,
-    ): ReadReceiptRuntimeError? {
+    ): ReadReceiptError? {
         val bodyJson = buildJsonObject {
             put("wxId", wxId)
             put("content", content)
             put("createTime", createTime)
         }.toString()
         if (bodyJson.toByteArray(Charsets.UTF_8).size > MAX_REGISTRATION_BODY_BYTES) {
-            return ReadReceiptRuntimeError.Resource(
+            return ReadReceiptError(
                 R.string.read_receipts_registration_request_too_large,
             )
         }
@@ -486,7 +219,7 @@ object ReadReceipts : ClickableFeature(),
                     registrationCalls -= call
                     WeLogger.w(TAG, "register request failed (${readReceiptNetworkFailureCategory(e)})")
                     continuation.resumeIfActive(
-                        ReadReceiptRuntimeError.Resource(R.string.read_receipts_registration_failed),
+                        ReadReceiptError(R.string.read_receipts_registration_failed),
                     )
                 }
 
@@ -498,7 +231,7 @@ object ReadReceipts : ClickableFeature(),
                         } else {
                             WeLogger.w(TAG, "register failed: HTTP ${it.code}")
                             continuation.resumeIfActive(
-                                ReadReceiptRuntimeError.Resource(
+                                ReadReceiptError(
                                     R.string.read_receipts_registration_http_failed,
                                     it.code,
                                 ),
@@ -537,7 +270,7 @@ object ReadReceipts : ClickableFeature(),
 
     /** Queries the distinct-IP read count for a persisted record. Returns null on any failure. */
     private suspend fun fetchCount(record: ReadReceiptRecord): Int? {
-        val endpoint = pollingEndpoint(record) ?: return null
+        val endpoint = record.endpoint
         val request = runCatching {
             Request.Builder()
                 .url("$endpoint/count?wxId=${record.wxId}&id=${record.id}")
@@ -587,7 +320,6 @@ object ReadReceipts : ClickableFeature(),
     private data class RecordKey(
         val id: String,
         val wxId: String,
-        val backend: ReadReceiptBackend,
         val endpoint: String,
     )
 
@@ -610,7 +342,7 @@ object ReadReceipts : ClickableFeature(),
     private val recordLock = Any()
     private var records: Set<ReadReceiptRecord> = emptySet()
 
-    /** Last successful count, isolated by historical backend identity. */
+    /** Last successful count, isolated by historical server endpoint. */
     private val counts = ConcurrentHashMap<RecordKey, Int>()
 
     /** Attached message-root views and the exact tracked generation currently occupying each row. */
@@ -624,14 +356,14 @@ object ReadReceipts : ClickableFeature(),
     @Volatile
     private var pollJob: Job? = null
 
-    private fun ReadReceiptRecord.key() = RecordKey(id, wxId, backend, endpoint)
+    private fun ReadReceiptRecord.key() = RecordKey(id, wxId, endpoint)
 
     private fun loadRecords() {
         val decoded = buildList {
             for (value in serializedRecords) {
                 val record = ReadReceiptRecordCodec.decode(value)
                 if (record == null) {
-                    WeLogger.w(TAG, "discarding malformed persisted read-receipt record")
+                    WeLogger.w(TAG, "discarding unsupported or malformed persisted read-receipt record")
                 } else {
                     add(record)
                 }
@@ -665,1015 +397,6 @@ object ReadReceipts : ClickableFeature(),
         }
     }
 
-    private fun requestedBuiltInPort(value: ReadReceiptsConfiguration = configuration()): Int =
-        if (value.automaticPort) 0 else value.builtInPort
-
-    private fun normalizedEndpoint(value: String): String? {
-        return normalizeThirdPartyReadReceiptEndpoint(value)
-    }
-
-    private fun verifiedTunnelEndpoint(): String? =
-        ReadReceiptsTunnelController.verifiedEndpoint()
-
-    private fun resolveBackend(): Pair<ResolvedBackend?, ReadReceiptRuntimeError?> {
-        val configuration = configuration()
-        return when (configuration.mode) {
-            ReadReceiptsServerMode.THIRD_PARTY -> {
-                val endpoint = normalizedEndpoint(configuration.thirdPartyUrl)
-                    ?: return null to ReadReceiptRuntimeError.Resource(
-                        R.string.chat_read_receipts_server_missing,
-                    )
-                ResolvedBackend(
-                    backend = ReadReceiptBackend.THIRD_PARTY,
-                    requestEndpoint = endpoint,
-                    pixelEndpoint = endpoint,
-                    recordEndpoint = endpoint,
-                ) to null
-            }
-
-            ReadReceiptsServerMode.BUILT_IN -> {
-                val origin = originController.snapshot()
-                if (origin.state != ReadReceiptsRuntimeState.RUNNING || origin.port == null) {
-                    return null to ReadReceiptRuntimeError.Resource(
-                        R.string.read_receipts_built_in_not_running,
-                    )
-                }
-                val publicEndpoint = verifiedTunnelEndpoint()
-                    ?: return null to ReadReceiptRuntimeError.Resource(
-                        R.string.read_receipts_public_health_check_pending,
-                    )
-                ResolvedBackend(
-                    backend = ReadReceiptBackend.BUILT_IN,
-                    requestEndpoint = "http://127.0.0.1:${origin.port}",
-                    pixelEndpoint = publicEndpoint,
-                    recordEndpoint = BUILT_IN_RECORD_ENDPOINT,
-                ) to null
-            }
-        }
-    }
-
-    private fun pollingEndpoint(record: ReadReceiptRecord): String? = when (record.backend) {
-        ReadReceiptBackend.THIRD_PARTY -> record.endpoint
-        ReadReceiptBackend.BUILT_IN -> {
-            val origin = originController.snapshot()
-            if (origin.state != ReadReceiptsRuntimeState.RUNNING || origin.port == null) {
-                null
-            } else {
-                "http://127.0.0.1:${origin.port}"
-            }
-        }
-    }
-
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
-
-    /** Starts the fixed/automatic origin before handing its actual port to one tunnel candidate. */
-    private fun startBuiltInStack(
-        configuration: ReadReceiptsConfiguration,
-        token: String? = null,
-        onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
-    ) {
-        if (configuration.mode != ReadReceiptsServerMode.BUILT_IN) {
-            onFinished?.invoke(
-                OriginRequestTerminal.Completed(
-                    Result.failure(
-                        ReadReceiptsLocalFailure(
-                            R.string.read_receipts_built_in_mode_required,
-                        ),
-                    ),
-                ),
-            )
-            return
-        }
-        val mode = configuration.tunnelMode()
-        startBuiltInCandidate(
-            configuration = configuration,
-            startTunnel = { port, complete ->
-                ReadReceiptsTunnelController.startVisible(
-                    mode = mode,
-                    originPort = port,
-                    hostname = configuration.hostname,
-                    token = token,
-                    onHandoff = complete,
-                )
-            },
-            onFinished = onFinished,
-        )
-    }
-
-    /** Starts the fixed/automatic origin before handing its actual port to one tunnel candidate. */
-    private fun startBuiltInCandidate(
-        configuration: ReadReceiptsConfiguration,
-        startTunnel: (Int, (OriginRequestTerminal<Unit>) -> Unit) -> Unit,
-        onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
-    ) {
-        val mode = configuration.tunnelMode()
-        if (
-            mode in setOf(
-                ReadReceiptsTunnelMode.TOKEN,
-                ReadReceiptsTunnelMode.BROWSER_LOGIN,
-            ) && configuration.automaticPort
-        ) {
-            onFinished?.invoke(
-                OriginRequestTerminal.Completed(
-                    Result.failure(
-                        ReadReceiptsLocalFailure(
-                            if (mode == ReadReceiptsTunnelMode.TOKEN) {
-                                R.string.read_receipts_token_fixed_port_route_required
-                            } else {
-                                R.string.read_receipts_browser_fixed_port_route_required
-                            },
-                        ),
-                    ),
-                ),
-            )
-            return
-        }
-        startOrigin(requestedBuiltInPort(configuration)) { terminal ->
-            when (terminal) {
-                is OriginRequestTerminal.Completed -> terminal.result.fold(
-                    onSuccess = { port ->
-                        startTunnel(port) { handoffTerminal ->
-                            onFinished?.invoke(handoffTerminal)
-                        }
-                    },
-                    onFailure = { error ->
-                        onFinished?.invoke(
-                            OriginRequestTerminal.Completed(Result.failure(error)),
-                        )
-                    },
-                )
-
-                OriginRequestTerminal.Superseded -> {
-                    onFinished?.invoke(OriginRequestTerminal.Superseded)
-                }
-            }
-        }
-    }
-
-    private fun browserConfiguration(
-        base: ReadReceiptsConfiguration,
-        metadata: CommittedBrowserTunnelMetadata,
-    ): ReadReceiptsConfiguration = base.copy(
-        mode = ReadReceiptsServerMode.BUILT_IN,
-        automaticPort = false,
-        builtInPort = metadata.fixedOriginPort,
-        tunnelMode = ReadReceiptsTunnelMode.BROWSER_LOGIN.name,
-        hostname = metadata.canonicalHostname,
-        selectedAccountId = metadata.accountId,
-        selectedAccountName = "",
-        selectedTunnelId = metadata.tunnelId,
-        selectedTunnelName = metadata.tunnelName,
-    )
-
-    private fun authoritativeBrowserMetadata(
-        expectedTunnelId: String? = null,
-        expectedHostname: String? = null,
-        expectedPort: Int? = null,
-        requireVerifiedEndpoint: Boolean = false,
-    ): CommittedBrowserTunnelMetadata? {
-        val metadata = when (val decision =
-            ReadReceiptsTunnelController.browserMetadataRebindDecision
-        ) {
-            BrowserMetadataRebindDecision.Keep -> return null
-            is BrowserMetadataRebindDecision.Replace -> decision.metadata
-        }
-        if (expectedTunnelId != null && metadata.tunnelId != expectedTunnelId) return null
-        if (expectedHostname != null && metadata.canonicalHostname != expectedHostname) return null
-        if (expectedPort != null && metadata.fixedOriginPort != expectedPort) return null
-        if (
-            requireVerifiedEndpoint &&
-            ReadReceiptsTunnelController.verifiedEndpoint() != metadata.canonicalHostname
-        ) {
-            return null
-        }
-        return metadata
-    }
-
-    fun authoritativeBrowserConfiguration(
-        base: ReadReceiptsConfiguration,
-        expectedTunnelId: String? = null,
-        expectedHostname: String? = null,
-        expectedPort: Int? = null,
-        requireVerifiedEndpoint: Boolean = false,
-    ): ReadReceiptsConfiguration? = authoritativeBrowserMetadata(
-        expectedTunnelId = expectedTunnelId,
-        expectedHostname = expectedHostname,
-        expectedPort = expectedPort,
-        requireVerifiedEndpoint = requireVerifiedEndpoint,
-    )?.let { browserConfiguration(base, it) }
-
-    /** Lifecycle-only persistence for an already-selected Browser configuration. */
-    private fun reconcileActiveBrowserConfiguration(): ReadReceiptsConfiguration? {
-        val current = configuration()
-        if (current.tunnelMode() != ReadReceiptsTunnelMode.BROWSER_LOGIN) return null
-
-        val reconciled = authoritativeBrowserConfiguration(current) ?: return null
-        if (reconciled != current) saveConfiguration(reconciled)
-        return reconciled
-    }
-
-    private suspend fun awaitBrowserConfiguration(
-        owner: ConfigurationTransactionOwner,
-        base: ReadReceiptsConfiguration,
-        expectedTunnelId: String,
-        expectedHostname: String,
-        expectedPort: Int,
-        requireVerifiedEndpoint: Boolean,
-        maxAttempts: Int?,
-    ): OriginRequestTerminal<ReadReceiptsConfiguration>? {
-        var attempts = 0
-        while (maxAttempts == null || attempts < maxAttempts) {
-            currentCoroutineContext().ensureActive()
-            if (!owner.isCurrent()) return OriginRequestTerminal.Superseded
-            if (attempts % BROWSER_METADATA_RECONCILE_ATTEMPTS == 0) {
-                ReadReceiptsTunnelController.refresh()
-            }
-            if (!owner.isCurrent()) return OriginRequestTerminal.Superseded
-            val authoritative = authoritativeBrowserConfiguration(
-                base = base,
-                expectedTunnelId = expectedTunnelId,
-                expectedHostname = expectedHostname,
-                expectedPort = expectedPort,
-                requireVerifiedEndpoint = requireVerifiedEndpoint,
-            )?.let {
-                OriginRequestTerminal.Completed(Result.success(it))
-            }
-            if (authoritative != null) return authoritative
-            attempts++
-            delay(BROWSER_METADATA_RECONCILE_DELAY_MILLIS.milliseconds)
-        }
-        return null
-    }
-
-    private fun startBrowserSelection(
-        owner: ConfigurationTransactionOwner,
-        candidate: ReadReceiptsConfiguration,
-        onCommitPending: () -> Unit,
-        onFinished: (OriginRequestTerminal<ReadReceiptsConfiguration>) -> Unit,
-    ) {
-        startBuiltInCandidate(
-            configuration = candidate,
-            startTunnel = { port, complete ->
-                originScope.launch {
-                    val selection = ReadReceiptsTunnelController.selectExistingTunnel(
-                        id = candidate.selectedTunnelId,
-                        canonicalRoot = candidate.hostname,
-                        fixedPort = port,
-                    )
-                    val authoritative = awaitBrowserConfiguration(
-                        owner = owner,
-                        base = candidate,
-                        expectedTunnelId = candidate.selectedTunnelId,
-                        expectedHostname = candidate.hostname,
-                        expectedPort = port,
-                        requireVerifiedEndpoint = selection.isFailure,
-                        maxAttempts = BROWSER_METADATA_RECONCILE_ATTEMPTS,
-                    )
-                    when {
-                        authoritative != null -> onFinished(authoritative)
-                        selection.isSuccess && owner.isCurrent() -> onCommitPending()
-                        selection.isSuccess -> onFinished(OriginRequestTerminal.Superseded)
-                        else -> complete(
-                            OriginRequestTerminal.Completed(
-                                Result.failure(selection.exceptionOrNull()!!),
-                            ),
-                        )
-                    }
-                    if (
-                        authoritative == null && selection.isSuccess && owner.isCurrent()
-                    ) {
-                        val reconciled = awaitBrowserConfiguration(
-                            owner = owner,
-                            base = candidate,
-                            expectedTunnelId = candidate.selectedTunnelId,
-                            expectedHostname = candidate.hostname,
-                            expectedPort = port,
-                            requireVerifiedEndpoint = false,
-                            maxAttempts = null,
-                        )
-                        onFinished(reconciled ?: OriginRequestTerminal.Superseded)
-                    }
-                }
-            },
-            onFinished = { terminal ->
-                when (terminal) {
-                    is OriginRequestTerminal.Completed -> terminal.result.onFailure { error ->
-                        onFinished(OriginRequestTerminal.Completed(Result.failure(error)))
-                    }
-                    OriginRequestTerminal.Superseded -> onFinished(OriginRequestTerminal.Superseded)
-                }
-            },
-        )
-    }
-
-    /**
-     * Applies only a committed runtime candidate. Manual token handoff and Browser selection share
-     * the same stop/origin/rollback boundary; Browser configuration comes back from service metadata.
-     */
-    private fun runBuiltInCandidateTransaction(
-        candidate: ReadReceiptsConfiguration,
-        starter: (
-            ReadReceiptsConfiguration,
-            ConfigurationTransactionOwner,
-            (OriginRequestTerminal<ReadReceiptsConfiguration>) -> Unit,
-        ) -> Unit,
-        onFinished: (OriginRequestTerminal<Unit>) -> Unit,
-    ) {
-        val owner = configurationTransactionOwnership.acquire()
-        val previous = configuration()
-        val candidateMode = candidate.tunnelMode()
-        val canonicalCandidate = if (
-            candidateMode in setOf(
-                ReadReceiptsTunnelMode.TOKEN,
-                ReadReceiptsTunnelMode.BROWSER_LOGIN,
-            )
-        ) {
-            val canonicalHostname = ReadReceiptsTunnelHostnames.canonicalPublicRoot(candidate.hostname)
-                ?: run {
-                    owner.finishIfCurrent()
-                    onFinished(
-                        OriginRequestTerminal.Completed(
-                            Result.failure(
-                                ReadReceiptsLocalFailure(
-                                    R.string.read_receipts_managed_tunnel_requires_hostname,
-                                ),
-                            ),
-                        ),
-                    )
-                    return
-                }
-            candidate.copy(hostname = canonicalHostname)
-        } else {
-            candidate
-        }
-        if (
-            candidateMode == ReadReceiptsTunnelMode.BROWSER_LOGIN &&
-            !ExistingTunnel.isCanonicalId(canonicalCandidate.selectedTunnelId)
-        ) {
-            owner.finishIfCurrent()
-            onFinished(
-                OriginRequestTerminal.Completed(
-                    Result.failure(
-                        ReadReceiptsLocalFailure(
-                            R.string.read_receipts_invalid_cloudflare_tunnel,
-                        ),
-                    ),
-                ),
-            )
-            return
-        }
-        val previousWasActive = originController.status() in setOf(
-            ReadReceiptsRuntimeState.STARTING,
-            ReadReceiptsRuntimeState.RUNNING,
-            ReadReceiptsRuntimeState.STOPPING,
-        )
-        val needsReplacement = previousWasActive &&
-            readReceiptsBuiltInRuntimeChanged(previous, canonicalCandidate)
-
-        fun finishSuperseded() {
-            owner.finishIfCurrent()
-            onFinished(OriginRequestTerminal.Superseded)
-        }
-
-        fun restore(error: Throwable) {
-            if (!owner.isCurrent()) {
-                finishSuperseded()
-                return
-            }
-            stopBuiltInStack { stopTerminal ->
-                when (stopTerminal) {
-                    is OriginRequestTerminal.Completed -> {
-                        if (!owner.runIfCurrent { persistConfiguration(previous) }) {
-                            finishSuperseded()
-                            return@stopBuiltInStack
-                        }
-                        val stopFailure = stopTerminal.result.exceptionOrNull()
-                        if (stopFailure != null) {
-                            if (owner.finishIfCurrent()) {
-                                onFinished(
-                                    OriginRequestTerminal.Completed(
-                                        Result.failure(stopFailure),
-                                    ),
-                                )
-                            } else {
-                                finishSuperseded()
-                            }
-                            return@stopBuiltInStack
-                        }
-                        if (previousWasActive) {
-                            startBuiltInStack(previous) { restartTerminal ->
-                                when (
-                                    val rollbackTerminal = configurationRollbackTerminal(
-                                        error,
-                                        restartTerminal,
-                                    )
-                                ) {
-                                    is OriginRequestTerminal.Completed -> {
-                                        if (owner.finishIfCurrent()) {
-                                            onFinished(rollbackTerminal)
-                                        } else {
-                                            finishSuperseded()
-                                        }
-                                    }
-
-                                    OriginRequestTerminal.Superseded -> finishSuperseded()
-                                }
-                            }
-                        } else {
-                            if (owner.finishIfCurrent()) {
-                                onFinished(
-                                    OriginRequestTerminal.Completed(Result.failure(error)),
-                                )
-                            } else {
-                                finishSuperseded()
-                            }
-                        }
-                    }
-
-                    OriginRequestTerminal.Superseded -> finishSuperseded()
-                }
-            }
-        }
-
-        fun startCandidate() {
-            if (!owner.isCurrent()) {
-                finishSuperseded()
-                return
-            }
-            starter(canonicalCandidate, owner) { terminal ->
-                when (terminal) {
-                    is OriginRequestTerminal.Completed -> terminal.result.fold(
-                        onSuccess = { committedCandidate ->
-                            if (
-                                owner.finishIfCurrent {
-                                    persistConfiguration(committedCandidate)
-                                }
-                            ) {
-                                onFinished(
-                                    OriginRequestTerminal.Completed(Result.success(Unit)),
-                                )
-                            } else {
-                                finishSuperseded()
-                            }
-                        },
-                        onFailure = ::restore,
-                    )
-
-                    OriginRequestTerminal.Superseded -> finishSuperseded()
-                }
-            }
-        }
-
-        if (needsReplacement) {
-            stopBuiltInStack { terminal ->
-                when (terminal) {
-                    is OriginRequestTerminal.Completed -> terminal.result.fold(
-                        onSuccess = {
-                            if (owner.isCurrent()) startCandidate() else finishSuperseded()
-                        },
-                        onFailure = { error ->
-                            if (owner.finishIfCurrent()) {
-                                onFinished(
-                                    OriginRequestTerminal.Completed(Result.failure(error)),
-                                )
-                            } else {
-                                finishSuperseded()
-                            }
-                        },
-                    )
-
-                    OriginRequestTerminal.Superseded -> finishSuperseded()
-                }
-            }
-        } else {
-            startCandidate()
-        }
-    }
-
-    fun applyAndStartBuiltInStack(
-        candidate: ReadReceiptsConfiguration,
-        token: String?,
-        onFinished: (OriginRequestTerminal<Unit>) -> Unit,
-    ) {
-        if (candidate.mode != ReadReceiptsServerMode.BUILT_IN) {
-            onFinished(
-                OriginRequestTerminal.Completed(
-                    Result.failure(
-                        ReadReceiptsLocalFailure(R.string.read_receipts_built_in_mode_required),
-                    ),
-                ),
-            )
-            return
-        }
-        if (candidate.tunnelMode() == ReadReceiptsTunnelMode.BROWSER_LOGIN) {
-            onFinished(
-                OriginRequestTerminal.Completed(
-                    Result.failure(
-                        ReadReceiptsLocalFailure(
-                            R.string.read_receipts_select_browser_tunnel_first,
-                        ),
-                    ),
-                ),
-            )
-            return
-        }
-        applyAndStartVerifiedBuiltInStack(candidate, token, onFinished)
-    }
-
-    private fun applyAndStartVerifiedBuiltInStack(
-        candidate: ReadReceiptsConfiguration,
-        token: String?,
-        onFinished: (OriginRequestTerminal<Unit>) -> Unit,
-    ) = runBuiltInCandidateTransaction(
-        candidate = candidate,
-        starter = { canonicalCandidate, owner, complete ->
-            startBuiltInStack(canonicalCandidate, token) { terminal ->
-                when (terminal) {
-                    is OriginRequestTerminal.Completed -> terminal.result.fold(
-                        onSuccess = {
-                            originScope.launch {
-                                val verified = awaitTunnelCandidateVerification(
-                                    owner,
-                                    canonicalCandidate,
-                                )
-                                complete(
-                                    when (verified) {
-                                        is OriginRequestTerminal.Completed -> {
-                                            OriginRequestTerminal.Completed(
-                                                verified.result.map { canonicalCandidate },
-                                            )
-                                        }
-
-                                        OriginRequestTerminal.Superseded -> {
-                                            OriginRequestTerminal.Superseded
-                                        }
-                                    },
-                                )
-                            }
-                        },
-                        onFailure = { error ->
-                            complete(
-                                OriginRequestTerminal.Completed(Result.failure(error)),
-                            )
-                        },
-                    )
-                    OriginRequestTerminal.Superseded -> complete(OriginRequestTerminal.Superseded)
-                }
-            }
-        },
-        onFinished = onFinished,
-    )
-
-    fun reconnectAuthoritativeBrowserStack(
-        base: ReadReceiptsConfiguration,
-        onFinished: (OriginRequestTerminal<Unit>) -> Unit,
-    ) {
-        val candidate = authoritativeBrowserConfiguration(base) ?: run {
-            onFinished(
-                OriginRequestTerminal.Completed(
-                    Result.failure(
-                        ReadReceiptsLocalFailure(
-                            R.string.read_receipts_authoritative_config_pending,
-                        ),
-                    ),
-                ),
-            )
-            return
-        }
-        applyAndStartVerifiedBuiltInStack(candidate, null, onFinished)
-    }
-
-    private suspend fun awaitTunnelCandidateVerification(
-        owner: ConfigurationTransactionOwner,
-        candidate: ReadReceiptsConfiguration,
-    ): OriginRequestTerminal<Unit> {
-        val expectedEndpoint = when (candidate.tunnelMode()) {
-            ReadReceiptsTunnelMode.QUICK -> null
-            ReadReceiptsTunnelMode.TOKEN,
-            ReadReceiptsTunnelMode.BROWSER_LOGIN,
-            -> candidate.hostname
-        }
-        val terminal = withTimeoutOrNull(TUNNEL_CANDIDATE_VERIFY_TIMEOUT_MILLIS.milliseconds) {
-            var attempts = 0
-            while (true) {
-                currentCoroutineContext().ensureActive()
-                if (!owner.isCurrent()) return@withTimeoutOrNull OriginRequestTerminal.Superseded
-                if (attempts % BROWSER_METADATA_RECONCILE_ATTEMPTS == 0) {
-                    ReadReceiptsTunnelController.refresh()
-                }
-                val status = ReadReceiptsTunnelController.status
-                if (!owner.isCurrent()) return@withTimeoutOrNull OriginRequestTerminal.Superseded
-                val verifiedEndpoint = status.publicUrl?.let(
-                    ::normalizeThirdPartyReadReceiptEndpoint,
-                )
-                if (
-                    status.state == ReadReceiptsTunnelState.CONNECTED &&
-                    verifiedEndpoint != null &&
-                    (expectedEndpoint == null || verifiedEndpoint == expectedEndpoint)
-                ) {
-                    return@withTimeoutOrNull OriginRequestTerminal.Completed(Result.success(Unit))
-                }
-                if (
-                    status.state in setOf(
-                        ReadReceiptsTunnelState.FAILED,
-                        ReadReceiptsTunnelState.NEEDS_USER_ACTION,
-                    )
-                ) {
-                    return@withTimeoutOrNull OriginRequestTerminal.Completed(
-                        Result.failure(
-                            status.errorCode?.let { errorCode ->
-                                ReadReceiptsTunnelException(
-                                    errorCode,
-                                    "browser candidate verification failed",
-                                )
-                            } ?: ReadReceiptsLocalFailure(
-                                R.string.read_receipts_candidate_verification_failed,
-                            ),
-                        ),
-                    )
-                }
-                attempts++
-                delay(BROWSER_METADATA_RECONCILE_DELAY_MILLIS.milliseconds)
-            }
-            @Suppress("UNREACHABLE_CODE")
-            OriginRequestTerminal.Superseded
-        }
-        if (terminal != null) return terminal
-        return if (owner.isCurrent()) {
-            OriginRequestTerminal.Completed(
-                Result.failure(
-                    ReadReceiptsLocalFailure(
-                        R.string.read_receipts_candidate_verification_timed_out,
-                    ),
-                ),
-            )
-        } else {
-            OriginRequestTerminal.Superseded
-        }
-    }
-
-    fun applyAndSelectBrowserStack(
-        candidate: ReadReceiptsConfiguration,
-        onCommitPending: () -> Unit,
-        onFinished: (OriginRequestTerminal<Unit>) -> Unit,
-    ) = runBuiltInCandidateTransaction(
-        candidate = candidate,
-        starter = { canonicalCandidate, owner, complete ->
-            startBrowserSelection(owner, canonicalCandidate, onCommitPending, complete)
-        },
-        onFinished = onFinished,
-    )
-
-    fun applyConfigurationAfterStoppingStack(
-        candidate: ReadReceiptsConfiguration,
-        onFinished: (OriginRequestTerminal<Unit>) -> Unit,
-    ) {
-        val owner = configurationTransactionOwnership.acquire()
-        stopBuiltInStack { terminal ->
-            when (terminal) {
-                is OriginRequestTerminal.Completed -> terminal.result.fold(
-                    onSuccess = {
-                        if (owner.finishIfCurrent { persistConfiguration(candidate) }) {
-                            onFinished(OriginRequestTerminal.Completed(Result.success(Unit)))
-                        } else {
-                            onFinished(OriginRequestTerminal.Superseded)
-                        }
-                    },
-                    onFailure = { error ->
-                        if (owner.finishIfCurrent()) {
-                            onFinished(OriginRequestTerminal.Completed(Result.failure(error)))
-                        } else {
-                            onFinished(OriginRequestTerminal.Superseded)
-                        }
-                    },
-                )
-
-                OriginRequestTerminal.Superseded -> {
-                    owner.finishIfCurrent()
-                    onFinished(OriginRequestTerminal.Superseded)
-                }
-            }
-        }
-    }
-
-    fun stopBuiltInStack(
-        onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
-    ) {
-        if (!builtInStopCallbacks.register(onFinished)) return
-        ReadReceiptsTunnelController.stop { tunnelResult ->
-            finishBuiltInStackStop(
-                tunnelResult = tunnelResult,
-                stopOrigin = ::stopOriginTracked,
-            ) { generation, terminal ->
-                when (terminal) {
-                    is OriginRequestTerminal.Completed -> {
-                        builtInStopCallbacks.complete(
-                            terminal = terminal,
-                            isCurrent = { originGeneration.get() == generation },
-                        )
-                    }
-
-                    OriginRequestTerminal.Superseded -> {
-                        builtInStopCallbacks.complete(OriginRequestTerminal.Superseded)
-                    }
-                }
-            }
-        }
-    }
-
-    fun disconnectBuiltInStack(
-        onFinished: (OriginRequestTerminal<Unit>) -> Unit,
-    ) {
-        val owner = configurationTransactionOwnership.acquire()
-        stopBuiltInStack { terminal ->
-            if (!owner.finishIfCurrent()) {
-                onFinished(OriginRequestTerminal.Superseded)
-                return@stopBuiltInStack
-            }
-            onFinished(terminal)
-        }
-    }
-
-    fun onTunnelServiceStopped() {
-        if (originController.status() != ReadReceiptsRuntimeState.STOPPED) stopOrigin()
-    }
-
-    private fun startOrigin(
-        requestedPort: Int,
-        onFinished: ((OriginRequestTerminal<Int>) -> Unit)? = null,
-    ) {
-        val request = newOriginRequest(
-            port = requestedPort,
-            forceRestart = false,
-            desiredState = ReadReceiptsRuntimeState.STARTING,
-        )
-        submitOriginRequest(request) { terminal ->
-            when (terminal) {
-                is OriginRequestTerminal.Completed -> {
-                    onFinished?.invoke(
-                        OriginRequestTerminal.Completed(terminal.result.map { it!! }),
-                    )
-                }
-
-                OriginRequestTerminal.Superseded -> {
-                    onFinished?.invoke(OriginRequestTerminal.Superseded)
-                }
-            }
-        }
-    }
-
-    private fun stopOrigin(
-        onFinished: ((OriginRequestTerminal<Unit>) -> Unit)? = null,
-    ) = stopOriginTracked { _, terminal -> onFinished?.invoke(terminal) }
-
-    private fun stopOriginTracked(
-        onFinished: (Long, OriginRequestTerminal<Unit>) -> Unit,
-    ) {
-        val request = newOriginRequest(
-            port = null,
-            forceRestart = false,
-            desiredState = ReadReceiptsRuntimeState.STOPPING,
-        )
-        submitOriginRequest(request) { terminal ->
-            when (terminal) {
-                is OriginRequestTerminal.Completed -> {
-                    onFinished(
-                        request.generation,
-                        OriginRequestTerminal.Completed(terminal.result.map { Unit }),
-                    )
-                }
-
-                OriginRequestTerminal.Superseded -> {
-                    onFinished(request.generation, OriginRequestTerminal.Superseded)
-                }
-            }
-        }
-    }
-
-    private fun newOriginRequest(
-        port: Int?,
-        forceRestart: Boolean,
-        desiredState: ReadReceiptsRuntimeState,
-    ): OriginRequest = OriginRequest(
-        generation = originGeneration.incrementAndGet(),
-        port = port,
-        forceRestart = forceRestart,
-    ).also {
-        lastBuiltInState = desiredState.name
-    }
-
-    private fun submitOriginRequest(
-        request: OriginRequest,
-        onTerminal: ((OriginRequestTerminal<Int?>) -> Unit)? = null,
-    ) {
-        originScope.launch {
-            val execution = OriginRequestExecution<Int?, ReadReceiptsStatus>(
-                isCurrent = { request.isCurrent() },
-                lifecycleMutex = originLifecycleMutex,
-            )
-            val terminal = execution.execute(
-                reconcile = { reconcileOrigin(request) },
-                snapshot = originController::snapshot,
-                publish = { result, status ->
-                    if (!request.isCurrent()) return@execute false
-                    result.fold(
-                        onSuccess = { port ->
-                            lastBuiltInPort = port ?: 0
-                            lastBuiltInState = status.state.name
-                            runtimeError = null
-                        },
-                        onFailure = { error ->
-                            lastBuiltInPort = status.port ?: 0
-                            lastBuiltInState = status.state.name
-                            runtimeError = ReadReceiptRuntimeError.from(error)
-                        },
-                    )
-                    true
-                },
-            )
-            if (onTerminal != null) {
-                onTerminal(if (request.isCurrent()) terminal else OriginRequestTerminal.Superseded)
-            }
-        }
-    }
-
-    /** Runs under [originLifecycleMutex] and returns one typed execution terminal. */
-    private suspend fun reconcileOrigin(request: OriginRequest): OriginRequestTerminal<Int?> {
-        if (!request.isCurrent()) return OriginRequestTerminal.Superseded
-        val requestedPort = request.port
-        if (requestedPort == null) {
-            val terminal = stopOriginAndAwait(request)
-            if (!request.isCurrent()) return OriginRequestTerminal.Superseded
-            val result = if (terminal == ReadReceiptsRuntimeState.STOPPED) {
-                Result.success<Int?>(null)
-            } else {
-                Result.failure(
-                    ReadReceiptsLocalFailure(
-                        R.string.read_receipts_origin_stop_timed_out,
-                    ),
-                )
-            }
-            return OriginRequestTerminal.Completed(result)
-        }
-
-        val status = originController.snapshot()
-        if (!request.isCurrent()) return OriginRequestTerminal.Superseded
-        if (request.forceRestart) {
-            if (stopOriginAndAwait(request) == null) {
-                if (!request.isCurrent()) return OriginRequestTerminal.Superseded
-                return OriginRequestTerminal.Completed(
-                    Result.failure(
-                        ReadReceiptsLocalFailure(
-                            R.string.read_receipts_origin_stop_before_apply_timed_out,
-                        ),
-                    ),
-                )
-            }
-            if (!request.isCurrent()) return OriginRequestTerminal.Superseded
-            return startOriginNative(request, requestedPort)
-        }
-
-        return startOriginFromStatus(request, requestedPort, status)
-    }
-
-    private suspend fun startOriginFromStatus(
-        request: OriginRequest,
-        requestedPort: Int,
-        status: ReadReceiptsStatus,
-    ): OriginRequestTerminal<Int?> = when (status.state) {
-        ReadReceiptsRuntimeState.RUNNING -> {
-            if (requestedPort == 0 || status.port == requestedPort) {
-                OriginRequestTerminal.Completed(Result.success(status.port!!))
-            } else {
-                val terminal = stopOriginAndAwait(request)
-                if (!request.isCurrent()) return OriginRequestTerminal.Superseded
-                if (terminal == ReadReceiptsRuntimeState.STOPPED) {
-                    startOriginNative(request, requestedPort)
-                } else {
-                    OriginRequestTerminal.Completed(
-                        Result.failure(
-                            ReadReceiptsLocalFailure(
-                                R.string.read_receipts_origin_port_switch_failed,
-                            ),
-                        ),
-                    )
-                }
-            }
-        }
-        ReadReceiptsRuntimeState.STARTING -> {
-            val settled = awaitOriginStartSettlement(request)
-            if (!request.isCurrent()) return OriginRequestTerminal.Superseded
-            if (settled == null) {
-                OriginRequestTerminal.Completed(
-                    Result.failure(
-                        ReadReceiptsLocalFailure(
-                            R.string.read_receipts_origin_start_timed_out,
-                        ),
-                    ),
-                )
-            } else {
-                startOriginFromStatus(request, requestedPort, settled)
-            }
-        }
-
-        ReadReceiptsRuntimeState.STOPPING -> {
-            val terminal = awaitOriginTerminal(request)
-            if (!request.isCurrent()) return OriginRequestTerminal.Superseded
-            if (terminal == null) {
-                OriginRequestTerminal.Completed(
-                    Result.failure(
-                        ReadReceiptsLocalFailure(
-                            R.string.read_receipts_origin_stop_timed_out,
-                        ),
-                    ),
-                )
-            } else {
-                startOriginNative(request, requestedPort)
-            }
-        }
-
-        ReadReceiptsRuntimeState.STOPPED,
-        ReadReceiptsRuntimeState.FAILED,
-        -> startOriginNative(request, requestedPort)
-    }
-
-    private fun startOriginNative(
-        request: OriginRequest,
-        requestedPort: Int,
-    ): OriginRequestTerminal<Int?> {
-        if (!request.isCurrent()) return OriginRequestTerminal.Superseded
-        val result = originController
-            .startBuiltIn(requestedPort, ReadReceiptsTunnelController.originAuthenticator())
-            .map { it as Int? }
-        return if (request.isCurrent()) {
-            OriginRequestTerminal.Completed(result)
-        } else {
-            OriginRequestTerminal.Superseded
-        }
-    }
-
-    private suspend fun stopOriginAndAwait(request: OriginRequest): ReadReceiptsRuntimeState? {
-        val status = originController.snapshot()
-        if (!request.isCurrent()) return null
-        return when (status.state) {
-            ReadReceiptsRuntimeState.STOPPED,
-            ReadReceiptsRuntimeState.FAILED,
-            -> status.state
-
-            ReadReceiptsRuntimeState.STOPPING -> awaitOriginTerminal(request)
-            ReadReceiptsRuntimeState.STARTING,
-            ReadReceiptsRuntimeState.RUNNING,
-            -> {
-                originController.stopBuiltIn()
-                if (!request.isCurrent()) return null
-                awaitOriginTerminal(request)
-            }
-        }
-    }
-
-    private suspend fun awaitOriginTerminal(
-        request: OriginRequest,
-    ): ReadReceiptsRuntimeState? = withTimeoutOrNull(
-        ORIGIN_STOP_TIMEOUT_MILLIS.milliseconds,
-    ) {
-        while (true) {
-            val status = originController.snapshot()
-            if (!request.isCurrent()) return@withTimeoutOrNull null
-            when (status.state) {
-                ReadReceiptsRuntimeState.STOPPED,
-                ReadReceiptsRuntimeState.FAILED,
-                -> return@withTimeoutOrNull status.state
-
-                else -> {
-                    delay(50.milliseconds)
-                    if (!request.isCurrent()) return@withTimeoutOrNull null
-                }
-            }
-        }
-        @Suppress("UNREACHABLE_CODE")
-        ReadReceiptsRuntimeState.FAILED
-    }
-
-    private suspend fun awaitOriginStartSettlement(
-        request: OriginRequest,
-    ): ReadReceiptsStatus? = withTimeoutOrNull(ORIGIN_STOP_TIMEOUT_MILLIS.milliseconds) {
-        while (true) {
-            val status = originController.snapshot()
-            if (!request.isCurrent()) return@withTimeoutOrNull null
-            if (status.state != ReadReceiptsRuntimeState.STARTING) {
-                return@withTimeoutOrNull status
-            }
-            delay(50.milliseconds)
-            if (!request.isCurrent()) return@withTimeoutOrNull null
-        }
-        @Suppress("UNREACHABLE_CODE")
-        ReadReceiptsStatus(ReadReceiptsRuntimeState.FAILED)
-    }
-
-    private fun OriginRequest.isCurrent(): Boolean =
-        originGeneration.get() == generation
-
-    // 主动模式 (加号菜单): 仅在模拟点击发送按钮的同步流程内置位
     private var pendingMenuSend = false
 
     private val provider = WeChatInputBarMenuApi.IActionItemsProvider {
@@ -1710,46 +433,6 @@ object ReadReceipts : ClickableFeature(),
         loadRecords()
         featureScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-        val configuration = configuration()
-        if (
-            configuration.mode == ReadReceiptsServerMode.BUILT_IN &&
-            configuration.automaticLifecycle
-        ) {
-            ReadReceiptsTunnelController.refresh()
-            featureScope!!.launch {
-                repeat(BROWSER_METADATA_RECONCILE_ATTEMPTS) {
-                    val reconciled = reconcileActiveBrowserConfiguration()
-                    if (reconciled != null) {
-                        if (requestedBuiltInPort(reconciled) != requestedBuiltInPort(configuration)) {
-                            startOrigin(requestedBuiltInPort(reconciled)) { terminal ->
-                                if (
-                                    terminal is OriginRequestTerminal.Completed &&
-                                    terminal.result.isSuccess &&
-                                    ReadReceiptsTunnelController.status.state !=
-                                    ReadReceiptsTunnelState.CONNECTED
-                                ) {
-                                    ReadReceiptsTunnelController.needsVisibleStart()
-                                }
-                            }
-                        }
-                        return@launch
-                    }
-                    delay(BROWSER_METADATA_RECONCILE_DELAY_MILLIS.milliseconds)
-                }
-            }
-            startOrigin(requestedBuiltInPort(configuration)) { terminal ->
-                when (terminal) {
-                    is OriginRequestTerminal.Completed -> {
-                        if (terminal.result.isSuccess) {
-                            ReadReceiptsTunnelController.needsVisibleStart()
-                        }
-                    }
-
-                    OriginRequestTerminal.Superseded -> Unit
-                }
-            }
-        }
-
         WeChatInputBarMenuApi.methodSendMessage.hookBefore(100) {
             val chatFooter = thisObject!!.reflekt().firstField {
                 type = ChatFooter::class
@@ -1774,10 +457,9 @@ object ReadReceipts : ClickableFeature(),
             }
             result = null
 
-            val (backend, endpointError) = resolveBackend()
-            if (backend == null) {
-                val error = endpointError!!
-                runtimeError = error
+            val endpoint = normalizeThirdPartyReadReceiptEndpoint(configuration().thirdPartyUrl)
+            if (endpoint == null) {
+                val error = ReadReceiptError(R.string.chat_read_receipts_server_missing)
                 showToast(
                     chatFooter.context,
                     chatFooter.context.localizedChatString(
@@ -1793,10 +475,9 @@ object ReadReceipts : ClickableFeature(),
                 selfWxId.toByteArray(Charsets.UTF_8).size > MAX_WX_ID_BYTES ||
                 actualText.toByteArray(Charsets.UTF_8).size > MAX_CONTENT_BYTES
             ) {
-                val error = ReadReceiptRuntimeError.Resource(
+                val error = ReadReceiptError(
                     R.string.read_receipts_sender_or_content_too_large,
                 )
-                runtimeError = error
                 showToast(
                     chatFooter.context,
                     chatFooter.context.localizedChatString(
@@ -1810,7 +491,7 @@ object ReadReceipts : ClickableFeature(),
             val createTime = System.currentTimeMillis()
             val id = computeId(selfWxId, actualText, createTime)
 
-            val pixelUrl = "${backend.pixelEndpoint}/pixel?wxId=$selfWxId&amp;id=$id"
+            val pixelUrl = "$endpoint/pixel?wxId=$selfWxId&amp;id=$id"
 
             val escapedText = actualText
                 .replace("&", "&amp;")
@@ -1845,13 +526,12 @@ object ReadReceipts : ClickableFeature(),
             val record = ReadReceiptRecord(
                 id = id,
                 wxId = selfWxId,
-                backend = backend.backend,
-                endpoint = backend.recordEndpoint,
+                endpoint = endpoint,
                 createdAtMillis = createTime,
             )
             featureScope!!.launch {
                 val registrationError = registerMessage(
-                    backend.requestEndpoint,
+                    endpoint,
                     selfWxId,
                     actualText,
                     createTime,
@@ -1859,7 +539,6 @@ object ReadReceipts : ClickableFeature(),
                 if (registrationError != null) {
                     withContext(Dispatchers.Main.immediate) {
                         if (!ReadReceipts.isActive) return@withContext
-                        runtimeError = registrationError
                         showToast(
                             chatFooter.context,
                             chatFooter.context.localizedChatString(
@@ -1875,8 +554,7 @@ object ReadReceipts : ClickableFeature(),
                     coroutineContext.ensureActive()
                     if (!ReadReceipts.isActive) return@withContext
                     if (!WeMessageApi.sendXmlAppMsg(target, xml)) {
-                        val error = ReadReceiptRuntimeError.Resource(R.string.read_receipts_send_failed)
-                        runtimeError = error
+                        val error = ReadReceiptError(R.string.read_receipts_send_failed)
                         showToast(
                             chatFooter.context,
                             chatFooter.context.localizedChatString(
@@ -1887,7 +565,6 @@ object ReadReceipts : ClickableFeature(),
                         return@withContext
                     }
                     insertRecord(record)
-                    runtimeError = null
                     if (chatFooter.lastText == text) chatFooter.lastText = ""
                     showToast(
                         chatFooter.context,
@@ -1904,13 +581,6 @@ object ReadReceipts : ClickableFeature(),
 
     override fun onDisable() {
         WeChatInputBarMenuApi.removeProvider(provider)
-        val configuration = configuration()
-        if (
-            configuration.mode == ReadReceiptsServerMode.BUILT_IN &&
-            configuration.automaticLifecycle
-        ) {
-            stopBuiltInStack()
-        }
         WeChatMessageViewApi.removeListener(this)
         WeChatMessageViewApi.removeLifecycleListener(this)
         registrationCalls.forEach(Call::cancel)
@@ -2164,7 +834,7 @@ object ReadReceipts : ClickableFeature(),
         scope: CoroutineScope,
         onResult: (Result<Unit>) -> Unit,
     ): Job? {
-        val endpoint = normalizedEndpoint(value) ?: return null
+        val endpoint = normalizeThirdPartyReadReceiptEndpoint(value) ?: return null
         return scope.launch {
             val request = Request.Builder()
                 .url("$endpoint/count?wxId=wekit-health-check&id=${"0".repeat(64)}")

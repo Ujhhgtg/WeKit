@@ -2,6 +2,9 @@ package dev.ujhhgtg.wekit.features.items.beautify
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.os.SystemClock
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
@@ -16,6 +19,7 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
@@ -42,7 +46,10 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -54,6 +61,8 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -66,6 +75,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.get
+import androidx.core.view.descendants
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Contacts
@@ -88,7 +102,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -139,12 +153,116 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
     private var useBackdrop by prefOption("nav_bar_use_backdrop", true)
     private var animatePageChange by prefOption("nav_bar_animate_page_change", true)
     private var showFinderBadge by prefOption("nav_bar_show_finder_badge", true)
+    private var useWechatIcons by prefOption("nav_bar_use_wechat_icons", false)
     private var hideLabels by prefOption("nav_bar_hide_labels", false)
     private var blurRadius by prefOption("nav_bar_blur_radius", 8)
     private var dynamicGravityHighlight by prefOption("nav_bar_dynamic_gravity_highlight", false)
     private var barScalePercent by prefOption("nav_bar_scale", 100)
     private var tabOrder by prefOption("nav_bar_tab_order", TAB_ITEMS.joinToString(",") { it.wechatIndex.toString() })
     private var enabledTabs by prefOption("nav_bar_enabled_tabs", TAB_ITEMS.map { it.wechatIndex.toString() }.toSet())
+
+    private data class BarAppearance(
+        val floating: Boolean,
+        val autoHide: Boolean,
+        val backdrop: Boolean,
+        val finderBadge: Boolean,
+        val hideLabels: Boolean,
+        val wechatIcons: Boolean,
+        val blurRadius: Int,
+        val gravityHighlight: Boolean,
+        val scalePercent: Int,
+    )
+
+    private fun readBarAppearance() = BarAppearance(
+        useFloating, autoHideOnScroll, useBackdrop, showFinderBadge, hideLabels,
+        useWechatIcons, blurRadius, dynamicGravityHighlight, barScalePercent,
+    )
+
+    private val barAppearanceState by lazy { mutableStateOf(readBarAppearance()) }
+
+    private fun refreshBarAppearance() {
+        val appearance = readBarAppearance()
+        if (appearance.floating != barAppearanceState.value.floating ||
+            appearance.autoHide != barAppearanceState.value.autoHide
+        ) {
+            barScrollHiddenState.value = false
+            scrollUpdated = false
+            scrollingManually = false
+            dragSawDownward = false
+        }
+        barAppearanceState.value = appearance
+    }
+
+    private data class WechatTabIcons(
+        val outlined: ImageBitmap,
+        val filled: ImageBitmap,
+        val activeColor: Color,
+    )
+
+    private fun readWechatTabIcons(icon: View): WechatTabIcons {
+        // TabIconView draws three host-loaded Bitmaps itself; ImageView.drawable is empty.
+        // Its sole declared int is the focus alpha (0 = outlined, 255 = filled). Render
+        // through the host's onDraw so resource decoding and native Paint colors stay intact.
+        val reflected = icon.reflekt()
+        val bitmaps = reflected.fields { type = Bitmap::class }.map { it.get() as Bitmap }
+        val width = bitmaps.maxOf { it.width }
+        val height = bitmaps.maxOf { it.height }
+        val focusAlpha = reflected.fields { type = int }.single()
+        val originalAlpha = focusAlpha.get() as Int
+        val draw = reflected.firstMethod { name = "onDraw"; parameters(Canvas::class) }
+        fun render(alpha: Int): ImageBitmap {
+            focusAlpha.set(alpha)
+            val bitmap = createBitmap(width, height)
+            draw.invoke(Canvas(bitmap))
+            return bitmap.asImageBitmap()
+        }
+        return try {
+            val outlined = render(0)
+            // At focus alpha 0, onDraw leaves the active Paint transparent and the
+            // inactive Paint opaque. Read the active filter instead of a resource ID
+            // or an anti-aliased bitmap pixel, so the accent exactly matches WeChat.
+            val activePaint = reflected.fields { type = Paint::class }
+                .map { it.get() as Paint }
+                .single { it.alpha == 0 }
+            // Apply that filter to an opaque white swatch: ColorFilter exposes no
+            // public color getter, and the icon's edge pixels contain anti-aliasing.
+            val swatch = createBitmap(1, 1)
+            Canvas(swatch).drawPaint(Paint().apply {
+                color = android.graphics.Color.WHITE
+                colorFilter = activePaint.colorFilter
+            })
+            val activeColor = Color(swatch[0, 0])
+            swatch.recycle()
+            WechatTabIcons(outlined, render(255), activeColor)
+        } finally {
+            focusAlpha.set(originalAlpha)
+        }
+    }
+
+    @Composable
+    private fun TabIcon(
+        item: NavItem,
+        filled: Boolean,
+        label: String,
+        nativeIcons: Map<Int, WechatTabIcons>,
+        useNativeIcons: Boolean,
+        tint: Color = androidx.compose.material3.LocalContentColor.current,
+    ) {
+        if (useNativeIcons) {
+            val icons = nativeIcons.getValue(item.wechatIndex)
+            Image(
+                bitmap = if (filled) icons.filled else icons.outlined,
+                contentDescription = label,
+                modifier = Modifier.size(24.dp),
+            )
+        } else {
+            Icon(
+                imageVector = if (filled) item.filled else item.outlined,
+                contentDescription = label,
+                tint = tint,
+            )
+        }
+    }
 
     private const val MIN_BLUR_RADIUS = 0
     private const val MAX_BLUR_RADIUS = 40
@@ -182,6 +300,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
     }
 
     override fun onEnable() {
+        refreshBarAppearance()
         // Freeze the page set for this process. Changing these options is intentionally applied
         // only on the next WeChat launch because FragmentStatePagerAdapter cannot safely change
         // the meaning of already-instantiated positions.
@@ -293,8 +412,6 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             }
         }
 
-        val animatePageChange = animatePageChange
-
         "com.tencent.mm.ui.mogic.WxViewPager".toClass().reflekt().apply {
             listOf("setCurrentItem", "setCurrentItemNotify").forEach { methodName ->
                 firstMethod {
@@ -327,6 +444,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
         }
 
         WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
+            recentPageHiddenState.value = false
             val activity = thisObject!!.reflekt()
                 .firstField {
                     type = "com.tencent.mm.ui.MMFragmentActivity"
@@ -410,6 +528,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                     // Leaving the conversation page always restores the bar and invalidates
                     // the scroll-direction tracker, so returning to the list starts fresh.
                     if (position != homePagerIndex) {
+                        recentPageHiddenState.value = false
                         barScrollHiddenState.value = false
                         scrollUpdated = false
                     }
@@ -422,18 +541,77 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                         ?: visibleWechatIndices.indexOf(args[0] as Int).coerceAtLeast(0)
                 }
 
-            val useFloating = useFloating
-            val useBackdrop = useBackdrop
-            val showFinderBadge = showFinderBadge
-            val hideLabels = hideLabels
-            val dynamicGravityHighlight = dynamicGravityHighlight
-            val barScale = barScalePercent.coerceIn(MIN_BAR_SCALE, MAX_BAR_SCALE) / 100f
+            // Capture view references before removing the host's tab children. Their logical
+            // tags survive reordered/disabled pages; only decode snapshots when requested.
+            val nativeIconViews = bottomTabViewGroup.descendants
+                .filter { it.javaClass.name == "com.tencent.mm.ui.TabIconView" }.associateBy { icon ->
+                    val tab = generateSequence(icon.parent as View) { it.parent as? View }
+                        .first { it.tag is Int }
+                    tab.tag as Int
+                }
+
+            fun attachBar(composeView: ComposeView, floating: Boolean) {
+                // HomeSidePanel moves the pager and its siblings into contentWrapper.
+                // Follow that current parent; reusing the doOnCreate parent would fight
+                // absorbStrayChildren(), repeatedly detaching the bar and its gesture state.
+                val contentParent = viewPager.parent as ViewGroup
+                val parent = if (floating) contentParent else bottomTabViewGroup
+                if (composeView.parent === parent) return
+
+                (composeView.parent as? ViewGroup)?.removeView(composeView)
+                bottomTabViewGroup.visibility = if (floating) View.GONE else View.VISIBLE
+                contentParent.clipChildren = false
+                contentParent.clipToPadding = false
+                composeView.clipChildren = false
+                composeView.clipToPadding = false
+                // Prepare the sampled RenderNodes before the pager's real traversal so its
+                // SurfaceView position wins. Z ordering still paints/hit-tests the bar on top.
+                composeView.z = if (floating) viewPager.z + 1f else 0f
+                parent.addView(
+                    composeView,
+                    if (floating) contentParent.indexOfChild(viewPager) else -1,
+                    if (floating) FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT,
+                        Gravity.BOTTOM,
+                    ) else ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ),
+                )
+            }
 
             val composeView = ComposeView(activity).apply {
                 setLifecycleOwner(lifecycleOwner)
+                // Keep ComposeView's original attach/detach lifecycle. Only changing bar
+                // mode rebuilds this composition; pager selection lives outside it above.
+                val barView = this
 
                 setContent {
                     InjectedUiTheme {
+                        val appearance by barAppearanceState
+                        val useFloating = appearance.floating
+                        val useBackdrop = appearance.backdrop
+                        val showFinderBadge = appearance.finderBadge
+                        val hideLabels = appearance.hideLabels
+                        val dynamicGravityHighlight = appearance.gravityHighlight
+                        val blurRadius = appearance.blurRadius
+                        val barScale = appearance.scalePercent.coerceIn(MIN_BAR_SCALE, MAX_BAR_SCALE) / 100f
+                        val darkTheme = isSystemInDarkTheme()
+                        val nativeIcons = remember(appearance.wechatIcons, darkTheme) {
+                            if (appearance.wechatIcons) nativeIconViews.mapValues { readWechatTabIcons(it.value) }
+                            else emptyMap()
+                        }
+                        DisposableEffect(lifecycleOwner) {
+                            // Re-read MMKV on return from settings, including changes made
+                            // outside this composition. In-dialog edits refresh immediately.
+                            val observer = LifecycleEventObserver { _, event ->
+                                if (event == Lifecycle.Event.ON_RESUME) refreshBarAppearance()
+                            }
+                            lifecycleOwner.lifecycle.addObserver(observer)
+                            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                        }
+                        LaunchedEffect(useFloating) { attachBar(barView, useFloating) }
                         val view = LocalView.current
 
                         // Long-press "发现" tab to jump straight into the improved timeline.
@@ -455,7 +633,11 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                         val contactUnreadCount by contactUnreadCountState
 
                         val backgroundColor = if (isSystemInDarkTheme()) Color(0xFF191919) else Color(0xFFF7F7F7)
-                        val activeColor = MaterialTheme.colorScheme.primary
+                        val activeColor = if (appearance.wechatIcons) {
+                            nativeIcons.getValue(visibleTabItems.first().wechatIndex).activeColor
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        }
                         val inactiveColor = if (isSystemInDarkTheme()) Color(0xFF999999) else Color(0xFF181818)
 
                         // Scale the bar by overriding the density rather than wrapping it in a
@@ -510,7 +692,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                             icon = {
                                                 BadgedBox(
                                                     badge = {
-                                                        if (index == 0 && unreadCount > 0) {
+                                                        if (item.wechatIndex == 0 && unreadCount > 0) {
                                                             Badge(containerColor = Color(0xFFFF3B30)) {
                                                                 Text(
                                                                     if (unreadCount <= 99) unreadCount.toString() else stringResource(R.string.badge_count_overflow),
@@ -543,11 +725,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                         animationSpec = tween(200),
                                                         label = "navIcon"
                                                     ) { filled ->
-                                                        Icon(
-                                                            imageVector = if (filled) item.filled else item.outlined,
-                                                            contentDescription = label,
-                                                            tint = tint
-                                                        )
+                                                        TabIcon(item, filled, label, nativeIcons, appearance.wechatIcons, tint)
                                                     }
                                                 }
                                             },
@@ -570,18 +748,20 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                             ) {
                                 val bottomCenter = Modifier.align(Alignment.BottomCenter)
 
-                                // NagramXF-style scroll auto-hide: slide below the screen,
-                                // shrink to 85% and fade out, reversing when the list scrolls
-                                // up again. barHeightPx includes the bottom padding because
+                                // Share the slide/shrink/fade animation for both hide reasons;
+                                // only scroll-driven hiding is gated by the auto-hide setting.
+                                // barHeightPx includes the bottom padding because
                                 // onSizeChanged observes the padded bounds, so translating by
                                 // it moves the bar fully off screen.
-                                val autoHideProgress by animateFloatAsState(
-                                    targetValue = if (barScrollHiddenState.value) 1f else 0f,
+                                val barHideProgress by animateFloatAsState(
+                                    targetValue = if (recentPageHiddenState.value ||
+                                        (appearance.autoHide && barScrollHiddenState.value)
+                                    ) 1f else 0f,
                                     animationSpec = tween(
                                         SCROLL_HIDE_DURATION_MS,
                                         easing = SCROLL_HIDE_EASING
                                     ),
-                                    label = "navAutoHide"
+                                    label = "navBarHide"
                                 )
                                 val barHeightPx = remember { mutableIntStateOf(0) }
                                 val bottomPadding =
@@ -595,7 +775,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                             .onSizeChanged { barHeightPx.intValue = it.height }
                                             .padding(bottom = bottomPadding)
                                             .graphicsLayer {
-                                                val progress = autoHideProgress
+                                                val progress = barHideProgress
                                                 translationY = progress * barHeightPx.intValue
                                                 alpha = 1f - progress
                                                 val scale =
@@ -639,20 +819,20 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                         },
                                         liquidGlassBlurRadius = blurRadius.dp,
                                         dynamicGravityHighlight = dynamicGravityHighlight,
-                                        iconContent = { item, index ->
+                                        iconContent = { item, index, previewSelected ->
                                             val label = stringResource(item.labelRes)
-                                            // Key the fill crossfade to the target page (the same
-                                            // driver as the pill), not the settled page: target
-                                            // flips immediately on a tab tap and on finger release
-                                            // during a swipe, while the settled page only advances
-                                            // after the pager stops. This matches SettingsActivity's
-                                            // Miuix bar, where the icon fills the moment the tab
-                                            // decision is made instead of a beat after the pill.
-                                            val isSelected = index == targetIndex
+                                            // Native bitmaps bake in both shape and color, so
+                                            // preview the pressed tab immediately. Material icons
+                                            // retain their page-driven fill and layer-driven tint.
+                                            val isSelected = if (appearance.wechatIcons) {
+                                                previewSelected
+                                            } else {
+                                                index == targetIndex
+                                            }
 
                                             BadgedBox(
                                                 badge = {
-                                                    if (index == 0 && unreadCount > 0) {
+                                                    if (item.wechatIndex == 0 && unreadCount > 0) {
                                                         Badge(containerColor = Color(0xFFFF3B30)) {
                                                             Text(
                                                                 if (unreadCount <= 99) unreadCount.toString() else stringResource(R.string.badge_count_overflow),
@@ -685,10 +865,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                     animationSpec = tween(200),
                                                     label = "navIconFloating"
                                                 ) { selected ->
-                                                    Icon(
-                                                        imageVector = if (selected) item.filled else item.outlined,
-                                                        contentDescription = label
-                                                    )
+                                                    TabIcon(item, selected, label, nativeIcons, appearance.wechatIcons)
                                                 }
                                             }
                                         },
@@ -712,36 +889,18 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                 }
             }
 
-            if (useFloating) {
-                // In floating mode, hide the original tab bar container so that WeChat's
-                // FrostedContentView reads its height as 0 and doesn't draw a frosted grey
-                // overlay behind it. Instead, attach the ComposeView directly to the parent
-                // FrameLayout as an overlay on top of the content.
-                bottomTabViewGroup.removeAllViews()
-                bottomTabViewGroup.visibility = View.GONE
+            bottomTabViewGroup.removeAllViews()
+            attachBar(composeView, barAppearanceState.value.floating)
+        }
 
-                // The pill scales up (press bulge ~1.39x plus velocity overshoot) via a
-                // graphicsLayer, so it draws beyond the ComposeView's WRAP_CONTENT bounds.
-                // The bottom overdraw lands in the padding/inset gap, but the top overdraw
-                // extends above the ComposeView and would be clipped by the Android view
-                // hierarchy. Disable child/padding clipping on the parent so it renders.
-                viewParent.clipChildren = false
-                viewParent.clipToPadding = false
-                composeView.clipChildren = false
-                composeView.clipToPadding = false
-
-                viewParent.addView(
-                    composeView,
-                    FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.WRAP_CONTENT,
-                        Gravity.BOTTOM
-                    )
-                )
-            } else {
-                bottomTabViewGroup.removeAllViews()
-                bottomTabViewGroup.addView(composeView)
-            }
+        // TaskBarAnimController starts this listener only when it actually hides the
+        // native tabs. Its generic isOpen callback also fires while closing/cancelling.
+        // The docked replacement already inherits the native container's animation.
+        methodRecentPageHideAnimationStart.hookAfter {
+            recentPageHiddenState.value = true
+        }
+        methodRecentPageClose.hookAfter {
+            recentPageHiddenState.value = false
         }
 
         methodUpdateTabUnread.hookBefore {
@@ -781,7 +940,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                 // Same gating as NagramXF: hide on any downward movement, but only show
                 // again while the finger is actively dragging the list up (touch scroll);
                 // a settling downward fling must not resurrect the bar.
-                if (!autoHideOnScroll) return@hookAfter
+                if (!useFloating || !autoHideOnScroll) return@hookAfter
                 val list = thisObject as AbsListView
                 val firstPosition = args[1] as Int
                 val firstViewTop = list.getChildAt(0)?.top ?: return@hookAfter
@@ -801,7 +960,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
         val recyclerOnScrolled = WeConversationListViewApi.methodRecyclerOnScrolled
         if (!recyclerOnScrolled.isPlaceholder) {
             recyclerOnScrolled.hookAfter {
-                if (!autoHideOnScroll) return@hookAfter
+                if (!useFloating || !autoHideOnScroll) return@hookAfter
                 val recyclerView = args[0] as ViewGroup
                 val firstPosition =
                     WeConversationListViewApi.methodRecyclerFirstVisiblePosition.method
@@ -816,21 +975,13 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             }
         }
 
-        // Suppress FrostedContentView's bottom blur overlay in floating mode.
-        //
-        // In WeChat 8.0.69, MainUI.q0() (onResume) calls:
-        //   frostedContentView.a(true, tabBar.getHeight())
-        // synchronously during doOnCreate — before our hookAfter fires and
-        // sets the tab bar to GONE. By that point bottomBlurAreaHeight is
-        // already set to the real measured height. Worse, a() has a <= 0
-        // fallback: if height is 0 it computes dimen.b2*density + nav_bar_height,
-        // producing the short frosted-glass strip you see below our bar.
-        // Hooking a() and forcing its first arg (frostedEnabled) to false is the
-        // only reliable fix regardless of call timing.
+        // Both replacement modes draw their own background. Suppress the host overlay
+        // throughout, including before doOnCreate finishes, so switching to floating
+        // mode cannot leave an already-enabled frosted strip behind.
         "com.tencent.mm.ui.FrostedContentView".toClass().firstMethod {
             parameters { it[0] == bool && it[1] == int }
         }.hookBefore {
-            if (useFloating) args[0] = false
+            args[0] = false
         }
     }
 
@@ -838,6 +989,9 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
     private val finderUnreadCountState = mutableIntStateOf(0)
     private val showFinderDotState = mutableStateOf(false)
     private val contactUnreadCountState = mutableIntStateOf(0)
+
+    // Always follow the host's Recent page, regardless of the scroll auto-hide setting.
+    private val recentPageHiddenState = mutableStateOf(false)
 
     // True while the bar should be hidden by the conversation-list scroll auto-hide.
     private val barScrollHiddenState = mutableStateOf(false)
@@ -911,6 +1065,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             var useBackdropInput by remember { mutableStateOf(useBackdrop) }
             var animatePageChangeInput by remember { mutableStateOf(animatePageChange) }
             var showFinderBadgeInput by remember { mutableStateOf(showFinderBadge) }
+            var useWechatIconsInput by remember { mutableStateOf(useWechatIcons) }
             var hideLabelsInput by remember { mutableStateOf(hideLabels) }
             var blurRadiusInput by remember { mutableFloatStateOf(blurRadius.toFloat()) }
             var dynamicGravityHighlightInput by remember { mutableStateOf(dynamicGravityHighlight) }
@@ -958,6 +1113,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     onCheckedChange = {
                                         useFloatingInput = it
                                         useFloating = it
+                                        refreshBarAppearance()
                                     },
                                 )
                             }
@@ -970,6 +1126,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     onCheckedChange = {
                                         autoHideOnScrollInput = it
                                         autoHideOnScroll = it
+                                        refreshBarAppearance()
                                         if (!it) barScrollHiddenState.value = false
                                     },
                                 )
@@ -982,6 +1139,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     onCheckedChange = {
                                         useBackdropInput = it
                                         useBackdrop = it
+                                        refreshBarAppearance()
                                     },
                                 )
                             }
@@ -994,6 +1152,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     onCheckedChange = {
                                         dynamicGravityHighlightInput = it
                                         dynamicGravityHighlight = it
+                                        refreshBarAppearance()
                                     },
                                 )
                             }
@@ -1010,9 +1169,22 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                         onValueChange = {
                                             blurRadiusInput = it.toFloat()
                                             blurRadius = it
+                                            refreshBarAppearance()
                                         },
                                     )
                                 }
+                            }
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_use_wechat_icons),
+                                    checked = useWechatIconsInput,
+                                    onCheckedChange = {
+                                        useWechatIconsInput = it
+                                        useWechatIcons = it
+                                        refreshBarAppearance()
+                                    },
+                                )
                             }
                             item(animatedVisibility = useFloatingInput) {
                                 SwitchWidget(
@@ -1022,6 +1194,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     onCheckedChange = {
                                         hideLabelsInput = it
                                         hideLabels = it
+                                        refreshBarAppearance()
                                     },
                                 )
                             }
@@ -1037,6 +1210,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                         onValueChange = {
                                             barScaleInput = it.toFloat()
                                             barScalePercent = it
+                                            refreshBarAppearance()
                                         },
                                     )
                                 }
@@ -1050,6 +1224,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     onCheckedChange = {
                                         showFinderBadgeInput = it
                                         showFinderBadge = it
+                                        refreshBarAppearance()
                                     },
                                 )
                             }
@@ -1150,6 +1325,25 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                     }) { Text(stringResource(R.string.dialog_confirm)) }
                 },
             )
+        }
+    }
+
+    private val methodRecentPageHideAnimationStart by dexMethod {
+        matcher {
+            declaredClass {
+                usingEqStrings($$"com/tencent/mm/plugin/taskbar/ui/TaskBarAnimController$6")
+            }
+            name = "onAnimationStart"
+            paramTypes("android.animation.Animator")
+            returnType = "void"
+        }
+    }
+
+    private val methodRecentPageClose by dexMethod {
+        matcher {
+            usingEqStrings("com/tencent/mm/plugin/taskbar/ui/TaskBarAnimController", "onClose")
+            paramTypes("boolean")
+            returnType = "void"
         }
     }
 

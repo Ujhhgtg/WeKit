@@ -29,6 +29,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsEditorSheet
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsEmptyState
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.SessionEntity
@@ -74,10 +80,10 @@ fun TriggersScreen(onBack: () -> Unit) {
     val global = triggers.filter { it.scope == TriggerScope.GLOBAL }
     val perSession = triggers.filter { it.scope == TriggerScope.SESSION }
 
-    AgentSettingsScaffold(title = stringResource(R.string.agent_triggers_title), onBack = onBack) {
+    SettingsScaffold(title = stringResource(R.string.agent_triggers_title), onBack = onBack) {
         if (triggers.isEmpty()) {
             item {
-                AgentEmptyState(
+                SettingsEmptyState(
                     title = stringResource(R.string.agent_empty_triggers_title),
                     message = stringResource(R.string.agent_empty_triggers_message),
                     actionLabel = stringResource(R.string.agent_add_trigger),
@@ -122,8 +128,8 @@ fun TriggersScreen(onBack: () -> Unit) {
             }
 
             item {
-                AgentActionRow {
-                    AgentListActionButton(
+                SettingsActionRow {
+                    SettingsListActionButton(
                         label = stringResource(R.string.agent_add_trigger),
                         icon = MaterialSymbols.Outlined.Add,
                         onClick = { editing = null; showEditor = true },
@@ -300,7 +306,7 @@ private fun TriggerEditorSheet(
             (selectedScope == TriggerScope.GLOBAL || sessionList.isNotEmpty()) &&
             intervalOk && sqlOpsOk
 
-    AgentEditorSheet(
+    SettingsEditorSheet(
         show = show,
         title = stringResource(if (creating) R.string.agent_add_trigger else R.string.agent_edit_trigger),
         onDismiss = onDismiss,
@@ -601,7 +607,7 @@ private fun TriggerEditorSheet(
         }
     }
 
-    AgentConfirmDialog(
+    SettingsConfirmDialog(
         show = showDeleteConfirm,
         title = stringResource(R.string.action_delete),
         message = stringResource(R.string.agent_delete_trigger_confirm),

@@ -1,9 +1,7 @@
 package dev.ujhhgtg.wekit.loader.startup
 
 import android.content.Context
-import com.tencent.mm.boot.BuildConfig
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.FeaturesLoader
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
@@ -14,6 +12,7 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 
 object WeLauncher {
 
@@ -23,8 +22,7 @@ object WeLauncher {
         ParcelableFixer.init()
 
         DexCacheManager.init(
-            if (!Preferences.resetDexCacheOnHotUpdate) "${HostInfo.versionName}${HostInfo.versionCode}"
-            else "${BuildConfig.VERSION_NAME}${BuildConfig.VERSION_CODE}${BuildConfig.CLIENT_VERSION_ARM64}"
+            KnownPaths.hostVersionKey()
         )
 
         val appContext = context.applicationContext ?: context

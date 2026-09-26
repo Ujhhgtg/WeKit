@@ -46,6 +46,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsEditorSheet
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsEmptyState
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
@@ -323,7 +328,7 @@ private fun SystemPromptsPage(
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
         if (prompts.isEmpty()) {
             item {
-                AgentEmptyState(
+                SettingsEmptyState(
                     title = stringResource(R.string.agent_empty_prompts_system),
                     actionLabel = stringResource(R.string.agent_add_system_prompt),
                     onAction = onAdd,
@@ -339,8 +344,8 @@ private fun SystemPromptsPage(
                 }
             }
             item {
-                AgentActionRow {
-                    AgentListActionButton(
+                SettingsActionRow {
+                    SettingsListActionButton(
                         label = stringResource(R.string.agent_add_system_prompt),
                         icon = MaterialSymbols.Outlined.Add,
                         onClick = onAdd,
@@ -362,7 +367,7 @@ private fun PerTurnPromptsPage(
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
         if (prompts.isEmpty()) {
             item {
-                AgentEmptyState(
+                SettingsEmptyState(
                     title = stringResource(R.string.agent_empty_prompts_per_turn),
                     actionLabel = stringResource(R.string.agent_add_per_turn_prompt),
                     onAction = onAdd,
@@ -385,8 +390,8 @@ private fun PerTurnPromptsPage(
                 }
             }
             item {
-                AgentActionRow {
-                    AgentListActionButton(
+                SettingsActionRow {
+                    SettingsListActionButton(
                         label = stringResource(R.string.agent_add_per_turn_prompt),
                         icon = MaterialSymbols.Outlined.Add,
                         onClick = onAdd,
@@ -408,7 +413,7 @@ private fun ConditionalPromptsPage(
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
         if (prompts.isEmpty()) {
             item {
-                AgentEmptyState(
+                SettingsEmptyState(
                     title = stringResource(R.string.agent_empty_prompts_conditional),
                     actionLabel = stringResource(R.string.agent_add_conditional_prompt),
                     onAction = onAdd,
@@ -431,8 +436,8 @@ private fun ConditionalPromptsPage(
                 }
             }
             item {
-                AgentActionRow {
-                    AgentListActionButton(
+                SettingsActionRow {
+                    SettingsListActionButton(
                         label = stringResource(R.string.agent_add_conditional_prompt),
                         icon = MaterialSymbols.Outlined.Add,
                         onClick = onAdd,
@@ -453,7 +458,7 @@ private fun PresetPromptsPage(
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
         if (prompts.isEmpty()) {
             item {
-                AgentEmptyState(
+                SettingsEmptyState(
                     title = stringResource(R.string.agent_empty_prompts_preset),
                     actionLabel = stringResource(R.string.agent_add_preset_prompt),
                     onAction = onAdd,
@@ -469,8 +474,8 @@ private fun PresetPromptsPage(
                 }
             }
             item {
-                AgentActionRow {
-                    AgentListActionButton(
+                SettingsActionRow {
+                    SettingsListActionButton(
                         label = stringResource(R.string.agent_add_preset_prompt),
                         icon = MaterialSymbols.Outlined.Add,
                         onClick = onAdd,
@@ -497,7 +502,7 @@ private fun SystemPromptEditor(
     var content by remember(existing, show) { mutableStateOf(existing.content) }
     var showDeleteConfirm by remember(existing) { mutableStateOf(false) }
 
-    AgentEditorSheet(
+    SettingsEditorSheet(
         show = show,
         title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_system_prompt else R.string.agent_edit_system_prompt),
         onDismiss = onDismiss,
@@ -528,7 +533,7 @@ private fun SystemPromptEditor(
         )
     }
 
-    AgentConfirmDialog(
+    SettingsConfirmDialog(
         show = showDeleteConfirm,
         title = stringResource(R.string.action_delete),
         message = stringResource(R.string.agent_delete_prompt_confirm),
@@ -555,7 +560,7 @@ private fun PerTurnPromptEditor(
     var content by remember(existing, show) { mutableStateOf(existing.content) }
     var showDeleteConfirm by remember(existing) { mutableStateOf(false) }
 
-    AgentEditorSheet(
+    SettingsEditorSheet(
         show = show,
         title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_per_turn_prompt else R.string.agent_edit_per_turn_prompt),
         onDismiss = onDismiss,
@@ -586,7 +591,7 @@ private fun PerTurnPromptEditor(
         )
     }
 
-    AgentConfirmDialog(
+    SettingsConfirmDialog(
         show = showDeleteConfirm,
         title = stringResource(R.string.action_delete),
         message = stringResource(R.string.agent_delete_prompt_confirm),
@@ -614,7 +619,7 @@ private fun ConditionalPromptEditor(
     var showDeleteConfirm by remember(existing) { mutableStateOf(false) }
     val regexError = remember(regex) { runCatching { Regex(regex) }.exceptionOrNull() }
 
-    AgentEditorSheet(
+    SettingsEditorSheet(
         show = show,
         title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_conditional_prompt else R.string.agent_edit_conditional_prompt),
         onDismiss = onDismiss,
@@ -651,7 +656,7 @@ private fun ConditionalPromptEditor(
         )
     }
 
-    AgentConfirmDialog(
+    SettingsConfirmDialog(
         show = showDeleteConfirm,
         title = stringResource(R.string.action_delete),
         message = stringResource(R.string.agent_delete_prompt_confirm),
@@ -678,7 +683,7 @@ private fun PresetPromptEditor(
     var content by remember(existing, show) { mutableStateOf(existing.content) }
     var showDeleteConfirm by remember(existing) { mutableStateOf(false) }
 
-    AgentEditorSheet(
+    SettingsEditorSheet(
         show = show,
         title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_preset_prompt else R.string.agent_edit_preset_prompt),
         onDismiss = onDismiss,
@@ -709,7 +714,7 @@ private fun PresetPromptEditor(
         )
     }
 
-    AgentConfirmDialog(
+    SettingsConfirmDialog(
         show = showDeleteConfirm,
         title = stringResource(R.string.action_delete),
         message = stringResource(R.string.agent_delete_prompt_confirm),

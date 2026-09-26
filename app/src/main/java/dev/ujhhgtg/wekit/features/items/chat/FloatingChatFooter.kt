@@ -46,7 +46,7 @@ import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.PANEL_TOP_RESERV
 import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.maxPanelHeight
 import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.movePanelAbove
 import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.offscreenHeight
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer

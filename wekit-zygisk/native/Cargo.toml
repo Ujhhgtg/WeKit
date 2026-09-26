@@ -2,6 +2,7 @@
 name = "wekit-zygisk"
 version = "0.1.0"
 edition = "2024"
+build = "build.rs"
 
 [lib]
 name = "wekit_zygisk"
@@ -13,3 +14,6 @@ jni = { version = "0.22", default-features = false }
 anyhow = "1"
 sha2 = "0.11"
 zip = { version = "2.4.2", default-features = false, features = ["deflate"] }
+
+[build-dependencies]
+cmake = "0.1"

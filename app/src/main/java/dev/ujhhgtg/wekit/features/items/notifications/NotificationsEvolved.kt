@@ -39,7 +39,8 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.features.items.contacts.CustomLocalFriendAvatars
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
@@ -203,7 +204,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     private val notificationTalkers = HashMap<NotificationKey, String>()
     private val conversationGenerations = HashMap<String, Any>()
 
-    private data class CachedAvatar(val icon: Icon, val expiresAt: Long)
+    private data class CachedAvatar(val icon: Icon, val expiresAt: Long, val customAvatarKey: String)
 
     private val stateLock = Any()
     private val pendingMessages = HashMap<String, ArrayDeque<PendingMessage>>()
@@ -673,9 +674,10 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         if (wxId.isEmpty() || wxId == "system") return null
 
         val now = System.currentTimeMillis()
+        val customAvatarKey = CustomLocalFriendAvatars.notificationAvatarCacheKey(wxId)
         synchronized(avatarLock) {
             avatarCache[wxId]?.let { cached ->
-                if (cached.expiresAt > now) return cached.icon
+                if (cached.expiresAt > now && cached.customAvatarKey == customAvatarKey) return cached.icon
                 avatarCache.remove(wxId)
             }
         }
@@ -693,7 +695,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         }.getOrNull() ?: return null
 
         synchronized(avatarLock) {
-            avatarCache[wxId] = CachedAvatar(icon, now + AVATAR_CACHE_TTL_MILLIS)
+            avatarCache[wxId] = CachedAvatar(icon, now + AVATAR_CACHE_TTL_MILLIS, customAvatarKey)
         }
         return icon
     }

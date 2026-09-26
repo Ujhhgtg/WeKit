@@ -80,7 +80,7 @@ class ToolCallExecutorTest {
     }
 
     @Test
-    fun `auto approval smart-approved call reports AI approval`() = runBlocking {
+    fun `auto approval smart-approved call reports AI approval`() = runBlocking(AgentSessionContext("session-smart-review")) {
         val registry = ToolRegistry(listOf(provider(sideEffect = true) { "pong" }))
         val client = object : LlmClient {
             override fun stream(request: LlmRequest) = flowOf(

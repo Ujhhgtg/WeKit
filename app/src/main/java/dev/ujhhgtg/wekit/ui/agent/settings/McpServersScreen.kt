@@ -25,6 +25,12 @@ import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Refresh
 import com.composables.icons.materialsymbols.outlined.Save
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsEmptyState
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
+import dev.ujhhgtg.wekit.ui.content.m3.rememberCreationBackGuard
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.McpTransport
@@ -71,10 +77,10 @@ fun McpServersScreen(onBack: () -> Unit, onOpenServer: (serverId: String) -> Uni
     val servers = allProviders.filter { it.kind == ProviderKind.MCP }
     val liveProviders by McpClientManager.providers.collectAsState()
 
-    AgentSettingsScaffold(title = stringResource(R.string.agent_mcp_servers_title), onBack = onBack) {
+    SettingsScaffold(title = stringResource(R.string.agent_mcp_servers_title), onBack = onBack) {
         if (servers.isEmpty()) {
             item {
-                AgentEmptyState(
+                SettingsEmptyState(
                     title = stringResource(R.string.agent_empty_mcp_title),
                     message = stringResource(R.string.agent_empty_mcp_message),
                     actionLabel = stringResource(R.string.agent_add_server),
@@ -108,8 +114,8 @@ fun McpServersScreen(onBack: () -> Unit, onOpenServer: (serverId: String) -> Uni
                 }
             }
             item {
-                AgentActionRow {
-                    AgentListActionButton(
+                SettingsActionRow {
+                    SettingsListActionButton(
                         label = stringResource(R.string.agent_add_server),
                         icon = MaterialSymbols.Outlined.Add,
                         onClick = { onOpenServer("") },
@@ -170,7 +176,7 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
     val savable = srv?.endpointUrl?.isNotBlank() == true
     val guardedBack = rememberCreationBackGuard(!editing && savable, onBack)
 
-    AgentSettingsScaffold(
+    SettingsScaffold(
         title = if (!editing) stringResource(R.string.agent_add_mcp_server)
         else server?.name ?: stringResource(R.string.agent_mcp_servers_title),
         onBack = guardedBack,
@@ -232,8 +238,8 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
 
         if (!editing) {
             item {
-                AgentActionRow {
-                    AgentListActionButton(
+                SettingsActionRow {
+                    SettingsListActionButton(
                         label = stringResource(R.string.action_save),
                         icon = MaterialSymbols.Outlined.Save,
                         enabled = savable,
@@ -273,7 +279,7 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
             }
 
             item {
-                AgentActionRow {
+                SettingsActionRow {
                     OutlinedButton(
                         onClick = { showDeleteConfirm = true },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
@@ -283,7 +289,7 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
 
             if (tools.isEmpty()) {
                 item {
-                    AgentEmptyState(
+                    SettingsEmptyState(
                         title = stringResource(R.string.agent_empty_mcp_tools_title),
                         message = stringResource(R.string.agent_empty_mcp_tools_message),
                     )
@@ -301,7 +307,7 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
         }
     }
 
-    AgentConfirmDialog(
+    SettingsConfirmDialog(
         show = showDeleteConfirm,
         title = stringResource(R.string.agent_delete_server),
         message = stringResource(R.string.agent_delete_server_confirm),

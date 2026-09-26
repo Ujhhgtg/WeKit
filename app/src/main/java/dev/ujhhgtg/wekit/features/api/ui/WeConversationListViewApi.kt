@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.api.ui
 
 import android.graphics.Color
+import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.view.View
@@ -102,6 +103,27 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
         }
     }
 
+    private val methodListViewCheckEmptyFooter by dexMethod {
+        matcher {
+            declaredClass = "com.tencent.mm.ui.conversation.ConversationListView"
+            paramCount = 0
+            returnType = "void"
+            usingEqStrings("[checkEmptyFooter] isRealFull:", "[checkEmptyFooter] setSelection")
+        }
+    }
+
+    private val fieldListViewActionBar by dexField {
+        matcher {
+            declaredClass = "com.tencent.mm.ui.conversation.ConversationListView"
+            type = "android.view.View"
+            addReadMethod {
+                paramCount = 0
+                returnType = "void"
+                usingEqStrings("resetActionBarView")
+            }
+        }
+    }
+
     /** Common host interface implemented by both the ListView and RecyclerView adapters. */
     val classConversationAdapter by dexClass()
 
@@ -165,6 +187,8 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
 
     val methodRecyclerOnScrollStateChanged by dexMethod()
 
+    private val fieldRecyclerActionBar by dexField()
+
     override fun resolveDex(dexKit: DexKitBridge) {
         if (classConversationListHost.isPlaceholder) {
             val reason = "common conversation list host is absent"
@@ -210,6 +234,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             methodRecyclerFirstVisiblePosition.setPlaceholderDescriptor(true, reason)
             methodRecyclerOnScrolled.setPlaceholderDescriptor(true, reason)
             methodRecyclerOnScrollStateChanged.setPlaceholderDescriptor(true, reason)
+            fieldRecyclerActionBar.setPlaceholderDescriptor(true, reason)
             return
         }
 
@@ -269,6 +294,17 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
                     "MicroMsg.ConversationRecyclerView",
                     "[flushPendingHeaders] flushing %d headers",
                 )
+            }
+        }
+        fieldRecyclerActionBar.find(dexKit) {
+            matcher {
+                declaredClass(classConversationRecyclerView.data.name)
+                type = "android.view.View"
+                addReadMethod {
+                    paramCount = 0
+                    returnType = "void"
+                    usingEqStrings($$"resetActionBarView$app_release")
+                }
             }
         }
         methodRecyclerAddHeaderView.find(dexKit) {
@@ -350,7 +386,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
         positionProviders.remove(provider)
     }
 
-    fun refresh() {
+    fun refresh(resetListViewPosition: Boolean = false) {
         runOnUiThread {
             val adapter = latestAdapter?.get() ?: return@runOnUiThread
             when (latestBackend) {
@@ -364,6 +400,13 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
                     }
                     dividerCoordinator.applyListView(listView)
                     (adapter as BaseAdapter).notifyDataSetChanged()
+                    if (resetListViewPosition && listView != null) {
+                        // Shorter datasets need their filler height before ListView lays out;
+                        // otherwise bottom alignment can pull the recent mini-program header down.
+                        methodListViewCheckEmptyFooter.method.invoke(listView)
+                        // WeChat's override chooses the first visible banner and its native offset.
+                        listView.setSelection(0)
+                    }
                 }
 
                 Backend.RECYCLER_VIEW -> {
@@ -385,6 +428,67 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
 
     fun currentAdapter(): Any? = latestAdapter?.get()
 
+    fun currentContainer(): View? = latestContainer?.get()
+
+    /** UI-thread refresh of a specific host, without relying on the last row that happened to bind. */
+    fun refreshContainer(container: View, resetListViewPosition: Boolean = false) {
+        if (container is ListView) {
+            val installed = container.adapter ?: return
+            val adapter = (installed as? HeaderViewListAdapter)?.wrappedAdapter ?: installed
+            dividerCoordinator.applyListView(container)
+            (adapter as BaseAdapter).notifyDataSetChanged()
+            if (resetListViewPosition) {
+                methodListViewCheckEmptyFooter.method.invoke(container)
+                container.setSelection(0)
+            }
+        } else {
+            val adapter = container.reflekt().firstMethod {
+                name = "getAdapter"
+                parameters()
+                superclass()
+            }.invoke() ?: return
+            notifyAdapterChanged(adapter)
+        }
+    }
+
+    /** Called only when deciding a gesture, not during scrolling or drawing. */
+    fun isRecentPageVisible(container: View): Boolean {
+        val header = container.reflekt().fields {
+            type { it.name.startsWith("com.tencent.mm.plugin.taskbar.ui.") }
+        }.firstNotNullOfOrNull { field ->
+            (field.get() as? View)?.takeIf {
+                it.javaClass.name == "com.tencent.mm.plugin.taskbar.ui.TaskBarContainer"
+            }
+        } ?: return false
+        val visible = Rect()
+        if (!header.isShown || !header.getGlobalVisibleRect(visible)) return false
+        val actionBar = actionBarView(container) ?: return true
+        val actionBarBounds = Rect()
+        if (!actionBar.getGlobalVisibleRect(actionBarBounds)) return true
+        return visible.bottom > actionBarBounds.bottom
+    }
+
+    /** Empty spacer footers, including RecyclerView's fixed footer before it is attached. */
+    fun emptyFooterViews(container: View): List<ViewGroup> {
+        val candidates = if (container is ListView) {
+            val adapter = container.adapter as? HeaderViewListAdapter ?: return emptyList()
+            val count = adapter.count
+            // These positions return stored FixedViewInfo views without binding conversation rows.
+            (count - adapter.footersCount until count).map { position ->
+                adapter.getView(position, null, container)
+            }
+        } else {
+            // ConversationRecyclerView creates and retains its empty footer in its constructor.
+            // Inspect only its own View fields; no adapter-position lookup or attach polling is needed.
+            container.reflekt().fields { type = View::class }.mapNotNull { it.get() as View? }
+        }
+        return candidates.mapNotNull { view ->
+            (view as? ViewGroup)?.takeIf {
+                it.childCount == 1 && it.getChildAt(0).javaClass == View::class.java
+            }
+        }
+    }
+
     fun hostView(mainUi: Any): View {
         if (classConversationListHost.isPlaceholder) {
             return mainUi.reflekt().firstField {
@@ -402,6 +506,22 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
         }
         val host = fieldMainUiListHost.field.get(mainUi)!!
         methodListHostAddHeaderView.method.invoke(host, header)
+    }
+
+    fun actionBarView(hostView: View): View? =
+        (if (hostView is ListView) fieldListViewActionBar else fieldRecyclerActionBar)
+            .field.get(hostView) as View?
+
+    fun headerCount(hostView: View): Int = if (hostView is ListView) {
+        hostView.headerViewsCount
+    } else {
+        hostView.reflekt().firstMethod { name = "getHeaderViewsCount"; parameters() }.invoke() as Int
+    }
+
+    fun firstVisiblePosition(hostView: View): Int = if (hostView is ListView) {
+        hostView.firstVisiblePosition
+    } else {
+        methodRecyclerFirstVisiblePosition.method.invoke(hostView) as Int
     }
 
     fun setDividerHidden(owner: Any, hidden: Boolean) {

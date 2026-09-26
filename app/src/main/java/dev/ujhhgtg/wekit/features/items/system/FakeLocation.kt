@@ -20,13 +20,15 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.OsmLocationPicker
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.TargetProcess
+import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -42,6 +44,7 @@ object FakeLocation : ClickableFeature(), IResolveDex {
     override val nameRes = R.string.feature_fake_location_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_fake_location_description
+    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 
     private val methodListener by dexMethod {
         matcher {
@@ -91,6 +94,10 @@ object FakeLocation : ClickableFeature(), IResolveDex {
                 hookTencentLocation(tencentLocation)
             }
         }
+
+        // Mini Apps use the same Tencent location callbacks in their own process. The
+        // chat attachment panel, however, belongs exclusively to the main process.
+        if (!TargetProcesses.isInMain) return
 
         WeChatInputBarMenuApi.methodAppGridGetView.hookAfter {
             val itemView = result as View

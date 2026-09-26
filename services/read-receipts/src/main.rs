@@ -10,9 +10,7 @@ use std::io::Write;
 use std::sync::{Mutex, OnceLock};
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use tracing::{error, info};
-use wekit_read_receipts_server::{
-    AppState, RouteProfile, ServerConfig, build_router, compute_msg_id, initialize_database,
-};
+use wekit_read_receipts_server::{AppState, build_router, compute_msg_id, initialize_database};
 
 struct LocalTimer;
 
@@ -671,14 +669,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let _ = PORT.set(bind_port);
 
-    let config = ServerConfig {
-        database_path: database_path.unwrap_or_default(),
-        bind_addr: bind_host,
-        bind_port,
-        route_profile: RouteProfile::Standalone,
-        connector_authenticator: None,
-    };
-    let app = build_router(&config, Arc::new(AppState::new(conn)));
+    let app = build_router(Arc::new(AppState::new(conn)));
 
     let addr = SocketAddr::from((bind_host, bind_port));
     info!("server launching on http://{addr}");

@@ -55,7 +55,7 @@
 //import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 //import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 //import dev.ujhhgtg.wekit.features.core.ClickableFeature
-//import dev.ujhhgtg.wekit.preferences.WePrefs
+//import dev.ujhhgtg.wekit.data.KvStore
 //import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 //import dev.ujhhgtg.wekit.ui.content.Button
 //import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -109,32 +109,32 @@
 //    override val alwaysEnabled = true
 //    override val noSwitchWidget = true
 //
-//    // ---------- Global defaults (stored as individual WePrefs keys) ----------
+//    // ---------- Global defaults (stored as individual KvStore keys) ----------
 //
-//    private var globalSoundModeStr by WePrefs.prefOption("ccn_global_sound", NotifSoundMode.GLOBAL.name)
+//    private var globalSoundModeStr by KvStore.prefOption("ccn_global_sound", NotifSoundMode.GLOBAL.name)
 //    var globalSoundMode: NotifSoundMode
 //        get() = runCatching { NotifSoundMode.valueOf(globalSoundModeStr) }.getOrDefault(NotifSoundMode.GLOBAL)
 //        set(v) {
 //            globalSoundModeStr = v.name
 //        }
 //
-//    var globalSoundUri by WePrefs.prefOption("ccn_global_sound_uri", null as String?)
+//    var globalSoundUri by KvStore.prefOption("ccn_global_sound_uri", null as String?)
 //
-//    private var globalVibrationModeStr by WePrefs.prefOption("ccn_global_vibration", NotifVibrationMode.GLOBAL.name)
+//    private var globalVibrationModeStr by KvStore.prefOption("ccn_global_vibration", NotifVibrationMode.GLOBAL.name)
 //    var globalVibrationMode: NotifVibrationMode
 //        get() = runCatching { NotifVibrationMode.valueOf(globalVibrationModeStr) }.getOrDefault(NotifVibrationMode.GLOBAL)
 //        set(v) {
 //            globalVibrationModeStr = v.name
 //        }
 //
-//    private var globalPriorityModeStr by WePrefs.prefOption("ccn_global_priority", NotifPriorityMode.GLOBAL.name)
+//    private var globalPriorityModeStr by KvStore.prefOption("ccn_global_priority", NotifPriorityMode.GLOBAL.name)
 //    var globalPriorityMode: NotifPriorityMode
 //        get() = runCatching { NotifPriorityMode.valueOf(globalPriorityModeStr) }.getOrDefault(NotifPriorityMode.GLOBAL)
 //        set(v) {
 //            globalPriorityModeStr = v.name
 //        }
 //
-//    private var globalDndModeStr by WePrefs.prefOption("ccn_global_dnd", NotifDndMode.IGNORE.name)
+//    private var globalDndModeStr by KvStore.prefOption("ccn_global_dnd", NotifDndMode.IGNORE.name)
 //    var globalDndMode: NotifDndMode
 //        get() = runCatching { NotifDndMode.valueOf(globalDndModeStr) }.getOrDefault(NotifDndMode.IGNORE)
 //        set(v) {
@@ -146,21 +146,21 @@
 //    private fun convPrefsKey(wxId: String) = "ccn_conv_$wxId"
 //
 //    fun getConvPrefs(wxId: String): ConvNotifPrefs {
-//        return WePrefs.default.getObject(convPrefsKey(wxId)) as? ConvNotifPrefs ?: ConvNotifPrefs()
+//        return KvStore.getObject(convPrefsKey(wxId)) as? ConvNotifPrefs ?: ConvNotifPrefs()
 //    }
 //
 //    fun setConvPrefs(wxId: String, prefs: ConvNotifPrefs) {
 //        if (prefs.isAllGlobal) {
-//            WePrefs.remove(convPrefsKey(wxId))
+//            KvStore.remove(convPrefsKey(wxId))
 //        } else {
-//            WePrefs.default.putObject(convPrefsKey(wxId), prefs)
+//            KvStore.putObject(convPrefsKey(wxId), prefs)
 //        }
 //    }
 //
 //    /** Wx IDs of conversations that have any non-GLOBAL override. */
 //    fun listConvOverrides(): Set<String> {
 //        val prefix = "ccn_conv_"
-//        return WePrefs.default.getAll()
+//        return KvStore.getAll()
 //            .keys
 //            .filter { it.startsWith(prefix) }
 //            .map { it.removePrefix(prefix) }

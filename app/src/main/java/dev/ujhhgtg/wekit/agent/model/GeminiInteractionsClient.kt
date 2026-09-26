@@ -68,6 +68,7 @@ class GeminiInteractionsClient(
         // error, break on interaction.completed) previously abandoned an open SSE body channel,
         // leaking the connection until GC. `execute` releases it on every path, incl. exceptions.
         http.preparePost(endpoint) {
+            header("x-opencode-session", request.sessionId)
             header(GeminiCommon.API_KEY_HEADER, apiKey)
             contentType(ContentType.Application.Json)
             setBody(LlmJson.json.encodeToString(JsonObject.serializer(), body))

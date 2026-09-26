@@ -1,15 +1,9 @@
 package dev.ujhhgtg.wekit.loader.utils
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.os.Process
-import com.tencent.mmkv.MMKV
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
-import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import java.io.File
-import kotlin.io.path.div
-import kotlin.io.path.exists
 
 /** Initializes bundled native libraries and resolves the APK's executable artifacts. */
 object NativeLoader {
@@ -36,17 +30,10 @@ object NativeLoader {
         zygiskPayload?.apk ?: File(StartupInfo.modulePath)
     }
 
-    fun init(hostCtx: Context) {
-        val libLoader = synchronized(nativeLoadLock) {
+    fun init() {
+        synchronized(nativeLoadLock) {
             ensureNativeLibrariesLoaded()
-            mmkvLibLoader()
         }
-        val mmkvDir = hostCtx.filesDir.toPath() / "mmkv"
-        if (!mmkvDir.exists()) {
-            mmkvDir.createDirsSafe()
-        }
-        MMKV.initialize(hostCtx, mmkvDir.toString(), libLoader)
-        MMKV.mmkvWithID(WePrefs.PREFS_NAME, MMKV.MULTI_PROCESS_MODE)
     }
 
     // Called under nativeLoadLock. Publish success only after all startup libraries load.
@@ -72,23 +59,7 @@ object NativeLoader {
         nativeLibrariesLoaded = true
     }
 
-    @SuppressLint("UnsafeDynamicallyLoadedCode")
-    private fun mmkvLibLoader(): MMKV.LibLoader = if (zygiskPayload == null) {
-        MMKV.LibLoader { name -> System.load(installedNativeLibrary(name).absolutePath) }
-    } else {
-        MMKV.LibLoader { name ->
-            val library = zygiskNativeLibraries[name]
-            if (library != null) {
-                System.load(library.absolutePath)
-            } else {
-                System.loadLibrary(name)
-            }
-        }
-    }
-
     fun invokeToolExecutable(): File = bundledExecutable("invoke_tool")
-
-    fun chrootCleanupExecutable(): File = bundledExecutable("chroot_cleanup")
 
     // PRoot requires the installed APK's native directory; the Zygisk payload does not provide it.
     fun prootExecutable(): File = synchronized(nativeLoadLock) {

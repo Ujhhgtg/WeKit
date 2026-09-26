@@ -46,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -3253,14 +3254,16 @@ private fun StickerSettingsContent(
                     content = { Text(stringResource(R.string.sticker_setting_columns)) },
                     supportingContent = { Text(stringResource(R.string.panel_setting_custom_number_summary, columns)) },
                 )
+                val sliderState = remember {
+                    SliderState(value = columns.coerceIn(2, 10).toFloat(), steps = 7, trackRange = 2f..10f)
+                }
+                sliderState.value = columns.coerceIn(2, 10).toFloat()
                 Slider(
-                    value = columns.coerceIn(2, 10).toFloat(),
+                    state = sliderState,
                     onValueChange = {
                         columns = it.roundToLong().toInt().coerceIn(2, 10)
                         PanelSettings.stickerColumnCount = columns
                     },
-                    valueRange = 2f..10f,
-                    steps = 7,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),

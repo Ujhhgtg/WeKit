@@ -54,6 +54,7 @@ import dev.ujhhgtg.wekit.utils.reflection.void
 import dev.ujhhgtg.wekit.utils.serialization.JsonToXmlConverter
 import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlAttr
 import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlTag
+import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.matchers.base.AccessFlagsMatcher
@@ -682,6 +683,89 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                     imageFeatureServiceNewPathProbes.joinToString { it.descriptor }
             )
         }
+    }
+
+    /** 正常未读显示数字；正常未读为零且存在免打扰未读时显示红点。 */
+    data class ConversationUnreadState(
+        val normalCount: Long = 0,
+        val hasMutedUnread: Boolean = false,
+    )
+
+    /**
+     * 获取单个会话的未读状态。会话不存在或没有未读时返回零状态。
+     * 同步读取数据库，应在后台线程调用；数据库未就绪或查询失败时抛出异常。
+     */
+    fun getConversationUnreadState(talker: String): ConversationUnreadState =
+        getConversationUnreadStates(listOf(talker)).getValue(talker)
+
+    /**
+     * 批量读取会话未读状态，同时查询联系人免打扰设置，避免逐个会话查库。
+     *
+     * [talkers] 非 null 时去重并返回每个请求 ID 的状态，不存在或无未读的会话为零状态；
+     * 空集合不查询数据库。传 null 时查询全部有未读的会话，结果不包含无未读的行。
+     * [excludeContainers] 可排除已有子会话的汇总容器，方便跨会话求和时避免重复计数。
+     * 若指定的 ID 是被排除的容器，其结果为零状态。
+     * 本接口不应用隐藏联系人或分组过滤。同步读取数据库，应在后台线程调用；
+     * 数据库未就绪或查询失败时抛出异常，不将失败伪装为零未读。
+     */
+    fun getConversationUnreadStates(
+        talkers: Collection<String>? = null,
+        excludeContainers: Boolean = false,
+    ): Map<String, ConversationUnreadState> {
+        val uniqueTalkers = talkers?.toSet()
+        if (uniqueTalkers?.isEmpty() == true) return emptyMap()
+        val states = mutableMapOf<String, ConversationUnreadState>()
+        uniqueTalkers?.forEach { states[it] = ConversationUnreadState() }
+        // Keep bound parameters below SQLite's legacy 999-variable limit.
+        val batches = uniqueTalkers?.chunked(900) ?: listOf(null)
+        for (batch in batches) {
+            val talkerClause = if (batch == null) "" else
+                " AND c.username IN (${batch.joinToString(",") { "?" }})"
+            val containerClause = if (excludeContainers)
+                " AND NOT EXISTS (SELECT 1 FROM rconversation child WHERE child.parentRef = c.username)"
+            else ""
+            WeDatabaseApi.rawQuery(
+                "SELECT c.username, c.unReadCount, c.unReadMuteCount, r.type, r.lvbuff, c.attrflag " +
+                    "FROM rconversation c LEFT JOIN rcontact r ON r.username = c.username " +
+                    "WHERE (c.unReadCount > 0 OR c.unReadMuteCount > 0)$talkerClause$containerClause",
+                batch?.toTypedArray<Any>(),
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val username = cursor.getString(0)
+                    // Muted conversations can store unread in unReadCount too. Use the same
+                    // contact settings as WeConversationApi.isDnd, without another DB lookup.
+                    val muted = if (username.isGroupChatWxId) {
+                        val lvbuff = if (cursor.isNull(4)) null else cursor.getBlob(4)
+                        WeConversationApi.parseChatRoomNotify(lvbuff) == 0
+                    } else {
+                        cursor.getInt(3) and 512 != 0
+                    }
+                    val unreadCount = cursor.getLong(1).coerceAtLeast(0)
+                    val muteCount = cursor.getLong(2)
+                    val state = if (username == "officialaccounts" || username == "service_officialaccounts") {
+                        // ConversationUnreadHelper (8.0.65 q3.a / 8.0.76 w3.b): these entries
+                        // display dots, and consuming the hint need not clear unReadCount.
+                        val flags = cursor.getInt(5)
+                        val showDot = when {
+                            unreadCount == 0L -> muteCount > 0 && flags and (8388608 or 2097152) != 0
+                            username == "officialaccounts" ->
+                                flags and (16 or 64) != 0 && !(flags and 64 != 0 && flags and 2048 != 0)
+                            else -> flags and (512 or 1024 or 32768) != 0
+                        }
+                        ConversationUnreadState(hasMutedUnread = showDot)
+                    } else {
+                        ConversationUnreadState(
+                            normalCount = if (muted) 0 else unreadCount,
+                            hasMutedUnread = muteCount > 0 || muted && unreadCount > 0,
+                        )
+                    }
+                    if (uniqueTalkers != null || state.normalCount > 0 || state.hasMutedUnread) {
+                        states[username] = state
+                    }
+                }
+            }
+        }
+        return states
     }
 
     fun convertMsgInfoInstanceFromContentValues(contentValues: ContentValues): Any {

@@ -28,13 +28,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -76,6 +76,7 @@ import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Colorize
 import com.composables.icons.materialsymbols.outlined.Contrast
 import com.composables.icons.materialsymbols.outlined.Delete_forever
+import com.composables.icons.materialsymbols.outlined.Delete_sweep
 import com.composables.icons.materialsymbols.outlined.Download
 import com.composables.icons.materialsymbols.outlined.Extension
 import com.composables.icons.materialsymbols.outlined.Frame_bug
@@ -111,13 +112,14 @@ import dev.ujhhgtg.wekit.i18n.LanguageSelection
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.i18n.SupportedLocale
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.CornerRadius
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
+import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveCollapsingTopAppBar
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
@@ -156,10 +158,15 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
     val currentLocalizedContext = rememberUpdatedState(LocalWeKitLocalizedContext.current)
 
     var showClearConfirm by remember { mutableStateOf(false) }
+    var showLegacyCleanupConfirm by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<UpdateResult.UpdateAvailable?>(null) }
     var updateError by remember { mutableStateOf<String?>(null) }
 
     ClearConfigDialog(show = showClearConfirm, onDismiss = { showClearConfirm = false })
+    LegacyCleanupDialog(
+        show = showLegacyCleanupConfirm,
+        onDismiss = { showLegacyCleanupConfirm = false },
+    )
     UpdateAvailableDialog(info = updateInfo, onDismiss = { updateInfo = null }, context = context)
     UpdateErrorDialog(message = updateError, onDismiss = { updateError = null })
 
@@ -270,6 +277,14 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         summary = stringResource(R.string.settings_clear_config_summary),
                         icon = MaterialSymbols.Outlined.Delete_forever,
                         onClick = { showClearConfirm = true },
+                    )
+                }
+                item {
+                    PrefArrow(
+                        title = stringResource(R.string.settings_cleanup_legacy_title),
+                        summary = stringResource(R.string.settings_cleanup_legacy_summary),
+                        icon = MaterialSymbols.Outlined.Delete_sweep,
+                        onClick = { showLegacyCleanupConfirm = true },
                     )
                 }
             }
@@ -745,6 +760,9 @@ private fun HsvSlider(
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float>,
 ) {
+    val sliderState = remember(valueRange) { SliderState(value = value, trackRange = valueRange) }
+    sliderState.value = value
+
     Column {
         Text(
             text = "$label: ${value.toInt()}",
@@ -752,9 +770,8 @@ private fun HsvSlider(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Slider(
-            value = value,
+            state = sliderState,
             onValueChange = onValueChange,
-            valueRange = valueRange,
         )
     }
 }
@@ -773,7 +790,7 @@ private fun PrefSwitch(
 ) {
     // Must match the default declared on the matching `prefOption`, otherwise the switch shows
     // "off" for a preference that is actually on until the user toggles it once.
-    var checked by remember(key, default) { mutableStateOf(WePrefs.getBoolOrDef(key, default)) }
+    var checked by remember(key, default) { mutableStateOf(KvStore.getBoolOrDef(key, default)) }
     SwitchWidget(
         title = title,
         description = summary,
@@ -781,7 +798,7 @@ private fun PrefSwitch(
         checked = checked,
         onCheckedChange = {
             checked = it
-            WePrefs.putBool(key, it)
+            KvStore.putBool(key, it)
         },
     )
 }
@@ -871,8 +888,28 @@ private fun ClearConfigDialog(show: Boolean, onDismiss: () -> Unit) {
             onDismiss()
             CoroutineScope(Dispatchers.IO).launch {
                 showToastSuspend(localizedContext.getString(R.string.config_clearing))
-                SettingsConfigActions.clear()
+                SettingsConfigActions.clearAndRestart()
                 showToastSuspend(localizedContext.getString(R.string.config_clear_success))
+            }
+        },
+    )
+}
+
+@Composable
+private fun LegacyCleanupDialog(show: Boolean, onDismiss: () -> Unit) {
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    ConfirmDialog(
+        show = show,
+        title = stringResource(R.string.cleanup_legacy_dialog_title),
+        message = stringResource(R.string.cleanup_legacy_dialog_message),
+        confirmText = stringResource(R.string.action_clear),
+        onDismiss = onDismiss,
+        onConfirm = {
+            onDismiss()
+            CoroutineScope(Dispatchers.IO).launch {
+                showToastSuspend(localizedContext.getString(R.string.config_clearing))
+                SettingsConfigActions.clearLegacyData()
+                showToastSuspend(localizedContext.getString(R.string.cleanup_legacy_success))
             }
         },
     )
@@ -1008,9 +1045,9 @@ fun LicenseScreen(onBack: () -> Unit) {
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
-            LargeFlexibleTopAppBar(
+            ExpressiveCollapsingTopAppBar(
                 modifier = Modifier.m3AppBarBlur(barBackdrop),
-                title = { Text(stringResource(R.string.licenses_title)) },
+                title = stringResource(R.string.licenses_title),
                 navigationIcon = { ExpressiveBackButton(onClick = onBack) },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(

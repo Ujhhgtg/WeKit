@@ -1,49 +1,118 @@
 package dev.ujhhgtg.wekit.loader.entry.zygisk
 
 import androidx.annotation.Keep
-import dalvik.system.DexFile
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.lang.reflect.Constructor
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Member
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.CountDownLatch
 
-/**
- * Runtime dispatch engine for ZygiskHookBridge.
- *
- * Stores the per-hook state (member, callbacks, backup method) and implements
- * the before/after callback dispatch contract that matches IHookBridge semantics.
- * Thread-safe: ConcurrentHashMap + CopyOnWriteArrayList.
- */
+/** Callback state and IHookBridge dispatch for LSPlant's generated bridges. */
 @Keep
 object ArtHookBridgeRuntime {
 
     private const val TAG = "ArtHookBridgeRuntime"
 
-    // ── Internal types ────────────────────────────────────────────────────────
-
-    /**
-     * One concrete callback registration. This deliberately keeps identity
-     * equality: two hook handles may wrap the same callback object, and each
-     * handle must be able to unhook only its own registration.
-     */
+    /** Each handle owns one registration, even when callback objects are shared. */
     class PrioritizedCallback(
         val callback: IHookBridge.IMemberHookCallback,
         val priority: Int,
     )
 
-    class HookEntry(
-        val member: Member,
-        val backupMethod: Method,   // DexMaker-generated backup; ArtMethod holds original code
-        @Suppress("unused")
-        val dexFile: DexFile,
-    ) {
+    /** LSPlant retains this instance as its generated bridge's hooker object. */
+    @Keep
+    class HookEntry(val member: Member) {
         val callbacks: CopyOnWriteArrayList<PrioritizedCallback> = CopyOnWriteArrayList()
+        private val isStatic = Modifier.isStatic(member.modifiers)
+        private val installationFinished = CountDownLatch(1)
+        @Volatile private var backupMethod: Method? = null
+        @Volatile private var installationThread: Thread? = Thread.currentThread()
+        private var installationFailure: Throwable? = null
+
+        val isInstalled: Boolean get() = backupMethod != null
+
+        fun completeInstallation(backup: Method) {
+            // LSPlant has already made the reflected backup accessible.
+            backupMethod = backup
+            installationThread = null
+            installationFinished.countDown()
+        }
+
+        fun failInstallation(failure: Throwable) {
+            installationFailure = failure
+            installationThread = null
+            installationFinished.countDown()
+        }
+
+        fun awaitBackup(): Method {
+            backupMethod?.let { return it }
+            // Class loading inside LSPlant can re-enter through another hook;
+            // its installer cannot wait for itself to finish publishing backup.
+            check(Thread.currentThread() !== installationThread) {
+                "$TAG: reentrant access while LSPlant is installing $member"
+            }
+            // ART can run the replacement before Hook returns its backup. Park
+            // without holding any Java monitor, and preserve the host thread's
+            // interrupt status instead of injecting InterruptedException into it.
+            var interrupted = false
+            try {
+                while (true) {
+                    try {
+                        installationFinished.await()
+                        break
+                    } catch (_: InterruptedException) {
+                        interrupted = true
+                    }
+                }
+            } finally {
+                if (interrupted) Thread.currentThread().interrupt()
+            }
+            return backupMethod ?: throw IllegalStateException(
+                "$TAG: LSPlant installation failed for $member", installationFailure,
+            )
+        }
+
+        fun addCallback(registration: PrioritizedCallback) {
+            // Publish a single new array so dispatch never observes an empty
+            // intermediate list. Equal priorities retain registration order.
+            synchronized(callbacks) {
+                val index = callbacks.indexOfFirst { it.priority < registration.priority }
+                if (index == -1) callbacks.add(registration) else callbacks.add(index, registration)
+            }
+        }
+
+        fun removeCallback(registration: PrioritizedCallback) {
+            // Share the ordering lock with insertion: its chosen index must not
+            // become stale when another thread removes a callback concurrently.
+            synchronized(callbacks) { callbacks.remove(registration) }
+        }
+
+        /** Required LSPlant signature: public Object callback(Object[] args). */
+        @Keep
+        fun callback(rawArgs: Array<Any?>): Any? {
+            awaitBackup()
+            // LSPlant prepends the receiver only for instance methods and
+            // constructors. IHookBridge exposes it separately from args.
+            val receiver = if (isStatic) null else rawArgs[0]
+            val args = if (isStatic) rawArgs else rawArgs.copyOfRange(1, rawArgs.size)
+            return dispatch(this, receiver, args)
+        }
+
+        fun invokeOriginal(thisObj: Any?, args: Array<Any?>): Any? {
+            val backup = awaitBackup()
+            return try {
+                val result = backup.invoke(if (isStatic) null else thisObj, *args)
+                if (member is Constructor<*>) null else result
+            } catch (e: InvocationTargetException) {
+                throw e.targetException ?: e
+            }
+        }
     }
 
     // ── Mutable hook param ────────────────────────────────────────────────────
@@ -140,157 +209,59 @@ object ArtHookBridgeRuntime {
         }
     }
 
-    // ── State ─────────────────────────────────────────────────────────────────
+    // Successful entries and their backups live until process exit. Callback
+    // snapshots may still be executing after the last handle logically unhooks.
+    private val hooks: ConcurrentHashMap<Member, HookEntry> = ConcurrentHashMap()
 
-    private val hooks: ConcurrentHashMap<Long, HookEntry> = ConcurrentHashMap()
-    private val memberToHookId: ConcurrentHashMap<Member, Long> = ConcurrentHashMap()
-    private val hookIdSeq: AtomicLong = AtomicLong(0L)
+    /** Returns the existing owner, or null when this entry owns installation. */
+    fun register(entry: HookEntry): HookEntry? = hooks.putIfAbsent(entry.member, entry)
 
-    /** Serializes member registration with native ArtMethod replacement. */
-    val hookLock = Any()
-
-    // ── Registration ──────────────────────────────────────────────────────────
-
-    fun register(member: Member, backup: Method, dexFile: DexFile): Long {
-        val id = hookIdSeq.incrementAndGet()
-        hooks[id] = HookEntry(member, backup, dexFile)
-        memberToHookId[member] = id
-        return id
+    fun unregisterFailed(entry: HookEntry) {
+        hooks.remove(entry.member, entry)
     }
 
-    fun unregister(hookId: Long) {
-        val entry = hooks.remove(hookId) ?: return
-        memberToHookId.remove(entry.member)
-    }
+    fun getEntry(member: Member): HookEntry? = hooks[member]
 
-    /**
-     * Remove a successfully unhooked member from the active index while keeping
-     * its dispatch state alive. A thread may already have branched into the old
-     * native trampoline before unhook suspended ART; that invocation must still
-     * be able to resolve its backup after the target ArtMethod is restored.
-     */
-    fun retire(hookId: Long) {
-        val entry = hooks[hookId] ?: return
-        memberToHookId.remove(entry.member, hookId)
-    }
+    fun hookedMembers(): Set<Member> = hooks.values
+        .filter { it.isInstalled && it.callbacks.isNotEmpty() }
+        .mapTo(linkedSetOf()) { it.member }
 
-    fun addCallback(
-        hookId: Long,
-        callback: IHookBridge.IMemberHookCallback,
-        priority: Int,
-    ): PrioritizedCallback {
-        val entry = requireNotNull(hooks[hookId]) {
-            "$TAG: no entry for hookId=$hookId"
-        }
-        val pc = PrioritizedCallback(callback, priority)
-        insertCallback(entry.callbacks, pc)
-        return pc
-    }
-
-    fun removeCallback(hookId: Long, registration: PrioritizedCallback): Boolean =
-        hooks[hookId]?.callbacks?.remove(registration) == true
-
-    /** Restore a registration after a final native unhook attempt fails. */
-    fun restoreCallback(hookId: Long, registration: PrioritizedCallback): Boolean {
-        val entry = hooks[hookId] ?: return false
-        insertCallback(entry.callbacks, registration)
-        return true
-    }
-
-    private fun insertCallback(
-        list: CopyOnWriteArrayList<PrioritizedCallback>,
-        callback: PrioritizedCallback,
-    ) {
-        // CopyOnWriteArrayList.add(index, value) publishes one complete new
-        // backing array. Do not rebuild through clear()+addAll(): readers are
-        // intentionally lock-free and could otherwise observe an empty list.
-        synchronized(list) {
-            val idx = list.indexOfFirst { it.priority < callback.priority }
-            if (idx == -1) {
-                list.add(callback)
-            } else {
-                list.add(idx, callback)
-            }
-        }
-    }
-
-    fun getEntry(hookId: Long): HookEntry? = hooks[hookId]
-
-    fun getHookId(member: Member): Long? = memberToHookId[member]
-
-    fun hookedMembers(): Set<Member> = memberToHookId.keys.toSet()
-
-    // ── Dispatch (called from DexMaker bridge) ────────────────────────────────
-
-    /**
-     * Called by the generated bridge method.
-     * @param hookId   the hook registration id
-     * @param thisObj  the receiver (null for static methods)
-     * @param args     the invocation arguments (may be mutated by callbacks)
-     * @return the final result (from callback or from calling backup)
-     */
-    @Keep
-    @JvmStatic
-    fun dispatch(hookId: Long, thisObj: Any?, args: Array<Any?>): Any? {
-        val entry = hooks[hookId]
-            ?: throw IllegalStateException("$TAG: no entry for hookId=$hookId")
+    private fun dispatch(entry: HookEntry, thisObj: Any?, args: Array<Any?>): Any? {
+        // A retained LSPlant hook with no business callbacks is an origin call.
+        // CopyOnWriteArrayList.toArray() takes one atomic backing-array snapshot.
+        // Kotlin toList() can read size and element separately for a singleton.
+        val snapshot = entry.callbacks.toTypedArray()
+        if (snapshot.isEmpty()) return entry.invokeOriginal(thisObj, args)
         val param = MutableHookParam(entry.member, thisObj, args)
 
-        // ── before callbacks ──────────────────────────────────────────────────
-        val snapshot = entry.callbacks.toList()
         var beforeCount = 0
         for (pc in snapshot) {
             if (param.earlyReturn) break
             try {
                 param.withCallback(pc) { pc.callback.beforeHookedMember(param) }
             } catch (t: Throwable) {
-                // Match XposedBridge: log and swallow callback failures.  A hook
-                // callback must use param.throwable when it intentionally wants
-                // the host invocation to fail.
+                // Callback failures are logged; a callback must set throwable
+                // when it intentionally wants the host invocation to fail.
                 WeLogger.e(TAG, "before callback failed for ${entry.member}", t)
                 param.resetAfterBeforeFailure()
             }
             beforeCount++
         }
 
-        // ── call original (via backup) ────────────────────────────────────────
         if (!param.earlyReturn) {
             try {
-                val backup = entry.backupMethod
-                backup.isAccessible = true
-                // IMemberHookParam.args aliases the bridge array. Passing it
-                // explicitly documents that before callbacks can mutate the
-                // arguments observed by the original implementation.
-                val invocationArgs = param.args
-                val result = when (entry.member) {
-                    is Constructor<*> -> {
-                        backup.invoke(thisObj, *invocationArgs)
-                        null
-                    }
-                    is Method -> if (java.lang.reflect.Modifier.isStatic(entry.member.modifiers)) {
-                        backup.invoke(null, *invocationArgs)
-                    } else {
-                        backup.invoke(thisObj, *invocationArgs)
-                    }
-                    else -> error("unsupported member: ${entry.member}")
-                }
-                param.result = result
-            } catch (e: InvocationTargetException) {
-                param.throwable = e.targetException ?: e
-            } catch (e: Throwable) {
-                param.throwable = e
+                param.result = entry.invokeOriginal(thisObj, param.args)
+            } catch (t: Throwable) {
+                param.throwable = t
             }
         }
 
-        // ── after callbacks ───────────────────────────────────────────────────
         for (index in beforeCount - 1 downTo 0) {
             val pc = snapshot[index]
             val beforeAfter = param.snapshot()
             try {
                 param.withCallback(pc) { pc.callback.afterHookedMember(param) }
             } catch (t: Throwable) {
-                // Xposed restores the value visible on entry to this callback,
-                // then continues with the remaining after callbacks.
                 WeLogger.e(TAG, "after callback failed for ${entry.member}", t)
                 param.restore(beforeAfter)
             }
@@ -303,30 +274,9 @@ object ArtHookBridgeRuntime {
         return finalResult
     }
 
-    // ── Invoke original (from IHookBridge.invokeOriginalMethod) ──────────────
-
     fun invokeOriginal(member: Member, thisObj: Any?, args: Array<Any?>): Any? {
-        val id = memberToHookId[member]
-        val backup: Method = (if (id != null) hooks[id]?.backupMethod else null)
-            ?: throw IllegalArgumentException(
-                "$TAG: member is not hooked: $member"
-            )
-        backup.isAccessible = true
-        return try {
-            when (member) {
-                is Method -> if (java.lang.reflect.Modifier.isStatic(member.modifiers)) {
-                    backup.invoke(null, *args)
-                } else {
-                    backup.invoke(thisObj, *args)
-                }
-                is Constructor<*> -> {
-                    backup.invoke(thisObj, *args)
-                    null
-                }
-                else -> error("unsupported member: $member")
-            }
-        } catch (e: InvocationTargetException) {
-            throw e.targetException ?: e
-        }
+        val entry = hooks[member]
+            ?: throw IllegalArgumentException("$TAG: member is not hooked: $member")
+        return entry.invokeOriginal(thisObj, args)
     }
 }

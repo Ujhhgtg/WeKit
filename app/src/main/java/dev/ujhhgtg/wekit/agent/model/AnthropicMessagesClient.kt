@@ -59,6 +59,7 @@ class AnthropicMessagesClient(
         // error, break on message_stop) previously abandoned an open SSE body channel, leaking the
         // connection until GC. `execute` releases it on every path, including exceptions.
         http.preparePost(endpoint) {
+            header("x-opencode-session", request.sessionId)
             header("x-api-key", apiKey)
             header("anthropic-version", ANTHROPIC_VERSION)
             contentType(ContentType.Application.Json)

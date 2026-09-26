@@ -23,7 +23,11 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
-import dev.ujhhgtg.wekit.features.items.AtomicJsonConfigStore
+import dev.ujhhgtg.wekit.data.JsonDataMigration
+import dev.ujhhgtg.wekit.data.WeKitDatabase
+import dev.ujhhgtg.wekit.data.structured.asOverrides
+import dev.ujhhgtg.wekit.features.items.AutomationSaveContent
+import dev.ujhhgtg.wekit.features.items.rememberAutomationSaveState
 import dev.ujhhgtg.wekit.features.items.AutomationContactSettingsSelector
 import dev.ujhhgtg.wekit.features.items.AutomationKeywordMode
 import dev.ujhhgtg.wekit.features.items.AutomationKeywordRule
@@ -31,7 +35,7 @@ import dev.ujhhgtg.wekit.features.items.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.items.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.items.automationKeywordSummary
 import dev.ujhhgtg.wekit.features.items.formatAutomationMinute
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -40,14 +44,13 @@ import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import java.util.Calendar
-import kotlin.io.path.div
-import kotlin.io.path.exists
-import kotlin.io.path.readText
 import kotlin.random.Random
 
 /** Hierarchical settings used by [AutoOpenRedPackets]. */
@@ -57,8 +60,6 @@ object RedPacketSettings {
     private val RED_PACKET_KEYWORD_MODES =
         listOf(AutomationKeywordMode.STRING_LIST, AutomationKeywordMode.REGEX)
 
-    private val configFile by lazy { KnownPaths.moduleData / "red_packet_settings.json" }
-    private val legacyGroupMemberFile by lazy { KnownPaths.moduleData / "red_packet_group_members.json" }
 
     @Serializable
     enum class ReceiveMode { NETWORK, CLICK }
@@ -131,7 +132,7 @@ object RedPacketSettings {
     }
 
     @Serializable
-    private data class StoredConfig(
+    data class StoredConfig(
         val version: Int = CONFIG_VERSION,
         val global: RuleSet = RuleSet(),
         val contacts: Map<String, RuleOverrides> = emptyMap(),
@@ -157,14 +158,10 @@ object RedPacketSettings {
         AUTO_REPLY
     }
 
-    private val store by lazy {
-        AtomicJsonConfigStore(
-            file = configFile,
-            serializer = StoredConfig.serializer(),
-            tag = TAG,
-            initialValue = ::migrateLegacyConfig
-        )
-    }
+    @Volatile
+    private var cachedConfig: StoredConfig? = null
+
+    fun requireReady() { loadConfig() }
 
     fun resolve(talker: String, sender: String?): RuleSet {
         val config = loadConfig()
@@ -176,6 +173,10 @@ object RedPacketSettings {
     }
 
     fun showMainDialog(context: Context) {
+        if (!JsonDataMigration.isCompleted("json", "RedPacketSettings")) {
+            showToast(context, context.localizedPaymentString(R.string.structured_storage_unavailable))
+            return
+        }
         showComposeDialog(context) {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_auto_open_red_packets_name)) },
@@ -205,6 +206,8 @@ object RedPacketSettings {
     private fun showGlobalDialog(context: Context) {
         showComposeDialog(context) {
             val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+            val saveState = rememberAutomationSaveState()
+            androidx.compose.runtime.SideEffect { dialog.setCancelable(!saveState.saving) }
             var draft by remember { mutableStateOf(globalRules()) }
             var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
             val validationError = validate(localizedContext, draft)
@@ -221,28 +224,31 @@ object RedPacketSettings {
                     .fillMaxHeight(),
                 title = { Text(stringResource(R.string.automation_global_settings)) },
                 text = {
-                    RuleSetEditor(
-                        rules = draft,
-                        overriddenKeys = null,
-                        parentLabel = "",
-                        onActivate = {},
-                        onReset = {},
-                        onChange = { _, updated -> draft = updated },
-                        validationError = validationError,
-                        onEditText = { editText = it },
-                    )
+                    AutomationSaveContent(saveState) {
+                        RuleSetEditor(
+                            rules = draft,
+                            overriddenKeys = null,
+                            parentLabel = "",
+                            onActivate = {},
+                            onReset = {},
+                            onChange = { _, updated -> draft = updated },
+                            validationError = validationError,
+                            onEditText = { editText = it },
+                        )
+                    }
                 },
                 confirmButton = {
                     Button(
-                        enabled = validationError == null,
+                        enabled = validationError == null && !saveState.saving,
                         onClick = {
-                            updateConfig { it.copy(global = draft) }
-                            showToast(localizedContext.getString(R.string.automation_global_settings_saved))
-                            onDismiss()
+                            saveState.submit(save = { putRule("GLOBAL", "", "", draft.asOverrides()) }, onSuccess = {
+                                showToast(localizedContext.getString(R.string.automation_global_settings_saved))
+                                onDismiss()
+                            })
                         }
                     ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
+                dismissButton = { TextButton(onDismiss, enabled = !saveState.saving) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }
@@ -423,10 +429,12 @@ object RedPacketSettings {
         @androidx.annotation.StringRes parentLabelRes: Int,
         parent: RuleSet,
         initial: RuleOverrides,
-        onSave: (RuleOverrides) -> Unit
+        onSave: suspend (RuleOverrides) -> Unit
     ) {
         showComposeDialog(context) {
             val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+            val saveState = rememberAutomationSaveState()
+            androidx.compose.runtime.SideEffect { dialog.setCancelable(!saveState.saving) }
             var draft by remember { mutableStateOf(initial) }
             var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
             val effective = parent.apply(draft)
@@ -444,28 +452,31 @@ object RedPacketSettings {
                     .fillMaxHeight(),
                 title = { Text(title.resolve()) },
                 text = {
-                    RuleSetEditor(
-                        rules = effective,
-                        overriddenKeys = draft.keys(),
-                        parentLabel = stringResource(parentLabelRes),
-                        onActivate = { key -> draft = draft.withRule(key, effective) },
-                        onReset = { key -> draft = draft.withoutRule(key) },
-                        onChange = { key, updated -> draft = draft.withRule(key, updated) },
-                        validationError = validationError,
-                        onEditText = { editText = it },
-                    )
+                    AutomationSaveContent(saveState) {
+                        RuleSetEditor(
+                            rules = effective,
+                            overriddenKeys = draft.keys(),
+                            parentLabel = stringResource(parentLabelRes),
+                            onActivate = { key -> draft = draft.withRule(key, effective) },
+                            onReset = { key -> draft = draft.withoutRule(key) },
+                            onChange = { key, updated -> draft = draft.withRule(key, updated) },
+                            validationError = validationError,
+                            onEditText = { editText = it },
+                        )
+                    }
                 },
                 confirmButton = {
                     Button(
-                        enabled = validationError == null,
+                        enabled = validationError == null && !saveState.saving,
                         onClick = {
-                            onSave(draft)
-                            showToast(localizedContext.getString(R.string.settings_saved))
-                            onDismiss()
+                            saveState.submit(save = { onSave(draft) }, onSuccess = {
+                                showToast(localizedContext.getString(R.string.settings_saved))
+                                onDismiss()
+                            })
                         }
                     ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
+                dismissButton = { TextButton(onDismiss, enabled = !saveState.saving) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }
@@ -853,44 +864,50 @@ object RedPacketSettings {
     private fun memberOverridesCount(groupId: String): Int =
         loadConfig().groupMembers[groupId]?.count { !it.value.isEmpty() } ?: 0
 
-    private fun setContactOverrides(wxId: String, overrides: RuleOverrides) {
-        updateConfig { config ->
-            val contacts = config.contacts.toMutableMap()
-            if (overrides.isEmpty()) contacts.remove(wxId) else contacts[wxId] = overrides
-            config.copy(contacts = contacts)
+    private suspend fun setContactOverrides(wxId: String, overrides: RuleOverrides) {
+        putRule("CONTACT", wxId, "", overrides)
+    }
+
+    private suspend fun setGroupMemberOverrides(groupId: String, memberId: String, overrides: RuleOverrides) {
+        putRule("GROUP_MEMBER", groupId, memberId, overrides)
+    }
+
+    private fun loadConfig(): StoredConfig {
+        JsonDataMigration.requireCompleted("json", "RedPacketSettings")
+        cachedConfig?.let { return it }
+        return runBlocking(Dispatchers.IO) {
+            WeKitDatabase.instance.automationDao().getRedPacketConfig()
+                .also { cachedConfig = it }
         }
     }
 
-    private fun setGroupMemberOverrides(groupId: String, memberId: String, overrides: RuleOverrides) {
-        updateConfig { config ->
-            val groups = config.groupMembers.toMutableMap()
-            val members = groups[groupId].orEmpty().toMutableMap()
-            if (overrides.isEmpty()) members.remove(memberId) else members[memberId] = overrides
-            if (members.isEmpty()) groups.remove(groupId) else groups[groupId] = members
-            config.copy(groupMembers = groups)
+    private suspend fun putRule(scopeType: String, talkerId: String, memberId: String, rules: RuleOverrides) {
+        JsonDataMigration.requireCompleted("json", "RedPacketSettings")
+        withContext(Dispatchers.IO) {
+            try {
+                WeKitDatabase.instance.automationDao().putRedPacketRule(scopeType, talkerId, memberId, rules)
+            } finally {
+                // Also clear on cancellation: the SQL transaction may already have committed.
+                cachedConfig = null
+            }
         }
     }
 
-    private fun loadConfig(): StoredConfig = store.get()
-
-    private fun updateConfig(transform: (StoredConfig) -> StoredConfig) {
-        store.update { transform(it).copy(version = CONFIG_VERSION) }
-    }
-
-    private fun migrateLegacyConfig(): StoredConfig {
-        val hasLegacyPrefs = LEGACY_PREF_KEYS.any(WePrefs::containsKey)
+    fun migrateLegacyConfig(legacyGroupMembersRaw: String?): StoredConfig {
+        KvStore.requireMigrationKeys(legacyPreferenceKeys)
+        val hasLegacyPrefs = legacyPreferenceKeys.any(KvStore::containsKey)
         val legacyUseWhitelist = hasLegacyPrefs &&
-                WePrefs.getBoolOrDef("red_packet_use_whitelist", false)
+                KvStore.getBoolOrDef("red_packet_use_whitelist", false)
         val legacySelectedContacts = if (!hasLegacyPrefs) {
             emptySet()
         } else if (legacyUseWhitelist) {
-            WePrefs.getStringSetOrDef("red_packet_whitelist", emptySet())
+            KvStore.getStringSetOrDef("red_packet_whitelist", emptySet())
         } else {
-            WePrefs.getStringSetOrDef("red_packet_blacklist", emptySet())
+            KvStore.getStringSetOrDef("red_packet_blacklist", emptySet())
         }
-        val legacyDelayRange = WePrefs.getStringOrDef("red_packet_delay_random_range", "300")
-        val legacyDelayBase = if (WePrefs.containsKey("red_packet_delay_custom")) {
-            WePrefs.getStringOrDef("red_packet_delay_custom", "0")
+        val legacyDelayRange = KvStore.getStringOrDef("red_packet_delay_random_range", "300")
+        val legacyDelayBase = if (KvStore.containsKey("red_packet_delay_custom")) {
+            KvStore.getStringOrDef("red_packet_delay_custom", "0")
         } else {
             "500"
         }
@@ -905,14 +922,14 @@ object RedPacketSettings {
         val global = if (hasLegacyPrefs) {
             RuleSet(
                 grab = AutomationToggleRule(enabled = !legacyUseWhitelist),
-                grabSelf = AutomationToggleRule(WePrefs.getBoolOrDef("red_packet_self", false)),
+                grabSelf = AutomationToggleRule(KvStore.getBoolOrDef("red_packet_self", false)),
                 delay = DelayRule(
                     enabled = true,
                     baseMs = migratedDelayBase,
                     randomRangeMs = legacyDelayRange
                 ),
-                notification = AutomationToggleRule(WePrefs.getBoolOrDef("red_packet_notification", false)),
-                autoReply = WePrefs.getStringOrDef("red_packet_auto_reply", "").let {
+                notification = AutomationToggleRule(KvStore.getBoolOrDef("red_packet_notification", false)),
+                autoReply = KvStore.getStringOrDef("red_packet_auto_reply", "").let {
                     ReplyRule(enabled = it.isNotBlank(), text = it)
                 }
             )
@@ -928,13 +945,9 @@ object RedPacketSettings {
         }
 
         val groupMembers = mutableMapOf<String, MutableMap<String, RuleOverrides>>()
-        val legacyGroupRules = runCatching {
-            if (!legacyGroupMemberFile.exists()) emptyList() else {
-                DefaultJson.decodeFromString<List<LegacyGroupMemberRule>>(legacyGroupMemberFile.readText())
-            }
-        }.onFailure {
-            WeLogger.w(TAG, "failed to migrate $legacyGroupMemberFile", it)
-        }.getOrDefault(emptyList())
+        val legacyGroupRules = if (legacyGroupMembersRaw == null) emptyList() else {
+            DefaultJson.decodeFromString<List<LegacyGroupMemberRule>>(legacyGroupMembersRaw)
+        }
 
         legacyGroupRules.forEach { rule ->
             if (!rule.groupId.isGroupChatWxId) return@forEach
@@ -967,7 +980,7 @@ object RedPacketSettings {
     }
 
     private const val MAX_DELAY_DIGITS = 7
-    private val LEGACY_PREF_KEYS = listOf(
+    private val legacyPreferenceKeys = listOf(
         "red_packet_notification",
         "red_packet_self",
         "red_packet_use_whitelist",

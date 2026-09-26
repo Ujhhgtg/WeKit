@@ -5,74 +5,47 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
-import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
+import dev.ujhhgtg.wekit.utils.restartHost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.add
-import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.float
-import kotlinx.serialization.json.floatOrNull
-import kotlinx.serialization.json.int
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
-import kotlinx.serialization.json.longOrNull
-import kotlinx.serialization.json.put
+import java.io.File
+import java.util.UUID
 
 /** Shared configuration I/O used by both settings engines. */
 object SettingsConfigActions {
     fun export(platformContext: Context, localizedContext: () -> Context) {
         TransparentActivity.launch(platformContext) {
             val exportLauncher = registerForActivityResult(
-                ActivityResultContracts.CreateDocument("application/json"),
+                ActivityResultContracts.CreateDocument("application/zip"),
             ) { uri ->
                 if (uri == null) {
                     finish()
                     return@registerForActivityResult
                 }
                 lifecycleScope.launch(Dispatchers.IO) {
-                    val exportJson = DefaultJson.encodeToString(buildJsonObject {
-                        for ((key, value) in WePrefs.default.getAll()) {
-                            when (value) {
-                                is Boolean -> put(key, value)
-                                is Int -> put(key, value)
-                                is Long -> put(key, value)
-                                is Float -> put(key, value)
-                                is Double -> put(key, value)
-                                is String -> put(key, value)
-                                is Set<*> -> put(key, buildJsonArray {
-                                    @Suppress("UNCHECKED_CAST")
-                                    (value as Set<String>).forEach(::add)
-                                })
-                                null -> put(key, JsonNull)
-                            }
+                    val temporary = File(platformContext.cacheDir, ".wekit-export-${UUID.randomUUID()}.wekitbackup")
+                    val result = runCatching {
+                        BackupCoordinator.create(platformContext, temporary)
+                        platformContext.contentResolver.openOutputStream(uri, "w")!!.use { output ->
+                            temporary.inputStream().use { it.copyTo(output) }
                         }
-                    })
-                    runCatching {
-                        platformContext.contentResolver.openOutputStream(uri, "w")!!.use { stream ->
-                            stream.writer().use { it.write(exportJson) }
-                        }
-                    }.onFailure {
+                    }
+                    result.exceptionOrNull()?.let {
                         showToastSuspend(localizedContext().getString(R.string.config_export_failed))
-                        WeLogger.e("WePrefs", "failed to export", it)
-                    }.onSuccess {
+                        WeLogger.e("BackupCoordinator", "failed to export backup", it)
+                    }
+                    if (result.isSuccess) {
                         showToastSuspend(localizedContext().getString(R.string.config_export_success))
                     }
+                    temporary.delete()
                     withContext(Dispatchers.Main) { finish() }
                 }
             }
-            exportLauncher.launch("wekit_prefs_backup.json")
+            exportLauncher.launch("wekit_backup.wekitbackup")
         }
     }
 
@@ -84,48 +57,43 @@ object SettingsConfigActions {
                     return@registerForActivityResult
                 }
                 lifecycleScope.launch(Dispatchers.IO) {
-                    runCatching {
-                        val jsonString = platformContext.contentResolver
-                            .openInputStream(uri)
-                            ?.use { it.reader().readText() }
-                            ?: return@launch
-                        val jsonObject = DefaultJson.parseToJsonElement(jsonString).jsonObject
-                        for ((key, element) in jsonObject) {
-                            when (element) {
-                                is JsonNull -> WePrefs.default.remove(key)
-                                is JsonPrimitive -> when {
-                                    element.isString -> WePrefs.default.putString(key, element.content)
-                                    element.booleanOrNull != null &&
-                                        (element.content == "true" || element.content == "false") ->
-                                        WePrefs.putBool(key, element.boolean)
-
-                                    element.longOrNull != null && element.intOrNull == null ->
-                                        WePrefs.putLong(key, element.long)
-
-                                    element.intOrNull != null -> WePrefs.putInt(key, element.int)
-                                    element.floatOrNull != null -> WePrefs.putFloat(key, element.float)
-                                }
-                                is JsonArray -> WePrefs.default.putStringSet(
-                                    key,
-                                    element.mapTo(HashSet()) { it.jsonPrimitive.content },
-                                )
-                                else -> Unit
-                            }
+                    val temporary = File(platformContext.cacheDir, ".wekit-import-${UUID.randomUUID()}.wekitbackup")
+                    val result = runCatching {
+                        platformContext.contentResolver.openInputStream(uri)!!.use { input ->
+                            temporary.outputStream().use { output -> input.copyTo(output) }
                         }
-                    }.onFailure {
+                        // Preserve a complete rollback point before replacing any live file.
+                        BackupCoordinator.createPreImportBackup(platformContext)
+                        BackupCoordinator.import(platformContext, temporary)
+                    }
+                    result.exceptionOrNull()?.let {
                         showToastSuspend(localizedContext().getString(R.string.config_import_failed))
-                        WeLogger.e("WePrefs", "failed to import", it)
-                    }.onSuccess {
+                        WeLogger.e("BackupCoordinator", "failed to import backup", it)
+                    }
+                    if (result.isSuccess) {
                         showToastSuspend(localizedContext().getString(R.string.config_import_success))
                     }
-                    withContext(Dispatchers.Main) { finish() }
+                    temporary.delete()
+                    withContext(Dispatchers.Main) {
+                        finish()
+                        if (result.isSuccess) BackupCoordinator.restartAfterImport()
+                    }
                 }
             }
-            importLauncher.launch(arrayOf("application/json"))
+            importLauncher.launch(arrayOf("application/zip", "application/octet-stream", "application/x-wekitbackup"))
         }
     }
 
     fun clear() {
-        WePrefs.default.clear()
+        BackupCoordinator.clearAll(HostInfo.application)
+    }
+
+    fun clearLegacyData() {
+        BackupCoordinator.clearLegacyData(HostInfo.application)
+    }
+
+    fun clearAndRestart() {
+        clear()
+        restartHost()
     }
 }

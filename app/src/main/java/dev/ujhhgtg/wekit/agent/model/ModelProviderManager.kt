@@ -1,14 +1,14 @@
 package dev.ujhhgtg.wekit.agent.model
 
+import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
-import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaController
-import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaModels
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.UserAgent
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
@@ -19,9 +19,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.flow
 
 /**
  * Builds and caches [LlmClient] adapters per model provider, and resolves a stored [ModelEntity]
@@ -33,6 +30,9 @@ import kotlinx.coroutines.flow.flow
 object ModelProviderManager {
 
     private val httpClient = HttpClient(CIO) {
+        install(UserAgent) {
+            agent = "WeAgent/${BuildConfig.VERSION_NAME}"
+        }
         install(HttpTimeout) {
             requestTimeoutMillis = 600_000
             socketTimeoutMillis = 600_000
@@ -50,48 +50,9 @@ object ModelProviderManager {
      * (type/baseUrl/apiKey) changed since last cached. [provider] must carry a usable apiKey (use
      * [WeAgentRepository.getModelProvider]); keys are stored as-is, so nothing needs decrypting.
      */
-    fun clientFor(provider: ModelProviderEntity): LlmClient {
-        check(provider.type != ModelProviderType.LOCAL_LLAMA) {
-            "local llama clients require a model-specific server lease"
-        }
-        return cachedClientFor(provider)
-    }
-
-    /**
-     * Returns a cold local client whose every collected stream resolves the current model file,
-     * starts the requested tuple, and exclusively leases that server/port through collection.
-     */
-    fun localClientFor(
-        provider: ModelProviderEntity,
-        modelIdRemote: String,
-        nCtx: Int,
-        backend: String,
-    ): LlmClient {
-        check(provider.type == ModelProviderType.LOCAL_LLAMA) {
-            "localClientFor requires a LOCAL_LLAMA provider"
-        }
-        return object : LlmClient {
-            override fun stream(request: LlmRequest): Flow<LlmStreamEvent> = flow {
-                val gguf = LocalLlamaModels.resolveModelFile(modelIdRemote)
-                    ?: error("local model pack is not installed: $modelIdRemote")
-                val lease = LocalLlamaController.acquireServerLease(gguf, nCtx, backend)
-                try {
-                    cachedClientFor(provider).stream(request).collect { emit(it) }
-                } finally {
-                    lease.release()
-                }
-            }
-        }
-    }
-
     @Synchronized
-    private fun cachedClientFor(provider: ModelProviderEntity): LlmClient {
-        val effectiveBase = if (provider.type == ModelProviderType.LOCAL_LLAMA) {
-            LocalLlamaController.baseUrlOrNull().orEmpty()
-        } else {
-            provider.baseUrl
-        }
-        val hash = provider.type.hashCode() * 31 + effectiveBase.hashCode() * 31 + provider.apiKey.hashCode()
+    fun clientFor(provider: ModelProviderEntity): LlmClient {
+        val hash = provider.type.hashCode() * 31 + provider.baseUrl.hashCode() * 31 + provider.apiKey.hashCode()
         clientCache[provider.id]?.let { if (it.configHash == hash) return it.client }
         val client = build(provider)
         clientCache[provider.id] = CachedClient(hash, client)
@@ -113,12 +74,6 @@ object ModelProviderManager {
 
         ModelProviderType.GEMINI_INTERACTIONS ->
             GeminiInteractionsClient(httpClient, provider.baseUrl.trimEnd('/'), provider.apiKey)
-
-        ModelProviderType.LOCAL_LLAMA -> {
-            val base = LocalLlamaController.baseUrlOrNull()
-                ?: error("local llama server is not running")
-            OpenAiChatCompletionsClient(httpClient, base, "")
-        }
     }
 
     /**
@@ -130,6 +85,7 @@ object ModelProviderManager {
         model: ModelEntity,
         messages: List<LlmMessage>,
         tools: List<LlmToolSpec>,
+        sessionId: String,
         stream: Boolean = true,
     ): LlmRequest {
         val effort = model.reasoningEffort?.takeIf { it.isNotBlank() && it != "off" }
@@ -139,6 +95,7 @@ object ModelProviderManager {
         return LlmRequest(
             modelIdRemote = model.modelIdRemote,
             messages = messages,
+            sessionId = sessionId,
             tools = tools,
             reasoningEffort = effort,
             customJsonOverride = override,
@@ -165,9 +122,6 @@ object ModelProviderManager {
      * [provider] must carry a decrypted API key.
      */
     suspend fun listRemoteModels(provider: ModelProviderEntity): Result<List<String>> {
-        if (provider.type == ModelProviderType.LOCAL_LLAMA) {
-            return Result.success(LocalLlamaModels.listInstalled().map { it.id })
-        }
         if (provider.type == ModelProviderType.ANTHROPIC_MESSAGES) {
             return Result.failure(LlmException("Anthropic 不支持自动获取模型列表，请手动添加。"))
         }

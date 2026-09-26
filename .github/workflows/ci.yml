@@ -46,11 +46,21 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Free disk space for build and caches
+        # Cache uploads need space for a temporary archive after the APK build.
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo apt-get clean
+          df -h /
+
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
+          # Keep a single owner for Gradle dependency and wrapper caches.
           cache: gradle
 
       - name: Grant execute permission
@@ -92,24 +102,24 @@ jobs:
           cache-on-failure: true
           workspaces: . -> target
 
-      - name: Cache Gradle build cache
-        uses: actions/cache@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.0.1
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/configuration-cache
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/gradle.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+          version: "0.12.8"
+          python-version: "3.12"
+          enable-cache: false
 
       - name: Install system dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y gcc-multilib
+          uv sync --locked --managed-python --project wekit-zygisk --all-groups
+          echo "$GITHUB_WORKSPACE/wekit-zygisk/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Validate build tools, DEX reader, and i18n catalogs
         run: |
           cargo test -p xtask --bin xtask
           cargo test -p wekit-zygisk --lib
+          uv run --no-sync --project wekit-zygisk python wekit-zygisk/native/tests/arm64_relocation.py
           ./x i18n-check
 
       - name: Decode keystore
@@ -140,7 +150,7 @@ jobs:
 
           for flavor in standard legacy; do
             apk="app/build/outputs/apk/$flavor/release/app-$flavor-release.apk"
-            python3 .github/scripts/verify-dual-apk.py --check-installer "$apk"
+            uv run --no-sync --project wekit-zygisk python .github/scripts/verify-dual-apk.py --check-installer "$apk"
             WEKIT_TEST_APK="$GITHUB_WORKSPACE/$apk" cargo test -p wekit-zygisk --lib apk::tests::reads_built_apk -- --ignored
 
             cp -v "$apk" dist/apk/
@@ -170,6 +180,15 @@ jobs:
         with:
           name: wekit-mapping
           path: dist/mapping/*.txt
+
+      - name: Free build intermediates before saving caches
+        if: always()
+        # APKs and mappings have already been collected into dist/ and uploaded.
+        # Keep the Gradle, Rust, and PRoot caches for their post-job save steps.
+        run: |
+          df -h /
+          rm -rf app/build
+          df -h /
 
   dex-test:
     runs-on: ubuntu-latest
@@ -433,22 +452,18 @@ jobs:
         with:
           targets: aarch64-linux-android
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: app/src/main/go/wekit-cloudflared/go.mod
-          cache: true
-          cache-dependency-path: app/src/main/go/wekit-cloudflared/go.sum
-
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.0.1
         with:
+          version: "0.12.8"
+          python-version: "3.12"
           enable-cache: false
 
       - name: Install system dependencies
-        # glslc compiles the llama.cpp Vulkan shaders for the llama-native pack.
         run: |
-          sudo apt-get update && sudo apt-get install -y gcc-multilib glslc
+          sudo apt-get update && sudo apt-get install -y gcc-multilib
+          uv sync --locked --managed-python --project wekit-zygisk --group build
+          echo "$GITHUB_WORKSPACE/wekit-zygisk/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Free disk space and report
         # This job is much heavier than a plain APK build (cold PRoot build,
@@ -460,7 +475,7 @@ jobs:
             "$AGENT_TOOLSDIRECTORY/Python" || true
           sudo docker image prune -af >/dev/null 2>&1 || true
           sudo apt-get clean
-          # Headroom against OOM during the llama.cpp/native compile bursts.
+          # Headroom against OOM during native compile bursts.
           sudo fallocate -l 6G /mnt/swapfile || true
           sudo chmod 600 /mnt/swapfile || true
           sudo mkswap /mnt/swapfile >/dev/null 2>&1 || true
@@ -686,6 +701,47 @@ jobs:
             --title "CI" \
             --notes-file "$RUNNER_TEMP/ci-notes.md" \
             artifacts/*
+
+  release-ci-xposed-repo:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ always() && needs.build.result == 'success' && github.repository == 'Ujhhgtg/WeKit-Dev' && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    concurrency:
+      group: release-ci-xposed-repo-${{ github.sha }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: wekit-apk
+          path: artifacts
+
+      - name: Publish standard APK to Xposed Modules Repository
+        env:
+          GH_TOKEN: ${{ secrets.XPOSED_REPO_TOKEN }}
+          BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 -B .github/scripts/test-publish-xposed-release.py
+          git log -1 --format=%B > "$RUNNER_TEMP/xposed-release-notes.md"
+          python3 .github/scripts/publish-xposed-release.py \
+            artifacts/app-standard-release.apk \
+            --commit "$BUILD_COMMIT" \
+            --notes-file "$RUNNER_TEMP/xposed-release-notes.md"
 
   upload-telegram:
     needs: build

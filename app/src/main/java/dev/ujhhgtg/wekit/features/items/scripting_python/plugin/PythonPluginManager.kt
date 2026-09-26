@@ -9,7 +9,7 @@ import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLi
 import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLoader
 import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeMissingException
 import dev.ujhhgtg.wekit.features.items.scripting_python.services.PythonPluginHostImpl
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.python.api.PythonPluginRequest
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
@@ -38,8 +38,8 @@ object PythonPluginManager {
     private val mutableRecords = MutableStateFlow<Map<String, PythonPluginRecord>>(emptyMap())
     val records: StateFlow<Map<String, PythonPluginRecord>> = mutableRecords
 
-    private val scriptsDirectory by lazy { (KnownPaths.moduleData / "scripts_python").createDirsSafe().toFile() }
-    private val dataDirectory by lazy { (KnownPaths.moduleData / "python" / "data").createDirsSafe().toFile() }
+    private val scriptsDirectory by lazy { (KnownPaths.moduleRoot / "scripts_python").createDirsSafe().toFile() }
+    private val dataDirectory by lazy { (KnownPaths.moduleRoot / "python" / "data").createDirsSafe().toFile() }
     private val cacheDirectory by lazy { (KnownPaths.moduleCache / "python").createDirsSafe().toFile() }
 
     fun discover(): List<PythonPluginRecord> = synchronized(discoveryLock) {
@@ -61,7 +61,7 @@ object PythonPluginManager {
                     id = id,
                     root = root,
                     manifest = manifest,
-                    desiredEnabled = manifest != null && WePrefs.getBoolOrFalse(preferenceKey(id)),
+                    desiredEnabled = manifest != null && KvStore.getBoolOrFalse(preferenceKey(id)),
                     status = when {
                         error != null -> PythonPluginStatus.FAILED
                         crashSuspect?.pluginId == id -> PythonPluginStatus.CRASH_SUSPECT
@@ -106,7 +106,7 @@ object PythonPluginManager {
 
     fun setDesiredEnabled(pluginId: String, enabled: Boolean) {
         val record = mutableRecords.value.getValue(pluginId)
-        WePrefs.putBool(preferenceKey(pluginId), enabled)
+        KvStore.putBool(preferenceKey(pluginId), enabled)
         if (!enabled && record.status == PythonPluginStatus.CRASH_SUSPECT) {
             PythonCrashGuard.clear(pluginId)
         }
@@ -288,7 +288,7 @@ object PythonPluginManager {
             root.deleteRecursively()
             File(dataDirectory, pluginId).deleteRecursively()
             File(cacheDirectory, pluginId).deleteRecursively()
-            WePrefs.remove(preferenceKey(pluginId))
+            KvStore.remove(preferenceKey(pluginId))
             PythonCrashGuard.clear(pluginId)
             lifecycleLocks.remove(pluginId)
             mutableRecords.update { it - pluginId }
@@ -340,9 +340,9 @@ object PythonPluginManager {
         }
     }
 
-    fun isTrustWarningAccepted(): Boolean = WePrefs.getBoolOrFalse(TRUST_WARNING_KEY)
+    fun isTrustWarningAccepted(): Boolean = KvStore.getBoolOrFalse(TRUST_WARNING_KEY)
 
-    fun acceptTrustWarning() = WePrefs.putBool(TRUST_WARNING_KEY, true)
+    fun acceptTrustWarning() = KvStore.putBool(TRUST_WARNING_KEY, true)
 
     private fun preferenceKey(pluginId: String) = "python.plugin.$pluginId.enabled"
 

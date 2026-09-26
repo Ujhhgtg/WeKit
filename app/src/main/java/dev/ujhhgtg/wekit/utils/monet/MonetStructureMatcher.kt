@@ -122,12 +122,13 @@ object MonetStructureMatcher {
         val idsByToken = HashMap<String, MutableSet<Int>>()
         val nodesByType = requiredByType.keys.associateWith(graph::nodes)
         val resourceTotal = nodesByType.values.sumOf { it.size }
+        val scanner = EvidenceScanner(graph, requiredByType)
         var scanned = 0
         if (resourceTotal > 0) onProgress(0, resourceTotal, "扫描资源特征与引用关系")
-        requiredByType.forEach { (type, required) ->
+        requiredByType.keys.forEach { type ->
             nodesByType.getValue(type).forEach { node ->
-                calculateEvidence(node, graph).forEach { token ->
-                    if (token in required) idsByToken.getOrPut(token, ::linkedSetOf).add(node.id)
+                scanner.calculate(node).forEach { token ->
+                    idsByToken.getOrPut(token, ::linkedSetOf).add(node.id)
                 }
                 scanned++
                 // Resource scans can be large; avoid flooding the main-thread event queue.
@@ -381,32 +382,103 @@ object MonetStructureMatcher {
         }
     }
 
-    fun evidence(node: MonetResourceNode, graph: MonetResourceGraph): Set<String> = calculateEvidence(node, graph)
+    fun evidence(
+        node: MonetResourceNode,
+        graph: MonetResourceGraph,
+        required: Set<String>? = null,
+    ): Set<String> = EvidenceScanner(graph, required?.let { mapOf(node.key.type to it) }).calculate(node)
 
-    private fun calculateEvidence(node: MonetResourceNode, graph: MonetResourceGraph): Set<String> = HashSet<String>().apply {
-        addAll(localEvidence(node, graph))
-        addAll(usageEvidence(node, graph))
-        graph.outgoing(node.id).mapNotNull(graph::node).forEach { child ->
-            localEvidence(child, graph).forEach { add("child:${child.key.type}:$it") }
-            graph.outgoing(child.id).mapNotNull(graph::node).forEach { grandchild ->
-                localEvidence(grandchild, graph).forEach {
-                    add("child:${child.key.type}:${grandchild.key.type}:$it")
+    /** Scan-scoped caches: shared resources are decoded once, without retaining the host graph. */
+    private class EvidenceScanner(
+        private val graph: MonetResourceGraph,
+        private val requiredByType: Map<String, Set<String>>? = null,
+    ) {
+        private val localById = HashMap<Int, Set<String>>()
+        private val usageById = HashMap<Int, Set<String>>()
+        private val requestedByPrefix = HashMap<Pair<String, String>, Map<String, String>>()
+        // A related token is a prefix plus a local/usage token. Only suffixes of requested
+        // tokens can contribute, so discard unrelated XML strings instead of caching them.
+        private val requiredSuffixes = requiredByType?.values?.flatten()?.flatMapTo(hashSetOf()) { token ->
+            buildList {
+                add(token)
+                token.forEachIndexed { index, char ->
+                    if (char == ':') add(token.substring(index + 1))
                 }
             }
         }
-        (-2..2).filter { it != 0 }.forEach { offset ->
-            graph.node(node.id + offset)?.takeIf { it.key.type == node.key.type }?.let { neighbor ->
-                localEvidence(neighbor, graph).forEach { add("adjacent:$offset:$it") }
+
+        private fun local(node: MonetResourceNode): Set<String> = localById.getOrPut(node.id) {
+            localEvidence(node, graph).let { tokens ->
+                requiredSuffixes?.let { tokens.intersect(it) } ?: tokens
             }
         }
-        graph.incoming(node.id).mapNotNull(graph::node).forEach { owner ->
-            localEvidence(owner, graph).forEach { add("context:${owner.key.type}:$it") }
-            usageEvidence(owner, graph).forEach { add("context:${owner.key.type}:$it") }
-            graph.outgoing(owner.id).filter { it != node.id }.mapNotNull(graph::node).forEach { sibling ->
-                localEvidence(sibling, graph).forEach { add("sibling:${owner.key.type}:${sibling.key.type}:$it") }
+
+        private fun usage(node: MonetResourceNode): Set<String> = usageById.getOrPut(node.id) {
+            usageEvidence(node, graph).let { tokens ->
+                requiredSuffixes?.let { tokens.intersect(it) } ?: tokens
+            }
+        }
+
+        fun calculate(node: MonetResourceNode): Set<String> = HashSet<String>().apply {
+            fun requested(prefix: String): Map<String, String>? = requiredByType?.let { byType ->
+                requestedByPrefix.getOrPut(node.key.type to prefix) {
+                    byType.getValue(node.key.type).asSequence().filter { it.startsWith(prefix) }
+                        .associateBy { it.removePrefix(prefix) }
+                }
+            }
+            fun needs(prefix: String): Boolean = requested(prefix)?.isNotEmpty() ?: true
+            fun addEvidence(prefix: String, source: MonetResourceNode, includeUsage: Boolean = false) {
+                val wanted = requested(prefix)
+                if (wanted != null && wanted.isEmpty()) return
+                // Query the small rule vocabulary rather than constructing all prefixed strings.
+                if (wanted == null || wanted.keys.any { it.substringBefore(':') in LOCAL_EVIDENCE_TYPES }) {
+                    val local = local(source)
+                    if (wanted == null) local.forEach { add(prefix + it) }
+                    else wanted.forEach { (token, fullToken) -> if (token in local) add(fullToken) }
+                }
+                if (includeUsage && (wanted == null || wanted.keys.any {
+                        it.startsWith("incoming:") || it.startsWith("usage:") || it.startsWith("simple-usage:")
+                    })
+                ) {
+                    val usage = usage(source)
+                    if (wanted == null) usage.forEach { add(prefix + it) }
+                    else wanted.forEach { (token, fullToken) -> if (token in usage) add(fullToken) }
+                }
+            }
+
+            addEvidence("", node, includeUsage = true)
+            if (needs("child:")) graph.outgoing(node.id).forEach { childId ->
+                val child = graph.node(childId) ?: return@forEach
+                val prefix = "child:${child.key.type}:"
+                if (needs(prefix)) {
+                    addEvidence(prefix, child)
+                    graph.outgoing(child.id).forEach { grandchildId ->
+                        graph.node(grandchildId)?.let { grandchild ->
+                            addEvidence("$prefix${grandchild.key.type}:", grandchild)
+                        }
+                    }
+                }
+            }
+            if (needs("adjacent:")) for (offset in -2..2) {
+                if (offset != 0 && needs("adjacent:$offset:")) {
+                    graph.node(node.id + offset)?.takeIf { it.key.type == node.key.type }?.let { neighbor ->
+                        addEvidence("adjacent:$offset:", neighbor)
+                    }
+                }
+            }
+            if (needs("context:") || needs("sibling:")) graph.incoming(node.id).forEach { ownerId ->
+                val owner = graph.node(ownerId) ?: return@forEach
+                addEvidence("context:${owner.key.type}:", owner, includeUsage = true)
+                if (needs("sibling:${owner.key.type}:")) graph.outgoing(owner.id).forEach { siblingId ->
+                    if (siblingId != node.id) graph.node(siblingId)?.let { sibling ->
+                        addEvidence("sibling:${owner.key.type}:${sibling.key.type}:", sibling)
+                    }
+                }
             }
         }
     }
+
+    private val LOCAL_EVIDENCE_TYPES = setOf("config", "element", "attribute", "simple-attribute", "outgoing")
 
     private fun localEvidence(node: MonetResourceNode, graph: MonetResourceGraph): Set<String> = HashSet<String>().apply {
         node.values.forEach { configured ->

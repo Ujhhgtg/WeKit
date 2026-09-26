@@ -10,8 +10,8 @@
 
 use crate::{loge, logi};
 use jni::sys::{
-    JNI_FALSE, JNI_TRUE, JNIEnv as RawJNIEnv, JNINativeMethod, jboolean, jclass, jint, jlong,
-    jobject, jstring,
+    JNI_FALSE, JNI_TRUE, JNIEnv as RawJNIEnv, JNINativeMethod, jboolean, jclass, jint, jobject,
+    jstring,
 };
 use std::ffi::{CString, c_char, c_void};
 
@@ -44,45 +44,18 @@ pub(crate) unsafe fn load_class_from_loader(
 
 // ── ArtHookBridge JNI implementations ────────────────────────────────────────
 
-extern "C" fn jni_get_art_method(
-    env: *mut RawJNIEnv,
-    _class: jclass,
-    executable: jobject,
-) -> jlong {
-    crate::art::get_art_method(env, executable) as jlong
-}
-
 extern "C" fn jni_hook_method(
     env: *mut RawJNIEnv,
     _class: jclass,
-    target_art: jlong,
-    backup_art: jlong,
-    bridge_art: jlong,
-    _hook_id: jlong,
-) -> jint {
-    crate::art::hook_method(
-        env,
-        target_art as usize,
-        backup_art as usize,
-        bridge_art as usize,
-    ) as jint
+    target: jobject,
+    hooker: jobject,
+    callback: jobject,
+) -> jobject {
+    crate::art::hook_method(env, target, hooker, callback)
 }
 
-extern "C" fn jni_unhook_method(
-    env: *mut RawJNIEnv,
-    _class: jclass,
-    target_art: jlong,
-    backup_art: jlong,
-) -> jint {
-    crate::art::unhook_method(env, target_art as usize, backup_art as usize) as jint
-}
-
-extern "C" fn jni_trust_dex_file(
-    env: *mut RawJNIEnv,
-    _class: jclass,
-    dex_file: jobject,
-) -> jboolean {
-    if crate::art::trust_dex_file(env, dex_file) {
+extern "C" fn jni_deoptimize(env: *mut RawJNIEnv, _class: jclass, target: jobject) -> jboolean {
+    if crate::art::deoptimize(env, target) {
         JNI_TRUE
     } else {
         JNI_FALSE
@@ -134,17 +107,12 @@ unsafe fn get_class_loader(env: *mut RawJNIEnv, entry_class: jclass) -> jobject 
 
 extern "C" fn jni_native_initialize(env: *mut RawJNIEnv, entry: jclass) -> jboolean {
     unsafe {
-        if !crate::art::init(env) {
-            loge!("Zygisk: ZygiskEntry.nativeInitialize: art_hook_init failed");
+        if !crate::art::is_initialized() {
+            loge!("Zygisk: ZygiskEntry.nativeInitialize: LSPlant bootstrap did not complete");
             return JNI_FALSE;
         }
         let loader = get_class_loader(env, entry);
         if loader.is_null() {
-            return JNI_FALSE;
-        }
-        if !crate::art::trust_class_loader(env, loader) {
-            loge!("Zygisk: ZygiskEntry.nativeInitialize: failed to trust ZygiskEntry loader");
-            ((*(*env)).v1_6.DeleteLocalRef)(env, loader);
             return JNI_FALSE;
         }
         let ok = register_hook_bridge_natives(env, loader);
@@ -412,26 +380,16 @@ pub unsafe fn register_hook_bridge_natives(env: *mut RawJNIEnv, class_loader: jo
         return false;
     }
 
-    let mut methods: [JNINativeMethod; 6] = [
-        JNINativeMethod {
-            name: c"nativeGetArtMethod".as_ptr() as *mut c_char,
-            signature: c"(Ljava/lang/reflect/Executable;)J".as_ptr() as *mut c_char,
-            fnPtr: jni_get_art_method as *mut c_void,
-        },
+    let methods = [
         JNINativeMethod {
             name: c"nativeHookMethod".as_ptr() as *mut c_char,
-            signature: c"(JJJJ)I".as_ptr() as *mut c_char,
+            signature: c"(Ljava/lang/reflect/Executable;Ljava/lang/Object;Ljava/lang/reflect/Method;)Ljava/lang/reflect/Method;".as_ptr() as *mut c_char,
             fnPtr: jni_hook_method as *mut c_void,
         },
         JNINativeMethod {
-            name: c"nativeUnhookMethod".as_ptr() as *mut c_char,
-            signature: c"(JJ)I".as_ptr() as *mut c_char,
-            fnPtr: jni_unhook_method as *mut c_void,
-        },
-        JNINativeMethod {
-            name: c"nativeTrustDexFile".as_ptr() as *mut c_char,
-            signature: c"(Ldalvik/system/DexFile;)Z".as_ptr() as *mut c_char,
-            fnPtr: jni_trust_dex_file as *mut c_void,
+            name: c"nativeDeoptimize".as_ptr() as *mut c_char,
+            signature: c"(Ljava/lang/reflect/Executable;)Z".as_ptr() as *mut c_char,
+            fnPtr: jni_deoptimize as *mut c_void,
         },
         JNINativeMethod {
             name: c"nativeAllocateInstance".as_ptr() as *mut c_char,
@@ -446,7 +404,8 @@ pub unsafe fn register_hook_bridge_natives(env: *mut RawJNIEnv, class_loader: jo
     ];
 
     let fns = *env;
-    let ret = ((*fns).v1_6.RegisterNatives)(env, class, methods.as_mut_ptr(), 6);
+    let ret = ((*fns).v1_6.RegisterNatives)(env, class, methods.as_ptr(), methods.len() as jint);
+    ((*fns).v1_6.DeleteLocalRef)(env, class);
     if ret == 0 {
         logi!("Zygisk: ArtHookBridge natives registered");
         true

@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.api.ui
 
 import android.view.View
+import android.widget.TextView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -86,7 +87,26 @@ object WeChatMessageViewApi : ApiFeature(), IResolveDex {
         }
     }
 
+    private val methodChatItemSetNickname by dexMethod {
+        matcher {
+            declaredClass {
+                usingStrings("MicroMsg.ChattingItem")
+            }
+            paramTypes(null, CharSequence::class.java)
+            returnType(Void.TYPE)
+        }
+    }
+
     override fun onEnable() {
+        methodChatItemSetNickname.hookAfter {
+            if (args[1] != null) return@hookAfter
+            val holder = args[0] ?: return@hookAfter
+            val userTv = holder.reflekt()
+                .firstFieldOrNull { name = "userTV"; superclass() }
+                ?.get() as? TextView ?: return@hookAfter
+            userTv.text = null
+        }
+
         methodChatItemOnBindView.hookAfter {
             val holder = args[0]!!
             val view = holder.reflekt()
@@ -183,6 +203,10 @@ object WeChatMessageViewApi : ApiFeature(), IResolveDex {
         synchronized(currentBindings) { currentBindings[view] }
 
     fun getMsgInfoFromParam(param: HookParam): MessageInfo {
+        val item = param.args[1]
+        val current = item?.let { findMessageInfo(it) }
+        if (current != null) return current
+
         val chattingDataAdapter = param.thisObject!!.reflekt()
             .firstField { type = WeMessageApi.classChattingDataAdapter.clazz }
             .get()!!
@@ -191,5 +215,19 @@ object WeChatMessageViewApi : ApiFeature(), IResolveDex {
             .firstMethod { name = "getItem" }
             .invoke(msgId)!!
         return MessageInfo(msgInfo)
+    }
+
+    private fun findMessageInfo(value: Any, depth: Int = 2): MessageInfo? {
+        if (value.javaClass == WeMessageApi.classMsgInfo.clazz) {
+            return MessageInfo(value)
+        }
+        if (depth == 0) return null
+
+        value.reflekt().fields { superclass() }.forEach { field ->
+            val nested = runCatching { field.get() }.getOrNull() ?: return@forEach
+            val result = findMessageInfo(nested, depth - 1)
+            if (result != null) return result
+        }
+        return null
     }
 }

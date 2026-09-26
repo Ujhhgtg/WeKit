@@ -25,6 +25,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsEditorSheet
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsEmptyState
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.skill.SkillStore
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
@@ -37,7 +43,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * Skills management (§ Skills): add/edit/delete skills and toggle each on/off globally. Skills are
- * `SKILL.md` files under `moduleData/agent/skills/<name>/`; only enabled ones are advertised to the
+ * `SKILL.md` files under `filesDir/wekit/agent/skills/<name>/`; only enabled ones are advertised to the
  * model (as a name+description catalog), and the model loads a skill's body via the `load_skill`
  * tool — the dynamic-discovery model.
  */
@@ -56,10 +62,10 @@ fun SkillsScreen(onBack: () -> Unit) {
     var editing by remember { mutableStateOf<SkillStore.Skill?>(null) }
     var showEditor by remember { mutableStateOf(false) }
 
-    AgentSettingsScaffold(title = stringResource(R.string.agent_skills_title), onBack = onBack) {
+    SettingsScaffold(title = stringResource(R.string.agent_skills_title), onBack = onBack) {
         if (skills.isEmpty()) {
             item {
-                AgentEmptyState(
+                SettingsEmptyState(
                     title = stringResource(R.string.agent_empty_skills_title),
                     message = stringResource(R.string.agent_empty_skills_message),
                     actionLabel = stringResource(R.string.agent_add_skill),
@@ -88,8 +94,8 @@ fun SkillsScreen(onBack: () -> Unit) {
                 }
             }
             item {
-                AgentActionRow {
-                    AgentListActionButton(
+                SettingsActionRow {
+                    SettingsListActionButton(
                         label = stringResource(R.string.agent_add_skill),
                         icon = MaterialSymbols.Outlined.Add,
                         onClick = { editing = null; showEditor = true },
@@ -145,7 +151,7 @@ private fun SkillEditorSheet(
     var body by remember(existing, show) { mutableStateOf(existing?.body.orEmpty()) }
     var showDeleteConfirm by remember(existing) { mutableStateOf(false) }
 
-    AgentEditorSheet(
+    SettingsEditorSheet(
         show = show,
         title = stringResource(if (existing == null) R.string.agent_add_skill else R.string.agent_edit_skill),
         onDismiss = onDismiss,
@@ -198,7 +204,7 @@ private fun SkillEditorSheet(
         Spacer(Modifier.height(16.dp))
     }
 
-    AgentConfirmDialog(
+    SettingsConfirmDialog(
         show = showDeleteConfirm,
         title = stringResource(R.string.action_delete),
         message = stringResource(R.string.agent_delete_skill_confirm),

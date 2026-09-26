@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 
@@ -42,8 +42,8 @@ object HomeSidePanelLayoutStore {
         encodeCache(HomeSidePanelPreferenceKeys.CARD_HITOKOTO_CACHE_PREFIX + cardId, record)
 
     fun removeCardCaches(cardId: String) {
-        WePrefs.remove(HomeSidePanelPreferenceKeys.CARD_WEATHER_CACHE_PREFIX + cardId)
-        WePrefs.remove(HomeSidePanelPreferenceKeys.CARD_HITOKOTO_CACHE_PREFIX + cardId)
+        KvStore.remove(HomeSidePanelPreferenceKeys.CARD_WEATHER_CACHE_PREFIX + cardId)
+        KvStore.remove(HomeSidePanelPreferenceKeys.CARD_HITOKOTO_CACHE_PREFIX + cardId)
     }
 
     fun migrateLegacyCaches(layout: HomeSidePanelLayout) {
@@ -78,12 +78,12 @@ object HomeSidePanelLayoutStore {
     }
 
     private inline fun <reified T> decodeCache(key: String): T? =
-        WePrefs.getString(key)?.let { raw ->
+        KvStore.getString(key)?.let { raw ->
             runCatching { DefaultJson.decodeFromString<T>(raw) }.getOrNull()
         }
 
     private inline fun <reified T> encodeCache(key: String, value: T): Result<Unit> =
-        runCatching { WePrefs.putString(key, DefaultJson.encodeToString(value)) }
+        runCatching { KvStore.putString(key, DefaultJson.encodeToString(value)) }
 
     private const val TAG = "HomeSidePanelLayoutStore"
 }

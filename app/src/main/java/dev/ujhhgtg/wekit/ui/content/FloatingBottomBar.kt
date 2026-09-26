@@ -203,7 +203,7 @@ fun <T> FloatingBottomBar(
     modifier: Modifier = Modifier,
     mode: FloatingBottomBarMode = FloatingBottomBarMode.LiquidGlass,
     colors: FloatingBottomBarColors = FloatingBottomBarDefaults.colors(),
-    iconContent: @Composable (item: T, index: Int) -> Unit,
+    iconContent: @Composable (item: T, index: Int, previewSelected: Boolean) -> Unit,
     labelContent: @Composable (item: T, index: Int) -> Unit,
     onSelectedTabTap: ((index: Int) -> Unit)? = null,
     onTabLongPress: ((index: Int) -> Boolean)? = null,
@@ -333,6 +333,15 @@ fun <T> FloatingBottomBar(
         }
     }
 
+    // The pill previews a tab on pointer-down/drag, before onSelected commits a page.
+    // Derive from the same animation target so cancellation and programmatic changes
+    // also restore the icon preview, without introducing another gesture state.
+    val previewIndex by remember(dampedDragAnimation) {
+        derivedStateOf {
+            dampedDragAnimation.targetValue.fastRoundToInt().fastCoerceIn(0, tabsCount - 1)
+        }
+    }
+
     val tabsContent: @Composable RowScope.() -> Unit = {
         val scale = LocalFloatingBottomBarTabScale.current
         val contentColor = LocalFloatingBottomBarContentColor.current
@@ -373,7 +382,7 @@ fun <T> FloatingBottomBar(
                 CompositionLocalProvider(
                     M3LocalContentColor provides contentColor,
                 ) {
-                    iconContent(item, index)
+                    iconContent(item, index, index == previewIndex)
                     labelContent(item, index)
                 }
             }

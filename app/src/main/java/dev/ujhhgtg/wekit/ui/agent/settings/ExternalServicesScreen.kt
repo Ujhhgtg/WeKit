@@ -16,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.ui.content.m3.SETTINGS_CONTENT_BOTTOM_INSET
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.net.ExternalServiceId
@@ -52,7 +54,7 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
         }
     }
 
-    AgentSettingsScaffold(title = stringResource(R.string.agent_external_services_title), onBack = onBack) {
+    SettingsScaffold(title = stringResource(R.string.agent_external_services_title), onBack = onBack) {
         if (!loaded) {
             item {
                 Box(
@@ -62,7 +64,7 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
                     CircularProgressIndicator(Modifier.size(28.dp))
                 }
             }
-            return@AgentSettingsScaffold
+            return@SettingsScaffold
         }
 
         item {
@@ -88,7 +90,7 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
         item {
             SegmentedColumn(
                 title = stringResource(R.string.external_service_brave_name),
-                modifier = Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
+                modifier = Modifier.padding(bottom = SETTINGS_CONTENT_BOTTOM_INSET),
             ) {
                 item {
                     TextFieldDialogWidget(

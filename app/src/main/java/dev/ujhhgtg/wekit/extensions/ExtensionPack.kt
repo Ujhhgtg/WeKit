@@ -70,7 +70,4 @@ interface ExtensionPack {
 
     /** Hook fired by [ExtensionPacks] after a successful install. */
     fun onInstalled() {}
-
-    /** Hook fired by [ExtensionPacks] after a successful delete. */
-    fun onRemoved() {}
 }

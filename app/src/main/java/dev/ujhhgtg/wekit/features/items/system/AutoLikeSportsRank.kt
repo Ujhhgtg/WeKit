@@ -29,7 +29,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -72,10 +72,10 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex,
         }
     }
 
-    private var minScore by WePrefs.prefOption("sports_rank_min_score", 0)
-    private var useWhitelist by WePrefs.prefOption("sports_rank_use_whitelist", false)
-    private var whitelist by WePrefs.prefOption("sports_rank_whitelist", emptySet())
-    private var blacklist by WePrefs.prefOption("sports_rank_blacklist", emptySet())
+    private var minScore by KvStore.prefOption("sports_rank_min_score", 0)
+    private var useWhitelist by KvStore.prefOption("sports_rank_use_whitelist", false)
+    private var whitelist by KvStore.prefOption("sports_rank_whitelist", emptySet())
+    private var blacklist by KvStore.prefOption("sports_rank_blacklist", emptySet())
 
     private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 

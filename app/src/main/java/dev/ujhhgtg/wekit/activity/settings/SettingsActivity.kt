@@ -23,7 +23,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -81,10 +80,11 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBar
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarDefaults
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveCollapsingTopAppBar
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
 import dev.ujhhgtg.wekit.ui.content.m3AppBarColor
@@ -291,7 +291,7 @@ private fun MainPagerScreen(
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 activeContentColor = MaterialTheme.colorScheme.primary,
             ),
-            iconContent = { item, index ->
+            iconContent = { item, index, _ ->
                 Crossfade(
                     targetState = index == pagerState.targetPage,
                     animationSpec = tween(200),
@@ -351,9 +351,9 @@ fun M3ListScaffold(
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
-            LargeFlexibleTopAppBar(
+            ExpressiveCollapsingTopAppBar(
                 modifier = Modifier.m3AppBarBlur(barBackdrop),
-                title = { Text(title) },
+                title = title,
                 navigationIcon = { navigationIcon?.invoke() },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -400,7 +400,7 @@ fun FeatureRow(
     fun toggle(requested: Boolean) {
         item as SwitchFeature
         if (item.onBeforeToggle(requested, context)) {
-            WePrefs.putBool(configKey, requested)
+            KvStore.putBool(configKey, requested)
             item.isEnabled = requested
             FeatureCategoryState.notifyToggleChanged()
             onCheckedChange(requested)

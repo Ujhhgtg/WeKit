@@ -8,7 +8,7 @@ plugins {
 
 group = "dev.ujhhgtg.wekit"
 version = providers.gradleProperty("wekitPythonApiVersion")
-    .orElse(libs.versions.pythonRuntimeApiVersion).get()
+    .orElse("1.0.0").get()
 
 java {
     sourceCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())

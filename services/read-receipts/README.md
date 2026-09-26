@@ -25,14 +25,7 @@ WeKit「已读追踪」功能的配套服务端，通过透明追踪像素记录
 
 本 crate 同时提供不依赖桌面 REPL 的 Rust library target。默认的 `cli` feature 构建本页描述的独立参考服务；使用 `default-features = false` 依赖 library 时不会引入 `rustyline` 或 `tracing-subscriber`。
 
-library 提供两种路由配置：
-
-- `RouteProfile::Standalone` 保留管理页面、管理 API 和核心协议路由，独立二进制仍支持本地 libSQL 与远程 Turso。
-- `RouteProfile::Embedded` 仅提供 `/register`、`/pixel`、`/count` 和返回空 `204` 的 `/health`，供 WeKit 内嵌 origin 使用。
-
-两种配置的核心协议都限制 wxId 为 128 UTF-8 字节、内容为 16 KiB、HTTP 请求体为 20 KiB、原始 query string 为 1 KiB，协议 message ID 最多 128 字节。内嵌配置进一步要求消息 ID 为 64 位小写十六进制 SHA-256；`/register` 和 `/count` 分别按 TCP 对端 IP 限制为每分钟 30 次和 120 次。未知或格式错误的内嵌消息不会记录读取事件，但 `/pixel` 始终返回静态透明图片。
-
-内嵌调用方还可通过 `ServerConfig::with_connector_authenticator` 提供 32-byte ASCII 认证值。只有同时带有匹配认证值和合法单一 reader IP 的 connector 请求才使用该 reader IP；认证比较为 constant-time。WeKit Android 集成复用已经通过 UID 授权 Binder START 传递的 24-byte 随机 nonce（Base64 后恰为 32 字符），不会生成第二份秘密。独立服务不配置该值，始终按直接 TCP 对端统计。
+library 提供管理页面、管理 API 和核心协议路由。协议限制 wxId 为 128 UTF-8 字节、内容为 16 KiB、HTTP 请求体为 20 KiB、原始 query string 为 1 KiB，message ID 最多 128 字节。`/pixel` 始终返回静态透明图片，按直接 TCP 对端 IP 统计读取。
 
 ## 工作方式
 

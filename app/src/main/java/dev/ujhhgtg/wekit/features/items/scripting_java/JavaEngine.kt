@@ -79,7 +79,6 @@ object JavaEngine {
 
     fun executeAllOnLoad(scripts: Map<String, JavaPlugin>) {
         scripts.values.forEach { plugin ->
-            BypassScriptsDrm.registerInterpreter(plugin.interpreter)
             try {
                 initPlugin(plugin)
                 plugin.interpreter.eval(plugin.content)
@@ -105,8 +104,6 @@ object JavaEngine {
                 }
             } catch (e: Exception) {
                 WeLogger.e(TAG, "onUnload execution failed for script ${plugin.name}", e)
-            } finally {
-                BypassScriptsDrm.unregisterInterpreter(plugin.interpreter)
             }
         }
     }

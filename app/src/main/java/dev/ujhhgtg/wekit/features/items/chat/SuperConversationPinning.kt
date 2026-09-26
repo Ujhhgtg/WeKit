@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -21,7 +22,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -118,6 +119,10 @@ object SuperConversationPinning : SwitchFeature(),
     private fun showPriorityDialog(context: Context, talker: String) {
         showComposeDialog(context) {
             var priority by remember(talker) { mutableIntStateOf(priorityOf(talker)) }
+            val sliderState = remember(talker) {
+                SliderState(value = priority.toFloat(), steps = 9, trackRange = 0f..10f)
+            }
+            sliderState.value = priority.toFloat()
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.chat_pinning_set_priority)) },
@@ -125,10 +130,8 @@ object SuperConversationPinning : SwitchFeature(),
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.chat_pinning_priority_value, priority))
                         Slider(
-                            value = priority.toFloat(),
+                            state = sliderState,
                             onValueChange = { priority = it.toInt() },
-                            valueRange = 0f..10f,
-                            steps = 9
                         )
                         Text(stringResource(R.string.chat_pinning_priority_description))
                     }

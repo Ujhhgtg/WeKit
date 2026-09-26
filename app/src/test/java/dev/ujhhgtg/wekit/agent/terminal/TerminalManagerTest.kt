@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.agent.terminal
 
-import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentLease
 import dev.ujhhgtg.wekit.agent.environment.LeaseReleaseResult
@@ -256,7 +255,6 @@ class TerminalManagerTest {
         val startupReleases = AtomicLong()
         val startupBackend = EnvironmentTerminalBackend(
             native = FakeBackend(startGate = startGate, startEntered = startEntered),
-            chrootInstancesRoot = "/tmp".asPath,
             acquireEnvironmentLease = { EnvironmentLease {
                 startupReleases.incrementAndGet()
                 LeaseReleaseResult.Committed
@@ -271,7 +269,6 @@ class TerminalManagerTest {
         val closeReleases = AtomicLong()
         val closeBackend = EnvironmentTerminalBackend(
             native = FakeBackend(closeGate = closeGate),
-            chrootInstancesRoot = "/tmp".asPath,
             acquireEnvironmentLease = { EnvironmentLease {
                 closeReleases.incrementAndGet()
                 LeaseReleaseResult.Committed

@@ -5,7 +5,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-enum class LinuxEnvironmentType { NATIVE, PROOT, CHROOT, SSH }
+enum class LinuxEnvironmentType { NATIVE, PROOT, SSH }
 
 data class EnvironmentSnapshot(
     val id: String,
@@ -60,7 +60,6 @@ fun LinuxEnvironmentEntity.toSnapshot(): EnvironmentSnapshot = EnvironmentSnapsh
     privilegesAndCapabilities = when (type) {
         LinuxEnvironmentType.NATIVE -> error("native environment is not stored in Room")
         LinuxEnvironmentType.PROOT -> "Rootless PRoot; shares the Android kernel and is not a sandbox"
-        LinuxEnvironmentType.CHROOT -> ChrootConfiguration.CAPABILITIES
         LinuxEnvironmentType.SSH -> "Remote account privileges and server capabilities"
     },
     rootfsPath = rootfsPath,

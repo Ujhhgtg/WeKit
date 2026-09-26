@@ -9,7 +9,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstance
 import dev.ujhhgtg.wekit.agent.environment.ArchLinuxInstanceInstaller
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
-import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import java.io.File
 import java.util.zip.ZipFile
 import kotlinx.serialization.json.Json
@@ -29,7 +29,7 @@ object ArchLinuxPack : ExtensionPack {
     private const val BRIDGE = "invoke_tool"
     private const val SOURCE_MANIFEST = "source-manifest.json"
 
-    private val baseDir: File get() = File(HostInfo.application.filesDir, "wekit-extensions/$id")
+    private val baseDir: File get() = KnownPaths.moduleRoot.resolve("extensions/$id").toFile()
     override fun installDir(): File = baseDir
     override fun stagingDir(): File = File(baseDir, ".staging")
     override fun isInUse(): Boolean = false
@@ -67,7 +67,7 @@ object ArchLinuxPack : ExtensionPack {
             prootExecutable = NativeLoader.prootExecutable(),
             prootLoaderExecutable = NativeLoader.prootLoaderExecutable(),
             bridge = File(template, BRIDGE),
-            instancesDirectory = File(HostInfo.application.filesDir, "wekit-agent/environment/instances"),
+            instancesDirectory = KnownPaths.moduleRoot.resolve("agent/environment/instances").toFile(),
             maxExtractedBytes = maxExtractedBytes,
         )
     }

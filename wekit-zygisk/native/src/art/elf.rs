@@ -1,19 +1,13 @@
-// art/elf.rs — ELF32/64 symbol scanner and .gnu_debugdata decompressor
-//
-// Locates `libart.so` in the process address space via `dl_iterate_phdr`, then
-// scans its section headers for symbols.  When the on-disk `.dynsym`/`.symtab`
-// do not contain the target name, the `.gnu_debugdata` section (an XZ-compressed
-// mini ELF) is decompressed at runtime using `lzma_stream_buffer_decode` loaded
-// from `liblzma.so` via `dlopen`/`dlsym`.
+// Cached symbol lookup in the actual loaded ART library, including its optional
+// XZ-compressed .gnu_debugdata mini ELF. LSPlant requests exact and prefix
+// lookups separately; exact lookup must never select an overloaded symbol.
 
 use crate::loge;
 use libc::c_int;
 use std::{
-    ffi::{CStr, c_char, c_void},
-    sync::OnceLock,
+    ffi::{CStr, c_void},
+    sync::{Once, OnceLock},
 };
-
-// ── ELF types (32/64 bit via cfg) ────────────────────────────────────────────
 
 #[cfg(target_pointer_width = "64")]
 mod elf_types {
@@ -24,6 +18,7 @@ mod elf_types {
     pub type Off = u64;
     pub const SHT_SYMTAB: Word = 2;
     pub const SHT_DYNSYM: Word = 11;
+    #[derive(Clone, Copy)]
     #[repr(C)]
     pub struct Ehdr {
         pub e_ident: [u8; 16],
@@ -41,6 +36,7 @@ mod elf_types {
         pub e_shnum: Half,
         pub e_shstrndx: Half,
     }
+    #[derive(Clone, Copy)]
     #[repr(C)]
     pub struct Shdr {
         pub sh_name: Word,
@@ -54,6 +50,7 @@ mod elf_types {
         pub sh_addralign: Xword,
         pub sh_entsize: Xword,
     }
+    #[derive(Clone, Copy)]
     #[repr(C)]
     pub struct Sym {
         pub st_name: Word,
@@ -74,6 +71,7 @@ mod elf_types {
     pub type Off = u32;
     pub const SHT_SYMTAB: Word = 2;
     pub const SHT_DYNSYM: Word = 11;
+    #[derive(Clone, Copy)]
     #[repr(C)]
     pub struct Ehdr {
         pub e_ident: [u8; 16],
@@ -91,6 +89,7 @@ mod elf_types {
         pub e_shnum: Half,
         pub e_shstrndx: Half,
     }
+    #[derive(Clone, Copy)]
     #[repr(C)]
     pub struct Shdr {
         pub sh_name: Word,
@@ -104,6 +103,7 @@ mod elf_types {
         pub sh_addralign: Xword,
         pub sh_entsize: Xword,
     }
+    #[derive(Clone, Copy)]
     #[repr(C)]
     pub struct Sym {
         pub st_name: Word,
@@ -117,198 +117,192 @@ mod elf_types {
 
 use elf_types::{Ehdr, SHT_DYNSYM, SHT_SYMTAB, Shdr, Sym};
 
-// ── ElfFile ───────────────────────────────────────────────────────────────────
-
-pub struct ElfFile {
-    base: *const u8,
-    size: usize,
-    owned: bool, // true = munmap on drop; false = borrowed (e.g. from Vec)
+/// A bounded, borrowed ELF view. Records are copied with unaligned reads because
+/// neither Vec<u8> nor section offsets guarantee ELF record alignment.
+struct ElfFile<'a> {
+    data: &'a [u8],
+    header: Ehdr,
 }
 
-unsafe impl Send for ElfFile {}
-unsafe impl Sync for ElfFile {}
-
-impl Drop for ElfFile {
-    fn drop(&mut self) {
-        if self.owned && !self.base.is_null() {
-            unsafe { libc::munmap(self.base as *mut c_void, self.size) };
-        }
-    }
-}
-
-impl ElfFile {
-    pub fn open(path: &str) -> Option<Self> {
-        let cpath = std::ffi::CString::new(path).ok()?;
-        let fd = unsafe { libc::open(cpath.as_ptr(), libc::O_RDONLY) };
-        if fd < 0 {
-            return None;
-        }
-        let mut st: libc::stat = unsafe { std::mem::zeroed() };
-        unsafe { libc::fstat(fd, &mut st) };
-        let size = st.st_size as usize;
-        if size < std::mem::size_of::<Ehdr>() {
-            unsafe { libc::close(fd) };
-            return None;
-        }
-        let base = unsafe {
-            libc::mmap(
-                std::ptr::null_mut(),
-                size,
-                libc::PROT_READ,
-                libc::MAP_PRIVATE,
-                fd,
-                0,
-            )
+impl<'a> ElfFile<'a> {
+    fn from_slice(data: &'a [u8]) -> Option<Self> {
+        // All fields of the three ELF record types are integers, so every bit
+        // pattern is valid. No record read is permitted outside the byte slice.
+        let header: Ehdr = unsafe { read_record(data, 0)? };
+        let ident = &header.e_ident;
+        let class = if cfg!(target_pointer_width = "64") {
+            2
+        } else {
+            1
         };
-        unsafe { libc::close(fd) };
-        if base == libc::MAP_FAILED {
-            return None;
-        }
-        Some(ElfFile {
-            base: base as *const u8,
-            size,
-            owned: true,
-        })
-    }
-
-    /// Create an ElfFile view over a borrowed byte slice (no munmap on drop).
-    pub fn from_slice(data: &[u8]) -> Option<Self> {
-        if data.len() < std::mem::size_of::<Ehdr>() {
-            return None;
-        }
-        Some(ElfFile {
-            base: data.as_ptr(),
-            size: data.len(),
-            owned: false,
-        })
-    }
-
-    fn ehdr(&self) -> &Ehdr {
-        unsafe { &*(self.base as *const Ehdr) }
-    }
-
-    fn shdr(&self, idx: u16) -> Option<&Shdr> {
-        let e = self.ehdr();
-        let off = e.e_shoff as usize + idx as usize * e.e_shentsize as usize;
-        if off + std::mem::size_of::<Shdr>() > self.size {
-            return None;
-        }
-        Some(unsafe { &*(self.base.add(off) as *const Shdr) })
-    }
-
-    pub fn find_section(&self, name: &str) -> Option<(*const u8, usize)> {
-        let e = self.ehdr();
-        let strtab = self.shdr(e.e_shstrndx)?;
-        let str_base = unsafe { self.base.add(strtab.sh_offset as usize) };
-        for i in 0..e.e_shnum {
-            let sh = self.shdr(i)?;
-            let sh_name = unsafe {
-                CStr::from_ptr(str_base.add(sh.sh_name as usize) as *const c_char)
-                    .to_str()
-                    .unwrap_or("")
-            };
-            if sh_name == name {
-                let ptr = unsafe { self.base.add(sh.sh_offset as usize) };
-                return Some((ptr, sh.sh_size as usize));
-            }
-        }
-        None
-    }
-
-    fn scan_symtab(&self, sym_sh: &Shdr, str_sh: &Shdr, target: &str) -> Option<usize> {
-        let sym_base = unsafe { self.base.add(sym_sh.sh_offset as usize) };
-        let str_base = unsafe { self.base.add(str_sh.sh_offset as usize) };
-        let count = sym_sh.sh_size as usize / std::mem::size_of::<Sym>();
-        for i in 0..count {
-            let sym = unsafe { &*(sym_base.add(i * std::mem::size_of::<Sym>()) as *const Sym) };
-            if sym.st_value == 0 {
-                continue;
-            }
-            let name = unsafe {
-                CStr::from_ptr(str_base.add(sym.st_name as usize) as *const c_char)
-                    .to_str()
-                    .unwrap_or("")
-            };
-            if name == target || name.starts_with(target) {
-                return Some(sym.st_value as usize);
-            }
-        }
-        None
-    }
-
-    /// Scan .dynsym then .symtab for `sym_name`. Returns value (offset from base) if found.
-    pub fn find_symbol(&self, sym_name: &str) -> Option<usize> {
-        let e = self.ehdr();
-        let mut dynsym_sh: Option<&Shdr> = None;
-        let mut symtab_sh: Option<&Shdr> = None;
-        let mut dynsym_str: Option<&Shdr> = None;
-        let mut symtab_str: Option<&Shdr> = None;
-        for i in 0..e.e_shnum {
-            let sh = self.shdr(i)?;
-            match sh.sh_type {
-                t if t == SHT_DYNSYM => {
-                    dynsym_sh = Some(sh);
-                    dynsym_str = self.shdr(sh.sh_link as u16);
-                }
-                t if t == SHT_SYMTAB => {
-                    symtab_sh = Some(sh);
-                    symtab_str = self.shdr(sh.sh_link as u16);
-                }
-                _ => {}
-            }
-        }
-        if let (Some(ds), Some(dss)) = (dynsym_sh, dynsym_str)
-            && let Some(off) = self.scan_symtab(ds, dss, sym_name)
+        let endian = if cfg!(target_endian = "little") { 1 } else { 2 };
+        if ident[..4] != *b"\x7fELF"
+            || ident[4] != class
+            || ident[5] != endian
+            || ident[6] != 1
+            || header.e_version != 1
+            || usize::from(header.e_ehsize) < size_of::<Ehdr>()
+            || usize::from(header.e_shentsize) < size_of::<Shdr>()
+            || header.e_shnum == 0
         {
-            return Some(off);
+            return None;
         }
-        if let (Some(ss), Some(sss)) = (symtab_sh, symtab_str)
-            && let Some(off) = self.scan_symtab(ss, sss, sym_name)
-        {
-            return Some(off);
+        let section_start = usize::try_from(header.e_shoff).ok()?;
+        let section_size =
+            usize::from(header.e_shentsize).checked_mul(usize::from(header.e_shnum))?;
+        data.get(section_start..section_start.checked_add(section_size)?)?;
+        Some(Self { data, header })
+    }
+
+    fn shdr(&self, index: usize) -> Option<Shdr> {
+        if index >= usize::from(self.header.e_shnum) {
+            return None;
+        }
+        let offset = usize::try_from(self.header.e_shoff)
+            .ok()?
+            .checked_add(index.checked_mul(usize::from(self.header.e_shentsize))?)?;
+        // SAFETY: Shdr contains only integer fields; read_record checks bounds.
+        unsafe { read_record(self.data, offset) }
+    }
+
+    fn section_data(&self, section: &Shdr) -> Option<&'a [u8]> {
+        let start = usize::try_from(section.sh_offset).ok()?;
+        let size = usize::try_from(section.sh_size).ok()?;
+        self.data.get(start..start.checked_add(size)?)
+    }
+
+    fn find_section(&self, name: &str) -> Option<&'a [u8]> {
+        let names = self.section_data(&self.shdr(usize::from(self.header.e_shstrndx))?)?;
+        for index in 0..usize::from(self.header.e_shnum) {
+            let section = self.shdr(index)?;
+            if string_at(names, section.sh_name as usize) == Some(name.as_bytes()) {
+                return self.section_data(&section);
+            }
         }
         None
     }
 
-    /// Prefix-matching variant of find_symbol, used by resolve_art_symbol.
-    pub fn find_symbol_with_prefix(&self, sym_name: &str, prefix: bool) -> Option<usize> {
-        if !prefix {
-            return self.find_symbol(sym_name);
-        }
-        let e = self.ehdr();
-        for i in 0..e.e_shnum {
-            let sh = self.shdr(i)?;
-            if sh.sh_type != SHT_DYNSYM && sh.sh_type != SHT_SYMTAB {
-                continue;
-            }
-            let str_sh = self.shdr(sh.sh_link as u16)?;
-            let sym_base = unsafe { self.base.add(sh.sh_offset as usize) };
-            let str_base = unsafe { self.base.add(str_sh.sh_offset as usize) };
-            let count = sh.sh_size as usize / std::mem::size_of::<Sym>();
-            for j in 0..count {
-                let sym = unsafe { &*(sym_base.add(j * std::mem::size_of::<Sym>()) as *const Sym) };
-                if sym.st_value == 0 {
+    fn find_symbol(&self, target: &str, prefix: bool) -> Option<Sym> {
+        // Prefer exported symbols, then search the full/local symbol table.
+        for kind in [SHT_DYNSYM, SHT_SYMTAB] {
+            for index in 0..usize::from(self.header.e_shnum) {
+                let section = self.shdr(index)?;
+                if section.sh_type != kind {
                     continue;
                 }
-                let name = unsafe {
-                    CStr::from_ptr(str_base.add(sym.st_name as usize) as *const c_char)
-                        .to_str()
-                        .unwrap_or("")
-                };
-                if name.starts_with(sym_name) {
-                    return Some(sym.st_value as usize);
+                if let Some(symbol) = self.scan_symtab(&section, target.as_bytes(), prefix) {
+                    return Some(symbol);
                 }
+            }
+        }
+        None
+    }
+
+    fn scan_symtab(&self, section: &Shdr, target: &[u8], prefix: bool) -> Option<Sym> {
+        const SHT_STRTAB: u32 = 3;
+        const SHN_UNDEF: u16 = 0;
+        const SHN_ABS: u16 = 0xfff1;
+        let strings = self.shdr(usize::try_from(section.sh_link).ok()?)?;
+        if strings.sh_type != SHT_STRTAB {
+            return None;
+        }
+        let names = self.section_data(&strings)?;
+        let symbols = self.section_data(section)?;
+        let stride = usize::try_from(section.sh_entsize).ok()?;
+        if stride < size_of::<Sym>() || symbols.len() % stride != 0 {
+            return None;
+        }
+        for offset in (0..symbols.len()).step_by(stride) {
+            // SAFETY: Sym contains only integer fields; read_record checks bounds.
+            let symbol: Sym = unsafe { read_record(symbols, offset)? };
+            if symbol.st_value == 0
+                || symbol.st_shndx == SHN_UNDEF
+                || (usize::from(symbol.st_shndx) >= usize::from(self.header.e_shnum)
+                    && symbol.st_shndx != SHN_ABS)
+            {
+                continue;
+            }
+            let Some(name) = string_at(names, symbol.st_name as usize) else {
+                continue;
+            };
+            if if prefix {
+                name.starts_with(target)
+            } else {
+                name == target
+            } {
+                return Some(symbol);
             }
         }
         None
     }
 }
 
-// ── dl_iterate_phdr ART library finder ───────────────────────────────────────
+/// Caller must use a record type whose fields permit every bit pattern.
+unsafe fn read_record<T: Copy>(data: &[u8], offset: usize) -> Option<T> {
+    let bytes = data.get(offset..offset.checked_add(size_of::<T>())?)?;
+    Some(unsafe { bytes.as_ptr().cast::<T>().read_unaligned() })
+}
 
-pub struct ArtLibrary {
-    pub base: usize,
-    pub path: String,
+fn string_at(strings: &[u8], offset: usize) -> Option<&[u8]> {
+    let tail = strings.get(offset..)?;
+    Some(&tail[..tail.iter().position(|&byte| byte == 0)?])
+}
+
+/// Own the ELF bytes for the resolver's lifetime and decompress mini debug info
+/// at most once. Vec and OnceLock provide Send + Sync without raw-pointer owners.
+pub struct ArtSymbolResolver {
+    base: usize,
+    data: Vec<u8>,
+    debug_data: OnceLock<Option<Vec<u8>>>,
+}
+
+impl ArtSymbolResolver {
+    pub fn load() -> Option<Self> {
+        let library = find_art_library()?;
+        let data = std::fs::read(&library.path).ok()?;
+        ElfFile::from_slice(&data)?;
+        Some(Self {
+            base: library.base,
+            data,
+            debug_data: OnceLock::new(),
+        })
+    }
+
+    /// Return zero when unavailable. All relative values are relocated against
+    /// this same loaded ART image; unrelated on-disk paths and RTLD_DEFAULT are
+    /// deliberately excluded to avoid returning a symbol from another library.
+    pub fn resolve(&self, name: &str, prefix: bool) -> usize {
+        if name.is_empty() {
+            return 0;
+        }
+        let Some(elf) = ElfFile::from_slice(&self.data) else {
+            return 0;
+        };
+        let symbol = elf.find_symbol(name, prefix).or_else(|| {
+            let bytes = self.debug_data.get_or_init(|| {
+                let compressed = elf.find_section(".gnu_debugdata")?;
+                let bytes = decompress_xz(compressed)?;
+                ElfFile::from_slice(&bytes)?;
+                Some(bytes)
+            });
+            ElfFile::from_slice(bytes.as_ref()?)?.find_symbol(name, prefix)
+        });
+        let Some(symbol) = symbol else {
+            return 0;
+        };
+        let value = symbol.st_value as usize;
+        if symbol.st_shndx == 0xfff1 {
+            // SHN_ABS: no load bias applies.
+            value
+        } else {
+            self.base.checked_add(value).unwrap_or(0)
+        }
+    }
+}
+
+struct ArtLibrary {
+    base: usize,
+    path: String,
 }
 
 extern "C" fn phdr_callback(
@@ -316,193 +310,323 @@ extern "C" fn phdr_callback(
     _size: libc::size_t,
     data: *mut c_void,
 ) -> c_int {
+    // SAFETY: dl_iterate_phdr supplies a valid info record and receives the live
+    // Option<ArtLibrary> below as its callback context.
     let result = unsafe { &mut *(data as *mut Option<ArtLibrary>) };
-    let name = unsafe {
-        if (*info).dlpi_name.is_null() {
-            return 0;
-        }
-        CStr::from_ptr((*info).dlpi_name).to_str().unwrap_or("")
+    let info = unsafe { &*info };
+    if info.dlpi_name.is_null() {
+        return 0;
+    }
+    let Ok(path) = (unsafe { CStr::from_ptr(info.dlpi_name) }).to_str() else {
+        return 0;
     };
-    let base = name.rfind('/').map(|i| &name[i + 1..]).unwrap_or(name);
-    if base == "libart.so" || base == "libartd.so" {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    if name == "libart.so" || name == "libartd.so" {
         *result = Some(ArtLibrary {
-            base: unsafe { (*info).dlpi_addr as usize },
-            path: name.to_owned(),
+            base: info.dlpi_addr as usize,
+            path: path.to_owned(),
         });
-        return 1; // stop
+        return 1;
     }
     0
 }
 
-pub fn find_art_library() -> Option<ArtLibrary> {
+fn find_art_library() -> Option<ArtLibrary> {
     let mut result: Option<ArtLibrary> = None;
     unsafe { libc::dl_iterate_phdr(Some(phdr_callback), &mut result as *mut _ as *mut c_void) };
     result
 }
 
-// ── XZ decompression via runtime dlopen ──────────────────────────────────────
-
-type LzmaDecodeFn = unsafe extern "C" fn(
-    memlimit: *const u64,
-    flags: u32,
-    allocator: *const c_void,
-    inp: *const u8,
-    in_pos: *mut usize,
+// ABI from the pinned XZ Embedded xz.h.
+#[repr(C)]
+struct XzBuffer {
+    input: *const u8,
+    in_pos: usize,
     in_size: usize,
-    out: *mut u8,
-    out_pos: *mut usize,
+    output: *mut u8,
+    out_pos: usize,
     out_size: usize,
-) -> u32;
-
-fn load_lzma() -> Option<LzmaDecodeFn> {
-    static FN: OnceLock<Option<LzmaDecodeFn>> = OnceLock::new();
-    *FN.get_or_init(|| unsafe {
-        let h = libc::dlopen(c"liblzma.so".as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL);
-        if h.is_null() {
-            return None;
-        }
-        // Intentionally leak handle so fn ptr stays valid for process lifetime
-        let sym = libc::dlsym(h, c"lzma_stream_buffer_decode".as_ptr());
-        if sym.is_null() {
-            return None;
-        }
-        Some(std::mem::transmute::<*mut c_void, LzmaDecodeFn>(sym))
-    })
 }
 
-pub fn decompress_xz(input: &[u8]) -> Option<Vec<u8>> {
-    let decode = load_lzma()?;
-    let mut buf_size = (input.len() * 4).max(65536);
-    let max_size = 64 * 1024 * 1024usize;
-    loop {
-        let mut out = vec![0u8; buf_size];
-        let memlimit = u64::MAX;
-        let mut in_pos = 0usize;
-        let mut out_pos = 0usize;
-        const LZMA_OK: u32 = 0;
-        const LZMA_BUF_ERROR: u32 = 10;
-        let ret = unsafe {
-            decode(
-                &memlimit,
-                0,
-                std::ptr::null(),
-                input.as_ptr(),
-                &mut in_pos,
-                input.len(),
-                out.as_mut_ptr(),
-                &mut out_pos,
-                buf_size,
-            )
-        };
-        if ret == LZMA_OK {
-            out.truncate(out_pos);
-            return Some(out);
-        }
-        if ret == LZMA_BUF_ERROR && buf_size < max_size {
-            buf_size *= 2;
-            continue;
-        }
-        loge!("Zygisk: XZ decompress error {ret}");
+unsafe extern "C" {
+    fn xz_crc32_init();
+    fn xz_crc64_init();
+    fn xz_dec_init(mode: c_int, dict_max: u32) -> *mut c_void;
+    fn xz_dec_run(decoder: *mut c_void, buffer: *mut XzBuffer) -> c_int;
+    fn xz_dec_end(decoder: *mut c_void);
+}
+
+fn decompress_xz(input: &[u8]) -> Option<Vec<u8>> {
+    static CRC_TABLES: Once = Once::new();
+    CRC_TABLES.call_once(|| unsafe {
+        xz_crc32_init();
+        xz_crc64_init();
+    });
+    // XZ_SINGLE uses the output buffer as its dictionary and resets on each
+    // call, so the existing bounded retry loop needs no streaming state.
+    const XZ_SINGLE: c_int = 0;
+    const XZ_STREAM_END: c_int = 1;
+    const XZ_BUF_ERROR: c_int = 8;
+    let decoder = unsafe { xz_dec_init(XZ_SINGLE, 0) };
+    if decoder.is_null() {
+        loge!("Zygisk: XZ decoder allocation failed");
         return None;
     }
-}
-
-/// Find a symbol in an ELF file, falling back to .gnu_debugdata if needed.
-/// Returns the symbol value (offset from ELF load base, not file base).
-pub fn find_symbol_in_file(path: &str, sym_name: &str) -> Option<usize> {
-    let elf = ElfFile::open(path)?;
-    if let Some(off) = elf.find_symbol(sym_name) {
-        return Some(off);
-    }
-    // Try .gnu_debugdata (XZ-compressed mini ELF)
-    let (cptr, csz) = elf.find_section(".gnu_debugdata")?;
-    let compressed = unsafe { std::slice::from_raw_parts(cptr, csz) };
-    let decompressed = decompress_xz(compressed)?;
-    // Parse the decompressed mini ELF without munmap (borrowed slice)
-    let mini = ElfFile::from_slice(&decompressed)?;
-    mini.find_symbol(sym_name)
-}
-
-/// Resolve an ART symbol: try dlsym(RTLD_DEFAULT), scan ELF file, then try fallback paths.
-/// prefix=true enables prefix matching.
-/// Returns the runtime address (loaded_base + symbol_value).
-pub fn resolve_art_symbol(art_base: usize, art_path: &str, name: &str, prefix: bool) -> usize {
-    // 1. Non-prefix searches try dlsym first
-    if !prefix && let Ok(c) = std::ffi::CString::new(name) {
-        let ptr = unsafe { libc::dlsym(libc::RTLD_DEFAULT, c.as_ptr()) };
-        if !ptr.is_null() {
-            return ptr as usize;
-        }
-    }
-    // 2. Scan loaded file
-    if art_base != 0
-        && !art_path.is_empty()
-        && let Some(elf) = ElfFile::open(art_path)
-        && let Some(off) = elf.find_symbol_with_prefix(name, prefix)
-    {
-        return art_base + off;
-    }
-    // 3. Fallback paths (APEX / system)
-    #[cfg(target_pointer_width = "64")]
-    let fallback: &[&str] = &[
-        "/apex/com.android.art/lib64/libart.so",
-        "/system/lib64/libart.so",
-    ];
-    #[cfg(target_pointer_width = "32")]
-    let fallback: &[&str] = &[
-        "/apex/com.android.art/lib/libart.so",
-        "/system/lib/libart.so",
-    ];
-    for &path in fallback {
-        if path == art_path {
-            continue;
-        }
-        let base = find_loaded_library_base(path);
-        if base == 0 {
-            continue;
-        }
-        if let Some(elf) = ElfFile::open(path)
-            && let Some(off) = elf.find_symbol_with_prefix(name, prefix)
-        {
-            return base + off;
-        }
-    }
-    0
-}
-
-/// Find a loaded library's base address via dl_iterate_phdr.
-fn find_loaded_library_base(target: &str) -> usize {
-    struct Query {
-        path: *const libc::c_char,
-        base: usize,
-    }
-    extern "C" fn cb(
-        info: *mut libc::dl_phdr_info,
-        _: libc::size_t,
-        data: *mut libc::c_void,
-    ) -> libc::c_int {
-        let q = unsafe { &mut *(data as *mut Query) };
-        if unsafe { (*info).dlpi_name.is_null() } {
-            return 0;
-        }
-        if unsafe { libc::strcmp((*info).dlpi_name, q.path) } == 0 {
-            unsafe {
-                q.base = (*info).dlpi_addr as usize;
-            }
-            return 1;
-        }
-        0
-    }
-    if let Ok(c) = std::ffi::CString::new(target) {
-        let mut q = Query {
-            path: c.as_ptr(),
-            base: 0,
+    const MAX_SIZE: usize = 64 * 1024 * 1024;
+    let mut size = input.len().saturating_mul(4).clamp(65536, MAX_SIZE);
+    let decoded = loop {
+        let mut output = vec![0u8; size];
+        let mut buffer = XzBuffer {
+            input: input.as_ptr(),
+            in_pos: 0,
+            in_size: input.len(),
+            output: output.as_mut_ptr(),
+            out_pos: 0,
+            out_size: output.len(),
         };
-        unsafe {
-            libc::dl_iterate_phdr(Some(cb), &mut q as *mut _ as *mut libc::c_void);
+        let result = unsafe { xz_dec_run(decoder, &mut buffer) };
+        if result == XZ_STREAM_END && buffer.in_pos == input.len() {
+            output.truncate(buffer.out_pos);
+            break Some(output);
         }
-        q.base
-    } else {
-        0
+        if result == XZ_BUF_ERROR && size < MAX_SIZE {
+            size = (size * 2).min(MAX_SIZE);
+            continue;
+        }
+        loge!("Zygisk: XZ decompress error {result}");
+        break None;
+    };
+    unsafe { xz_dec_end(decoder) };
+    decoded
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::mem::offset_of;
+
+    fn put<const N: usize>(data: &mut [u8], offset: usize, value: [u8; N]) {
+        data[offset..offset + N].copy_from_slice(&value);
+    }
+
+    /// Seven sections, with intentionally unaligned section and symbol records.
+    /// The exported overload precedes the exact name; local symbols only exist
+    /// in .symtab. Undefined and zero-valued entries must never resolve.
+    fn fixture(debug_data: &[u8]) -> Vec<u8> {
+        let sections = size_of::<Ehdr>() + 1;
+        let mut data = vec![0u8; sections + 7 * size_of::<Shdr>()];
+        data[..7].copy_from_slice(&[
+            0x7f,
+            b'E',
+            b'L',
+            b'F',
+            if cfg!(target_pointer_width = "64") {
+                2
+            } else {
+                1
+            },
+            if cfg!(target_endian = "little") { 1 } else { 2 },
+            1,
+        ]);
+        put(&mut data, offset_of!(Ehdr, e_version), 1u32.to_ne_bytes());
+        put(
+            &mut data,
+            offset_of!(Ehdr, e_ehsize),
+            (size_of::<Ehdr>() as u16).to_ne_bytes(),
+        );
+        put(
+            &mut data,
+            offset_of!(Ehdr, e_shoff),
+            (sections as elf_types::Off).to_ne_bytes(),
+        );
+        put(
+            &mut data,
+            offset_of!(Ehdr, e_shentsize),
+            (size_of::<Shdr>() as u16).to_ne_bytes(),
+        );
+        put(&mut data, offset_of!(Ehdr, e_shnum), 7u16.to_ne_bytes());
+        put(&mut data, offset_of!(Ehdr, e_shstrndx), 5u16.to_ne_bytes());
+
+        let strings = b"\0targetSuffix\0target\0local\0missing\0zero\0";
+        for (index, kind, bytes, link, entry_size, name) in [
+            (1, 3, strings.to_vec(), 0, 0, 0),
+            (
+                2,
+                SHT_DYNSYM,
+                symbol_table(&[(1, 0x110, 1), (14, 0x220, 1), (27, 0x330, 0), (35, 0, 1)]),
+                1,
+                size_of::<Sym>(),
+                0,
+            ),
+            (3, 3, strings.to_vec(), 0, 0, 0),
+            (
+                4,
+                SHT_SYMTAB,
+                symbol_table(&[(21, 0x440, 1)]),
+                3,
+                size_of::<Sym>(),
+                0,
+            ),
+            (5, 3, b"\0.gnu_debugdata\0".to_vec(), 0, 0, 0),
+            (6, 1, debug_data.to_vec(), 0, 0, 1),
+        ] {
+            let start = data.len();
+            data.extend_from_slice(&bytes);
+            let section = sections + index * size_of::<Shdr>();
+            put(
+                &mut data,
+                section + offset_of!(Shdr, sh_type),
+                kind.to_ne_bytes(),
+            );
+            put(
+                &mut data,
+                section + offset_of!(Shdr, sh_name),
+                (name as u32).to_ne_bytes(),
+            );
+            put(
+                &mut data,
+                section + offset_of!(Shdr, sh_offset),
+                (start as elf_types::Off).to_ne_bytes(),
+            );
+            put(
+                &mut data,
+                section + offset_of!(Shdr, sh_size),
+                (bytes.len() as elf_types::Xword).to_ne_bytes(),
+            );
+            put(
+                &mut data,
+                section + offset_of!(Shdr, sh_link),
+                (link as u32).to_ne_bytes(),
+            );
+            put(
+                &mut data,
+                section + offset_of!(Shdr, sh_entsize),
+                (entry_size as elf_types::Xword).to_ne_bytes(),
+            );
+        }
+        data
+    }
+
+    fn symbol_table(entries: &[(u32, usize, u16)]) -> Vec<u8> {
+        let mut data = vec![0; entries.len() * size_of::<Sym>()];
+        for (index, &(name, value, section)) in entries.iter().enumerate() {
+            let offset = index * size_of::<Sym>();
+            put(
+                &mut data,
+                offset + offset_of!(Sym, st_name),
+                name.to_ne_bytes(),
+            );
+            put(
+                &mut data,
+                offset + offset_of!(Sym, st_value),
+                (value as elf_types::Addr).to_ne_bytes(),
+            );
+            put(
+                &mut data,
+                offset + offset_of!(Sym, st_shndx),
+                section.to_ne_bytes(),
+            );
+        }
+        data
+    }
+
+    #[test]
+    fn distinguishes_exact_overloaded_local_and_undefined_symbols() {
+        let data = fixture(&[]);
+        let elf = ElfFile::from_slice(&data).unwrap();
+        assert_eq!(elf.find_symbol("target", false).unwrap().st_value, 0x220);
+        assert_eq!(elf.find_symbol("target", true).unwrap().st_value, 0x110);
+        assert_eq!(elf.find_symbol("local", false).unwrap().st_value, 0x440);
+        assert!(elf.find_symbol("missing", false).is_none());
+        assert!(elf.find_symbol("zero", false).is_none());
+        assert!(elf.find_symbol("targ", false).is_none());
+    }
+
+    #[test]
+    fn rejects_invalid_headers_and_symbol_table_boundaries() {
+        let original = fixture(&[]);
+        for length in 0..size_of::<Ehdr>() {
+            assert!(ElfFile::from_slice(&original[..length]).is_none());
+        }
+        let mut data = original.clone();
+        data[5] ^= 3; // Incorrect endianness.
+        assert!(ElfFile::from_slice(&data).is_none());
+        let mut data = original.clone();
+        put(
+            &mut data,
+            offset_of!(Ehdr, e_shoff),
+            elf_types::Off::MAX.to_ne_bytes(),
+        );
+        assert!(ElfFile::from_slice(&data).is_none());
+        let dynsym = size_of::<Ehdr>() + 1 + 2 * size_of::<Shdr>();
+        for (offset, value) in [
+            (offset_of!(Shdr, sh_offset), elf_types::Xword::MAX),
+            (offset_of!(Shdr, sh_size), elf_types::Xword::MAX),
+            (offset_of!(Shdr, sh_entsize), 0),
+        ] {
+            let mut data = original.clone();
+            put(&mut data, dynsym + offset, value.to_ne_bytes());
+            let elf = ElfFile::from_slice(&data).unwrap();
+            assert!(elf.find_symbol("target", false).is_none());
+            assert_eq!(elf.find_symbol("local", false).unwrap().st_value, 0x440);
+        }
+        let mut data = original;
+        put(
+            &mut data,
+            dynsym + offset_of!(Shdr, sh_link),
+            u32::MAX.to_ne_bytes(),
+        );
+        assert!(
+            ElfFile::from_slice(&data)
+                .unwrap()
+                .find_symbol("target", false)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn bounds_string_reads_to_their_own_section() {
+        let mut data = fixture(&[]);
+        let dynstr = size_of::<Ehdr>() + 1 + size_of::<Shdr>();
+        let offset = ElfFile::from_slice(&data)
+            .unwrap()
+            .shdr(1)
+            .unwrap()
+            .sh_offset as usize;
+        data[offset + 20] = b'X'; // Remove target's terminator.
+        put(
+            &mut data,
+            dynstr + offset_of!(Shdr, sh_size),
+            (21 as elf_types::Xword).to_ne_bytes(),
+        );
+        let elf = ElfFile::from_slice(&data).unwrap();
+        assert!(elf.find_symbol("target", false).is_none());
+        assert_eq!(
+            elf.find_symbol("targetSuffix", false).unwrap().st_value,
+            0x110
+        );
+    }
+
+    #[test]
+    fn relocates_symbols_and_searches_cached_mini_elf() {
+        let mut data = fixture(&[]);
+        // Only the mini ELF has the local symbol.
+        let symtab = size_of::<Ehdr>() + 1 + 4 * size_of::<Shdr>();
+        put(
+            &mut data,
+            symtab + offset_of!(Shdr, sh_type),
+            0u32.to_ne_bytes(),
+        );
+        let resolver = ArtSymbolResolver {
+            base: 0x10000,
+            data,
+            debug_data: OnceLock::from(Some(fixture(&[]))),
+        };
+        assert_eq!(resolver.resolve("target", false), 0x10220);
+        assert_eq!(resolver.resolve("target", true), 0x10110);
+        assert_eq!(resolver.resolve("local", false), 0x10440);
+        assert_eq!(resolver.resolve("loc", false), 0);
+        assert_eq!(resolver.resolve("loc", true), 0x10440);
+        assert_eq!(resolver.resolve("missing", false), 0);
     }
 }

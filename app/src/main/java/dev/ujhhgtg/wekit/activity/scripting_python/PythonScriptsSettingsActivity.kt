@@ -2,8 +2,8 @@
 package dev.ujhhgtg.wekit.activity.scripting_python
 
 import android.content.Intent
-import android.os.Bundle
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.os.Process
 import android.provider.DocumentsContract
@@ -15,17 +15,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.Keep
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,11 +30,22 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Archive
@@ -57,37 +57,34 @@ import com.composables.icons.materialsymbols.outlined.Edit
 import com.composables.icons.materialsymbols.outlined.Folder
 import com.composables.icons.materialsymbols.outlined.Refresh
 import com.composables.icons.materialsymbols.outlined.Restart_alt
-import com.composables.icons.materialsymbols.outlined.Upload
 import com.composables.icons.materialsymbols.outlined.Save
+import com.composables.icons.materialsymbols.outlined.Upload
 import com.composables.icons.materialsymbols.outlined.Wrap_text
-import top.yukonga.scripta.editor.CodeEditor
-import top.yukonga.scripta.editor.EditorColors
-import top.yukonga.scripta.editor.EditorLanguage
-import top.yukonga.scripta.editor.rememberCodeEditorController
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.extensions.PythonRuntimePack
+import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonCrashGuard
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginManager
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginManifest
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginRecord
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginStatus
-import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonCrashGuard
 import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLoader
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
-import dev.ujhhgtg.wekit.ui.agent.settings.AgentActionRow
-import dev.ujhhgtg.wekit.ui.agent.settings.AgentConfirmDialog
-import dev.ujhhgtg.wekit.ui.agent.settings.AgentListActionButton
-import dev.ujhhgtg.wekit.ui.agent.settings.AgentSettingsScaffold
-import dev.ujhhgtg.wekit.ui.agent.settings.rememberCreationBackGuard
+import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.ui.animation.predictiveback.weKitNavTransition
-import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
+import dev.ujhhgtg.wekit.ui.content.m3.rememberCreationBackGuard
 import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
 import dev.ujhhgtg.wekit.ui.content.m3AppBarColor
 import dev.ujhhgtg.wekit.ui.content.m3BackdropLayer
@@ -97,11 +94,10 @@ import dev.ujhhgtg.wekit.ui.navigation.Navigator
 import dev.ujhhgtg.wekit.ui.navigation.rememberM3NavEffects
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
-import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.loader.startup.StartupInfo
+import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -110,6 +106,10 @@ import top.yukonga.miuix.kmp.nav.core.NavDisplay
 import top.yukonga.miuix.kmp.nav.core.NavKey
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
+import top.yukonga.scripta.editor.CodeEditor
+import top.yukonga.scripta.editor.EditorColors
+import top.yukonga.scripta.editor.EditorLanguage
+import top.yukonga.scripta.editor.rememberCodeEditorController
 import kotlin.io.path.div
 
 @Keep
@@ -220,7 +220,7 @@ private fun PythonHomeScreen(
         }
     }
 
-    AgentSettingsScaffold(stringResource(R.string.python_scripts_title), onBack) {
+    SettingsScaffold(stringResource(R.string.python_scripts_title), onBack) {
         item {
             SegmentedColumn(title = stringResource(R.string.python_runtime_section)) {
                 item {
@@ -292,7 +292,7 @@ private fun PythonHomeScreen(
             }
         }
     }
-    AgentConfirmDialog(
+    SettingsConfirmDialog(
         show = pendingTrustPlugin != null,
         title = stringResource(R.string.python_security_warning_title),
         message = stringResource(R.string.python_security_warning),
@@ -300,7 +300,7 @@ private fun PythonHomeScreen(
         dismissLabel = stringResource(R.string.dialog_cancel),
         destructive = true,
         onConfirm = {
-            val enabledPluginId = pendingTrustPlugin ?: return@AgentConfirmDialog
+            val enabledPluginId = pendingTrustPlugin ?: return@SettingsConfirmDialog
             pendingTrustPlugin = null
             PythonPluginManager.acceptTrustWarning()
             coroutineScope.launch(Dispatchers.IO) {
@@ -310,7 +310,7 @@ private fun PythonHomeScreen(
         onDismiss = { pendingTrustPlugin = null },
     )
     // 导入的 zip 携带任意代码，无论之前是否接受过警告，每次导入都要重新确认。
-    AgentConfirmDialog(
+    SettingsConfirmDialog(
         show = showImportWarning,
         title = stringResource(R.string.python_security_warning_title),
         message = stringResource(R.string.python_security_warning),
@@ -365,8 +365,8 @@ private fun PythonPluginInfoScreen(pluginId: String?, onBack: () -> Unit) {
         }
     }
 
-    AgentSettingsScaffold(
-        title = if (creating) stringResource(R.string.python_new_plugin) else manifest?.name ?: pluginId.orEmpty(),
+    SettingsScaffold(
+        title = if (creating) stringResource(R.string.python_new_plugin) else manifest?.name ?: pluginId,
         onBack = guardedBack,
     ) {
         item {
@@ -474,8 +474,8 @@ private fun PythonPluginInfoScreen(pluginId: String?, onBack: () -> Unit) {
         }
         if (creating) {
             item {
-                AgentActionRow {
-                    AgentListActionButton(
+                SettingsActionRow {
+                    SettingsListActionButton(
                         label = stringResource(R.string.action_save),
                         icon = MaterialSymbols.Outlined.Save,
                         loading = saving,
@@ -556,7 +556,7 @@ private fun PythonDetailScreen(
         record.status == PythonPluginStatus.UNLOADING
     // 基本信息写入 plugin.json,插件运行中禁止编辑;开关本身保持可用以便停用。
     val infoEditable = !inFlight && record.status != PythonPluginStatus.ACTIVE
-    AgentSettingsScaffold(record.manifest?.name ?: pluginId, onBack) {
+    SettingsScaffold(record.manifest?.name ?: pluginId, onBack) {
         item {
             SegmentedColumn(title = stringResource(R.string.python_plugin_info_section)) {
                 item {
@@ -666,7 +666,7 @@ private fun PythonDetailScreen(
             }
         }
     }
-    AgentConfirmDialog(
+    SettingsConfirmDialog(
         show = confirmClear,
         title = stringResource(R.string.python_clear_data),
         message = stringResource(R.string.python_clear_data_confirm),
@@ -676,12 +676,12 @@ private fun PythonDetailScreen(
         onConfirm = {
             confirmClear = false
             coroutineScope.launch(Dispatchers.IO) {
-                (KnownPaths.moduleData / "python" / "data" / pluginId).toFile().deleteRecursively()
+                (KnownPaths.moduleRoot / "python" / "data" / pluginId).toFile().deleteRecursively()
             }
         },
         onDismiss = { confirmClear = false },
     )
-    AgentConfirmDialog(
+    SettingsConfirmDialog(
         show = confirmDelete,
         title = stringResource(R.string.python_delete_plugin),
         message = stringResource(R.string.python_delete_plugin_confirm),
@@ -707,7 +707,7 @@ private fun PythonDetailScreen(
         },
         onDismiss = { confirmDelete = false },
     )
-    AgentConfirmDialog(
+    SettingsConfirmDialog(
         show = pendingTrustPlugin != null,
         title = stringResource(R.string.python_security_warning_title),
         message = stringResource(R.string.python_security_warning),
@@ -887,7 +887,7 @@ private fun PythonDiagnosticsScreen(pluginId: String, onBack: () -> Unit) {
         }
     }
     val copiedText = stringResource(R.string.copied_to_clipboard)
-    AgentSettingsScaffold(
+    SettingsScaffold(
         title = stringResource(R.string.python_diagnostics_title),
         onBack = onBack,
         actions = {

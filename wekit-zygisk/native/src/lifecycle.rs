@@ -217,6 +217,20 @@ pub unsafe fn do_post_app_specialize(module: &mut WeKitModule, _args: *const App
     // module object, rather than freeing it on those later failure paths.
     module.dex_buffers = dex_bufs;
 
+    // LSPlant needs unrestricted hidden-API JNI access during initialization.
+    // Do this while still in the native Zygote callback, before a module Java
+    // frame becomes the caller. Keep the loader resident after any partial ART
+    // initialization: LSPlant's runtime inline hooks live until process exit.
+    if !crate::art::init(module.env) || !crate::art::trust_class_loader(module.env, cl) {
+        if ((*fns).v1_6.ExceptionCheck)(module.env) != jni::sys::JNI_FALSE {
+            ((*fns).v1_6.ExceptionDescribe)(module.env);
+            ((*fns).v1_6.ExceptionClear)(module.env);
+        }
+        loge!("Zygisk: failed to initialize LSPlant or trust module DEX");
+        ((*fns).v1_6.DeleteGlobalRef)(module.env, cl);
+        return;
+    }
+
     // Load ZygiskEntry class
     let entry_name = "dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskEntry";
     let entry_cls = crate::natives::load_class_from_loader(module.env, cl, entry_name);

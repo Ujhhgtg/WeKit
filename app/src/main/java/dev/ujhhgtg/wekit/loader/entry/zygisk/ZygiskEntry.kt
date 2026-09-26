@@ -23,11 +23,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * The native side has only:
  *   1. Copied the active module's APK into
  *      this app's data directory during postAppSpecialize.
- *   2. Read DEX directly from that APK through InMemoryDexClassLoader and called
- *      this entry point.
+ *   2. Read DEX directly from that APK through InMemoryDexClassLoader.
+ *   3. Initialized LSPlant and trusted the loader before calling this entry point.
  *
- * This Java entry then initializes its native hook runtime,
- * trusts its own InMemoryDexClassLoader, and only then installs lifecycle hooks.
+ * This Java entry registers the hook bridge's native methods and installs lifecycle hooks.
  */
 @Keep
 object ZygiskEntry {
@@ -60,7 +59,7 @@ object ZygiskEntry {
             try {
                 WeLogger.i(TAG, "ZygiskEntry.init: process=$processName apk=$apkPath dataDir=$dataDir")
                 check(nativeInitialize()) {
-                    "failed to initialize ART hook runtime and trust ZygiskEntry loader"
+                    "LSPlant bootstrap or hook bridge registration failed"
                 }
                 NativeLoader.configureZygiskPayload(apkPath, dataDir)
                 val service = ZygiskLoaderService(

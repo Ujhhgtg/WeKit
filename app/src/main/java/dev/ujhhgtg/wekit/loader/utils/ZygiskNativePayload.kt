@@ -32,7 +32,6 @@ class ZygiskNativePayload(val apk: File, private val dataDir: File) {
             "mmkv",
             "wekit_native",
             "invoke_tool",
-            "chroot_cleanup",
         )
         for (name in names) {
             val fileName = "lib$name.so"
