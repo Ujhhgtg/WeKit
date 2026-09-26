@@ -14,6 +14,7 @@ import zipfile
 
 
 REQUIRED = (
+    "META-INF/xposed/java_init.list", "META-INF/xposed/module.prop", "META-INF/xposed/scope.list",
     "AndroidManifest.xml", "classes.dex", "resources.arsc", "module.prop",
     "customize.sh", "uninstall.sh", "sepolicy.rule", "config.sh", "action.sh",
     "META-INF/com/google/android/update-binary",
@@ -36,11 +37,9 @@ def check_apk(apk, tools):
         dex = [name for name in names if name.endswith(".dex")]
         assert set(dex) == {"classes.dex", *(f"classes{i}.dex" for i in range(2, len(dex) + 1))}, "noncanonical or duplicate DEX"
         assert {name.split('/')[1] for name in names if name.startswith('lib/') and name.endswith('.so')} == {"arm64-v8a"}
-        assert "assets/xposed_init" in names
+        assert "assets/xposed_init" not in names
         props = dict(line.split('=', 1) for line in archive.read("module.prop").decode().splitlines() if '=' in line and not line.startswith('#'))
         assert props["id"] == "wekit_zygisk"
-        modern = any(name.startswith("META-INF/xposed/") for name in names)
-        assert modern == ("(standard" in props["description"]), "flavor entrypoint mismatch"
 
     badging = subprocess.check_output([str(tools / "aapt2"), "dump", "badging", str(apk)], text=True)
     package = re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", badging, re.M)

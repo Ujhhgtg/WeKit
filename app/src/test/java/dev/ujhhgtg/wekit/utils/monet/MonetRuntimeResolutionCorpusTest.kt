@@ -12,7 +12,7 @@ import java.io.File
  * build confirmed on a device: a role's WeChat-side value (followed through references) should not
  * change between builds, so a changed value marks a probable wrong target.
  *
- * `./gradlew :app:testStandardDebugUnitTest -Pwekit.monetCorpus=true --tests '*MonetRuntimeResolutionCorpusTest'`
+ * `./gradlew :app:testDebugUnitTest -Pwekit.monetCorpus=true --tests '*MonetRuntimeResolutionCorpusTest'`
  * Override the samples with `-Dwekit.monetRuntime.samples=8078,8078_3180` (files under ~/coding).
  */
 @EnabledIfSystemProperty(named = "wekit.monetCorpus", matches = "true")

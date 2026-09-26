@@ -148,26 +148,18 @@ jobs:
           set -euo pipefail
           mkdir -p dist/apk
 
-          for flavor in standard legacy; do
-            apk="app/build/outputs/apk/$flavor/release/app-$flavor-release.apk"
-            uv run --no-sync --project wekit-zygisk python .github/scripts/verify-dual-apk.py --check-installer "$apk"
-            WEKIT_TEST_APK="$GITHUB_WORKSPACE/$apk" cargo test -p wekit-zygisk --lib apk::tests::reads_built_apk -- --ignored
-
-            cp -v "$apk" dist/apk/
-          done
+          apk="app/build/outputs/apk/release/app-release.apk"
+          uv run --no-sync --project wekit-zygisk python .github/scripts/verify-dual-apk.py --check-installer "$apk"
+          WEKIT_TEST_APK="$GITHUB_WORKSPACE/$apk" cargo test -p wekit-zygisk --lib apk::tests::reads_built_apk -- --ignored
+          cp -v "$apk" dist/apk/
 
           echo "Collected APKs:"
           ls -1 dist/apk
 
       - name: Collect mappings
         run: |
-          # One mapping.txt per flavor; rename per flavor to avoid collisions.
           mkdir -p dist/mapping
-          for m in app/build/outputs/mapping/*/mapping.txt; do
-            flavorDir=$(basename "$(dirname "$m")")   # e.g. standardRelease
-            cp -v "$m" "dist/mapping/mapping-${flavorDir}.txt"
-          done
-          ls -1 dist/mapping || echo "(no mappings — unsigned PR build without minify?)"
+          cp -v app/build/outputs/mapping/release/mapping.txt dist/mapping/mapping-release.txt
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v7
@@ -729,7 +721,7 @@ jobs:
           name: wekit-apk
           path: artifacts
 
-      - name: Publish standard APK to Xposed Modules Repository
+      - name: Publish APK to Xposed Modules Repository
         env:
           GH_TOKEN: ${{ secrets.XPOSED_REPO_TOKEN }}
           BUILD_COMMIT: ${{ github.sha }}
@@ -738,7 +730,7 @@ jobs:
           python3 -B .github/scripts/test-publish-xposed-release.py
           git log -1 --format=%B > "$RUNNER_TEMP/xposed-release-notes.md"
           python3 .github/scripts/publish-xposed-release.py \
-            artifacts/app-standard-release.apk \
+            artifacts/app-release.apk \
             --commit "$BUILD_COMMIT" \
             --notes-file "$RUNNER_TEMP/xposed-release-notes.md"
 

@@ -115,28 +115,6 @@ android {
         lintConfig = file("lint.xml")
     }
 
-    // Two entry-point variants:
-    //  - standard: ships the modern libxposed entry point (entry/lxp/* sources +
-    //              META-INF/xposed/*), placed in the `standard` flavor source set.
-    //  - legacy:   omits both, so frameworks with poor libxposed compatibility fall
-    //              back to the traditional de.robv entry (Xp51HookEntry via
-    //              assets/xposed_init, which lives in `main` and is shared by both).
-    flavorDimensions += "entrypoint"
-    productFlavors {
-        create("standard") {
-            dimension = "entrypoint"
-            // ships the libxposed entry point (entry/lxp/* + META-INF/xposed/*)
-            buildConfigField("boolean", "HAS_LIBXPOSED_ENTRY", "true")
-            buildConfigField("String", "FLAVOR_SLUG", "\"standard\"")
-        }
-        create("legacy") {
-            dimension = "entrypoint"
-            // no libxposed entry; framework falls back to the de.robv api
-            buildConfigField("boolean", "HAS_LIBXPOSED_ENTRY", "false")
-            buildConfigField("String", "FLAVOR_SLUG", "\"legacy\"")
-        }
-    }
-
     sourceSets["main"].jniLibs.directories += "src/main/jniLibs"
 
     var foundKeystore = false
@@ -407,7 +385,6 @@ dependencies {
     implementation(libs.bouncycastle.prov)
     implementation(libs.bouncycastle.pkix)
 
-    compileOnly(libs.legacyxposed.api)
     compileOnly(libs.libxposed.api)
     implementation(libs.libxposed.service)
     implementation(libs.dexkit)
@@ -457,7 +434,6 @@ dependencies {
 
     testImplementation(libs.junit.jupiter)
     testImplementation(project(":libs:common:stubs"))
-    testImplementation(libs.legacyxposed.api)
     testImplementation(libs.libxposed.api)
     testImplementation(libs.sqlite.jdbc)
     testRuntimeOnly(libs.junit.platform.launcher)

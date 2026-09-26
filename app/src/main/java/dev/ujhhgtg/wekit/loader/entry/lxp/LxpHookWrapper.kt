@@ -205,7 +205,7 @@ object LxpHookWrapper {
         }
     }
 
-    internal class Lsp101HookDispatchAgent(private val mPriority: Int) : Hooker {
+    class Lsp101HookDispatchAgent(private val mPriority: Int) : Hooker {
 
         private var mHandle: XposedInterface.HookHandle? = null
 

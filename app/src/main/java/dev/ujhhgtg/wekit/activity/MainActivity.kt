@@ -159,9 +159,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        if (BuildConfig.HAS_LIBXPOSED_ENTRY) {
-            runCatching { HookStatus.init(this) }
-        }
+        runCatching { HookStatus.init(this) }
 
         Shell.getShell()
         setContent {
@@ -463,37 +461,33 @@ class MainActivity : ComponentActivity() {
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // The activation card relies on the libxposed service, which is only
-                // bound when the module ships the libxposed entry point (standard flavor).
-                if (BuildConfig.HAS_LIBXPOSED_ENTRY) {
-                    val activationState = rememberActivationState()
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = activationState.color),
-                        modifier = Modifier.fillMaxWidth()
+                val activationState = rememberActivationState()
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = activationState.color),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = if (activationState.isActivated) MaterialSymbols.OutlinedFilled.Check_circle else MaterialSymbols.OutlinedFilled.Warning,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(32.dp)
+                        Icon(
+                            imageVector = if (activationState.isActivated) MaterialSymbols.OutlinedFilled.Check_circle else MaterialSymbols.OutlinedFilled.Warning,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = activationState.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(
-                                    text = activationState.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = activationState.desc,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White.copy(alpha = 0.8f)
-                                )
-                            }
+                            Text(
+                                text = activationState.desc,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
                         }
                     }
                 }

@@ -13,8 +13,7 @@ Xposed APK 与 Zygisk 模块已合并为同一文件, 下载 APK 后只需改扩
 
 ## 安装
 
-1. 从 [下载渠道](installation.md#下载) 获取最新的 WeKit APK; 默认选择 standard,
-   legacy 也支持 Zygisk。
+1. 从 [下载渠道](installation.md#下载) 获取最新的 WeKit APK。
 2. 将 APK 的扩展名从 `.apk` 改为 `.zip`, 在 Magisk、KernelSU 或 APatch 的模块
    安装入口刷入。安装器仅支持在 Root 管理器内安装, 不支持 Recovery 刷入。
 3. 按照 Root 管理器的提示重启设备。
@@ -91,7 +90,7 @@ WebUI 会自动列出设备上所有 Android 用户中包名以 `com.tencent.mm`
 5. 刷入的是最新二合一 APK 改名后的 ZIP, 且更新已按 Root 管理器要求激活。
 6. 同一微信实例没有同时通过 Xposed 加载 WeKit。
 
-standard / legacy、debug / release 均支持 Zygisk, debug 构建本身不是不加载的原因。
+debug / release 均支持 Zygisk, debug 构建本身不是不加载的原因。
 
 ### 提示模块包无效或平台不支持
 
@@ -125,7 +124,7 @@ WebUI 页面底部的「WebUI 日志」用于排查应用扫描和开关保存�
 - WebUI 导出的 `logcat.log`
 - 页面底部显示的 WebUI 日志
 - 微信版本、Android 版本、Root 管理器及其版本、Zygisk 实现及其版本
-- 实际刷入的 WeKit APK 文件名、版本和变体 (standard / legacy、debug / release)
+- 实际刷入的 WeKit APK 文件名、版本和变体 (debug / release)
 - 出现问题的 Android 用户和微信包名
 
 完整要求见 [问题反馈指南](bug-report-guide.md)。

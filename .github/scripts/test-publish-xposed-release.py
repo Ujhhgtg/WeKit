@@ -111,8 +111,8 @@ class PublicationTest(unittest.TestCase):
             self.publish()
         self.assertEqual(self.mutations, [])
 
-    def test_legacy_or_incomplete_asset_blocks_publication(self):
-        for change in ({"name": "app-legacy-release.apk"}, {"state": "starter"}, {"size": 0}):
+    def test_wrong_or_incomplete_asset_blocks_publication(self):
+        for change in ({"name": "unrelated.apk"}, {"state": "starter"}, {"size": 0}):
             with self.subTest(change=change):
                 self.existing(draft=True)
                 self.release["assets"][0].update(change)
@@ -158,8 +158,9 @@ class PublicationTest(unittest.TestCase):
 
     def test_realistic_badging_formats_and_commit_mismatch(self):
         with zipfile.ZipFile(self.apk, "w") as archive:
-            archive.writestr("assets/xposed_init", "legacy.entry")
             archive.writestr("META-INF/xposed/java_init.list", "modern.entry")
+            archive.writestr("META-INF/xposed/module.prop", "minApiVersion=101")
+            archive.writestr("META-INF/xposed/scope.list", "com.tencent.mm")
         commit = "2be8d3462d9ee2e1173faa7566dfcdb1a6206f46"
         for sdk_field in ("sdkVersion", "minSdkVersion"):
             badging = (

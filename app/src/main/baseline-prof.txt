@@ -2,7 +2,6 @@
 # XPOSED ENTRY POINTS (Critical Startup)
 # ====================================================================
 Ldev/ujhhgtg/wekit/loader/entry/lxp/LxpHookEntry;
-Ldev/ujhhgtg/wekit/loader/entry/xp51/Xp51HookEntry;
 
 # ====================================================================
 # CORE APIs & INTERNAL HOOKING INTERFACES

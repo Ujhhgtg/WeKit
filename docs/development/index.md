@@ -119,29 +119,17 @@ wekit-zygisk/native/.cargo/config.toml
 
 ## APK
 
-### 变体
-
-模块通过 `entrypoint` flavor 提供两个变体：
-
-- **standard**：包含现代 libxposed API 入口
-  （`entry/lxp/*` 与 `META-INF/xposed/*`）。大多数用户应使用此变体。
-- **legacy**：不包含 libxposed 入口和相关元数据，使框架回退到传统
-  `de.robv.android.xposed` API（`Xp51HookEntry` 与 `assets/xposed_init`）。
-
-两个变体使用同一个 `applicationId`，不能同时安装。
+模块的 libxposed API 入口（`entry/lxp/*` 与 `META-INF/xposed/*`）位于
+`app/src/main/`，要求框架支持 libxposed API 101 或更高版本。
 
 ### 构建
 
 ```bash
-# 两个 flavor 的 debug APK
+# debug APK
 ./x build
 
-# 两个 flavor 的 release APK
+# release APK
 ./x build --release
-
-# 只构建一个 flavor
-./x build --flavor standard
-./x build --flavor legacy --release
 
 # 只准备应用与 Zygisk native 库，跳过 Gradle
 ./x build --native-only
@@ -156,33 +144,29 @@ wekit-zygisk/native/.cargo/config.toml
 4. 执行对应的 Gradle `assemble` 任务，在签名前放入模块文件
 
 Rust native 仅支持 `arm64-v8a`。
-`--native-only` 会忽略 `--flavor` 和 `--release`，native 库始终使用 Cargo release
+`--native-only` 会忽略 `--release`，native 库始终使用 Cargo release
 profile。
 
-Gradle 为每个 flavor 输出一个仅包含 ARM64 native 库的 APK：
+Gradle 输出仅包含 ARM64 native 库的 APK：
 
 ```text
-app/build/outputs/apk/standard/debug/app-standard-debug.apk
-app/build/outputs/apk/legacy/debug/app-legacy-debug.apk
+app/build/outputs/apk/debug/app-debug.apk
+app/build/outputs/apk/release/app-release.apk
 ```
-
-release 产物位于对应的 `standard/release/` 和 `legacy/release/` 目录。
 
 ### 安装
 
 连接 adb 设备后执行：
 
 ```bash
-# 默认安装 standard debug
+# 默认安装 debug
 ./x run
 ./x run --debug
 
-./x run --flavor standard --release
-./x run --flavor legacy
+./x run --release
 ```
 
-当前 `run` 命令执行 `installStandardDebug`、`installStandardRelease` 或对应的 legacy
-Gradle 任务。它会先重新构建 ARM64 native 库。
+当前 `run` 命令执行 `installDebug` 或 `installRelease` Gradle 任务。它会先重新构建 ARM64 native 库。
 
 存在多个 adb 设备时，可通过 `ANDROID_SERIAL` 选择设备：
 
@@ -212,21 +196,18 @@ adb shell cmd package compile -m speed-profile dev.ujhhgtg.wekit
 
 ## APK / Zygisk 二合一
 
-所有 standard / legacy、debug / release APK 都同时是可刷入的 Zygisk 模块，仅支持
+所有 debug / release APK 都同时是可刷入的 Zygisk 模块，仅支持
 `arm64-v8a`。直接安装 APK 用于 Android / Xposed；把同一文件改名 `.zip` 后可通过
 Magisk、KernelSU 或 APatch 的模块安装入口刷入。首次刷入后在 WebUI 选择注入目标，
 并按管理器要求重启。APK 安装与 Zygisk 刷入分别更新各自部署，不能互相代替。
 同一微信实例只启用一种加载方式，操作步骤见 [Zygisk 模式](../zygisk.md)。
 
 ```bash
-# 两个 flavor 的二合一 debug APK
+# 二合一 debug APK
 ./x build
 
-# 两个 flavor 的二合一 release APK
+# 二合一 release APK
 ./x build --release
-
-# 只构建 legacy
-./x build --flavor legacy
 
 # 仅准备应用和 Zygisk native 输入
 ./x build --native-only
@@ -234,15 +215,15 @@ Magisk、KernelSU 或 APatch 的模块安装入口刷入。首次刷入后在 We
 # 额外导出注入器的未剥离符号
 ./x build --save-symbols
 
-# 正常 APK 安装；默认 standard debug
+# 正常 APK 安装；默认 debug
 ./x run
 
 # 构建同一 APK，以模块方式刷入；仅显式 --reboot 才重启
 ./x run --zygisk --device SERIAL --root ksu --reboot
-./x run --zygisk --flavor legacy --release
+./x run --zygisk --release
 ```
 
-APK 仍输出到 `app/build/outputs/apk/<standard|legacy>/<debug|release>/`。
+APK 仍输出到 `app/build/outputs/apk/<debug|release>/`。
 符号归档输出到 `target/zygisk-symbols/WeKit-<commit>-arm64-v8a-symbols.zip`。
 注入器始终使用 release profile；`--release` 控制 Android 代码优化。
 

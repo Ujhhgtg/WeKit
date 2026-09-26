@@ -18,7 +18,7 @@
 - In a Git worktree, run `git submodule update --init --recursive` before any work; otherwise
   `libs/common/bsh` and `libs/common/reflekt` are empty and builds fail.
 - Work directly on `dev` unless the user explicitly requests another branch or isolated history.
-- Every standard/legacy debug/release APK is dual-format: install as an APK, or rename to `.zip`
+- Every debug/release APK is dual-format: install as an APK, or rename to `.zip`
   and install through a root manager. Module files enter the APK before AGP signs it; never modify
   or repack the signed output. There is no separate `zygisk build` command.
 - JDK 21, AGP 9, Gradle version catalog in `gradle/libs.versions.toml`
@@ -44,8 +44,7 @@
 
 ## Entry Points & Architecture
 
-- Xposed entries: `dev.ujhhgtg.wekit.loader.entry.lxp.LxpHookEntry` (libxposed 101 ~ 102) and
-  `dev.ujhhgtg.wekit.loader.entry.xp51.Xp51HookEntry` (legacy Xposed API 51+)
+- Xposed entry: `dev.ujhhgtg.wekit.loader.entry.lxp.LxpHookEntry` (libxposed 101 ~ 102)
 - Unified flow: entry point → `ModuleLoader.init()` → (after `Application.onCreate`) `ModuleLoader.startup()` → `launch()` → `FeaturesLoader.loadFeatures()`
 - Feature objects inherit `BaseFeature` and declare `technicalId`/resource/category metadata as
   override properties; extension pack objects implement `ExtensionPack` with a required

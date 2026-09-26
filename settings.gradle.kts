@@ -38,11 +38,6 @@ dependencyResolutionManagement {
                 includeGroup("com.github.topjohnwu.libsu")
             }
         }
-        maven("https://api.xposed.info/") {
-            content {
-                includeGroup("de.robv.android.xposed")
-            }
-        }
         mavenCentral()
         val gprUser = providers.gradleProperty("gpr.user")
             .orElse(providers.environmentVariable("GITHUB_ACTOR"))

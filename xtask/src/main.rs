@@ -14,7 +14,7 @@
 //! Run `cargo xtask <COMMAND> --help` for per-command options.
 
 use anyhow::{Context, Result, bail};
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand};
 use fs2::FileExt;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -111,7 +111,7 @@ enum Cmd {
 
     /// Build and install the app, or flash the same APK as a Zygisk module.
     ///
-    /// Defaults to installStandardDebug. With --zygisk, assembles the selected
+    /// Defaults to installDebug. With --zygisk, assembles the selected
     /// APK and installs it through the device's root manager instead.
     Run(RunArgs),
 
@@ -144,12 +144,6 @@ struct BuildArgs {
     #[arg(long)]
     native_only: bool,
 
-    /// Build a specific app flavor (standard or legacy).
-    /// Defaults to both (`assembleDebug` / `assembleRelease`).
-    /// Ignored with --native-only.
-    #[arg(short, long, value_enum)]
-    flavor: Option<Flavor>,
-
     /// Build a release build instead of debug.
     /// Ignored with --native-only.
     #[arg(long)]
@@ -166,11 +160,6 @@ struct BuildArgs {
 /// Arguments for `run` (install + launch via Gradle).
 #[derive(Args)]
 struct RunArgs {
-    /// App flavor to install (standard or legacy).
-    /// Defaults to standard — both flavors cannot be installed side-by-side.
-    #[arg(short, long, value_enum, default_value = "standard")]
-    flavor: Flavor,
-
     /// Explicitly install the debug build (default).
     #[arg(long, conflicts_with = "release")]
     debug: bool,
@@ -214,12 +203,6 @@ struct NativeArgs {
     /// Valid value: arm64-v8a
     #[arg(long = "abi", value_name = "ABI")]
     abis: Vec<String>,
-}
-
-#[derive(ValueEnum, Clone, Debug)]
-enum Flavor {
-    Standard,
-    Legacy,
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────────
@@ -533,23 +516,17 @@ fn task_build(args: BuildArgs) -> Result<()> {
     }
 }
 
-/// Compose a Gradle task name from a verb, optional flavor, and profile.
-///
-/// Examples: `assemble` + `Standard` + `Release` → `assembleStandardRelease`
-fn gradle_variant_task(verb: &str, flavor: Option<&Flavor>, release: bool) -> String {
+/// Compose a Gradle task name from a verb and build profile.
+fn gradle_variant_task(verb: &str, release: bool) -> String {
     let profile = if release { "Release" } else { "Debug" };
-    match flavor {
-        None => format!("{verb}{profile}"),
-        Some(Flavor::Standard) => format!("{verb}Standard{profile}"),
-        Some(Flavor::Legacy) => format!("{verb}Legacy{profile}"),
-    }
+    format!("{verb}{profile}")
 }
 
 /// Full Android build via the Gradle wrapper (native lib compiled first).
 fn task_build_android(args: &BuildArgs) -> Result<()> {
     task_prepare_apk_native_inputs(&args.native.abis, args.save_symbols)?;
     let root = workspace_root();
-    let gradle_task = gradle_variant_task("assemble", args.flavor.as_ref(), args.release);
+    let gradle_task = gradle_variant_task("assemble", args.release);
     println!("build: ./gradlew {gradle_task}");
     run_gradlew(&[&gradle_task], &root)
 }
@@ -560,7 +537,7 @@ fn task_run(args: RunArgs) -> Result<()> {
     task_prepare_apk_native_inputs(&[], false)?;
     let root = workspace_root();
     let verb = if args.zygisk { "assemble" } else { "install" };
-    let gradle_task = gradle_variant_task(verb, Some(&args.flavor), args.is_release());
+    let gradle_task = gradle_variant_task(verb, args.is_release());
     println!("run: ./gradlew {gradle_task}");
     let mut command = Command::new(root.join(if cfg!(windows) {
         "gradlew.bat"
@@ -573,18 +550,12 @@ fn task_run(args: RunArgs) -> Result<()> {
     }
     run_checked(&mut command, "build/install dual-format APK")?;
     if args.zygisk {
-        let flavor = match args.flavor {
-            Flavor::Standard => "standard",
-            Flavor::Legacy => "legacy",
-        };
         let profile = if args.is_release() {
             "release"
         } else {
             "debug"
         };
-        let apk = root.join(format!(
-            "app/build/outputs/apk/{flavor}/{profile}/app-{flavor}-{profile}.apk"
-        ));
+        let apk = root.join(format!("app/build/outputs/apk/{profile}/app-{profile}.apk"));
         validate_module_apk(&apk)?;
         install_zygisk_apk(&root, &apk, args.device.as_deref(), args.root.as_deref())?;
         if args.reboot {
@@ -1449,35 +1420,22 @@ mod tests {
         let explicit_debug = parse_run_args(&["--debug"]);
 
         assert_eq!(
-            gradle_variant_task("install", Some(&default.flavor), default.is_release()),
-            "installStandardDebug",
+            gradle_variant_task("install", default.is_release()),
+            "installDebug",
         );
         assert_eq!(
-            gradle_variant_task(
-                "install",
-                Some(&explicit_debug.flavor),
-                explicit_debug.is_release(),
-            ),
-            "installStandardDebug",
+            gradle_variant_task("install", explicit_debug.is_release()),
+            "installDebug",
         );
     }
 
     #[test]
     fn run_profile_flags_select_the_expected_variant() {
-        let legacy_debug = parse_run_args(&["--flavor", "legacy", "--debug"]);
         let release = parse_run_args(&["--release"]);
 
         assert_eq!(
-            gradle_variant_task(
-                "install",
-                Some(&legacy_debug.flavor),
-                legacy_debug.is_release(),
-            ),
-            "installLegacyDebug",
-        );
-        assert_eq!(
-            gradle_variant_task("install", Some(&release.flavor), release.is_release()),
-            "installStandardRelease",
+            gradle_variant_task("install", release.is_release()),
+            "installRelease",
         );
     }
 
@@ -1490,8 +1448,6 @@ mod tests {
     fn run_zygisk_accepts_install_options_and_rejects_them_for_app_install() {
         let args = parse_run_args(&[
             "--zygisk",
-            "--flavor",
-            "legacy",
             "--release",
             "--device",
             "serial",
@@ -1500,7 +1456,6 @@ mod tests {
             "--reboot",
         ]);
         assert!(args.zygisk && args.is_release() && args.reboot);
-        assert!(matches!(args.flavor, Flavor::Legacy));
         assert_eq!(args.device.as_deref(), Some("serial"));
         assert_eq!(args.root.as_deref(), Some("ksu"));
         assert!(Cli::try_parse_from(["xtask", "run", "--root", "ksu"]).is_err());

@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
  *
  * Only intended to be used in the module process. Modern frameworks (LSPosed etc.)
  * bind an [XposedService] to the module process, from which the activation state and
- * scope can be read. The legacy de.robv api is not consulted here.
+ * scope can be read.
  */
 object HookStatus {
 

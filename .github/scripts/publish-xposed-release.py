@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish the standard CI APK as a separate, immutable-by-convention release."""
+"""Publish the CI APK as a separate, immutable-by-convention release."""
 
 import argparse
 import hashlib
@@ -14,7 +14,7 @@ import zipfile
 
 REPOSITORY = "Xposed-Modules-Repo/dev.ujhhgtg.wekit"
 API = f"repos/{REPOSITORY}"
-APK_NAME = "app-standard-release.apk"
+APK_NAME = "app-release.apk"
 
 
 def gh_api(endpoint, *, method="GET", data=None):
@@ -34,9 +34,9 @@ def inspect_apk(apk, commit, build_tools):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("A full build commit SHA is required")
     with zipfile.ZipFile(apk) as archive:
-        for name in ("assets/xposed_init", "META-INF/xposed/java_init.list"):
+        for name in ("META-INF/xposed/java_init.list", "META-INF/xposed/module.prop", "META-INF/xposed/scope.list"):
             if not archive.read(name).strip():
-                raise ValueError(f"Missing standard Xposed entry: {name}")
+                raise ValueError(f"Missing libxposed metadata: {name}")
 
     subprocess.run(
         [str(build_tools / "apksigner"), "verify", str(apk)], check=True,
@@ -78,7 +78,7 @@ def find_release(tag):
 def verify_asset(release, apk, digest):
     assets = release["assets"]
     if len(assets) != 1 or assets[0]["name"] != APK_NAME:
-        raise ValueError("Release must contain exactly the standard APK")
+        raise ValueError("Release must contain exactly the release APK")
     asset = assets[0]
     if asset["state"] != "uploaded" or asset["size"] != apk.stat().st_size:
         raise ValueError("Release APK is incomplete or has a different size")
@@ -155,7 +155,7 @@ def main():
     tag, version, min_sdk, digest = inspect_apk(apk, args.commit, tools)
     marker = f"<!-- wekit-build:{args.commit}:{digest} -->"
     notes = args.notes_file.read_text().strip()
-    body = f"""WeKit CI 构建 · standard（LSPosed）
+    body = f"""WeKit CI 构建 · LSPosed
 
 版本：`{tag}`
 
@@ -165,11 +165,11 @@ def main():
 
 ### 安装
 
-- 本发布仅提供 `app-standard-release.apk`，适用于 LSPosed。
+- 本发布仅提供 `app-release.apk`，适用于 LSPosed。
 - APK 最低 Android SDK：{min_sdk}；架构：ARM64。
 - 安装后在 LSPosed 中启用模块并勾选微信，完全结束并重启微信。
 - 设置入口：微信「我 → 设置 → WeKit 设置」。
-- [兼容范围与使用说明](https://docs.wekit.ujhhgtg.dev/getting-started) · [其他框架所需的 legacy 版本](https://github.com/Ujhhgtg/WeKit/releases/tag/CI)
+- [兼容范围与使用说明](https://docs.wekit.ujhhgtg.dev/getting-started)
 
 ### 校验
 

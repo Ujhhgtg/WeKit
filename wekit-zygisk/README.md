@@ -24,7 +24,7 @@ updates retain it; uninstall removes it without touching app data.
 
 ## Installation and updates
 
-Every standard/legacy, debug/release WeKit APK is also an ARM64 Zygisk module ZIP.
+Every debug/release WeKit APK is also an ARM64 Zygisk module ZIP.
 Rename `.apk` to `.zip`, install it
 from your root manager, select the target instances in the WebUI, and restart as
 required by the manager. APK installation and module installation update their
@@ -59,7 +59,7 @@ The APK and loader follow the manager's module activation lifecycle together.
 ## Build
 
 ```bash
-# Both standard and legacy dual-format APKs (arm64-v8a).
+# Dual-format APKs (arm64-v8a).
 ./x build
 ./x build --release
 
@@ -74,10 +74,10 @@ The APK and loader follow the manager's module activation lifecycle together.
 
 # Build and install as a module; omit --root for manager auto-detection.
 ./x run --zygisk --device SERIAL --root ksu --reboot
-./x run --zygisk --flavor legacy --release
+./x run --zygisk --release
 ```
 
-APKs are in `app/build/outputs/apk/<flavor>/<type>/`. No separate module ZIP is
+APKs are in `app/build/outputs/apk/<type>/`. No separate module ZIP is
 built or published. The device-side `.zip` used by `run --zygisk` has exactly the
 APK's bytes. Symbols are in `target/zygisk-symbols/`.
 Module resources are added by `GenerateZygiskResourcesTask` before AGP signs each

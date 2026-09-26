@@ -12,7 +12,7 @@ WeKit 是一个微信增强模块, 可以通过 Xposed、Zygisk 或免 Root 注�
 | 微信版本 | 详见下方「宿主版本支持」 |
 | Android 版本 | >= 9 (SDK >= 28) |
 | 架构 | ARM64 (`arm64-v8a`) |
-| 加载方式 | Xposed API 51\~102 或 Zygisk |
+| 加载方式 | libxposed API 101\~102 或 Zygisk |
 
 ### 宿主版本支持
 

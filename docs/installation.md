@@ -9,20 +9,14 @@
 - [Telegram 超级群组](https://t.me/+7j5dJ6g16B43OWVl)
 
 **Xposed 和 Zygisk 共用同一份 APK**, 不再单独发布 `wekit-zygisk` 模块 ZIP。所有
-standard / legacy、debug / release APK 都支持两种安装方式, 仅支持 ARM64
+debug / release APK 都支持两种安装方式, 仅支持 ARM64
 (`arm64-v8a`)。
 
-| 变体 | 选择方式 |
-|------|----------|
-| standard | 默认选择; 包含现代 libxposed 和传统 Xposed 入口 |
-| legacy | 需要强制使用传统 Xposed API 时选择; 不含现代 libxposed 入口 |
-
-Zygisk 模式可使用任一变体。两者的 Android 应用包名和 Zygisk 模块 ID 相同,
-同一种安装方式下会互相覆盖。
+Xposed 模式要求框架支持 libxposed API 101 或更高版本。
 
 从 GitHub Actions 下载 `wekit-apk` 产物时, 先解压外层归档并取出所需 APK。
 Xposed 模式直接安装 APK; Zygisk 模式只将 APK 的扩展名从 `.apk` 改为 `.zip`,
-例如 `app-standard-release.apk` → `app-standard-release.zip`, 再交给 Root 管理器。
+例如 `app-release.apk` → `app-release.zip`, 再交给 Root 管理器。
 不要直接刷入 Actions 的外层归档, 也不要解压重打包 APK。
 
 ## 安装
@@ -35,16 +29,12 @@ WebUI 开关, 具体见 [切换加载方式](zygisk.md#切换加载方式)。
 1. 下载模块 APK
 2. 安装模块
 3. 在 LSPosed 管理器中启用模块, 并勾选微信
-   - 若 LSPosed 提示「此模块是为较新的 Xposed 版本设计的, 因此某些功能可能无法使用」, 忽略即可, 不影响模块使用
 4. 重启微信
 
-### 免 Root + Xposed (以 [NPatch](https://github.com/7723mod/NPatch) 为例)
+### 免 Root + Xposed
 
-1. 下载模块与 NPatch 管理器 APK
-2. 安装模块与 NPatch 管理器
-3. 修补微信, 并根据你的需求选择「本地模式」或「集成模式」。若使用「集成模式」, 需在「嵌入模块」界面勾选「WeKit」。修补时, 包名必须为 `com.tencent.mm` 或以 `com.tencent.mm` 开头, 且建议启用「注入文件提供器」以方便管理模块 KV 数据。
-4. 安装修补后的微信。由于未知原因, 即使修补的包名与已安装应用的包名不一致, NPatch 也会请求卸载已安装应用, 请注意不要误操作导致丢失微信数据。
-5. 若使用「本地模式」, 需在修补的微信作用域中启用 WeKit。
+所用修补框架必须支持 libxposed API 101 或更高版本；仅支持传统 Xposed API 的框架无法加载 WeKit。
+请按照兼容框架的说明修补微信并启用模块。
 
 ### Root + Zygisk
 

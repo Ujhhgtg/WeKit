@@ -673,7 +673,7 @@ fn run_worker(
     let mut command = Command::new(&gradle);
     command
         .current_dir(root)
-        .args([":app:testStandardDebugUnitTest", "-PdexTestWorker=true"]);
+        .args([":app:testDebugUnitTest", "-PdexTestWorker=true"]);
     for (key, value) in properties {
         command.arg(format!("-P{key}={value}"));
     }

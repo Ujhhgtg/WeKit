@@ -28,10 +28,9 @@
             android:exported="true"
             android:theme="@style/Theme.Material3.DynamicColors.DayNight.NoActionBar">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
                 <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
 
-                <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 
@@ -87,17 +86,5 @@
             android:exported="true"
             android:theme="@style/Theme.Material3.DynamicColors.DayNight.NoActionBar" />
 
-        <meta-data
-            android:name="xposedmodule"
-            android:value="true" />
-        <meta-data
-            android:name="xposeddescription"
-            android:value="@string/app_description" />
-        <meta-data
-            android:name="xposedminversion"
-            android:value="51" />
-        <meta-data
-            android:name="xposedscope"
-            android:resource="@array/xposed_scope" />
     </application>
 </manifest>
