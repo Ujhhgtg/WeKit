@@ -6,7 +6,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
-    id("dev.ujhhgtg.lsparanoid") version "0.13.0"
+    id("dev.ujhhgtg.lsparanoid") version "0.13.1"
     alias(libs.plugins.android.application)
     alias(libs.plugins.google.devtools.ksp)
     alias(libs.plugins.kotlin.compose)
@@ -508,4 +508,4 @@ tasks.withType<KotlinJvmCompile>().configureEach {
 }
 
 // The localization adapter remains present in JVM development variants.
-dependencies { implementation("dev.ujhhgtg.lsparanoid:runtime:0.13.0") }
+dependencies { implementation("dev.ujhhgtg.lsparanoid:runtime:0.13.1") }
