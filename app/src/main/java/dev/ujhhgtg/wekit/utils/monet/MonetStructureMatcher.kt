@@ -191,6 +191,7 @@ object MonetStructureMatcher {
                     .reduce { result, ids -> result.intersect(ids) }
             }
             val semanticCandidates: Set<Int>? = when (rule.id) {
+                "chat.input.background" -> graph.chatInputBackgrounds()
                 // Older search bars share the global surface color. Only overlay a dedicated tint;
                 // the shared color remains owned by slot-40, whose night palette is different.
                 SEARCH_BAR_BACKGROUND -> graph.actionBarSearchBackgroundColors().also {
@@ -258,6 +259,9 @@ object MonetStructureMatcher {
 
     private val COLOR_BASELINES = mapOf(
         "theme.color.system-surface-light--system-surface-dark.slot-04" to mapOf("" to 4291801463L),
+        // This surface has only a default config; a newer unrelated color shares its day value
+        // but adds a #2c2c2c night config.
+        "theme.color.system-surface-container-light--system-surface-container-dark.slot-36" to mapOf("" to 0xfff2f2f2L),
     )
     private val COLOR_SELECTOR_BASELINES = mapOf(
         "theme.color.system-surface-dark--system-surface-dark.slot-02" to 4278627926L,
@@ -688,6 +692,29 @@ private fun MonetResourceGraph.actionBarSearchBackgroundColors(): Set<Int> = bui
 private fun MonetXmlElement.elements(): Sequence<MonetXmlElement> = sequence {
     yield(this@elements)
     children.forEach { yieldAll(it.elements()) }
+}
+
+/** Follow the editor's own container; outer ChatFooter wrappers change between layouts. */
+private fun MonetResourceGraph.chatInputBackgrounds(): Set<Int> = buildSet {
+    nodes("layout").forEach { owner ->
+        xmlTrees(owner.id).asSequence().flatMap { it.elements() }
+            .filter { it.name == "com.tencent.mm.view.MaxHeightScrollView" }
+            .flatMap { it.children.asSequence() }.filter { it.name == "LinearLayout" }
+            .flatMap { it.children.asSequence() }.filter { container ->
+                // Some layouts wrap the editor in a FrameLayout inside the same background.
+                val content = container.children.flatMap { if (it.name == "FrameLayout") it.children else listOf(it) }
+                container.name == "LinearLayout" && content.any {
+                    it.name == "com.tencent.mm.ui.widget.cedit.api.MMFlexEditText" &&
+                        it.literal("inputType") == 0x24001L && it.reference("background") == 0
+                }
+            }.forEach { container ->
+                val background = requireNotNull(container.reference("background")) { "chat input background is missing" }
+                val shape = xmlTrees(background).single()
+                require(shape.name == "shape" && shape.descendant("corners")?.reference("radius") != null &&
+                    shape.descendant("solid")?.reference("color") != null) { "unexpected chat input background shape" }
+                add(background)
+            }
+    }
 }
 
 /** The compact voice-input button is absent from the inspected 8.0.65 layouts. */

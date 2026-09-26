@@ -513,9 +513,9 @@ object AddMainScreenFab : ClickableFeature() {
                                     modifier = Modifier
                                         .align(Alignment.TopStart)
                                         .offset { IntOffset(fabLeft.roundToPx(), fabTop.roundToPx()) },
-                                    backgroundColor = monet?.primaryContainer?.let(::Color) ?: backgroundColor,
-                                    activeColor = monet?.onPrimaryContainer?.let(::Color) ?: activeColor,
-                                    saveColor = monet?.onPrimaryContainer?.let(::Color) ?: SAVE_GREEN,
+                                    backgroundColor = backgroundColor,
+                                    activeColor = activeColor,
+                                    saveColor = SAVE_GREEN,
                                     minDx = minDx,
                                     maxDx = maxDx,
                                     minDy = minDy,

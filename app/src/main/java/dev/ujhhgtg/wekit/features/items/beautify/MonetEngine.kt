@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.beautify
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.Application
 import android.app.Instrumentation
 import android.content.ComponentCallbacks
 import android.content.Context
@@ -10,6 +11,7 @@ import android.content.res.Resources
 import android.content.res.ResourcesImpl
 import android.content.res.loader.ResourcesProvider
 import android.os.Build
+import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import androidx.activity.ComponentActivity
 import androidx.annotation.RequiresApi
@@ -40,6 +42,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.materialkolor.ktx.DynamicScheme
+import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
@@ -100,11 +103,10 @@ object MonetEngine : ClickableFeature() {
 
     private var bubbleStylePref by KvStore.prefOption("monet_bubble_style", MonetBubbleStyle.MODERN.name)
     private var multiSceneCornersPref by KvStore.prefOption("monet_multi_scene_corners", true)
-    private var errorColorsPref by KvStore.prefOption("monet_error_colors", false)
 
     /** Compose state mirrors of the prefs so the live observer sees option changes. */
     private val options by lazy {
-        mutableStateOf(Options(MonetBubbleStyle.valueOf(bubbleStylePref), multiSceneCornersPref, errorColorsPref))
+        mutableStateOf(Options(MonetBubbleStyle.valueOf(bubbleStylePref), multiSceneCornersPref))
     }
     private val bindingsState = mutableStateOf<MonetBindings?>(null)
     private val resolving = mutableStateOf(false)
@@ -117,6 +119,7 @@ object MonetEngine : ClickableFeature() {
     private var configCallbacks: ComponentCallbacks? = null
     private var appliedKey: String? = null
     private var pendingResolve = false
+    private var resolveLifecycleCallbacks: Application.ActivityLifecycleCallbacks? = null
 
     /** Held so the provider in use is never finalized; replaced ones are left to GC, never closed. */
     private var currentProvider: ResourcesProvider? = null
@@ -148,7 +151,6 @@ object MonetEngine : ClickableFeature() {
     private data class Options(
         val bubbleStyle: MonetBubbleStyle,
         val multiSceneCorners: Boolean,
-        val errorColors: Boolean,
     )
 
     /** Everything a runtime table depends on; [key] names its cached APK. */
@@ -203,11 +205,6 @@ object MonetEngine : ClickableFeature() {
                 val activity = args[0] as Activity
                 MonetAssetInjector.register(activity.resources, flush = true)
                 MonetAssetInjector.register(activity.baseContext.resources, flush = true)
-                if (pendingResolve) {
-                    pendingResolve = false
-                    // After onCreate so the dialog has a window to attach to.
-                    activity.window.decorView.post { showResolveDialog(activity) }
-                }
             }
         }
         MonetAssetInjector.register(HostInfo.application.resources, flush = true)
@@ -220,14 +217,15 @@ object MonetEngine : ClickableFeature() {
             val state = currentState()
             applyTable(cached, state, build(cached, state))
         } else {
-            // WeChat (or its Tinker patch) changed since the last analysis: ask again on the first screen.
-            WeLogger.i(TAG, "no bindings for $fingerprint, resolving on the first activity")
-            pendingResolve = true
+            // Resolver revisions and host resource updates both invalidate the binding fingerprint.
+            WeLogger.i(TAG, "no bindings for $fingerprint, waiting for resumed LauncherUI to resolve")
+            waitForResolveActivity()
         }
         startObserver()
     }
 
     override fun onDisable() {
+        clearPendingResolve()
         scope?.cancel()
         scope = null
         configCallbacks?.let(HostInfo.application::unregisterComponentCallbacks)
@@ -240,6 +238,39 @@ object MonetEngine : ClickableFeature() {
                 surfaceColorsState.value = null
             }
         }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun waitForResolveActivity() {
+        pendingResolve = true
+        val callbacks = object : Application.ActivityLifecycleCallbacks {
+            override fun onActivityResumed(activity: Activity) = postPendingResolve(activity)
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+            override fun onActivityStarted(activity: Activity) = Unit
+            override fun onActivityPaused(activity: Activity) = Unit
+            override fun onActivityStopped(activity: Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+            override fun onActivityDestroyed(activity: Activity) = Unit
+        }
+        resolveLifecycleCallbacks = callbacks
+        HostInfo.application.registerActivityLifecycleCallbacks(callbacks)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun postPendingResolve(activity: Activity) {
+        if (activity !is LauncherUI || !pendingResolve) return
+        activity.window.decorView.post {
+            if (pendingResolve && isActive && !activity.isFinishing && !activity.isDestroyed) {
+                WeLogger.i(TAG, "showing pending Monet analysis on LauncherUI")
+                showResolveDialog(activity)
+            }
+        }
+    }
+
+    private fun clearPendingResolve() {
+        pendingResolve = false
+        resolveLifecycleCallbacks?.let(HostInfo.application::unregisterActivityLifecycleCallbacks)
+        resolveLifecycleCallbacks = null
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
@@ -291,7 +322,7 @@ object MonetEngine : ClickableFeature() {
         val output = MonetThemeRenderer.render(
             bindings,
             palette,
-            MonetThemeRenderer.Options(state.options.bubbleStyle, state.options.multiSceneCorners, state.options.errorColors),
+            MonetThemeRenderer.Options(state.options.bubbleStyle, state.options.multiSceneCorners),
             color,
         )
         val temp = File(cacheDir, ".${file.name}.tmp")
@@ -437,7 +468,6 @@ object MonetEngine : ClickableFeature() {
         options.value = next
         bubbleStylePref = next.bubbleStyle.name
         multiSceneCornersPref = next.multiSceneCorners
-        errorColorsPref = next.errorColors
     }
 
     override fun onClick(context: ComponentActivity) {
@@ -477,13 +507,6 @@ object MonetEngine : ClickableFeature() {
                                     title = stringResource(R.string.monet_multi_scene_corners),
                                     checked = current.multiSceneCorners,
                                     onCheckedChange = { updateOptions { copy(multiSceneCorners = it) } },
-                                )
-                            }
-                            item {
-                                SwitchWidget(
-                                    title = stringResource(R.string.monet_error_colors),
-                                    checked = current.errorColors,
-                                    onCheckedChange = { updateOptions { copy(errorColors = it) } },
                                 )
                             }
                         }
@@ -528,8 +551,8 @@ object MonetEngine : ClickableFeature() {
     }
 
     /**
-     * The only way analysis runs: first enable, re-analysis, and a WeChat update (missing bindings
-     * at startup) all go through this dialog. Screens already open keep their old resources, so a
+     * First enable, manual analysis, and invalidated bindings (host updates or resolver revisions)
+     * all go through this dialog. Screens already open keep their old resources, so a
      * successful analysis asks for a WeChat restart.
      */
     @RequiresApi(Build.VERSION_CODES.R)
@@ -572,9 +595,12 @@ object MonetEngine : ClickableFeature() {
                 },
             )
         }
+        // Consume the request only once the dialog has actually been shown; manual analysis also
+        // satisfies a pending startup request.
+        clearPendingResolve()
     }
 
-    private const val RENDER_VERSION = 3
+    private const val RENDER_VERSION = 7
     private const val SOURCE_SYSTEM = "system"
     private const val SOURCE_SEED = "seed"
     private const val MAX_RUNTIME_TABLES = 4

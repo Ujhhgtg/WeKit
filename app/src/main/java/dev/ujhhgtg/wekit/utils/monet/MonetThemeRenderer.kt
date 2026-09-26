@@ -37,8 +37,6 @@ object MonetThemeRenderer {
     data class Options(
         val bubbleStyle: MonetBubbleStyle,
         val multiSceneCorners: Boolean,
-        /** Also recolor WeChat's error/destructive reds ([ERROR_ROLES]); off keeps them red. */
-        val errorColors: Boolean,
     )
 
     data class Output(val colors: List<ColorTarget>, val drawables: List<DrawableTarget>)
@@ -81,9 +79,8 @@ object MonetThemeRenderer {
         color: (String) -> Int?,
     ): Output {
         val resolved = bindings.roles
-        // The bottom tab bar is left to WeChat (and WeKit's navigation bar features); error reds
-        // stay WeChat's unless the user opts in.
-        val skipped = if (options.errorColors) UNRENDERED_ROLES else UNRENDERED_ROLES + ERROR_ROLES
+        // The bottom tab bar is left to WeChat (and WeKit's navigation bar features).
+        val skipped = UNRENDERED_ROLES + ERROR_ROLES
         val colors = MONET_RULES.filter { it.type == "color" && it.id !in skipped }.mapNotNull { rule ->
             val binding = resolved[rule.id] ?: return@mapNotNull null
             val (light, night) = themeColor(rule.id, color)
@@ -100,6 +97,13 @@ object MonetThemeRenderer {
             MonetBubbleStyle.PRO -> put(proBubbles(resolved, palette))
         }
         if (options.multiSceneCorners) put(corners(resolved, palette))
+        put(bindings.checkboxes.map { checkbox ->
+            DrawableTarget(
+                checkbox.binding,
+                checkboxSelector(checkbox, palette.primaryLight),
+                checkboxSelector(checkbox, palette.primaryDark),
+            )
+        })
         // Brand-green tints as one-item color state lists: a framework color reference cannot carry
         // alpha as a plain value, a color XML item can.
         val tints = bindings.tints.map { tint ->
@@ -337,6 +341,38 @@ object MonetThemeRenderer {
         night: XmlNode,
     ) {
         add(DrawableTarget(resolved[role] ?: return, light, night))
+    }
+
+    private fun checkboxSelector(checkbox: MonetCheckbox, color: Int): XmlNode {
+        fun original(id: Int, vararg states: XmlAttribute) = XmlNode(
+            "item", states.toList() + android("drawable", 0x01010199, XmlValue.Reference(id)),
+        )
+        fun checked(value: Boolean) = android("state_checked", 0x010100a0, XmlValue.Boolean(value))
+        val disabled = android("state_enabled", ATTR_STATE_ENABLED, XmlValue.Boolean(false))
+        // WeChat's 72×72 SVG has a transparent check-shaped cutout in its filled circle.
+        val selected = XmlNode("vector", listOf(
+            android("width", ATTR_WIDTH, XmlValue.Dimension(24f)),
+            android("height", 0x01010155, XmlValue.Dimension(24f)),
+            android("viewportWidth", 0x01010402, XmlValue.Float(72f)),
+            android("viewportHeight", 0x01010403, XmlValue.Float(72f)),
+        ), listOf(XmlNode("path", listOf(
+            android("fillColor", 0x01010404, colorValue(color)),
+            android("fillType", 0x0101051e, XmlValue.Integer(1)),
+            android("pathData", 0x01010405, XmlValue.String(
+                "M35.5679,1 C55.33037,1 71,16.66963 71,36.4321 " +
+                    "C71,55.33037 55.33037,71 35.5679,71 C16.66963,71 1,55.33037 1,36.4321 " +
+                    "C1,16.66963 16.66963,1 35.5679,1 Z " +
+                    "M53.03301,24 L31.091883,45.941124 L21.18198,36.031223 L18,39.213203 " +
+                    "L28.970562,50.183765 C30.142136,51.35534 32.04163,51.35534 33.213203,50.183765 " +
+                    "L56.21499,27.18198 L53.03301,24 Z",
+            )),
+        ))))
+        return XmlNode("selector", children = listOf(
+            original(checkbox.disabledChecked, disabled, checked(true)),
+            original(checkbox.disabledUnchecked, disabled, checked(false)),
+            XmlNode("item", listOf(checked(true)), listOf(selected)),
+            original(checkbox.unchecked),
+        ))
     }
 
     private fun solid(color: Int): XmlNode = solid(colorValue(color))

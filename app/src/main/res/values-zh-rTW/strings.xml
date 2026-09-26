@@ -3502,7 +3502,6 @@
     <string name="monet_bubble_classic">經典微信氣泡</string>
     <string name="monet_bubble_pro">Pro 圓角氣泡</string>
     <string name="monet_multi_scene_corners">輸入欄、引用與支付鍵盤圓角</string>
-    <string name="monet_error_colors">未讀角標與錯誤色</string>
     <string name="feature_show_friend_add_time_name">顯示聯絡人新增時間</string>
     <string name="feature_show_friend_add_time_description">在聯絡人和群組詳情列表中顯示聯絡人時間，支援好友、群組和公眾號（以微信記錄為準）</string>
     <string name="feature_we_contact_header_api_name">聯絡人詳情頂部擴充</string>

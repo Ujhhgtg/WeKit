@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -53,10 +52,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBar
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarDefaults
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarMode
+import dev.ujhhgtg.wekit.ui.content.UnreadBadge
 import dev.ujhhgtg.wekit.ui.content.rememberViewBackdrop
 
 // Matches the double-tap threshold WeChat's own tab listener (q8) uses.
@@ -113,14 +112,9 @@ fun NavTabBadge(tab: Int, content: @Composable () -> Unit) {
         badge = {
             if (!config.showsBadge(tab)) return@BadgedBox
             if (count > 0) {
-                Badge(containerColor = Color(0xFFFF3B30)) {
-                    Text(
-                        if (count <= 99) count.toString() else stringResource(R.string.badge_count_overflow),
-                        color = Color.White, fontSize = 10.sp,
-                    )
-                }
+                UnreadBadge(count.toLong())
             } else if (dot) {
-                Badge(containerColor = Color(0xFFFF3B30))
+                UnreadBadge()
             }
         },
         content = { content() },
@@ -172,7 +166,7 @@ fun NavBarCustomBar(session: NavBarSession) {
 
     val backgroundColor = if (darkTheme) Color(0xFF191919) else Color(0xFFF7F7F7)
     val activeColor = nativeIcons?.getValue(tabs.first().index)?.activeColor ?: MaterialTheme.colorScheme.primary
-    val inactiveColor = if (darkTheme) Color(0xFF999999) else Color(0xFF181818)
+    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     // Scale the bar by overriding the density rather than wrapping it in a
     // graphicsLayer: every dp/sp inside (height, icons, pill, blur radius,

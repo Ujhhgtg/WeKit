@@ -7,12 +7,12 @@ import java.security.MessageDigest
 /**
  * Resolves Monet semantic roles to WeChat resource IDs and caches the result per loaded WeChat
  * resource set. The analysis (full ARSC/XML graph + DexKit) is far too heavy to repeat on every
- * theme change, while bindings only change when WeChat's resource APKs do.
+ * theme change. Host resource changes and resolver revisions invalidate the binding fingerprint.
  */
 object MonetResourceResolver {
 
     /** Bump when binding extraction changes so stale caches are re-resolved. */
-    private const val VERSION = 2
+    private const val VERSION = 6
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -42,7 +42,37 @@ object MonetResourceResolver {
             roles = resolution.resolved.mapValues { (_, node) -> graph.binding(node) },
             unresolved = resolution.unresolved,
             tints = brandTints(graph, roleIds),
+            checkboxes = checkboxes(graph),
         )
+    }
+
+    /** The selected SVG contains a literal green path, so recolor its enclosing selector. */
+    fun checkboxes(graph: MonetResourceGraph): List<MonetCheckbox> {
+        val selected = graph.node(MonetResourceKey("raw", "checkbox_selected")) ?: return emptyList()
+        return graph.incoming(selected.id).mapNotNull { id ->
+            val node = graph.node(id)!!
+            if (node.key.type != "drawable") return@mapNotNull null
+            val tree = graph.xmlTrees(id).distinct().singleOrNull() ?: return@mapNotNull null
+            if (tree.name != "selector" || tree.children.size != 4) return@mapNotNull null
+            val states = tree.children.map { item ->
+                if (item.name != "item" || item.children.isNotEmpty()) return@mapNotNull null
+                item.attributes.filter { it.name != "drawable" }.associate { attribute ->
+                    attribute.name to (attribute.value as? MonetResourceValue.Literal)?.data
+                }
+            }
+            if (states != listOf(
+                    mapOf("state_enabled" to 0L, "state_checked" to 0xffffffffL),
+                    mapOf("state_enabled" to 0L, "state_checked" to 0L),
+                    mapOf("state_checked" to 0xffffffffL),
+                    emptyMap(),
+                )) return@mapNotNull null
+            val drawables = tree.children.map { item ->
+                (item.attributes.singleOrNull { it.name == "drawable" }?.value as? MonetResourceValue.Reference)
+                    ?.resourceId ?: return@mapNotNull null
+            }
+            if (drawables[2] != selected.id) return@mapNotNull null
+            MonetCheckbox(graph.binding(node), drawables[0], drawables[1], drawables[3])
+        }
     }
 
     /**

@@ -44,7 +44,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Badge
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -150,6 +149,7 @@ import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.UnreadBadge
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
@@ -2065,16 +2065,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                     }
                     if (showUnreadState.value) {
                         if (unread.normalCount > 0) {
-                            Badge(containerColor = Color(0xFFFF3B30)) {
-                                Text(
-                                    text = if (unread.normalCount <= 99) unread.normalCount.toString()
-                                        else stringResource(R.string.badge_count_overflow),
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                )
-                            }
+                            UnreadBadge(unread.normalCount)
                         } else if (unread.hasMutedUnread) {
-                            Badge(containerColor = Color(0xFFFF3B30))
+                            UnreadBadge()
                         }
                     }
                 },

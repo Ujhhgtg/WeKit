@@ -26,6 +26,15 @@ data class MonetBinding(
 @Serializable
 data class MonetTint(val binding: MonetBinding, val lightAlpha: Int, val nightAlpha: Int?)
 
+/** Four-state checkbox selector; only its enabled, checked SVG is replaced. */
+@Serializable
+data class MonetCheckbox(
+    val binding: MonetBinding,
+    val disabledChecked: Int,
+    val disabledUnchecked: Int,
+    val unchecked: Int,
+)
+
 /** Semantic role → WeChat resource, cached per loaded WeChat resource set ([fingerprint]). */
 @Serializable
 data class MonetBindings(
@@ -35,6 +44,7 @@ data class MonetBindings(
     val roles: Map<String, MonetBinding>,
     val unresolved: List<String>,
     val tints: List<MonetTint> = emptyList(),
+    val checkboxes: List<MonetCheckbox> = emptyList(),
 )
 
 fun interface MonetDexEvidenceProvider {

@@ -3493,7 +3493,6 @@
     <string name="monet_bubble_classic">Classic WeChat bubbles</string>
     <string name="monet_bubble_pro">Pro rounded bubbles</string>
     <string name="monet_multi_scene_corners">Rounded input, quote, and payment keys</string>
-    <string name="monet_error_colors">Unread badges and error colors</string>
     <string name="feature_show_friend_add_time_name">Show contact added time</string>
     <string name="feature_show_friend_add_time_description">Display the contact time in contact and group detail lists; supports friends, groups, and official accounts when WeChat has a record</string>
     <string name="feature_we_contact_header_api_name">Contact profile header extensions</string>

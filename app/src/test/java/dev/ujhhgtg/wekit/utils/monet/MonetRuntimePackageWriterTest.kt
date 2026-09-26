@@ -84,18 +84,12 @@ class MonetRuntimePackageWriterTest {
         val framework = { name: String -> 0x0106_0000 or (name.hashCode() and 0xfff) }
         val palette = MonetThemeRenderer.palette(framework)
         MonetBubbleStyle.entries.forEach { bubble ->
-            val out = MonetThemeRenderer.render(bindings, palette, MonetThemeRenderer.Options(bubble, true, false), framework)
+            val out = MonetThemeRenderer.render(bindings, palette, MonetThemeRenderer.Options(bubble, true), framework)
             assertTrue(out.drawables.isNotEmpty() && out.colors.isNotEmpty())
             assertTrue(out.colors.none { it.binding == roles.getValue("main.tab.background") }, "tab bar is left to WeChat")
             MonetThemeRenderer.ERROR_ROLES.forEach { role ->
-                assertTrue(out.colors.none { it.binding == roles.getValue(role) }, "error red $role stays WeChat's by default")
+                assertTrue(out.colors.none { it.binding == roles.getValue(role) }, "shared error color $role stays WeChat's")
             }
-            val withErrors = MonetThemeRenderer.render(bindings, palette, MonetThemeRenderer.Options(bubble, true, true), framework)
-            assertEquals(
-                MonetThemeRenderer.ERROR_ROLES.map(roles::getValue).toSet(),
-                (withErrors.colors.map { it.binding } - out.colors.map { it.binding }.toSet()).toSet(),
-                "the error switch adds exactly the error roles",
-            )
             val file = write(out.colors, out.drawables)
             ZipFile(file).use { zip ->
                 val pkg = zip.getInputStream(zip.getEntry("resources.arsc")).use(TableBlock::load).pickOne()!!
@@ -114,7 +108,7 @@ class MonetRuntimePackageWriterTest {
     fun `unresolved roles are skipped instead of failing the render`() {
         val bindings = MonetBindings("test", typeNames, emptyMap(), MONET_RULES.map { it.id })
         val framework = { name: String -> 0x0106_0000 or (name.hashCode() and 0xfff) }
-        val options = MonetThemeRenderer.Options(MonetBubbleStyle.PRO, true, true)
+        val options = MonetThemeRenderer.Options(MonetBubbleStyle.PRO, true)
         val out = MonetThemeRenderer.render(bindings, MonetThemeRenderer.palette(framework), options, framework)
         assertTrue(out.colors.isEmpty() && out.drawables.isEmpty())
     }
@@ -143,7 +137,7 @@ class MonetRuntimePackageWriterTest {
         val bindings = MonetBindings("test", typeNames, emptyMap(), emptyList(), tints)
         val framework = { name: String -> 0x0106_0000 or (name.hashCode() and 0xfff) }
         val out = MonetThemeRenderer.render(
-            bindings, MonetThemeRenderer.palette(framework), MonetThemeRenderer.Options(MonetBubbleStyle.MODERN, false, false), framework,
+            bindings, MonetThemeRenderer.palette(framework), MonetThemeRenderer.Options(MonetBubbleStyle.MODERN, false), framework,
         )
         ZipFile(write(out.colors, out.drawables)).use { zip ->
             val pkg = zip.getInputStream(zip.getEntry("resources.arsc")).use(TableBlock::load).pickOne()!!
@@ -159,6 +153,70 @@ class MonetRuntimePackageWriterTest {
 
     private fun PackageBlock.configs(id: Int): Set<String> =
         getResource(id).asSequence().map { it.resConfig.qualifiers }.toSet()
+
+    @Test
+    fun `checkbox overlay preserves state order and host references with a themed cutout vector`() {
+        val checkbox = MonetCheckbox(
+            MonetBinding(0x7f02_0030, "drawable", "obfuscated_selector", listOf(""), 0),
+            disabledChecked = 0x7f09_0010,
+            disabledUnchecked = 0x7f02_0031,
+            unchecked = 0x7f02_0032,
+        )
+        val source = { name: String -> 0x0106_0000 or (name.hashCode() and 0xfff) }
+        val bindings = MonetBindings("test", typeNames, emptyMap(), emptyList(), checkboxes = listOf(checkbox))
+        val out = MonetThemeRenderer.render(
+            bindings, MonetThemeRenderer.palette(source), MonetThemeRenderer.Options(MonetBubbleStyle.MODERN, false), source,
+        )
+        val output = write(out.colors, out.drawables)
+        val graph = MonetApkResourceGraphLoader.load(listOf(output), "com.tencent.mm")
+        val trees = graph.xmlTrees(checkbox.binding.id)
+        assertEquals(2, trees.size)
+        val svg = MonetResourceNode(0x7f09_0001, MonetResourceKey("raw", "checkbox_selected"), emptyList())
+        val original = trees.first().let { tree ->
+            tree.copy(children = tree.children.mapIndexed { index, item ->
+                if (index != 2) item else item.copy(
+                    attributes = item.attributes + MonetXmlAttribute(
+                        "http://schemas.android.com/apk/res/android", "drawable", 0x01010199,
+                        "REFERENCE", MonetResourceValue.Reference(svg.id),
+                    ),
+                    children = emptyList(),
+                )
+            })
+        }
+        val selectorNode = graph.node(checkbox.binding.id)!!
+        val sourceGraph = MonetResourceGraph(listOf(selectorNode, svg), mapOf(selectorNode.id to listOf(original)))
+        assertEquals(
+            listOf(checkbox.copy(binding = checkbox.binding.copy(qualifiers = listOf("", "-night")))),
+            MonetResourceResolver.checkboxes(sourceGraph),
+        )
+        val reordered = original.copy(children = original.children.reversed())
+        assertTrue(MonetResourceResolver.checkboxes(
+            MonetResourceGraph(listOf(selectorNode, svg), mapOf(selectorNode.id to listOf(reordered))),
+        ).isEmpty())
+        val fills = trees.map { tree ->
+            assertEquals("selector", tree.name)
+            val items = tree.children
+            assertEquals(4, items.size)
+            fun value(item: MonetXmlElement, name: String) = item.attributes.single { it.name == name }.value
+            assertEquals(MonetResourceValue.Literal("BOOLEAN", 0), value(items[0], "state_enabled"))
+            assertEquals(MonetResourceValue.Literal("BOOLEAN", 0xffffffffL), value(items[0], "state_checked"))
+            assertEquals(MonetResourceValue.Literal("BOOLEAN", 0), value(items[1], "state_checked"))
+            assertEquals(MonetResourceValue.Reference(checkbox.disabledChecked), value(items[0], "drawable"))
+            assertEquals(MonetResourceValue.Reference(checkbox.disabledUnchecked), value(items[1], "drawable"))
+            assertEquals(MonetResourceValue.Reference(checkbox.unchecked), value(items[3], "drawable"))
+            val vector = items[2].children.single()
+            assertEquals("vector", vector.name)
+            val path = vector.children.single()
+            assertEquals(MonetResourceValue.Literal("DEC", 1), value(path, "fillType"))
+            assertTrue(path.attributes.any { it.name == "pathData" && it.valueType == "STRING" })
+            value(path, "fillColor")
+        }
+        assertEquals(setOf("system_primary_light", "system_primary_dark").map { MonetResourceValue.Reference(source(it)) }.toSet(), fills.toSet())
+        ZipFile(output).use { zip ->
+            val pkg = zip.getInputStream(zip.getEntry("resources.arsc")).use(TableBlock::load).pickOne()!!
+            assertEquals(setOf("", "-night"), pkg.configs(checkbox.binding.id))
+        }
+    }
 
     private fun shape(color: Int) = XmlNode(
         "shape",
