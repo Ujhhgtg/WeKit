@@ -21,8 +21,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import androidx.activity.ComponentActivity
-import androidx.compose.material3.Text
-import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import dev.ujhhgtg.reflekt.reflekt
@@ -47,9 +45,6 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.notifications.CustomNotifications.DEDUP_TTL_MS
 import dev.ujhhgtg.wekit.ui.automation.MESSAGE_KIND_LABELS
-import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.TargetProcesses
@@ -184,19 +179,8 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
     private var lastManualSoundAt = 0L
     private var receiverRegistered = false
 
-    override fun onBeforeToggle(newState: Boolean, context: Context): Boolean {
-        if (newState && NotificationsEvolved.isEnabled) {
-            showComposeDialog(context) {
-                AlertDialogContent(
-                    title = { Text(stringResource(R.string.feature_custom_notifications_name)) },
-                    text = { Text(stringResource(R.string.custom_notify_conflict)) },
-                    confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_confirm)) } },
-                )
-            }
-            return false
-        }
-        return true
-    }
+    override val declaredErrors
+        get() = if (NotificationsEvolved.isEnabled) listOf(R.string.custom_notify_conflict) else emptyList()
 
     override fun onClick(context: ComponentActivity) {
         AutomationSettingsActivity.start(context, spec)

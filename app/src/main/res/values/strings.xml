@@ -3729,7 +3729,7 @@
     <string name="feature_custom_notifications_name">Custom notifications</string>
     <string name="feature_custom_notifications_description">Per-chat notification rules: do not disturb, mute hours, @all/@me and member filters, custom sound, vibration, quick reply and merging</string>
     <string name="custom_notify_global_summary">Default notification rules for every chat</string>
-    <string name="custom_notify_conflict">Custom notifications and Notifications evolved both replace WeChat notifications; turn the other one off first</string>
+    <string name="custom_notify_conflict">Error: Notifications Evolved and Custom notifications both replace WeChat notifications; turn the other one off first</string>
     <string name="custom_notify_mode">Notifications</string>
     <string name="custom_notify_mode_notify">Notify</string>
     <string name="custom_notify_mode_dnd">Do not disturb</string>

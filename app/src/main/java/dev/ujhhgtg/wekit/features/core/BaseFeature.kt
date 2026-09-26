@@ -48,8 +48,9 @@ abstract class BaseFeature {
         descriptionRes?.let(context::getString).orEmpty()
 
     /**
-     * Restrictions this feature declares itself (e.g. an unsupported host build), as string
-     * resources. Evaluated on every read; each one becomes a [FeatureError.Declared].
+     * Restrictions this feature declares itself (e.g. an unsupported host build or an enabled
+     * conflicting feature), as string resources. Evaluated on every read; each one becomes a
+     * [FeatureError.Declared].
      */
     open val declaredErrors: List<Int>
         get() = emptyList()

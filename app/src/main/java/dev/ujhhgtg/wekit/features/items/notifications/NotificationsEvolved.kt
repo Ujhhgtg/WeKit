@@ -54,7 +54,6 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.OriginalMethodInvoker
 import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.getSystemService
 import dev.ujhhgtg.wekit.utils.captureOriginalMethod
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
@@ -893,13 +892,8 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         }
     }
 
-    override fun onBeforeToggle(newState: Boolean, context: Context): Boolean {
-        if (newState && CustomNotifications.isEnabled) {
-            showToast(context, localizedNotificationString(R.string.custom_notify_conflict))
-            return false
-        }
-        return true
-    }
+    override val declaredErrors
+        get() = if (CustomNotifications.isEnabled) listOf(R.string.custom_notify_conflict) else emptyList()
 
     override fun onEnable() {
         clearState()

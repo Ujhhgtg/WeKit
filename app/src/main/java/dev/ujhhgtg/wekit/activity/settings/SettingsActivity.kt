@@ -382,7 +382,8 @@ fun FeatureRow(
     val configKey = item.technicalId
     val localizedName = item.localizedName(localizedContext)
     val localizedDescription = item.localizedDescription(localizedContext)
-    val errorLines = remember(configKey, localizedContext) {
+    // Declared errors may depend on other features' states, so recompute after any toggle.
+    val errorLines = remember(configKey, localizedContext, FeatureCategoryState.revision) {
         item.errors.map { it.localizedMessage(localizedContext) }
     }
     // A feature with errors can still be turned off, but never turned on.

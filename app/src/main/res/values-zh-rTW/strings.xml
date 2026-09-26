@@ -3729,7 +3729,7 @@
     <string name="feature_custom_notifications_name">自訂通知</string>
     <string name="feature_custom_notifications_description">依聊天設定通知：勿擾、靜音時段、@所有人/@我與成員過濾、自訂鈴聲、震動、快速回覆與合併</string>
     <string name="custom_notify_global_summary">所有聊天的預設通知規則</string>
-    <string name="custom_notify_conflict">自訂通知與通知進化都會接管微信通知，請先關閉另一項</string>
+    <string name="custom_notify_conflict">錯誤：通知進化與自訂通知都會接管微信通知，請先關閉另一項</string>
     <string name="custom_notify_mode">通知</string>
     <string name="custom_notify_mode_notify">通知</string>
     <string name="custom_notify_mode_dnd">勿擾</string>

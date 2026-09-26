@@ -3747,7 +3747,7 @@
     <string name="feature_custom_notifications_name">自定义通知</string>
     <string name="feature_custom_notifications_description">按聊天设置通知：免打扰、静音时段、@所有人/@我与成员过滤、自定义铃声、振动、快捷回复与合并</string>
     <string name="custom_notify_global_summary">所有聊天的默认通知规则</string>
-    <string name="custom_notify_conflict">自定义通知与通知进化都会接管微信通知，请先关闭另一项</string>
+    <string name="custom_notify_conflict">错误：通知进化与自定义通知都会接管微信通知，请先关闭另一项</string>
     <string name="custom_notify_mode">通知</string>
     <string name="custom_notify_mode_notify">通知</string>
     <string name="custom_notify_mode_dnd">免打扰</string>
