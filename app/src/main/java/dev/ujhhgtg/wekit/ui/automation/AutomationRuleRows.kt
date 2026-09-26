@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,23 +26,26 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Check
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Edit
-import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.automation.AutomationKeywordMode
 import dev.ujhhgtg.wekit.features.automation.AutomationKeywordRule
 import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
+import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.WeTimeOfDaySecondsField
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumnScope
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 
@@ -64,11 +66,20 @@ fun AutomationTextEditDialog(
     request: AutomationTextEditRequest,
     onClose: () -> Unit,
 ) {
+    Dialog(onDismissRequest = onClose) {
+        AutomationTextEditContent(request, onClose)
+    }
+}
+
+@Composable
+fun AutomationTextEditContent(
+    request: AutomationTextEditRequest,
+    onClose: () -> Unit,
+) {
     var draft by remember(request) { mutableStateOf(request.initial) }
     val validationError = request.validator?.invoke(draft)
 
-    AlertDialog(
-        onDismissRequest = onClose,
+    AlertDialogContent(
         title = { Text(request.title) },
         text = {
             OutlinedTextField(
@@ -422,6 +433,39 @@ fun SegmentedColumnScope.keywordItems(
     }
 }
 
+/** Numeric setting with a slider and a tappable value for exact input. */
+@Composable
+fun AutomationNumberRow(
+    title: String,
+    value: String,
+    maxDigits: Int,
+    editable: Boolean,
+    onChange: (String) -> Unit,
+    onEditText: (AutomationTextEditRequest) -> Unit,
+) {
+    BaseItemContainer {
+        IntNumberPickerWidget(
+            title = title,
+            value = value.toIntOrNull() ?: 0,
+            startInt = 0,
+            endInt = "9".repeat(maxDigits).toInt(),
+            enabled = editable,
+            onValueChange = { onChange(it.toString()) },
+            onValueClick = {
+                onEditText(
+                    AutomationTextEditRequest(
+                        title = title,
+                        initial = value,
+                        keyboardType = KeyboardType.Number,
+                        filter = { it.filter(Char::isDigit).take(maxDigits) },
+                        onCommit = onChange,
+                    )
+                )
+            },
+        )
+    }
+}
+
 /** Delay value rows shown while the delay rule is enabled. */
 fun SegmentedColumnScope.delayItems(
     keyPrefix: String,
@@ -434,46 +478,24 @@ fun SegmentedColumnScope.delayItems(
     onRandomRangeChange: (String) -> Unit,
     onEditText: (AutomationTextEditRequest) -> Unit,
 ) {
-    val digitFilter: (String) -> String = { it.filter(Char::isDigit).take(maxDigits) }
-
     item(key = "${keyPrefix}_base", animatedVisibility = visible) {
-        val baseTitle = stringResource(R.string.automation_base_delay_ms)
-        AutomationValueRow(
-            title = baseTitle,
+        AutomationNumberRow(
+            title = stringResource(R.string.automation_base_delay_ms),
             value = baseMs,
-            enabled = editable,
-            valueHint = "0",
-            onClick = {
-                onEditText(
-                    AutomationTextEditRequest(
-                        title = baseTitle,
-                        initial = baseMs,
-                        keyboardType = KeyboardType.Number,
-                        filter = digitFilter,
-                        onCommit = onBaseChange,
-                    )
-                )
-            },
+            maxDigits = maxDigits,
+            editable = editable,
+            onChange = onBaseChange,
+            onEditText = onEditText,
         )
     }
     item(key = "${keyPrefix}_random", animatedVisibility = visible) {
-        val randomTitle = stringResource(R.string.automation_random_delay_ms)
-        AutomationValueRow(
-            title = randomTitle,
+        AutomationNumberRow(
+            title = stringResource(R.string.automation_random_delay_ms),
             value = randomRangeMs,
-            enabled = editable,
-            valueHint = "0",
-            onClick = {
-                onEditText(
-                    AutomationTextEditRequest(
-                        title = randomTitle,
-                        initial = randomRangeMs,
-                        keyboardType = KeyboardType.Number,
-                        filter = digitFilter,
-                        onCommit = onRandomRangeChange,
-                    )
-                )
-            },
+            maxDigits = maxDigits,
+            editable = editable,
+            onChange = onRandomRangeChange,
+            onEditText = onEditText,
         )
     }
 }

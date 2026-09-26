@@ -25,7 +25,6 @@ import dev.ujhhgtg.wekit.data.entity.AutomationScopeListValueEntity
 import dev.ujhhgtg.wekit.data.entity.AutomationScopePresetEntity
 import dev.ujhhgtg.wekit.data.entity.collectionSchemaSql
 import dev.ujhhgtg.wekit.data.structured.migration23To24Sql
-import dev.ujhhgtg.wekit.data.structured.migration24To25Sql
 import dev.ujhhgtg.wekit.data.structured.migration25To26Sql
 import dev.ujhhgtg.wekit.data.entity.simpleStructuredSchemaSql
 import dev.ujhhgtg.wekit.data.structured.legacyAutomationSchemaSql
@@ -337,11 +336,9 @@ abstract class WeKitDatabase : RoomDatabase() {
             }
         }
 
-        // 24 → 25: the "block group @all notifications" preferences → CustomNotifications rules.
+        // 24 and 25 have the same schema. Keep the upgrade path without moving notification preferences.
         val MIGRATION_24_25 = object : Migration(24, 25) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                migration24To25Sql.forEach(db::execSQL)
-            }
+            override fun migrate(db: SupportSQLiteDatabase) = Unit
         }
 
         // 25 → 26: automation time ranges in seconds instead of minutes.

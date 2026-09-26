@@ -150,7 +150,7 @@ fun IntNumberPickerWidget(
             val valueModifier = Modifier
                 .defaultMinSize(minWidth = 36.dp)
                 .then(
-                    if (onValueClick != null) Modifier.clickable(onClick = onValueClick)
+                    if (onValueClick != null) Modifier.clickable(enabled = enabled, onClick = onValueClick)
                     else Modifier
                 )
                 .padding(horizontal = 4.dp, vertical = 8.dp)

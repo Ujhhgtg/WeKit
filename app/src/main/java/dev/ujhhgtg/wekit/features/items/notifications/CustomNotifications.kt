@@ -41,6 +41,7 @@ import dev.ujhhgtg.wekit.features.automation.AutomationRules
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.IncomingMessageEvents
 import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
+import dev.ujhhgtg.wekit.features.items.chat.BlockAtAllNotifications
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.notifications.CustomNotifications.DEDUP_TTL_MS
@@ -272,6 +273,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
     private fun suppressed(rules: AutomationRules, facts: MessageFacts?): Boolean {
         if (rules[spec.mode] == NotifyMode.DND || rules[spec.muteWindow].isActive()) return true
         if (facts == null || AutomationTalkerCategory.of(facts.talker) != AutomationTalkerCategory.GROUP) return false
+        if (facts.atAll && BlockAtAllNotifications.shouldSuppress(facts.talker)) return true
         if (rules[spec.mentions].blocks(facts.atAll, facts.atMe)) return true
         if (facts.sender.isEmpty()) return false
         val senderName = WeDatabaseApi.getGroupMemberDisplayName(facts.talker, facts.sender)

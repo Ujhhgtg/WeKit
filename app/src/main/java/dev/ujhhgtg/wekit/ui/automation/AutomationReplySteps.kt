@@ -1,18 +1,13 @@
 package dev.ujhhgtg.wekit.ui.automation
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -20,11 +15,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Arrow_downward
@@ -36,11 +30,14 @@ import dev.ujhhgtg.wekit.features.automation.AutomationReplyStep
 import dev.ujhhgtg.wekit.features.automation.AutomationReplyStepKind
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.splitReplyValues
+import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumnScope
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 
 val REPLY_STEP_KIND_LABELS = mapOf(
     AutomationReplyStepKind.TEXT to R.string.automation_step_text,
@@ -84,7 +81,7 @@ fun SegmentedColumnScope.replyStepItems(
     fun update(steps: List<AutomationReplyStep>) = onChange(rule.copy(steps = steps))
 
     item(key = "${keyPrefix}_quote") {
-        dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget(
+        SwitchWidget(
             iconPlaceholder = false,
             title = stringResource(R.string.automation_reply_as_quote),
             description = stringResource(R.string.automation_reply_as_quote_summary),
@@ -173,120 +170,164 @@ private fun ReplyStepDialog(
 ) {
     var kind by remember { mutableStateOf(initial.kind) }
     var content by remember { mutableStateOf(initial.content) }
-    var delay by remember { mutableStateOf(initial.delayMs.toString()) }
+    var delay by remember { mutableStateOf(initial.delayMs.toInt()) }
     var randomDelay by remember { mutableStateOf(initial.randomDelay) }
-    // Hidden while a contact screen is open on top; this composable (and its state) stays.
+    // Keep the draft while a picker is open, and let Back close only that picker.
     var pickingContacts by remember { mutableStateOf(false) }
+    var pickingFavorites by remember { mutableStateOf(false) }
+    var editDelay by remember { mutableStateOf<AutomationTextEditRequest?>(null) }
     if (pickingContacts) return
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.automation_edit_step)) },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                DropDownMenuWidget(
-                    title = stringResource(R.string.automation_step_kind),
-                    description = null,
-                    value = kind,
-                    options = AutomationReplyStepKind.entries.map {
-                        DropdownOption(it, stringResource(REPLY_STEP_KIND_LABELS.getValue(it)))
-                    },
-                    onValueChange = { kind = it },
-                )
-                val hint = REPLY_STEP_KIND_HINTS[kind]?.let { stringResource(it) }
-                    ?: if (kind.usesFiles) stringResource(R.string.automation_step_files_hint) else null
-                val placeholderHint = if (kind == AutomationReplyStepKind.TEXT || kind == AutomationReplyStepKind.XML) {
-                    stringResource(R.string.automation_available_placeholders, placeholders.joinToString(" "))
-                } else null
-                OutlinedTextField(
-                    value = content,
-                    onValueChange = { content = it },
-                    label = { Text(stringResource(R.string.automation_step_content)) },
-                    supportingText = listOfNotNull(hint, placeholderHint).takeIf { it.isNotEmpty() }
-                        ?.let { lines -> { Text(lines.joinToString("\n")) } },
-                    minLines = 2,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                when {
-                    kind.usesFiles -> OutlinedButton(onClick = {
-                        context.pickFiles(mimeTypesFor(kind)) { paths ->
-                            content = (splitReplyValues(content) + paths).joinToString("\n")
-                        }
-                    }) { Text(stringResource(R.string.automation_pick_files)) }
-
-                    kind == AutomationReplyStepKind.CARD || kind == AutomationReplyStepKind.INVITE_GROUP -> {
-                        val groups = kind == AutomationReplyStepKind.INVITE_GROUP
-                        val pickerTitle = stringResource(REPLY_STEP_KIND_LABELS.getValue(kind))
-                        OutlinedButton(onClick = {
-                            pickingContacts = true
-                            context.contactPicker.open(
-                                AutomationContactPick.Multiple(
-                                    title = pickerTitle,
-                                    loadContacts = {
-                                        loadAutomationContacts(
-                                            if (groups) setOf(AutomationTalkerCategory.GROUP)
-                                            else setOf(AutomationTalkerCategory.PRIVATE, AutomationTalkerCategory.OFFICIAL)
+    val back = {
+        when {
+            pickingFavorites -> pickingFavorites = false
+            editDelay != null -> editDelay = null
+            else -> onDismiss()
+        }
+    }
+    Dialog(onDismissRequest = back) {
+        when {
+            pickingFavorites -> AutomationFavoritePicker(
+                title = stringResource(R.string.automation_pick_favorites),
+                initialSelected = splitReplyValues(content).mapNotNull(String::toLongOrNull).toSet(),
+                onDismiss = { pickingFavorites = false },
+                onConfirm = { ids ->
+                    content = ids.joinToString("\n")
+                    pickingFavorites = false
+                },
+            )
+            editDelay != null -> AutomationTextEditContent(
+                request = editDelay!!,
+                onClose = { editDelay = null },
+            )
+            else -> AlertDialogContent(
+                title = { Text(stringResource(R.string.automation_edit_step)) },
+                text = {
+                    LazyColumn {
+                        item {
+                            SegmentedColumn(
+                                title = stringResource(R.string.automation_reply_content),
+                                contentPadding = PaddingValues(0.dp),
+                                titlePadding = PaddingValues(bottom = 8.dp),
+                            ) {
+                                item {
+                                    DropDownMenuWidget(
+                                        iconPlaceholder = false,
+                                        title = stringResource(R.string.automation_step_kind),
+                                        description = null,
+                                        value = kind,
+                                        options = AutomationReplyStepKind.entries.map {
+                                            DropdownOption(it, stringResource(REPLY_STEP_KIND_LABELS.getValue(it)))
+                                        },
+                                        onValueChange = { kind = it },
+                                    )
+                                }
+                                item {
+                                    val hint = REPLY_STEP_KIND_HINTS[kind]?.let { stringResource(it) }
+                                        ?: if (kind.usesFiles) stringResource(R.string.automation_step_files_hint) else null
+                                    val placeholderHint = if (kind == AutomationReplyStepKind.TEXT || kind == AutomationReplyStepKind.XML) {
+                                        stringResource(R.string.automation_available_placeholders, placeholders.joinToString(" "))
+                                    } else null
+                                    BaseSupportingWidget(
+                                        title = stringResource(R.string.automation_step_content),
+                                        description = listOfNotNull(hint, placeholderHint).takeIf { it.isNotEmpty() }?.joinToString("\n"),
+                                    ) {
+                                        OutlinedTextField(
+                                            value = content,
+                                            onValueChange = { content = it },
+                                            minLines = 2,
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                                         )
-                                    },
-                                    initialSelected = splitReplyValues(content).toSet(),
-                                    onClose = { pickingContacts = false },
-                                    onConfirm = { selected ->
-                                        content = selected.joinToString("\n")
-                                        null
-                                    },
-                                )
-                            )
-                        }) { Text(stringResource(R.string.automation_pick_contacts)) }
-                    }
-
-                    kind == AutomationReplyStepKind.FAVORITE -> {
-                        val pickerTitle = stringResource(R.string.automation_pick_favorites)
-                        OutlinedButton(onClick = {
-                            showComposeDialog(context.activity) {
-                                AutomationFavoritePicker(
-                                    title = pickerTitle,
-                                    initialSelected = splitReplyValues(content).mapNotNull(String::toLongOrNull).toSet(),
-                                    onDismiss = onDismiss,
-                                ) { ids ->
-                                    content = ids.joinToString("\n")
-                                    onDismiss()
+                                    }
+                                }
+                                when {
+                                    kind.usesFiles -> item {
+                                        AutomationNavigationRow(
+                                            title = stringResource(R.string.automation_pick_files),
+                                            description = null,
+                                            onClick = {
+                                                context.pickFiles(mimeTypesFor(kind)) { paths ->
+                                                    content = (splitReplyValues(content) + paths).joinToString("\n")
+                                                }
+                                            },
+                                        )
+                                    }
+                                    kind == AutomationReplyStepKind.CARD || kind == AutomationReplyStepKind.INVITE_GROUP -> item {
+                                        val groups = kind == AutomationReplyStepKind.INVITE_GROUP
+                                        val pickerTitle = stringResource(REPLY_STEP_KIND_LABELS.getValue(kind))
+                                        AutomationNavigationRow(
+                                            title = stringResource(R.string.automation_pick_contacts),
+                                            description = null,
+                                            onClick = {
+                                                pickingContacts = true
+                                                context.contactPicker.open(
+                                                    AutomationContactPick.Multiple(
+                                                        title = pickerTitle,
+                                                        loadContacts = {
+                                                            loadAutomationContacts(
+                                                                if (groups) setOf(AutomationTalkerCategory.GROUP)
+                                                                else setOf(AutomationTalkerCategory.PRIVATE, AutomationTalkerCategory.OFFICIAL)
+                                                            )
+                                                        },
+                                                        initialSelected = splitReplyValues(content).toSet(),
+                                                        onClose = { pickingContacts = false },
+                                                        onConfirm = { selected ->
+                                                            content = selected.joinToString("\n")
+                                                            null
+                                                        },
+                                                    )
+                                                )
+                                            },
+                                        )
+                                    }
+                                    kind == AutomationReplyStepKind.FAVORITE -> item {
+                                        AutomationNavigationRow(
+                                            title = stringResource(R.string.automation_pick_favorites),
+                                            description = null,
+                                            onClick = { pickingFavorites = true },
+                                        )
+                                    }
                                 }
                             }
-                        }) { Text(pickerTitle) }
+                        }
+                        item {
+                            SegmentedColumn(
+                                title = stringResource(R.string.automation_step_delay_ms),
+                                contentPadding = PaddingValues(top = 12.dp),
+                                titlePadding = PaddingValues(bottom = 8.dp),
+                            ) {
+                                item {
+                                    AutomationNumberRow(
+                                        title = stringResource(R.string.automation_step_delay_ms),
+                                        value = delay.toString(),
+                                        maxDigits = 6,
+                                        editable = true,
+                                        onChange = { delay = it.toIntOrNull() ?: 0 },
+                                        onEditText = { editDelay = it },
+                                    )
+                                }
+                                item {
+                                    SwitchWidget(
+                                        iconPlaceholder = false,
+                                        title = stringResource(R.string.automation_step_random_delay),
+                                        checked = randomDelay,
+                                        onCheckedChange = { randomDelay = it },
+                                    )
+                                }
+                            }
+                        }
                     }
-                }
-                OutlinedTextField(
-                    value = delay,
-                    onValueChange = { delay = it.filter(Char::isDigit).take(6) },
-                    label = { Text(stringResource(R.string.automation_step_delay_ms)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.automation_step_random_delay), modifier = Modifier.weight(1f))
-                    Switch(checked = randomDelay, onCheckedChange = { randomDelay = it })
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = content.isNotBlank(),
-                onClick = {
-                    onConfirm(
-                        AutomationReplyStep(
-                            kind = kind,
-                            content = content.trim(),
-                            delayMs = delay.toLongOrNull() ?: 0L,
-                            randomDelay = randomDelay,
-                        )
-                    )
                 },
-            ) { Text(stringResource(R.string.dialog_confirm)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
-    )
+                confirmButton = {
+                    TextButton(
+                        enabled = content.isNotBlank(),
+                        onClick = {
+                            onConfirm(AutomationReplyStep(kind, content.trim(), delay.toLong(), randomDelay))
+                        },
+                    ) { Text(stringResource(R.string.dialog_confirm)) }
+                },
+                dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+            )
+        }
+    }
 }

@@ -89,9 +89,8 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
                 parameterCount = 0
                 returnType { it.isInterface && it.isAssignableFrom(storageClass) }
             }
-            val service = WeServiceApi.getServiceByClass(
-                classPluginFav.clazz.interfaces.first { iface -> iface.methods.any { it.name == getter.name && it.parameterCount == 0 } }
-            )
+            // PluginFav implements one service marker interface; storage getters live only on the implementation.
+            val service = WeServiceApi.getServiceByClass(classPluginFav.clazz.interfaces.single())
             return getter.self.invoke(service)!!
         }
 

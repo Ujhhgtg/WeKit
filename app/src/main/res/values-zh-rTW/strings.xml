@@ -3793,4 +3793,12 @@
     <string name="block_messages_block_all_on">丟棄所有訊息，忽略排除與其他規則</string>
     <string name="block_messages_block_all_off">使用下方規則</string>
     <string name="automation_batch_presets_unchanged">保留各項目原有預設</string>
+    <string name="feature_block_at_all_notifications_name">屏蔽羣聊 @所有人</string>
+    <string name="feature_block_at_all_notifications_description">按羣聊黑名單或白名單屏蔽 @所有人 通知</string>
+    <string name="chat_block_at_all_whitelist_description">僅放行所選羣聊的 @所有人 通知，屏蔽其他羣聊</string>
+    <string name="chat_block_at_all_blacklist_description">屏蔽所選羣聊的 @所有人 通知</string>
+    <string name="chat_block_at_all_select_groups_hint">點擊選擇羣聊</string>
+    <plurals name="chat_block_at_all_groups_saved">
+        <item quantity="other">已保存 %d 個羣聊</item>
+    </plurals>
 </resources>

@@ -3794,4 +3794,13 @@
     <string name="block_messages_block_all_on">Every message is dropped, ignoring exclusions and other rules</string>
     <string name="block_messages_block_all_off">Use the rules below</string>
     <string name="automation_batch_presets_unchanged">Keep each entry’s presets</string>
+    <string name="feature_block_at_all_notifications_name">Block group @all notifications</string>
+    <string name="feature_block_at_all_notifications_description">Suppress @all notifications according to a group blacklist or whitelist</string>
+    <string name="chat_block_at_all_whitelist_description">Allow @all notifications only from selected groups; suppress all other groups</string>
+    <string name="chat_block_at_all_blacklist_description">Suppress @all notifications from selected groups</string>
+    <string name="chat_block_at_all_select_groups_hint">Tap to select groups</string>
+    <plurals name="chat_block_at_all_groups_saved">
+        <item quantity="one">Saved %d group</item>
+        <item quantity="other">Saved %d groups</item>
+    </plurals>
 </resources>

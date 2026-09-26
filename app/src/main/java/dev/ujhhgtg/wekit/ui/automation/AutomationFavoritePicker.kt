@@ -1,19 +1,15 @@
 package dev.ujhhgtg.wekit.ui.automation
 
 import android.text.format.DateFormat
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,17 +22,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeFavoriteApi
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import dev.ujhhgtg.wekit.utils.WeLogger
+import java.util.Date
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.Date
 
 private const val FAVORITE_PICKER_LIMIT = 1000
 
@@ -104,26 +101,17 @@ fun AutomationFavoritePicker(
                         }
                         if (filtered.isEmpty()) Text(stringResource(R.string.automation_favorites_empty))
                         LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                            items(filtered, key = { it.localId }) { favorite ->
+                            lazySegmentedItems(filtered, key = { it.localId }) { favorite ->
                                 val checked = favorite.localId in selected
                                 val typeLabel = FAVORITE_TYPE_LABELS[favorite.type]?.let { stringResource(it) }
                                     ?: stringResource(R.string.favorite_type_other, favorite.type)
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { selected = if (checked) selected - favorite.localId else selected + favorite.localId },
-                                ) {
-                                    Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.padding(12.dp))
-                                    Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
-                                        Text(favorite.title.ifBlank { typeLabel }, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                        Text(
-                                            "$typeLabel · ${DateFormat.getDateFormat(context).format(Date(favorite.updateTimeMs))} · ${favorite.localId}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                }
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = favorite.title.ifBlank { typeLabel },
+                                    description = "$typeLabel · ${DateFormat.getDateFormat(context).format(Date(favorite.updateTimeMs))} · ${favorite.localId}",
+                                    onClick = { selected = if (checked) selected - favorite.localId else selected + favorite.localId },
+                                    trailingContent = { Checkbox(checked = checked, onCheckedChange = null) },
+                                )
                             }
                         }
                     }
@@ -131,7 +119,7 @@ fun AutomationFavoritePicker(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            TextButton(enabled = favorites != null, onClick = {
                 val order = favorites.orEmpty().map { it.localId }
                 onConfirm(order.filter { it in selected } + selected.filter { it !in order })
             }) { Text(stringResource(R.string.dialog_confirm)) }

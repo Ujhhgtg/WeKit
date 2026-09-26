@@ -6,7 +6,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
@@ -283,7 +282,7 @@ fun limitEditor(
     visibleIn = visibleIn,
 )
 
-/** A digits-only value row inside a rule value, edited through the text dialog. */
+/** A non-negative numeric setting, with exact input available from its value. */
 fun <T : Any> numberDetails(
     keyPrefix: String,
     @StringRes fieldRes: Int,
@@ -292,23 +291,13 @@ fun <T : Any> numberDetails(
     set: (T, String) -> T,
 ): AutomationEditorDetails<T> = { ctx, value, editable, onChange ->
     item(key = "${keyPrefix}_value") {
-        val title = stringResource(fieldRes)
-        AutomationValueRow(
-            title = title,
+        AutomationNumberRow(
+            title = stringResource(fieldRes),
             value = get(value),
-            enabled = editable,
-            valueHint = "0",
-            onClick = {
-                ctx.editText(
-                    AutomationTextEditRequest(
-                        title = title,
-                        initial = get(value),
-                        keyboardType = KeyboardType.Number,
-                        filter = { it.filter(Char::isDigit).take(maxDigits) },
-                        onCommit = { onChange(set(value, it)) },
-                    )
-                )
-            },
+            maxDigits = maxDigits,
+            editable = editable,
+            onChange = { onChange(set(value, it)) },
+            onEditText = ctx.editText,
         )
     }
 }
