@@ -62,6 +62,7 @@ object AutoReply : ClickableFeature() {
 
     private fun facts(message: MessageInfo, isPat: Boolean): AutoReplyMessage {
         val quote = message.typeCode == MessageType.QUOTE.code
+        @Suppress("DEPRECATION")
         val text = message.typeCode == MessageType.TEXT.code
         return AutoReplyMessage(
             talker = message.talker,
