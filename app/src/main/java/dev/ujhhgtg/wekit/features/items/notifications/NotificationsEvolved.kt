@@ -32,6 +32,7 @@ import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.ui.WeNotificationAvatarApi
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -53,9 +54,9 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.OriginalMethodInvoker
 import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.getSystemService
 import dev.ujhhgtg.wekit.utils.captureOriginalMethod
-import dev.ujhhgtg.wekit.utils.collections.LruCache
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
@@ -104,20 +105,6 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     // as ConversationAggregation.methodConversationStorageUpdateUnreadByTalker. WeChat calls it
     // whenever a conversation's unread state is cleared (chat opened / marked read elsewhere), so
     // the accumulated MessagingStyle history for that talker is stale and should be dropped.
-    // WeChat's notification avatar loader. The declaring class is obfuscated and changes between
-    // host versions, so it is resolved by the stable NotificationAvatar implementation markers.
-    private val methodLoadNotificationAvatar by dexMethod {
-        matcher {
-            paramTypes(
-                "android.content.Context",
-                "java.lang.String",
-                "java.lang.String",
-            )
-            returnType("android.graphics.Bitmap")
-            usingEqStrings("MicroMsg.NotificationAvatar", "wcf://avatar/")
-        }
-    }
-
     // Locate the wording class only to preserve the host's hidden-content decision.
     // Sender/body extraction uses the original notification-text path below.
     private val methodParseNotificationContent by dexMethod {
@@ -223,23 +210,14 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     private val notificationTalkers = HashMap<NotificationKey, String>()
     private val conversationGenerations = HashMap<String, Any>()
 
-    private data class CachedAvatar(val icon: Icon, val expiresAt: Long, val customAvatarKey: String)
 
     private val stateLock = Any()
     private val pendingMessages = HashMap<String, ArrayDeque<PendingMessage>>()
-    private val avatarLock = Any()
-    private val avatarCache = LruCache<String, CachedAvatar>(maxLimit = 64)
     private val notificationContext = ThreadLocal<NotificationContext?>()
     private lateinit var mediaScope: CoroutineScope
     private val notificationMediaDir by lazy {
         (KnownPaths.moduleCache / "notification-media").createDirsSafe()
     }
-    private val notificationAvatarLoader by lazy {
-        methodLoadNotificationAvatar.method.declaringClass.reflekt()
-            .firstConstructor { parameters(Context::class) }
-            .newInstance(HostInfo.application)
-    }
-
     // Per-conversation message history rebuilt into MessagingStyle on each notification update.
     // Cleared when WeChat clears the conversation's unread state (updateUnreadByTalker) or when
     // the user marks it read; quick replies are re-added so the exchange stays visible. Bounded
@@ -253,7 +231,6 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     private const val ACTION_NOTIFICATION_DISMISSED = "${PackageNames.WECHAT}.ACTION_WEKIT_NOTIFICATION_DISMISSED"
     private const val MAX_PENDING_MESSAGES = 16
     private const val PENDING_MESSAGE_TTL_MILLIS = 30_000L
-    private const val AVATAR_CACHE_TTL_MILLIS = 5 * 60 * 1000L
     private const val SHORT_MEDIA_WAIT_MILLIS = 1_500L
     private const val STICKER_MEDIA_WAIT_MILLIS = 3_000L
     private const val LARGE_IMAGE_WAIT_MILLIS = 5_000L
@@ -581,7 +558,6 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
             pendingContentIntents.clear()
         }
         notificationContext.remove()
-        synchronized(avatarLock) { avatarCache.clear() }
     }
 
     // Call under stateLock. Invalidating the identity also protects against workers that are
@@ -685,35 +661,6 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         pending.job.start()
     }
 
-    private fun loadAvatarIcon(wxId: String): Icon? {
-        if (wxId.isEmpty() || wxId == "system") return null
-
-        val now = System.currentTimeMillis()
-        val customAvatarKey = CustomLocalFriendAvatars.notificationAvatarCacheKey(wxId)
-        synchronized(avatarLock) {
-            avatarCache[wxId]?.let { cached ->
-                if (cached.expiresAt > now && cached.customAvatarKey == customAvatarKey) return cached.icon
-                avatarCache.remove(wxId)
-            }
-        }
-
-        val icon = runCatching {
-            val bitmap = methodLoadNotificationAvatar.method.invoke(
-                notificationAvatarLoader,
-                HostInfo.application,
-                wxId,
-                "",
-            ) as? Bitmap? ?: return@runCatching null
-            Icon.createWithBitmap(bitmap)
-        }.onFailure {
-            WeLogger.w(TAG, "failed to load notification avatar for $wxId", it)
-        }.getOrNull() ?: return null
-
-        synchronized(avatarLock) {
-            avatarCache[wxId] = CachedAvatar(icon, now + AVATAR_CACHE_TTL_MILLIS, customAvatarKey)
-        }
-        return icon
-    }
 
     private fun resolveDisplayName(
         talker: String,
@@ -738,7 +685,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         return Person.Builder().setName(name).apply {
             if (!wxId.isNullOrEmpty()) {
                 setKey(wxId)
-                loadAvatarIcon(wxId)?.let(::setIcon)
+                WeNotificationAvatarApi.loadIcon(wxId)?.let(::setIcon)
             }
         }.build()
     }
@@ -793,7 +740,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         }
 
         builder.style = messagingStyle
-        val conversationIcon = loadAvatarIcon(convWxId)
+        val conversationIcon = WeNotificationAvatarApi.loadIcon(convWxId)
         if (conversationIcon != null) {
             builder.setLargeIcon(conversationIcon)
         } else if (!convWxId.isGroupChatWxId) {
@@ -944,6 +891,14 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                 },
             )
         }
+    }
+
+    override fun onBeforeToggle(newState: Boolean, context: Context): Boolean {
+        if (newState && CustomNotifications.isEnabled) {
+            showToast(context, localizedNotificationString(R.string.custom_notify_conflict))
+            return false
+        }
+        return true
     }
 
     override fun onEnable() {

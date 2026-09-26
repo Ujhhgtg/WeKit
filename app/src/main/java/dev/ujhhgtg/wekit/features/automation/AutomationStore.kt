@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.automation
 
+import android.os.SystemClock
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.data.dao.AutomationFeatureRows
 import dev.ujhhgtg.wekit.data.dao.AutomationScopeRows
@@ -7,6 +8,7 @@ import dev.ujhhgtg.wekit.data.entity.AutomationScopeEntity
 import dev.ujhhgtg.wekit.data.entity.AutomationScopeFieldEntity
 import dev.ujhhgtg.wekit.data.entity.AutomationScopeListValueEntity
 import dev.ujhhgtg.wekit.data.entity.AutomationScopePresetEntity
+import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -99,13 +101,26 @@ class AutomationSnapshot(private val spec: AutomationSpec, val scopes: Map<Autom
 }
 
 class AutomationStore(private val spec: AutomationSpec) {
+    private companion object {
+        const val FOREIGN_PROCESS_TTL_MS = 3000L
+    }
+
     @Volatile
     private var cached: AutomationSnapshot? = null
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
 
-    /** Loads (once per change) the stored configuration; safe to call on any thread. */
+    @Volatile
+    private var loadedAt = 0L
+
+    /**
+     * Loads (once per change) the stored configuration; safe to call on any thread. Edits made
+     * in another process (settings run in the main process, notifications also in :push) can't
+     * invalidate this cache, so outside the main process it expires after [FOREIGN_PROCESS_TTL_MS].
+     */
     fun snapshot(): AutomationSnapshot {
-        cached?.let { return it }
+        cached?.let {
+            if (TargetProcesses.isInMain || SystemClock.elapsedRealtime() - loadedAt < FOREIGN_PROCESS_TTL_MS) return it
+        }
         return runBlocking(Dispatchers.IO) { load() }
     }
 
@@ -147,7 +162,10 @@ class AutomationStore(private val spec: AutomationSpec) {
 
     private suspend fun load(): AutomationSnapshot {
         val rows = WeKitDatabase.instance.automationDao().readFeature(spec.id)
-        return decodeAutomationRows(spec, rows).also { cached = it }
+        return decodeAutomationRows(spec, rows).also {
+            cached = it
+            loadedAt = SystemClock.elapsedRealtime()
+        }
     }
 
     private fun encode(stored: AutomationStoredScope): AutomationScopeRows {

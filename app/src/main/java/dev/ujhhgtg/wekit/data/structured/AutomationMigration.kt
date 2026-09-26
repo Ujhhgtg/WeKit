@@ -137,3 +137,58 @@ val migration23To24Sql: List<String> = buildList {
         "red_packet_rules", "transfer_rules", "moment_automation_rules",
     ).forEach { add("DROP TABLE `$it`") }
 }
+
+/**
+ * 24 → 25: the retired "block group @all notifications" feature becomes CustomNotifications rules.
+ * When it was on, CustomNotifications is turned on (unless NotificationsEvolved, which excludes it,
+ * is on) with `takeOver` off so WeChat keeps presenting notifications, and:
+ * - blacklist mode: each listed group gets `mentions.blockAtAll` on;
+ * - whitelist mode: the GROUP category blocks @all and each listed group turns it back off.
+ * The legacy preferences are removed either way.
+ */
+val migration24To25Sql: List<String> = buildList {
+    val feature = "CUSTOM_NOTIFICATIONS"
+    val prefs = "'wekit_prefs'"
+    val legacyOn = "EXISTS (SELECT 1 FROM `preference_entries` WHERE `namespace` = $prefs AND `key` = '屏蔽群聊@所有人' AND `valueLong` = 1)"
+    val whitelist = "EXISTS (SELECT 1 FROM `preference_entries` WHERE `namespace` = $prefs AND `key` = 'block_at_all_notifications_use_whitelist' AND `valueLong` = 1)"
+
+    fun scope(type: String, id: String, where: String, from: String = "") = add(
+        "INSERT OR IGNORE INTO `automation_scopes` SELECT '$feature', '$type', $id, '', NULL, 0 $from WHERE $where"
+    )
+
+    fun field(type: String, id: String, ruleKey: String, fieldName: String, value: String, where: String, from: String = "") = add(
+        "INSERT OR REPLACE INTO `automation_scope_fields` SELECT '$feature', '$type', $id, '', '$ruleKey', '$fieldName', '$value' $from WHERE $where"
+    )
+
+    add(
+        "INSERT OR IGNORE INTO `preference_entries` (`namespace`, `key`, `valueType`, `valueText`, `valueLong`, `valueDouble`, `valueBlob`, `encodingVersion`, `revision`, `updatedAt`, `exportable`) " +
+                "SELECT $prefs, '自定义通知', 'bool', NULL, 1, NULL, NULL, 1, 1, CAST(strftime('%s','now') AS INTEGER) * 1000, 1 " +
+                "WHERE $legacyOn AND NOT EXISTS (SELECT 1 FROM `preference_entries` WHERE `namespace` = $prefs AND `key` = '通知进化' AND `valueLong` = 1)"
+    )
+    scope("GLOBAL", "''", legacyOn)
+    field("GLOBAL", "''", "takeOver", "enabled", "false", legacyOn)
+
+    run {
+        // Blacklist: listed groups block @all.
+        val members = "FROM `preference_set_members` m"
+        val black = "m.`namespace` = $prefs AND m.`key` = 'block_at_all_notifications_blacklist' AND $legacyOn AND NOT $whitelist"
+        val white = "m.`namespace` = $prefs AND m.`key` = 'block_at_all_notifications_whitelist' AND $legacyOn AND $whitelist"
+        scope("CONTACT", "m.`member`", black, members)
+        field("CONTACT", "m.`member`", "mentions", "blockAtAll", "true", black, members)
+        field("CONTACT", "m.`member`", "mentions", "blockAtMe", "false", black, members)
+        // Whitelist: every group blocks @all except the listed ones.
+        scope("CATEGORY", "'GROUP'", "$legacyOn AND $whitelist")
+        field("CATEGORY", "'GROUP'", "mentions", "blockAtAll", "true", "$legacyOn AND $whitelist")
+        field("CATEGORY", "'GROUP'", "mentions", "blockAtMe", "false", "$legacyOn AND $whitelist")
+        scope("CONTACT", "m.`member`", white, members)
+        field("CONTACT", "m.`member`", "mentions", "blockAtAll", "false", white, members)
+        field("CONTACT", "m.`member`", "mentions", "blockAtMe", "false", white, members)
+    }
+
+    val legacyKeys = listOf(
+        "屏蔽群聊@所有人", "block_at_all_notifications_use_whitelist",
+        "block_at_all_notifications_whitelist", "block_at_all_notifications_blacklist",
+    ).joinToString(", ") { "'$it'" }
+    add("DELETE FROM `preference_set_members` WHERE `namespace` = $prefs AND `key` IN ($legacyKeys)")
+    add("DELETE FROM `preference_entries` WHERE `namespace` = $prefs AND `key` IN ($legacyKeys)")
+}
