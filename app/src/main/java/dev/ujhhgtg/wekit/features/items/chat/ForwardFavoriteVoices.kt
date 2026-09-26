@@ -10,26 +10,20 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.features.api.core.WeFavoriteApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
-import dev.ujhhgtg.wekit.features.api.net.models.protobuf.FavInfoProto
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.void
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.decodeFromByteArray
-import kotlinx.serialization.protobuf.ProtoBuf
-import kotlin.io.path.absolutePathString
-import kotlin.io.path.div
 
 object ForwardFavoriteVoices : SwitchFeature() {
 
@@ -38,12 +32,6 @@ object ForwardFavoriteVoices : SwitchFeature() {
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_forward_favorite_voices_description
 
-    private data class FavoriteVoice(
-        val filePath: String,
-        val durationMs: Int
-    )
-
-    @OptIn(ExperimentalSerializationApi::class)
     override fun onEnable() {
         "com.tencent.mm.plugin.fav.ui.FavSelectUI".toClass().reflekt().firstMethod { name = "onItemClick" }.hookBefore {
             val view = args[1] as View
@@ -52,7 +40,7 @@ object ForwardFavoriteVoices : SwitchFeature() {
 
             val a = tag.reflekt().firstField { name = "a"; superclass() }.get()!!
 
-            val voice = getFavoriteVoice(a) ?: return@hookBefore
+            val voice = WeFavoriteApi.voiceOf(a) ?: return@hookBefore
 
             val ctx = thisObject as Activity
 
@@ -103,7 +91,7 @@ object ForwardFavoriteVoices : SwitchFeature() {
                 if (!favIndexClass.isInstance(context)) return@hookBefore
 
                 val favorite = (args[0] as List<*>).singleOrNull() ?: return@hookBefore
-                if (getFavoriteVoice(favorite) != null) {
+                if (WeFavoriteApi.voiceOf(favorite) != null) {
                     result = true
                 }
             }
@@ -113,7 +101,7 @@ object ForwardFavoriteVoices : SwitchFeature() {
                 returnType = void
             }.hookBefore {
                 val favorite = (args[0] as List<*>).singleOrNull() ?: return@hookBefore
-                val voice = getFavoriteVoice(favorite) ?: return@hookBefore
+                val voice = WeFavoriteApi.voiceOf(favorite) ?: return@hookBefore
                 val recipients = (args[2] as String)
                     .split(',')
                     .map(String::trim)
@@ -144,29 +132,5 @@ object ForwardFavoriteVoices : SwitchFeature() {
                 )
             }
         }
-    }
-
-    @OptIn(ExperimentalSerializationApi::class)
-    private fun getFavoriteVoice(favorite: Any): FavoriteVoice? {
-        val type = favorite.reflekt()
-            .firstField { name = "field_type"; superclass() }
-            .get() as Int
-        if (type != 3) return null
-
-        val favProto = favorite.reflekt()
-            .firstField { name = "field_favProto"; superclass() }
-            .get()!!
-        val bytes = favProto.reflekt()
-            .firstMethod { name = "getData"; superclass() }
-            .invoke() as ByteArray
-        val voiceInfo = ProtoBuf.decodeFromByteArray<FavInfoProto>(bytes).voiceInfo
-        val cacheName = voiceInfo.fileCacheName
-        val bucketId = cacheName.hashCode() and 0xFF
-        val cacheDir = RuntimeConfig.userDataDir / "favorite" / bucketId.toString()
-
-        return FavoriteVoice(
-            filePath = (cacheDir / "$cacheName.${voiceInfo.fileCacheType}").absolutePathString(),
-            durationMs = voiceInfo.duration
-        )
     }
 }

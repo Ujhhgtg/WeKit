@@ -33,7 +33,6 @@ import dev.ujhhgtg.wekit.features.automation.AutomationRules
 import dev.ujhhgtg.wekit.features.automation.AutomationScope
 import dev.ujhhgtg.wekit.features.automation.AutomationScopeType
 import dev.ujhhgtg.wekit.features.automation.AutomationSpec
-import dev.ujhhgtg.wekit.features.automation.AutomationStoredScope
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
@@ -45,15 +44,17 @@ import dev.ujhhgtg.wekit.ui.automation.toggleEditor
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 /**
- * Rules of [BlockMessages] on the scope hierarchy. A CONTACT with `block` off is an exclusion; a
- * contact with block on, all kinds and no keyword blocks everything ("quick block all").
+ * Rules of [BlockMessages] on the scope hierarchy, with Hchat's precedence: `blockAll` ("quick
+ * block all", set from conversation groups) wins outright; a chat or member explicitly set to not
+ * block is an exclusion that beats blocking elsewhere; otherwise the resolved rules decide.
  */
 object BlockMessagesAutomation : AutomationSpec("MESSAGE_BLOCK") {
+    val blockAll = AutomationRuleKey("blockAll", AutomationCodecs.toggle, AutomationToggleRule())
     val block = AutomationRuleKey("block", AutomationCodecs.toggle, AutomationToggleRule())
     val types = AutomationRuleKey("types", AutomationCodecs.messageTypes, AutomationMessageTypeRule())
-    val textKeyword = AutomationRuleKey("textKeyword", AutomationCodecs.keyword, AutomationKeywordRule())
+    val textKeyword = AutomationRuleKey("textKeyword", AutomationCodecs.keyword, AutomationKeywordRule(ignoreCase = true))
 
-    override val keys = listOf(block, types, textKeyword)
+    override val keys = listOf(blockAll, block, types, textKeyword)
     override val scopeTypes = setOf(
         AutomationScopeType.GLOBAL, AutomationScopeType.CATEGORY, AutomationScopeType.CONTACT,
         AutomationScopeType.GROUP_MEMBER, AutomationScopeType.PRESET,
@@ -63,6 +64,7 @@ object BlockMessagesAutomation : AutomationSpec("MESSAGE_BLOCK") {
     override val globalSummaryRes = R.string.block_messages_global_summary
 
     override val editors = listOf(
+        toggleEditor(blockAll, R.string.block_messages_block_all, R.string.block_messages_block_all_on, R.string.block_messages_block_all_off),
         toggleEditor(block, R.string.block_messages_block, R.string.block_messages_block_on, R.string.block_messages_block_off),
         messageTypeEditor(types, R.string.block_messages_types),
         keywordEditor(textKeyword, R.string.block_messages_text_keyword, R.string.block_messages_text_keyword_off),
@@ -75,15 +77,20 @@ object BlockMessagesAutomation : AutomationSpec("MESSAGE_BLOCK") {
         return null
     }
 
-    /** Overrides that block every message of a scope. */
-    val blockAllValues = AutomationRuleValues()
-        .with(block, AutomationToggleRule(true))
-        .with(types, AutomationMessageTypeRule(all = true))
-        .with(textKeyword, AutomationKeywordRule())
-
-    /** Blocks a message when any preset variant blocks it (Hchat: a binding blocks if any template matches). */
-    fun shouldBlock(variants: List<AutomationRules>, kind: AutomationMessageKind, text: String): Boolean =
-        variants.any { rules -> rules[block].enabled && ruleMatches(rules[types], rules[textKeyword], kind, text) }
+    /**
+     * [chain] holds the chat's own and member's own stored overrides. Blocks when any preset
+     * variant blocks (Hchat: a binding blocks if any of its templates matches).
+     */
+    fun shouldBlock(
+        variants: List<AutomationRules>,
+        chain: List<AutomationRuleValues>,
+        kind: AutomationMessageKind,
+        text: String,
+    ): Boolean {
+        if (variants.any { it[blockAll].enabled }) return true
+        if (chain.any { it[block]?.enabled == false }) return false
+        return variants.any { rules -> rules[block].enabled && ruleMatches(rules[types], rules[textKeyword], kind, text) }
+    }
 
     /**
      * "All kinds": everything except text that misses the keyword. Explicit kinds: text must also
@@ -95,21 +102,17 @@ object BlockMessagesAutomation : AutomationSpec("MESSAGE_BLOCK") {
         return kind in types.kinds || (kind == AutomationMessageKind.QUOTE && AutomationMessageKind.TEXT in types.kinds)
     }
 
-    /** Marks (or unmarks) every chat in [talkers] as fully blocked, keeping other overrides. */
+    /** Sets or clears "quick block all" on every chat in [talkers], keeping their other rules. */
     suspend fun setBlockAll(talkers: Collection<String>, blocked: Boolean) {
         val snapshot = store.snapshot()
         store.saveAll(talkers.map { talker ->
             val stored = snapshot[AutomationScope.contact(talker)]
-            val values = if (blocked) AutomationRuleValues(stored.values.values + blockAllValues.values)
-            else AutomationRuleValues(stored.values.values - blockAllValues.keyIds)
-            stored.copy(values = values)
+            stored.copy(values = if (blocked) stored.values.with(blockAll, AutomationToggleRule(true)) else stored.values.without(blockAll))
         })
     }
 
-    fun isBlockAll(talker: String): Boolean {
-        val stored: AutomationStoredScope = store.snapshot()[AutomationScope.contact(talker)]
-        return blockAllValues.keyIds.all { stored.values.values[it] == blockAllValues.values[it] }
-    }
+    fun isBlockAll(talker: String): Boolean =
+        store.snapshot()[AutomationScope.contact(talker)].values[blockAll]?.enabled == true
 }
 
 /** Drops matching incoming messages before WeChat stores them (ported from Hchat's 屏蔽消息). */
@@ -165,8 +168,15 @@ object BlockMessages : ClickableFeature(), IResolveDex {
         }
         if (sender == self) return false
         val kind = AutomationMessageKind.classify(addMsg.msgType, content)
-        val variants = BlockMessagesAutomation.store.snapshot().resolveVariants(talker, sender)
-        if (!BlockMessagesAutomation.shouldBlock(variants, kind, AutomationMessageKind.textOf(kind, content))) return false
+        val snapshot = BlockMessagesAutomation.store.snapshot()
+        val chain = buildList {
+            add(snapshot[AutomationScope.contact(talker)].values)
+            if (sender != talker && AutomationTalkerCategory.of(talker) == AutomationTalkerCategory.GROUP) {
+                add(snapshot[AutomationScope.member(talker, sender)].values)
+            }
+        }
+        val text = AutomationMessageKind.textOf(kind, content)
+        if (!BlockMessagesAutomation.shouldBlock(snapshot.resolveVariants(talker, sender), chain, kind, text)) return false
         WeLogger.i(TAG, "blocked $kind message ${addMsg.newMsgId} from $sender in $talker")
         return true
     }

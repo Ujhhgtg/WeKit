@@ -22,3 +22,13 @@ class SenderFilterRuleTest {
         assertTrue(block.allows("wxid_2", "friend", "hi"))
     }
 }
+
+class PlayedVoiceContentTest {
+    @Test
+    fun `unplayed voice markers flip to played, anything else is left alone`() {
+        org.junit.jupiter.api.Assertions.assertEquals("wxid_a:1234:1\n", playedVoiceContent("wxid_a:1234:0\n"))
+        org.junit.jupiter.api.Assertions.assertEquals("x:500:1:", playedVoiceContent("x:500:0:"))
+        org.junit.jupiter.api.Assertions.assertEquals(null, playedVoiceContent("x:500:1"))
+        org.junit.jupiter.api.Assertions.assertEquals(null, playedVoiceContent("x:abc:0"))
+    }
+}

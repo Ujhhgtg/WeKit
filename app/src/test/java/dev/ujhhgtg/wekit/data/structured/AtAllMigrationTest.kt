@@ -43,6 +43,7 @@ class AtAllMigrationTest {
         assertEquals(null, mention("CONTACT", "c@chatroom"))
         assertEquals(null, mention("CATEGORY", "GROUP"))
         assertEquals("false", value("SELECT value FROM automation_scope_fields WHERE ruleKey = 'takeOver'"))
+        assertEquals("true", value("SELECT value FROM automation_scope_fields WHERE ruleKey = 'enabled'"))
         assertEquals("1", value("SELECT valueLong FROM preference_entries WHERE `key` = '自定义通知'"))
         assertEquals("0", value("SELECT COUNT(*) FROM preference_set_members"))
         assertEquals("1", value("SELECT COUNT(*) FROM preference_entries"))

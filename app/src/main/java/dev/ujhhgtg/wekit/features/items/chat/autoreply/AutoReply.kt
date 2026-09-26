@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
+import dev.ujhhgtg.wekit.features.automation.AutomationMessageKind
 import dev.ujhhgtg.wekit.features.automation.AutomationReplyContext
 import dev.ujhhgtg.wekit.features.automation.AutomationReplyExecutor
 import dev.ujhhgtg.wekit.features.automation.AutomationScopeType
@@ -35,8 +36,10 @@ object AutoReply : ClickableFeature() {
 
     private val onMessage: (MessageInfo) -> Unit = { message ->
         if (!message.isSelfSender && !AutomationTalkerCategory.isSystemTalker(message.talker)) {
+            val kind = AutomationMessageKind.classify(message.typeCode, message.actualContent)
             val isPat = message.typeCode == MessageType.PAT.code
-            if (message.typeCode != MessageType.SYSTEM.code || isPat) {
+            // System notices and recalls are never answered; pats are.
+            if (kind != AutomationMessageKind.SYSTEM && message.typeCode != MessageType.RECALL.code) {
                 val facts = runCatching { facts(message, isPat) }
                     .onFailure { WeLogger.e(TAG, "failed to read message ${message.id}", it) }.getOrNull()
                 if (facts != null) executor.execute { handle(facts, message.id) }

@@ -457,14 +457,14 @@ fun targetEditor(
             )(ctx, value, editable, onChange)
         }
         if (value.mode == AutomationTargetRule.Mode.SPECIFIC) {
-            contactSetItem("${key.id}_include", R.string.automation_target_include, value.include, editable, ctx) {
+            contactSetItem("${key.id}_include", R.string.automation_target_include, value.include, editable, ctx, AutomationTalkerCategory.entries.toSet()) {
                 onChange(value.copy(include = it))
             }
             memberSetItem("${key.id}_include_members", R.string.automation_target_include_members, value.includeMembers, editable, ctx) {
                 onChange(value.copy(includeMembers = it))
             }
         }
-        contactSetItem("${key.id}_exclude", R.string.automation_target_exclude, value.exclude, editable, ctx) {
+        contactSetItem("${key.id}_exclude", R.string.automation_target_exclude, value.exclude, editable, ctx, AutomationTalkerCategory.entries.toSet()) {
             onChange(value.copy(exclude = it))
         }
         memberSetItem("${key.id}_exclude_members", R.string.automation_target_exclude_members, value.excludeMembers, editable, ctx) {

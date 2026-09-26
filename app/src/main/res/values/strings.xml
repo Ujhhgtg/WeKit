@@ -3769,4 +3769,14 @@
         <item quantity="one">%1$d member rule</item>
         <item quantity="other">%1$d member rules</item>
     </plurals>
+    <string name="custom_notify_enabled">Apply notification rules</string>
+    <string name="custom_notify_enabled_on">The rules below apply</string>
+    <string name="custom_notify_enabled_off">WeChat handles notifications as usual</string>
+    <string name="custom_notify_pick_only">Pick members to notify</string>
+    <string name="custom_notify_pick_block">Pick members never to notify</string>
+    <string name="custom_notify_pick_members_summary">Adds their wxids to the list above</string>
+    <string name="block_messages_block_all">Block everything</string>
+    <string name="block_messages_block_all_on">Every message is dropped, ignoring exclusions and other rules</string>
+    <string name="block_messages_block_all_off">Use the rules below</string>
+    <string name="automation_batch_presets_unchanged">Keep each entry’s presets</string>
 </resources>

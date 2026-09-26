@@ -45,6 +45,7 @@ import dev.ujhhgtg.wekit.features.automation.IncomingMessageEvents
 import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.features.items.notifications.CustomNotifications.DEDUP_TTL_MS
 import dev.ujhhgtg.wekit.ui.automation.MESSAGE_KIND_LABELS
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -174,6 +175,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
     private val nativeNotifiedAt = ConcurrentHashMap<String, Long>()
     private val dedup = ConcurrentHashMap<String, Long>()
     private val soundBlocked = ThreadLocal<Boolean>()
+    private val swallowNativePost = ThreadLocal<Boolean>()
     private val notifySeq = AtomicInteger()
     private val executor = Executors.newSingleThreadExecutor { Thread(it, TAG) }
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -209,7 +211,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
 
         methodDealNotify.hookBefore(100) {
             val talker = args[1] as String
-            val rules = spec.store.resolve(talker)
+            val rules = rulesFor(talker) ?: return@hookBefore
             val facts = factsByContent(talker, args[2] as String)
             if (suppressed(rules, facts)) {
                 WeLogger.i(TAG, "suppressing notification from $talker")
@@ -225,6 +227,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
 
         methodNotifyForLightPush.hookBefore(100) {
             val talker = args[1] as String
+            val rules = rulesFor(talker) ?: return@hookBefore
             val atUsers = (args[5] as Map<*, *>?)?.get(".msgsource.atuserlist") as String?
             val mentioned = atUsers.orEmpty().split(',').map(String::trim)
             val facts = MessageFacts(
@@ -232,13 +235,22 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
                 msgId = 0L, svrId = 0L, atMe = WeApi.selfWxId in mentioned,
                 atAll = "notify@all" in mentioned || "announcement@all" in mentioned, createTime = 0L,
             )
-            if (suppressed(spec.store.resolve(talker), facts)) {
+            if (suppressed(rules, facts)) {
                 WeLogger.i(TAG, "suppressing LightPush notification from $talker")
                 result = null
             }
         }
 
+        // Decide in NotificationItem.notify but only swallow its NotificationManager.notify call, so
+        // WeChat's bookkeeping after posting (the "already notified" msgId list) still runs.
         methodNotificationItemNotify.hookBefore { handleNativeNotification(this) }
+        methodNotificationItemNotify.hookAfter { swallowNativePost.remove() }
+        NotificationManager::class.reflekt().firstMethod {
+            name = "notify"
+            parameters(String::class.java, Int::class.javaPrimitiveType!!, Notification::class.java)
+        }.hookBefore {
+            if (swallowNativePost.get() == true) result = null
+        }
 
         if (TargetProcesses.isInMain) IncomingMessageEvents.subscribe(onMessage)
 
@@ -265,6 +277,12 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
     }
 
     // ---- decisions ------------------------------------------------------------------------------
+
+    /** Enabled rules of [talker]; null for system chats and where rules are off. */
+    private fun rulesFor(talker: String): AutomationRules? {
+        if (talker.isEmpty() || AutomationTalkerCategory.isSystemTalker(talker)) return null
+        return spec.store.resolve(talker).takeIf { it[spec.enabled].enabled }
+    }
 
     /** DND mode, the mute window, and (with message facts) the mention and sender filters. */
     private fun suppressed(rules: AutomationRules, facts: MessageFacts?): Boolean {
@@ -315,17 +333,22 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
         // Without a message id this notification can't be matched to a message; leave it alone.
         if (svrId <= 0L) return
 
-        val rules = spec.store.resolve(talker)
+        val rules = rulesFor(talker) ?: return
         val facts = factsBySvrId[svrId]
         if (suppressed(rules, facts)) {
             WeLogger.i(TAG, "dropping native notification $svrId from $talker")
-            param.result = null
+            swallowNativePost.set(true)
             return
         }
         if (!rules[spec.takeOver].enabled) return
+        // Muted chats WeChat still notifies (e.g. @me) stay silent unless the rule ignores WeChat's mute.
+        if (!rules[spec.ignoreWechatDnd].enabled && WeConversationApi.isDnd(talker)) {
+            swallowNativePost.set(true)
+            return
+        }
 
         val notification = item.reflekt().firstField { type = Notification::class }.get() as Notification
-        param.result = null
+        swallowNativePost.set(true)
         val extras = notification.extras
         val nativeText = listOf(Notification.EXTRA_BIG_TEXT, Notification.EXTRA_TEXT)
             .firstNotNullOfOrNull { extras.getCharSequence(it)?.toString()?.takeIf(String::isNotBlank) }
@@ -337,7 +360,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
                 ?: WeDatabaseApi.getDisplayName(talker),
             text = if (rules[spec.showDetail].enabled) sanitize(nativeText.replace(UNREAD_PREFIX, "")).ifEmpty { newMessageText() }
             else newMessageText(),
-            unreadCount = unread.takeIf { it > 0 } ?: (activeCount(talker) + 1),
+            unreadCount = unread.takeIf { it > 0 } ?: activeCount(talker) + 1,
             whenMillis = notification.`when`,
             msgId = facts?.msgId ?: 0L,
             svrId = svrId,
@@ -370,15 +393,12 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
     private val onMessage: (MessageInfo) -> Unit = handler@{ message ->
         if (message.isSelfSender) return@handler
         val talker = message.talker
-        if (talker.isEmpty() || AutomationTalkerCategory.isSystemTalker(talker)) return@handler
         val code = message.typeCode
         if (code == MessageType.FRIEND_VERIFY.code || code == MessageType.SYSTEM.code || code == MessageType.SYSTEM_NOTICE.code ||
             code == MessageType.PAT.code || code == MessageType.RECALL.code
         ) return@handler
-        val rules = spec.store.resolve(talker)
+        val rules = rulesFor(talker) ?: return@handler
         if (!rules[spec.takeOver].enabled) return@handler
-        val facts = factsBySvrId[message.serverId]
-        if (suppressed(rules, facts) || isChatVisible(talker)) return@handler
         val observedAt = SystemClock.elapsedRealtime()
         val svrId = message.serverId
         val content = message.actualContent
@@ -387,9 +407,10 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
         val msgId = message.id
         val createTime = message.createTime
         mainHandler.postDelayed({
-            if (isHandledByNative(talker, svrId, observedAt)) return@postDelayed
+            if (isHandledByNative(talker, svrId, observedAt) || isChatVisible(talker)) return@postDelayed
             executor.execute {
                 if (isHandledByNative(talker, svrId, observedAt)) return@execute
+                if (suppressed(rules, factsBySvrId[svrId])) return@execute
                 if (!rules[spec.ignoreWechatDnd].enabled && WeConversationApi.isDnd(talker)) return@execute
                 val group = AutomationTalkerCategory.of(talker) == AutomationTalkerCategory.GROUP
                 val detail = if (!rules[spec.showDetail].enabled) newMessageText() else {
@@ -413,7 +434,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
         }, NATIVE_WAIT_MS)
     }
 
-    /** The open chat in a visible WeChat doesn't need a notification. */
+    /** The open chat in a visible WeChat doesn't need a notification. Main thread. */
     private fun isChatVisible(talker: String): Boolean {
         if (WeCurrentConversationApi.value != talker || WeCurrentConversationApi.chatFooter?.isShown != true) return false
         val manager = HostInfo.application.getSystemService<ActivityManager>()!!
@@ -554,7 +575,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
 
     private fun nextNotificationId(talker: String): Int {
         val seq = notifySeq.updateAndGet { if (it >= 999_999) 1 else it + 1 }
-        val raw = 0x4A000000L or ((talker.hashCode().toLong() and 0x3FFL) shl 20) or (seq.toLong() and 0xFFFFFL)
+        val raw = 0x4A000000L or (talker.hashCode().toLong() and 0x3FFL shl 20) or (seq.toLong() and 0xFFFFFL)
         return (raw and 0x7FFFFFFFL).toInt()
     }
 
@@ -643,7 +664,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
             val notificationId = intent.getIntExtra(EXTRA_NOTIFY_ID, 0)
             when (intent.action) {
                 ACTION_MARK_READ -> executor.execute {
-                    WeConversationApi.markAsRead(talker)
+                    markRead(talker)
                     cancelAll(talker, notificationId)
                 }
 
@@ -668,6 +689,28 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
             }
         }
     }
+
+    /**
+     * Hchat's full mark-read: clears the unread state, the red packet / group collection alerts of
+     * the conversation, and marks its latest unread incoming voice message as played.
+     */
+    private fun markRead(talker: String) {
+        WeConversationApi.markAsRead(talker)
+        WeDatabaseApi.execStatement(
+            "UPDATE rconversation SET hbMarkRed = 0, attrflag = attrflag & ~$GROUP_COLLECTION_ALERT_FLAG WHERE username = ?",
+            arrayOf(talker),
+        )
+        WeDatabaseApi.rawQuery(
+            "SELECT msgId, content FROM message WHERE talker = ? AND type = 34 AND isSend = 0 ORDER BY createTime DESC LIMIT 1",
+            arrayOf(talker),
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) return
+            val played = playedVoiceContent(cursor.getString(1).orEmpty()) ?: return
+            WeDatabaseApi.execStatement("UPDATE message SET content = ? WHERE msgId = ?", arrayOf(played, cursor.getLong(0)))
+        }
+    }
+
+    private const val GROUP_COLLECTION_ALERT_FLAG = 0x01000000
 
     private fun sendReply(talker: String, reply: String, msgId: Long, svrId: Long, asQuote: Boolean): Boolean {
         if (asQuote) {

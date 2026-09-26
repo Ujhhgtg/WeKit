@@ -3768,4 +3768,14 @@
     <plurals name="custom_notify_senders_count">
         <item quantity="other">%1$d 條成員規則</item>
     </plurals>
+    <string name="custom_notify_enabled">啟用通知規則</string>
+    <string name="custom_notify_enabled_on">以下規則生效</string>
+    <string name="custom_notify_enabled_off">由微信照常處理通知</string>
+    <string name="custom_notify_pick_only">選擇要通知的成員</string>
+    <string name="custom_notify_pick_block">選擇不通知的成員</string>
+    <string name="custom_notify_pick_members_summary">將其 wxid 加入上方清單</string>
+    <string name="block_messages_block_all">全部封鎖</string>
+    <string name="block_messages_block_all_on">丟棄所有訊息，忽略排除與其他規則</string>
+    <string name="block_messages_block_all_off">使用下方規則</string>
+    <string name="automation_batch_presets_unchanged">保留各項目原有預設</string>
 </resources>

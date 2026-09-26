@@ -220,7 +220,8 @@ private fun ReplyStepDialog(
                         val pickerTitle = stringResource(REPLY_STEP_KIND_LABELS.getValue(kind))
                         OutlinedButton(onClick = {
                             val contacts = loadAutomationContacts(
-                                setOf(if (groups) AutomationTalkerCategory.GROUP else AutomationTalkerCategory.PRIVATE)
+                                if (groups) setOf(AutomationTalkerCategory.GROUP)
+                                else setOf(AutomationTalkerCategory.PRIVATE, AutomationTalkerCategory.OFFICIAL)
                             )
                             showComposeDialog(context.activity) {
                                 ContactsSelector(

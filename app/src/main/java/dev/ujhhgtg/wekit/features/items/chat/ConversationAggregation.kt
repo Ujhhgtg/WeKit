@@ -573,10 +573,11 @@ object ConversationAggregation : ClickableFeature(),
             drawable = null,
             scope = WeConversationContextMenuApi.MenuScope.AGGREGATED,
             shouldShow = { context, _ ->
-                val folder = context.folderId?.let(::folderById)
+                // activeFolderId tracks the open folder container; the intent extra is a fallback.
+                val folder = (activeFolderId ?: context.folderId)?.let(::folderById)
                 folder != null && folder.type == FolderType.MANUAL && context.talker in folder.members
             },
-            onClick = { context -> removeMemberFromFolder(context.folderId!!, context.talker) },
+            onClick = { context -> removeMemberFromFolder((activeFolderId ?: context.folderId)!!, context.talker) },
         )
     )
 

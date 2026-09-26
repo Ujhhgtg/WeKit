@@ -745,6 +745,8 @@ fun AutomationBatchScreen(spec: AutomationSpec, scopes: List<AutomationScope>, o
     val snapshot = rememberAutomationSnapshot(spec)
     val coroutineScope = rememberCoroutineScope()
     var draft by remember { mutableStateOf(AutomationRuleValues()) }
+    // Presets to link to every selected scope (Hchat's batch template binding); null leaves them unchanged.
+    var draftPresets by remember { mutableStateOf<List<String>?>(null) }
     var saving by remember { mutableStateOf(false) }
     var editText by remember { mutableStateOf<AutomationTextEditRequest?>(null) }
     val pickFiles = rememberAutomationFilePicker()
@@ -760,14 +762,17 @@ fun AutomationBatchScreen(spec: AutomationSpec, scopes: List<AutomationScope>, o
         title = pluralStringResource(R.plurals.automation_batch_title, scopes.size, scopes.size),
         onBack = onBack,
         actions = {
-            IconButton(enabled = !saving && validationError == null && !draft.isEmpty(), onClick = {
+            IconButton(enabled = !saving && validationError == null && (!draft.isEmpty() || draftPresets != null), onClick = {
                 saving = true
                 coroutineScope.launch {
                     try {
                         val current = spec.store.snapshot()
                         spec.store.saveAll(scopes.map { scope ->
                             val stored = current[scope]
-                            stored.copy(values = AutomationRuleValues(stored.values.values + draft.values))
+                            stored.copy(
+                                values = AutomationRuleValues(stored.values.values + draft.values),
+                                presets = draftPresets ?: stored.presets,
+                            )
                         })
                         showToast(activity, savedText)
                         onBack()
@@ -783,6 +788,32 @@ fun AutomationBatchScreen(spec: AutomationSpec, scopes: List<AutomationScope>, o
             }) { Icon(MaterialSymbols.Outlined.Check, stringResource(R.string.action_save)) }
         },
     ) {
+        if (AutomationScopeType.PRESET in spec.scopeTypes) {
+            item {
+                SegmentedColumn {
+                    item(key = "presets") {
+                        val presets = snapshot.ofType(AutomationScopeType.PRESET)
+                        val title = stringResource(R.string.automation_apply_presets)
+                        AutomationNavigationRow(
+                            title = title,
+                            description = draftPresets?.let { ids ->
+                                if (ids.isEmpty()) stringResource(R.string.automation_none_selected)
+                                else ids.joinToString(", ") { id -> presets.firstOrNull { it.scope.scopeId == id }?.name ?: id }
+                            } ?: stringResource(R.string.automation_batch_presets_unchanged),
+                            enabled = presets.isNotEmpty(),
+                            onClick = {
+                                showComposeDialog(activity) {
+                                    PresetPicker(title, presets, draftPresets.orEmpty(), onDismiss) {
+                                        draftPresets = it
+                                        onDismiss()
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
         item {
             SegmentedColumn(title = stringResource(R.string.automation_batch_hint)) {
                 automationRuleItems(

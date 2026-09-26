@@ -53,8 +53,17 @@ class BlockMessagesTest {
         )
         val image = rules(true, setOf(AutomationMessageKind.IMAGE))
         val voice = rules(true, setOf(AutomationMessageKind.VOICE))
-        assertTrue(spec.shouldBlock(listOf(image, voice), AutomationMessageKind.VOICE, ""))
-        assertFalse(spec.shouldBlock(listOf(image, voice), AutomationMessageKind.VIDEO, ""))
-        assertFalse(spec.shouldBlock(listOf(rules(false, setOf(AutomationMessageKind.VOICE))), AutomationMessageKind.VOICE, ""))
+        assertTrue(spec.shouldBlock(listOf(image, voice), emptyList(), AutomationMessageKind.VOICE, ""))
+        assertFalse(spec.shouldBlock(listOf(image, voice), emptyList(), AutomationMessageKind.VIDEO, ""))
+        assertFalse(spec.shouldBlock(listOf(rules(false, setOf(AutomationMessageKind.VOICE))), emptyList(), AutomationMessageKind.VOICE, ""))
+    }
+
+    @Test
+    fun `quick block all wins, then exclusions beat blocking`() {
+        val blocking = AutomationRules.Defaults.overlay(AutomationRuleValues().with(spec.block, AutomationToggleRule(true)))
+        val exclusion = AutomationRuleValues().with(spec.block, AutomationToggleRule(false))
+        assertFalse(spec.shouldBlock(listOf(blocking), listOf(AutomationRuleValues(), exclusion), AutomationMessageKind.IMAGE, ""))
+        val quick = blocking.overlay(AutomationRuleValues().with(spec.blockAll, AutomationToggleRule(true)))
+        assertTrue(spec.shouldBlock(listOf(quick), listOf(exclusion), AutomationMessageKind.TEXT, "hello"))
     }
 }

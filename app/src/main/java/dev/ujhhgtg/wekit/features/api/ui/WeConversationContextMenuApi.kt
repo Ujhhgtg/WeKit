@@ -72,9 +72,12 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
         val conversation: Any?,
         /** Where the menu was opened: [MenuScope.NORMAL] or [MenuScope.AGGREGATED]. */
         val scope: MenuScope = MenuScope.NORMAL,
-        /** Id of the folder container for [MenuScope.AGGREGATED] menus (its `Contact_User` extra). */
+        /** Id of the folder container for [MenuScope.AGGREGATED] menus, from its intent extras. */
         val folderId: String? = null,
     )
+
+    /** Intent extras a folder container (ConvBoxServiceConversationUI) may carry its id in. */
+    private val CONTAINER_ID_EXTRAS = listOf("Contact_User", "Contact_ChatRoomId", "room_name", "Chat_User")
 
     // Order pushes our items after the container's own items (which use 0).
     private const val AGGREGATED_MENU_ORDER = 1000
@@ -142,7 +145,7 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
         val talker = extractContainerTalker(createListener, position) ?: return
         val activity = (param.args[0] as View).context.findActivity()
         val context = ConversationContext(
-            activity, talker, null, MenuScope.AGGREGATED, activity.intent.getStringExtra("Contact_User"),
+            activity, talker, null, MenuScope.AGGREGATED, CONTAINER_ID_EXTRAS.firstNotNullOfOrNull(activity.intent::getStringExtra),
         )
         val shown = items(MenuScope.AGGREGATED).filter { item ->
             runCatching { item.shouldShow(context, item.id) }

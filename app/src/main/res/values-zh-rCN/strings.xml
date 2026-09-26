@@ -3786,4 +3786,14 @@
     <plurals name="custom_notify_senders_count">
         <item quantity="other">%1$d 条成员规则</item>
     </plurals>
+    <string name="custom_notify_enabled">启用通知规则</string>
+    <string name="custom_notify_enabled_on">以下规则生效</string>
+    <string name="custom_notify_enabled_off">由微信照常处理通知</string>
+    <string name="custom_notify_pick_only">选择要通知的成员</string>
+    <string name="custom_notify_pick_block">选择不通知的成员</string>
+    <string name="custom_notify_pick_members_summary">将其 wxid 加入上方列表</string>
+    <string name="block_messages_block_all">全部屏蔽</string>
+    <string name="block_messages_block_all_on">丢弃所有消息，忽略排除与其他规则</string>
+    <string name="block_messages_block_all_off">使用下方规则</string>
+    <string name="automation_batch_presets_unchanged">保留各条目原有预设</string>
 </resources>

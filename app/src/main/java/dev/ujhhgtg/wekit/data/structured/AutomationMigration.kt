@@ -141,7 +141,7 @@ val migration23To24Sql: List<String> = buildList {
 /**
  * 24 → 25: the retired "block group @all notifications" feature becomes CustomNotifications rules.
  * When it was on, CustomNotifications is turned on (unless NotificationsEvolved, which excludes it,
- * is on) with `takeOver` off so WeChat keeps presenting notifications, and:
+ * is on) with rules enabled globally but `takeOver` off so WeChat keeps presenting notifications, and:
  * - blacklist mode: each listed group gets `mentions.blockAtAll` on;
  * - whitelist mode: the GROUP category blocks @all and each listed group turns it back off.
  * The legacy preferences are removed either way.
@@ -166,6 +166,7 @@ val migration24To25Sql: List<String> = buildList {
                 "WHERE $legacyOn AND NOT EXISTS (SELECT 1 FROM `preference_entries` WHERE `namespace` = $prefs AND `key` = '通知进化' AND `valueLong` = 1)"
     )
     scope("GLOBAL", "''", legacyOn)
+    field("GLOBAL", "''", "enabled", "enabled", "true", legacyOn)
     field("GLOBAL", "''", "takeOver", "enabled", "false", legacyOn)
 
     run {

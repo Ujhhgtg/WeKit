@@ -119,7 +119,7 @@ object AutomationReplyExecutor {
         }
     }
 
-    /** Replaces `$name` variables; longer names first so `$senderName` isn't eaten by a shorter one. */
+    /** Replaces `$name` variables. */
     fun format(template: String, context: AutomationReplyContext): String {
         val senderName = senderName(context)
         val now = Date()
@@ -135,9 +135,9 @@ object AutomationReplyExecutor {
             "time" to SimpleDateFormat("HH:mm", Locale.getDefault()).format(now),
             "date" to SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(now),
         )
-        return variables.keys.sortedByDescending { it.length }.fold(template) { text, name ->
-            text.replace("$$name", variables.getValue(name))
-        }
+        // One pass, longest names first, so substituted values (e.g. $content) are never re-expanded.
+        val pattern = Regex(variables.keys.sortedByDescending { it.length }.joinToString("|", prefix = "\\$(", postfix = ")") { Regex.escape(it) })
+        return pattern.replace(template) { variables.getValue(it.groupValues[1]) }
     }
 
     private fun senderName(context: AutomationReplyContext): String {

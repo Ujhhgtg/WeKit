@@ -14,7 +14,13 @@ import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.automation.AutomationValueCodec
+import dev.ujhhgtg.wekit.ui.automation.AutomationEditorContext
 import dev.ujhhgtg.wekit.ui.automation.AutomationEditorDetails
+import dev.ujhhgtg.wekit.ui.automation.AutomationNavigationRow
+import dev.ujhhgtg.wekit.ui.automation.loadGroupMembers
+import dev.ujhhgtg.wekit.ui.content.ContactsSelector
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumnScope
+import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.ui.automation.AutomationRuleEditor
 import dev.ujhhgtg.wekit.ui.automation.AutomationValueRow
 import dev.ujhhgtg.wekit.ui.automation.choiceEditor
@@ -57,6 +63,23 @@ data class SenderFilterRule(val only: List<String> = emptyList(), val block: Lis
     }
 }
 
+/** A voice message's content ends in `…:duration:0` while unplayed; returns it with `:1`, or null. */
+fun playedVoiceContent(content: String): String? {
+    val lineEnding = when {
+        content.endsWith("\r\n") -> "\r\n"
+        content.endsWith("\n") -> "\n"
+        else -> ""
+    }
+    val body = content.dropLast(lineEnding.length)
+    val markerEnd = if (body.endsWith(":")) body.length - 1 else body.length
+    val markerStart = body.lastIndexOf(':', markerEnd - 1) + 1
+    if (markerStart <= 0 || body.substring(markerStart, markerEnd) != "0") return null
+    val durationEnd = markerStart - 1
+    val durationStart = body.lastIndexOf(':', durationEnd - 1) + 1
+    if (durationStart >= durationEnd || body.substring(durationStart, durationEnd).toLongOrNull() == null) return null
+    return body.substring(0, markerStart) + "1" + body.substring(markerEnd) + lineEnding
+}
+
 /** Rules of [CustomNotifications] on the scope hierarchy (GLOBAL → chat kind → chat). */
 object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
     private val soundCodec = object : AutomationValueCodec<NotifySoundRule> {
@@ -96,6 +119,8 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
         override fun read(input: AutomationFieldReader) = SenderFilterRule(input.list("only"), input.list("block"))
     }
 
+    /** Rules only act where enabled; like Hchat's default rules, nothing is enabled by default. */
+    val enabled = AutomationRuleKey("enabled", AutomationCodecs.toggle, AutomationToggleRule())
     val mode = AutomationRuleKey("mode", AutomationCodecs.enumValue<NotifyMode>(), NotifyMode.NOTIFY)
 
     /** Replace WeChat's notification with WeKit's (sound, vibration, actions, merging, detail). */
@@ -113,7 +138,7 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
     val mentions = AutomationRuleKey("mentions", mentionCodec, MentionBlockRule())
     val senders = AutomationRuleKey("senders", senderCodec, SenderFilterRule())
 
-    override val keys = listOf(mode, takeOver, sound, vibrate, markRead, quickReply, merge, showDetail, ignoreWechatDnd, muteWindow, mentions, senders)
+    override val keys = listOf(enabled, mode, takeOver, sound, vibrate, markRead, quickReply, merge, showDetail, ignoreWechatDnd, muteWindow, mentions, senders)
     override val scopeTypes = setOf(
         AutomationScopeType.GLOBAL, AutomationScopeType.CATEGORY, AutomationScopeType.CONTACT, AutomationScopeType.PRESET,
     )
@@ -124,6 +149,7 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
     private val groupOnly = { scope: dev.ujhhgtg.wekit.features.automation.AutomationScope -> scope.isGroupScope() }
 
     override val editors = listOf(
+        toggleEditor(enabled, R.string.custom_notify_enabled, R.string.custom_notify_enabled_on, R.string.custom_notify_enabled_off),
         choiceEditor(
             mode, R.string.custom_notify_mode,
             listOf(NotifyMode.NOTIFY to R.string.custom_notify_mode_notify, NotifyMode.DND to R.string.custom_notify_mode_dnd),
@@ -204,10 +230,49 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
                     "senders_block", R.string.custom_notify_senders_block,
                     get = { it.block.joinToString("\n") }, set = { v, s -> v.copy(block = s.tokens()) }, singleLine = false,
                 )(ctx, value, editable, onChange)
+                val scope = ctx.scope
+                if (scope.type == AutomationScopeType.CONTACT && AutomationTalkerCategory.of(scope.scopeId) == AutomationTalkerCategory.GROUP) {
+                    memberTokenPicker("senders_pick_only", R.string.custom_notify_pick_only, scope.scopeId, value.only, editable, ctx) {
+                        onChange(value.copy(only = it))
+                    }
+                    memberTokenPicker("senders_pick_block", R.string.custom_notify_pick_block, scope.scopeId, value.block, editable, ctx) {
+                        onChange(value.copy(block = it))
+                    }
+                }
             },
             visibleIn = groupOnly,
         ),
     )
+
+    /** Picks members of [groupId]; picked wxids replace the member-id tokens, other tokens stay. */
+    private fun SegmentedColumnScope.memberTokenPicker(
+        itemKey: String,
+        @StringRes titleRes: Int,
+        groupId: String,
+        tokens: List<String>,
+        editable: Boolean,
+        context: AutomationEditorContext,
+        onChange: (List<String>) -> Unit,
+    ) {
+        item(key = itemKey) {
+            val title = stringResource(titleRes)
+            AutomationNavigationRow(
+                title = title,
+                description = stringResource(R.string.custom_notify_pick_members_summary),
+                enabled = editable,
+                onClick = {
+                    val members = loadGroupMembers(groupId)
+                    val memberIds = members.map { it.wxId }.toSet()
+                    showComposeDialog(context.activity) {
+                        ContactsSelector(title, members, tokens.filter { it in memberIds }.toSet(), onDismiss) { picked ->
+                            onChange(tokens.filterNot { it in memberIds } + picked)
+                            onDismiss()
+                        }
+                    }
+                },
+            )
+        }
+    }
 
     private fun String.tokens() = split('\n', ',', '，', ';', '；').map(String::trim).filter(String::isNotEmpty).distinct()
 
