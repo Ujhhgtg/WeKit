@@ -55,7 +55,6 @@ val REPLY_STEP_KIND_LABELS = mapOf(
     AutomationReplyStepKind.CARD to R.string.automation_step_card,
     AutomationReplyStepKind.INVITE_GROUP to R.string.automation_step_invite_group,
     AutomationReplyStepKind.XML to R.string.automation_step_xml,
-    AutomationReplyStepKind.AI to R.string.automation_step_ai,
 )
 
 private val REPLY_STEP_KIND_HINTS = mapOf(
@@ -65,7 +64,6 @@ private val REPLY_STEP_KIND_HINTS = mapOf(
     AutomationReplyStepKind.CARD to R.string.automation_step_card_hint,
     AutomationReplyStepKind.INVITE_GROUP to R.string.automation_step_invite_group_hint,
     AutomationReplyStepKind.XML to R.string.automation_step_xml_hint,
-    AutomationReplyStepKind.AI to R.string.automation_step_ai_hint,
 )
 
 private fun mimeTypesFor(kind: AutomationReplyStepKind): Array<String> = when (kind) {
@@ -255,7 +253,7 @@ private fun ReplyStepDialog(
         },
         confirmButton = {
             TextButton(
-                enabled = content.isNotBlank() || kind == AutomationReplyStepKind.AI,
+                enabled = content.isNotBlank(),
                 onClick = {
                     onConfirm(
                         AutomationReplyStep(

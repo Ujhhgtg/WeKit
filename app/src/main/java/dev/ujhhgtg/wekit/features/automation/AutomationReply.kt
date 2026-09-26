@@ -31,9 +31,6 @@ enum class AutomationReplyStepKind(val usesFiles: Boolean = false) {
 
     /** Raw AppMsg XML; plain text is wrapped into a minimal AppMsg. */
     XML,
-
-    /** AI-generated text; content is an optional extra instruction appended to the system prompt. */
-    AI,
 }
 
 data class AutomationReplyRule(

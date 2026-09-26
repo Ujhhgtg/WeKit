@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.automation
 
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
+import dev.ujhhgtg.wekit.features.api.core.WeFavoriteApi
 import dev.ujhhgtg.wekit.features.api.core.WeGroupApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.utils.AudioUtils
@@ -42,14 +43,6 @@ object AutomationReplyExecutor {
         $$"$nickname", $$"$senderName", $$"$senderWxid", $$"$talker", $$"$groupName", $$"$content",
         $$"$atSender", $$"$atAll", $$"$time", $$"$date",
     )
-
-    /** Generates AI replies (installed by the auto-reply feature); null disables AI steps. */
-    @Volatile
-    var aiResponder: ((step: AutomationReplyStep, context: AutomationReplyContext) -> String?)? = null
-
-    /** Sends a favorite item by local id (installed once the favorite API is available). */
-    @Volatile
-    var favoriteSender: ((talker: String, localId: Long) -> Boolean)? = null
 
     fun launch(
         steps: List<AutomationReplyStep>,
@@ -111,13 +104,7 @@ object AutomationReplyExecutor {
             AutomationReplyStepKind.EMOJI -> sendPaths(step.content) { WeMessageApi.sendSticker(target, it) }
             AutomationReplyStepKind.VIDEO -> sendPaths(step.content) { WeMessageApi.sendVideo(target, it) }
             AutomationReplyStepKind.FILE -> sendPaths(step.content) { WeMessageApi.sendFile(target, it, File(it).name) }
-            AutomationReplyStepKind.FAVORITE -> {
-                val sender = favoriteSender ?: run {
-                    WeLogger.w(TAG, "favorite sending is unavailable")
-                    return false
-                }
-                eachValue(step.content) { id -> id.toLongOrNull()?.let { sender(target, it) } ?: false }
-            }
+            AutomationReplyStepKind.FAVORITE -> eachValue(step.content) { id -> WeFavoriteApi.send(target, id.toLong()) }
 
             AutomationReplyStepKind.CARD -> eachValue(step.content) { WeMessageApi.sendShareCard(target, it) }
             AutomationReplyStepKind.INVITE_GROUP -> {
@@ -129,14 +116,6 @@ object AutomationReplyExecutor {
             }
 
             AutomationReplyStepKind.XML -> WeMessageApi.sendXmlAppMsg(target, ensureXml(format(step.content, context)))
-            AutomationReplyStepKind.AI -> {
-                val responder = aiResponder ?: run {
-                    WeLogger.w(TAG, "AI step skipped: no AI responder is active")
-                    return false
-                }
-                val answer = responder(step, context)?.trim().orEmpty()
-                answer.isNotEmpty() && sendText(target, answer, context, asQuote)
-            }
         }
     }
 
