@@ -166,6 +166,24 @@ object ConversationAggregation : ClickableFeature(),
         }
     }
 
+    // hw.g (BizConversationStorage extension)#P0(msg, conv, isNew, notifyInfo): after a member
+    // conversation is updated, WeChat treats a parent row carrying attrflag 2097152 (the bit our
+    // folder rows use to render a muted dot) as an enterprise box and re-derives its unread itself,
+    // classifying mute via rcontact type&512 only. Muted groups (chatroomNotify == 0) land in
+    // unReadCount, so the folder flashes a number badge and the notification summary counts it
+    // until our refresh rewrites the row. Our refresh owns folder rows; skip it for them.
+    private val methodBizConversationParentUpdate by dexMethod {
+        matcher {
+            usingEqStrings(
+                "MicroMsg.BizConversationStorage",
+                "updateOpenImKefuService conversation unRead msg count, username: %s, old unReadCount: %s, " +
+                        "old unReadMuteCount: %s, newMsgInsertCount: %s, isMute: %s"
+            )
+            paramCount(4)
+            returnType("void")
+        }
+    }
+
     // com.tencent.mm.storage.m4 (ConversationStorage)#b0(username) — "updateUnreadByTalker".
     // The folder container (ConvBoxServiceConversationUI) sets its superUsername to our folder id
     // (via the Contact_User extra we inject). WeChat's ConvBoxServiceConversationFmUI.onPause()
@@ -226,6 +244,7 @@ object ConversationAggregation : ClickableFeature(),
         hookSqliteWrapperQuery()
         hookConversationStorageParentQuery()
         hookConversationStorageUpdateUnread()
+        hookBizConversationParentUpdate()
 
         CustomLocalFriendAvatars.fallbackUsernameProvider = { folderId ->
             if (isFolderId(folderId) && !CustomLocalFriendAvatars.hasCustomAvatar(folderId)) {
@@ -763,6 +782,15 @@ object ConversationAggregation : ClickableFeature(),
         WeConversationApi.methodUpdateUnreadByTalker.hookBefore {
             val username = args.firstOrNull() as? String ?: return@hookBefore
             if (isFolderId(username)) result = true
+        }
+    }
+
+    // See methodBizConversationParentUpdate: keep WeChat from re-deriving a folder row's unread
+    // (and digest) from a single member message; the debounced summary refresh owns that row.
+    private fun hookBizConversationParentUpdate() {
+        methodBizConversationParentUpdate.hookBefore {
+            val parentRef = args[1]!!.reflekt().getField("field_parentRef", true) as String?
+            if (parentRef != null && isFolderId(parentRef)) result = null
         }
     }
 
