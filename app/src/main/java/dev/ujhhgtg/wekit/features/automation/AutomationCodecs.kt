@@ -186,6 +186,17 @@ object AutomationCodecs {
         }
     }
 
+    val messageTypes = object : AutomationValueCodec<AutomationMessageTypeRule> {
+        override fun write(value: AutomationMessageTypeRule, out: AutomationFieldWriter) {
+            out.put("all", value.all)
+            out.putList("kinds", value.kinds.sortedBy { it.ordinal }.map { it.name })
+        }
+
+        override fun read(input: AutomationFieldReader) = AutomationMessageTypeRule(
+            input.boolean("all"), input.list("kinds").map { enumValueOf<AutomationMessageKind>(it) }.toSet(),
+        )
+    }
+
     inline fun <reified E : Enum<E>> enumValue(): AutomationValueCodec<E> = object : AutomationValueCodec<E> {
         override fun write(value: E, out: AutomationFieldWriter) {
             out.put("value", value)

@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.automation
 
+import dev.ujhhgtg.wekit.features.items.chat.BlockMessagesAutomation
 import dev.ujhhgtg.wekit.features.items.chat.autoreply.AutoReplyAutomation
 import dev.ujhhgtg.wekit.features.items.contacts.FriendAutomation
 import dev.ujhhgtg.wekit.features.items.moments.MomentsAutomation
@@ -11,7 +12,7 @@ object AutomationSpecs {
     private val all: List<AutomationSpec> by lazy {
         listOf(
             RedPacketAutomation, TransferAutomation, MomentsAutomation.Like, MomentsAutomation.Repost, FriendAutomation,
-            AutoReplyAutomation,
+            AutoReplyAutomation, BlockMessagesAutomation,
         )
     }
 

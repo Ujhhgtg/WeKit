@@ -112,6 +112,7 @@ import androidx.core.view.doOnAttach
 import androidx.lifecycle.LifecycleOwner
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
+import com.composables.icons.materialsymbols.outlined.Block
 import com.composables.icons.materialsymbols.outlined.Check
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Edit
@@ -441,6 +442,11 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                                             selectTab(ALL_TAB_ID)
                                         }
                                     }
+                                )
+                            },
+                            onBlockGroup = { group ->
+                                showConversationGroupBlockDialog(
+                                    context, localizedGroupName(localizedContext, group), resolveGroupMembers(group),
                                 )
                             },
                             onDeleteGroup = { group ->
@@ -1317,6 +1323,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         onCreateGroup: () -> Unit,
         onEditGroup: (ChatGroup) -> Unit,
         onDeleteGroup: (ChatGroup) -> Unit,
+        onBlockGroup: (ChatGroup) -> Unit,
         onReorder: suspend (List<String>) -> Unit,
         modifier: Modifier = Modifier,
         containerColor: Color = MonetEngine.surfaceColors(isSystemInDarkTheme())?.page?.let(::Color)
@@ -1501,6 +1508,20 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                                             }
                                         )
                                         if (!allTab) {
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(R.string.block_messages_group_action)) },
+                                                leadingIcon = {
+                                                    Icon(
+                                                        imageVector = MaterialSymbols.Outlined.Block,
+                                                        contentDescription = stringResource(R.string.block_messages_group_action),
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                },
+                                                onClick = {
+                                                    menuForGroupId = null
+                                                    onBlockGroup(group)
+                                                }
+                                            )
                                             DropdownMenuItem(
                                                 text = { Text(stringResource(R.string.conversation_group_action_delete)) },
                                                 leadingIcon = {

@@ -14,6 +14,8 @@ import dev.ujhhgtg.wekit.features.automation.AutomationDelayRule
 import dev.ujhhgtg.wekit.features.automation.AutomationKeywordMode
 import dev.ujhhgtg.wekit.features.automation.AutomationKeywordRule
 import dev.ujhhgtg.wekit.features.automation.AutomationLimitRule
+import dev.ujhhgtg.wekit.features.automation.AutomationMessageKind
+import dev.ujhhgtg.wekit.features.automation.AutomationMessageTypeRule
 import dev.ujhhgtg.wekit.features.automation.AutomationReplyRule
 import dev.ujhhgtg.wekit.features.automation.AutomationRuleKey
 import dev.ujhhgtg.wekit.features.automation.AutomationRules
@@ -377,6 +379,58 @@ fun replyEditor(
     details = { ctx, value, editable, onChange -> replyStepItems(key.id, value, editable, placeholders, ctx, onChange) },
     visibleIn = visibleIn,
 )
+
+val MESSAGE_KIND_LABELS = listOf(
+    AutomationMessageKind.TEXT to R.string.automation_kind_text,
+    AutomationMessageKind.QUOTE to R.string.automation_kind_quote,
+    AutomationMessageKind.IMAGE to R.string.automation_kind_image,
+    AutomationMessageKind.VIDEO to R.string.automation_kind_video,
+    AutomationMessageKind.VOICE to R.string.automation_kind_voice,
+    AutomationMessageKind.LINK to R.string.automation_kind_link,
+    AutomationMessageKind.MUSIC to R.string.automation_kind_music,
+    AutomationMessageKind.MINI_PROGRAM to R.string.automation_kind_mini_program,
+    AutomationMessageKind.CARD to R.string.automation_kind_card,
+    AutomationMessageKind.EMOJI to R.string.automation_kind_emoji,
+    AutomationMessageKind.RED_PACKET to R.string.automation_kind_red_packet,
+    AutomationMessageKind.TRANSFER to R.string.automation_kind_transfer,
+    AutomationMessageKind.VOIP to R.string.automation_kind_voip,
+    AutomationMessageKind.LOCATION to R.string.automation_kind_location,
+    AutomationMessageKind.SYSTEM to R.string.automation_kind_system,
+    AutomationMessageKind.PAT to R.string.automation_kind_pat,
+    AutomationMessageKind.CHANNELS_VIDEO to R.string.automation_kind_channels_video,
+    AutomationMessageKind.UNKNOWN to R.string.automation_kind_unknown,
+)
+
+/** All message kinds, or a chosen subset. */
+fun messageTypeEditor(
+    key: AutomationRuleKey<AutomationMessageTypeRule>,
+    @StringRes titleRes: Int,
+    visibleIn: (AutomationScope) -> Boolean = { true },
+) = AutomationRuleEditor(
+    key = key,
+    titleRes = titleRes,
+    summary = { rule ->
+        if (rule.all) stringResource(R.string.automation_kinds_all)
+        else pluralStringResource(R.plurals.automation_kinds_selected, rule.kinds.size, rule.kinds.size)
+    },
+    details = { ctx, value, editable, onChange ->
+        choiceDetails<AutomationMessageTypeRule, KindsMode>(
+            "${key.id}_mode",
+            listOf(KindsMode.ALL to R.string.automation_kinds_all, KindsMode.SELECTED to R.string.automation_kinds_selected_mode),
+            descriptions = mapOf(KindsMode.ALL to R.string.automation_kinds_all_summary),
+            get = { if (it.all) KindsMode.ALL else KindsMode.SELECTED },
+            set = { v, m -> v.copy(all = m == KindsMode.ALL) },
+        )(ctx, value, editable, onChange)
+        if (!value.all) {
+            setDetails<AutomationMessageTypeRule, AutomationMessageKind>(
+                "${key.id}_kind", MESSAGE_KIND_LABELS, { it.kinds }, { v, s -> v.copy(kinds = s) },
+            )(ctx, value, editable, onChange)
+        }
+    },
+    visibleIn = visibleIn,
+)
+
+enum class KindsMode { ALL, SELECTED }
 
 /** Who a rule applies to: all chats, chat kinds, or specific contacts / group members. */
 fun targetEditor(
