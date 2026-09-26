@@ -1136,7 +1136,11 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         }
         request.layoutListener = OneShotPreDrawListener.add(request.source) {
             request.layoutListener = null
-            if (pagingRequest === request) finishPagingRequest(request, true)
+            if (pagingRequest !== request) return@add
+            // The laid-out adapter count is final here; the session's scroll restore waits for
+            // the next layout, which applies the new filler height together with the position.
+            if (request.list != null) WeConversationListViewApi.updateRecyclerEmptyFooter(request.source)
+            finishPagingRequest(request, true)
         }
         request.source.requestLayout()
         request.source.invalidate()

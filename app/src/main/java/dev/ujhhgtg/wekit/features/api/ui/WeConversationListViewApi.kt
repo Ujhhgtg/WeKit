@@ -187,6 +187,10 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
 
     val methodRecyclerOnScrollStateChanged by dexMethod()
 
+    private val methodRecyclerCalculateEmptyFooter by dexMethod()
+
+    private val methodRecyclerApplyEmptyFooter by dexMethod()
+
     private val fieldRecyclerActionBar by dexField()
 
     override fun resolveDex(dexKit: DexKitBridge) {
@@ -234,6 +238,8 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             methodRecyclerFirstVisiblePosition.setPlaceholderDescriptor(true, reason)
             methodRecyclerOnScrolled.setPlaceholderDescriptor(true, reason)
             methodRecyclerOnScrollStateChanged.setPlaceholderDescriptor(true, reason)
+            methodRecyclerCalculateEmptyFooter.setPlaceholderDescriptor(true, reason)
+            methodRecyclerApplyEmptyFooter.setPlaceholderDescriptor(true, reason)
             fieldRecyclerActionBar.setPlaceholderDescriptor(true, reason)
             return
         }
@@ -361,6 +367,22 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
                 returnType = "void"
             }
         }
+        methodRecyclerCalculateEmptyFooter.find(dexKit) {
+            matcher {
+                declaredClass(classConversationRecyclerView.data.name)
+                paramCount = 0
+                returnType = "float"
+                usingEqStrings("[calculateEmptyFooterHeight] read fold data failed")
+            }
+        }
+        methodRecyclerApplyEmptyFooter.find(dexKit) {
+            matcher {
+                declaredClass(classConversationRecyclerView.data.name)
+                paramTypes("float", "boolean")
+                returnType = "void"
+                usingStrings("[applyEmptyFooterHeight] fromUpdate:")
+            }
+        }
     }
 
     override fun onEnable() {
@@ -451,6 +473,17 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
         }
     }
 
+    /**
+     * Recomputes the Recycler filler that lets the recent mini-program header scroll away. WeChat
+     * only does this on layout while its previous row count was below 16, so a long list replaced
+     * by a short one keeps a filler too small to hide the header. Passing `fromUpdate = true`
+     * updates only the height, like the host's fold helper; the caller owns the scroll position.
+     */
+    fun updateRecyclerEmptyFooter(container: View) {
+        val extra = methodRecyclerCalculateEmptyFooter.method.invoke(container) as Float
+        methodRecyclerApplyEmptyFooter.method.invoke(container, extra, true)
+    }
+
     /** Called only when deciding a gesture, not during scrolling or drawing. */
     fun isRecentPageVisible(container: View): Boolean {
         val header = container.reflekt().fields {
@@ -463,9 +496,12 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
         val visible = Rect()
         if (!header.isShown || !header.getGlobalVisibleRect(visible)) return false
         val actionBar = actionBarView(container) ?: return true
+        // A fully open page hides the action bar and translates it to the page's bottom, where the
+        // header's bottom edge no longer passes it. getGlobalVisibleRect ignores visibility.
+        if (!actionBar.isShown) return true
         val actionBarBounds = Rect()
-        if (!actionBar.getGlobalVisibleRect(actionBarBounds)) return true
-        return visible.bottom > actionBarBounds.bottom
+        return !actionBar.getGlobalVisibleRect(actionBarBounds) ||
+                visible.bottom > actionBarBounds.bottom
     }
 
     /** Empty spacer footers, including RecyclerView's fixed footer before it is attached. */
