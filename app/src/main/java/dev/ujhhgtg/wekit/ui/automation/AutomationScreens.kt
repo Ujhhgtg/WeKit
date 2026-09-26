@@ -134,7 +134,7 @@ private fun scopeSummary(stored: AutomationStoredScope): String {
 fun AutomationHomeScreen(spec: AutomationSpec, onBack: () -> Unit, onOpen: (AutomationRoute) -> Unit) {
     val snapshot = rememberAutomationSnapshot(spec)
     SettingsScaffold(title = stringResource(spec.titleRes), onBack = onBack) {
-        item {
+        if (AutomationScopeType.GLOBAL in spec.scopeTypes) item {
             SegmentedColumn(title = stringResource(R.string.automation_section_rules)) {
                 item(key = "global") {
                     AutomationNavigationRow(

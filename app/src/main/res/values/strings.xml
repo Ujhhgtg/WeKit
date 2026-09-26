@@ -3627,4 +3627,24 @@
         <item quantity="one">%1$d chat</item>
         <item quantity="other">%1$d chats</item>
     </plurals>
+    <string name="feature_auto_accept_friend_requests_name">Auto accept friend requests</string>
+    <string name="feature_auto_accept_friend_requests_description">Accept incoming friend requests and greet new friends with labels, remarks and replies</string>
+    <string name="friend_automation_accept">Incoming friend requests</string>
+    <string name="friend_automation_accepted">When my request is accepted</string>
+    <string name="friend_automation_enabled">Enabled</string>
+    <string name="friend_automation_delay">Delay before replying</string>
+    <string name="friend_automation_no_delay">Reply immediately</string>
+    <string name="friend_automation_delay_value">%1$s ms</string>
+    <string name="friend_automation_delay_ms">Delay (milliseconds)</string>
+    <string name="friend_automation_labels">Add labels</string>
+    <string name="friend_automation_labels_off">No labels</string>
+    <string name="friend_automation_label_templates">Labels (one per line)</string>
+    <string name="friend_automation_pick_labels">Pick existing labels</string>
+    <string name="friend_automation_pick_labels_summary">Missing labels are created automatically</string>
+    <string name="friend_automation_no_labels">No labels yet</string>
+    <string name="friend_automation_time_format">$time format</string>
+    <string name="friend_automation_remark">Set remark</string>
+    <string name="friend_automation_remark_off">Keep remark unchanged</string>
+    <string name="friend_automation_remark_template">Remark template</string>
+    <string name="friend_automation_reply">Send messages</string>
 </resources>

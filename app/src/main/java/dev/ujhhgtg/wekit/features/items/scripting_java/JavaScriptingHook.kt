@@ -21,6 +21,8 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
+import dev.ujhhgtg.wekit.features.automation.NewFriendEvents
+import dev.ujhhgtg.wekit.features.automation.NewFriendRequest
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -36,8 +38,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
-import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlAttr
-import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -57,7 +57,7 @@ import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
-object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IUpdateListener, WeDatabaseListenerApi.IInsertListener {
+object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IUpdateListener {
 
     override val technicalId = "脚本引擎 (Java)"
     override val nameRes = R.string.feature_java_scripting_hook_name
@@ -92,6 +92,7 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
             lifecycleGeneration
         }
         WeDatabaseListenerApi.addListener(this)
+        NewFriendEvents.subscribe(onNewFriend)
 
         WeMessageApi.methodMsgInfoHandleApiInsertMessage.hookAfter {
             val msgObj = args[0] ?: return@hookAfter
@@ -259,6 +260,7 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
         loadJob?.cancel()
         loadJob = null
         WeDatabaseListenerApi.removeListener(this)
+        NewFriendEvents.unsubscribe(onNewFriend)
         JavaHookApi.unhookEverything()
         synchronized(lifecycleLock) {
             JavaEngine.executeAllOnUnload(scripts)
@@ -266,23 +268,8 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
         }
     }
 
-    override fun onInsert(table: String, values: ContentValues) {
-        if (table == "fmessage_msginfo") {
-            val isSend = values.getAsInteger("isSend") ?: 0
-            if (isSend == 0) {
-                val msgContent = values.getAsString("msgContent") ?: ""
-                val fromusername = extractXmlAttr(msgContent, "encryptusername").takeIf { it.isNotEmpty() }
-                    ?: extractXmlAttr(msgContent, "fromusername").takeIf { it.isNotEmpty() }
-                    ?: extractXmlTag(msgContent, "fromusername")
-                val ticket = extractXmlAttr(msgContent, "ticket").takeIf { it.isNotEmpty() }
-                    ?: extractXmlTag(msgContent, "ticket")
-                val sceneStr = extractXmlAttr(msgContent, "scene").takeIf { it.isNotEmpty() }
-                    ?: extractXmlTag(msgContent, "scene")
-                val scene = sceneStr.toIntOrNull() ?: 0
-
-                JavaEngine.executeAllOnNewFriend(scripts, fromusername, ticket, scene)
-            }
-        }
+    private val onNewFriend: (NewFriendRequest) -> Unit = { request ->
+        JavaEngine.executeAllOnNewFriend(scripts, request.verifyUsername, request.ticket, request.scene)
     }
 
     override fun onUpdate(

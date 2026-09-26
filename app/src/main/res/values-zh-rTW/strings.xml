@@ -3627,4 +3627,24 @@
     <plurals name="automation_target_specific_count">
         <item quantity="other">%1$d 個聊天</item>
     </plurals>
+    <string name="feature_auto_accept_friend_requests_name">自動通過好友申請</string>
+    <string name="feature_auto_accept_friend_requests_description">自動通過好友申請，並為新好友設定標籤、備註和自動回覆</string>
+    <string name="friend_automation_accept">收到好友申請時</string>
+    <string name="friend_automation_accepted">對方通過我的好友申請時</string>
+    <string name="friend_automation_enabled">啟用</string>
+    <string name="friend_automation_delay">回覆前延遲</string>
+    <string name="friend_automation_no_delay">立即回覆</string>
+    <string name="friend_automation_delay_value">%1$s 毫秒</string>
+    <string name="friend_automation_delay_ms">延遲（毫秒）</string>
+    <string name="friend_automation_labels">新增標籤</string>
+    <string name="friend_automation_labels_off">不新增標籤</string>
+    <string name="friend_automation_label_templates">標籤（每行一個）</string>
+    <string name="friend_automation_pick_labels">選擇現有標籤</string>
+    <string name="friend_automation_pick_labels_summary">不存在的標籤會自動建立</string>
+    <string name="friend_automation_no_labels">尚無標籤</string>
+    <string name="friend_automation_time_format">$time 格式</string>
+    <string name="friend_automation_remark">設定備註</string>
+    <string name="friend_automation_remark_off">不修改備註</string>
+    <string name="friend_automation_remark_template">備註範本</string>
+    <string name="friend_automation_reply">傳送訊息</string>
 </resources>

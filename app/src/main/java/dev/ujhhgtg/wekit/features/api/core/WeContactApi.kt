@@ -10,7 +10,9 @@ import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BlockContactProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.DelContactProto
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ContactPropertyProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLog
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.SetContactPropertyReqProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.UserNameProto
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -212,6 +214,27 @@ object WeContactApi : ApiFeature(), IResolveDex {
             content.contains("successfully sent but rejected", ignoreCase = true) ||
             content.contains("被封") ||
             content.contains("被限制登录")
+
+    /**
+     * Sets a contact's remark through the `setcontactproperty` CGI (the same request WeChat's own
+     * contact sync sends), then mirrors it into the local `rcontact` row.
+     */
+    suspend fun setRemark(wxId: String, remark: String): Boolean {
+        val sent = suspendCancellableCoroutine { cont ->
+            WePacketHelper.sendCgi(
+                "/cgi-bin/micromsg-bin/setcontactproperty", 10022, 0, 0,
+                SetContactPropertyReqProto(wxId, ContactPropertyProto(remark)).encode(),
+            ) {
+                onSuccess { _ -> if (cont.isActive) cont.resume(true) }
+                onFailure { errType, errCode, errMsg ->
+                    WeLogger.w(TAG, "setRemark $wxId failed: $errType, $errCode, $errMsg")
+                    if (cont.isActive) cont.resume(false)
+                }
+            }
+        }
+        if (sent) WeDatabaseApi.execStatement("UPDATE rcontact SET conRemark = ? WHERE username = ?", arrayOf(remark, wxId))
+        return sent
+    }
 
     fun verifyUser(userId: String, ticket: String, scene: Int, privacy: Int = 0) {
         try {
