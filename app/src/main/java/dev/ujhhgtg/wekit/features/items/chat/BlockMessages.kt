@@ -35,8 +35,8 @@ import dev.ujhhgtg.wekit.ui.automation.loadAutomationContacts
 import dev.ujhhgtg.wekit.ui.automation.messageTypeEditor
 import dev.ujhhgtg.wekit.ui.automation.toggleEditor
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -140,7 +140,7 @@ object BlockMessages : ClickableFeature(), IResolveDex {
     override fun onEnable() {
         BlockMessagesAutomation.store.snapshot()
         methodProcessAddMsg.hookBefore(priority = 10_000) {
-            val addMsg = AddMsgProto.decode(args[0]!!.reflekt().invokeMethod("toByteArray", args[0], superclass = true) as ByteArray)
+            val addMsg = AddMsgProto.decode(args[0]!!.reflekt().invokeMethod("toByteArray", superclass = true) as ByteArray)
             if (shouldBlock(addMsg)) result = null
         }
     }
