@@ -16,8 +16,23 @@ plugins {
     alias(libs.plugins.hiddenapirefine)
 }
 
-// Native release/pilot protection; use -PlspBackend=jvm for desktop DexKit workers.
+// Decide per variant, so a single assemble invocation can build plain debug and protected release.
+// Validation invocations share main outputs with their tests and must remain entirely unprotected.
+val protectionOverride = providers.gradleProperty("protect").map { value ->
+    requireNotNull(value.toBooleanStrictOrNull()) { "-Pprotect must be true or false" }
+}.orNull
+val protectionValidation = providers.gradleProperty("dexTestWorker").orNull == "true" ||
+    gradle.startParameter.taskNames.any { path ->
+        val name = path.substringAfterLast(':').lowercase()
+        "test" in name || name in setOf(
+            "check", "connectedcheck", "devicecheck", "build", "buildneeded", "builddependents",
+        )
+    }
+
 lsparanoid {
+    variantFilter = { variant ->
+        !protectionValidation && (protectionOverride ?: (variant.buildType == "release"))
+    }
     backend = providers.gradleProperty("lspBackend").orElse("native").get()
     automaticLoading = false
     allowedHostCertificates = mapOf(
