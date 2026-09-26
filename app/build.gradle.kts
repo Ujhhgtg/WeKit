@@ -6,7 +6,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
-    id("dev.ujhhgtg.lsparanoid") version "0.12.0"
+    id("dev.ujhhgtg.lsparanoid") version "0.13.0"
     alias(libs.plugins.android.application)
     alias(libs.plugins.google.devtools.ksp)
     alias(libs.plugins.kotlin.compose)
@@ -20,6 +20,9 @@ plugins {
 lsparanoid {
     backend = providers.gradleProperty("lspBackend").orElse("native").get()
     automaticLoading = false
+    allowedHostCertificates = mapOf(
+        "com.tencent.mm" to setOf("0fe4ff85c215918396dadc7cd8ce6963339af33d37751a56e54c7206b63a3c7c"),
+    )
     nativeNdkVersion = providers.gradleProperty("lspNdkVersion").orElse("29.0.14206865").get()
     omvllPlugin = providers.gradleProperty("lspOmvllPlugin").orNull
     omvllPythonPath = providers.gradleProperty("lspOmvllPythonPath").orNull
@@ -490,4 +493,4 @@ tasks.withType<KotlinJvmCompile>().configureEach {
 }
 
 // The localization adapter remains present in JVM development variants.
-dependencies { implementation("dev.ujhhgtg.lsparanoid:runtime:0.12.0") }
+dependencies { implementation("dev.ujhhgtg.lsparanoid:runtime:0.13.0") }
