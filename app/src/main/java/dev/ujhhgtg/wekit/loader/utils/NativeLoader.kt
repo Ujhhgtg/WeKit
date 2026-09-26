@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.loader.utils
 
 import android.annotation.SuppressLint
 import android.os.Process
+import dev.ujhhgtg.lsparanoid.generated.LspBootstrap
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import java.io.File
 
@@ -23,6 +24,20 @@ object NativeLoader {
         val appDataDir = File(dataDir)
         require(appDataDir.isDirectory) { "Zygisk app data directory is unavailable: $dataDir" }
         zygiskPayload = ZygiskNativePayload(apk, appDataDir)
+    }
+
+    /** Loads the string decoder before startup or feature classes execute protected literals. */
+    fun initDecoder(modulePath: String) = synchronized(nativeLoadLock) {
+        if (LspBootstrap.libraryFileName.isEmpty() || LspBootstrap.isLoaded()) return@synchronized
+        val payload = zygiskPayload
+        val decoder = if (payload == null) {
+            val instructionSet = if (Process.is64Bit()) "arm64" else "arm"
+            val directory = File(requireNotNull(File(modulePath).parentFile), "lib/$instructionSet")
+            File(directory, LspBootstrap.libraryFileName)
+        } else {
+            payload.decoderLibrary(LspBootstrap.libraryFileName)
+        }
+        LspBootstrap.loadAbsolute(decoder)
     }
 
     /** The module APK used as the class path for standalone child processes. */

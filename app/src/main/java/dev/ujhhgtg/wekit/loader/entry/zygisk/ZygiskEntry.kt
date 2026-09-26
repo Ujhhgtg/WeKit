@@ -3,6 +3,7 @@
 package dev.ujhhgtg.wekit.loader.entry.zygisk
 
 import android.content.pm.ApplicationInfo
+import android.util.Log
 import androidx.annotation.Keep
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.BuildConfig
@@ -47,18 +48,19 @@ object ZygiskEntry {
     ) {
         val targetPackage = processName.substringBefore(':')
         if (!PackageNames.isWeChat(targetPackage)) {
-            WeLogger.w(TAG, "ignoring unsupported Zygisk target: $targetPackage")
+            Log.w(TAG, "ignoring unsupported Zygisk target: $targetPackage")
             return
         }
         synchronized(entryLock) {
             if (hookBridge != null) return
 
             try {
+                NativeLoader.configureZygiskPayload(apkPath, dataDir)
+                NativeLoader.initDecoder(apkPath)
                 WeLogger.i(TAG, "ZygiskEntry.init: process=$processName apk=$apkPath dataDir=$dataDir")
                 check(nativeInitialize()) {
                     "LSPlant bootstrap or hook bridge registration failed"
                 }
-                NativeLoader.configureZygiskPayload(apkPath, dataDir)
                 val service = ZygiskLoaderService(
                     modulePath = apkPath,
                     versionName = BuildConfig.VERSION_NAME,
@@ -98,7 +100,8 @@ object ZygiskEntry {
                 modulePath = ""
                 moduleStarted.set(false)
                 finalClassLoaderHookInstalled.set(false)
-                WeLogger.e(TAG, "ZygiskEntry.init failed", t)
+                // Loading the decoder can fail before WeLogger is safe to initialize.
+                Log.e(TAG, "ZygiskEntry.init failed", t)
             }
         }
     }

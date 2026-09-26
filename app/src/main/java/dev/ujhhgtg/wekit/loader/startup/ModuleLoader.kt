@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.loader.startup
 import android.app.Application
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import dalvik.system.InMemoryDexClassLoader
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.ReflectionClassLoader
@@ -62,6 +63,14 @@ object ModuleLoader {
         modulePath: String,
     ): Boolean = synchronized(lock) {
         if (isInitialized) return@synchronized true
+
+        try {
+            NativeLoader.initDecoder(modulePath)
+        } catch (t: Throwable) {
+            // The normal logger may itself contain protected strings.
+            Log.e("WeKit", "string decoder bootstrap failed", t)
+            return@synchronized false
+        }
 
         try {
             WeLogger.i(TAG, "loading in entry point ${loaderService.entryPointName}")
