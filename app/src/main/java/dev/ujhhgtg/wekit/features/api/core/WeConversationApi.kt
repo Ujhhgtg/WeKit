@@ -457,7 +457,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 //        return null
 //    }
 
-    fun reloadConversations() {
+    fun reloadConversations(updatedTalkers: Collection<String> = emptyList()) {
         // notifyConversationChanged dispatches to WeChat's conversation-list UI observers.
         // WeChat's MStorage dispatcher (s85.v0.e) iterates and invokes some listeners
         // synchronously on the calling thread, so calling this off the main thread mutates
@@ -467,6 +467,10 @@ object WeConversationApi : ApiFeature(), IResolveDex {
         // always marshal the notify onto the main thread.
         postOnUiThread {
             try {
+                // MVVM treats event 5 as deletion of the supplied username, so the empty-name
+                // legacy reload alone cannot rebind rows or trigger its unread badge update.
+                // Raw SQL writers must also publish the changed conversations by name.
+                updatedTalkers.forEach { notifyConversationChanged(it) }
                 notifyConversationChanged("", 5)
             } catch (ex: Exception) {
                 WeLogger.w(TAG, "exception while notifying conversation list reload", ex)

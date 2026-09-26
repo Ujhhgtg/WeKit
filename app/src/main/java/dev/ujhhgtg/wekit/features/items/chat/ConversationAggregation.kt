@@ -10,6 +10,7 @@ import android.os.SystemClock
 import android.view.MenuItem
 import android.view.View
 import android.widget.AdapterView
+import android.widget.ListView
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -132,6 +133,16 @@ object ConversationAggregation : ClickableFeature(),
         }
     }
 
+    // Both homepage adapters hide the tapped row's unread views before/after startChatting.
+    // Intercept the shared click listener before those normal-chat side effects run.
+    private val methodConversationItemClick by dexMethod {
+        matcher {
+            usingEqStrings("MicroMsg.ConversationClickListener", "[onItemClick] position:%s [%s,%s]")
+            paramTypes("android.widget.AdapterView", "android.view.View", "int", "long")
+            returnType("void")
+        }
+    }
+
     // SelectConversationUI#doClickUser(username) — the single entry point for all conversation
     // taps in the "share to conversation" picker. WeChat only intercepts known virtual usernames
     // ("conversationboxservice", "opencustomerservicemsg") before forwarding to its share logic.
@@ -160,24 +171,6 @@ object ConversationAggregation : ClickableFeature(),
         matcher {
             usingStrings("MicroMsg.SelectContactSearchMvvmListUIC", "onItemClick: isAlwaysCheck=")
             paramTypes("android.view.View", null, "int")
-            returnType("void")
-        }
-    }
-
-    // hw.g (BizConversationStorage extension)#P0(msg, conv, isNew, notifyInfo): after a member
-    // conversation is updated, WeChat treats a parent row carrying attrflag 2097152 (the bit our
-    // folder rows use to render a muted dot) as an enterprise box and re-derives its unread itself,
-    // classifying mute via rcontact type&512 only. Muted groups (chatroomNotify == 0) land in
-    // unReadCount, so the folder flashes a number badge and the notification summary counts it
-    // until our refresh rewrites the row. Our refresh owns folder rows; skip it for them.
-    private val methodBizConversationParentUpdate by dexMethod {
-        matcher {
-            usingEqStrings(
-                "MicroMsg.BizConversationStorage",
-                "updateOpenImKefuService conversation unRead msg count, username: %s, old unReadCount: %s, " +
-                        "old unReadMuteCount: %s, newMsgInsertCount: %s, isMute: %s"
-            )
-            paramCount(4)
             returnType("void")
         }
     }
@@ -242,7 +235,6 @@ object ConversationAggregation : ClickableFeature(),
         hookSqliteWrapperQuery()
         hookConversationStorageParentQuery()
         hookConversationStorageUpdateUnread()
-        hookBizConversationParentUpdate()
 
         CustomLocalFriendAvatars.fallbackUsernameProvider = { folderId ->
             if (isFolderId(folderId) && !CustomLocalFriendAvatars.hasCustomAvatar(folderId)) {
@@ -401,12 +393,39 @@ object ConversationAggregation : ClickableFeature(),
         conflictAlgorithm: Int
     ) {
         if (table != ConversationTable.NAME) return
-        // Skip updates that target only folder rows
         val targetUsername = values.getAsString(ConversationTable.USERNAME)
             ?: whereArgs?.singleOrNull()?.takeIf {
                 whereClause?.contains(ConversationTable.USERNAME, ignoreCase = true) == true
             }
-        if (targetUsername != null && isFolderId(targetUsername)) return
+        if (targetUsername != null && isFolderId(targetUsername)) {
+            // ConversationStorage moves read pinned rows under message_fold before serializing
+            // them. Folder containers must stay at the root: the homepage can display folded
+            // rows, but ConversationUnreadHelper's full query excludes every non-root parentRef.
+            // Pinning is stored separately in flag and is preserved.
+            values.put(ConversationTable.PARENT_REF, "")
+            // BizConversationStorage writes the parent after persisting the member. Keep that
+            // write and its native notifications; cancelling the whole parent update also cuts
+            // off the synchronous unread update. Only correct its contact-only mute classification
+            // before the counts reach the DB (groups use ChatRoomNotify instead of type & 512).
+            if (values.containsKey(ConversationTable.UNREAD_COUNT) ||
+                values.containsKey(ConversationTable.UNREAD_MUTE_COUNT)
+            ) {
+                val members = membersByFolder[targetUsername] ?: return
+                val summary = withQueryRewriteSuppressed {
+                    readFolderSummaries(mapOf(targetUsername to members)).getValue(targetUsername)
+                }
+                values.put(ConversationTable.UNREAD_COUNT, summary.unreadCount)
+                values.put(ConversationTable.UNREAD_MUTE_COUNT, summary.unreadMuteCount)
+                val attrFlag = values.getAsInteger(ConversationTable.ATTR_FLAG)
+                if (attrFlag != null) {
+                    values.put(
+                        ConversationTable.ATTR_FLAG,
+                        (attrFlag and ATTR_FLAG_MUTE_BIT.inv()) or summary.attrFlag
+                    )
+                }
+            }
+            return
+        }
         scheduleRefresh(targetUsername)
     }
 
@@ -466,7 +485,7 @@ object ConversationAggregation : ClickableFeature(),
                     }
                 }
             }
-            WeConversationApi.reloadConversations()
+            WeConversationApi.reloadConversations(affectedFolderIds)
             WeLogger.d(
                 TAG,
                 "refreshed ${affectedFolderIds.size} folders for ${changedMembers.size} members in " +
@@ -539,6 +558,15 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     private fun hookOpenFolder() {
+        methodConversationItemClick.hookBefore {
+            val list = args[0] as ListView
+            val position = args[2] as Int
+            if (position < list.headerViewsCount) return@hookBefore
+            val conversation = list.getItemAtPosition(position) ?: return@hookBefore
+            val username = conversation.reflekt().getField("field_username", true) as String
+            interceptFolderChatOpen(username, list.context) { result = null }
+        }
+
         LauncherUI::startChatting.fastJavaMethod!!.hookBefore {
             interceptFolderChatOpen(args.firstOrNull() as? String, thisObject) {
                 result = null
@@ -768,15 +796,6 @@ object ConversationAggregation : ClickableFeature(),
         }
     }
 
-    // See methodBizConversationParentUpdate: keep WeChat from re-deriving a folder row's unread
-    // (and digest) from a single member message; the debounced summary refresh owns that row.
-    private fun hookBizConversationParentUpdate() {
-        methodBizConversationParentUpdate.hookBefore {
-            val parentRef = args[1]!!.reflekt().getField("field_parentRef", true) as String?
-            if (parentRef != null && isFolderId(parentRef)) result = null
-        }
-    }
-
     private fun launchFolderContainer(source: Any?, folderId: String) {
         val context = source as? Context ?: return
         val intent = Intent().apply {
@@ -867,6 +886,7 @@ object ConversationAggregation : ClickableFeature(),
                     val summary = summaries[folder.id] ?: FolderSummary()
                     val stored = storedRows[folder.id]
                     if (stored == null ||
+                        stored.parentRef.isNotEmpty() ||
                         stored.summary != summary ||
                         stored.attrFlag != summary.attrFlag ||
                         stored.flag and FLAG_TIME_MASK != summary.conversationTime and FLAG_TIME_MASK
@@ -920,7 +940,7 @@ object ConversationAggregation : ClickableFeature(),
                             "elapsed=${SystemClock.elapsedRealtime() - startedAt}ms"
                 )
             }
-            if (databaseChanged) WeConversationApi.reloadConversations()
+            if (databaseChanged) WeConversationApi.reloadConversations(folders.map { it.id })
         }.onFailure {
             WeLogger.e(TAG, "failed to sync folders", it)
         }
@@ -962,7 +982,8 @@ object ConversationAggregation : ClickableFeature(),
                    ${ConversationTable.DIGEST_USER}, ${ConversationTable.IS_SEND}, ${ConversationTable.STATUS},
                    ${ConversationTable.CONVERSATION_TIME}, ${ConversationTable.UNREAD_COUNT},
                    ${ConversationTable.UNREAD_MUTE_COUNT}, ${ConversationTable.CONTENT},
-                   ${ConversationTable.MSG_TYPE}, ${ConversationTable.CHAT_MODE}, ${ConversationTable.ATTR_FLAG}
+                   ${ConversationTable.MSG_TYPE}, ${ConversationTable.CHAT_MODE}, ${ConversationTable.ATTR_FLAG},
+                   ${ConversationTable.PARENT_REF}
             """.trimIndent() + " " +
                     "FROM ${ConversationTable.NAME} WHERE ${ConversationTable.USERNAME} LIKE ?",
             arrayOf("$FOLDER_PREFIX%")
@@ -971,6 +992,7 @@ object ConversationAggregation : ClickableFeature(),
                 result[cursor.getString(0)] = StoredFolderRow(
                     flag = cursor.getLongOrZero(ConversationTable.FLAG),
                     attrFlag = cursor.getIntOrZero(ConversationTable.ATTR_FLAG),
+                    parentRef = cursor.getStringOrEmpty(ConversationTable.PARENT_REF),
                     summary = FolderSummary(
                         digest = cursor.getStringOrEmpty(ConversationTable.DIGEST),
                         digestUser = cursor.getStringOrEmpty(ConversationTable.DIGEST_USER),
@@ -1194,11 +1216,12 @@ object ConversationAggregation : ClickableFeature(),
         )
     }
 
-    /** Updates a materialized folder row while preserving WeChat's live pin bits. */
+    /** Keeps the container at the root while updating its summary and preserving live pin bits. */
     private fun writeFolderSummaryRow(folderId: String, summary: FolderSummary) {
         WeDatabaseApi.execStatement(
             """
             UPDATE ${ConversationTable.NAME} SET
+                ${ConversationTable.PARENT_REF}='',
                 ${ConversationTable.DIGEST}=?, ${ConversationTable.DIGEST_USER}=?,
                 ${ConversationTable.IS_SEND}=?, ${ConversationTable.STATUS}=?,
                 ${ConversationTable.CONVERSATION_TIME}=?,
@@ -2050,6 +2073,7 @@ object ConversationAggregation : ClickableFeature(),
     private data class StoredFolderRow(
         val flag: Long,
         val attrFlag: Int,
+        val parentRef: String,
         val summary: FolderSummary
     )
 
