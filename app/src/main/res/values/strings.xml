@@ -255,7 +255,6 @@
     <string name="loader_legacy_xposed_api_name">Legacy Xposed API %1$d</string>
     <string name="loader_art_hook_name">ART hooks</string>
     <string name="loader_zygisk_name">Zygisk loader</string>
-    <string name="loader_frida_inject_name">Frida injection loader</string>
     <string name="common_not_provided">Not provided</string>
     <string name="config_export_failed">Export failed!</string>
     <string name="config_export_success">Export successful</string>

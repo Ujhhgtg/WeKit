@@ -536,7 +536,7 @@
     <string name="feature_fake_voice_duration_name">伪装语音时长</string>
     <string name="feature_fake_voice_duration_description">预设定伪装发送语音显示的时长</string>
     <string name="feature_floating_chat_footer_name">悬浮输入框</string>
-    <string name="feature_floating_chat_footer_description">将聊天输入框改为悬浮卡片形式, 带有圆角、阴影和侧边距\n</string>
+    <string name="feature_floating_chat_footer_description">将聊天输入框改为悬浮卡片形式, 带有圆角、阴影和侧边距</string>
     <string name="feature_floating_chat_header_name">悬浮标题栏</string>
     <string name="feature_floating_chat_header_description">将聊天界面顶部标题栏及标题下方挂件改为悬浮卡片形式, 带有圆角、阴影和侧边距\n</string>
     <string name="feature_force_enable_all_tools_name">强制启用所有功能</string>

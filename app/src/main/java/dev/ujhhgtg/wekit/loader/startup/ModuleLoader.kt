@@ -58,7 +58,7 @@ object ModuleLoader {
     fun init(
         initialClassLoader: ClassLoader,
         loaderService: ILoaderService,
-        hookBridge: IHookBridge?,
+        hookBridge: IHookBridge,
         modulePath: String,
     ): Boolean = synchronized(lock) {
         if (isInitialized) return@synchronized true
@@ -95,7 +95,7 @@ object ModuleLoader {
 
     private fun hookApplicationCreate(
         loaderService: ILoaderService,
-        hookBridge: IHookBridge?,
+        hookBridge: IHookBridge,
         initialClassLoader: ClassLoader,
         modulePath: String,
     ) {
@@ -127,7 +127,7 @@ object ModuleLoader {
 
     private fun startup(
         loaderService: ILoaderService,
-        hookBridge: IHookBridge?,
+        hookBridge: IHookBridge,
         modulePath: String,
         application: Application
     ) = synchronized(lock) {

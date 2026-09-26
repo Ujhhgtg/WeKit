@@ -23,7 +23,7 @@ abstract class HookCallback(val priority: Int = 50) : IHookBridge.IMemberHookCal
     override fun afterHookedMember(param: HookParam) = afterHookedMethod(param)
 }
 
-class OriginalMethodInvoker constructor(
+class OriginalMethodInvoker(
     private val hookBridge: IHookBridge,
     private val method: Method,
     private val thisObject: Any?,
@@ -33,10 +33,8 @@ class OriginalMethodInvoker constructor(
         hookBridge.invokeOriginalMethod(method, thisObject, args ?: originalArgs)
 }
 
-val currentHookBridge: IHookBridge
-    get() = checkNotNull(StartupInfo.hookBridge) {
-        "hook bridge is unavailable in the current loader"
-    }
+inline val currentHookBridge: IHookBridge
+    get() = StartupInfo.hookBridge
 
 // most extension methods are inside BaseFeature for enabled state checking
 

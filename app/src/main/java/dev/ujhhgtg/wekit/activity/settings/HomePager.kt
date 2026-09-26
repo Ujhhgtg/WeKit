@@ -46,6 +46,7 @@ import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.currentHookBridge
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
 
@@ -76,8 +77,7 @@ private fun StatusCard() {
     var showNoRootManager by remember { mutableStateOf(false) }
     val contentColor = MaterialTheme.colorScheme.onSecondaryContainer
     val statusTitle = stringResource(R.string.home_module_activated)
-    val hookBridgeName = StartupInfo.hookBridge?.hookBridgeName
-        ?: stringResource(R.string.common_not_provided)
+    val hookBridgeName = currentHookBridge.hookBridgeName
 
     Surface(
         modifier = Modifier
@@ -217,7 +217,7 @@ private fun DeviceInformation() {
                 description = stringResource(
                     R.string.home_loading_environment_value,
                     loaderName,
-                    StartupInfo.hookBridge?.hookBridgeName ?: stringResource(R.string.common_not_provided),
+                    currentHookBridge.hookBridgeName,
                 ),
             )
         }
