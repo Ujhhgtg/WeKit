@@ -3,13 +3,13 @@ package dev.ujhhgtg.wekit.features.items.system
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
-import java.lang.reflect.Field
+import kotlin.io.path.div
 
 object PreventModuleDataDeletion : SwitchFeature(), IResolveDex {
 
@@ -35,24 +35,26 @@ object PreventModuleDataDeletion : SwitchFeature(), IResolveDex {
             }
         }
     }
-    private lateinit var basePathField: Field
+
+    // WeChat's VFS canonicalizes base paths (/data/user/0 -> /data/data), so compare canonically
+    private val protectedRoots by lazy {
+        listOf(
+            KnownPaths.moduleRoot,
+            KnownPaths.downloads,
+            KnownPaths.internalStorage / "Android" / "data" / HostInfo.packageName / "Layout Inspect",
+        ).map { it.toFile().canonicalPath }
+    }
 
     override fun onEnable() {
         methodNativeFileSystemEntryDelete.hookBefore {
             val relPath = args[0] as String
-            if (!::basePathField.isInitialized) {
-                basePathField = thisObject!!.reflekt()
-                    .firstField {
-                        type = String::class
-                        modifiers(Modifiers.FINAL)
-                    }.self
-            }
-            val basePath = basePathField.get(thisObject) as String
+            val basePath = thisObject!!.reflekt().firstField {
+                type = String::class
+                modifiers(Modifiers.FINAL)
+            }.get() as String
 
-            val path = "$basePath/$relPath"
-            if (path.startsWith(KnownPaths.moduleRoot.toFile().absolutePath) ||
-                path.contains(BuildConfig.TAG) || path.contains("Layout Inspect")
-            ) {
+            val path = if (relPath.isEmpty()) basePath else "$basePath/$relPath"
+            if (protectedRoots.any { path == it || path.startsWith("$it/") }) {
                 result = true
             }
         }
