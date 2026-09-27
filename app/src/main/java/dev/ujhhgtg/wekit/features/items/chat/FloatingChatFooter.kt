@@ -113,8 +113,8 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     /** 表情面板把手当前展开出来的额外高度。key 是 ChatFooterBottom。 */
     private val dragExtents = WeakHashMap<View, Int>()
 
-    /** 已经装过 outline 追踪器的 footer, 防止重复注册 OnPreDrawListener。 */
-    private val outlineTrackers = WeakHashMap<View, Boolean>()
+    /** 上一次用来算 outline 的屏幕外高度, 变了才 invalidateOutline。key 是 ChatFooter。 */
+    private val outlineOffscreenHeights = WeakHashMap<View, Int>()
 
     /** 临时挪动面板期间保存的原 translationY。key 是 ChatFooterBottom。 */
     private val savedPanelTranslations = WeakHashMap<View, Float>()
@@ -590,7 +590,6 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         footer.clipToOutline = true
         footer.elevation = elevationDp * density
         FloatingChatCardVisuals.applyDarkSurface(footer, cornerRadiusDp)
-        if (!movePanelAbove) trackOutlineWhileScrolling(footer)
     }
 
     /**
@@ -602,29 +601,38 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
      * 底边之外, 微信靠 translationY 把整个 footer 上移来"展开"面板。于是悬在外面的高度
      * 是 `面板高 + translationY` (translationY ∈ [-面板高, 0]): 收起时等于面板高, 圆角
      * 落在输入行下沿; 完全展开时归零, 圆角落在 footer 真正的底边。中间过程连续。
+     *
+     * 键盘态例外: 微信同样把 footer 上移键盘高度, 面板容器也保持可见并撑到键盘高, 但里面
+     * 的表情/工具面板都被淡出隐藏了 —— 那一段只是 IME 背后的空白。此时整个面板都不算
+     * 卡片, 圆角落在输入行下沿, 而不是延伸到 IME 下面。
      */
     private fun offscreenHeight(footer: ChatFooter): Int {
         if (movePanelAbove) return 0
-        val panelHeight = footer.bottomPanel?.height ?: return 0
-        return (panelHeight + footer.translationY).toInt().coerceAtLeast(0)
+        val panel = footer.bottomPanel ?: return 0
+        if (!panel.isShowingContent) return panel.height
+        return (panel.height + footer.translationY).toInt().coerceAtLeast(0)
     }
 
     /**
-     * translationY 变了不会自动重算 outline, 得手动 invalidate。只在面板位于下方时需要 ——
-     * 面板在上方时 [offscreenHeight] 恒为 0, outline 不随位移变化。
-     *
-     * 不会自激: 下一帧 translationY 没变就不再 invalidate。
+     * 面板容器里是否有正在显示的面板 (表情面板 / AppPanel)。微信收起它们时先淡出再设
+     * INVISIBLE, 所以只看可见性。不能看 alpha: 表情面板切到工具面板时, AppPanel 以 alpha 0
+     * 设为可见再淡入, 头几帧会被误判为空面板, 卡片下沿会闪回输入行。
      */
-    private fun trackOutlineWhileScrolling(footer: ChatFooter) {
-        if (outlineTrackers.put(footer, true) != null) return
-        var last = Float.NaN
-        footer.viewTreeObserver.addOnPreDrawListener {
-            if (footer.translationY != last) {
-                last = footer.translationY
-                footer.invalidateOutline()
+    private val ChatFooterBottom.isShowingContent: Boolean
+        get() {
+            for (i in 0 until childCount) {
+                if (getChildAt(i).visibility == View.VISIBLE) return true
             }
-            true
+            return false
         }
+
+    /**
+     * translationY 或面板显隐变了不会自动重算 outline, 得手动 invalidate。只在面板位于下方时
+     * 需要 —— 面板在上方时 [offscreenHeight] 恒为 0。值没变就不 invalidate, 不会自激。
+     */
+    private fun refreshOutline(footer: ChatFooter) {
+        val offscreen = offscreenHeight(footer)
+        if (outlineOffscreenHeights.put(footer, offscreen) != offscreen) footer.invalidateOutline()
     }
 
     /**
@@ -637,10 +645,11 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
             applyNavigationBarEdgeToEdge(footer)
             if (movePanelAbove) {
                 applyBottomMargin(footer)
-                liftNewMessageBubble(footer)
             } else {
                 applyBottomGap(footer)
+                refreshOutline(footer)
             }
+            liftNewMessageBubble(footer)
             true
         }
         // 会话页会复用同一个 footer 实例: 重挂前先摘旧监听, 防止旧 observer 已失效或重复触发
@@ -653,13 +662,12 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
 
     /**
      * 「x条新消息」气泡 (HistoryMsgTongueComponent 的 mGoBackToHistoryMsgLayout, 布局 id
-     * bm4) 是 ChattingContent 的直接子 View, 始终贴着内容底边。面板搬到输入行上方后,
-     * 悬浮卡片用负 topMargin 盖住了内容底部一截, 微信自己的 44dp 底边距就不够用了,
+     * bm4) 是 ChattingContent 的直接子 View, 始终贴着内容底边。悬浮卡片用负 topMargin
+     * 盖住了内容底部一截, 微信自己的 44dp 底边距就不够用了,
      * 气泡下半截会被卡片挡住。这里按 footer 实际绘制位置算出卡片盖住的高度, 在微信
      * 设定的 margin 之上补足, 保留原版的气泡与输入框间距。
      */
     private fun liftNewMessageBubble(footer: ChatFooter) {
-        if (!movePanelAbove) return
         val bubble = footer.newMessageBubble() ?: return
         val lp = bubble.layoutParams as? FrameLayout.LayoutParams ?: return
         if (lp.gravity and Gravity.VERTICAL_GRAVITY_MASK != Gravity.BOTTOM) return
@@ -946,20 +954,28 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
      *
      * 直接从面板的 LayoutParams 取那个"面板高"重算, 而不是在现值上做加法 —— 加法在
      * onAttachedToWindow 与 refreshBottomHeight 都会调到时会重复累加。
+     *
+     * 悬浮与 [applyBottomMargin] 相同: 负 topMargin 抵消 footer 在 LinearLayout 流里的
+     * 全部占位, 消息列表铺到屏幕底边, 再用列表 padding 把最后一条消息顶到卡片上沿。
+     * 可视卡片高度取实测的 `footer.height - panel.height`: 面板在下方时恒可见, 两者出自同一
+     * 次布局; 面板高变化时差值不变, 不会像面板在上方时那样因开合而失步。
      */
     private fun applyBottomGap(footer: ChatFooter) {
         val lp = footer.layoutParams as? ViewGroup.MarginLayoutParams ?: return
-        if (lp.topMargin != 0) {
-            lp.topMargin = 0
-        }
-        val panelHeight = footer.bottomPanel?.layoutParams?.height ?: return
+        val panel = footer.bottomPanel ?: return
+        val panelHeight = panel.layoutParams?.height ?: return
         if (panelHeight <= 0) return
         val gapPx = (bottomGapDp * footer.resources.displayMetrics.density).toInt()
-        val target = -panelHeight + gapPx + bottomNavBarInsetToAdd(footer)
-        if (lp.bottomMargin != target) {
-            lp.bottomMargin = target
+        val below = gapPx + bottomNavBarInsetToAdd(footer)
+        val targetBottom = -panelHeight + below
+        val overlay = (footer.height - panel.height).coerceAtLeast(0)
+        val targetTop = -(overlay + below)
+        if (lp.bottomMargin != targetBottom || lp.topMargin != targetTop) {
+            lp.bottomMargin = targetBottom
+            lp.topMargin = targetTop
             footer.requestLayout()
         }
+        applyChatListPadding(footer, overlay + below)
     }
 
     /**
