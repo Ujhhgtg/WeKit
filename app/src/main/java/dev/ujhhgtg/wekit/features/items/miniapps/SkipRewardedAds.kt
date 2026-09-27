@@ -17,33 +17,36 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.io.path.div
 
 /**
- * 跳过小程序激励广告。
+ * Skips mini program rewarded ads.
  *
- * 这类广告是用户主动点击的: 短暂加载后触发一次长震, 然后一个内嵌的精简版小程序/网页
- * (微信广告 SDK 里的 MB 奖励页) 从底部滑入覆盖原小程序, 看完倒计时后小程序才发奖励。
- * 8.0.76 群收集实际遇到的是「试玩 (playable)」奖励广告: 试玩包下载/注入/首帧由 MB
- * 运行时管理, WAService 侧的广告 SDK (WAAppAd.js / WAGameAd.js, 远程 commlib SDK 子包)
- * 能收到的唯一「广告已展示」信号是 onPlayableStatusChangeNew action=1
- * (PLAYABLE_FIRST_FRAME_READY)。
+ * These ads are user-initiated: the mini program / mini game calls RewardedVideoAd.show(), the ad
+ * SDK (WAAppAd.js / WAGameAd.js, a remote commlib SDK subpackage) plays a video or hands off to
+ * the MB runtime for a playable ad, and only after it finishes does it emit
+ * close({isEnded:true}), which makes the mini program grant the reward.
  *
- * 注入链路 (反编译确认, Java 侧稳定):
- *   loadLibFiles -> f.j() -> iCommLibReader.a()/H0() -> e3.h(script) -> V8 执行
- * 本实现:
- * 1. 拦截 H0() (FD 直读, 无法改文本), 强制 loadLibFiles 走字符串路径 e3.h;
- * 2. 在 e3.h 拿到即将执行的 SDK 文本, 打补丁: 首帧就绪信号后 1 秒执行 SDK 自己的
- *    完整关闭链路 (置 isRewarded -> JX/mZ 全量关闭: 移除试玩视图 + 容器收起 +
- *    emit close({isEnded:true}) -> 小程序发奖 -> q.destroy() 通知 MB 运行时关广告页);
- * 3. 完整链路日志: e3.h 注入点 + webapi_getadvert 请求 + bridge 事件。
+ * Injection chain (confirmed by decompilation, stable on the Java side):
+ *   loadLibFiles -> f.j() -> iCommLibReader.a()/H0() -> e3.h(script) -> V8 evaluation
+ * This implementation:
+ * 1. Intercepts H0() (direct FD read, whose text can't be patched) so loadLibFiles falls back to
+ *    the string path e3.h;
+ * 2. In e3.h, patches the SDK text about to be evaluated at the start of show()'s implementation:
+ *    once ad data is loaded (or after awaiting load()), the ad is never shown. show() resolves
+ *    first, then isRewarded is set and the SDK's own full reset runs (the same one MB's
+ *    resetStatus callback uses): emit close({isEnded:true}) -> reward granted, the SSV listener
+ *    sends VerifyAdRewardEligibility, and the next ad is prefetched;
+ * 3. Logs the whole chain: e3.h injection + webapi_getadvert requests + bridge events.
  *
- * 符号提取策略 (重要): SDK 是混淆 webpack bundle, 内部函数/变量名 (v$/JX/GY/mZ 等)
- * 在不同微信版本/基础库版本会变, 硬编码锚点会静默失效。因此补丁不引用任何写死的
- * 混淆名, 而是在拿到 SDK 文本后, 用「不混淆的字符串字面量 + 结构正则」运行时提取:
- *   - "PLAYABLE_FIRST_FRAME_READY" -> 首帧事件变量名;
- *   - 函数签名 function(e,t=!1) + 体内 isRewarded=!0/countDown -> 置奖励函数;
- *   - async function(e=0) + 体内 lastAdIsEnded -> 关闭链路函数;
- *   - VerifyAdRewardEligibility 请求上下文 -> 发请求助手 (marker 用, 可缺失);
- *   - .mb=new / .mbId -> MB 通道实例字段存在性。
- * 任一核心结构缺失时明确打 WeLogger.w 报告, 不注入半成品补丁。
+ * Symbol extraction (important): the SDK is an obfuscated webpack bundle, so internal
+ * function/variable names (hK/KX/uX, ...) change across WeChat / base library versions and
+ * hard-coded anchors would silently break. The patch therefore never references a fixed
+ * obfuscated name; it extracts them at runtime from the SDK text using non-obfuscated property
+ * names / strings plus structural regexes:
+ *   - show(e={}){return X.call(this,e)} -> show implementation;
+ *   - resetStatus:()=>X.call(this,<enum>.MB_RESET) -> full reset function;
+ *   - load(){if(X.call(this))...var e=Y(this);if(e.isShowed) -> destroyed check + state getter;
+ *   - X=async function(e,t={}){var a=Y(this); -> injection site + state variable name;
+ *   - isSkitAd + "ad_video_has_finished_report" -> short drama completion report (optional).
+ * If any core structure is missing, it's reported via WeLogger.w and no partial patch is applied.
  */
 object SkipRewardedAds : SwitchFeature(), IResolveDex {
 
@@ -54,12 +57,11 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
 
     private const val TAG = "SkipRewardedAds"
     private const val SESSION_WINDOW_MS = 30_000L
-    private const val SKIP_DELAY_MS = 200
     private const val DUMP_SDK_FILES = false
 
     private val AD_EVENT_MARKERS = listOf("ad", "video", "reward", "close", "ended", "endpage")
 
-    /** 广告 SDK 文件 (commlib SDK 子包), 命中即尝试打补丁。 */
+    /** Ad SDK files (commlib SDK subpackages); a match is a patch candidate. */
     private val SDK_CANDIDATES = listOf(
         "WAAppAd.js",
         "WAGameAd.js",
@@ -71,12 +73,10 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
         "WASdkAd.js",
     )
 
-    /** 混淆标识符 (webpack 局部变量/函数名, 可能含 $)。 */
+    /** Obfuscated identifier (webpack local variable/function name, may contain $). */
     private const val ID = "[A-Za-z_$][A-Za-z0-9_$]*"
 
-    // 广告数据请求日志: 打印 webapi_getadvert 的请求内容 (主进程)。
-    // 能看到奖励广告数据放行、发奖关键请求 VerifyAdRewardEligibility。
-    // 真正的 SDK 注入点: loadLibFiles 读到的脚本文本在这里被编译/求值。
+    // The real SDK injection site: the script text read by loadLibFiles is compiled/evaluated here.
     // e3.h(f9, jsruntime.t, path, name, version, ctxId, script, i3, b3)
     private val methodInjectLibScript by dexMethod {
         searchPackages("com.tencent.mm.plugin.appbrand.utils")
@@ -85,8 +85,9 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
         }
     }
 
-    // 远程 commlib reader 的 H0: 返回 AssetFileDescriptor 给 V8 直读, 文本补丁无效。
-    // 置 null 后 loadLibFiles 回退到 iCommLibReader.a() -> e3.h 字符串路径。
+    // H0 of the remote commlib reader: returns an AssetFileDescriptor for V8 to read directly,
+    // which bypasses text patching. Returning null makes loadLibFiles fall back to
+    // iCommLibReader.a() -> the e3.h string path.
     private val methodPkgReaderH0 by dexMethod(allowFailure = true) {
         searchPackages("com.tencent.mm.plugin.appbrand.appcache")
         matcher {
@@ -98,7 +99,7 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
         }
     }
 
-    // 本地 assets reader 同样处理 (老版本基础库)。
+    // Same for the local assets reader (older base libraries).
     private val methodAssetReaderH0 by dexMethod(allowFailure = true) {
         searchPackages("com.tencent.mm.plugin.appbrand.appcache")
         matcher {
@@ -110,16 +111,17 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
         }
     }
 
-    /** 已 dump 过的 SDK 文件名 (每个进程一次)。 */
+    /** SDK file names already dumped (once per process). */
     private val dumpedNames = ConcurrentHashMap.newKeySet<String>()
 
-    /** 命中广告相关事件后, 接下来 30 秒内的所有 bridge 事件都会被打日志。 */
+    /** After an ad-related event, every bridge event in the next 30 seconds is logged. */
     private val adEventSessionUntil = AtomicLong(0)
 
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 
     override fun onEnable() {
-        // 1) webapi_getadvert 请求日志 (主进程): 奖励请求放行 + 发奖校验。
+        // 1) webapi_getadvert request log (main process): ad data fetches and reward
+        //    verification (VerifyAdRewardEligibility).
         RemoveEmbeddedAds.ctorNetSceneJSOperateWxData.hookBefore {
             val dataIndex = args.indexOfFirst { arg ->
                 arg is String && runCatching {
@@ -133,7 +135,7 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
             WeLogger.i(TAG, "webapi_getadvert data=${data?.take(800)}")
         }
 
-        // 2) 强制字符串注入路径: 广告 SDK 文件不允许 FD 直读。
+        // 2) Force the string injection path: ad SDK files must not be read via FD.
         listOf(methodPkgReaderH0, methodAssetReaderH0)
             .filter { it.isFound }
             .forEach { method ->
@@ -146,13 +148,14 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
                 }
             }
 
-        // 3) 真正的补丁点: e3.h 里的 script 就是即将被编译执行的 SDK 文本。
+        // 3) The actual patch point: the script passed to e3.h is the SDK text about to be
+        //    compiled and evaluated.
         methodInjectLibScript.hookBefore {
             val path = args.getOrNull(2) as? String ?: return@hookBefore
             if (!isSdkCandidate(path)) return@hookBefore
             val script = args.getOrNull(6) as? String ?: return@hookBefore
             dumpSdkFile(path, script)
-            val patched = patchMbSdk(path, script)
+            val patched = patchAdSdk(path, script)
             if (patched != script) {
                 args[6] = patched
                 WeLogger.i(
@@ -163,7 +166,8 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
             }
         }
 
-        // 4) bridge 事件日志: mbAd_* 全家 + 广告会话窗口, 观察完整 MB 流程。
+        // 4) Bridge event log: all mbAd_* events plus an ad session window, to observe the full
+        //    ad flow.
         val bindingClass = "com.tencent.mm.appbrand.commonjni.AppBrandJsBridgeBinding".toClass()
         bindingClass.reflekt().firstMethod { name = "subscribeHandler" }.hookBefore {
             val type = args.getOrNull(0) as? String ?: return@hookBefore
@@ -199,97 +203,89 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
     }
 
     /**
-     * 动态补丁: 只用稳定字符串/结构定位, 不写死混淆符号名。
+     * Dynamic patch: located only via stable property names / structure, never via hard-coded
+     * obfuscated names.
      *
-     * 注入点在 SDK 的「试玩首帧就绪」处理分支
-     * (t.emitter.emit(<FIRST_FRAME_READY 变量>);break;), 1 秒后执行:
-     *   <置奖励函数>.call(this,0,!0)          -> isRewarded=true, KX/uZ 发 close 才带 isEnded;
-     *   Promise.resolve(<关闭链路函数>.call(this)) -> 移除试玩视图 + 容器收起 +
-     *                                          emit close({isEnded:true}) -> 小程序发奖;
-     *   q.destroy()                            -> 通知 MB 运行时关闭广告页。
-     * 任一核心结构提取失败 -> WeLogger.w 明确报告, 返回原文不注入。
+     * Injected at the start of show()'s implementation (right after `var <state>=<getter>(this);`).
+     * When ad data is ready:
+     *   return, so show() resolves first (the mini program's show().then runs before close);
+     *   after setTimeout 0, set isRewarded (and isFallbackShareSuccess for the share-page
+     *   fallback), send the short drama completion report if available, then
+     *   <reset>.call(this) -> emit close({isEnded:true}) + reward verification + next ad fetch.
+     * Data not ready / already showing / instance destroyed -> fall through to the original logic
+     * (which rejects or proceeds normally); a concurrent show() during a skip is rejected.
+     * If any core structure can't be extracted -> WeLogger.w and the original text is returned.
      */
-    private fun patchMbSdk(path: String, content: String): String {
-        val ox = Regex("""($ID)="PLAYABLE_FIRST_FRAME_READY"""")
+    private fun patchAdSdk(path: String, content: String): String {
+        val show = Regex("""show\(e=\{\}\)\{return ($ID)\.call\(this,e\)\}""")
             .find(content)?.groupValues?.get(1)
-        if (ox == null) {
-            return unsupported(path, content, "PLAYABLE_FIRST_FRAME_READY 常量")
+            ?: return unsupported(path, content, "show implementation (show(e={}){return X.call(this,e)})")
+
+        val reset = Regex("""resetStatus:\(\)=>($ID)\.call\(this,$ID\.MB_RESET\)""")
+            .find(content)?.groupValues?.get(1)
+            ?: return unsupported(path, content, "full reset function (resetStatus:()=>X.call(this,<enum>.MB_RESET))")
+
+        val load = Regex(
+            """load\(\)\{if\(($ID)\.call\(this\)\)return Promise\.reject\(\{errMsg:$ID\}\);""" +
+                """var e=($ID)\(this\);if\(e\.isShowed\)"""
+        ).find(content) ?: return unsupported(path, content, "destroyed check + state getter in load()")
+        val destroyed = load.groupValues[1]
+        val getter = load.groupValues[2]
+
+        val siteRegex = Regex(
+            Regex.escape(show) + """=async function\($ID,$ID=\{\}\)\{var ($ID)=""" +
+                Regex.escape(getter) + """\(this\);"""
+        )
+        val sites = siteRegex.findAll(content).toList()
+        if (sites.size != 1) {
+            return unsupported(path, content, "show implementation site $show=async function(...) (${sites.size} matches)")
         }
-
-        val reward = findRewardSetter(content) ?: return unsupported(path, content, "置奖励函数 (function(e,t=!1)+isRewarded=!0+countDown)")
-
-        val close = findCloseFlow(content) ?: return unsupported(path, content, "关闭链路函数 (async function(e=0)+lastAdIsEnded)")
-
-        if (!hasMbChannel(content)) {
-            return unsupported(path, content, "MB 通道实例字段 (.mb=new / .mbId)")
-        }
-
-        val req = findRequestHelper(content)
-        val skip = buildSkip(reward, close, req)
-        val siteRegex = Regex("""emitter\.emit\(""" + Regex.escape(ox) + """\);break;""")
-        val sites = siteRegex.findAll(content).count()
-        if (sites == 0) {
-            return unsupported(path, content, "首帧注入点 emitter.emit($ox);break;")
-        }
+        val site = sites.single()
+        val state = site.groupValues[1]
+        val skitReport = findSkitRewardReporter(content, destroyed, getter)
 
         WeLogger.i(
             TAG,
-            "sdk patch symbols path=$path ox=$ox reward=$reward close=$close " +
-                "req=${req ?: "N/A"} sites=$sites"
+            "sdk patch symbols path=$path show=$show reset=$reset destroyed=$destroyed " +
+                "getter=$getter state=$state skitReport=${skitReport ?: "N/A"}"
         )
-        return siteRegex.replace(content) { it.value.replace(";break;", ",$skip;break;") }
+        return content.replaceRange(
+            site.range.last + 1,
+            site.range.last + 1,
+            buildSkip(state, destroyed, reset, skitReport),
+        )
+    }
+
+    /**
+     * Short drama ad completion report (ad_video_has_finished_report, unlocks episodes); may be
+     * absent from SDKs without short drama support.
+     */
+    private fun findSkitRewardReporter(content: String, destroyed: String, getter: String): String? {
+        val re = Regex(
+            """($ID)=function\(e=!0\)\{if\(!""" + Regex.escape(destroyed) + """\.call\(this\)\)\{var t=""" +
+                Regex.escape(getter) + """\(this\);if\(t\.isSkitAd&&!t\.isHostingSkitAd\)"""
+        )
+        return re.findAll(content).firstOrNull { m ->
+            val frag = content.substring(m.range.last, minOf(m.range.last + 800, content.length))
+            frag.contains("ad_video_has_finished_report")
+        }?.groupValues?.get(1)
     }
 
     private fun unsupported(path: String, content: String, missing: String): String {
-        WeLogger.w(TAG, "skip patch NOT applied path=$path missing=$missing (SDK 结构可能已改版)")
+        WeLogger.w(TAG, "skip patch NOT applied path=$path missing=$missing (SDK structure may have changed)")
         return content
     }
 
-    /** 置奖励函数: 倒计时结束显示函数, 特征签名 + 体内置 isRewarded + 操作 countDown UI。 */
-    private fun findRewardSetter(content: String): String? {
-        val re = Regex("""($ID)=function\(e,t=!1\)\{var a=$ID\(this\)""")
-        return re.findAll(content).firstOrNull { m ->
-            val frag = content.substring(m.range.last, minOf(m.range.last + 400, content.length))
-            frag.contains("isRewarded=!0") && frag.contains("countDown")
-        }?.groupValues?.get(1)
-    }
-
-    /** 关闭链路函数: RewardedVideoAd 全量关闭, 特征 async 签名 + 体内 lastAdIsEnded。 */
-    private fun findCloseFlow(content: String): String? {
-        val re = Regex("""($ID)=async function\(e=0\)\{if\($ID\.call\(this\)\)throw""")
-        return re.findAll(content).firstOrNull { m ->
-            val frag = content.substring(m.range.last, minOf(m.range.last + 6000, content.length))
-            frag.contains("lastAdIsEnded")
-        }?.groupValues?.get(1)
-    }
-
-    /** 发请求助手 (marker 用): VerifyAdRewardEligibility 请求上下文里的调用名。 */
-    private fun findRequestHelper(content: String): String? {
-        val re = Regex(
-            """await ($ID)\(\{apiName:"webapi_getadvert",reqData:\{action:"weapp_comm",""" +
-                """request_data:JSON\.stringify\(\{rpc_method:"VerifyAdRewardEligibility""""
-        )
-        return re.find(content)?.groupValues?.get(1)
-    }
-
-    /** MB 通道实例字段存在性校验 (t.mb / q.mbId), 属性名若改版会在这里暴露。 */
-    private fun hasMbChannel(content: String): Boolean {
-        return Regex("""\.mb=new $ID\(""").containsMatchIn(content) &&
-            Regex("""\.mbId""").containsMatchIn(content)
-    }
-
-    private fun buildSkip(reward: String, close: String, req: String?): String {
-        val marker = if (req != null) {
-            "$req({apiName:\"webapi_getadvert\",reqData:{action:\"weapp_comm\"," +
-                "request_data:JSON.stringify({rpc_method:\"WEKIT_PLAYABLE_CLOSE\",traceid:id})}});"
-        } else {
-            ""
-        }
-        return "setTimeout((()=>{try{var w=globalThis;w.__wekitPlayable=w.__wekitPlayable||{};" +
-            "var id=t.adProxy?.data?.traceid;" +
-            "if(!w.__wekitPlayable[id]){w.__wekitPlayable[id]=1;$marker" +
-            "var q=t.mb;if(q&&q.mbId){t.isEnded=!0," +
-            "$reward.call(this,0,!0),Promise.resolve($close.call(this)).catch(function(){})," +
-            "q.destroy().catch(function(){})}}}catch(_){}}),$SKIP_DELAY_MS)"
+    private fun buildSkip(s: String, destroyed: String, reset: String, skitReport: String?): String {
+        val ready = "!$destroyed.call(this)&&!$s.isShowed"
+        // A show() arriving while a skip is in flight must not reach the original logic (it would
+        // display the ad); reject it the way the SDK rejects show() while another ad is showing.
+        val busy = "if($s.__wekitSkip)return Promise.reject({errMsg:\"can't invoke show() while other video-ad is showed\"});"
+        val report = if (skitReport != null) "$skitReport.call(this,!0);" else ""
+        return "if($ready){${busy}if(!$s.isData&&$s.adFetchResult)try{await $s.adFetchResult}catch{}" +
+            "${busy}if($ready&&$s.isData){$s.__wekitSkip=!0;setTimeout(()=>{" +
+            "$s.isRewarded=!0;$s.isFallbackShareSuccess=!0;" +
+            "Promise.resolve().then(()=>{${report}return $reset.call(this)}).catch(()=>{})" +
+            ".then(()=>{$s.__wekitSkip=!1})},0);return}}"
     }
 }
