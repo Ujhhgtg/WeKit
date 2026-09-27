@@ -250,8 +250,6 @@
     <string name="logs_collapse">摺疊</string>
     <string name="logs_expand">展開</string>
     <string name="settings_section_debug">調試</string>
-    <string name="settings_verbose_log_title">詳細日誌</string>
-    <string name="settings_verbose_log_summary">輸出高頻日誌（這可能會暴露你的隱私信息）</string>
     <string name="settings_startup_toast_title">顯示加載完成 Toast</string>
     <string name="settings_startup_toast_summary">全部功能加載完成後顯示 Toast 提示</string>
     <string name="settings_generic_wxid_title">清理消息內容微信 ID 前綴時允許非標準 ID</string>
@@ -674,6 +672,8 @@
     <string name="feature_copy_we_chat_debug_info_description">在報告模塊問題時, 請附上本功能的結果</string>
     <string name="feature_crash_interceptor_name">崩潰攔截</string>
     <string name="feature_crash_interceptor_description">攔截 Java 層崩潰並記錄詳細信息, 支持查看和導出日誌</string>
+    <string name="feature_log_database_credentials_name">記錄數據庫憑據</string>
+    <string name="feature_log_database_credentials_description">記錄微信打開的每個數據庫的名稱、密碼和加密參數（這會暴露你的數據庫密鑰）</string>
     <string name="feature_experiments_name">測試</string>
     <string name="feature_experiments_description">手動對指定 wxId 依次執行 beforetransfer 和 transferplaceorder 兩個階段的發包請求，並顯示原始返回值</string>
     <string name="feature_launch_internal_urls_name">啓動微信內部 URL</string>

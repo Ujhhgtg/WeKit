@@ -281,8 +281,6 @@
     <string name="logs_collapse">Collapse</string>
     <string name="logs_expand">Expand</string>
     <string name="settings_section_debug">Debug</string>
-    <string name="settings_verbose_log_title">Verbose logging</string>
-    <string name="settings_verbose_log_summary">Output high-frequency logs (this may expose private information)</string>
     <string name="settings_startup_toast_title">Show startup completion toast</string>
     <string name="settings_startup_toast_summary">Show a toast after all features finish loading</string>
     <string name="settings_generic_wxid_title">Allow nonstandard IDs when removing WeChat ID prefixes from messages</string>
@@ -712,6 +710,8 @@
     <string name="feature_copy_we_chat_debug_info_description">When reporting a module problem, please include the results of this function</string>
     <string name="feature_crash_interceptor_name">Java crash interceptor</string>
     <string name="feature_crash_interceptor_description">Intercept Java layer crashes and record detailed information, support viewing and exporting logs</string>
+    <string name="feature_log_database_credentials_name">Log database credentials</string>
+    <string name="feature_log_database_credentials_description">Log the name, password and cipher parameters of every database WeChat opens (this exposes your database keys)</string>
     <string name="feature_experiments_name">Experiments</string>
     <string name="feature_experiments_description">Manually execute the two-stage packet sending request of beforetransfer and transferplaceorder for the specified wxId in sequence, and display the original return value</string>
     <string name="feature_launch_internal_urls_name">Open internal WeChat URLs</string>

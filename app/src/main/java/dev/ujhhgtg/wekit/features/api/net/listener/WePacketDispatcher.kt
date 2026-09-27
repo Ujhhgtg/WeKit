@@ -6,11 +6,9 @@ import androidx.core.os.postDelayed
 import com.tencent.kinda.framework.module.impl.WXPCommReqResp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
-import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -57,7 +55,7 @@ object WePacketDispatcher : ApiFeature(), IResolveDex {
                     val v0Ref = v0Var.reflekt()
                     val uri = v0Ref.invokeMethod("getUri", superclass = true) as? String? ?: "null"
                     val cgiId = v0Ref.invokeMethod("getType", superclass = true) as Int
-                    if (!Preferences.verboseLog && !WePacketManager.hasInterceptors()) return@hookBefore
+                    if (!WePacketManager.hasInterceptors()) return@hookBefore
 
                     try {
                         val reqWrapper = v0Ref.invokeMethod("getReqObj", superclass = true)!!
@@ -65,16 +63,9 @@ object WePacketDispatcher : ApiFeature(), IResolveDex {
                         val reqBytes = try {
                             reqPbObj.reflekt().firstMethodOrNull { name = "toByteArray"; superclass() }
                                 ?.invoke() as? ByteArray
-                        } catch (e: NullPointerException) {
+                        } catch (_: NullPointerException) {
                             // Some WeChat protobufs carry nullable nested fields; if serialization
                             // blows up here, skip tamper and let the original request continue.
-                            if (Preferences.verboseLog) {
-                                WeLogger.w(
-                                    TAG,
-                                    "skip request tamper because toByteArray failed: ${reqPbObj.javaClass.name}",
-                                    e
-                                )
-                            }
                             null
                         } ?: return@hookBefore
 

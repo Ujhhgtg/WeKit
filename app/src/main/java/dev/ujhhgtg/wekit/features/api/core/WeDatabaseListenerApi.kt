@@ -6,7 +6,6 @@ import com.tencent.wcdb.database.SQLiteDatabase
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.constants.WeChatVersions
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -76,29 +75,6 @@ object WeDatabaseListenerApi : ApiFeature() {
         queryListeners.clear()
     }
 
-    // ==================== 私有辅助方法 ====================
-
-    private fun formatArgs(args: Array<out Any?>): String {
-        return args.mapIndexed { index, arg ->
-            "arg[$index](${arg?.javaClass?.simpleName ?: "null"})=$arg"
-        }.joinToString(", ")
-    }
-
-    private fun logWithStack(
-        methodName: String,
-        table: String,
-        args: Array<out Any?>,
-        result: Any? = null
-    ) {
-        if (!Preferences.verboseLog) return
-
-        val argsInfo = formatArgs(args)
-        val resultStr = if (result != null) ", result=$result" else ""
-        val stackStr = ", stack=${WeLogger.currentStackTrace}"
-
-        WeLogger.logChunkedD(TAG, "[$methodName] table=$table$resultStr, args=[$argsInfo]$stackStr")
-    }
-
     // ==================== Insert Hook ====================
 
     private fun hookDatabaseInsert() {
@@ -113,7 +89,6 @@ object WeDatabaseListenerApi : ApiFeature() {
                     val table = args[0] as String
                     val values = args[2] as ContentValues
 
-                    logWithStack("Insert", table, args, result)
                     insertListeners.forEach { it.onInsert(table, values) }
                 } catch (e: Throwable) {
                     WeLogger.e(TAG, "Insert dispatch failed", e)
@@ -150,8 +125,6 @@ object WeDatabaseListenerApi : ApiFeature() {
                         val whereArgs = args[3] as Array<String>?
                         val conflictAlgorithm = args[4] as Int
 
-                        logWithStack("Update", table, args)
-
                         updateListeners.forEach { it.onUpdate(table, values, whereClause, whereArgs, conflictAlgorithm) }
                     } catch (e: Throwable) {
                         WeLogger.e(TAG, "update dispatch failed", e)
@@ -187,19 +160,12 @@ object WeDatabaseListenerApi : ApiFeature() {
                     val sql = args[0] as? String ?: return@hookBefore
                     var currentSql = sql
 
-                    logWithStack("rawQuery", "N/A", args)
-
                     queryListeners.forEach { listener ->
                         listener.onQuery(currentSql)?.let { currentSql = it }
                     }
 
                     if (currentSql != sql) {
                         args[0] = currentSql
-                        if (Preferences.verboseLog)
-                            WeLogger.d(
-                                TAG,
-                                "[rawQuery] SQL modified: $sql -> $currentSql, stack=${WeLogger.currentStackTrace}"
-                            )
                     }
                 } catch (e: Throwable) {
                     WeLogger.e(TAG, "New version query dispatch failed", e)
@@ -218,23 +184,12 @@ object WeDatabaseListenerApi : ApiFeature() {
                 val sql = args[1] as? String ?: return@hookBefore
                 var currentSql = sql
 
-                logWithStack(
-                    "rawQueryWithFactory",
-                    args[3] as? String ?: "N/A",
-                    args
-                )
-
                 queryListeners.forEach { listener ->
                     listener.onQuery(currentSql)?.let { currentSql = it }
                 }
 
                 if (currentSql != sql) {
                     args[1] = currentSql
-                    if (Preferences.verboseLog)
-                        WeLogger.d(
-                            TAG,
-                            "[rawQueryWithFactory] SQL modified: $sql -> $currentSql, stack=${WeLogger.currentStackTrace}"
-                        )
                 }
             } catch (e: Throwable) {
                 WeLogger.e(TAG, "Old version query dispatch failed", e)

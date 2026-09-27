@@ -4,7 +4,6 @@ import dev.ujhhgtg.wekit.data.KvStore.prefOption
 
 object Preferences {
 
-    const val VERBOSE_LOG = "verbose_log"
     const val SHOW_STARTUP_TOAST = "toast_startup"
     const val MATCH_GENERIC_WXID_EXP = "match_generic_wxid"
     const val UI_LANGUAGE = "ui_language"
@@ -22,7 +21,6 @@ object Preferences {
     // Python entry-script editor
     const val PYTHON_EDITOR_SOFT_WRAP = "python_editor_soft_wrap"
 
-    var verboseLog by prefOption(VERBOSE_LOG, false)
     var showStartupToast by prefOption(SHOW_STARTUP_TOAST, false)
     var matchGenericWxIdExp by prefOption(MATCH_GENERIC_WXID_EXP, true)
 

@@ -74,7 +74,6 @@ import com.composables.icons.materialsymbols.outlined.Contrast
 import com.composables.icons.materialsymbols.outlined.Delete_forever
 import com.composables.icons.materialsymbols.outlined.Download
 import com.composables.icons.materialsymbols.outlined.Extension
-import com.composables.icons.materialsymbols.outlined.Frame_bug
 import com.composables.icons.materialsymbols.outlined.Label
 import com.composables.icons.materialsymbols.outlined.Language
 import com.composables.icons.materialsymbols.outlined.License
@@ -176,14 +175,6 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
         item {
             SegmentedColumn(title = stringResource(R.string.settings_section_debug)) {
                 item { SecuritySwitch(context) }
-                item {
-                    PrefSwitch(
-                        key = Preferences.VERBOSE_LOG,
-                        title = stringResource(R.string.settings_verbose_log_title),
-                        summary = stringResource(R.string.settings_verbose_log_summary),
-                        icon = MaterialSymbols.Outlined.Frame_bug,
-                    )
-                }
                 item {
                     PrefSwitch(
                         key = Preferences.SHOW_STARTUP_TOAST,

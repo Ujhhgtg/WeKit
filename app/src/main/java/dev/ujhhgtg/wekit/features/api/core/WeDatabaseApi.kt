@@ -2,12 +2,9 @@ package dev.ujhhgtg.wekit.features.api.core
 
 import android.annotation.SuppressLint
 import android.database.Cursor
-import com.tencent.wcdb.DatabaseErrorHandler
-import com.tencent.wcdb.database.SQLiteCipherSpec
 import com.tencent.wcdb.database.SQLiteDatabase
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -24,10 +21,7 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ChatRoomDataProto
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.reflection.BString
-import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 import java.lang.reflect.Modifier
@@ -332,23 +326,6 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
 
             val storageObj = result ?: return@hookAfter
             initializeDatabase(storageObj)
-        }
-
-        if (Preferences.verboseLog) {
-            SQLiteDatabase::class.reflekt().firstMethod {
-                name = "openDatabase"
-                parameters(BString, ByteArray::class, SQLiteCipherSpec::class, SQLiteDatabase.CursorFactory::class, int, DatabaseErrorHandler::class, int)
-            }.hookBefore {
-                val cipherSpec = args[2] as SQLiteCipherSpec?
-                WeLogger.d(
-                    TAG,
-                    "openDatabase() called with: name=${args[0] as String?}, password=${String(args[1] as? ByteArray? ?: return@hookBefore)}, cipherSpec=${
-                        cipherSpec.run {
-                            "${this?.hmacAlgorithm},${this?.hmacEnabled},${this?.kdfAlgorithm},${this?.kdfIteration},${this?.pageSize}"
-                        }
-                    }"
-                )
-            }
         }
     }
 
