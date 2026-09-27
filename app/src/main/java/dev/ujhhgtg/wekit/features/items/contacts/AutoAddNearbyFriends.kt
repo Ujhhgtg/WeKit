@@ -35,7 +35,7 @@ object AutoAddNearbyFriends : ClickableFeature(), IResolveDex {
     }
 
     override fun onEnable() {
-        if (methodCreateMenu.isPlaceholder || methodMenuOnClick.isPlaceholder) return
+        if (!methodCreateMenu.isFound || !methodMenuOnClick.isFound) return
 
         methodCreateMenu.hookBefore {
             args[0]!!.reflekt().firstMethod {

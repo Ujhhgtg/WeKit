@@ -43,7 +43,7 @@ fun HideContacts.installSearchHooks() {
  * (8.0.76 `j23/v.java:22` + `j23/y.java:42`, 8.0.69 `ov2/v.java:22` + `ov2/y.java:42`).
  */
 private fun HideContacts.installChatroomMemberSearchHook() {
-    if (methodFtsSearchChatroomMemberTask.isPlaceholder) {
+    if (!methodFtsSearchChatroomMemberTask.isFound) {
         WeLogger.w(TAG, "SearchChatroomMemberTask wasn't resolved; 群成员搜索 stays unfiltered")
         return
     }
@@ -76,7 +76,7 @@ private fun HideContacts.installChatroomMemberSearchHook() {
  * rather than a nested list.
  */
 private fun HideContacts.installCommonChatroomUserSearchHook() {
-    if (methodFtsSearchCommonChatroomUserTask.isPlaceholder) {
+    if (!methodFtsSearchCommonChatroomUserTask.isFound) {
         WeLogger.w(TAG, "SearchCommonChatroomUserTask wasn't resolved; 共同群聊好友建议 stays unfiltered")
         return
     }

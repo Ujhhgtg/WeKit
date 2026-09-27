@@ -69,12 +69,12 @@ object RemoveCommentAds : SwitchFeature(), IResolveDex {
     }
 
     override fun onEnable() {
-        if (!methodBindAdComment.isPlaceholder) {
+        if (methodBindAdComment.isFound) {
             methodBindAdComment.hookAfter {
                 hideItem(args.getOrNull(0))
             }
         }
-        if (!methodBindOldComment.isPlaceholder) {
+        if (methodBindOldComment.isFound) {
             methodBindOldComment.hookAfter {
                 val itemView = holderItemView(args.getOrNull(0))
                 if (itemView == null) {

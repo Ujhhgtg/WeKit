@@ -123,7 +123,7 @@ import java.io.File
         AutomationScopeListValueEntity::class,
         AutomationScopePresetEntity::class,
     ],
-    version = 26,
+    version = WeKitDatabase.SCHEMA_VERSION,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 9, to = 10), // adds external_services table
@@ -159,7 +159,7 @@ abstract class WeKitDatabase : RoomDatabase() {
 
     companion object {
         const val FILE_NAME = "wekit.db"
-        const val SCHEMA_VERSION = 25
+        const val SCHEMA_VERSION = 27
 
         val file: File
             get() = KnownPaths.moduleRoot.resolve(FILE_NAME).toFile()
@@ -348,6 +348,18 @@ abstract class WeKitDatabase : RoomDatabase() {
             }
         }
 
+        // 26 → 27: expected Dex failures are stored as NULL descriptors instead of placeholder
+        // descriptors. Old caches hold placeholders that would restore as real members, so drop them.
+        val MIGRATION_26_27 = object : Migration(26, 27) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DELETE FROM `dex_cache_entries`")
+                db.execSQL("DELETE FROM `dex_cache_failures`")
+                db.execSQL("DROP TABLE `dex_cache_descriptors`")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `dex_cache_descriptors` (`hostVersion` TEXT NOT NULL, `technicalId` TEXT NOT NULL, `descriptorKey` TEXT NOT NULL, `descriptorValue` TEXT, PRIMARY KEY(`hostVersion`, `technicalId`, `descriptorKey`))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_dex_cache_descriptors_hostVersion_technicalId` ON `dex_cache_descriptors` (`hostVersion`, `technicalId`)")
+            }
+        }
+
         val migration17To18Sql = listOf(
             "CREATE TABLE IF NOT EXISTS `preference_entries` (`namespace` TEXT NOT NULL, `key` TEXT NOT NULL, `valueType` TEXT NOT NULL, `valueText` TEXT, `valueLong` INTEGER, `valueDouble` REAL, `valueBlob` BLOB, `encodingVersion` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `exportable` INTEGER NOT NULL, PRIMARY KEY(`namespace`, `key`))",
             "CREATE INDEX IF NOT EXISTS `index_preference_entries_namespace` ON `preference_entries` (`namespace`)",
@@ -382,7 +394,7 @@ abstract class WeKitDatabase : RoomDatabase() {
             file.toString()
         )
             .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26)
+            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27)
             // Destructive fallback is scoped to the pre-release schemas (1–8) only, which no
             // migration path was ever written for. From 9 onwards every step must have a
             // migration: a missing one then fails loudly at open time instead of silently

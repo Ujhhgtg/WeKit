@@ -40,7 +40,7 @@ object DexResolutionContext {
         val owner = delegate.owner as IResolveDex
         val session = current.get() ?: error("Dex resolution context is not active")
         if (session.coordinator.isOwnedByCurrentThread(delegate.owner)) {
-            check(delegate.getDescriptorString() != null) {
+            check(delegate.state != DexResolutionState.Pending) {
                 "Unresolved recursive Dex dependency: " +
                     (session.stack.map { it.technicalPath } + "${delegate.owner.technicalPath}#${delegate.key}")
                         .joinToString(" -> ")
@@ -76,7 +76,7 @@ object DexResolutionContext {
         val feature = item as BaseFeature
         session.coordinator.resolve(
             feature,
-            canReuse = { item.dexDelegates.all { it.getDescriptorString() != null } },
+            canReuse = { item.dexDelegates.all(BaseDexDelegate::isSettled) },
         ) {
             session.stack += feature
             try {
@@ -84,13 +84,12 @@ object DexResolutionContext {
                 feature.resolveInlineDex(session.dexKit)
                 item.resolveDex(session.dexKit)
                 item.dexDelegates.forEach(BaseDexDelegate::markIncomplete)
-                check(item.dexDelegates.all {
-                    it.diagnostic.status == DexResolutionStatus.SUCCESS ||
-                        it.diagnostic.status == DexResolutionStatus.EXPECTED_FAILURE
-                }) { "Incomplete or failed Dex resolution: ${feature.technicalPath}" }
+                check(item.dexDelegates.all(BaseDexDelegate::isSettled)) {
+                    "Incomplete or failed Dex resolution: ${feature.technicalPath}"
+                }
             } catch (error: Throwable) {
                 val causeKey = item.dexDelegates.firstOrNull {
-                    it.diagnostic.status == DexResolutionStatus.UNEXPECTED_FAILURE
+                    it.state is DexResolutionState.UnexpectedFailure
                 }?.key ?: "${feature.javaClass.name}#resolveDex"
                 item.dexDelegates.forEach { it.markBlocked(causeKey) }
                 throw error

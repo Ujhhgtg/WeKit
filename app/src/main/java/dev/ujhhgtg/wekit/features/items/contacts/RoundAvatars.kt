@@ -54,7 +54,7 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
             setFloatArg(2, radiusFactor)
         }
 
-        if (!methodAvatarModify.isPlaceholder) {
+        if (methodAvatarModify.isFound) {
             methodAvatarModify.hookBefore {
                 setFloatArg(3, radiusFactor)
             }
@@ -76,10 +76,7 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
 
         val modifyMethod = modifyMethods.singleOrNull()
         if (modifyMethod == null) {
-            methodAvatarModify.setPlaceholderDescriptor(
-                expectedFailure = true,
-                reason = "avatar modify method is absent in this host variant",
-            )
+            methodAvatarModify.markExpectedFailure()
         } else {
             methodAvatarModify.setDescriptor(modifyMethod)
         }

@@ -647,25 +647,13 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                         usingNumbers(0)
                     }
                 }
-                ctorNetSceneUploadMsgImg.setPlaceholderDescriptor(
-                    expectedFailure = true,
-                    reason = "new image feature service path is active",
-                )
+                ctorNetSceneUploadMsgImg.markExpectedFailure()
             }
 
             0 -> {
-                methodImgUploadFeatureServiceNewPathProbe.setPlaceholderDescriptor(
-                    expectedFailure = true,
-                    reason = "send_group_id image path is absent; using legacy NetSceneUploadMsgImg",
-                )
-                methodImgUploadFeatureServiceSendImage.setPlaceholderDescriptor(
-                    expectedFailure = true,
-                    reason = "legacy NetSceneUploadMsgImg path is active",
-                )
-                methodAppInfoSetAppId.setPlaceholderDescriptor(
-                    expectedFailure = true,
-                    reason = "legacy NetSceneUploadMsgImg path is active",
-                )
+                methodImgUploadFeatureServiceNewPathProbe.markExpectedFailure()
+                methodImgUploadFeatureServiceSendImage.markExpectedFailure()
+                methodAppInfoSetAppId.markExpectedFailure()
                 ctorNetSceneUploadMsgImg.find(dexKit) {
                     searchPackages("com.tencent.mm.modelimage")
                     matcher {
@@ -1407,7 +1395,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     fun sendVideo(toUser: String, videoPath: String): Boolean {
         return try {
             WeLogger.i(TAG, "sending video: $videoPath to $toUser")
-            if (classImportMultiVideo.isPlaceholder) return sendVideoViaFeatureService(toUser, videoPath)
+            if (!classImportMultiVideo.isFound) return sendVideoViaFeatureService(toUser, videoPath)
             val thread = classImportMultiVideo.clazz.createInstance(
                 HostInfo.application,
                 java.util.Collections.singletonList(videoPath),
@@ -1539,7 +1527,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     private val ctorNetSceneUploadMsgImg by dexConstructor()
 
     fun sendImageByMd5(toUser: String, md5: String, appMsgAppId: String? = null) {
-        if (!methodImgUploadFeatureServiceNewPathProbe.isPlaceholder) {
+        if (methodImgUploadFeatureServiceNewPathProbe.isFound) {
             val sendImageMethod = methodImgUploadFeatureServiceSendImage.method
             val paramsClass = sendImageMethod.parameterTypes[0]
             val crossParamsClass = paramsClass.reflekt()
@@ -1723,7 +1711,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                 }.invokeStatic()!!
 
             val runMethod = runCatching {
-                if (methodRunVoiceService.isPlaceholder) return@runCatching null
+                if (!methodRunVoiceService.isFound) return@runCatching null
                 methodRunVoiceService.method.makeAccessible()
             }.onFailure {
                 WeLogger.w(TAG, "failed to load SceneVoiceService.run, fallback to startRecvAndSend", it)
@@ -1767,7 +1755,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             // 直接在 IO 线程调用 startRecvAndSend 会因构造 Handler 时无 Looper
             // 抛出 "looper and serial is null!"，导致发送卡死转圈，必须重启微信。
             val runMethod = runCatching {
-                if (methodRunVoiceService.isPlaceholder) return@runCatching null
+                if (!methodRunVoiceService.isFound) return@runCatching null
                 methodRunVoiceService.method.makeAccessible()
             }.onFailure {
                 WeLogger.w(TAG, "failed to load SceneVoiceService.run, fallback to startRecvAndSend", it)

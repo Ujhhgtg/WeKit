@@ -32,7 +32,7 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
             methodIpCallCallBack,
             methodFlutterLinkVoipCallBack
         ).forEach {
-            if (it.isPlaceholder) return@forEach
+            if (!it.isFound) return@forEach
             it.hookBefore {
                 result = false
             }

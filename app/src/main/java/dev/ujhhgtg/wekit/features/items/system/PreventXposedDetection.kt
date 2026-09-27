@@ -28,7 +28,7 @@ object PreventXposedDetection : SwitchFeature(), IResolveDex {
         get() = if (HostInfo.isHostGooglePlay) listOf(R.string.feature_error_google_play_unsupported) else emptyList()
 
     override fun onEnable() {
-        if (methodCheckStackTraceElements.isPlaceholder) return
+        if (!methodCheckStackTraceElements.isFound) return
 
         methodCheckStackTraceElements.hookBefore {
             result = false

@@ -18,7 +18,8 @@ data class CurrentDexItem(
 data class CloudDexCacheEntry(
     val technicalId: String,
     val methodHash: String,
-    val descriptors: Map<String, String>,
+    /** A `null` value is an expected failure. */
+    val descriptors: Map<String, String?>,
 )
 
 data class CloudDexSelection(
@@ -57,14 +58,14 @@ object CloudDexReport {
             val delegatesByKey = feature.delegates.groupBy(Delegate::key)
             if (delegatesByKey.values.any { it.size != 1 }) return@mapNotNull null
 
-            val descriptors = LinkedHashMap<String, String>(item.delegateKeys.size)
+            val descriptors = LinkedHashMap<String, String?>(item.delegateKeys.size)
             for (key in item.delegateKeys) {
                 val delegate = delegatesByKey[key]?.singleOrNull() ?: return@mapNotNull null
-                val descriptor = delegate.descriptor
-                if (!delegate.hasValidOutcome() || descriptor.isNullOrEmpty()) {
-                    return@mapNotNull null
+                descriptors[key] = when (delegate.status) {
+                    "SUCCESS" -> delegate.descriptor?.takeIf(String::isNotEmpty) ?: return@mapNotNull null
+                    "EXPECTED_FAILURE" -> null
+                    else -> return@mapNotNull null
                 }
-                descriptors[key] = descriptor
             }
 
             CloudDexCacheEntry(
@@ -77,15 +78,9 @@ object CloudDexReport {
         return CloudDexSelection(entries, items.size - entries.size)
     }
 
-    private const val SCHEMA_VERSION = 2
+    private const val SCHEMA_VERSION = 3
     private const val APK_PASS = "PASS"
     private val FEATURE_PASS_OUTCOMES = setOf("PASS", "PASS_WITH_EXPECTED_FAILURES")
-
-    private fun Delegate.hasValidOutcome(): Boolean = when (status) {
-        "SUCCESS" -> !isPlaceholder
-        "EXPECTED_FAILURE" -> isPlaceholder
-        else -> false
-    }
 }
 
 @Serializable
@@ -111,5 +106,4 @@ private data class Delegate(
     val key: String,
     val status: String,
     val descriptor: String? = null,
-    val isPlaceholder: Boolean = false,
 )

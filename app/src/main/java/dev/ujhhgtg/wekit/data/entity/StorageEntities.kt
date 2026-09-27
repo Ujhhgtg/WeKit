@@ -172,7 +172,8 @@ data class DexCacheDescriptorEntity(
     val hostVersion: String,
     val technicalId: String,
     val descriptorKey: String,
-    val descriptorValue: String,
+    /** `null` records an expected (allowed) resolution failure. */
+    val descriptorValue: String?,
 )
 
 /** A failed resolution for one resolver hash; the item is not resolved again until it changes. */

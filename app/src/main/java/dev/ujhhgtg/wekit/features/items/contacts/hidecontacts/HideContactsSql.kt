@@ -165,7 +165,7 @@ private fun looksLikeUnreadCountQuery(lower: String): Boolean {
 }
 
 private fun HideContacts.installWrapperHook() {
-    if (WeDatabaseApi.methodSqliteWrapperRawQuery.isPlaceholder) {
+    if (!WeDatabaseApi.methodSqliteWrapperRawQuery.isFound) {
         WeLogger.w(TAG, "SQLite wrapper query method not resolved; query-time hiding disabled")
         return
     }

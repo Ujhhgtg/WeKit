@@ -65,7 +65,7 @@ object DisablePinnedChatsCollapsing : SwitchFeature(), IResolveDex {
             result = false
         }
 
-        if (!methodRecyclerShouldShowFoldItem.isPlaceholder) {
+        if (methodRecyclerShouldShowFoldItem.isFound) {
             methodRecyclerShouldShowFoldItem.hookBefore {
                 cleanupStaleFoldConversationOnce()
                 result = false

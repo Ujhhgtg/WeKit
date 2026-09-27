@@ -132,7 +132,7 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
             handleSelectMenu(this)
         }
 
-        if (!methodShowPopupMenu.isPlaceholder) {
+        if (methodShowPopupMenu.isFound) {
             methodShowPopupMenu.hookBefore { handleAggregatedMenu(this) }
         }
     }

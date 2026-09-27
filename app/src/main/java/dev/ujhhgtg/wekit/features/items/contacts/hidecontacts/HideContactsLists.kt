@@ -82,7 +82,7 @@ private fun HideContacts.installMvvmListHooks() {
 }
 
 private fun HideContacts.hookMvvmListPreprocess(target: DexMethodDelegate, label: String) {
-    if (target.isPlaceholder) {
+    if (!target.isFound) {
         WeLogger.w(TAG, "$label preprocess method wasn't resolved; that list stays unfiltered")
         return
     }
@@ -159,7 +159,7 @@ private fun HideContacts.hookMvvmListPreprocess(target: DexMethodDelegate, label
  * `@social.black.android` cursor rather than from this method.
  */
 private fun HideContacts.installContactCountHook() {
-    if (methodNormalContactCount.isPlaceholder) {
+    if (!methodNormalContactCount.isFound) {
         WeLogger.w(TAG, "getNormalContactCount wasn't resolved; 通讯录联系人计数 stays unadjusted")
         return
     }
@@ -281,7 +281,7 @@ private fun countHiddenNormalContacts(
  * super, so the 管理员 lists are deliberately not covered — they are a different surface.
  */
 private fun HideContacts.installGroupMemberHooks() {
-    if (methodSeeRoomMemberSetMemberList.isPlaceholder) {
+    if (!methodSeeRoomMemberSetMemberList.isFound) {
         WeLogger.w(TAG, "SeeRoomMemberUI adapter setter wasn't resolved; 查看全部群成员 stays unfiltered")
     } else {
         methodSeeRoomMemberSetMemberList.hookBefore {
@@ -293,7 +293,7 @@ private fun HideContacts.installGroupMemberHooks() {
         }
     }
 
-    if (methodSelectMemberUiGetMemberList.isPlaceholder) {
+    if (!methodSelectMemberUiGetMemberList.isFound) {
         WeLogger.w(TAG, "SelectMemberUI member-list getter wasn't resolved; 群成员选择器 stays unfiltered")
         return
     }
@@ -337,7 +337,7 @@ private fun filterHiddenUsernames(members: List<*>): ArrayList<Any?>? {
  * sites pass Kotlin's immutable `EmptyList` singleton, whose iterator rejects `remove()`.
  */
 private fun HideContacts.installFavoriteHooks() {
-    if (methodFavoriteAdapterSetDataList.isPlaceholder) {
+    if (!methodFavoriteAdapterSetDataList.isFound) {
         WeLogger.w(TAG, "FavoriteAdapter data setter wasn't resolved; 收藏 stays unfiltered")
         return
     }
@@ -413,7 +413,7 @@ private const val LIKE_ENTRY_WX_USERNAME = 5
  * is requested, since the server-side cursor is untouched. Not worth faking a row count for.
  */
 private fun HideContacts.installFinderLikeHooks() {
-    if (methodFinderLikeDrawerRefresh.isPlaceholder) {
+    if (!methodFinderLikeDrawerRefresh.isFound) {
         WeLogger.w(TAG, "Finder like-drawer refresh callback wasn't resolved; 视频号点赞列表 stays unfiltered")
     } else {
         methodFinderLikeDrawerRefresh.hookBefore {
@@ -431,7 +431,7 @@ private fun HideContacts.installFinderLikeHooks() {
         }
     }
 
-    if (methodFinderLikeDrawerLoadMore.isPlaceholder) {
+    if (!methodFinderLikeDrawerLoadMore.isFound) {
         WeLogger.w(TAG, "Finder like-drawer load-more callback wasn't resolved; 视频号点赞列表 stays unfiltered")
         return
     }

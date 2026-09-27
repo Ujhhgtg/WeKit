@@ -18,8 +18,8 @@ DEX 文件中解析出目标。
 委托项的状态如下：
 
 - `SUCCESS`：成功解析出真实描述符；
-- `EXPECTED_FAILURE`：`allowFailure = true` 设置了对应的占位值；
-- `UNEXPECTED_FAILURE`：查找或解析器抛出异常，或使用了未分类的占位值；
+- `EXPECTED_FAILURE`：`allowFailure = true` 的查找没有结果，或解析器调用了 `markExpectedFailure()`（无描述符）；
+- `UNEXPECTED_FAILURE`：查找或解析器抛出异常；
 - `BLOCKED`：前面的委托项失败后，后续委托项未运行；
 - `INCOMPLETE`：解析器返回时，该委托项仍未完成解析。
 
@@ -42,14 +42,14 @@ DEX 文件中解析出目标。
 ./x dex-report-diff /path/old.json /path/new.json --output /path/version-diff.json
 ```
 
-输入兼容 schema 1 和 2，不接受 `summary.json`。工具不按 `versionCode` 自动排序：不同
+输入兼容 schema 1 至 3，不接受 `summary.json`。工具不按 `versionCode` 自动排序：不同
 版本可能使用相同的版本码，国内版和 Google Play 版也应由调用者明确安排比较顺序。
 输出保留每份报告的版本名、版本码、buildTag、渠道和 APK SHA-256。
 
 比较使用功能的 `className` 和委托的 `key` 对齐，兼容旧报告的 `Feature:key` 格式：
 
 - 方法／构造函数：显示前后的参数数量、按顺序排列的完整类型和返回类型，包括基本类型和多维数组。
-- 解析状态／占位符变化：单独列出，不将占位用的 `LauncherUI.getInstance()` 当成真实解析结果。
+- 解析状态变化：单独列出，只有 `SUCCESS` 的描述符会被当成真实解析结果。
 - 功能／委托增减：只表示报告覆盖或声明发生变化，不能视为微信删除了对应结构。
 - 解析器 `methodHash` 变化：明确提示，避免将源码调整产生的差异都归因于微信升级。
 

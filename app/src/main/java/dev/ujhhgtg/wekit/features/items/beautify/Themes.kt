@@ -2415,7 +2415,7 @@ object Themes : ClickableFeature(), IResolveDex {
                 )
             }
 
-        if (!WeConversationListViewApi.classConversationRecyclerView.isPlaceholder) {
+        if (WeConversationListViewApi.classConversationRecyclerView.isFound) {
             WeConversationListViewApi.classConversationRecyclerView.clazz.constructors.forEach { ctor ->
                 ctor.hookAfter {
                     setNullBg(thisObject as View)
@@ -2865,7 +2865,7 @@ object Themes : ClickableFeature(), IResolveDex {
                 val decor = activity.window?.decorView as? ViewGroup ?: return@hookAfter
                 decor.post { g8Case3(decor, activity) }
             }
-        if (!classBaseSettingConvert.isPlaceholder) {
+        if (classBaseSettingConvert.isFound) {
             classBaseSettingConvert.clazz.reflekt()
                 .firstMethod {
                     parameterCount = 6

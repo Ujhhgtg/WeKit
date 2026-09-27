@@ -173,21 +173,20 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
         when (subCoreMultiTalkClasses.size) {
             1 -> classSubCoreMultiTalk.setDescriptor(subCoreMultiTalkClasses.single())
             0 -> {
-                val reason = "legacy MultiTalk and ILink architecture is absent"
-                classSubCoreMultiTalk.setPlaceholderDescriptor(true, reason)
-                methodExitMultiTalk.setPlaceholderDescriptor(true, reason)
-                classILinkService.setPlaceholderDescriptor(true, reason)
-                classILinkMember.setPlaceholderDescriptor(true, reason)
-                classInviteTask.setPlaceholderDescriptor(true, reason)
-                methodGetMultiTalkManager.setPlaceholderDescriptor(true, reason)
-                methodSetStatus.setPlaceholderDescriptor(true, reason)
-                methodSetMtSdkMode.setPlaceholderDescriptor(true, reason)
-                methodSetName.setPlaceholderDescriptor(true, reason)
-                methodPostTask.setPlaceholderDescriptor(true, reason)
-                ctorInviteTask.setPlaceholderDescriptor(true, reason)
-                ctorHangupTask.setPlaceholderDescriptor(true, reason)
-                fieldILinkInstance.setPlaceholderDescriptor(true, reason)
-                fieldRoomId.setPlaceholderDescriptor(true, reason)
+                classSubCoreMultiTalk.markExpectedFailure()
+                methodExitMultiTalk.markExpectedFailure()
+                classILinkService.markExpectedFailure()
+                classILinkMember.markExpectedFailure()
+                classInviteTask.markExpectedFailure()
+                methodGetMultiTalkManager.markExpectedFailure()
+                methodSetStatus.markExpectedFailure()
+                methodSetMtSdkMode.markExpectedFailure()
+                methodSetName.markExpectedFailure()
+                methodPostTask.markExpectedFailure()
+                ctorInviteTask.markExpectedFailure()
+                ctorHangupTask.markExpectedFailure()
+                fieldILinkInstance.markExpectedFailure()
+                fieldRoomId.markExpectedFailure()
                 return
             }
 
@@ -361,7 +360,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
         showComposeDialog(context) {
             var repeatCount by remember { mutableStateOf("1") }
             var mode by remember { mutableStateOf(OperationMode.WALKIE_TALKIE) }
-            val availableModes = if (classSubCoreMultiTalk.isPlaceholder) {
+            val availableModes = if (!classSubCoreMultiTalk.isFound) {
                 listOf(OperationMode.WALKIE_TALKIE)
             } else {
                 OperationMode.entries
@@ -448,7 +447,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
         repeatCount: Int,
         mode: OperationMode,
     ) {
-        check(mode != OperationMode.VOIP || !classSubCoreMultiTalk.isPlaceholder) {
+        check(mode != OperationMode.VOIP || classSubCoreMultiTalk.isFound) {
             "legacy MultiTalk and ILink architecture is unavailable"
         }
         thread(name = "SplitGroupCallBatchThread") {

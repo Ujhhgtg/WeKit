@@ -138,7 +138,7 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
 
     private fun hookOptionalImproveSelect(target: DexMethodDelegate, label: String) {
         runCatching {
-            if (target.isPlaceholder) return
+            if (!target.isFound) return
             target.method.hookAfter {
                 handleSelectMenu(this)
             }

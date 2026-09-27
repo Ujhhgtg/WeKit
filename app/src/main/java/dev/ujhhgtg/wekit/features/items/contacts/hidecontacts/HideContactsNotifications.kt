@@ -150,7 +150,7 @@ object HideContactsNotifications : ApiFeature(), IResolveDex {
             result = null
         }
 
-        if (methodNotifyForLightPush.isPlaceholder) {
+        if (!methodNotifyForLightPush.isFound) {
             WeLogger.w(TAG, "LightPush notify method not resolved; its notifications stay visible")
             return
         }

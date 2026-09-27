@@ -17,7 +17,7 @@ object DisableTypingStatusUploading : SwitchFeature(), IResolveDex {
     private val classMmTypingSendReq by dexClass()
 
     override fun onEnable() {
-        if (classMmTypingSendReq.isPlaceholder) return
+        if (!classMmTypingSendReq.isFound) return
 
         classMmTypingSendReq.reflekt().firstMethod { name = "doScene" }
             .hookBefore {

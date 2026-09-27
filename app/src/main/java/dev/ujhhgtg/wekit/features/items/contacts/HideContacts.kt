@@ -32,6 +32,7 @@ import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -62,6 +63,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getSystemService
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.now
+import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.MatchType
 import org.luckypray.dexkit.query.matchers.MethodMatcher
 import java.lang.ref.WeakReference
@@ -446,7 +448,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
 
     private fun hookNewMessageNotification() {
         val method = WeConversationApi.methodNotifyConversationChanged
-        if (method.isPlaceholder) {
+        if (!method.isFound) {
             WeLogger.w(TAG, "conversation notify method not resolved; new-message suppression unavailable")
             return
         }
@@ -502,7 +504,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * Documented in the feature description; changing it would require buffering the pats instead.
      */
     private fun hookPatMessage() {
-        if (methodPatMsgInsert.isPlaceholder) {
+        if (!methodPatMsgInsert.isFound) {
             WeLogger.w(TAG, "pat-message insert wasn't resolved; 拍一拍 stays visible")
             return
         }
@@ -930,13 +932,23 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     // ── multitalk (群通话), used when the VoIPMP multitalk experiment is off ───────────────────
 
     /** `v0.G(MultiTalkGroup)` — MultiTalkManager.onInviteMultiTalk. */
-    val methodMultiTalkOnInvite by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass(SplitGroupCall.methodExitMultiTalk.data.declaredClassName)
-            usingEqStrings(
-                "MicroMsg.MT.MultiTalkManager",
-                "onInviteMultiTalk All Var Value:\n isMute: %b isHandsFree: %b isCameraFace: %b multiTalkStatus: %s groupIsNull: %b",
-            )
+    val methodMultiTalkOnInvite by dexMethod()
+
+    override fun resolveDex(dexKit: DexKitBridge) {
+        // Declared on MultiTalkManager, which exists only with the legacy MultiTalk stack.
+        DexResolutionContext.ensureResolved(SplitGroupCall.methodExitMultiTalk)
+        if (!SplitGroupCall.methodExitMultiTalk.isFound) {
+            methodMultiTalkOnInvite.markExpectedFailure()
+            return
+        }
+        methodMultiTalkOnInvite.find(dexKit, allowFailure = true) {
+            matcher {
+                declaredClass(SplitGroupCall.methodExitMultiTalk.data.declaredClassName)
+                usingEqStrings(
+                    "MicroMsg.MT.MultiTalkManager",
+                    "onInviteMultiTalk All Var Value:\n isMute: %b isHandsFree: %b isCameraFace: %b multiTalkStatus: %s groupIsNull: %b",
+                )
+            }
         }
     }
 

@@ -82,18 +82,9 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
 
         when (chatLiveBottomBarLayers.size) {
             0 -> {
-                classMediaGalleryChatLiveBottomBarLayer.setPlaceholderDescriptor(
-                    expectedFailure = true,
-                    reason = "chat live-photo bottom bar is absent; using common media controls",
-                )
-                methodUpdateMediaGalleryVideoOriginButton.setPlaceholderDescriptor(
-                    expectedFailure = true,
-                    reason = "layered original-video controls are absent",
-                )
-                methodBindMediaGalleryChatLiveBottomBar.setPlaceholderDescriptor(
-                    expectedFailure = true,
-                    reason = "chat live-photo bottom bar is absent",
-                )
+                classMediaGalleryChatLiveBottomBarLayer.markExpectedFailure()
+                methodUpdateMediaGalleryVideoOriginButton.markExpectedFailure()
+                methodBindMediaGalleryChatLiveBottomBar.markExpectedFailure()
                 return
             }
 
@@ -126,10 +117,7 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
         }
 
         when (updateVideoOriginButtonMethods.size) {
-            0 -> methodUpdateMediaGalleryVideoOriginButton.setPlaceholderDescriptor(
-                expectedFailure = true,
-                reason = "layered original-video controls are absent",
-            )
+            0 -> methodUpdateMediaGalleryVideoOriginButton.markExpectedFailure()
 
             1 -> methodUpdateMediaGalleryVideoOriginButton.setDescriptor(
                 updateVideoOriginButtonMethods.single()
@@ -147,14 +135,14 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
             methodSetImageHdImgBtnVisibility,
             methodCheckNeedShowOriginVideoBtn
         ).forEach { method ->
-            if (method.isPlaceholder) return@forEach
+            if (!method.isFound) return@forEach
 
             method.hookAfter {
                 clickVisibleOriginalMediaButtons(thisObject!!)
             }
         }
 
-        if (!methodUpdateMediaGalleryVideoOriginButton.isPlaceholder) {
+        if (methodUpdateMediaGalleryVideoOriginButton.isFound) {
             methodUpdateMediaGalleryVideoOriginButton.hookAfter {
                 if (args[1] as Boolean) return@hookAfter
 

@@ -81,7 +81,8 @@
 - Reports go under `dex-test-results/<run-id>/` (or an explicit output dir), never Gradle's
   `build/reports/`. Keep the per-APK JSON reports and the aggregate summary.
 - `./x dex-report-diff` compares member signatures across existing per-APK reports.
-- Classification is strict: an `allowFailure = true` delegate receiving its placeholder is
+- Classification is strict and comes from each delegate's `DexResolutionState`: an
+  `allowFailure = true` lookup with no result (or an explicit `markExpectedFailure()`) is
   `EXPECTED_FAILURE`; an unhandled resolver exception is `UNEXPECTED_FAILURE`; delegates still
   pending after that exception are `BLOCKED` and record the triggering delegate; a resolver
   returning with pending delegates is `INCOMPLETE`. Initialization, worker, native-library, APK
@@ -115,14 +116,13 @@
 - `allowFailure` on `dexMethod`/`dexClass`/`dexField` is ONLY for structures whose existence
   differs across supported versions. If a resolution should succeed on every supported version,
   don't set it — failure must be loud, not a silent no-op. Never turn exceptions or uncertain
-  matches into placeholders to get a green report. The generic expected-failure reason is fine;
-  give a precise one when it clarifies a structure-selected path.
+  matches into expected failures to get a green report. Expected failures carry no reason.
 - Prefer structure-based compatibility over host-version checks. In resolution, probe one stable
-  member that exists only on the newer path; if it yields zero results, record its placeholder and
-  fall back to the older path, otherwise keep every other target on that path strict. Multiple
+  member that exists only on the newer path; if it yields zero results, it is an expected failure;
+  mark the newer path's other delegates with `markExpectedFailure()` and fall back to the older path, otherwise keep every other target on that path strict. Multiple
   results, matcher errors, and failures after the probe are failures, not fallback conditions.
 - At hook/invocation time, choose the path from the resolved structure (the probe's
-  `isPlaceholder`, the resolved member's reflection signature, or another directly relevant runtime
+  `isFound`, the resolved member's reflection signature, or another directly relevant runtime
   property), not a repeated version comparison.
 - If the same semantic member differs only in signature, accept confirmed signatures structurally
   (e.g. `paramCount(10, 11)`); when arguments differ, build them from the actual

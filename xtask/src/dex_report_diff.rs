@@ -111,7 +111,6 @@ struct MemberSignature {
 #[serde(rename_all = "camelCase")]
 struct Snapshot {
     status: String,
-    is_placeholder: bool,
     descriptor: Option<String>,
     member: Option<MemberSignature>,
     message: Option<String>,
@@ -174,7 +173,7 @@ pub fn task_dex_report_diff(args: DexReportDiffArgs) -> Result<()> {
 
 fn validate_report(report: &ApkReport) -> Result<()> {
     ensure!(
-        (1..=2).contains(&report.schema_version),
+        (1..=3).contains(&report.schema_version),
         "unsupported schema version {}",
         report.schema_version
     );
@@ -225,7 +224,7 @@ fn index_delegates(feature: &FeatureReport) -> Result<BTreeMap<&str, &DelegateRe
 }
 
 fn snapshot(delegate: &DelegateReport) -> Result<Snapshot> {
-    let member = if delegate.status == "SUCCESS" && !delegate.is_placeholder {
+    let member = if delegate.status == "SUCCESS" {
         let descriptor = delegate
             .descriptor
             .as_deref()
@@ -241,7 +240,6 @@ fn snapshot(delegate: &DelegateReport) -> Result<Snapshot> {
     };
     Ok(Snapshot {
         status: delegate.status.clone(),
-        is_placeholder: delegate.is_placeholder,
         descriptor: delegate.descriptor.clone(),
         member,
         message: delegate.message.clone(),
@@ -357,14 +355,10 @@ fn compare_pair(before: &ApkReport, after: &ApkReport, index: usize) -> Result<C
                 (Some(_), None) => kinds.push(ChangeKind::DelegateRemoved),
                 (Some(x), Some(y)) => {
                     result.shared_delegates += 1;
-                    if x.status != y.status || x.is_placeholder != y.is_placeholder {
+                    if x.status != y.status {
                         kinds.push(ChangeKind::ResolutionChanged);
                     }
-                    if x.status == "SUCCESS"
-                        && y.status == "SUCCESS"
-                        && !x.is_placeholder
-                        && !y.is_placeholder
-                    {
+                    if x.status == "SUCCESS" && y.status == "SUCCESS" {
                         match (&x.member, &y.member) {
                             (Some(m), Some(n)) => {
                                 if m.kind != n.kind {
@@ -596,14 +590,14 @@ mod tests {
 
     fn fixture(descriptor: &str) -> ApkReport {
         serde_json::from_value(json!({
-            "schemaVersion": 2, "workerPid": 1, "apkPath": "/wechat.apk", "fileName": "wechat.apk",
+            "schemaVersion": 3, "workerPid": 1, "apkPath": "/wechat.apk", "fileName": "wechat.apk",
             "label": "wechat", "apkSize": 1, "apkSha256": "hash", "versionCode": 3160,
             "versionName": "8.0.77", "buildTag": "#7637", "isGooglePlay": false, "dexCount": 1,
             "environment": {"dexKitVersion":"2.2.0", "dexKitRevision":"rev", "architecture":"x86_64", "jvmVersion":"21"},
             "startedAt":"2026-09-05", "finishedAt":"2026-09-05", "elapsedMillis":1, "outcome":"PASS",
             "counts":{"success":1,"expectedFailure":0,"unexpectedFailure":0,"blocked":0,"incomplete":0},
             "features":[{"className":"test.Feature", "displayName":"Test", "technicalId":"test", "methodHash":"same",
-                "outcome":"PASS", "elapsedMillis":1, "delegates":[{"key":"member", "status":"SUCCESS", "descriptor":descriptor, "isPlaceholder":false}]}]
+                "outcome":"PASS", "elapsedMillis":1, "delegates":[{"key":"member", "status":"SUCCESS", "descriptor":descriptor}]}]
         })).unwrap()
     }
 
@@ -725,17 +719,15 @@ mod tests {
     }
 
     #[test]
-    fn placeholders_and_failures_are_not_parsed_as_real_methods() {
+    fn failures_are_not_parsed_as_real_methods() {
         let a = fixture("La;->x(I)V");
-        let mut b =
-            fixture("Lcom/tencent/mm/ui/LauncherUI;->getInstance()Lcom/tencent/mm/ui/LauncherUI;");
+        let mut b = fixture("La;->x(I)V");
         member(&mut b).status = "EXPECTED_FAILURE".into();
-        member(&mut b).is_placeholder = true;
+        member(&mut b).descriptor = None;
         let p = compare_pair(&a, &b, 0).unwrap();
         assert_eq!(p.changes[0].kinds, [ChangeKind::ResolutionChanged]);
         assert!(p.changes[0].after.as_ref().unwrap().member.is_none());
         member(&mut b).status = "BLOCKED".into();
-        member(&mut b).descriptor = None;
         member(&mut b).blocked_by = Some("earlier".into());
         b.outcome = ApkOutcome::Fail;
         let p = compare_pair(&a, &b, 0).unwrap();
@@ -792,7 +784,7 @@ mod tests {
         a.features.pop();
         a.schema_version = 99;
         assert!(validate_report(&a).is_err());
-        a.schema_version = 2;
+        a.schema_version = 3;
         member(&mut a).descriptor = None;
         assert!(validate_report(&a).is_err());
     }

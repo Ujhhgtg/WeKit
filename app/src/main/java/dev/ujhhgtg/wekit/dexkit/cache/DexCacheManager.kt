@@ -45,7 +45,7 @@ object DexCacheManager {
         if (item !is BaseFeature) unreachable()
         val record = read(item.technicalId) ?: return false
         if (record.methodHash != methodHash(item)) return false
-        val missing = item.dexDelegates.filter { record.descriptors[it.key].isNullOrEmpty() }
+        val missing = item.dexDelegates.filter { it.key !in record.descriptors }
         if (missing.isNotEmpty()) {
             WeLogger.d(TAG, "cache incomplete for ${item.technicalPath}: ${missing.map { it.key }}")
             return false
@@ -87,9 +87,10 @@ object DexCacheManager {
         }
     }
 
-    fun loadItemCache(item: IResolveDex): Map<String, Any>? {
+    /** Cached descriptors by delegate key; a `null` value is a cached expected failure. */
+    fun loadItemCache(item: IResolveDex): Map<String, String?>? {
         if (item !is BaseFeature) error("item is not BaseFeature")
-        return read(item.technicalId)?.descriptors?.mapValues { it.value as Any }
+        return read(item.technicalId)?.descriptors
     }
 
     fun deleteCache(technicalId: String) {
@@ -148,12 +149,12 @@ object DexCacheManager {
         return hash
     }
 
-    private data class CacheRecord(val methodHash: String, val descriptors: Map<String, String>)
+    private data class CacheRecord(val methodHash: String, val descriptors: Map<String, String?>)
 
     private fun read(technicalId: String): CacheRecord? = runCatching {
         // Read the entry and all descriptors through one SQL statement.  Two independent
         // queries can observe different generations while another process replaces a cache.
-        val descriptors = LinkedHashMap<String, String>()
+        val descriptors = LinkedHashMap<String, String?>()
         var methodHash: String? = null
         database().query(
             "SELECT e.methodHash, d.descriptorKey, d.descriptorValue " +
@@ -164,7 +165,9 @@ object DexCacheManager {
         ).use { cursor ->
             while (cursor.moveToNext()) {
                 methodHash = cursor.getString(0)
-                if (!cursor.isNull(1)) descriptors[cursor.getString(1)] = cursor.getString(2)
+                if (!cursor.isNull(1)) {
+                    descriptors[cursor.getString(1)] = if (cursor.isNull(2)) null else cursor.getString(2)
+                }
             }
         }
         val resolvedMethodHash = methodHash ?: return@runCatching null

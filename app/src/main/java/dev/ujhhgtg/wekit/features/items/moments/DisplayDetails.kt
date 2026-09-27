@@ -96,7 +96,7 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
             }
         }
 
-        if (!methodGetTimeString.isPlaceholder) methodGetTimeString.hookAfter {
+        if (methodGetTimeString.isFound) methodGetTimeString.hookAfter {
             val snsInfo = thisObject
             val snsId = (fieldSnsId.field.get(snsInfo) as? Number)?.toLong() ?: return@hookAfter
             val userName = (fieldUserName.field.get(snsInfo) as? String).orEmpty()

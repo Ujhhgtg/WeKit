@@ -10,7 +10,7 @@ import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-internal const val DEX_TEST_SCHEMA_VERSION = 2
+internal const val DEX_TEST_SCHEMA_VERSION = 3
 
 internal val DexTestJson = Json {
     encodeDefaults = true
@@ -29,8 +29,8 @@ internal data class DexTestError(
 internal data class DexTestDelegateReport(
     val key: String,
     val status: DexResolutionStatus,
+    /** Present only for [DexResolutionStatus.SUCCESS]. */
     val descriptor: String? = null,
-    val isPlaceholder: Boolean = false,
     val message: String? = null,
     val exceptionType: String? = null,
     val stackTrace: String? = null,

@@ -41,7 +41,7 @@ object HideHomeScreenSwipeDownPage : SwitchFeature() {
             }
 
         val recyclerAddHeader = WeConversationListViewApi.methodRecyclerAddHeaderView
-        if (!recyclerAddHeader.isPlaceholder) {
+        if (recyclerAddHeader.isFound) {
             recyclerAddHeader.hookBefore {
                 val view = args[0] as View
                 if (view.javaClass.simpleName != "TaskBarContainer") return@hookBefore

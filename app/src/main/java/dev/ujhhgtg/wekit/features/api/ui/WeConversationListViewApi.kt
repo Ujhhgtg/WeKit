@@ -194,11 +194,10 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     private val fieldRecyclerActionBar by dexField()
 
     override fun resolveDex(dexKit: DexKitBridge) {
-        if (classConversationListHost.isPlaceholder) {
-            val reason = "common conversation list host is absent"
-            fieldMainUiListHost.setPlaceholderDescriptor(true, reason)
-            methodListHostAddHeaderView.setPlaceholderDescriptor(true, reason)
-            methodListHostView.setPlaceholderDescriptor(true, reason)
+        if (!classConversationListHost.isFound) {
+            fieldMainUiListHost.markExpectedFailure()
+            methodListHostAddHeaderView.markExpectedFailure()
+            methodListHostView.markExpectedFailure()
         } else {
             fieldMainUiListHost.find(dexKit) {
                 matcher {
@@ -223,24 +222,23 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             }
         }
 
-        if (classConversationRecyclerAdapter.isPlaceholder) {
-            val reason = "conversation RecyclerView architecture is absent"
-            classConversationAdapter.setPlaceholderDescriptor(true, reason)
-            methodAdapterGetCount.setPlaceholderDescriptor(true, reason)
-            methodAdapterGetItem.setPlaceholderDescriptor(true, reason)
-            methodRecyclerConversationBind.setPlaceholderDescriptor(true, reason)
-            fieldRecyclerHolderAdapter.setPlaceholderDescriptor(true, reason)
-            fieldRecyclerHolderView.setPlaceholderDescriptor(true, reason)
-            classConversationRecyclerView.setPlaceholderDescriptor(true, reason)
-            methodRecyclerAddHeaderView.setPlaceholderDescriptor(true, reason)
-            methodRecyclerAttachViewToParent.setPlaceholderDescriptor(true, reason)
-            methodRecyclerSetFoldBanner.setPlaceholderDescriptor(true, reason)
-            methodRecyclerFirstVisiblePosition.setPlaceholderDescriptor(true, reason)
-            methodRecyclerOnScrolled.setPlaceholderDescriptor(true, reason)
-            methodRecyclerOnScrollStateChanged.setPlaceholderDescriptor(true, reason)
-            methodRecyclerCalculateEmptyFooter.setPlaceholderDescriptor(true, reason)
-            methodRecyclerApplyEmptyFooter.setPlaceholderDescriptor(true, reason)
-            fieldRecyclerActionBar.setPlaceholderDescriptor(true, reason)
+        if (!classConversationRecyclerAdapter.isFound) {
+            classConversationAdapter.markExpectedFailure()
+            methodAdapterGetCount.markExpectedFailure()
+            methodAdapterGetItem.markExpectedFailure()
+            methodRecyclerConversationBind.markExpectedFailure()
+            fieldRecyclerHolderAdapter.markExpectedFailure()
+            fieldRecyclerHolderView.markExpectedFailure()
+            classConversationRecyclerView.markExpectedFailure()
+            methodRecyclerAddHeaderView.markExpectedFailure()
+            methodRecyclerAttachViewToParent.markExpectedFailure()
+            methodRecyclerSetFoldBanner.markExpectedFailure()
+            methodRecyclerFirstVisiblePosition.markExpectedFailure()
+            methodRecyclerOnScrolled.markExpectedFailure()
+            methodRecyclerOnScrollStateChanged.markExpectedFailure()
+            methodRecyclerCalculateEmptyFooter.markExpectedFailure()
+            methodRecyclerApplyEmptyFooter.markExpectedFailure()
+            fieldRecyclerActionBar.markExpectedFailure()
             return
         }
 
@@ -388,7 +386,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     override fun onEnable() {
         hookListBinding(methodLegacyGetView)
         hookListBinding(methodMvvmGetView)
-        if (!methodRecyclerConversationBind.isPlaceholder) hookRecyclerBinding()
+        if (methodRecyclerConversationBind.isFound) hookRecyclerBinding()
     }
 
     fun addListener(listener: IBindViewListener) {
@@ -526,7 +524,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     }
 
     fun hostView(mainUi: Any): View {
-        if (classConversationListHost.isPlaceholder) {
+        if (!classConversationListHost.isFound) {
             return mainUi.reflekt().firstField {
                 type = "com.tencent.mm.ui.conversation.ConversationListView"
             }.get()!! as View
@@ -536,7 +534,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     }
 
     fun addHeaderView(mainUi: Any, header: View) {
-        if (classConversationListHost.isPlaceholder) {
+        if (!classConversationListHost.isFound) {
             (hostView(mainUi) as ListView).addHeaderView(header)
             return
         }
@@ -576,7 +574,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     }
 
     private fun hookListBinding(method: DexMethodDelegate) {
-        if (method.isPlaceholder) return
+        if (!method.isFound) return
         method.hookAfter {
             val row = result as View
             val adapter = thisObject as BaseAdapter

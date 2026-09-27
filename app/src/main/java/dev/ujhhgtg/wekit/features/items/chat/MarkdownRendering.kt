@@ -187,7 +187,7 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
     }
 
     private fun installNativeRenderer() {
-        if (classItemFactory.isPlaceholder || methodMarkdownPreprocess.isPlaceholder) {
+        if (!classItemFactory.isFound || !methodMarkdownPreprocess.isFound) {
             WeLogger.w(TAG, "WeChat native Markdown renderer is unavailable in this version")
             return
         }

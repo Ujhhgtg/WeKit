@@ -91,9 +91,8 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
             }
         }
         if (states.isEmpty()) {
-            val reason = "host has no half-screen chat media picker"
-            classLocalPickerState.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
-            methodLocalPickerSelectionReducer.setPlaceholderDescriptor(expectedFailure = true, reason = reason)
+            classLocalPickerState.markExpectedFailure()
+            methodLocalPickerSelectionReducer.markExpectedFailure()
             return
         }
         val state = states.single()
@@ -110,13 +109,13 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
     }
 
     override fun onEnable() {
-        if (!classLocalPickerState.isPlaceholder) hookLocalPicker()
+        if (classLocalPickerState.isFound) hookLocalPicker()
 
         if (
-            methodInitSendAsMediaGroupingViews.isPlaceholder ||
-            methodUpdateSendAsMediaGroupViews.isPlaceholder ||
-            sendAsMediaGroupField.isPlaceholder ||
-            sendAsMediaGroupCheckBoxField.isPlaceholder
+            !methodInitSendAsMediaGroupingViews.isFound ||
+            !methodUpdateSendAsMediaGroupViews.isFound ||
+            !sendAsMediaGroupField.isFound ||
+            !sendAsMediaGroupCheckBoxField.isFound
         ) {
             return
         }

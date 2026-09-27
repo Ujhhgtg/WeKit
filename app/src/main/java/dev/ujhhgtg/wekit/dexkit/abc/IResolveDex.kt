@@ -24,24 +24,26 @@ interface IResolveDex {
     fun resolveDex(dexKit: DexKitBridge) {}
 
     /**
-     * 将所有委托的当前状态收集为 key → descriptor 字符串映射，
-     * 供 [dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager] 持久化。
+     * 将所有委托的解析结果收集为 key → descriptor 映射，
+     * 供 [dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager] 持久化；`null` 表示预期内的解析失败。
      */
-    fun collectDescriptors(): Map<String, String> =
-        dexDelegates.associate { it.key to (it.getDescriptorString() ?: "") }
+    fun collectDescriptors(): Map<String, String?> =
+        dexDelegates.associate { delegate ->
+            check(delegate.isSettled) { "Dex delegate ${delegate.key} is not resolved: ${delegate.state}" }
+            delegate.key to delegate.getDescriptorString()
+        }
 
     /**
      * 从缓存 Map 中逐个恢复委托状态。
      * 每个委托独立加载，某个 key 缺失不会影响其他委托。
      *
-     * @return 缓存中不存在或值为空的 key 集合（需要重新 DexKit 扫描的委托）
+     * @return 缓存中不存在的 key 集合（需要重新 DexKit 扫描的委托）
      */
-    fun loadFromCache(cache: Map<String, Any>): Set<String> {
+    fun loadFromCache(cache: Map<String, String?>): Set<String> {
         val missingKeys = mutableSetOf<String>()
         for (delegate in dexDelegates) {
-            val value = cache[delegate.key] as? String
-            if (!value.isNullOrEmpty()) {
-                delegate.loadDescriptor(value)
+            if (delegate.key in cache) {
+                delegate.restore(cache[delegate.key])
             } else {
                 missingKeys += delegate.key
             }

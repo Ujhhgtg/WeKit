@@ -356,7 +356,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
             methodMvvmLoadAvatar2,
             methodFeatureAvatarSimple1,
             methodPluginsdkLoadAvatar
-        ).filterNot { it.isPlaceholder }.forEach { target ->
+        ).filter { it.isFound }.forEach { target ->
             target.hookBefore {
                 // The host explicitly accepts a null ImageView in these avatar loaders.
                 val imageView = args[0] as ImageView? ?: return@hookBefore
@@ -387,7 +387,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
             }
         }
 
-        if (!methodHdGallerySetUsername.isPlaceholder) {
+        if (methodHdGallerySetUsername.isFound) {
             methodHdGallerySetUsername.hookBefore {
                 if (!AvatarScope.PROFILE.enabled) return@hookBefore
                 val username = args[0] as? String ?: return@hookBefore

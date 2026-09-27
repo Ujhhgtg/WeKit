@@ -163,7 +163,7 @@ object SuperConversationPinning : SwitchFeature(),
     }
 
 //    private fun hookSqliteWrapperQueries() {
-//        if (methodSqliteWrapperRawQuery.isPlaceholder) {
+//        if (!methodSqliteWrapperRawQuery.isFound) {
 //            WeLogger.w(TAG, "legacy conversation SQLite wrapper query method was not resolved")
 //        } else {
 //            methodSqliteWrapperRawQuery.method.hookBefore {
@@ -173,7 +173,7 @@ object SuperConversationPinning : SwitchFeature(),
 //            WeLogger.i(TAG, "hooked legacy conversation SQLite wrapper query")
 //        }
 //
-//        if (methodSqliteWrapperQuery.isPlaceholder) {
+//        if (!methodSqliteWrapperQuery.isFound) {
 //            WeLogger.w(TAG, "standard conversation SQLite wrapper query method was not resolved")
 //        } else {
 //            methodSqliteWrapperQuery.method.hookBefore {
@@ -203,7 +203,7 @@ object SuperConversationPinning : SwitchFeature(),
     }
 
     private fun hookMvvmConversationComparator() {
-        if (classMvvmConversationAdapter.isPlaceholder) {
+        if (!classMvvmConversationAdapter.isFound) {
             WeLogger.w(TAG, "mvvm conversation comparator unavailable")
             return
         }

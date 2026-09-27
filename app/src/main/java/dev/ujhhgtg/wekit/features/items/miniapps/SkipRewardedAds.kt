@@ -135,7 +135,7 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
 
         // 2) 强制字符串注入路径: 广告 SDK 文件不允许 FD 直读。
         listOf(methodPkgReaderH0, methodAssetReaderH0)
-            .filter { !it.isPlaceholder }
+            .filter { it.isFound }
             .forEach { method ->
                 method.hookBefore {
                     val path = args.getOrNull(0) as? String ?: return@hookBefore

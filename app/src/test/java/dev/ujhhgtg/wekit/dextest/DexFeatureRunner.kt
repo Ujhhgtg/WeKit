@@ -4,6 +4,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.GeneratedMethodHashes
 import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
 import dev.ujhhgtg.wekit.dexkit.resolution.DexHostMetadata
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionState
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
 import dev.ujhhgtg.wekit.dexkit.resolution.resolveAllDex
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionEvent
@@ -73,28 +74,28 @@ private fun dexFeatureReport(
     elapsedMillis: Long,
 ): DexTestFeatureReport {
 
-    val pending = feature.dexDelegates.filter { it.diagnostic.status == DexResolutionStatus.PENDING }
+    val pending = feature.dexDelegates.filter { it.state == DexResolutionState.Pending }
     if (error == null) {
         pending.forEach(BaseDexDelegate::markIncomplete)
     } else {
         val failingKey = feature.dexDelegates
-            .firstOrNull { it.diagnostic.status == DexResolutionStatus.UNEXPECTED_FAILURE }
+            .firstOrNull { it.state is DexResolutionState.UnexpectedFailure }
             ?.key
             ?: "${entry.className}#resolveDex"
         pending.forEach { it.markBlocked(failingKey) }
     }
 
     val delegates = feature.dexDelegates.map { delegate ->
-        val diagnostic = delegate.diagnostic
+        val state = delegate.state
+        val failure = state as? DexResolutionState.UnexpectedFailure
         DexTestDelegateReport(
             key = delegate.key,
-            status = diagnostic.status,
-            descriptor = diagnostic.descriptor ?: delegate.getDescriptorString(),
-            isPlaceholder = delegate.isPlaceholder,
-            message = diagnostic.message,
-            exceptionType = diagnostic.exceptionType,
-            stackTrace = diagnostic.stackTrace,
-            blockedBy = diagnostic.blockedBy,
+            status = state.status,
+            descriptor = (state as? DexResolutionState.Success)?.descriptor,
+            message = failure?.message,
+            exceptionType = failure?.exceptionType,
+            stackTrace = failure?.stackTrace,
+            blockedBy = (state as? DexResolutionState.Blocked)?.blockedBy,
         )
     }
     return DexTestFeatureReport(

@@ -610,7 +610,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         val viewHooks = listOf(
             WeConversationListViewApi.methodLegacyGetView to AdapterStorage.LEGACY_CURSOR,
             WeConversationListViewApi.methodMvvmGetView to AdapterStorage.MVVM_LIST,
-        ).filterNot { (delegate, _) -> delegate.isPlaceholder }
+        ).filter { (delegate, _) -> delegate.isFound }
         if (viewHooks.isEmpty()) {
             error("conversation adapter filter targets were not resolved")
         }
@@ -666,7 +666,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             }
         }
 
-        if (!WeConversationListViewApi.classConversationRecyclerAdapter.isPlaceholder) {
+        if (WeConversationListViewApi.classConversationRecyclerAdapter.isFound) {
             hookRecyclerDataSource()
         }
     }
@@ -1193,18 +1193,17 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
 
     override fun resolveDex(dexKit: DexKitBridge) {
         DexResolutionContext.ensureResolved(WeConversationListViewApi.classConversationRecyclerAdapter)
-        if (WeConversationListViewApi.classConversationRecyclerAdapter.isPlaceholder) {
-            val reason = "conversation RecyclerView architecture is absent"
-            classRecyclerDataSource.setPlaceholderDescriptor(true, reason)
-            methodRecyclerQueryPage.setPlaceholderDescriptor(true, reason)
-            fieldRecyclerPageItems.setPlaceholderDescriptor(true, reason)
-            classRecyclerRow.setPlaceholderDescriptor(true, reason)
-            fieldRecyclerRowConversation.setPlaceholderDescriptor(true, reason)
-            methodRecyclerSubmitUiChange.setPlaceholderDescriptor(true, reason)
-            fieldRecyclerPendingItems.setPlaceholderDescriptor(true, reason)
-            fieldRecyclerMvvmList.setPlaceholderDescriptor(true, reason)
-            methodRecyclerRefreshAll.setPlaceholderDescriptor(true, reason)
-            fieldRecyclerLoading.setPlaceholderDescriptor(true, reason)
+        if (!WeConversationListViewApi.classConversationRecyclerAdapter.isFound) {
+            classRecyclerDataSource.markExpectedFailure()
+            methodRecyclerQueryPage.markExpectedFailure()
+            fieldRecyclerPageItems.markExpectedFailure()
+            classRecyclerRow.markExpectedFailure()
+            fieldRecyclerRowConversation.markExpectedFailure()
+            methodRecyclerSubmitUiChange.markExpectedFailure()
+            fieldRecyclerPendingItems.markExpectedFailure()
+            fieldRecyclerMvvmList.markExpectedFailure()
+            methodRecyclerRefreshAll.markExpectedFailure()
+            fieldRecyclerLoading.markExpectedFailure()
             return
         }
 

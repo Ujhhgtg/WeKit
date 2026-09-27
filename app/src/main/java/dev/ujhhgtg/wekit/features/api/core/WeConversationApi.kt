@@ -335,7 +335,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 
     /** The rconversation model ([com.tencent.mm.storage.m3]) for [talker], or null if none exists. */
     fun getConversationByTalker(talker: String): Any? {
-        if (methodGetConversationByTalker.isPlaceholder) return null
+        if (!methodGetConversationByTalker.isFound) return null
         return try {
             methodGetConversationByTalker.method.invoke(conversationStorage, talker)
         } catch (ex: Exception) {
@@ -357,7 +357,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
      *   build or the call threw).
      */
     fun deleteConversation(talker: String, conversation: Any? = getConversationByTalker(talker)): Boolean {
-        if (methodDoDeleteConversation.isPlaceholder) {
+        if (!methodDoDeleteConversation.isFound) {
             WeLogger.w(TAG, "permanent delete unavailable on this build for $talker")
             return false
         }
@@ -429,7 +429,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 //    }
 //
 //    private fun resolvedClearEcsGiftRedLabelMethod(): Method? {
-//        if (methodClearEcsGiftRedLabel.isPlaceholder) return null
+//        if (!methodClearEcsGiftRedLabel.isFound) return null
 //        val method = methodClearEcsGiftRedLabel.method
 //        if (method.run {
 //                returnType == Void.TYPE &&
@@ -479,7 +479,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     }
 
     private fun notifyConversationChanged(talker: String, eventType: Int = 3) {
-        if (methodNotifyConversationChanged.isPlaceholder) return
+        if (!methodNotifyConversationChanged.isFound) return
         methodNotifyConversationChanged.method.invoke(conversationStorage, eventType, conversationStorage, talker)
     }
 
@@ -568,7 +568,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
      * the room id's suffix, and each implementation builds its own flavour of the operation.
      */
     private fun setChatRoomDnd(roomId: String, dnd: Boolean) {
-        if (methodGetRoomService.isPlaceholder || methodRoomOpLogRequest.isPlaceholder) {
+        if (!methodGetRoomService.isFound || !methodRoomOpLogRequest.isFound) {
             WeLogger.w(TAG, "room notify oplog unavailable on this build, cannot set dnd for $roomId")
             return
         }
@@ -604,7 +604,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
      * Reads from WeChat's ConversationStorage cache — safe to call on the UI thread.
      */
     fun isPinned(talker: String): Boolean {
-        if (methodIsPlacedTop.isPlaceholder) return false
+        if (!methodIsPlacedTop.isFound) return false
         return try {
             methodIsPlacedTop.method.invoke(conversationStorage, talker) as? Boolean ?: false
         } catch (ex: Exception) {
@@ -620,7 +620,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
      */
     fun setPinned(talker: String, top: Boolean) {
         val method = if (top) methodSetPlacedTop else methodUnSetPlacedTop
-        if (method.isPlaceholder) {
+        if (!method.isFound) {
             WeLogger.w(TAG, "setPlacedTop unavailable on this build for $talker")
             return
         }

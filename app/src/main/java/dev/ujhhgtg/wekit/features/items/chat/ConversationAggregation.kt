@@ -632,7 +632,7 @@ object ConversationAggregation : ClickableFeature(),
     // picker scoped to that folder's members, then re-invoke doClickUser with the chosen member so
     // the original share flow proceeds normally.
     private fun hookSelectConversationUi() {
-        if (methodSelectConversationDoClickUser.isPlaceholder) return
+        if (!methodSelectConversationDoClickUser.isFound) return
         methodSelectConversationDoClickUser.hookBefore {
             val username = args.firstOrNull() as? String ?: return@hookBefore
             if (!isFolderId(username)) return@hookBefore
@@ -666,7 +666,7 @@ object ConversationAggregation : ClickableFeature(),
             methodMvvmMainListItemClick,
             methodMvvmSearchItemClick
         ).forEach { method ->
-            if (method.isPlaceholder) return@forEach
+            if (!method.isFound) return@forEach
             method.hookBefore { handleMvvmFolderTap(this) }
         }
     }
@@ -765,7 +765,7 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     private fun hookSqliteWrapperQuery() {
-        if (WeDatabaseApi.methodSqliteWrapperRawQuery.isPlaceholder) return
+        if (!WeDatabaseApi.methodSqliteWrapperRawQuery.isFound) return
         WeDatabaseApi.methodSqliteWrapperRawQuery.hookBefore {
             if (suppressQueryRewrite.get()!!) return@hookBefore
             val sql = args.firstOrNull() as? String ?: return@hookBefore
@@ -774,7 +774,7 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     private fun hookConversationStorageParentQuery() {
-        if (methodConversationStorageQueryByParent.isPlaceholder) return
+        if (!methodConversationStorageQueryByParent.isFound) return
         methodConversationStorageQueryByParent.hookBefore {
             val folderId = activeFolderId ?: return@hookBefore
             val parentRef = args.getOrNull(2) as? String ?: return@hookBefore

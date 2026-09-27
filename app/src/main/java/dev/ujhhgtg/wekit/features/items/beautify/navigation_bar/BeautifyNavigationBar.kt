@@ -418,7 +418,7 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         }
 
         val recyclerOnScrolled = WeConversationListViewApi.methodRecyclerOnScrolled
-        if (!recyclerOnScrolled.isPlaceholder) {
+        if (recyclerOnScrolled.isFound) {
             recyclerOnScrolled.hookAfter {
                 if (!config.style.isFloating || !config.autoHide) return@hookAfter
                 val recyclerView = args[0] as ViewGroup

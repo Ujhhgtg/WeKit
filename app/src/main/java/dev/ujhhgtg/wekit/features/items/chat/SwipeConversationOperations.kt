@@ -293,7 +293,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
     // ── row binding: attach the swipe listener + keep talker / conversation fresh ─
 
     private fun hookAdapter(adapter: DexClassDelegate) {
-        if (adapter.isPlaceholder) return
+        if (!adapter.isFound) return
         adapter.reflekt().firstMethod { name = "getView"; parameterCount = 3 }
             .hookAfter {
                 val view = result as? View ?: return@hookAfter

@@ -84,7 +84,6 @@ struct DelegateReport {
     key: String,
     status: String,
     descriptor: Option<String>,
-    is_placeholder: bool,
     message: Option<String>,
     exception_type: Option<String>,
     stack_trace: Option<String>,
@@ -694,7 +693,7 @@ fn read_report(path: &Path) -> Result<ApkReport> {
 
 fn infrastructure_report(apk: &Path, native: &DexKitNative, error: &anyhow::Error) -> ApkReport {
     ApkReport {
-        schema_version: 2,
+        schema_version: 3,
         worker_pid: 0,
         apk_path: apk.to_string_lossy().to_string(),
         file_name: apk

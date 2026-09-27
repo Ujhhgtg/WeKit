@@ -36,6 +36,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeLauncherBackApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.features.items.system.predictive_back.PredictiveBackGestures.nonConsumingUics
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.baseActivity
 import org.luckypray.dexkit.DexKitBridge
@@ -287,7 +288,7 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
         )
         // Older LauncherUIs (with or without the class) never ask the chatbot panel about BACK.
         if (dispatchInvokes.none { it.declaredClassName == CHATBOT_UIC }) {
-            methodChatbotPanelOpen.setPlaceholderDescriptor(true, "LauncherUI does not route BACK to MultiTaskChatbotUIC")
+            methodChatbotPanelOpen.markExpectedFailure()
         } else {
             methodChatbotPanelOpen.setDescriptor(dispatchInvokes.single {
                 it.declaredClassName == CHATBOT_UIC && it.methodName != "onBackPressed" && it.isNoArgBoolean()
@@ -595,7 +596,7 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
             val clazz = uic!!.javaClass
             when {
                 clazz.isNamed(MULTITASK_UIC) -> false
-                clazz.isNamed(CHATBOT_UIC) && !methodChatbotPanelOpen.isPlaceholder -> false
+                clazz.isNamed(CHATBOT_UIC) && methodChatbotPanelOpen.isFound -> false
                 clazz == globalUicClass -> (fieldGlobalUicChildren.field.get(uic) as Map<*, *>).isNotEmpty()
                 clazz.isNamed(SNS_HEADER_UIC) -> isSnsCoverOpen(uic)
                 clazz.name in nonConsumingUics -> false
@@ -712,7 +713,7 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
             .firstConstructor { parameters(APP_COMPAT_ACTIVITY) }
             .hookAfter { multiTaskUics[args[0] as Activity] = thisObject }
 
-        if (!methodChatbotPanelOpen.isPlaceholder) {
+        if (methodChatbotPanelOpen.isFound) {
             CHATBOT_UIC.toClass().reflekt()
                 .firstConstructor { parameters(APP_COMPAT_ACTIVITY) }
                 .hookAfter { chatbotUics[args[0] as Activity] = thisObject }

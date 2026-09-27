@@ -125,7 +125,7 @@ private fun rejectVoipMpCall(wxId: String) {
         WeLogger.w(TAG, "no VoIPMP launcher captured; cannot auto-reject call from $wxId")
         return
     }
-    if (HideContacts.methodVoipMpReject.isPlaceholder) {
+    if (!HideContacts.methodVoipMpReject.isFound) {
         WeLogger.w(TAG, "rejectByShortCut wasn't resolved; cannot auto-reject call from $wxId")
         return
     }
@@ -146,7 +146,7 @@ private fun rejectVoipMpCall(wxId: String) {
  * "not open multitalk receiver or black user" and returns without showing any UI).
  */
 private fun HideContacts.installMultiTalkHooks() {
-    if (methodMultiTalkOnInvite.isPlaceholder) {
+    if (!methodMultiTalkOnInvite.isFound) {
         WeLogger.w(TAG, "onInviteMultiTalk wasn't resolved; multitalk invite hiding unavailable")
         return
     }
@@ -197,7 +197,7 @@ private fun readMultiTalkInvite(group: Any): Pair<String?, String?>? = runCatchi
 /** `v0.g(isReject, isMissCall, isPhoneCall, isNetworkError, boolean, boolean)`. */
 private fun rejectMultiTalk(manager: Any?, target: String) {
     if (manager == null) return
-    if (SplitGroupCall.methodExitMultiTalk.isPlaceholder) {
+    if (!SplitGroupCall.methodExitMultiTalk.isFound) {
         WeLogger.w(TAG, "exitCurrentMultiTalk wasn't resolved; cannot auto-reject group call")
         return
     }
@@ -238,7 +238,7 @@ private fun HideContacts.installVoipRecordHooks() {
     // those strings live in the synthetic Runnable `b2$$a.run()` — a ZERO-parameter method — so
     // `args[0] as String` threw ArrayIndexOutOfBoundsException on every legacy call record. This
     // matches the real 8-parameter `b2.d(talker, ...)` instead.
-    if (!methodVoipLegacyInsertMsg.isPlaceholder) {
+    if (methodVoipLegacyInsertMsg.isFound) {
         methodVoipLegacyInsertMsg.hookBefore {
             val wxId = args[0] as? String ?: return@hookBefore
             if (!isHiddenNow(wxId)) return@hookBefore
@@ -263,7 +263,7 @@ private fun HideContacts.installLegacyVoipHooks() {
     // The "已拒绝通话" banner that WeChat raises AFTER a rejection. It lives on the same manager as
     // the incoming card but is a separate method, so suppressing the incoming card leaves it
     // visible — which defeats the point of hiding when auto-reject is on.
-    if (methodVoipShowFinishCard.isPlaceholder) {
+    if (!methodVoipShowFinishCard.isFound) {
         WeLogger.w(TAG, "showFinishCard wasn't resolved; the post-reject banner will stay visible")
     } else {
         methodVoipShowFinishCard.hookBefore {
