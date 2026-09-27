@@ -11,6 +11,7 @@ object Preferences {
 
     // Settings UI theming
     const val THEME_MODE = "settings_theme_mode"
+    /** Legacy switch for the module pages' predictive back; only read to seed PredictiveBackGestures. */
     const val THEME_PREDICTIVE_BACK_ENABLED = "settings_theme_predictive_back_enabled"
     const val THEME_PAGE_TRANSITION_ANIMATION = "settings_theme_page_transition_animation"
     const val THEME_DYNAMIC_WALLPAPER = "settings_theme_dynamic_wallpaper"

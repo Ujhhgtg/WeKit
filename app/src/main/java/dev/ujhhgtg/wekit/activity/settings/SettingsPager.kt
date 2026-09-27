@@ -84,7 +84,6 @@ import com.composables.icons.materialsymbols.outlined.Search
 import com.composables.icons.materialsymbols.outlined.Send
 import com.composables.icons.materialsymbols.outlined.Shield
 import com.composables.icons.materialsymbols.outlined.Style
-import com.composables.icons.materialsymbols.outlined.Swipe
 import com.composables.icons.materialsymbols.outlined.Update
 import com.composables.icons.materialsymbols.outlined.Upload
 import com.composables.icons.materialsymbols.outlined.Volunteer_activism
@@ -512,21 +511,6 @@ private fun ThemeSection() {
                 },
                 onValueChange = ThemeSettings::updateThemeMode,
                 icon = MaterialSymbols.Outlined.Brightness_medium,
-            )
-        }
-
-        item {
-            SwitchWidget(
-                title = stringResource(R.string.settings_predictive_back_animation_title),
-                description = stringResource(R.string.settings_predictive_back_animation_summary),
-                checked = ThemeSettings.predictiveBackEnabled,
-                onCheckedChange = { enabled ->
-                    ThemeSettings.updatePredictiveBackEnabled(enabled)
-                    CoroutineScope(Dispatchers.Main).launch {
-                        showToastSuspend(localizedContext.getString(R.string.restart_wechat_to_apply))
-                    }
-                },
-                icon = MaterialSymbols.Outlined.Swipe,
             )
         }
 

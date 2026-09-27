@@ -97,12 +97,6 @@ object ThemeSettings {
 
     var themeMode by mutableStateOf(AppThemeMode.fromName(KvStore.getString(Preferences.THEME_MODE)))
         private set
-    var predictiveBackEnabled by mutableStateOf(
-        KvStore.getBoolOrFalse(Preferences.THEME_PREDICTIVE_BACK_ENABLED)
-    )
-        private set
-    /** Installing the platform flags is a process-start operation. */
-    val appliedPredictiveBackEnabled = predictiveBackEnabled
     var pageTransitionAnimation by mutableStateOf(
         PageTransitionAnimation.fromName(
             KvStore.getString(Preferences.THEME_PAGE_TRANSITION_ANIMATION)
@@ -130,11 +124,6 @@ object ThemeSettings {
     fun updateThemeMode(value: AppThemeMode) {
         themeMode = value
         KvStore.putString(Preferences.THEME_MODE, value.name)
-    }
-
-    fun updatePredictiveBackEnabled(value: Boolean) {
-        predictiveBackEnabled = value
-        KvStore.putBool(Preferences.THEME_PREDICTIVE_BACK_ENABLED, value)
     }
 
     fun updatePageTransitionAnimation(value: PageTransitionAnimation) {

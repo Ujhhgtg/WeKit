@@ -117,7 +117,7 @@ class NavBarEditor(private val session: NavBarSession) {
         decor.addView(view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         visible = true
         // Registered after HomeSidePanel's, so the editor on top gets the gesture first.
-        unregisterBack = WeLauncherBackApi.register(session.activity, ::onBack)
+        unregisterBack = WeLauncherBackApi.register(session.activity, { true }, ::onBack)
     }
 
     private var unregisterBack: (() -> Unit)? = null

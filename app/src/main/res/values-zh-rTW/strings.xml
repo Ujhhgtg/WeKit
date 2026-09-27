@@ -101,6 +101,7 @@
     <string name="feature_error_dependency_dex_failed">錯誤：依賴功能「%1$s」Dex 解析失敗</string>
     <string name="feature_error_google_play_unsupported">錯誤：功能在 Google Play 版微信上不可用</string>
     <string name="feature_error_host_version_unsupported">錯誤：功能不支援當前版本微信</string>
+    <string name="feature_error_requires_android_14">錯誤：需要 Android 14 或更高版本</string>
     <string name="location_picker_instruction">點擊地圖或下方座標以選擇虛擬位置</string>
     <string name="location_picker_title">地圖選點</string>
     <string name="location_latitude">緯度</string>
@@ -843,8 +844,8 @@
     <string name="feature_nerf_background_process_checker_description">微信會在後臺每隔一段時間檢測微信主進程狀態, 並在特定條件下故意拋出異常結束主進程\n雖然我不知道這玩意有啥用和是否應該關掉, 但「崩潰攔截」會把這玩意算進去, 有點煩, 所以如果你想關的話這裏可以關</string>
     <string name="feature_power_saver_name">省電模式</string>
     <string name="feature_power_saver_description">通過一些措施, 減少微信耗電量</string>
-    <string name="feature_predictive_back_gestures_name">預見性返回動畫</string>
-    <string name="feature_predictive_back_gestures_description">爲微信的活動強制啓用預見性返回動畫\n需系統 Android SDK &gt;= 33</string>
+    <string name="feature_predictive_back_gestures_name">預見性返回手勢</string>
+    <string name="feature_predictive_back_gestures_description">爲模組頁面與微信啓用系統預見性返回：聊天列表空閒時顯示返回桌面預覽，主界面與會話摺疊頁中的聊天跟手滑動返回，其他無自訂返回處理的頁面使用系統標準動畫。面板、多選、搜尋、浮層等會先處理返回的狀態保持微信原有行爲\n實驗性功能，重啓微信後生效</string>
     <string name="feature_prevent_module_data_deletion_name">阻止微信清理模塊數據</string>
     <string name="feature_prevent_module_data_deletion_description">阻止微信「設置 → 存儲空間 → 清理」刪除模塊數據</string>
     <string name="feature_prevent_xposed_detection_name">禁止微信檢測 Xposed</string>
@@ -3484,8 +3485,6 @@
     <string name="agent_empty_skills_message">技能是 LLM 可按需加載的任務指南。</string>
     <string name="agent_empty_triggers_title">暫無觸發器</string>
     <string name="agent_empty_triggers_message">觸發器可按計劃、收到新消息或檢測到數據庫操作時自動調用 AI。</string>
-    <string name="settings_predictive_back_animation_title">預見性返回動畫</string>
-    <string name="settings_predictive_back_animation_summary">為模組頁面啓用系統預見性返回</string>
     <string name="settings_page_transition_animation_title">頁面過渡動畫</string>
     <string name="settings_page_transition_animation_aosp">AOSP</string>
     <string name="settings_page_transition_animation_miuix">Miuix</string>

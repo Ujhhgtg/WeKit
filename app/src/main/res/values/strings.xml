@@ -117,6 +117,7 @@
     <string name="feature_error_dependency_dex_failed">Error: Dex resolution of dependency “%1$s” failed</string>
     <string name="feature_error_google_play_unsupported">Error: Feature is unavailable on the Google Play version of WeChat</string>
     <string name="feature_error_host_version_unsupported">Error: Feature does not support the current WeChat version</string>
+    <string name="feature_error_requires_android_14">Error: Requires Android 14 or later</string>
     <string name="location_picker_instruction">Tap the map or the coordinates below to choose a virtual location.</string>
     <string name="location_picker_title">Choose location on map</string>
     <string name="location_latitude">Latitude</string>
@@ -881,8 +882,8 @@
     <string name="feature_nerf_background_process_checker_description">WeChat will detect the status of the WeChat main process in the background at regular intervals, and deliberately throw an exception under certain conditions to end the main process.\nAlthough I don’t know what the use of this thing is and whether it should be turned off, but the "crash interception" will include this thing, which is a bit annoying, so if you want to turn it off, you can turn it off here</string>
     <string name="feature_power_saver_name">Power saver</string>
     <string name="feature_power_saver_description">Take some measures to reduce WeChat’s power consumption</string>
-    <string name="feature_predictive_back_gestures_name">Predictive back animations</string>
-    <string name="feature_predictive_back_gestures_description">Forcibly enable predictive return animation for WeChat activities\nRequires system Android SDK &gt;= 33</string>
+    <string name="feature_predictive_back_gestures_name">Predictive back gestures</string>
+    <string name="feature_predictive_back_gestures_description">Enables system predictive back for WeKit\'s own pages and in WeChat: the back-to-home preview on an idle chat list, a finger-following swipe out of chats on the main screen and in conversation folders, and the standard animation on other pages without back handling of their own. Anything that would take the back first (panels, multi-select, search, overlays) keeps WeChat\'s own behavior\nExperimental; takes effect after restarting WeChat</string>
     <string name="feature_prevent_module_data_deletion_name">Prevent WeChat from cleaning module data</string>
     <string name="feature_prevent_module_data_deletion_description">Prevent WeChat "Settings → Storage → Cleanup" from deleting module data</string>
     <string name="feature_prevent_xposed_detection_name">Disable WeChat from detecting Xposed</string>
@@ -3475,8 +3476,6 @@
     <string name="agent_empty_skills_message">Skills are task playbooks the LLM loads on demand.</string>
     <string name="agent_empty_triggers_title">No triggers yet</string>
     <string name="agent_empty_triggers_message">Triggers automatically invoke the AI on a schedule, when a new message arrives, or when a database operation is detected.</string>
-    <string name="settings_predictive_back_animation_title">Predictive back animation</string>
-    <string name="settings_predictive_back_animation_summary">Enable system predictive back for module pages</string>
     <string name="settings_page_transition_animation_title">Page transition animation</string>
     <string name="settings_page_transition_animation_aosp">AOSP</string>
     <string name="settings_page_transition_animation_miuix">Miuix</string>

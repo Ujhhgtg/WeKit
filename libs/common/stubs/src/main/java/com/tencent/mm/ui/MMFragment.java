@@ -17,6 +17,16 @@ public class MMFragment {
         throw new RuntimeException("Stub!");
     }
 
+    /** Whether WeChat's swipe-back (and its SwipeBackLayout wrapper) is enabled for this fragment. */
+    public final boolean isSupportNavigationSwipeBack() {
+        throw new RuntimeException("Stub!");
+    }
+
+    /** Inherited from WeChat's androidx Fragment. */
+    public View getView() {
+        throw new RuntimeException("Stub!");
+    }
+
     public void finish() {
         throw new RuntimeException("Stub!");
     }

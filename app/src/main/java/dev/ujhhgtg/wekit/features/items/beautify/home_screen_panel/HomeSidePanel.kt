@@ -460,7 +460,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         fun attach() {
             if (attached) return
             attached = true
-            unregisterBack = WeLauncherBackApi.register(activity, ::consumeMoveTaskToBack)
+            unregisterBack = WeLauncherBackApi.register(activity, ::wouldConsumeBack, ::consumeMoveTaskToBack)
 
             parentClipChildren = parent.clipChildren
             parentClipToPadding = parent.clipToPadding
@@ -799,6 +799,11 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             gesture.snapTo(from)
             animateTo(1f, from)
         }
+
+        /** Mirrors [consumeMoveTaskToBack] without acting. */
+        private fun wouldConsumeBack(): Boolean =
+            panelState.uiState.value.route != HomeSidePanelRoute.Home ||
+                renderedProgress > 0f || dragging || gesture.isTracking
 
         private fun consumeMoveTaskToBack(): Boolean {
             if (panelState.consumeSettingsBack()) {

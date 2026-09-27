@@ -27,18 +27,30 @@ object WeLauncherBackApi : ApiFeature() {
         fun onBack(): Boolean
     }
 
-    private val handlers = WeakHashMap<Activity, ArrayDeque<Handler>>()
+    private class Registration(val isActive: () -> Boolean, val handler: Handler)
+
+    private val registrations = WeakHashMap<Activity, ArrayDeque<Registration>>()
 
     // One back gesture reaches moveTaskToBack more than once. After a handler consumes it,
     // the repeats of the same gesture are swallowed until the next frame instead of being
     // delivered again (which would, e.g., pop a sub-page and then close its host too).
     private val consumedThisFrame = WeakHashMap<Activity, Boolean>()
 
-    /** Registers [handler] for [activity]; invoke the returned function to unregister it. */
-    fun register(activity: Activity, handler: Handler): () -> Unit {
-        handlers.getOrPut(activity) { ArrayDeque() }.addLast(handler)
-        return { handlers[activity]?.remove(handler) }
+    /**
+     * Registers [handler] for [activity]; invoke the returned function to unregister it.
+     *
+     * [isActive] must be true exactly when [handler] would consume a back right now: predictive
+     * back reads it ahead of the gesture to decide whether the system may animate back-to-home.
+     */
+    fun register(activity: Activity, isActive: () -> Boolean, handler: Handler): () -> Unit {
+        val registration = Registration(isActive, handler)
+        registrations.getOrPut(activity) { ArrayDeque() }.addLast(registration)
+        return { registrations[activity]?.remove(registration) }
     }
+
+    /** Whether a registered handler would consume a back on [activity] right now. */
+    fun hasActiveHandler(activity: Activity): Boolean =
+        registrations[activity]?.any { it.isActive() } == true
 
     /** Whether a back of the current gesture has already been consumed on [activity]. */
     fun isConsumedThisFrame(activity: Activity): Boolean = consumedThisFrame[activity] == true
@@ -53,7 +65,7 @@ object WeLauncherBackApi : ApiFeature() {
                 result = true
                 return@hookBefore
             }
-            val consumed = handlers[activity]?.toList()?.asReversed()?.any { it.onBack() } == true
+            val consumed = registrations[activity]?.toList()?.asReversed()?.any { it.handler.onBack() } == true
             if (!consumed) return@hookBefore
             consumedThisFrame[activity] = true
             activity.window.decorView.postOnAnimation { consumedThisFrame.remove(activity) }
