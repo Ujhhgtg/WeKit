@@ -40,16 +40,17 @@ object MonetAssetInjector {
     private var ownedPaths: Set<String> = emptySet()
 
     /**
-     * WeChat's resource APKs as actually loaded by [assets] (base, resource splits, or a Tinker
-     * patched `resources.apk` under the data dir), base first. Loader assets, the framework and
-     * shared libraries such as WebView are excluded.
+     * WeChat's resource APKs as actually loaded by [assets] (base, resource splits, or Tinker's
+     * `<dataDir>/tinker/patch-<version>/res/resources.apk`), base first. Loader assets, the framework,
+     * shared libraries such as WebView, and APKs other modules add from the data dir are excluded.
      */
     fun hostResourceApks(assets: AssetManager, sourceDirs: List<String>, dataDirs: List<String>): List<String> {
         val sources = sourceDirs.mapTo(hashSetOf(), ::canonical)
-        val dataRoots = dataDirs.map { canonical(it) + "/" }
+        val tinkerRoots = dataDirs.map { canonical(it) + "/tinker/" }
         return assets.asHidden().apkAssets.filterNot(ApkAssets::isForLoader).map { it.assetPath }.filter { path ->
             val canonical = canonical(path)
-            canonical in sources || dataRoots.any(canonical::startsWith)
+            canonical in sources ||
+                tinkerRoots.any(canonical::startsWith) && canonical.endsWith("/res/resources.apk")
         }
     }
 

@@ -121,6 +121,12 @@ object MonetEngine : ClickableFeature() {
     private var pendingResolve = false
     private var resolveLifecycleCallbacks: Application.ActivityLifecycleCallbacks? = null
 
+    /**
+     * Host resource APKs fixed when the runtime is enabled. The live AssetManager can gain APKs
+     * later in the process, and a fingerprint taken then never matches the next startup's.
+     */
+    private var host: HostResources? = null
+
     /** Held so the provider in use is never finalized; replaced ones are left to GC, never closed. */
     private var currentProvider: ResourcesProvider? = null
 
@@ -148,6 +154,8 @@ object MonetEngine : ClickableFeature() {
     fun surfaceColors(dark: Boolean): SurfaceColors? =
         surfaceColorsState.value?.let { (light, night) -> if (dark) night else light }
 
+    private class HostResources(val apks: List<String>, val fingerprint: String)
+
     private data class Options(
         val bubbleStyle: MonetBubbleStyle,
         val multiSceneCorners: Boolean,
@@ -171,8 +179,7 @@ object MonetEngine : ClickableFeature() {
             showUnsupportedDialog(context)
             return false
         }
-        val fingerprint = MonetResourceResolver.fingerprint(hostApks().map(::File))
-        if (MonetResourceResolver.load(cacheDir, fingerprint) != null) return true
+        if (MonetResourceResolver.load(cacheDir, hostResources().fingerprint) != null) return true
         showResolveDialog(context) { applyToggle(true) }
         return false
     }
@@ -187,10 +194,9 @@ object MonetEngine : ClickableFeature() {
 
     @RequiresApi(Build.VERSION_CODES.R)
     private fun enableRuntime() {
-        val apks = hostApks()
-        WeLogger.i(TAG, "WeChat resource APKs: $apks")
-        MonetAssetInjector.init(apks)
-        val fingerprint = MonetResourceResolver.fingerprint(apks.map(::File))
+        val resources = hostResources().also { host = it }
+        val fingerprint = resources.fingerprint
+        MonetAssetInjector.init(resources.apks)
         pruneCache(fingerprint)
 
         // Implementations created from now on: new ResourcesManager keys, configuration
@@ -226,6 +232,7 @@ object MonetEngine : ClickableFeature() {
 
     override fun onDisable() {
         clearPendingResolve()
+        host = null
         scope?.cancel()
         scope = null
         configCallbacks?.let(HostInfo.application::unregisterComponentCallbacks)
@@ -414,13 +421,16 @@ object MonetEngine : ClickableFeature() {
 
     @SuppressLint("SdCardPath")
     @RequiresApi(Build.VERSION_CODES.R)
-    private fun hostApks(): List<String> {
+    private fun hostResources(): HostResources {
         val info = HostInfo.appInfo
-        return MonetAssetInjector.hostResourceApks(
+        val apks = MonetAssetInjector.hostResourceApks(
             HostInfo.application.assets,
             listOf(info.sourceDir) + info.splitSourceDirs.orEmpty(),
             listOf(info.dataDir, "/data/data/${info.packageName}"),
         )
+        val fingerprint = MonetResourceResolver.fingerprint(apks.map(::File))
+        WeLogger.i(TAG, "host resources $fingerprint: " + apks.joinToString { File(it).run { "$path (${length()} bytes, mtime ${lastModified()})" } })
+        return HostResources(apks, fingerprint)
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
@@ -562,10 +572,14 @@ object MonetEngine : ClickableFeature() {
             var failure by remember { mutableStateOf<String?>(null) }
             val localizedContext = LocalWeKitLocalizedContext.current
             LaunchedEffect(Unit) {
-                val apks = hostApks()
+                val live = hostResources()
+                val target = host ?: live
+                if (live.fingerprint != target.fingerprint) {
+                    WeLogger.w(TAG, "host resources changed since enable (${target.fingerprint} -> ${live.fingerprint}), resolving the enable-time set")
+                }
                 resolveInBackground(
-                    apks,
-                    MonetResourceResolver.fingerprint(apks.map(::File)),
+                    target.apks,
+                    target.fingerprint,
                     onProgress = { postOnUiThread { progress = it } },
                     onDone = { error ->
                         if (error == null) {
