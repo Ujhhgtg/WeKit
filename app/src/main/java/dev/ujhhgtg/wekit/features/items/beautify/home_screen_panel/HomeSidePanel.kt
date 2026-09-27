@@ -11,6 +11,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.view.ViewTreeObserver
 import android.view.Window
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
@@ -453,6 +454,18 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private val homeToolbarHosts = linkedSetOf<RelativeLayout>()
         private val chattingToolbarHosts = linkedSetOf<RelativeLayout>()
         private val nativeTitleVisibilities = linkedMapOf<TextView, Int>()
+        // HomeUI's title refresh re-shows the title (several times when leaving a chat); re-hide
+        // it before the frame is drawn, since the posted sync would leave it visible for a frame.
+        private val nativeTitlePreDrawListener = ViewTreeObserver.OnPreDrawListener {
+            var changed = false
+            nativeTitleVisibilities.keys.forEach { title ->
+                if (title.visibility != View.GONE) {
+                    title.visibility = View.GONE
+                    changed = true
+                }
+            }
+            !changed
+        }
         private val tabsAdapterHookHandles = mutableListOf<HookHandle>()
         private val observedViews = WeakHashMap<View, ObservedViewListeners>()
         private var pendingTransitionLayoutListener: View.OnLayoutChangeListener? = null
@@ -532,6 +545,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             )
             parent.addOnLayoutChangeListener(parentLayoutListener)
             decorRoot.addOnLayoutChangeListener(decorLayoutListener)
+            decorRoot.viewTreeObserver.addOnPreDrawListener(nativeTitlePreDrawListener)
             ViewCompat.setOnApplyWindowInsetsListener(contentWrapper) { _, insets ->
                 requestSync(SYNC_INSETS)
                 insets
@@ -664,6 +678,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             parent.removeCallbacks(syncRunnable)
             parent.removeOnLayoutChangeListener(parentLayoutListener)
             decorRoot.removeOnLayoutChangeListener(decorLayoutListener)
+            decorRoot.viewTreeObserver.removeOnPreDrawListener(nativeTitlePreDrawListener)
             ViewCompat.setOnApplyWindowInsetsListener(contentWrapper, null)
             pendingTransitionLayoutListener?.let(parent::removeOnLayoutChangeListener)
             pendingTransitionLayoutListener = null
