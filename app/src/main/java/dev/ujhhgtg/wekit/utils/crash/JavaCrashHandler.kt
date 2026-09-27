@@ -111,9 +111,6 @@ object JavaCrashHandler : Thread.UncaughtExceptionHandler {
             WeLogger.e(TAG, "no default handler, killing process")
         }
 
-        // The logger is asynchronous; make the crash details durable before the process exits.
-        runCatching { WeLogger.flush() }
-
         if (handler != null) {
             handler.uncaughtException(thread, throwable)
         } else {
