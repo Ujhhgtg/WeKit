@@ -32,6 +32,7 @@ import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.WeakHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.reflect.KClass
 
 object WeConversationListViewApi : ApiFeature(), IResolveDex {
 
@@ -70,6 +71,9 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     }
 
     private const val TAG = "WeConversationListViewApi"
+
+    private val NEIGHBOR_REBIND_PAYLOAD = Any()
+    private val pendingNeighborRebinds = Collections.newSetFromMap(IdentityHashMap<Any, Boolean>())
 
     private val listeners = CopyOnWriteArrayList<IBindViewListener>()
     private val positionProviders = CopyOnWriteArrayList<IAdapterPositionProvider>()
@@ -386,7 +390,10 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     override fun onEnable() {
         hookListBinding(methodLegacyGetView)
         hookListBinding(methodMvvmGetView)
-        if (methodRecyclerConversationBind.isFound) hookRecyclerBinding()
+        if (methodRecyclerConversationBind.isFound) {
+            hookRecyclerBinding()
+            hookRecyclerNeighborRebinding()
+        }
     }
 
     fun addListener(listener: IBindViewListener) {
@@ -480,6 +487,18 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     fun updateRecyclerEmptyFooter(container: View) {
         val extra = methodRecyclerCalculateEmptyFooter.method.invoke(container) as Float
         methodRecyclerApplyEmptyFooter.method.invoke(container, extra, true)
+    }
+
+    /**
+     * Re-runs the host's internal scroll listener against the settled layout. It derives the
+     * action bar's translation, status-bar mask and recent-page progress from the list position,
+     * but RecyclerView dispatches no onScrolled for a programmatic jump that keeps the same child
+     * range, leaving them at the values of an intermediate layout.
+     */
+    fun dispatchRecyclerScrolled(container: View) {
+        val onScrolled = methodRecyclerOnScrolled.method
+        val listener = container.reflekt().firstField { type(onScrolled.declaringClass) }.get()
+        onScrolled.invoke(listener, container, 0, 0)
     }
 
     /** Called only when deciding a gesture, not during scrolling or drawing. */
@@ -592,6 +611,57 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             updateActiveBinding(adapter, recyclerView, Backend.RECYCLER_VIEW)
             dispatchBinding(this, row, adapter, args[2] as Int, Backend.RECYCLER_VIEW)
         }
+    }
+
+    /**
+     * Row shapes depend on the neighbouring conversations, but RecyclerView binds only rows whose
+     * own item changed. After a batch of adapter updates, rebind the conversation rows so every
+     * [BindContext] is current. Positions inside a batch refer to intermediate states, so one
+     * posted range in the final coordinates replaces per-operation neighbour math. The host's row
+     * binder ignores payloads and binds fully; a payload keeps RecyclerView from cross-fading.
+     */
+    private fun hookRecyclerNeighborRebinding() {
+        val adapterClass = classConversationRecyclerAdapter.clazz
+        fun hookNotify(name: String, vararg parameters: KClass<*>) = adapterClass.reflekt().firstMethod {
+            this.name = name
+            parameters(*parameters)
+            superclass()
+        }.self.hookAfter {
+            val adapter = thisObject!!
+            if (!adapterClass.isInstance(adapter) || args.size == 3 && args[2] === NEIGHBOR_REBIND_PAYLOAD) {
+                return@hookAfter
+            }
+            if (pendingNeighborRebinds.add(adapter)) {
+                postOnUiThread {
+                    pendingNeighborRebinds.remove(adapter)
+                    rebindRecyclerRows(adapter)
+                }
+            }
+        }
+        hookNotify("notifyItemRangeInserted", Int::class, Int::class)
+        hookNotify("notifyItemRangeRemoved", Int::class, Int::class)
+        hookNotify("notifyItemMoved", Int::class, Int::class)
+        // A changed row can change group (e.g. pinning), which changes its neighbours' shapes.
+        hookNotify("notifyItemRangeChanged", Int::class, Int::class, Any::class)
+    }
+
+    private fun rebindRecyclerRows(adapter: Any) {
+        val container = latestContainer?.get() ?: return
+        val installed = container.reflekt().firstMethod {
+            name = "getAdapter"
+            parameters()
+            superclass()
+        }.invoke()
+        if (installed !== adapter) return
+        val first = headerCount(container)
+        val end = adapter.reflekt().firstMethod { name = "getItemCount"; parameters(); superclass() }.invoke() as Int -
+            container.reflekt().firstMethod { name = "getFooterViewsCount"; parameters() }.invoke() as Int
+        if (end <= first) return
+        adapter.reflekt().firstMethod {
+            name = "notifyItemRangeChanged"
+            parameters(Int::class, Int::class, Any::class)
+            superclass()
+        }.invoke(first, end - first, NEIGHBOR_REBIND_PAYLOAD)
     }
 
     private fun updateActiveBinding(adapter: Any, container: View?, backend: Backend) {

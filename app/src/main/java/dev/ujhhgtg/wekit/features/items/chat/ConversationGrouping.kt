@@ -170,6 +170,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.luckypray.dexkit.DexKitBridge
+import org.luckypray.dexkit.result.FieldUsingType
 import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
@@ -737,11 +738,13 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             }
         }
 
-        methodRecyclerSubmitUiChange.hookBefore {
+        // Filter the actor snapshot before emitToUI diffs it against the UI list. Filtering only the
+        // submitted rows would leave the precomputed diff describing unfiltered positions, which
+        // RecyclerView applies to the filtered rows (ghost rows, then an inconsistency crash).
+        methodRecyclerEmitToUi.hookBefore {
             if (!recyclerLists.contains(thisObject)) return@hookBefore
-            val pendingData = args[0]!!
             @Suppress("UNCHECKED_CAST")
-            val rows = fieldRecyclerPendingItems.field.get(pendingData) as MutableList<Any>
+            val rows = fieldRecyclerActorItems.field.get(thisObject) as MutableList<Any>
             filterRecyclerRows(rows, filterFor(thisObject!!))
         }
     }
@@ -1178,6 +1181,10 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
 
     private val fieldRecyclerPendingItems by dexField()
 
+    private val methodRecyclerEmitToUi by dexMethod()
+
+    private val fieldRecyclerActorItems by dexField()
+
     private val fieldRecyclerMvvmList by dexField()
 
     private val methodRecyclerRefreshAll by dexMethod()
@@ -1201,6 +1208,8 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             fieldRecyclerRowConversation.markExpectedFailure()
             methodRecyclerSubmitUiChange.markExpectedFailure()
             fieldRecyclerPendingItems.markExpectedFailure()
+            methodRecyclerEmitToUi.markExpectedFailure()
+            fieldRecyclerActorItems.markExpectedFailure()
             fieldRecyclerMvvmList.markExpectedFailure()
             methodRecyclerRefreshAll.markExpectedFailure()
             fieldRecyclerLoading.markExpectedFailure()
@@ -1280,6 +1289,32 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 }
             }
         }
+        methodRecyclerEmitToUi.find(dexKit) {
+            matcher {
+                declaredClass(methodRecyclerSubmitUiChange.data.declaredClassName)
+                paramCount = 2
+                returnType = "void"
+                usingStrings("emitToUI: frozen, skip all (type=")
+            }
+        }
+        // emitToUI reads two ArrayLists: the actor snapshot it diffs from, and the UI list that
+        // submitUIChange replaces. The snapshot is the one submitUIChange never touches.
+        val uiListFields = methodRecyclerSubmitUiChange.data.usingFields.mapTo(mutableSetOf()) {
+            it.field.descriptor
+        }
+        val actorItems = methodRecyclerEmitToUi.data.usingFields
+            .filter { it.usingType == FieldUsingType.Read }
+            .map { it.field }
+            .filter {
+                it.className == methodRecyclerSubmitUiChange.data.declaredClassName &&
+                    it.typeName == "java.util.ArrayList" && it.descriptor !in uiListFields
+            }
+            .distinctBy { it.descriptor }
+        require(actorItems.size == 1) {
+            "expected one conversation actor snapshot field, found: " +
+                actorItems.joinToString { it.descriptor }
+        }
+        fieldRecyclerActorItems.setDescriptor(actorItems.single())
         methodRecyclerRefreshAll.find(dexKit) {
             matcher {
                 declaredClass(methodRecyclerSubmitUiChange.data.declaredClassName)

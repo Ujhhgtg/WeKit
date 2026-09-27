@@ -11,10 +11,12 @@ import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
+import android.widget.ListView
 import android.widget.RelativeLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
+import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlin.math.abs
 
@@ -564,7 +566,12 @@ class ConversationGroupSwipeSession(
                     val observer = sourceView.viewTreeObserver
                     val listener = ViewTreeObserver.OnPreDrawListener {
                         removeRestoreListener()
-                        if (phase == expectedPhase) completed()
+                        if (phase == expectedPhase) {
+                            if (sourceView !is ListView) {
+                                WeConversationListViewApi.dispatchRecyclerScrolled(sourceView)
+                            }
+                            completed()
+                        }
                         true
                     }
                     restoreObserver = observer
