@@ -187,6 +187,8 @@ val MONET_RULES = listOf(
     MonetSemanticRule("theme.color.system-surface-light--system-surface-dark.slot-07", "color", setOf("context:drawable:usage:layout:com.tencent.mm.plugin.mv.ui.view.InterceptRelativeLayout/LinearLayout/LinearLayout/LinearLayout/LinearLayout/TextView:16842964:background")),
     // Finder's rounded menu tiles use this surface; their white night icons need a dark background.
     MonetSemanticRule("theme.color.system-surface-light--system-surface-container-high-dark.slot-01", "color", setOf("context:drawable:attribute:shape/corners:16843176:radius:DIMENSION:literal:DIMENSION:3585", "config:-night:reference:color:REFERENCE", "context:drawable:attribute:shape/size:16843097:width:REFERENCE:reference:dimen:REFERENCE")),
+    // The rounded list rows under those tiles (e.g. "识别图中二维码") use an identical twin color.
+    MonetSemanticRule("theme.color.system-surface-light--system-surface-container-high-dark.slot-02", "color", setOf("config::reference:color:REFERENCE", "config:-night:reference:color:REFERENCE", "context:drawable:attribute:shape/corners:16843176:radius:REFERENCE:reference:dimen:REFERENCE", "sibling:drawable:dimen:config::literal:DIMENSION:3073", "context:drawable:usage:drawable:selector/item:16843161:drawable"), requiredAdjacentRoles = mapOf(2 to "theme.color.system-surface-light--system-surface-container-high-dark.slot-01")),
     MonetSemanticRule("theme.color.unknown--system-surface-dark.slot-01", "color", setOf("context:layout:attribute:ScrollView/LinearLayout/LinearLayout/TextView:16842904:textColor:COLOR_RGB8:literal:COLOR_RGB8:4280453922", "context:layout:attribute:LinearLayout/LinearLayout:16843002:layout_marginBottom:DIMENSION:literal:DIMENSION:4097")),
     MonetSemanticRule("theme.color.system-accent1-100--system-accent1-800.slot-02", "color", setOf("config::literal:COLOR_ARGB8:4290047182")),
     MonetSemanticRule("theme.color.system-accent1-100--system-accent1-800.slot-03", "color", setOf("config:-night:literal:COLOR_ARGB8:4280121928")),
@@ -268,4 +270,6 @@ val MONET_RULES = listOf(
     MonetSemanticRule("theme.color.system-surface-light--system-surface-dark.slot-04", "color", emptySet()),
     MonetSemanticRule("main.surface.header.primary", "drawable", setOf("config::file:9PNG:21:190:0:47:56:1015182:1017450:2:259089148f46db80af657aa18439589603c0807cd88376e29026eeda003fcaab")),
     MonetSemanticRule("main.surface.header.secondary", "drawable", setOf("config::file:9PNG:21:190:0:47:56:98742:1017450:2:f6ff144aac212eb90c20f65bd2d5b481271e46432e5712f0b03a6af21d87d096")),
+    // Shadowed white 9-patch behind MMPopupMenu's vertical text-only menus (e.g. conversation long-press).
+    MonetSemanticRule("menu.popup.background", "drawable", setOf("config:-xxhdpi:file:9PNG:112:112:4:1328:84:null:null:null:null", "config:-night-xxhdpi:file:9PNG:112:112:4:731:84:null:null:null:null")),
 )

@@ -15,7 +15,7 @@ import kotlin.io.path.createTempDirectory
 class MonetMatcherCorpusTest {
     @Test
     fun `directly compare reference color targets to domestic resources`() {
-        val play = extractApks(File("/home/ujhhgtg/coding/wechat_8072_3084.apks"))
+        val play = extractApks(PLAY_APKS)
         val referenceApk = File.createTempFile("monet-reference-", ".apk").apply {
             writeBytes(ZipFile("/home/ujhhgtg/Downloads/WeChatMonet_Pro_v26S4.zip").use { zip ->
                 zip.getInputStream(zip.getEntry("files/MonetWeChat.apk")).readBytes()
@@ -25,7 +25,7 @@ class MonetMatcherCorpusTest {
         try {
             val source = MonetApkResourceGraphLoader.load(play.second, "com.tencent.mm")
             val referenceOverlay = MonetApkResourceGraphLoader.load(listOf(referenceApk), "monet.com.tencent.mm")
-            val playStructural = auditResources(File("/home/ujhhgtg/coding/wechat_8072_3084.apks"), source)
+            val playStructural = auditResources(PLAY_APKS, source)
             mapOf(
                 "chat.transfer.incoming.expired" to "c2c_chatfrom_remittance_expired_bg",
                 "chat.transfer.incoming.received" to "z1",
@@ -41,7 +41,9 @@ class MonetMatcherCorpusTest {
                 val before = mismatches.size
                 for (role in MonetStructureMatcher.roleIds.filter { it.startsWith("theme.color.") }) {
                     val reference = playStructural.getValue(role).single()
-                    assertTrue(referenceOverlay.node(reference.key) != null, "reference APK missing ${reference.key}")
+                    if (role !in BEYOND_REFERENCE_ROLES) {
+                        assertTrue(referenceOverlay.node(reference.key) != null, "reference APK missing ${reference.key}")
+                    }
                     val selected = structural.getValue(role).singleOrNull()
                     if (selected == null) {
                         assertTrue(role in expectedAbsent, "$sampleName unexpectedly omitted $role")
@@ -94,13 +96,6 @@ class MonetMatcherCorpusTest {
             val olderPlay = File("/home/ujhhgtg/coding/wechat_8069_3020_play.apk")
             val olderPlayGraph = MonetApkResourceGraphLoader.load(listOf(olderPlay), "com.tencent.mm")
             comparePalette(olderPlay.name, olderPlayGraph, auditResources(olderPlay, olderPlayGraph))
-            val newerPlay = extractApks(PLAY_3085_APKS)
-            try {
-                val newerPlayGraph = MonetApkResourceGraphLoader.load(newerPlay.second, "com.tencent.mm")
-                comparePalette(PLAY_3085_FILE_NAME, newerPlayGraph, auditResources(PLAY_3085_APKS, newerPlayGraph))
-            } finally {
-                newerPlay.first.deleteRecursively()
-            }
             assertTrue(mismatches.isEmpty(), mismatches.joinToString("\n"))
         } finally {
             play.first.deleteRecursively()
@@ -113,7 +108,7 @@ class MonetMatcherCorpusTest {
         System.load(File("../.wekit/dex-test/native/2.3.0/x86_64/cmake/libdexkit.so").canonicalPath)
         val samples = listOf("8065", "8067", "8069", "8074", "8076", "8077", "8078", "8069_3020_play").map {
             File("/home/ujhhgtg/coding/wechat_$it.apk")
-        } + listOf(File("/home/ujhhgtg/coding/wechat_8072_3084.apks"), PLAY_3085_APKS)
+        } + PLAY_APKS
         val failures = mutableListOf<String>()
 
         samples.forEach { sample ->
@@ -165,7 +160,7 @@ class MonetMatcherCorpusTest {
 
     @Test
     fun `installed Play split subset resolves every role including code-only splits`() {
-        val extracted = extractApks(PLAY_3085_APKS)
+        val extracted = extractApks(PLAY_APKS)
         try {
             // The actual sourceDir/splitSourceDirs combination on the reporting device.
             val installedNames = setOf(
@@ -227,9 +222,12 @@ class MonetMatcherCorpusTest {
     }
 
     private companion object {
-        const val PLAY_3085_FILE_NAME =
-            "com.tencent.mm_8.0.72-3085_1arch_7dpi_24lang_2feat_985c2543ef8d5b617ac8b43f3e8e25bc_apkmirror.com.apks"
-        val PLAY_3085_APKS = File("/home/ujhhgtg/Downloads", PLAY_3085_FILE_NAME)
+        val PLAY_APKS = File("/home/ujhhgtg/coding/wechat_8072_3085_play.apks")
+        // Surfaces the reference module leaves untouched although they sit beside recolored ones.
+        val BEYOND_REFERENCE_ROLES = setOf(
+            // Twin of slot-01 behind the rounded list rows under the tiles, e.g. "识别图中二维码".
+            "theme.color.system-surface-light--system-surface-container-high-dark.slot-02",
+        )
         val SOURCE_VERIFIED_ROLES = setOf(
             // Same VIP badge consumer, but 8.0.65 uses literal #b4000000 instead of an FG_0 alias.
             "theme.color.system-surface-container-dark--system-surface-container-dark.slot-10",
@@ -298,8 +296,7 @@ class MonetMatcherCorpusTest {
                 "theme.color.system-surface-container-light--system-surface-container-dark.slot-53"),
             "wechat_8069_3020_play.apk" to setOf(SEARCH_BAR_BACKGROUND,
                 "theme.color.system-surface-container-light--system-surface-container-dark.slot-53"),
-            "wechat_8072_3084.apks" to emptySet(),
-            PLAY_3085_FILE_NAME to emptySet(),
+            PLAY_APKS.name to emptySet(),
             "wechat_8074.apk" to emptySet(),
             "wechat_8076.apk" to setOf(SURFACE_CONTAINER_SLOT_56, SURFACE_CONTAINER_SLOT_57),
             "wechat_8077.apk" to setOf(SURFACE_CONTAINER_SLOT_56, SURFACE_CONTAINER_SLOT_57),
@@ -338,9 +335,7 @@ class MonetMatcherCorpusTest {
             "wechat_8077.apk" to listOf("ao1", "ao2") + FIXED_TARGETS + listOf("tt", "up", "dp", "rh", "e2"),
             "wechat_8078.apk" to listOf("ao1", "ao2") + FIXED_TARGETS + listOf("tt", "up", "dp", "rh", "e2"),
             "wechat_8069_3020_play.apk" to listOf("can", "cao") + FIXED_TARGETS + listOf("adl", "af0", "n0", "a_z", "ni"),
-            "wechat_8072_3084.apks" to
-                listOf("cbr", "cbs") + FIXED_TARGETS + listOf("adr", "af6", "n0", "aa4", "ni"),
-            PLAY_3085_FILE_NAME to
+            PLAY_APKS.name to
                 listOf("cbr", "cbs") + FIXED_TARGETS + listOf("adr", "af6", "n0", "aa4", "ni"),
         ).mapValues { (_, names) -> EXPECTED_ROLES.zip(names).toMap() }
         val INCOMING_TRANSFER_ROLES = listOf("chat.transfer.incoming.expired", "chat.transfer.incoming.received")
@@ -357,9 +352,7 @@ class MonetMatcherCorpusTest {
             "wechat_8078.apk" to STANDARD_TRANSFER_TARGETS,
             "wechat_8069_3020_play.apk" to
                 (setOf("c2c_chatfrom_remittance_expired_bg", "ym") to setOf("c2c_chatto_remittance_expired_bg", "yy")),
-            "wechat_8072_3084.apks" to
-                (setOf("c2c_chatfrom_remittance_expired_bg", "z1") to setOf("c2c_chatto_remittance_expired_bg", "zc")),
-            PLAY_3085_FILE_NAME to
+            PLAY_APKS.name to
                 (setOf("c2c_chatfrom_remittance_expired_bg", "z1") to setOf("c2c_chatto_remittance_expired_bg", "zc")),
         )
     }

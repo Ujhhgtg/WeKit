@@ -614,7 +614,7 @@ object MonetEngine : ClickableFeature() {
         clearPendingResolve()
     }
 
-    private const val RENDER_VERSION = 7
+    private const val RENDER_VERSION = 9
     private const val SOURCE_SYSTEM = "system"
     private const val SOURCE_SEED = "seed"
     private const val MAX_RUNTIME_TABLES = 4

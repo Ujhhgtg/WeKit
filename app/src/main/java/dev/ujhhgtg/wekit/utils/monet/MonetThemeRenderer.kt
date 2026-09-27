@@ -6,6 +6,10 @@ import dev.ujhhgtg.wekit.utils.monet.MonetRuntimePackageWriter.DrawableTarget
 import dev.ujhhgtg.wekit.utils.monet.MonetRuntimePackageWriter.XmlAttribute
 import dev.ujhhgtg.wekit.utils.monet.MonetRuntimePackageWriter.XmlNode
 import dev.ujhhgtg.wekit.utils.monet.MonetRuntimePackageWriter.XmlValue
+import kotlin.math.abs
+import kotlin.math.exp
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /**
  * Turns resolved bindings plus the current theme state into the runtime resource set.
@@ -180,6 +184,7 @@ object MonetThemeRenderer {
             header(palette.surfaceLight, palette.surfaceContainerLight),
             header(palette.surfaceDark, palette.surfaceContainerDark),
         )
+        addPair(resolved, "menu.popup.background", popupMenu(palette.surfaceContainerLight), popupMenu(palette.surfaceContainerDark))
     }
 
     private fun modernBubbles(
@@ -382,11 +387,14 @@ object MonetThemeRenderer {
         listOf(XmlNode("solid", listOf(android("color", ATTR_COLOR, color)))),
     )
 
-    private fun rounded(color: Int, radius: Float, padding: Padding? = null): XmlNode = XmlNode(
+    private fun rounded(color: Int, radius: Float, padding: Padding? = null): XmlNode =
+        rounded(colorValue(color), radius, padding)
+
+    private fun rounded(color: XmlValue, radius: Float, padding: Padding? = null): XmlNode = XmlNode(
         "shape",
         listOf(android("shape", ATTR_SHAPE, XmlValue.Integer(0))),
         buildList {
-            add(XmlNode("solid", listOf(android("color", ATTR_COLOR, colorValue(color)))))
+            add(XmlNode("solid", listOf(android("color", ATTR_COLOR, color))))
             add(XmlNode("corners", listOf(android("radius", ATTR_RADIUS, XmlValue.Dimension(radius)))))
             padding?.let { add(it.node()) }
         },
@@ -499,6 +507,61 @@ object MonetThemeRenderer {
             XmlNode("item", listOf(android("top", ATTR_TOP, XmlValue.Dimension(120f))), listOf(solid(accent))),
         ),
     )
+
+    /**
+     * Replaces a shadowed 9-patch: the card keeps its 32px@xxhdpi inset, and its padding (summed by
+     * the layer-list, unlike item insets) keeps the menu items where the 9-patch placed them. The
+     * shadow is M3's elevation level 2 (the menu elevation) as its two box shadows.
+     */
+    private fun popupMenu(card: Int): XmlNode {
+        val inset = 32f / 3f
+        val radius = 8f
+        return XmlNode(
+            "layer-list",
+            children = boxShadow(inset, radius, dy = 2f, blur = 6f, spread = 2f, alpha = 0.15f) +
+                boxShadow(inset, radius, dy = 1f, blur = 2f, spread = 0f, alpha = 0.30f) +
+                insetItem(inset, inset, inset, inset, rounded(card, radius, Padding(inset, inset, inset, inset))),
+        )
+    }
+
+    /**
+     * A CSS-style box shadow for a card inset by [inset]: shapes cannot blur, so nested rounded
+     * layers, outermost first, each add the alpha that brings the stacked coverage to the Gaussian
+     * edge profile at their distance from the card.
+     */
+    private fun boxShadow(inset: Float, radius: Float, dy: Float, blur: Float, spread: Float, alpha: Float): List<XmlNode> {
+        val sigma = blur / 2f
+        var covered = 0f
+        // Down to -dy: the offset keeps layers smaller than the card visible below it.
+        return generateSequence(spread + 2 * sigma) { it - 0.25f }.takeWhile { it > -dy }.mapNotNull { extent ->
+            val target = alpha * 0.5f * erfc((extent - spread) / (sigma * sqrt(2f)))
+            val layerAlpha = ((1 - (1 - target) / (1 - covered)) * 255).roundToInt()
+            if (layerAlpha <= 0) return@mapNotNull null
+            covered = 1 - (1 - covered) * (1 - layerAlpha / 255f)
+            val side = inset - extent
+            // Always a literal: colorValue() would read alpha 0x01 as a framework color reference.
+            insetItem(side, side + dy, side, side - dy, rounded(XmlValue.Color(layerAlpha shl 24), radius + extent.coerceAtLeast(0f)))
+        }.toList()
+    }
+
+    private fun insetItem(left: Float, top: Float, right: Float, bottom: Float, child: XmlNode) = XmlNode(
+        "item",
+        listOf(
+            android("left", ATTR_LEFT, XmlValue.Dimension(left)),
+            android("top", ATTR_TOP, XmlValue.Dimension(top)),
+            android("right", ATTR_RIGHT, XmlValue.Dimension(right)),
+            android("bottom", ATTR_BOTTOM, XmlValue.Dimension(bottom)),
+        ),
+        listOf(child),
+    )
+
+    /** Abramowitz–Stegun 7.1.26; far below one alpha step of error. */
+    private fun erfc(x: Float): Float {
+        val t = 1 / (1 + 0.3275911f * abs(x))
+        val poly = t * (0.2548296f + t * (-0.28449672f + t * (1.4214138f + t * (-1.4531521f + t * 1.0614054f))))
+        val erfcAbs = poly * exp(-x * x)
+        return if (x >= 0) erfcAbs else 2 - erfcAbs
+    }
 
     private fun Padding.node(): XmlNode = XmlNode("padding", listOf(
         android("left", ATTR_LEFT, XmlValue.Dimension(left)),
