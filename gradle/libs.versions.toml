@@ -2,7 +2,7 @@
 agp = "9.3.3"
 coil = "3.6.3"
 compose-bom = "2026.09.00"
-dexkit = "2.2.0"
+dexkit = "2.3.0"
 appcompat = "1.8.0"
 composablehorizons-symbols = "2.2.1"
 junitJupiter = "6.1.3"
