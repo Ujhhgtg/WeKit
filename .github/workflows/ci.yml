@@ -30,6 +30,12 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # A newer push/PR update to the same ref cancels this job's still-running older build. Release
+    # jobs are not in this group, so an upload already in progress is never cut off; those of the
+    # cancelled run skip because they require build to succeed.
+    concurrency:
+      group: ${{ github.workflow }}-build-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     if: |
       (github.event_name == 'workflow_dispatch' && github.repository == 'Ujhhgtg/WeKit-Dev') ||
       (
@@ -197,6 +203,9 @@ jobs:
 
   dex-test:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-dex-test-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     if: github.event_name == 'pull_request' || github.repository == 'Ujhhgtg/WeKit-Dev'
     outputs:
       reports-available: ${{ steps.report-check.outputs.available }}
@@ -336,7 +345,7 @@ jobs:
   release-dex-test:
     needs: dex-test
     runs-on: ubuntu-latest
-    if: ${{ always() && github.repository == 'Ujhhgtg/WeKit-Dev' && github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.dex-test.outputs.reports-available == 'true' }}
+    if: ${{ always() && github.repository == 'Ujhhgtg/WeKit-Dev' && github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.dex-test.result != 'cancelled' && needs.dex-test.outputs.reports-available == 'true' }}
     permissions:
       contents: write
     steps:
