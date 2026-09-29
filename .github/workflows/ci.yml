@@ -81,6 +81,16 @@ jobs:
           test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
           test -x "$NDK_BIN/llvm-strip"
 
+      - name: Cache LSpeciallyParanoid toolchain archives
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/lspeciallyparanoid/toolchains
+          key: lsparanoid-toolchains-${{ runner.os }}-${{ hashFiles('libs/lsparanoid/tools/setup-native-toolchain.py') }}
+
+      - name: Install LSpeciallyParanoid native toolchain (NDK r29 + O-MVLL)
+        # Required by the protected release build; archives are checksum-verified by the script.
+        run: python3 libs/lsparanoid/tools/setup-native-toolchain.py --sdk "$ANDROID_HOME"
+
       - name: Prepare PRoot cache key
         id: proot_cache_inputs
         run: |
@@ -127,7 +137,7 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/wekit-keystore.jks
 
-      - name: Build Release (Signed)
+      - name: Build Release, protected + unprotected (Signed)
         if: github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -135,31 +145,24 @@ jobs:
           WEKIT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           WEKIT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           WEKIT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./x build --release
+        run: .github/scripts/build-release-variants.sh
 
-      - name: Build Release (Unsigned)
+      - name: Build Release, protected + unprotected (Unsigned)
         if: github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./x build --release
+        run: .github/scripts/build-release-variants.sh
 
-      - name: Collect APKs
+      - name: Verify APKs
         run: |
           set -euo pipefail
-          mkdir -p dist/apk
-
-          apk="app/build/outputs/apk/release/app-release.apk"
-          uv run --no-sync --project wekit-zygisk python .github/scripts/verify-dual-apk.py --check-installer "$apk"
-          WEKIT_TEST_APK="$GITHUB_WORKSPACE/$apk" cargo test -p wekit-zygisk --lib apk::tests::reads_built_apk -- --ignored
-          cp -v "$apk" dist/apk/
+          for apk in dist/apk/*.apk; do
+            uv run --no-sync --project wekit-zygisk python .github/scripts/verify-dual-apk.py --check-installer "$apk"
+            WEKIT_TEST_APK="$GITHUB_WORKSPACE/$apk" cargo test -p wekit-zygisk --lib apk::tests::reads_built_apk -- --ignored
+          done
 
           echo "Collected APKs:"
           ls -1 dist/apk
-
-      - name: Collect mappings
-        run: |
-          mkdir -p dist/mapping
-          cp -v app/build/outputs/mapping/release/mapping.txt dist/mapping/mapping-release.txt
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v7

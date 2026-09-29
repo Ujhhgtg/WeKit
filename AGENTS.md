@@ -10,6 +10,7 @@
 ```bash
 ./x build           # debug (uses same signing as release)
 ./x build --release # release (with optimization on)
+./x build --release --protect false # unprotected release (no LSpeciallyParanoid)
 ./x build --native-only # only prepare application + Zygisk native libs in jniLibs/
 ./x run --zygisk    # build the dual-format APK and install it as a Zygisk module
 # (./x is alias to `cargo xtask` which orchestrates the build process)
@@ -25,6 +26,8 @@
 - LSpeciallyParanoid (`libs/lsparanoid`) is a composite build, not a published artifact: its plugin
   and runtime are built from source (JDK 17 toolchain, auto-provisioned). Release builds also need
   its O-MVLL toolchain: `python3 libs/lsparanoid/tools/setup-native-toolchain.py --sdk "$ANDROID_HOME"`.
+- CI builds both release variants (`.github/scripts/build-release-variants.sh`): protected
+  `app-release.apk` (the one published to the Xposed repo) and `app-release-unprotected.apk`.
 
 ## Project Structure
 
