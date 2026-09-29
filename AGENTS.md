@@ -28,7 +28,7 @@
   its O-MVLL toolchain: `python3 libs/lsparanoid/tools/setup-native-toolchain.py --sdk "$ANDROID_HOME"`.
 - CI builds both release variants (`.github/scripts/build-release-variants.sh`): protected
   `app-release.apk` and `app-release-unprotected.apk`. Only the protected APK is published (CI
-  GitHub release, Telegram, Xposed repo); the unprotected one is the `wekit-apk-unprotected` artifact.
+  GitHub release, Xposed repo); the unprotected one is the `wekit-apk-unprotected` artifact.
 
 ## Project Structure
 
@@ -230,4 +230,4 @@ Prefer these over raw Compose controls:
 ## CI
 
 - GitHub Actions: builds on push/PR to `master`/`dev` (skips non-code changes)
-- Artifacts automatically published to a release named "CI" + Telegram channel
+- Artifacts automatically published to a release named "CI" and the Xposed Modules Repository
