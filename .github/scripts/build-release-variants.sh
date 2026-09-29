@@ -2,8 +2,8 @@
 # Builds the protected and unprotected release APKs and collects each APK and its R8 mapping
 # into dist/. Both variants share app/build/outputs, so each is copied out before the next build.
 #
-#   dist/apk/app-release.apk                  protected (LSpeciallyParanoid), published everywhere
-#   dist/apk/app-release-unprotected.apk      --protect false
+#   dist/apk/app-release.apk                  protected (LSpeciallyParanoid), the only one published
+#   dist/apk/app-release-unprotected.apk      --protect false, CI artifact only
 #   dist/mapping/mapping-release[-unprotected].txt
 set -euo pipefail
 

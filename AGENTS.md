@@ -27,7 +27,8 @@
   and runtime are built from source (JDK 17 toolchain, auto-provisioned). Release builds also need
   its O-MVLL toolchain: `python3 libs/lsparanoid/tools/setup-native-toolchain.py --sdk "$ANDROID_HOME"`.
 - CI builds both release variants (`.github/scripts/build-release-variants.sh`): protected
-  `app-release.apk` (the one published to the Xposed repo) and `app-release-unprotected.apk`.
+  `app-release.apk` and `app-release-unprotected.apk`. Only the protected APK is published (CI
+  GitHub release, Telegram, Xposed repo); the unprotected one is the `wekit-apk-unprotected` artifact.
 
 ## Project Structure
 

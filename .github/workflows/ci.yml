@@ -164,11 +164,21 @@ jobs:
           echo "Collected APKs:"
           ls -1 dist/apk
 
-      - name: Upload Release APKs
+      # Only the protected APK goes into wekit-apk: the CI GitHub release, Telegram upload and
+      # Xposed repo publish all consume this artifact as app-release.apk.
+      - name: Upload Release APK (protected)
         uses: actions/upload-artifact@v7
         with:
           name: wekit-apk
-          path: dist/apk/*.apk
+          path: dist/apk/app-release.apk
+          if-no-files-found: error
+
+      - name: Upload Release APK (unprotected)
+        uses: actions/upload-artifact@v7
+        with:
+          name: wekit-apk-unprotected
+          path: dist/apk/app-release-unprotected.apk
+          if-no-files-found: error
 
       - name: Upload Release Obfuscation Mapping
         uses: actions/upload-artifact@v7
