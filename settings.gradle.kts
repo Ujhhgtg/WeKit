@@ -6,8 +6,9 @@ enableFeaturePreview("NO_IMPLICIT_LOOKUP_IN_PARENT_PROJECTS")
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
+    // LSpeciallyParanoid is built from source (not published): provides dev.ujhhgtg.lsparanoid.
+    includeBuild("libs/lsparanoid")
     repositories {
-        mavenLocal { content { includeGroup("dev.ujhhgtg.lsparanoid") } }
         google {
             content {
                 includeGroupByRegex("com\\.android.*")
@@ -24,7 +25,6 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        mavenLocal { content { includeGroup("dev.ujhhgtg.lsparanoid") } }
         google {
             content {
                 includeGroupByRegex("com\\.android.*")
@@ -69,6 +69,10 @@ rootProject.name = "wekit"
 // Composite build: scripta code editor (not published to Maven Central; keep its own
 // toolchain, plugins and version catalog).
 includeBuild("libs/common/scripta")
+
+// Composite build: LSpeciallyParanoid string obfuscator (not published). Substitutes
+// dev.ujhhgtg.lsparanoid:runtime; the plugin itself comes from pluginManagement above.
+includeBuild("libs/lsparanoid")
 
 include(
     ":app",

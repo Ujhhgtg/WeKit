@@ -16,12 +16,15 @@
 ```
 
 - In a Git worktree, run `git submodule update --init --recursive` before any work; otherwise
-  `libs/common/bsh` and `libs/common/reflekt` are empty and builds fail.
+  `libs/common/bsh`, `libs/common/reflekt` and `libs/lsparanoid` are empty and builds fail.
 - Work directly on `dev` unless the user explicitly requests another branch or isolated history.
 - Every debug/release APK is dual-format: install as an APK, or rename to `.zip`
   and install through a root manager. Module files enter the APK before AGP signs it; never modify
   or repack the signed output. There is no separate `zygisk build` command.
 - JDK 21, AGP 9, Gradle version catalog in `gradle/libs.versions.toml`
+- LSpeciallyParanoid (`libs/lsparanoid`) is a composite build, not a published artifact: its plugin
+  and runtime are built from source (JDK 17 toolchain, auto-provisioned). Release builds also need
+  its O-MVLL toolchain: `python3 libs/lsparanoid/tools/setup-native-toolchain.py --sdk "$ANDROID_HOME"`.
 
 ## Project Structure
 
