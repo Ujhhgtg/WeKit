@@ -93,7 +93,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 parameterCount = 0
                 returnType = classCoreStorage.clazz
             }
-            .invokeStatic()!!
+            .invoke()!!
     }
 
     val configStorage by lazy {

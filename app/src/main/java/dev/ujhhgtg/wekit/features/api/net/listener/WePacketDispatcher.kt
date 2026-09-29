@@ -16,7 +16,6 @@ import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
-import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Proxy
 import java.util.concurrent.ConcurrentHashMap
 
@@ -66,21 +65,17 @@ object WePacketDispatcher : ApiFeature(), IResolveDex {
                         val reqBytes = try {
                             reqPbObj.reflekt().firstMethodOrNull { name = "toByteArray"; superclass() }
                                 ?.invoke() as? ByteArray
-                        } catch (e: InvocationTargetException) {
+                        } catch (e: NullPointerException) {
                             // Some WeChat protobufs carry nullable nested fields; if serialization
                             // blows up here, skip tamper and let the original request continue.
-                            if (e.cause is NullPointerException) {
-                                if (Preferences.verboseLog) {
-                                    WeLogger.w(
-                                        TAG,
-                                        "skip request tamper because toByteArray failed: ${reqPbObj.javaClass.name}",
-                                        e.cause ?: e
-                                    )
-                                }
-                                null
-                            } else {
-                                throw e
+                            if (Preferences.verboseLog) {
+                                WeLogger.w(
+                                    TAG,
+                                    "skip request tamper because toByteArray failed: ${reqPbObj.javaClass.name}",
+                                    e
+                                )
                             }
+                            null
                         } ?: return@hookBefore
 
                         // 构造唯一标识符

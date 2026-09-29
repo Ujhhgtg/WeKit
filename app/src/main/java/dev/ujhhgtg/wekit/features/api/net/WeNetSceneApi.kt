@@ -19,7 +19,7 @@ object WeNetSceneApi : ApiFeature(), IResolveDex {
         val queue = WeDatabaseApi.classMmKernel.clazz.reflekt()
             .firstMethod {
                 returnType = methodAddNetSceneToQueue.method.declaringClass
-            }.invokeStatic()!!
+            }.invoke()!!
         methodAddNetSceneToQueue.method.invoke(queue, netScene, 0)
     }
 

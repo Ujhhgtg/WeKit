@@ -698,6 +698,6 @@ object WeConversationApi : ApiFeature(), IResolveDex {
                 modifiers = Modifier.STATIC
                 parameters(String::class.java)
                 returnType(methodSetDnd.method.parameterTypes[0])
-            }.invoke(null, convId)!!
+            }.invoke(convId)!!
     }
 }

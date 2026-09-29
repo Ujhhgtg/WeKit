@@ -73,7 +73,7 @@ object FingerprintPay : ClickableFeature() {
             val thiz = thisObject as MyKeyboardWindow
             val digitViews = MyKeyboardWindow::class.reflekt()
                 .fields { type = View::class }
-                .map { it.get(thisObject as MyKeyboardWindow)!! as View }
+                .map { it.of(thiz).get()!! as View }
 
             val context = thiz.context
 

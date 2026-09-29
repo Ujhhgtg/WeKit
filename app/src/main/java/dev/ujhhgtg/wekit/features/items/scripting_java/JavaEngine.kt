@@ -846,7 +846,7 @@ object JavaEngine {
                             val queue = WeDatabaseApi.classMmKernel.clazz.reflekt()
                                 .firstMethod {
                                     returnType = WeNetSceneApi.methodAddNetSceneToQueue.method.declaringClass
-                                }.invokeStatic()!!
+                                }.invoke()!!
 
                             val getDispatcherMethod = queue.javaClass.methods.first { method ->
                                 method.parameterCount == 0 &&

@@ -126,7 +126,7 @@ object WeServiceApi : ApiFeature(), IResolveDex {
         get() = classEmojiStorageMgr.reflekt().firstMethod {
             modifiers(Modifiers.STATIC)
             returnType = classEmojiStorageMgr.clazz
-        }.invokeStatic()!!
+        }.invoke()!!
 
     val emojiMgr
         get() = emojiFeatureService.reflekt()
@@ -219,7 +219,7 @@ object WeServiceApi : ApiFeature(), IResolveDex {
             .firstMethod {
                 modifiers(Modifiers.STATIC)
                 returnType = classImageInfoStorage.clazz
-            }.invokeStatic()!!
+            }.invoke()!!
 
     fun getImageMd5FromMsgInfo(msgInfo: MessageInfo): String {
         return imageInfoStorage.reflekt()

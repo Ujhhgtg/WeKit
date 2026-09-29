@@ -175,7 +175,7 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
             val sceneEndField = thisObject!!.reflekt().firstField {
                 type { it.isInterface && it.declaredMethods.any { m -> m.name == "onSceneEnd" } }
             }
-            val sceneWrapper = sceneEndField.get(thisObject!!)!!
+            val sceneWrapper = sceneEndField.get()!!
             @Suppress("UNCHECKED_CAST")
             val sceneWrapperType = sceneEndField.self.type as Class<Any>
             val sceneEnd = sceneWrapperType.reflekt()

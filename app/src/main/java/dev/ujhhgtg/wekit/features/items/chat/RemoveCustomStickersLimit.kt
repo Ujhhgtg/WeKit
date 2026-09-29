@@ -117,8 +117,10 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
             (classCgiBack.clazz as Class<Any>).reflekt().fields {
                 type = int
             }.forEach {
-                if (it.get(res) == -434) {
-                    it.set(res, 0)
+                // Bound, so a static int field is read/written like before instead of failing arity.
+                val field = it.of(res)
+                if (field.get() == -434) {
+                    field.set(0)
                 }
             }
         }
@@ -129,8 +131,10 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
             (classCgiBack.clazz as Class<Any>).reflekt().fields {
                 type = int
             }.forEach {
-                if (it.get(resp) == -434) {
-                    it.set(resp, 0)
+                // Bound, so a static int field is read/written like before instead of failing arity.
+                val field = it.of(resp)
+                if (field.get() == -434) {
+                    field.set(0)
                 }
             }
         }

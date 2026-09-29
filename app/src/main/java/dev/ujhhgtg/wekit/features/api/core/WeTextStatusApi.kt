@@ -96,7 +96,7 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
         serviceClass.reflekt().firstField {
             type = serviceClass
             modifiers(Modifiers.STATIC)
-        }.getStatic()!!
+        }.get()!!
     }
 
     private val textStatusIconHelper by lazy {

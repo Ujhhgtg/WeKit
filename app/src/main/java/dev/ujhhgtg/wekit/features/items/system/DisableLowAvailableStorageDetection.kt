@@ -33,7 +33,7 @@ object DisableLowAvailableStorageDetection : SwitchFeature(), IResolveDex {
         methodSplashActivitySplashFinished.hookBefore {
             classStaticValuesHolder.clazz.reflekt()
                 .firstField { type = Boolean::class }
-                .setStatic(false)
+                .set(false)
         }
 
         "com.tencent.mm.plugin.clean.ui.fileindexui.StorageDisableAlertUI"

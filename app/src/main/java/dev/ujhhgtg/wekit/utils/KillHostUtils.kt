@@ -18,7 +18,7 @@ fun restartHost() {
     )
     showToast(context, context.getString(R.string.noncompose_restarting_host))
     val instance = "com.tencent.mm.process.KillProcessHelperActivity".toClass()
-        .reflekt().firstField().getStatic()!!
+        .reflekt().firstField().get()!!
     instance.reflekt().firstMethod().invoke(HostInfo.application, true)
 }
 

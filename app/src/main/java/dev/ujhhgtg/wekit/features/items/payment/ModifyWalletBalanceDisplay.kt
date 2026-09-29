@@ -177,7 +177,7 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
             method.hookBefore {
                 val original = args[3] as String
                 if (!beginOverride(thisObject as? View, original)) {
-                    val cell = args[0]!!.reflekt().firstField { name = "i" }.get(args[0]!!)
+                    val cell = args[0]!!.reflekt().firstField { name = "i" }.get()
                     val target = when (cell) {
                         "balance_cell" -> Target.BALANCE
                         "lqt_cell" -> Target.LQT
@@ -405,7 +405,7 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
 
     private fun animator(view: View): ValueAnimator? =
         view.reflekt().fields { type { it isSubclassOf ValueAnimator::class } }
-            .firstOrNull()?.get(view) as? ValueAnimator
+            .firstOrNull()?.get() as? ValueAnimator
 
     private fun rememberText(view: View?, target: Target, original: String, rendered: String) {
         if (view != null) synchronized(amountState) { amountState[view] = AmountTextState(target, original, rendered) }

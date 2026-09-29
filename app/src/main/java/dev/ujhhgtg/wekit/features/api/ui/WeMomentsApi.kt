@@ -645,7 +645,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             type = sceneClass
             modifiers(Modifiers.STATIC)
         }.firstNotNullOf { field ->
-            val instance = field.getStatic() ?: return@firstNotNullOf null
+            val instance = field.get() ?: return@firstNotNullOf null
             if (nameField.self.get(instance) == "timeline") instance else null
         }
     }
@@ -735,8 +735,8 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     fun copyVfsFile(src: String, dest: String): Boolean {
         return try {
-            val input = vfsReadMethod.invoke(null, src) as? InputStream ?: return false
-            val output = vfsCopyMethod.invoke(null, dest, false) as? OutputStream
+            val input = vfsReadMethod.invoke(src) as? InputStream ?: return false
+            val output = vfsCopyMethod.invoke(dest, false) as? OutputStream
             if (output == null) {
                 input.close()
                 return false
@@ -779,7 +779,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     fun vfsFileExists(path: String): Boolean {
         return try {
-            vfsExistsMethod.invoke(null, path) as Boolean
+            vfsExistsMethod.invoke(path) as Boolean
         } catch (e: Exception) {
             WeLogger.e(TAG, "failed to check VFS file exists: $path", e)
             false
@@ -2755,7 +2755,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             if (path.isRegularFile()) {
                 path.readBytes()
             } else {
-                (vfsReadMethod.invoke(null, path.absolutePathString()) as? InputStream)?.use { it.readBytes() }
+                (vfsReadMethod.invoke(path.absolutePathString()) as? InputStream)?.use { it.readBytes() }
             }
         }.getOrNull()
     }
@@ -2992,7 +2992,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             name = "getSnsId"
             parameters(bool, long)
         }?.let { method ->
-            return runCatching { method.invoke(null, isAd, snsId) as? String }.getOrNull()
+            return runCatching { method.invoke(isAd, snsId) as? String }.getOrNull()
         }
         return if (isAd) "ad_table_$snsId" else "sns_table_$snsId"
     }

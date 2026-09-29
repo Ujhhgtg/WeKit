@@ -1650,7 +1650,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                 parameters(classMsgInfo.clazz)
                 returnType = void
                 modifiers(Modifiers.STATIC)
-            }.invokeStatic(msgInfo.instance)
+            }.invoke(msgInfo.instance)
     }
 
     private fun setVoice(fileName: String, durationMs: Int): Boolean {
@@ -1695,7 +1695,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                     parameters(BString, BString)
                     returnType = BString
                 }
-                .invokeStatic(toUser, "amr_") as String
+                .invoke(toUser, "amr_") as String
             val fullPath = getVoiceFullPath(partialPath)
 
             Path(path).copyTo(Path(fullPath), StandardCopyOption.REPLACE_EXISTING)
@@ -1708,7 +1708,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                 .firstMethod {
                     returnType = methodStartRecvAndSend.method.declaringClass
                     modifiers(Modifiers.STATIC)
-                }.invokeStatic()!!
+                }.invoke()!!
 
             val runMethod = runCatching {
                 if (!methodRunVoiceService.isFound) return@runCatching null
@@ -2559,7 +2559,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                     modifiers(Modifiers.STATIC)
                     parameterCount = 0
                 }
-                .invokeStatic()!!
+                .invoke()!!
             val encryptedBytes = emojiFileEncryptMgr.reflekt()
                 .firstMethod {
                     parameters(IEmojiInfo::class)
@@ -2638,7 +2638,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             loadMethod.declaringClass.reflekt().firstField {
                 modifiers(Modifiers.STATIC)
                 type = loadMethod.declaringClass
-            }.getStatic()!!
+            }.get()!!
         }
         loadMethod.invoke(
             receiver,

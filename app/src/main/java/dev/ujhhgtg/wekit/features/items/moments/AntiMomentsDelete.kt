@@ -201,7 +201,7 @@ object AntiMomentsDelete : SwitchFeature(), IResolveDex {
         if (text != null && text.contains(INTERCEPT_MARKER)) return false
 
         val markedText = if (text.isNullOrEmpty()) INTERCEPT_MARKER else "$INTERCEPT_MARKER $text"
-        reflekt.setField("field_content", ProtoWire.withString(content, TIMELINE_CONTENT_DESC, markedText))
+        reflekt.setField("field_content", ProtoWire.withString(content, TIMELINE_CONTENT_DESC, markedText), superclass = true)
         // setAttrBuf recomputes contentByteMd5, the key of SnsInfo's parsed-TimeLineObject cache
         reflekt.invokeMethod("setAttrBuf", reflekt.getField("field_attrBuf", true))
         WeLogger.i(TAG, "marked moment ${reflekt.getField("field_snsId", true)}")
@@ -210,7 +210,7 @@ object AntiMomentsDelete : SwitchFeature(), IResolveDex {
 
     private var Any.sourceType: Int
         get() = reflekt().getField("field_sourceType", true) as Int
-        set(value) = reflekt().setField("field_sourceType", value)
+        set(value) = reflekt().setField("field_sourceType", value, superclass = true)
 
     private val Any.isOwn: Boolean
         get() = reflekt().getField("field_userName", true) == WeApi.selfWxId

@@ -387,7 +387,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                 // 发送逻辑
                 if (nativeNetScene != null) {
                     val netQueue = WeDatabaseApi.classMmKernel.clazz.reflekt().invokeMethod(
-                        methodGetNetQueue.method.name, null, superclass = true
+                        methodGetNetQueue.method.name, superclass = true
                     )!!
                     val cgiType = nativeNetScene.reflekt().invokeMethod("getType", superclass = true) as Int
 
@@ -471,14 +471,14 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         val builder = classConfigBuilder.clazz.createInstance()
 
         builder.reflekt().apply {
-            setField("a", finalReqObject)
-            setField("b", classGenericResp.clazz.createInstance())
-            setField("c", uri)
-            setField("d", cgiId)
-            setField("e", funcId)
-            setField("f", routeId)
-            setField("l", 1)
-            setField("n", bytes)
+            setField("a", finalReqObject, superclass = true)
+            setField("b", classGenericResp.clazz.createInstance(), superclass = true)
+            setField("c", uri, superclass = true)
+            setField("d", cgiId, superclass = true)
+            setField("e", funcId, superclass = true)
+            setField("f", routeId, superclass = true)
+            setField("l", 1, superclass = true)
+            setField("n", bytes, superclass = true)
         }
 
         val rr = builder.reflekt().invokeMethod("a", superclass = true)
@@ -497,7 +497,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                 classCallbackIface.clazz,
                 bool
             )
-        }.invoke(null, rr, cbProxy, false)
+        }.invoke(rr, cbProxy, false)
     }
 
     // 处理原生 NetScene 的回调
@@ -528,7 +528,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                             }
 
                             val rrObj = if (rrField != null) {
-                                rrField.get(netScene)
+                                rrField.get()
                             } else {
                                 netScene.reflekt().getField("d", superclass = true)
                             }

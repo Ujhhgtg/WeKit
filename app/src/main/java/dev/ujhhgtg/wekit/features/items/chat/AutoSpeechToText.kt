@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.utils.collections.LruCache
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.reflection.void
-import java.lang.reflect.InvocationTargetException
 
 object AutoSpeechToText : SwitchFeature(),
     WeChatMessageViewApi.ICreateViewListener {
@@ -86,7 +85,7 @@ object AutoSpeechToText : SwitchFeature(),
         val extraArgs = List(transformMethod.parameterTypes.size - 4) { 0 }
         try {
             transformMethod.invoke(msgInfo.instance, false, -1, 0, *extraArgs.toTypedArray())
-        } catch (_: InvocationTargetException) {
+        } catch (_: NullPointerException) {
             // WeChat throws `java.lang.NullPointerException: getImgPath(...) must not be null`,
             // but that's not what we should care about and doesn't affect functionality
         }
