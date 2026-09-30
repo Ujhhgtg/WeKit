@@ -2,8 +2,11 @@ package dev.ujhhgtg.wekit.ui.automation
 
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
-import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
@@ -17,37 +20,36 @@ import dev.ujhhgtg.wekit.features.automation.AutomationMessageKind
 import dev.ujhhgtg.wekit.features.automation.AutomationMessageTypeRule
 import dev.ujhhgtg.wekit.features.automation.AutomationReplyRule
 import dev.ujhhgtg.wekit.features.automation.AutomationRuleKey
-import dev.ujhhgtg.wekit.features.automation.AutomationRules
 import dev.ujhhgtg.wekit.features.automation.AutomationScope
 import dev.ujhhgtg.wekit.features.automation.AutomationScopeType
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.AutomationTargetRule
-import dev.ujhhgtg.wekit.features.automation.AutomationTextRule
 import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
 import dev.ujhhgtg.wekit.ui.content.formatSecondOfDay
-import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
-import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
-import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumnScope
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 /** What an editor may ask the hosting screen for. */
 class AutomationEditorContext(
     val activity: ComponentActivity,
+    /** The scope being edited; the first selected scope in a batch edit. */
     val scope: AutomationScope,
-    val editText: (AutomationTextEditRequest) -> Unit,
     /** Opens the system file picker; picked files are copied into module storage. */
     val pickFiles: (mimeTypes: Array<String>, onPicked: (List<String>) -> Unit) -> Unit,
-    /** Opens contact screens on top of the current one. */
-    val contactPicker: AutomationContactPicker,
+    /** Opens full-screen pickers above the current screen and any open sheet. */
+    val picker: AutomationPicker,
 )
 
-typealias AutomationEditorDetails<T> =
-        SegmentedColumnScope.(context: AutomationEditorContext, value: T, editable: Boolean, onChange: (T) -> Unit) -> Unit
+/** Controls shown inside a rule's row, below its header, while the rule is on. */
+typealias AutomationInlineEditor<T> = @Composable (context: AutomationEditorContext, value: T, onChange: (T) -> Unit) -> Unit
+
+/** Content of the bottom sheet that edits a rule; edits a draft committed by the sheet's Done. */
+typealias AutomationSheetEditor<T> = @Composable ColumnScope.(context: AutomationEditorContext, value: T, onChange: (T) -> Unit) -> Unit
 
 /**
- * UI for one [AutomationRuleKey]: a header row (switch when [isOn]/[setOn] are given, otherwise a
- * plain summary row) followed by [details], shown while the switch is on.
+ * UI for one [AutomationRuleKey]: a row showing [summary] (with a switch when [isOn]/[setOn] are
+ * given), plus either [inline] controls under the row, a bottom [sheet] opened from the row, or the
+ * reply sequence page ([opensReplyPage]).
  */
 class AutomationRuleEditor<T : Any>(
     val key: AutomationRuleKey<T>,
@@ -55,72 +57,24 @@ class AutomationRuleEditor<T : Any>(
     val summary: @Composable (T) -> String,
     val isOn: ((T) -> Boolean)? = null,
     val setOn: ((T, Boolean) -> T)? = null,
-    val details: AutomationEditorDetails<T>? = null,
+    /** Shown under the summary, e.g. keyword chips or the 24-hour bar of a time window. */
+    val summaryExtra: (@Composable (T) -> Unit)? = null,
+    val inline: AutomationInlineEditor<T>? = null,
+    val sheet: AutomationSheetEditor<T>? = null,
+    /** One-line explanation under the sheet title. */
+    @param:StringRes val sheetHintRes: Int? = null,
+    val opensReplyPage: Boolean = false,
+    /** Placeholders offered by the reply page's text steps. */
+    val replyPlaceholders: List<String> = emptyList(),
+    /** Title in the GLOBAL scope, where the rule is the default (e.g. "Claim red packets by default"). */
+    @param:StringRes val globalTitleRes: Int? = null,
     val visibleIn: (AutomationScope) -> Boolean = { true },
-)
-
-/**
- * Renders [editors]. [overridden] is null for plain editors (GLOBAL/ITEM scopes); otherwise it
- * holds the ids of rules the scope overrides and the rest show their inherited value.
- */
-fun SegmentedColumnScope.automationRuleItems(
-    editors: List<AutomationRuleEditor<*>>,
-    rules: AutomationRules,
-    overridden: Set<String>?,
-    parentLabel: String,
-    context: AutomationEditorContext,
-    onActivate: (AutomationRuleKey<*>) -> Unit,
-    onReset: (AutomationRuleKey<*>) -> Unit,
-    onChange: (AutomationRuleKey<*>, Any) -> Unit,
 ) {
-    editors.filter { it.visibleIn(context.scope) }.forEach { editor ->
-        ruleEditorItems(editor, rules, overridden, parentLabel, context, onActivate, onReset, onChange)
-    }
-}
+    val opensEditor: Boolean get() = sheet != null || opensReplyPage
 
-private fun <T : Any> SegmentedColumnScope.ruleEditorItems(
-    editor: AutomationRuleEditor<T>,
-    rules: AutomationRules,
-    overridden: Set<String>?,
-    parentLabel: String,
-    context: AutomationEditorContext,
-    onActivate: (AutomationRuleKey<*>) -> Unit,
-    onReset: (AutomationRuleKey<*>) -> Unit,
-    onChange: (AutomationRuleKey<*>, Any) -> Unit,
-) {
-    val key = editor.key
-    val value = rules[key]
-    val isOverridden = overridden?.let { key.id in it }
-    val editable = isOverridden != false
-    val change: (T) -> Unit = { onChange(key, it) }
-    val isOn = editor.isOn
-    val setOn = editor.setOn
-    item(key = key.id) {
-        if (isOn != null && setOn != null) {
-            AutomationRuleRow(
-                title = stringResource(editor.titleRes),
-                summary = editor.summary(value),
-                checked = isOn(value),
-                overridden = isOverridden,
-                parentLabel = parentLabel,
-                onActivate = { onActivate(key) },
-                onReset = { onReset(key) },
-                onCheckedChange = { change(setOn(value, it)) },
-            )
-        } else {
-            AutomationModeRuleRow(
-                title = stringResource(editor.titleRes),
-                summary = editor.summary(value),
-                overridden = isOverridden,
-                parentLabel = parentLabel,
-                onActivate = { onActivate(key) },
-                onReset = { onReset(key) },
-            )
-        }
-    }
-    val details = editor.details ?: return
-    if (isOn != null && !isOn(value)) return
-    details(context, value, editable, change)
+    @StringRes
+    fun titleFor(scope: AutomationScope): Int =
+        if (scope.type == AutomationScopeType.GLOBAL && globalTitleRes != null) globalTitleRes else titleRes
 }
 
 // ---- builders -------------------------------------------------------------------------------
@@ -130,6 +84,7 @@ fun toggleEditor(
     @StringRes titleRes: Int,
     @StringRes onRes: Int,
     @StringRes offRes: Int,
+    @StringRes globalTitleRes: Int? = null,
     visibleIn: (AutomationScope) -> Boolean = { true },
 ) = AutomationRuleEditor(
     key = key,
@@ -137,64 +92,48 @@ fun toggleEditor(
     summary = { stringResource(if (it.enabled) onRes else offRes) },
     isOn = { it.enabled },
     setOn = { rule, on -> rule.copy(enabled = on) },
+    globalTitleRes = globalTitleRes,
     visibleIn = visibleIn,
 )
 
-/** A choice among enum values without a switch; [options] maps each value to its label (+ description). */
+/** A choice among enum values, shown as a connected button group under the row. */
 fun <E : Enum<E>> choiceEditor(
     key: AutomationRuleKey<E>,
     @StringRes titleRes: Int,
     options: List<Pair<E, Int>>,
-    descriptions: Map<E, Int> = emptyMap(),
     visibleIn: (AutomationScope) -> Boolean = { true },
 ) = AutomationRuleEditor(
     key = key,
     titleRes = titleRes,
     summary = { value -> stringResource(options.first { it.first == value }.second) },
-    details = choiceDetails(key.id, options, descriptions, { it }, { _, v -> v }),
+    inline = choiceInline(options, { it }, { _, v -> v }),
     visibleIn = visibleIn,
 )
 
-/** Radio rows selecting one enum value inside a larger rule value. */
-fun <T : Any, E : Enum<E>> choiceDetails(
-    keyPrefix: String,
+/** Connected button group selecting one enum value inside a larger rule value. */
+fun <T : Any, E : Enum<E>> choiceInline(
     options: List<Pair<E, Int>>,
-    descriptions: Map<E, Int> = emptyMap(),
     get: (T) -> E,
     set: (T, E) -> T,
-): AutomationEditorDetails<T> = { _, value, editable, onChange ->
-    options.forEach { (option, labelRes) ->
-        item(key = "${keyPrefix}_${option.name}") {
-            RadioButtonWidget(
-                iconPlaceholder = false,
-                title = stringResource(labelRes),
-                description = descriptions[option]?.let { stringResource(it) },
-                selected = get(value) == option,
-                enabled = editable,
-                onClick = { onChange(set(value, option)) },
-            )
-        }
-    }
+    descriptions: Map<E, Int> = emptyMap(),
+): AutomationInlineEditor<T> = { _, value, onChange ->
+    AutomationChoiceGroup(
+        options = options.map { (option, labelRes) -> option to stringResource(labelRes) },
+        selected = get(value),
+        onSelect = { onChange(set(value, it)) },
+        description = descriptions[get(value)]?.let { stringResource(it) },
+        modifier = Modifier.padding(AutomationInlinePadding),
+    )
 }
 
-/** Checkbox rows toggling members of a set inside a rule value. */
-fun <T : Any, V> setDetails(
-    keyPrefix: String,
-    options: List<Pair<V, Int>>,
-    get: (T) -> Set<V>,
-    set: (T, Set<V>) -> T,
-): AutomationEditorDetails<T> = { _, value, editable, onChange ->
-    options.forEach { (option, labelRes) ->
-        item(key = "${keyPrefix}_$option") {
-            val selected = option in get(value)
-            BaseWidget(
-                iconPlaceholder = false,
-                title = stringResource(labelRes),
-                enabled = editable,
-                onClick = { onChange(set(value, if (selected) get(value) - option else get(value) + option)) },
-                trailingContent = { Checkbox(checked = selected, enabled = editable, onCheckedChange = null) },
-            )
-        }
+/** A switch inside a rule's row, e.g. "Reply as quote" under a quick-reply rule. */
+fun <T : Any> switchInline(
+    @StringRes titleRes: Int,
+    get: (T) -> Boolean,
+    set: (T, Boolean) -> T,
+): AutomationInlineEditor<T> = { _, value, onChange ->
+    Box(Modifier.padding(AutomationInlinePadding)) {
+        AutomationInlineSwitch(stringResource(titleRes), get(value)) { onChange(set(value, it)) }
     }
 }
 
@@ -207,12 +146,15 @@ fun timeRangeEditor(
     key = key,
     titleRes = titleRes,
     summary = {
-        if (it.enabled) "${formatSecondOfDay(it.startSecond)} - ${formatSecondOfDay(it.endSecond)}"
-        else stringResource(offRes)
+        if (!it.enabled) stringResource(offRes)
+        else if (it.endSecond < it.startSecond) {
+            stringResource(R.string.automation_time_overnight_summary, formatSecondOfDay(it.startSecond), formatSecondOfDay(it.endSecond))
+        } else "${formatSecondOfDay(it.startSecond)} – ${formatSecondOfDay(it.endSecond)}"
     },
     isOn = { it.enabled },
     setOn = { rule, on -> rule.copy(enabled = on) },
-    details = { _, value, editable, onChange -> timeRangeItems(key.id, value, editable, true, onChange) },
+    summaryExtra = { if (it.enabled) AutomationDayLine(it.startSecond, it.endSecond) },
+    sheet = { _, value, onChange -> TimeRangeSheetContent(value, onChange) },
     visibleIn = visibleIn,
 )
 
@@ -221,6 +163,7 @@ fun keywordEditor(
     @StringRes titleRes: Int,
     @StringRes offRes: Int,
     modes: List<AutomationKeywordMode> = AutomationKeywordMode.entries,
+    @StringRes hintRes: Int? = null,
     visibleIn: (AutomationScope) -> Boolean = { true },
 ) = AutomationRuleEditor(
     key = key,
@@ -228,9 +171,9 @@ fun keywordEditor(
     summary = { automationKeywordSummary(it, stringResource(offRes)) },
     isOn = { it.enabled },
     setOn = { rule, on -> rule.copy(enabled = on) },
-    details = { ctx, value, editable, onChange ->
-        keywordItems(key.id, value, editable, true, modes, onChange, ctx.editText)
-    },
+    summaryExtra = { if (it.enabled && it.mode != AutomationKeywordMode.REGEX) AutomationMiniChips(it.strings) },
+    sheet = { _, value, onChange -> KeywordSheetContent(value, modes, onChange) },
+    sheetHintRes = hintRes,
     visibleIn = visibleIn,
 )
 
@@ -242,35 +185,28 @@ fun delayEditor(
     key = key,
     titleRes = titleRes,
     summary = {
-        if (it.enabled) {
-            stringResource(R.string.automation_delay_summary, it.baseMs.ifBlank { "0" }, it.randomRangeMs.ifBlank { "0" })
-        } else stringResource(offRes)
+        if (!it.enabled) stringResource(offRes)
+        else {
+            val base = it.baseMs.toLongOrNull() ?: 0L
+            val range = it.randomRangeMs.toLongOrNull() ?: 0L
+            stringResource(R.string.automation_delay_summary, base, range, (base - range).coerceAtLeast(0L), base + range)
+        }
     },
     isOn = { it.enabled },
     setOn = { rule, on -> rule.copy(enabled = on) },
-    details = { ctx, value, editable, onChange ->
-        delayItems(
-            keyPrefix = key.id,
-            baseMs = value.baseMs,
-            randomRangeMs = value.randomRangeMs,
-            editable = editable,
-            visible = true,
-            maxDigits = 7,
-            onBaseChange = { onChange(value.copy(baseMs = it)) },
-            onRandomRangeChange = { onChange(value.copy(randomRangeMs = it)) },
-            onEditText = ctx.editText,
-        )
-    },
+    sheet = { _, value, onChange -> DelaySheetContent(value, onChange) },
 )
 
-/** A switched non-negative number; [valueRes] formats the summary with the number. */
+/** A switched non-negative number edited with a slider (and exact input) under the row. */
 fun limitEditor(
     key: AutomationRuleKey<AutomationLimitRule>,
     @StringRes titleRes: Int,
     @StringRes offRes: Int,
     @StringRes valueRes: Int,
     @StringRes fieldRes: Int,
-    maxDigits: Int = 7,
+    range: IntRange,
+    step: Int,
+    @StringRes unitRes: Int,
     visibleIn: (AutomationScope) -> Boolean = { true },
 ) = AutomationRuleEditor(
     key = key,
@@ -278,77 +214,33 @@ fun limitEditor(
     summary = { if (it.enabled) stringResource(valueRes, it.value.toString()) else stringResource(offRes) },
     isOn = { it.enabled },
     setOn = { rule, on -> rule.copy(enabled = on) },
-    details = numberDetails(key.id, fieldRes, maxDigits, { it.value.toString() }, { v, s -> v.copy(value = s.toLongOrNull() ?: 0L) }),
+    inline = numberInline(fieldRes, range, step, unitRes, { it.value }, { v, n -> v.copy(value = n) }),
     visibleIn = visibleIn,
 )
 
-/** A non-negative numeric setting, with exact input available from its value. */
-fun <T : Any> numberDetails(
-    keyPrefix: String,
+/**
+ * A number slider over [range] in [step]s; tapping the value types an exact number, which may
+ * exceed the slider's range up to [maxExact].
+ */
+fun <T : Any> numberInline(
     @StringRes fieldRes: Int,
-    maxDigits: Int,
-    get: (T) -> String,
-    set: (T, String) -> T,
-): AutomationEditorDetails<T> = { ctx, value, editable, onChange ->
-    item(key = "${keyPrefix}_value") {
-        AutomationNumberRow(
-            title = stringResource(fieldRes),
-            value = get(value),
-            maxDigits = maxDigits,
-            editable = editable,
-            onChange = { onChange(set(value, it)) },
-            onEditText = ctx.editText,
-        )
-    }
+    range: IntRange,
+    step: Int,
+    @StringRes unitRes: Int,
+    get: (T) -> Long,
+    set: (T, Long) -> T,
+    maxExact: Long = 9_999_999L,
+): AutomationInlineEditor<T> = { _, value, onChange ->
+    AutomationNumberSlider(
+        title = stringResource(fieldRes),
+        value = get(value),
+        range = range,
+        step = step,
+        unit = stringResource(unitRes),
+        maxExact = maxExact,
+        onChange = { onChange(set(value, it)) },
+    )
 }
-
-/** A free-form text row inside a rule value; [placeholders] are listed in the edit dialog. */
-fun <T : Any> textDetails(
-    keyPrefix: String,
-    @StringRes fieldRes: Int,
-    get: (T) -> String,
-    set: (T, String) -> T,
-    placeholders: List<String> = emptyList(),
-    singleLine: Boolean = true,
-): AutomationEditorDetails<T> = { ctx, value, editable, onChange ->
-    item(key = "${keyPrefix}_text") {
-        val title = stringResource(fieldRes)
-        val hint = placeholders.takeIf { it.isNotEmpty() }
-            ?.let { stringResource(R.string.automation_available_placeholders, it.joinToString(" ")) }
-        AutomationValueRow(
-            title = title,
-            value = get(value),
-            enabled = editable,
-            valueHint = hint,
-            onClick = {
-                ctx.editText(
-                    AutomationTextEditRequest(
-                        title = title,
-                        initial = get(value),
-                        supportingText = hint,
-                        singleLine = singleLine,
-                        onCommit = { onChange(set(value, it)) },
-                    )
-                )
-            },
-        )
-    }
-}
-
-fun textEditor(
-    key: AutomationRuleKey<AutomationTextRule>,
-    @StringRes titleRes: Int,
-    @StringRes offRes: Int,
-    @StringRes fieldRes: Int,
-    placeholders: List<String> = emptyList(),
-) = AutomationRuleEditor(
-    key = key,
-    titleRes = titleRes,
-    summary = { if (it.enabled) it.text.ifBlank { stringResource(offRes) } else stringResource(offRes) },
-    isOn = { it.enabled },
-    setOn = { rule, on -> rule.copy(enabled = on) },
-    details = textDetails(key.id, fieldRes, { it.text }, { v, s -> v.copy(text = s) }, placeholders),
-)
 
 fun replyEditor(
     key: AutomationRuleKey<AutomationReplyRule>,
@@ -360,12 +252,21 @@ fun replyEditor(
     key = key,
     titleRes = titleRes,
     summary = { rule ->
-        if (switchable && !rule.enabled) stringResource(R.string.automation_auto_reply_disabled)
-        else pluralStringResource(R.plurals.automation_reply_step_count, rule.steps.size, rule.steps.size)
+        when {
+            switchable && !rule.enabled -> stringResource(R.string.automation_auto_reply_disabled)
+            rule.steps.isEmpty() -> stringResource(R.string.automation_reply_no_steps)
+            else -> pluralStringResource(R.plurals.automation_reply_step_count, rule.steps.size, rule.steps.size)
+        }
     },
     isOn = if (switchable) ({ it.enabled }) else null,
     setOn = if (switchable) ({ rule, on -> rule.copy(enabled = on) }) else null,
-    details = { ctx, value, editable, onChange -> replyStepItems(key.id, value, editable, placeholders, ctx, onChange) },
+    summaryExtra = { rule ->
+        if (!switchable || rule.enabled) {
+            AutomationMiniChips(rule.steps.map { step -> replyStepChip(step) })
+        }
+    },
+    opensReplyPage = true,
+    replyPlaceholders = placeholders,
     visibleIn = visibleIn,
 )
 
@@ -402,24 +303,27 @@ fun messageTypeEditor(
         if (rule.all) stringResource(R.string.automation_kinds_all)
         else pluralStringResource(R.plurals.automation_kinds_selected, rule.kinds.size, rule.kinds.size)
     },
-    details = { ctx, value, editable, onChange ->
-        choiceDetails<AutomationMessageTypeRule, KindsMode>(
-            "${key.id}_mode",
-            listOf(KindsMode.ALL to R.string.automation_kinds_all, KindsMode.SELECTED to R.string.automation_kinds_selected_mode),
-            descriptions = mapOf(KindsMode.ALL to R.string.automation_kinds_all_summary),
-            get = { if (it.all) KindsMode.ALL else KindsMode.SELECTED },
-            set = { v, m -> v.copy(all = m == KindsMode.ALL) },
-        )(ctx, value, editable, onChange)
-        if (!value.all) {
-            setDetails<AutomationMessageTypeRule, AutomationMessageKind>(
-                "${key.id}_kind", MESSAGE_KIND_LABELS, { it.kinds }, { v, s -> v.copy(kinds = s) },
-            )(ctx, value, editable, onChange)
+    summaryExtra = { rule ->
+        if (!rule.all) AutomationMiniChips(MESSAGE_KIND_LABELS.filter { it.first in rule.kinds }.map { stringResource(it.second) })
+    },
+    sheet = { _, value, onChange ->
+        AutomationChoiceGroup(
+            options = listOf(true to stringResource(R.string.automation_kinds_all), false to stringResource(R.string.automation_kinds_selected_mode)),
+            selected = value.all,
+            onSelect = { onChange(value.copy(all = it)) },
+        )
+        if (value.all) {
+            AutomationSheetNote(stringResource(R.string.automation_kinds_all_summary))
+        } else {
+            AutomationChipSet(
+                options = MESSAGE_KIND_LABELS.map { (kind, res) -> kind to stringResource(res) },
+                selected = value.kinds,
+                onChange = { onChange(value.copy(kinds = it)) },
+            )
         }
     },
     visibleIn = visibleIn,
 )
-
-enum class KindsMode { ALL, SELECTED }
 
 /** Who a rule applies to: all chats, chat kinds, or specific contacts / group members. */
 fun targetEditor(
@@ -431,35 +335,7 @@ fun targetEditor(
     key = key,
     titleRes = titleRes,
     summary = { rule -> targetSummary(rule) },
-    details = { ctx, value, editable, onChange ->
-        val modes = buildList {
-            add(AutomationTargetRule.Mode.ALL to R.string.automation_target_all)
-            add(AutomationTargetRule.Mode.CATEGORIES to R.string.automation_target_categories)
-            if (offerSpecific) add(AutomationTargetRule.Mode.SPECIFIC to R.string.automation_target_specific)
-        }
-        choiceDetails<AutomationTargetRule, AutomationTargetRule.Mode>(
-            "${key.id}_mode", modes, get = { it.mode }, set = { v, m -> v.copy(mode = m) },
-        )(ctx, value, editable, onChange)
-        if (value.mode == AutomationTargetRule.Mode.CATEGORIES) {
-            setDetails<AutomationTargetRule, AutomationTalkerCategory>(
-                "${key.id}_category", CATEGORY_LABELS, { it.categories }, { v, s -> v.copy(categories = s) },
-            )(ctx, value, editable, onChange)
-        }
-        if (value.mode == AutomationTargetRule.Mode.SPECIFIC) {
-            contactSetItem("${key.id}_include", R.string.automation_target_include, value.include, editable, ctx, AutomationTalkerCategory.entries.toSet()) {
-                onChange(value.copy(include = it))
-            }
-            memberSetItem("${key.id}_include_members", R.string.automation_target_include_members, value.includeMembers, editable, ctx) {
-                onChange(value.copy(includeMembers = it))
-            }
-        }
-        contactSetItem("${key.id}_exclude", R.string.automation_target_exclude, value.exclude, editable, ctx, AutomationTalkerCategory.entries.toSet()) {
-            onChange(value.copy(exclude = it))
-        }
-        memberSetItem("${key.id}_exclude_members", R.string.automation_target_exclude_members, value.excludeMembers, editable, ctx) {
-            onChange(value.copy(excludeMembers = it))
-        }
-    },
+    sheet = { ctx, value, onChange -> TargetSheetContent(ctx, value, offerSpecific, onChange) },
     visibleIn = visibleIn,
 )
 
@@ -489,85 +365,25 @@ private fun targetSummary(rule: AutomationTargetRule): String {
     else base + " · " + pluralStringResource(R.plurals.automation_target_excluded_count, excluded, excluded)
 }
 
-/** Row showing a set of contact/group ids, edited with the multi-select contact picker. */
-fun SegmentedColumnScope.contactSetItem(
-    itemKey: String,
-    @StringRes titleRes: Int,
-    ids: Set<String>,
-    editable: Boolean,
-    context: AutomationEditorContext,
-    kinds: Set<AutomationTalkerCategory> = setOf(AutomationTalkerCategory.PRIVATE, AutomationTalkerCategory.GROUP),
-    onChange: (Set<String>) -> Unit,
-) {
-    item(key = itemKey) {
-        val title = stringResource(titleRes)
-        AutomationNavigationRow(
-            title = title,
-            description = if (ids.isEmpty()) stringResource(R.string.automation_none_selected)
-            else pluralStringResource(R.plurals.automation_selected_count, ids.size, ids.size),
-            enabled = editable,
-            onClick = {
-                context.contactPicker.open(
-                    AutomationContactPick.Multiple(
-                        title = title,
-                        loadContacts = { loadAutomationContacts(kinds) },
-                        initialSelected = ids,
-                        onConfirm = { selected ->
-                            onChange(selected)
-                            null
-                        },
-                    )
-                )
-            },
+@Composable
+fun automationKeywordSummary(rule: AutomationKeywordRule, unrestrictedText: String): String {
+    if (!rule.enabled) return unrestrictedText
+    return when (rule.mode) {
+        AutomationKeywordMode.STRING_LIST -> pluralStringResource(
+            R.plurals.automation_keyword_contains_summary,
+            rule.strings.size,
+            rule.strings.size,
         )
-    }
-}
-
-/** Row showing `group/member` tokens; picking chooses a group, then members of it. */
-fun SegmentedColumnScope.memberSetItem(
-    itemKey: String,
-    @StringRes titleRes: Int,
-    tokens: Set<String>,
-    editable: Boolean,
-    context: AutomationEditorContext,
-    fixedGroupId: String? = null,
-    onChange: (Set<String>) -> Unit,
-) {
-    item(key = itemKey) {
-        val title = stringResource(titleRes)
-        AutomationNavigationRow(
-            title = title,
-            description = if (tokens.isEmpty()) stringResource(R.string.automation_none_selected)
-            else pluralStringResource(R.plurals.automation_selected_count, tokens.size, tokens.size),
-            enabled = editable,
-            onClick = {
-                val pickMembers = { groupId: String ->
-                    val prefix = "$groupId/"
-                    AutomationContactPick.Multiple(
-                        title = WeDatabaseApi.getDisplayName(groupId),
-                        loadContacts = { loadGroupMembers(groupId) },
-                        initialSelected = tokens.filter { it.startsWith(prefix) }.map { it.removePrefix(prefix) }.toSet(),
-                        onConfirm = { selected ->
-                            onChange(tokens.filterNot { it.startsWith(prefix) }.toSet() + selected.map { prefix + it })
-                            null
-                        },
-                    )
-                }
-                val picker = context.contactPicker
-                if (fixedGroupId != null) {
-                    picker.open(pickMembers(fixedGroupId))
-                } else {
-                    // Picking a group replaces this screen with its member picker.
-                    picker.open(
-                        AutomationContactPick.Single(
-                            title = title,
-                            loadContacts = { loadAutomationContacts(setOf(AutomationTalkerCategory.GROUP)) },
-                            onPick = { group -> picker.route(pickMembers(group.wxId)) },
-                        )
-                    )
-                }
-            },
+        AutomationKeywordMode.EXACT -> pluralStringResource(
+            R.plurals.automation_keyword_exact_summary,
+            rule.strings.size,
+            rule.strings.size,
         )
+        AutomationKeywordMode.REGEX -> if (rule.regex.isBlank()) {
+            stringResource(R.string.automation_regex_empty_summary)
+        } else {
+            stringResource(R.string.automation_regex_summary_value, rule.regex)
+        }
     }
 }
 

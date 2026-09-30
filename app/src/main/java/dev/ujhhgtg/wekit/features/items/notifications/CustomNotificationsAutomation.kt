@@ -1,33 +1,67 @@
 package dev.ujhhgtg.wekit.features.items.notifications
 
-import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Add
+import com.composables.icons.materialsymbols.outlined.Check
+import com.composables.icons.materialsymbols.outlined.Close
+import com.composables.icons.materialsymbols.outlined.Group
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.automation.AutomationCodecs
 import dev.ujhhgtg.wekit.features.automation.AutomationFieldReader
 import dev.ujhhgtg.wekit.features.automation.AutomationFieldWriter
 import dev.ujhhgtg.wekit.features.automation.AutomationRuleKey
+import dev.ujhhgtg.wekit.features.automation.AutomationScope
 import dev.ujhhgtg.wekit.features.automation.AutomationScopeType
+import dev.ujhhgtg.wekit.features.automation.AutomationSection
 import dev.ujhhgtg.wekit.features.automation.AutomationSpec
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.automation.AutomationValueCodec
 import dev.ujhhgtg.wekit.ui.automation.AutomationEditorContext
-import dev.ujhhgtg.wekit.ui.automation.AutomationEditorDetails
-import dev.ujhhgtg.wekit.ui.automation.AutomationNavigationRow
-import dev.ujhhgtg.wekit.ui.automation.loadGroupMembers
-import dev.ujhhgtg.wekit.ui.automation.AutomationContactPick
-import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumnScope
+import dev.ujhhgtg.wekit.ui.automation.AutomationFieldLabel
+import dev.ujhhgtg.wekit.ui.automation.AutomationInlinePadding
+import dev.ujhhgtg.wekit.ui.automation.AutomationMiniChips
+import dev.ujhhgtg.wekit.ui.automation.AutomationPick
 import dev.ujhhgtg.wekit.ui.automation.AutomationRuleEditor
-import dev.ujhhgtg.wekit.ui.automation.AutomationValueRow
+import dev.ujhhgtg.wekit.ui.automation.AutomationSheetNote
 import dev.ujhhgtg.wekit.ui.automation.choiceEditor
 import dev.ujhhgtg.wekit.ui.automation.isGroupScope
-import dev.ujhhgtg.wekit.ui.automation.textDetails
+import dev.ujhhgtg.wekit.ui.automation.loadGroupMembers
+import dev.ujhhgtg.wekit.ui.automation.switchInline
 import dev.ujhhgtg.wekit.ui.automation.timeRangeEditor
 import dev.ujhhgtg.wekit.ui.automation.toggleEditor
-import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
+import dev.ujhhgtg.wekit.ui.content.IconButton
 import java.io.File
 
 enum class NotifyMode { NOTIFY, DND }
@@ -145,7 +179,7 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
     override val titleRes = R.string.feature_custom_notifications_name
     override val globalSummaryRes = R.string.custom_notify_global_summary
 
-    private val groupOnly = { scope: dev.ujhhgtg.wekit.features.automation.AutomationScope -> scope.isGroupScope() }
+    private val groupOnly = { scope: AutomationScope -> scope.isGroupScope() }
 
     override val editors = listOf(
         toggleEditor(enabled, R.string.custom_notify_enabled, R.string.custom_notify_enabled_on, R.string.custom_notify_enabled_off),
@@ -161,12 +195,12 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
                 when {
                     !rule.enabled -> stringResource(R.string.custom_notify_sound_off)
                     rule.ringtone.isEmpty() -> stringResource(R.string.custom_notify_ringtone_default)
-                    else -> File(rule.ringtone).name.substringAfter('_')
+                    else -> ringtoneName(rule.ringtone)
                 }
             },
             isOn = { it.enabled },
             setOn = { rule, on -> rule.copy(enabled = on) },
-            details = ringtoneDetails(),
+            sheet = { ctx, value, onChange -> RingtoneSheet(ctx, value, onChange) },
         ),
         toggleEditor(vibrate, R.string.custom_notify_vibrate, R.string.custom_notify_vibrate_on, R.string.custom_notify_vibrate_off),
         toggleEditor(markRead, R.string.custom_notify_mark_read, R.string.custom_notify_mark_read_on, R.string.custom_notify_action_off),
@@ -184,7 +218,7 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
             },
             isOn = { it.enabled },
             setOn = { rule, on -> rule.copy(enabled = on) },
-            details = switchDetails("quick_reply_quote", R.string.automation_reply_as_quote, { it.asQuote }, { v, b -> v.copy(asQuote = b) }),
+            inline = switchInline(R.string.automation_reply_as_quote, { it.asQuote }, { v, b -> v.copy(asQuote = b) }),
         ),
         toggleEditor(merge, R.string.custom_notify_merge, R.string.custom_notify_merge_on, R.string.custom_notify_merge_off),
         toggleEditor(showDetail, R.string.custom_notify_show_detail, R.string.custom_notify_show_detail_on, R.string.custom_notify_show_detail_off),
@@ -203,14 +237,7 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
                     else -> stringResource(R.string.custom_notify_mentions_off)
                 }
             },
-            details = { ctx, value, editable, onChange ->
-                switchDetails<MentionBlockRule>("mentions_all", R.string.custom_notify_block_at_all, { it.blockAtAll }, { v, b -> v.copy(blockAtAll = b) })(
-                    ctx, value, editable, onChange,
-                )
-                switchDetails<MentionBlockRule>("mentions_me", R.string.custom_notify_block_at_me, { it.blockAtMe }, { v, b -> v.copy(blockAtMe = b) })(
-                    ctx, value, editable, onChange,
-                )
-            },
+            inline = { _, value, onChange -> MentionChips(value, onChange) },
             visibleIn = groupOnly,
         ),
         AutomationRuleEditor(
@@ -220,103 +247,126 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
                 if (rule.only.isEmpty() && rule.block.isEmpty()) stringResource(R.string.custom_notify_senders_off)
                 else pluralStringResource(R.plurals.custom_notify_senders_count, rule.only.size + rule.block.size, rule.only.size + rule.block.size)
             },
-            details = { ctx, value, editable, onChange ->
-                textDetails<SenderFilterRule>(
-                    "senders_only", R.string.custom_notify_senders_only,
-                    get = { it.only.joinToString("\n") }, set = { v, s -> v.copy(only = s.tokens()) }, singleLine = false,
-                )(ctx, value, editable, onChange)
-                textDetails<SenderFilterRule>(
-                    "senders_block", R.string.custom_notify_senders_block,
-                    get = { it.block.joinToString("\n") }, set = { v, s -> v.copy(block = s.tokens()) }, singleLine = false,
-                )(ctx, value, editable, onChange)
-                val scope = ctx.scope
-                if (scope.type == AutomationScopeType.CONTACT && AutomationTalkerCategory.of(scope.scopeId) == AutomationTalkerCategory.GROUP) {
-                    memberTokenPicker("senders_pick_only", R.string.custom_notify_pick_only, scope.scopeId, value.only, editable, ctx) {
-                        onChange(value.copy(only = it))
-                    }
-                    memberTokenPicker("senders_pick_block", R.string.custom_notify_pick_block, scope.scopeId, value.block, editable, ctx) {
-                        onChange(value.copy(block = it))
-                    }
-                }
+            summaryExtra = { rule -> AutomationMiniChips(rule.only + rule.block) },
+            sheet = { ctx, value, onChange ->
+                SenderTokens(ctx, R.string.custom_notify_senders_only, value.only) { onChange(value.copy(only = it)) }
+                SenderTokens(ctx, R.string.custom_notify_senders_block, value.block) { onChange(value.copy(block = it)) }
+                AutomationSheetNote(stringResource(R.string.custom_notify_senders_hint))
             },
             visibleIn = groupOnly,
         ),
     )
 
-    /** Picks members of [groupId]; picked wxids replace the member-id tokens, other tokens stay. */
-    private fun SegmentedColumnScope.memberTokenPicker(
-        itemKey: String,
-        @StringRes titleRes: Int,
-        groupId: String,
-        tokens: List<String>,
-        editable: Boolean,
-        context: AutomationEditorContext,
-        onChange: (List<String>) -> Unit,
-    ) {
-        item(key = itemKey) {
-            val title = stringResource(titleRes)
-            AutomationNavigationRow(
-                title = title,
-                description = stringResource(R.string.custom_notify_pick_members_summary),
-                enabled = editable,
-                onClick = {
-                    val members = loadGroupMembers(groupId)
-                    val memberIds = members.map { it.wxId }.toSet()
-                    context.contactPicker.open(
-                        AutomationContactPick.Multiple(
-                            title = title,
-                            loadContacts = { members },
-                            initialSelected = tokens.filter { it in memberIds }.toSet(),
-                            onConfirm = { picked ->
-                                onChange(tokens.filterNot { it in memberIds } + picked)
-                                null
-                            },
-                        )
+    override val sections = listOf(
+        AutomationSection(R.string.custom_notify_section_mode, listOf(enabled, mode, takeOver)),
+        AutomationSection(R.string.custom_notify_section_alerts, listOf(sound, vibrate, ignoreWechatDnd, muteWindow)),
+        AutomationSection(R.string.custom_notify_section_content, listOf(showDetail, merge, markRead, quickReply)),
+        AutomationSection(R.string.custom_notify_section_groups, listOf(mentions, senders)),
+    )
+
+    private fun ringtoneName(path: String) = File(path).name.substringAfter('_')
+
+    @OptIn(ExperimentalLayoutApi::class)
+    @Composable
+    private fun MentionChips(value: MentionBlockRule, onChange: (MentionBlockRule) -> Unit) {
+        FlowRow(Modifier.padding(AutomationInlinePadding), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                Triple(R.string.custom_notify_block_at_all, value.blockAtAll) { on: Boolean -> value.copy(blockAtAll = on) },
+                Triple(R.string.custom_notify_block_at_me, value.blockAtMe) { on: Boolean -> value.copy(blockAtMe = on) },
+            ).forEach { (labelRes, on, set) ->
+                FilterChip(
+                    selected = on,
+                    onClick = { onChange(set(!on)) },
+                    label = { Text(stringResource(labelRes)) },
+                    leadingIcon = if (on) {
+                        { Icon(MaterialSymbols.Outlined.Check, null, Modifier.size(FilterChipDefaults.IconSize)) }
+                    } else null,
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun RingtoneSheet(ctx: AutomationEditorContext, value: NotifySoundRule, onChange: (NotifySoundRule) -> Unit) {
+        Column {
+            listOf(true, false).forEach { system ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(
+                        selected = (value.ringtone.isEmpty()) == system,
+                        onClick = {
+                            if (system) onChange(value.copy(ringtone = ""))
+                            else ctx.pickFiles(arrayOf("audio/*")) { paths -> paths.firstOrNull()?.let { onChange(value.copy(ringtone = it)) } }
+                        },
                     )
-                },
-            )
-        }
-    }
-
-    private fun String.tokens() = split('\n', ',', '，', ';', '；').map(String::trim).filter(String::isNotEmpty).distinct()
-
-    private fun <T : Any> switchDetails(
-        itemKey: String,
-        @StringRes titleRes: Int,
-        get: (T) -> Boolean,
-        set: (T, Boolean) -> T,
-    ): AutomationEditorDetails<T> = { _, value, editable, onChange ->
-        item(key = itemKey) {
-            SwitchWidget(
-                iconPlaceholder = false,
-                title = stringResource(titleRes),
-                checked = get(value),
-                enabled = editable,
-                onCheckedChange = { onChange(set(value, it)) },
-            )
-        }
-    }
-
-    private fun ringtoneDetails(): AutomationEditorDetails<NotifySoundRule> = { ctx, value, editable, onChange ->
-        item(key = "ringtone") {
-            AutomationValueRow(
-                title = stringResource(R.string.custom_notify_ringtone),
-                value = value.ringtone.takeIf(String::isNotEmpty)?.let { File(it).name.substringAfter('_') }
-                    ?: stringResource(R.string.custom_notify_ringtone_default),
-                enabled = editable,
-                onClick = {
-                    ctx.pickFiles(arrayOf("audio/*")) { paths ->
-                        paths.firstOrNull()?.let { onChange(value.copy(ringtone = it)) }
+                    Column {
+                        Text(stringResource(if (system) R.string.custom_notify_ringtone_default else R.string.custom_notify_ringtone_custom))
+                        if (!system && value.ringtone.isNotEmpty()) {
+                            Text(ringtoneName(value.ringtone), style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                        }
                     }
-                },
-            )
+                }
+            }
         }
-        item(key = "ringtone_reset") {
-            AutomationValueRow(
-                title = stringResource(R.string.custom_notify_ringtone_use_default),
-                value = "",
-                enabled = editable && value.ringtone.isNotEmpty(),
-                onClick = { onChange(value.copy(ringtone = "")) },
+        if (value.ringtone.isNotEmpty()) {
+            androidx.compose.material3.FilledTonalButton(
+                onClick = { ctx.pickFiles(arrayOf("audio/*")) { paths -> paths.firstOrNull()?.let { onChange(value.copy(ringtone = it)) } } },
+            ) { Text(stringResource(R.string.custom_notify_ringtone_change)) }
+        }
+        AutomationSheetNote(stringResource(R.string.custom_notify_ringtone_copied))
+    }
+
+    /** Token chips with a text field; for a group chat, members can also be picked. */
+    @OptIn(ExperimentalLayoutApi::class)
+    @Composable
+    private fun SenderTokens(ctx: AutomationEditorContext, labelRes: Int, tokens: List<String>, onChange: (List<String>) -> Unit) {
+        var pending by remember { mutableStateOf("") }
+        val add = {
+            val token = pending.trim()
+            if (token.isNotEmpty() && token !in tokens) onChange(tokens + token)
+            pending = ""
+        }
+        val scope = ctx.scope
+        val groupId = scope.scopeId.takeIf { scope.type == AutomationScopeType.CONTACT && AutomationTalkerCategory.of(it) == AutomationTalkerCategory.GROUP }
+        val pickTitle = stringResource(labelRes)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AutomationFieldLabel(stringResource(labelRes))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                tokens.forEach { token ->
+                    InputChip(
+                        selected = false,
+                        onClick = { onChange(tokens - token) },
+                        label = { Text(token) },
+                        trailingIcon = { Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.action_delete), Modifier.size(InputChipDefaults.IconSize)) },
+                    )
+                }
+                if (groupId != null) {
+                    AssistChip(
+                        onClick = {
+                            val members = loadGroupMembers(groupId)
+                            val memberIds = members.map { it.wxId }.toSet()
+                            ctx.picker.open(
+                                AutomationPick.Contacts(
+                                    title = pickTitle,
+                                    loadContacts = { members },
+                                    initialSelected = tokens.filter { it in memberIds }.toSet(),
+                                    onConfirm = { picked -> onChange(tokens.filterNot { it in memberIds } + picked) },
+                                )
+                            )
+                        },
+                        label = { Text(stringResource(R.string.custom_notify_pick_members)) },
+                        leadingIcon = { Icon(MaterialSymbols.Outlined.Group, null, Modifier.size(FilterChipDefaults.IconSize)) },
+                    )
+                }
+            }
+            OutlinedTextField(
+                value = pending,
+                onValueChange = { pending = it },
+                label = { Text(stringResource(R.string.custom_notify_sender_input)) },
+                trailingIcon = { IconButton(enabled = pending.isNotBlank(), onClick = add) { Icon(MaterialSymbols.Outlined.Add, stringResource(R.string.automation_add_item)) } },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { add() }),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }

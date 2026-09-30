@@ -1,13 +1,37 @@
 package dev.ujhhgtg.wekit.features.items.contacts
 
 import androidx.activity.ComponentActivity
-import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Add
+import com.composables.icons.materialsymbols.outlined.Check
+import com.composables.icons.materialsymbols.outlined.Close
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity
 import dev.ujhhgtg.wekit.features.api.core.WeContactApi
@@ -25,6 +49,7 @@ import dev.ujhhgtg.wekit.features.automation.AutomationRuleKey
 import dev.ujhhgtg.wekit.features.automation.AutomationRules
 import dev.ujhhgtg.wekit.features.automation.AutomationScope
 import dev.ujhhgtg.wekit.features.automation.AutomationScopeType
+import dev.ujhhgtg.wekit.features.automation.AutomationSection
 import dev.ujhhgtg.wekit.features.automation.AutomationSpec
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
@@ -32,22 +57,23 @@ import dev.ujhhgtg.wekit.features.automation.AutomationValueCodec
 import dev.ujhhgtg.wekit.features.automation.IncomingMessageEvents
 import dev.ujhhgtg.wekit.features.automation.NewFriendEvents
 import dev.ujhhgtg.wekit.features.automation.NewFriendRequest
+import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.ui.automation.AutomationNavigationRow
+import dev.ujhhgtg.wekit.ui.automation.AutomationFieldLabel
+import dev.ujhhgtg.wekit.ui.automation.AutomationMiniChips
 import dev.ujhhgtg.wekit.ui.automation.AutomationRuleEditor
+import dev.ujhhgtg.wekit.ui.automation.AutomationSheetNote
 import dev.ujhhgtg.wekit.ui.automation.limitEditor
 import dev.ujhhgtg.wekit.ui.automation.replyEditor
-import dev.ujhhgtg.wekit.ui.automation.textDetails
 import dev.ujhhgtg.wekit.ui.automation.toggleEditor
-import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
-import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.ui.content.IconButton
+import dev.ujhhgtg.wekit.ui.content.m3.PlaceholderChips
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.formatEpoch
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
 
 /** Labels applied to a new friend; entries are templates (`$nickname`, `$time`). Missing labels are created. */
@@ -108,54 +134,24 @@ object FriendAutomation : AutomationSpec("FRIEND_AUTOMATION") {
         ACCEPTED to R.string.friend_automation_accepted,
     )
 
-    private val TEMPLATE_PLACEHOLDERS = listOf($$"$nickname", $$"$time")
-
     override val editors = listOf(
         toggleEditor(enabled, R.string.friend_automation_enabled, R.string.automation_item_enabled, R.string.automation_item_disabled),
         limitEditor(
             delay, R.string.friend_automation_delay, R.string.friend_automation_no_delay,
             R.string.friend_automation_delay_value, R.string.friend_automation_delay_ms,
+            range = 0..10_000, step = 100, unitRes = R.string.automation_unit_ms,
         ),
         AutomationRuleEditor(
             key = labels,
             titleRes = R.string.friend_automation_labels,
             summary = {
                 if (!it.enabled || it.labels.isEmpty()) stringResource(R.string.friend_automation_labels_off)
-                else it.labels.joinToString(", ")
+                else stringResource(R.string.friend_automation_labels_count, it.labels.size)
             },
             isOn = { it.enabled },
             setOn = { rule, on -> rule.copy(enabled = on) },
-            details = { ctx, value, editable, onChange ->
-                textDetails<FriendLabelRule>(
-                    "labels", R.string.friend_automation_label_templates,
-                    get = { it.labels.joinToString("\n") },
-                    set = { v, s -> v.copy(labels = s.lines().map(String::trim).filter(String::isNotEmpty).distinct()) },
-                    placeholders = TEMPLATE_PLACEHOLDERS,
-                    singleLine = false,
-                )(ctx, value, editable, onChange)
-                item(key = "labels_existing") {
-                    val title = stringResource(R.string.friend_automation_pick_labels)
-                    AutomationNavigationRow(
-                        title = title,
-                        description = stringResource(R.string.friend_automation_pick_labels_summary),
-                        enabled = editable,
-                        onClick = {
-                            val existing = runCatching { WeContactLabelApi.getAllLabels().map { it.labelName } }
-                                .onFailure { WeLogger.e(TAG, "failed to load labels", it) }.getOrDefault(emptyList())
-                            showComposeDialog(ctx.activity) {
-                                LabelPicker(title, existing, value.labels.toSet(), onDismiss) { picked ->
-                                    onChange(value.copy(labels = (value.labels.filter { it !in existing } + picked).distinct()))
-                                    onDismiss()
-                                }
-                            }
-                        },
-                    )
-                }
-                textDetails<FriendLabelRule>(
-                    "labels_time", R.string.friend_automation_time_format,
-                    get = { it.timeFormat }, set = { v, s -> v.copy(timeFormat = s) },
-                )(ctx, value, editable, onChange)
-            },
+            summaryExtra = { if (it.enabled) AutomationMiniChips(it.labels) },
+            sheet = { _, value, onChange -> LabelsSheet(value, onChange) },
         ),
         AutomationRuleEditor(
             key = remark,
@@ -163,23 +159,30 @@ object FriendAutomation : AutomationSpec("FRIEND_AUTOMATION") {
             summary = { if (it.enabled) it.template else stringResource(R.string.friend_automation_remark_off) },
             isOn = { it.enabled },
             setOn = { rule, on -> rule.copy(enabled = on) },
-            details = { ctx, value, editable, onChange ->
-                textDetails<FriendRemarkRule>(
-                    "remark", R.string.friend_automation_remark_template,
-                    get = { it.template }, set = { v, s -> v.copy(template = s) },
-                    placeholders = TEMPLATE_PLACEHOLDERS,
-                )(ctx, value, editable, onChange)
-                textDetails<FriendRemarkRule>(
-                    "remark_time", R.string.friend_automation_time_format,
-                    get = { it.timeFormat }, set = { v, s -> v.copy(timeFormat = s) },
-                )(ctx, value, editable, onChange)
-            },
+            sheet = { _, value, onChange -> RemarkSheet(value, onChange) },
         ),
         replyEditor(reply, R.string.friend_automation_reply, AutomationReplyExecutor.BASE_PLACEHOLDERS),
     )
 
-    override fun validate(rules: AutomationRules, keyIds: Set<String>?): String? =
-        rules[reply].validationError()
+    override val sections = listOf(
+        AutomationSection(R.string.friend_automation_section_timing, listOf(delay)),
+        AutomationSection(R.string.friend_automation_section_profile, listOf(labels, remark)),
+        AutomationSection(R.string.friend_automation_section_messages, listOf(reply)),
+    )
+
+    override val itemSwitch = enabled
+    override val itemSummaryKeys = listOf(labels, remark, reply)
+
+    override fun validate(rules: AutomationRules, keyIds: Set<String>?): String? {
+        if (validates(keyIds, labels) && rules[labels].let { it.enabled && it.labels.isEmpty() }) {
+            return localizedAutomationString(R.string.friend_automation_labels_required)
+        }
+        if (validates(keyIds, remark) && rules[remark].let { it.enabled && it.template.isBlank() }) {
+            return localizedAutomationString(R.string.friend_automation_remark_required)
+        }
+        if (validates(keyIds, reply)) return rules[reply].validationError()
+        return null
+    }
 
     private const val TAG = "FriendAutomation"
 
@@ -189,37 +192,112 @@ object FriendAutomation : AutomationSpec("FRIEND_AUTOMATION") {
         template.replace($$"$nickname", nickname).replace($$"$time", formatEpoch(System.currentTimeMillis(), timeFormat))
 }
 
-@androidx.compose.runtime.Composable
-private fun LabelPicker(
-    title: String,
-    labels: List<String>,
-    initial: Set<String>,
-    onDismiss: () -> Unit,
-    onConfirm: (List<String>) -> Unit,
-) {
-    var selected by remember { mutableStateOf(initial.filter { it in labels }) }
-    AlertDialogContent(
-        title = { Text(title) },
-        text = {
-            if (labels.isEmpty()) {
-                Text(stringResource(R.string.friend_automation_no_labels))
-            } else {
-                SegmentedColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues()) {
-                    labels.forEach { label ->
-                        item(key = label) {
-                            BaseWidget(
-                                iconPlaceholder = false,
-                                title = label,
-                                onClick = { selected = if (label in selected) selected - label else selected + label },
-                                trailingContent = { Checkbox(checked = label in selected, onCheckedChange = null) },
-                            )
-                        }
-                    }
-                }
+private val TEMPLATE_PLACEHOLDERS = listOf($$"$nickname", $$"$time")
+
+/** A template field with tappable placeholders. */
+@Composable
+private fun TemplateField(label: String, value: String, onChange: (String) -> Unit, trailing: @Composable (() -> Unit)? = null) {
+    var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    var focused by remember { mutableStateOf(false) }
+    if (field.text != value) field = TextFieldValue(value, TextRange(value.length))
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedTextField(
+            value = field,
+            onValueChange = {
+                field = it
+                onChange(it.text)
+            },
+            label = { Text(label) },
+            trailingIcon = trailing,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focused = it.isFocused },
+        )
+        PlaceholderChips(TEMPLATE_PLACEHOLDERS, field, focused, {
+            field = it
+            onChange(it.text)
+        })
+    }
+}
+
+@Composable
+private fun TimeFormatField(value: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(stringResource(R.string.friend_automation_time_format)) },
+        supportingText = { Text(stringResource(R.string.friend_automation_time_example, formatEpoch(System.currentTimeMillis(), value))) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LabelsSheet(value: FriendLabelRule, onChange: (FriendLabelRule) -> Unit) {
+    val existing by produceState(emptyList<String>()) {
+        this.value = withContext(Dispatchers.IO) {
+            runCatching { WeContactLabelApi.getAllLabels().map { it.labelName } }
+                .onFailure { WeLogger.e("FriendAutomation", "failed to load labels", it) }.getOrDefault(emptyList())
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AutomationFieldLabel(stringResource(R.string.friend_automation_existing_labels))
+        if (existing.isEmpty()) AutomationSheetNote(stringResource(R.string.friend_automation_no_labels))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            existing.forEach { label ->
+                val on = label in value.labels
+                FilterChip(
+                    selected = on,
+                    onClick = { onChange(value.copy(labels = if (on) value.labels - label else value.labels + label)) },
+                    label = { Text(label) },
+                    leadingIcon = if (on) {
+                        { Icon(MaterialSymbols.Outlined.Check, null, Modifier.size(FilterChipDefaults.IconSize)) }
+                    } else null,
+                )
             }
-        },
-        confirmButton = { TextButton(onClick = { onConfirm(selected) }) { Text(stringResource(R.string.dialog_confirm)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AutomationFieldLabel(stringResource(R.string.friend_automation_new_labels))
+        val custom = value.labels.filter { it !in existing }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            custom.forEach { label ->
+                InputChip(
+                    selected = false,
+                    onClick = { onChange(value.copy(labels = value.labels - label)) },
+                    label = { Text(label) },
+                    trailingIcon = { Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.action_delete), Modifier.size(InputChipDefaults.IconSize)) },
+                )
+            }
+        }
+        var pending by remember { mutableStateOf("") }
+        val add = {
+            val label = pending.trim()
+            if (label.isNotEmpty() && label !in value.labels) onChange(value.copy(labels = value.labels + label))
+            pending = ""
+        }
+        TemplateField(
+            label = stringResource(R.string.friend_automation_label_template),
+            value = pending,
+            onChange = { pending = it },
+            trailing = { IconButton(enabled = pending.isNotBlank(), onClick = add) { Icon(MaterialSymbols.Outlined.Add, stringResource(R.string.automation_add_item)) } },
+        )
+    }
+    TimeFormatField(value.timeFormat) { onChange(value.copy(timeFormat = it)) }
+}
+
+@Composable
+private fun RemarkSheet(value: FriendRemarkRule, onChange: (FriendRemarkRule) -> Unit) {
+    TemplateField(stringResource(R.string.friend_automation_remark_template), value.template, { onChange(value.copy(template = it)) })
+    TimeFormatField(value.timeFormat) { onChange(value.copy(timeFormat = it)) }
+    AutomationSheetNote(
+        stringResource(
+            R.string.friend_automation_remark_preview,
+            FriendAutomation.formatTemplate(value.template, stringResource(R.string.friend_automation_sample_nickname), value.timeFormat),
+        )
     )
 }
 

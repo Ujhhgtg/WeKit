@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.automation
 
+import androidx.annotation.StringRes
 import kotlinx.serialization.Serializable
 
 /** A named rule of an automation feature with its storage codec and built-in default. */
@@ -93,6 +94,9 @@ class AutomationRules(private val values: Map<String, Any>) {
     }
 }
 
+/** A titled group of rules on the editor screens; [titleRes] null for an untitled group. */
+class AutomationSection(@param:StringRes val titleRes: Int?, val keys: List<AutomationRuleKey<*>>)
+
 /**
  * Describes one automation feature's rules. The same description drives resolution, storage and
  * the generic scope editor in [dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity].
@@ -128,6 +132,15 @@ abstract class AutomationSpec(val id: String) {
 
     abstract val editors: List<dev.ujhhgtg.wekit.ui.automation.AutomationRuleEditor<*>>
 
+    /** Groups [editors] by concern on the editor screens; a rule listed in no section isn't shown. */
+    abstract val sections: List<AutomationSection>
+
+    /** ITEM enable switch, shown on the rule list and at the top of each item's editor. Must be in [keys]. */
+    open val itemSwitch: AutomationRuleKey<AutomationToggleRule>? = null
+
+    /** Rules summarized as chips on ITEM rows when they differ from their default. */
+    open val itemSummaryKeys: List<AutomationRuleKey<*>> = emptyList()
+
     /** Title of the user-managed ITEM list; null when the feature has no such list. */
     open val itemsTitleRes: Int? = null
 
@@ -141,6 +154,9 @@ abstract class AutomationSpec(val id: String) {
 
     /** Returns a user-facing error for [rules], validating only [keyIds] when given. */
     open fun validate(rules: AutomationRules, keyIds: Set<String>?): String? = null
+
+    /** User-facing error of rule [key] alone. */
+    fun ruleError(rules: AutomationRules, key: AutomationRuleKey<*>): String? = validate(rules, setOf(key.id))
 
     protected fun validates(keyIds: Set<String>?, key: AutomationRuleKey<*>) = keyIds == null || key.id in keyIds
 }

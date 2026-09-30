@@ -11,17 +11,19 @@ import dev.ujhhgtg.wekit.features.automation.AutomationKeywordRule
 import dev.ujhhgtg.wekit.features.automation.AutomationRuleKey
 import dev.ujhhgtg.wekit.features.automation.AutomationRules
 import dev.ujhhgtg.wekit.features.automation.AutomationScopeType
+import dev.ujhhgtg.wekit.features.automation.AutomationSection
 import dev.ujhhgtg.wekit.features.automation.AutomationSpec
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.automation.AutomationValueCodec
 import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
+import dev.ujhhgtg.wekit.ui.automation.AutomationChipSet
+import dev.ujhhgtg.wekit.ui.automation.AutomationMiniChips
 import dev.ujhhgtg.wekit.ui.automation.AutomationRuleEditor
-import dev.ujhhgtg.wekit.ui.automation.choiceDetails
+import dev.ujhhgtg.wekit.ui.automation.choiceInline
 import dev.ujhhgtg.wekit.ui.automation.keywordEditor
-import dev.ujhhgtg.wekit.ui.automation.numberDetails
-import dev.ujhhgtg.wekit.ui.automation.setDetails
+import dev.ujhhgtg.wekit.ui.automation.numberInline
 import dev.ujhhgtg.wekit.ui.automation.timeRangeEditor
 import dev.ujhhgtg.wekit.ui.automation.toggleEditor
 
@@ -127,8 +129,9 @@ class MomentsAutomation private constructor(
     override val editors = listOfNotNull(
         toggleEditor(
             process,
-            if (includeAction) R.string.moments_automation_default_auto_like else R.string.moments_automation_default_auto_repost,
+            if (includeAction) R.string.moments_automation_auto_like else R.string.moments_automation_auto_repost,
             R.string.moments_automation_process_contact, R.string.moments_automation_skip_contact,
+            globalTitleRes = if (includeAction) R.string.moments_automation_default_auto_like else R.string.moments_automation_default_auto_repost,
         ),
         if (!includeAction) null else AutomationRuleEditor(
             key = action,
@@ -144,8 +147,7 @@ class MomentsAutomation private constructor(
             },
             isOn = { it.enabled },
             setOn = { rule, on -> rule.copy(enabled = on) },
-            details = choiceDetails(
-                "action",
+            inline = choiceInline(
                 listOf(MomentAutomationAction.LIKE to R.string.moments_automation_like, MomentAutomationAction.UNLIKE to R.string.moments_automation_unlike),
                 get = { it.action }, set = { v, a -> v.copy(action = a) },
             ),
@@ -164,14 +166,13 @@ class MomentsAutomation private constructor(
             },
             isOn = { it.enabled },
             setOn = { rule, on -> rule.copy(enabled = on) },
-            details = choiceDetails(
-                "mode",
+            inline = choiceInline(
                 listOf(
-                    MomentAutomationMode.WHEN_SEEN to R.string.moments_automation_when_seen,
-                    MomentAutomationMode.ALL_LOADED to R.string.moments_automation_all_cached,
+                    MomentAutomationMode.WHEN_SEEN to R.string.moments_automation_when_seen_short,
+                    MomentAutomationMode.ALL_LOADED to R.string.moments_automation_all_cached_short,
                 ),
-                descriptions = mapOf(MomentAutomationMode.ALL_LOADED to R.string.moments_automation_all_cached_requires_refresh),
                 get = { it.mode }, set = { v, m -> v.copy(mode = m) },
+                descriptions = mapOf(MomentAutomationMode.ALL_LOADED to R.string.moments_automation_all_cached_requires_refresh),
             ),
         ),
         AutomationRuleEditor(
@@ -183,7 +184,11 @@ class MomentsAutomation private constructor(
             },
             isOn = { it.enabled },
             setOn = { rule, on -> rule.copy(enabled = on) },
-            details = numberDetails("interval", R.string.moments_automation_interval_ms, 7, { it.milliseconds }, { v, s -> v.copy(milliseconds = s) }),
+            inline = numberInline(
+                R.string.moments_automation_interval_ms, 0..10_000, 100, R.string.automation_unit_ms,
+                get = { it.milliseconds.toLongOrNull() ?: 0L }, set = { v, n -> v.copy(milliseconds = n.toString()) },
+                maxExact = MAX_ACTION_DELAY_MS,
+            ),
         ),
         timeRangeEditor(timeRange, R.string.moments_automation_time_range, R.string.moments_automation_time_unrestricted),
         keywordEditor(keyword, R.string.moments_automation_content_keywords, R.string.moments_automation_keyword_unrestricted),
@@ -196,11 +201,16 @@ class MomentsAutomation private constructor(
             },
             isOn = { it.enabled },
             setOn = { rule, on -> rule.copy(enabled = on) },
-            details = setDetails(
-                "content_type",
-                MomentsContentType.entries.map { it.typeId to it.nameRes },
-                get = { it.typeIds }, set = { v, s -> v.copy(typeIds = s) },
-            ),
+            summaryExtra = { rule ->
+                if (rule.enabled) AutomationMiniChips(MomentsContentType.entries.filter { it.typeId in rule.typeIds }.map { stringResource(it.nameRes) })
+            },
+            sheet = { _, value, onChange ->
+                AutomationChipSet(
+                    options = MomentsContentType.entries.map { it.typeId to stringResource(it.nameRes) },
+                    selected = value.typeIds,
+                    onChange = { onChange(value.copy(typeIds = it)) },
+                )
+            },
         ),
         AutomationRuleEditor(
             key = maximumAge,
@@ -211,8 +221,18 @@ class MomentsAutomation private constructor(
             },
             isOn = { it.enabled },
             setOn = { rule, on -> rule.copy(enabled = on) },
-            details = numberDetails("maximum_age", R.string.moments_automation_maximum_age_hours, 6, { it.maximumHours }, { v, s -> v.copy(maximumHours = s) }),
+            inline = numberInline(
+                R.string.moments_automation_maximum_age_hours, 1..168, 1, R.string.automation_unit_hours,
+                get = { it.maximumHours.toLongOrNull() ?: 0L }, set = { v, n -> v.copy(maximumHours = n.toString()) },
+                maxExact = 999_999L,
+            ),
         ),
+    )
+
+    override val sections = listOf(
+        AutomationSection(R.string.moments_automation_section_processing, listOfNotNull(process, action.takeIf { includeAction }, mode)),
+        AutomationSection(R.string.moments_automation_section_pace, listOf(interval)),
+        AutomationSection(R.string.moments_automation_section_filters, listOf(timeRange, keyword, contentType, maximumAge)),
     )
 
     override fun validate(rules: AutomationRules, keyIds: Set<String>?): String? {

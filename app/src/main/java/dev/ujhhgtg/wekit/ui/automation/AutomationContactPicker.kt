@@ -1,116 +1,128 @@
 package dev.ujhhgtg.wekit.ui.automation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.staticCompositionLocalOf
-import dev.ujhhgtg.wekit.activity.automation.AutomationRoute
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.ui.content.contacts.ContactPickerScreen
 import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelectorScreen
-import dev.ujhhgtg.wekit.ui.navigation.Navigator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
-/**
- * A contact screen requested by an automation screen or editor. Results return a route that
- * replaces the picker, or null to go back to the opener (which stays composed underneath, so
- * callbacks may update its draft state).
- */
-sealed interface AutomationContactPick {
+/** A full-screen picker requested by an automation screen, editor or sheet. */
+sealed interface AutomationPick {
     val title: String
 
-    /** Runs off the main thread when the picker opens. */
-    val loadContacts: () -> List<IWeContact>
-
-    /** Runs once the picker has left, whether it produced a result or not. */
-    val onClose: () -> Unit
-
-    class Multiple(
+    /** Multi-select; [onConfirm] receives the selected wxids. */
+    class Contacts(
         override val title: String,
-        override val loadContacts: () -> List<IWeContact>,
+        /** Runs off the main thread when the picker opens. */
+        val loadContacts: () -> List<IWeContact>,
         val initialSelected: Set<String>,
-        override val onClose: () -> Unit = {},
-        val onConfirm: (Set<String>) -> AutomationRoute?,
-    ) : AutomationContactPick
+        val onConfirm: (Set<String>) -> Unit,
+    ) : AutomationPick
 
     /** Tapping a contact picks it; [isMarked] contacts (e.g. already configured) are listed first. */
-    class Single(
+    class Contact(
         override val title: String,
-        override val loadContacts: () -> List<IWeContact>,
-        val markedKey: Any? = null,
+        val loadContacts: () -> List<IWeContact>,
         val isMarked: (IWeContact) -> Boolean = { false },
-        override val onClose: () -> Unit = {},
-        val onPick: (IWeContact) -> AutomationRoute?,
-    ) : AutomationContactPick
+        val onPick: (IWeContact) -> Unit,
+    ) : AutomationPick
+
+    /** Multi-select of favorites; [onConfirm] receives local ids, newest first. */
+    class Favorites(
+        override val title: String,
+        val initialSelected: Set<Long>,
+        val onConfirm: (List<Long>) -> Unit,
+    ) : AutomationPick
 }
 
-/** Holds pending [AutomationContactPick]s for the [AutomationRoute.ContactPicker] entries. */
-class AutomationContactPicker(private val navigator: Navigator) {
-    private val requests = HashMap<String, AutomationContactPick>()
+/**
+ * Shows [AutomationPick]s as full-screen dialogs, so they cover the current screen and any open
+ * bottom sheet (which lives in its own window) while the opener keeps its state. A result callback
+ * may open the next pick, e.g. a group's members after choosing the group.
+ */
+class AutomationPicker {
+    var current by mutableStateOf<AutomationPick?>(null)
+        private set
 
-    /** Registers [pick] and returns its route, e.g. to chain pickers from a result. */
-    fun route(pick: AutomationContactPick): AutomationRoute.ContactPicker {
-        val id = UUID.randomUUID().toString()
-        requests[id] = pick
-        return AutomationRoute.ContactPicker(id)
+    fun open(pick: AutomationPick) {
+        current = pick
     }
 
-    fun open(pick: AutomationContactPick) = navigator.push(route(pick))
-
-    fun request(id: String): AutomationContactPick? = requests[id]
-
-    fun finish(next: AutomationRoute?) {
-        if (next != null) navigator.replace(next) else navigator.pop()
+    fun close() {
+        current = null
     }
-
-    fun release(id: String) {
-        requests.remove(id)?.onClose?.invoke()
-    }
-}
-
-val LocalAutomationContactPicker = staticCompositionLocalOf<AutomationContactPicker> {
-    error("no AutomationContactPicker provided")
 }
 
 @Composable
-fun AutomationContactPickerScreen(picker: AutomationContactPicker, id: String, onBack: () -> Unit) {
-    val pick = remember(id) { picker.request(id) }
-    DisposableEffect(id) { onDispose { picker.release(id) } }
-    if (pick == null) {
-        // The request did not survive activity recreation; there is nothing to pick for.
-        LaunchedEffect(id) { onBack() }
-        return
-    }
-
-    var contacts by remember(pick) { mutableStateOf<List<IWeContact>?>(null) }
-    LaunchedEffect(pick) { contacts = withContext(Dispatchers.IO) { pick.loadContacts() } }
-
-    when (pick) {
-        is AutomationContactPick.Multiple -> {
-            var selected by remember(pick) { mutableStateOf(pick.initialSelected) }
-            ContactsSelectorScreen(
-                title = pick.title,
-                contacts = contacts,
-                selectedWxIds = selected,
-                onSelectionChange = { selected = it },
-                onBack = onBack,
-                onConfirm = { picker.finish(pick.onConfirm(selected)) },
-            )
+fun AutomationPickerHost(picker: AutomationPicker) {
+    val pick = picker.current ?: return
+    Dialog(
+        onDismissRequest = picker::close,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        key(pick) {
+            when (pick) {
+                is AutomationPick.Contacts -> ContactsPick(pick, picker)
+                is AutomationPick.Contact -> ContactPick(pick, picker)
+                is AutomationPick.Favorites -> AutomationFavoritePickerScreen(
+                    title = pick.title,
+                    initialSelected = pick.initialSelected,
+                    onBack = picker::close,
+                    onConfirm = { ids ->
+                        picker.close()
+                        pick.onConfirm(ids)
+                    },
+                )
+            }
         }
-
-        is AutomationContactPick.Single -> ContactPickerScreen(
-            title = pick.title,
-            contacts = contacts,
-            onBack = onBack,
-            onPick = { picker.finish(pick.onPick(it)) },
-            markedKey = pick.markedKey,
-            isMarked = pick.isMarked,
-        )
     }
+}
+
+@Composable
+private fun rememberLoadedContacts(load: () -> List<IWeContact>): List<IWeContact>? {
+    var contacts by remember { mutableStateOf<List<IWeContact>?>(null) }
+    LaunchedEffect(Unit) { contacts = withContext(Dispatchers.IO) { load() } }
+    return contacts
+}
+
+@Composable
+private fun ContactsPick(pick: AutomationPick.Contacts, picker: AutomationPicker) {
+    val contacts = rememberLoadedContacts(pick.loadContacts)
+    var selected by remember { mutableStateOf(pick.initialSelected) }
+    ContactsSelectorScreen(
+        title = pick.title,
+        contacts = contacts,
+        selectedWxIds = selected,
+        onSelectionChange = { selected = it },
+        onBack = picker::close,
+        onConfirm = {
+            picker.close()
+            pick.onConfirm(selected)
+        },
+    )
+}
+
+@Composable
+private fun ContactPick(pick: AutomationPick.Contact, picker: AutomationPicker) {
+    val contacts = rememberLoadedContacts(pick.loadContacts)
+    ContactPickerScreen(
+        title = pick.title,
+        contacts = contacts,
+        onBack = picker::close,
+        onPick = {
+            picker.close()
+            pick.onPick(it)
+        },
+        markedKey = pick,
+        isMarked = pick.isMarked,
+    )
 }

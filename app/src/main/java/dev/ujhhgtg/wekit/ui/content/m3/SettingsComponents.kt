@@ -74,6 +74,8 @@ fun SettingsScaffold(
     listState: LazyListState = rememberLazyListState(),
     pinnedHeader: (@Composable ColumnScope.() -> Unit)? = null,
     overlay: @Composable BoxScope.() -> Unit = {},
+    floatingActionButton: @Composable () -> Unit = {},
+    snackbarHost: @Composable () -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -83,6 +85,8 @@ fun SettingsScaffold(
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        floatingActionButton = floatingActionButton,
+        snackbarHost = snackbarHost,
         topBar = {
             val appBar: @Composable (Modifier) -> Unit = { modifier ->
                 ExpressiveCollapsingTopAppBar(

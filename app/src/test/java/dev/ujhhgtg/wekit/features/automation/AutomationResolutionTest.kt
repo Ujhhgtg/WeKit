@@ -14,6 +14,7 @@ class AutomationResolutionTest {
         override val scopeTypes = AutomationScopeType.entries.toSet()
         override val titleRes = 0
         override val editors = emptyList<AutomationRuleEditor<*>>()
+        override val sections = emptyList<AutomationSection>()
     }
 
     private fun stored(scope: AutomationScope, vararg values: Pair<AutomationRuleKey<*>, Any>, presets: List<String> = emptyList()) =
@@ -44,6 +45,30 @@ class AutomationResolutionTest {
 
         assertEquals(limit(2), snapshot.parentRules(AutomationScope.contact("g@chatroom"))[Spec.limit])
         assertEquals(limit(4), snapshot.parentRules(AutomationScope.member("g@chatroom", "m"))[Spec.limit])
+    }
+
+    @Test
+    fun `inherited sources name the most specific ancestor or preset of each rule`() {
+        val group = AutomationScope.contact("g@chatroom")
+        val member = AutomationScope.member("g@chatroom", "m")
+        val snapshot = AutomationSnapshot(
+            Spec,
+            mapOf(
+                stored(AutomationScope.Global, Spec.on to AutomationToggleRule(true), Spec.limit to limit(1)),
+                stored(AutomationScope.category(AutomationTalkerCategory.GROUP), Spec.limit to limit(2)),
+                stored(AutomationScope.preset("a"), Spec.on to AutomationToggleRule(false)),
+                stored(group, presets = listOf("a")),
+                stored(AutomationScope.preset("draft"), Spec.limit to limit(5)),
+            ),
+        )
+        val sources = snapshot.inheritedSources(member, emptyList())
+        assertEquals(AutomationScope.preset("a"), sources[Spec.on.id], "a group's preset beats the global value")
+        assertEquals(AutomationScope.category(AutomationTalkerCategory.GROUP), sources[Spec.limit.id])
+
+        val withDraftPreset = snapshot.inheritedSources(member, listOf("draft"))
+        assertEquals(AutomationScope.preset("draft"), withDraftPreset[Spec.limit.id], "the scope's own presets come last")
+
+        assertTrue(snapshot.inheritedSources(AutomationScope.Global, emptyList()).isEmpty(), "GLOBAL inherits only defaults")
     }
 
     @Test
@@ -98,6 +123,7 @@ class AutomationResolutionTest {
             override val scopeTypes = AutomationScopeType.entries.toSet()
             override val titleRes = 0
             override val editors = emptyList<AutomationRuleEditor<*>>()
+            override val sections = emptyList<AutomationSection>()
         }
         val off = AutomationToggleRule(false)
         val snapshot = AutomationSnapshot(

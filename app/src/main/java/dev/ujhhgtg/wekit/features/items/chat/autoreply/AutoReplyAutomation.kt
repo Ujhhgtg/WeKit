@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.features.automation.AutomationReplyRule
 import dev.ujhhgtg.wekit.features.automation.AutomationRuleKey
 import dev.ujhhgtg.wekit.features.automation.AutomationRules
 import dev.ujhhgtg.wekit.features.automation.AutomationScopeType
+import dev.ujhhgtg.wekit.features.automation.AutomationSection
 import dev.ujhhgtg.wekit.features.automation.AutomationSpec
 import dev.ujhhgtg.wekit.features.automation.AutomationTargetRule
 import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
@@ -69,14 +70,27 @@ object AutoReplyAutomation : AutomationSpec("AUTO_REPLY") {
         timeRangeEditor(timeRange, R.string.auto_reply_time_range, R.string.auto_reply_time_unrestricted, visibleIn = onlyItem),
         limitEditor(
             maxCount, R.string.auto_reply_max_count, R.string.auto_reply_max_count_off,
-            R.string.auto_reply_max_count_value, R.string.auto_reply_max_count_field, visibleIn = onlyItem,
+            R.string.auto_reply_max_count_value, R.string.auto_reply_max_count_field,
+            range = 1..50, step = 1, unitRes = R.string.automation_unit_times, visibleIn = onlyItem,
         ),
         limitEditor(
             cooldown, R.string.auto_reply_cooldown, R.string.auto_reply_cooldown_off,
-            R.string.auto_reply_cooldown_value, R.string.auto_reply_cooldown_field, visibleIn = onlyItem,
+            R.string.auto_reply_cooldown_value, R.string.auto_reply_cooldown_field,
+            range = 0..3600, step = 10, unitRes = R.string.automation_unit_seconds, visibleIn = onlyItem,
         ),
         replyEditor(reply, R.string.auto_reply_steps, AutomationReplyExecutor.BASE_PLACEHOLDERS, visibleIn = onlyItem, switchable = false),
     )
+
+    override val sections = listOf(
+        AutomationSection(null, listOf(chats)),
+        AutomationSection(R.string.auto_reply_section_triggers, listOf(keyword, excludeKeyword, atTrigger, patTrigger)),
+        AutomationSection(R.string.auto_reply_section_scope, listOf(target, timeRange)),
+        AutomationSection(R.string.auto_reply_section_limits, listOf(maxCount, cooldown)),
+        AutomationSection(R.string.auto_reply_section_reply, listOf(reply)),
+    )
+
+    override val itemSwitch = enabled
+    override val itemSummaryKeys = listOf(keyword, atTrigger, patTrigger, timeRange, target, maxCount, cooldown)
 
     override fun validate(rules: AutomationRules, keyIds: Set<String>?): String? {
         if (validates(keyIds, keyword)) {

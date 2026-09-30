@@ -10,6 +10,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ListItemDefaults
@@ -24,6 +25,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Rect
@@ -122,6 +124,7 @@ class SegmentedColumnScope {
      * @param bottomContent The composable representing the expansible body content.
      */
     fun expandableItem(
+        key: Any? = null,
         animatedVisibility: Boolean = true,
         expanded: Boolean,
         topPadding: Dp? = null,
@@ -132,6 +135,7 @@ class SegmentedColumnScope {
         // Header component: When expanded, forcefully flatten the bottom corner
         // to establish a seamless connection with the expanding body below.
         item(
+            key = key,
             animatedVisibility = animatedVisibility,
             topPadding = topPadding,
             forceFlatBottom = expanded,
@@ -141,6 +145,7 @@ class SegmentedColumnScope {
         // Body component: Regardless of its visibility trigger, forcefully flatten
         // the top corner to sit flush against the header component above.
         item(
+            key = key?.let { "${it}_body" },
             animatedVisibility = animatedVisibility && expanded,
             topPadding = bottomPadding,
             forceFlatTop = true,
@@ -161,6 +166,7 @@ class SegmentedColumnScope {
  * @param title An optional title string displayed above the group of items.
  * @param contentPadding The padding applied to the group container.
  * @param titlePadding The padding around the optional group title.
+ * @param titleAction Optional action shown at the end of the title row, e.g. an "Add" text button.
  * @param content A lambda providing a [SegmentedColumnScope] to declare the children.
  */
 @Composable
@@ -169,6 +175,7 @@ fun SegmentedColumn(
     title: String = "",
     contentPadding: PaddingValues = PaddingValues(horizontal = PADDING_HORIZONTAL.dp, vertical = PADDING_VERTICAL.dp),
     titlePadding: PaddingValues = PaddingValues(start = PADDING_HORIZONTAL.dp, top = PADDING_VERTICAL.dp, bottom = 16.dp),
+    titleAction: (@Composable () -> Unit)? = null,
     content: SegmentedColumnScope.() -> Unit
 ) {
     val scope = SegmentedColumnScope().apply(content)
@@ -177,7 +184,19 @@ fun SegmentedColumn(
     if (allItems.isEmpty()) return
 
     Column(modifier = modifier.padding(contentPadding)) {
-        if (title.isNotEmpty()) {
+        if (title.isNotEmpty() && titleAction != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(titlePadding)
+                )
+                Box(Modifier.padding(bottom = 8.dp)) { titleAction() }
+            }
+        } else if (title.isNotEmpty()) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,

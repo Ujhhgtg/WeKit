@@ -1,7 +1,14 @@
 package dev.ujhhgtg.wekit.features.items.payment
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.automation.AutomationCodecs
 import dev.ujhhgtg.wekit.features.automation.AutomationDelayRule
@@ -13,16 +20,15 @@ import dev.ujhhgtg.wekit.features.automation.AutomationReplyRule
 import dev.ujhhgtg.wekit.features.automation.AutomationRuleKey
 import dev.ujhhgtg.wekit.features.automation.AutomationRules
 import dev.ujhhgtg.wekit.features.automation.AutomationScopeType
+import dev.ujhhgtg.wekit.features.automation.AutomationSection
 import dev.ujhhgtg.wekit.features.automation.AutomationSpec
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.automation.AutomationValueCodec
 import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
-import dev.ujhhgtg.wekit.ui.automation.AutomationEditorDetails
 import dev.ujhhgtg.wekit.ui.automation.AutomationRuleEditor
-import dev.ujhhgtg.wekit.ui.automation.AutomationTextEditRequest
-import dev.ujhhgtg.wekit.ui.automation.AutomationValueRow
+import dev.ujhhgtg.wekit.ui.automation.AutomationSheetNote
 import dev.ujhhgtg.wekit.ui.automation.delayEditor
 import dev.ujhhgtg.wekit.ui.automation.keywordEditor
 import dev.ujhhgtg.wekit.ui.automation.replyEditor
@@ -84,7 +90,10 @@ object TransferAutomation : AutomationSpec("TRANSFER") {
     val placeholders = AutomationReplyExecutor.BASE_PLACEHOLDERS + $$"$amount"
 
     override val editors = listOf(
-        toggleEditor(accept, R.string.payment_transfer_default_accept, R.string.payment_transfer_accept_scope, R.string.payment_transfer_skip_scope),
+        toggleEditor(
+            accept, R.string.payment_transfer_accept, R.string.payment_transfer_accept_scope, R.string.payment_transfer_skip_scope,
+            globalTitleRes = R.string.payment_transfer_default_accept,
+        ),
         timeRangeEditor(timeRange, R.string.payment_transfer_time_range, R.string.payment_transfer_time_unrestricted),
         AutomationRuleEditor(
             key = amountRange,
@@ -102,7 +111,28 @@ object TransferAutomation : AutomationSpec("TRANSFER") {
             },
             isOn = { it.enabled },
             setOn = { rule, on -> rule.copy(enabled = on) },
-            details = amountDetails(),
+            sheet = { _, value, onChange ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    listOf(
+                        R.string.payment_transfer_minimum_amount to value.minimumYuan,
+                        R.string.payment_transfer_maximum_amount to value.maximumYuan,
+                    ).forEach { (labelRes, current) ->
+                        OutlinedTextField(
+                            value = current,
+                            onValueChange = { input ->
+                                val amount = sanitizeAmount(input)
+                                onChange(if (labelRes == R.string.payment_transfer_minimum_amount) value.copy(minimumYuan = amount) else value.copy(maximumYuan = amount))
+                            },
+                            label = { Text(stringResource(labelRes)) },
+                            prefix = { Text("¥") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                AutomationSheetNote(stringResource(R.string.payment_transfer_amount_hint))
+            },
         ),
         keywordEditor(memoKeyword, R.string.payment_transfer_memo_keywords, R.string.payment_transfer_memo_unrestricted),
         delayEditor(delay, R.string.payment_transfer_delay, R.string.payment_transfer_immediate),
@@ -113,35 +143,11 @@ object TransferAutomation : AutomationSpec("TRANSFER") {
         replyEditor(reply, R.string.payment_transfer_auto_reply, placeholders),
     )
 
-    private fun amountDetails(): AutomationEditorDetails<AmountRangeRule> = { ctx, value, editable, onChange ->
-        listOf(
-            Triple("minimum", R.string.payment_transfer_minimum_amount, value.minimumYuan),
-            Triple("maximum", R.string.payment_transfer_maximum_amount, value.maximumYuan),
-        ).forEach { (id, titleRes, current) ->
-            item(key = "amount_$id") {
-                val title = stringResource(titleRes)
-                AutomationValueRow(
-                    title = title,
-                    value = current,
-                    enabled = editable,
-                    valueHint = stringResource(R.string.unrestricted),
-                    onClick = {
-                        ctx.editText(
-                            AutomationTextEditRequest(
-                                title = title,
-                                initial = current,
-                                keyboardType = KeyboardType.Decimal,
-                                filter = ::sanitizeAmount,
-                                onCommit = {
-                                    onChange(if (id == "minimum") value.copy(minimumYuan = it) else value.copy(maximumYuan = it))
-                                },
-                            )
-                        )
-                    },
-                )
-            }
-        }
-    }
+    override val sections = listOf(
+        AutomationSection(R.string.payment_transfer_section_conditions, listOf(accept, timeRange, amountRange, memoKeyword)),
+        AutomationSection(R.string.payment_transfer_section_method, listOf(delay)),
+        AutomationSection(R.string.payment_transfer_section_after, listOf(notification, reply)),
+    )
 
     override fun validate(rules: AutomationRules, keyIds: Set<String>?): String? {
         val amount = rules[amountRange]

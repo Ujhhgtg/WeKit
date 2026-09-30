@@ -24,6 +24,7 @@ import dev.ujhhgtg.wekit.features.automation.AutomationRuleValues
 import dev.ujhhgtg.wekit.features.automation.AutomationRules
 import dev.ujhhgtg.wekit.features.automation.AutomationScope
 import dev.ujhhgtg.wekit.features.automation.AutomationScopeType
+import dev.ujhhgtg.wekit.features.automation.AutomationSection
 import dev.ujhhgtg.wekit.features.automation.AutomationSpec
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
@@ -71,6 +72,11 @@ object BlockMessagesAutomation : AutomationSpec("MESSAGE_BLOCK") {
         toggleEditor(block, R.string.block_messages_block, R.string.block_messages_block_on, R.string.block_messages_block_off),
         messageTypeEditor(types, R.string.block_messages_types),
         keywordEditor(textKeyword, R.string.block_messages_text_keyword, R.string.block_messages_text_keyword_off),
+    )
+
+    override val sections = listOf(
+        AutomationSection(R.string.block_messages_section_block, listOf(blockAll, block)),
+        AutomationSection(R.string.block_messages_section_match, listOf(types, textKeyword)),
     )
 
     override fun validate(rules: AutomationRules, keyIds: Set<String>?): String? {

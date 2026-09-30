@@ -61,6 +61,23 @@ class AutomationSnapshot(private val spec: AutomationSpec, val scopes: Map<Autom
     /** Rules effective at [scope] itself (its presets and values applied). */
     fun effectiveRules(scope: AutomationScope): AutomationRules = applyScope(parentRules(scope), scope)
 
+    /**
+     * Where each rule inherited by [scope] comes from, with [presets] as the scope's own presets:
+     * an ancestor scope or a preset scope. Rules missing from the map use their built-in default.
+     */
+    fun inheritedSources(scope: AutomationScope, presets: List<String>): Map<String, AutomationScope> {
+        val sources = HashMap<String, AutomationScope>()
+        fun record(presetIds: List<String>, values: AutomationRuleValues?, owner: AutomationScope?) {
+            presetIds.filter { isSwitchedOn(AutomationScope.preset(it)) }.forEach { id ->
+                scopes[AutomationScope.preset(id)]?.values?.keyIds?.forEach { sources[it] = AutomationScope.preset(id) }
+            }
+            if (owner != null) values?.keyIds?.forEach { sources[it] = owner }
+        }
+        ancestors(scope).forEach { ancestor -> scopes[ancestor]?.let { record(it.presets, it.values, ancestor) } }
+        record(presets, null, null)
+        return sources
+    }
+
     /** False when [scope] is stored as switched off by [AutomationSpec.scopeSwitch]. */
     fun isSwitchedOn(scope: AutomationScope): Boolean {
         val key = spec.scopeSwitch ?: return true

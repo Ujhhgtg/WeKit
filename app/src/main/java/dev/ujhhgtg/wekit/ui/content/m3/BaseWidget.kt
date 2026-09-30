@@ -8,6 +8,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -69,10 +70,13 @@ val LocalSegmentedItemShape = compositionLocalOf<Shape> { RoundedCornerShape(Cor
  * @param isError If true, applies the error color to the description text.
  * @param selected If true, highlights the widget with a primary container background.
  * @param onClick Callback to be invoked when the main/left area is clicked. If null, the main area is not clickable.
+ * @param onLongClick Callback for a long press on the main area; only used together with [onClick].
  * @param onTrailingClick Callback to be invoked when the trailing/right area is clicked.
  * @param clickHaptic The type of haptic feedback to perform on click. Set to null to disable.
  * @param trailingDivider If true, displays a vertical divider before [trailingContent].
  * @param headlineTrailingContent A composable slot displayed inline after the headline text.
+ * @param descriptionContent Extra supporting content below the [description], e.g. chips.
+ * @param contentAlpha Opacity of the headline, supporting and trailing content, e.g. to dim an inherited value.
  * @param foreContent A composable slot for content displayed alongside/over the headline.
  * @param trailingContent A composable slot for trailing content, e.g. switches, checkboxes, or arrows.
  */
@@ -92,17 +96,20 @@ fun BaseWidget(
     isError: Boolean = false,
     selected: Boolean = false,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     onTrailingClick: (() -> Unit)? = null,
     clickHaptic: HapticFeedbackType? = HapticFeedbackType.VirtualKey,
     trailingDivider: Boolean = false,
     headlineTrailingContent: @Composable RowScope.() -> Unit = {},
+    descriptionContent: (@Composable ColumnScope.() -> Unit)? = null,
+    contentAlpha: Float = 1f,
     /** Replaces the [icon] slot, e.g. with an avatar. */
     leadingContent: (@Composable () -> Unit)? = null,
     foreContent: @Composable BoxScope.() -> Unit = {},
     trailingContent: @Composable BoxScope.(interactionSource: MutableInteractionSource) -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
-    val alpha = if (enabled) 1f else 0.38f
+    val alpha = if (enabled) contentAlpha else 0.38f
 
     val interactionSource = remember { MutableInteractionSource() }
     val trailingInteractionSource = remember { MutableInteractionSource() }
@@ -210,7 +217,7 @@ fun BaseWidget(
         }
 
     val supportingContent: (@Composable () -> Unit)? =
-        if (description != null || errorLines.isNotEmpty()) {
+        if (description != null || errorLines.isNotEmpty() || descriptionContent != null) {
             {
                 Column(
                     modifier = Modifier
@@ -223,6 +230,7 @@ fun BaseWidget(
                             style = descriptionStyle
                         )
                     }
+                    descriptionContent?.invoke(this)
                     errorLines.forEach { line ->
                         Text(
                             text = line,
@@ -293,6 +301,12 @@ fun BaseWidget(
             onClick = {
                 clickHaptic?.let { haptic.performHapticFeedback(it) }
                 onClick()
+            },
+            onLongClick = onLongClick?.let { callback ->
+                {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    callback()
+                }
             },
             enabled = enabled,
             colors = colors,
