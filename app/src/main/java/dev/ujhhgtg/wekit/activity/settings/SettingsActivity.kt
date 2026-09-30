@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Icon
@@ -103,6 +104,10 @@ import top.yukonga.miuix.kmp.nav.core.NavDisplay
 import top.yukonga.miuix.kmp.nav.core.NavKey
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
+import top.yukonga.miuix.kmp.utils.PagerGestureNestedScrollConnection
+import top.yukonga.miuix.kmp.utils.PagerNavigationSpringSpec
+import top.yukonga.miuix.kmp.utils.pagerGestureOverride
+import top.yukonga.miuix.kmp.utils.springAnimateToPage
 
 val LocalComponentActivity = staticCompositionLocalOf<ComponentActivity> { error("not provided") }
 
@@ -234,7 +239,7 @@ private fun SettingsRoot(onFinish: () -> Unit) {
 
     // Back at the stack root returns the pager to the home tab; further back finishes.
     BackHandler(enabled = navigator.backStackSize() == 1 && pagerState.currentPage != 0) {
-        scope.launch { pagerState.animateScrollToPage(0) }
+        scope.launch { pagerState.springAnimateToPage(0) }
     }
 }
 
@@ -247,6 +252,10 @@ private fun MainPagerScreen(
     val scope = rememberCoroutineScope()
     val backdrop = rememberLayerBackdrop()
     val barBottomPadding = 12.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val flingBehavior = PagerDefaults.flingBehavior(
+        state = pagerState,
+        snapAnimationSpec = PagerNavigationSpringSpec,
+    )
 
     Box(
         modifier = Modifier
@@ -258,9 +267,16 @@ private fun MainPagerScreen(
                 .fillMaxSize()
                 .layerBackdrop(backdrop),
         ) {
+            // Cross-Axis interception: horizontal swipes switch pages even while a page's list
+            // is flinging or bouncing back. It replaces the pager's own touch scrolling.
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pagerGestureOverride(pagerState, flingBehavior),
+                userScrollEnabled = false,
+                flingBehavior = flingBehavior,
+                pageNestedScrollConnection = PagerGestureNestedScrollConnection,
                 key = { it },
             ) { page ->
                 when (page) {
@@ -278,7 +294,7 @@ private fun MainPagerScreen(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = barBottomPadding),
             selectedIndex = { pagerState.targetPage },
-            onSelected = { scope.launch { pagerState.animateScrollToPage(it) } },
+            onSelected = { scope.launch { pagerState.springAnimateToPage(it) } },
             backdrop = backdrop,
             colors = FloatingBottomBarDefaults.colors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,

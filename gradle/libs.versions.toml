@@ -30,7 +30,7 @@ aboutlibraries = "15.2.0"
 kotlinpoet = "2.4.0"
 biometric = "1.2.0-alpha05"
 browser = "1.10.0"
-miuix = "0.9.4"
+miuix = "0.9.4-5c91d5e5-SNAPSHOT"
 materialkolor = "5.0.1"
 markwon = "4.6.2"
 annotation = "1.11.0"
@@ -86,6 +86,7 @@ androidx-browser = { module = "androidx.browser:browser", version.ref = "browser
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
 composablehorizons-material-symbols-outlined = { module = "com.composables:icons-material-symbols-outlined-cmp", version.ref = "composablehorizons-symbols" }
 composablehorizons-material-symbols-filled = { module = "com.composables:icons-material-symbols-outlined-filled-cmp", version.ref = "composablehorizons-symbols" }
+miuix-ui = { module = "top.yukonga.miuix.kmp:miuix-ui-android", version.ref = "miuix" }
 miuix-blur = { module = "top.yukonga.miuix.kmp:miuix-blur-android", version.ref = "miuix" }
 miuix-shader = { module = "top.yukonga.miuix.kmp:miuix-shader-android", version.ref = "miuix" }
 miuix-nav = { module = "top.yukonga.miuix.kmp:miuix-nav-android", version.ref = "miuix" }
