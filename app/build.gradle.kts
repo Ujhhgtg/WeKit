@@ -31,7 +31,7 @@ val protectionValidation = providers.gradleProperty("dexTestWorker").orNull == "
 
 lsparanoid {
     variantFilter = { variant ->
-        !protectionValidation && (protectionOverride ?: (variant.buildType == "release"))
+        !protectionValidation && protectionOverride ?: (variant.buildType == "release")
     }
     backend = providers.gradleProperty("lspBackend").orElse("native").get()
     automaticLoading = false

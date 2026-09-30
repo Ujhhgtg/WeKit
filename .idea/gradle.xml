@@ -12,6 +12,15 @@
                   <project path="$PROJECT_DIR$/buildSrc" />
                 </projects>
               </build>
+              <build path="$PROJECT_DIR$/libs/lsparanoid" name="LSParanoid">
+                <projects>
+                  <project path="$PROJECT_DIR$/libs/lsparanoid" />
+                  <project path="$PROJECT_DIR$/libs/lsparanoid/core" />
+                  <project path="$PROJECT_DIR$/libs/lsparanoid/gradle-plugin" />
+                  <project path="$PROJECT_DIR$/libs/lsparanoid/processor" />
+                  <project path="$PROJECT_DIR$/libs/lsparanoid/runtime" />
+                </projects>
+              </build>
               <build path="$PROJECT_DIR$/libs/common/scripta" name="scripta">
                 <projects>
                   <project path="$PROJECT_DIR$/libs/common/scripta" />
@@ -37,6 +46,11 @@
             <option value="$PROJECT_DIR$/libs/common/scripta" />
             <option value="$PROJECT_DIR$/libs/common/scripta/editor" />
             <option value="$PROJECT_DIR$/libs/common/stubs" />
+            <option value="$PROJECT_DIR$/libs/lsparanoid" />
+            <option value="$PROJECT_DIR$/libs/lsparanoid/core" />
+            <option value="$PROJECT_DIR$/libs/lsparanoid/gradle-plugin" />
+            <option value="$PROJECT_DIR$/libs/lsparanoid/processor" />
+            <option value="$PROJECT_DIR$/libs/lsparanoid/runtime" />
             <option value="$PROJECT_DIR$/libs/python-runtime-api" />
           </set>
         </option>
