@@ -134,6 +134,7 @@ android {
     }
 
     sourceSets["main"].jniLibs.directories += "src/main/jniLibs"
+    sourceSets["test"].resources.directories += "src/main/assets"
 
     var foundKeystore = false
 

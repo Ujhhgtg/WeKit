@@ -15,8 +15,7 @@ import dev.ujhhgtg.wekit.features.core.FeaturesLoader
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
-import dev.ujhhgtg.wekit.loader.entry.zygisk.ArtHookBridge
-import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
+import dev.ujhhgtg.wekit.loader.environment.EnvironmentHider
 import dev.ujhhgtg.wekit.loader.startup.ModuleLoader.launch
 import dev.ujhhgtg.wekit.loader.startup.ModuleLoader.startup
 import dev.ujhhgtg.wekit.loader.utils.ActivityProxy
@@ -31,7 +30,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import org.lsposed.hiddenapibypass.HiddenApiBypass
-import java.io.File
 import java.lang.reflect.Field
 
 /**
@@ -40,7 +38,7 @@ import java.lang.reflect.Field
  * 1. [init] — called by an entry point: installs [HybridClassLoader] as the module loader's
  *    parent and hooks the host `Application` creation.
  * 2. [startup] — after `Instrumentation.callApplicationOnCreate`: host info, native libraries.
- * 3. [launch] — in non-isolated processes: injects resources and loads features.
+ * 3. [launch] — injects resources and loads features.
  */
 object ModuleLoader {
 
@@ -108,16 +106,14 @@ object ModuleLoader {
         initialClassLoader: ClassLoader,
         modulePath: String,
     ) {
-        WeLogger.d(TAG, "hooking Application.attachBaseContext")
-
         "com.tencent.mm.app.Application".toClass(initialClassLoader).reflekt()
             .firstMethod { name = "attachBaseContext" }
             .hookAfterDirectly {
-                WeLogger.d(TAG, "Application.attachBaseContext invoked, hooking Instrumentation.callApplicationOnCreate")
-                val currentClassLoader = (thisObject as Context).classLoader
+                val context = thisObject as Context
+                EnvironmentHider.install(context, modulePath)
+                val currentClassLoader = context.classLoader
                 "android.app.Instrumentation".toClass(currentClassLoader).reflekt()
                     .firstMethod("callApplicationOnCreate").hookAfterDirectly {
-                        WeLogger.d(TAG, "Instrumentation.callApplicationOnCreate invoked, running startup")
                         runCatching {
                             startup(
                                 loaderService,
@@ -152,46 +148,19 @@ object ModuleLoader {
             throw AssertionError("module resource package ID must not be 0x7f")
         }
 
+        ensureHiddenApiAccess()
         StartupInfo.modulePath = modulePath
         StartupInfo.loaderService = loaderService
 
-        ensureHiddenApiAccess()
-        if (loaderService !is ZygiskLoaderService) {
-            checkWxForModulePath(modulePath)
-        }
-
         HostInfo.init(application)
         NativeLoader.init()
-        if (hookBridge is ArtHookBridge) {
-            hideModuleLibraries(hookBridge)
-        }
+        EnvironmentHider.afterNativeLoad(hookBridge)
 
         launch(application)
 
         // Only commit after every required startup phase completes. The caller
         // already logs a thrown failure, and a later lifecycle callback can retry.
         isStarted = true
-    }
-
-    private fun hideModuleLibraries(hookBridge: ArtHookBridge) {
-        runCatching { hookBridge.hideLoadedModuleLibraries() }
-            .onSuccess { hidden ->
-                WeLogger.i(
-                    TAG,
-                    "hid loaded module libraries"
-                )
-                if (!hidden) WeLogger.w(TAG, "module native-library hiding was incomplete")
-            }
-            .onFailure {
-                WeLogger.e(TAG, "failed to hide module libraries", it)
-            }
-    }
-
-    private fun checkWxForModulePath(modulePath: String) {
-        val moduleFile = File(modulePath)
-        if (moduleFile.canWrite()) {
-            WeLogger.w(TAG, "module path is writable: $modulePath\nthis may cause issues on Android 15+, please check your Xposed framework")
-        }
     }
 
     private fun ensureHiddenApiAccess() {
