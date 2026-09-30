@@ -54,7 +54,9 @@ object EnvironmentHider {
                     // Unknown/malformed payloads keep their original bytes, and produce a diagnostic.
                     try {
                         val activeCodec = codec ?: return@hookAfterDirectly
-                        result = activeCodec.rewrite(original, policy)
+                        val res = activeCodec.rewrite(original, policy)
+                        WeLogger.i(TAG, "report rewritten; ${original.size} -> ${res.size} bytes")
+                        result = res
                     } catch (error: Exception) {
                         WeLogger.e(TAG, "report rewrite failed; retaining original payload", error)
                     }

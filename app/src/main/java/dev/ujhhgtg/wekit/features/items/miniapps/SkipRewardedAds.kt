@@ -1,7 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.miniapps
 
-import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -10,10 +8,8 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
-import org.json.JSONObject
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
 import kotlin.io.path.div
 
 /**
@@ -56,10 +52,7 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
     override val descriptionRes = R.string.feature_skip_rewarded_ads_description
 
     private const val TAG = "SkipRewardedAds"
-    private const val SESSION_WINDOW_MS = 30_000L
     private const val DUMP_SDK_FILES = false
-
-    private val AD_EVENT_MARKERS = listOf("ad", "video", "reward", "close", "ended", "endpage")
 
     /** Ad SDK files (commlib SDK subpackages); a match is a patch candidate. */
     private val SDK_CANDIDATES = listOf(
@@ -114,28 +107,10 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
     /** SDK file names already dumped (once per process). */
     private val dumpedNames = ConcurrentHashMap.newKeySet<String>()
 
-    /** After an ad-related event, every bridge event in the next 30 seconds is logged. */
-    private val adEventSessionUntil = AtomicLong(0)
-
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 
     override fun onEnable() {
-        // 1) webapi_getadvert request log (main process): ad data fetches and reward
-        //    verification (VerifyAdRewardEligibility).
-        RemoveEmbeddedAds.ctorNetSceneJSOperateWxData.hookBefore {
-            val dataIndex = args.indexOfFirst { arg ->
-                arg is String && runCatching {
-                    JSONObject(arg).optString("api_name") == "webapi_getadvert"
-                }.getOrDefault(false)
-            }
-            if (dataIndex < 0) return@hookBefore
-            val data = runCatching {
-                JSONObject(args[dataIndex] as String).optJSONObject("data")?.toString()
-            }.getOrNull()
-            WeLogger.i(TAG, "webapi_getadvert data=${data?.take(800)}")
-        }
-
-        // 2) Force the string injection path: ad SDK files must not be read via FD.
+        // 1) Force the string injection path: ad SDK files must not be read via FD.
         listOf(methodPkgReaderH0, methodAssetReaderH0)
             .filter { it.isFound }
             .forEach { method ->
@@ -148,7 +123,7 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
                 }
             }
 
-        // 3) The actual patch point: the script passed to e3.h is the SDK text about to be
+        // 2) The actual patch point: the script passed to e3.h is the SDK text about to be
         //    compiled and evaluated.
         methodInjectLibScript.hookBefore {
             val path = args.getOrNull(2) as? String ?: return@hookBefore
@@ -163,24 +138,6 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
                     "inject SDK path=$path size=${script.length} " +
                         "delta=${patched.length - script.length}"
                 )
-            }
-        }
-
-        // 4) Bridge event log: all mbAd_* events plus an ad session window, to observe the full
-        //    ad flow.
-        val bindingClass = "com.tencent.mm.appbrand.commonjni.AppBrandJsBridgeBinding".toClass()
-        bindingClass.reflekt().firstMethod { name = "subscribeHandler" }.hookBefore {
-            val type = args.getOrNull(0) as? String ?: return@hookBefore
-            val data = (args.getOrNull(1) as? String).orEmpty()
-            val now = System.currentTimeMillis()
-            val looksAd = type.startsWith("mbAd_") ||
-                AD_EVENT_MARKERS.any { type.contains(it, ignoreCase = true) }
-            val inSession = now <= adEventSessionUntil.get()
-            if (looksAd) {
-                adEventSessionUntil.set(now + SESSION_WINDOW_MS)
-            }
-            if (looksAd || inSession) {
-                WeLogger.i(TAG, "bridge event type=$type data=${data.take(500)}")
             }
         }
     }
