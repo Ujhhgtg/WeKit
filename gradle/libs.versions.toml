@@ -64,7 +64,7 @@ compileSdkMinor = "0"
 # noinspection UnusedVersionCatalogEntry
 jdk = "21"
 # noinspection UnusedVersionCatalogEntry
-ndk = "30.0.14904198"
+ndk = "30.0.16248370"
 exifinterface = "1.4.2"
 
 [libraries]

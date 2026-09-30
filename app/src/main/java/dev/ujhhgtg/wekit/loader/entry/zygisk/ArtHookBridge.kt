@@ -46,7 +46,7 @@ class ArtHookBridge : IHookBridge {
         require(!Modifier.isAbstract(member.modifiers)) {
             "hookMethod: cannot hook abstract member $member"
         }
-        // LSPlant d8b5d1d uses Method.getReturnType() for every member declared
+        // LSPlant uses Method.getReturnType() for every member declared
         // by a generated proxy class; passing a Constructor is invalid JNI usage.
         require(member !is Constructor<*> || !Proxy.isProxyClass(member.declaringClass)) {
             "hookMethod: this LSPlant version cannot hook generated proxy constructor $member"

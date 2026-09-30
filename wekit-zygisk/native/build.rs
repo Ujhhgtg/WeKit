@@ -10,6 +10,7 @@ fn main() {
     let root = manifest.parent().unwrap().parent().unwrap();
     for source in [
         manifest.join("CMakeLists.txt"),
+        manifest.join("cmake"),
         manifest.join("cpp"),
         root.join("third_party/xz-embedded/linux"),
         root.join("third_party/xz-embedded/userspace"),
@@ -59,6 +60,7 @@ fn main() {
         "wekit_lsplant_bridge",
         "lsplant_static",
         "dex_builder_static",
+        "wekit_std",
         "wekit_compiler_rt",
     ] {
         println!("cargo:rustc-link-lib=static={library}");

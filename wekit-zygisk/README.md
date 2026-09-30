@@ -105,8 +105,16 @@ symbol resolution remain in Rust. A small C ABI bridge statically links
 [LSPlant](https://github.com/LSPosed/LSPlant), including the C++ runtime, into the
 existing `libwekit_zygisk.so`. LSPlant calls Rust function pointers for native
 inline hook installation and removal; Dobby is no longer a build dependency.
-The LSPlant gitlink remains pinned to `d8b5d1dbb664abc606644036822e4bb64547edf6`;
+The LSPlant gitlink is pinned to `1dc6ef5c6c5c4eb4d5565fcf50791450c5ede5a9`;
 its LGPL-3.0 license remains in the submodule.
+
+The native build requires NDK `30.0.16248370`, CMake 3.31.6+ and Ninja 1.11+.
+`native/cmake/cxx` supplies LSPlant's `cxx::cxx` package using the selected NDK's
+libc++ headers and `std.cppm`. The module is compiled locally, and its archive
+joins the NDK's static libc++/libc++abi archives in Cargo's final link; no Prefab
+or shared C++ runtime is needed. A generated copy of `std.cppm` includes
+LSPosed's module-only Bionic compatibility header, preserving FORTIFY checks
+while allowing the C wrappers to be exported. Installed NDK files are not modified.
 
 ART mini debug symbols use statically linked XZ Embedded (0BSD), with the existing
 64 MiB output limit. No system `liblzma.so` is required.

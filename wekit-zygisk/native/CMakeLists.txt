@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 3.31.6)
 project(wekit_zygisk_native LANGUAGES C)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -47,6 +47,10 @@ endif()
 
 set(LSPLANT_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 set(LSPLANT_STANDALONE OFF CACHE BOOL "" FORCE)
+# Supply LSPlant's cxx package from the selected NDK, matching the static runtime
+# exported below. Its upstream Gradle/Prefab dependency is not used by Cargo.
+set(cxx_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx")
+find_package(cxx REQUIRED CONFIG)
 add_subdirectory("${LSPLANT_SOURCE}" lsplant EXCLUDE_FROM_ALL)
 
 add_library(wekit_lsplant_bridge STATIC cpp/lsplant_bridge.cpp)
@@ -71,6 +75,7 @@ install(FILES
     $<TARGET_FILE:wekit_lsplant_bridge>
     $<TARGET_FILE:lsplant_static>
     $<TARGET_FILE:dex_builder_static>
+    $<TARGET_FILE:wekit_std>
     "${CMAKE_SYSROOT}/usr/lib/aarch64-linux-android/libc++_static.a"
     "${CMAKE_SYSROOT}/usr/lib/aarch64-linux-android/libc++abi.a"
     DESTINATION lib)

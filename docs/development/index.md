@@ -22,7 +22,7 @@ cd WeKit
 |------|------------|
 | JDK | 21 |
 | Android SDK | compile SDK 37、target SDK 37 |
-| Android NDK | `30.0.14904198` |
+| Android NDK | `30.0.16248370` |
 | Rust | 支持 Rust 2024 edition 的 stable 工具链 |
 | CMake / Ninja | 构建 Zygisk 的 LSPlant 依赖; CMake >= 3.28，版本锁定方式见下文 |
 | uv | 使用仓库锁定的 CMake / Ninja，以及运行 Python 原生测试时需要 |
