@@ -42,6 +42,34 @@ data class RealNameScanProgressEntity(
     val resumeIndex: Int,
 )
 
+/**
+ * A chat message whose local display is spoofed. [createTime] guards against a reused local
+ * message id; [kind] names the spoofed message type. Image and video bytes live in the asset
+ * catalog, bound to this row's talker/msgId.
+ */
+@Entity(tableName = "spoofed_chat_messages", primaryKeys = ["talker", "msgId"])
+data class SpoofedChatMessageEntity(
+    val talker: String,
+    val msgId: Long,
+    val createTime: Long,
+    val kind: String,
+    /** The host's own text or transfer amount, shown for reference in the management screen. */
+    val original: String?,
+    val text: String?,
+    /** Plain decimal transfer amount with two fraction digits, e.g. `520.00`. */
+    val amount: String?,
+    /** Transfer id, matching the transfer detail page to its message. */
+    val transferId: String?,
+    /** Host video file name (the message's `imgPath`), matching player paths to the message. */
+    val videoFileName: String?,
+    val videoDurationSeconds: Int?,
+    val updatedAt: Long,
+)
+
+val spoofedChatMessagesSchemaSql = listOf(
+    "CREATE TABLE IF NOT EXISTS `spoofed_chat_messages` (`talker` TEXT NOT NULL, `msgId` INTEGER NOT NULL, `createTime` INTEGER NOT NULL, `kind` TEXT NOT NULL, `original` TEXT, `text` TEXT, `amount` TEXT, `transferId` TEXT, `videoFileName` TEXT, `videoDurationSeconds` INTEGER, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`talker`, `msgId`))",
+)
+
 val simpleStructuredSchemaSql = listOf(
     "CREATE TABLE IF NOT EXISTS `moment_custom_details` (`snsId` TEXT NOT NULL, `text` TEXT NOT NULL, PRIMARY KEY(`snsId`))",
     "CREATE TABLE IF NOT EXISTS `feature_flag_overrides` (`runtimeKey` TEXT NOT NULL, `internalType` TEXT NOT NULL, `rawValue` TEXT NOT NULL, PRIMARY KEY(`runtimeKey`))",

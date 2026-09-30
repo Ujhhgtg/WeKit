@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.data.entity.ContactRealNamePartEntity
 import dev.ujhhgtg.wekit.data.entity.FeatureFlagOverrideEntity
 import dev.ujhhgtg.wekit.data.entity.MomentCustomDetailEntity
 import dev.ujhhgtg.wekit.data.entity.RealNameScanProgressEntity
+import dev.ujhhgtg.wekit.data.entity.SpoofedChatMessageEntity
 
 @Dao
 interface SimpleStructuredDao {
@@ -19,6 +20,15 @@ interface SimpleStructuredDao {
 
     @Query("DELETE FROM moment_custom_details WHERE snsId = :snsId")
     suspend fun removeCustomDetail(snsId: String)
+
+    @Query("SELECT * FROM spoofed_chat_messages")
+    suspend fun getSpoofedMessages(): List<SpoofedChatMessageEntity>
+
+    @Upsert
+    suspend fun putSpoofedMessage(value: SpoofedChatMessageEntity)
+
+    @Query("DELETE FROM spoofed_chat_messages WHERE talker = :talker AND msgId = :msgId")
+    suspend fun removeSpoofedMessage(talker: String, msgId: Long)
 
     @Query("SELECT * FROM feature_flag_overrides")
     suspend fun getFlagOverrides(): List<FeatureFlagOverrideEntity>
