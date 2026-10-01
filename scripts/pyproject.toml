@@ -3,7 +3,7 @@ name = "wekit-scripts"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "cryptography>=49.0.0",
+    "cryptography>=50.0.0",
     "pycryptodome>=3.23.0",
     "requests>=2.34.2",
 ]
