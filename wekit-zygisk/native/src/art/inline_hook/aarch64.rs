@@ -12,6 +12,7 @@ pub const BTI_C: u32 = 0xd503_245f;
 pub const BTI_JC: u32 = 0xd503_24df;
 pub const NOP: u32 = 0xd503_201f;
 pub const SLOT_SIZE: usize = 64;
+pub const MAX_ENTRY_WORDS: usize = 6; // BTI + MOVZ/MOVK x4 + BR
 const SAVE_X17: u32 = 0xf81f_0ff1; // str x17, [sp, #-16]!
 const RESTORE_X17: u32 = 0xf841_07f1; // ldr x17, [sp], #16
 
@@ -60,9 +61,13 @@ pub fn entry_patch(target: u64, replacement: u64, pad: bool) -> Result<Vec<u8>, 
     if let Ok(word) = direct_branch(pc, replacement, false) {
         emit(&mut code, word);
     } else {
-        emit(&mut code, 0x5800_0051); // ldr x17, .+8
+        // Another hook engine may relocate our entry after postAppSpecialize.
+        // LSPosed's relocator keeps LDR-literal loads pointed at the live entry:
+        // overwriting an inline destination there makes its backup jump back to
+        // itself. Encode the address in instructions so its backup is independent
+        // of subsequent writes to this entry (including on HyperOS 4 / API 37).
+        mov_address(&mut code, 17, replacement);
         emit(&mut code, 0xd61f_0220); // br x17 (compatible with a BTI c destination)
-        code.extend(replacement.to_le_bytes());
     }
     Ok(code)
 }
@@ -101,8 +106,8 @@ fn mov_address(code: &mut Vec<u8>, register: u32, address: u64) {
     }
 }
 
-fn reachable_instructions(original: &[u32], source: u64) -> [bool; 5] {
-    let mut reached = [false; 5];
+fn reachable_instructions(original: &[u32], source: u64) -> [bool; MAX_ENTRY_WORDS] {
+    let mut reached = [false; MAX_ENTRY_WORDS];
     let mut pending = vec![0];
     while let Some(index) = pending.pop() {
         if index >= original.len() || reached[index] {
@@ -170,7 +175,11 @@ pub fn relocate(
     let source_end = source
         .checked_add(original.len() as u64 * 4)
         .ok_or(Error::InvalidAddress)?;
-    if original.is_empty() || original.len() > 5 || source & 3 != 0 || destination & 3 != 0 {
+    if original.is_empty()
+        || original.len() > MAX_ENTRY_WORDS
+        || source & 3 != 0
+        || destination & 3 != 0
+    {
         return Err(Error::InvalidAddress);
     }
     let branch_target = |address: u64| -> Result<u64, Error> {

@@ -59,11 +59,15 @@ fn prepare(target: usize, replacement: usize) -> Result<Hook> {
     let veneer = backup + VENEER_OFFSET;
     let patch = aarch64::entry_patch(target as u64, veneer as u64, aarch64::landing_pad(first))
         .map_err(|error| anyhow!("entry encoding: {error:?}"))?;
-    let original = memory::read(target, patch.len(), true)?;
-    if original[..4] != first.to_le_bytes() {
+    // LSPosed can install its 24-byte entry after us. Even a near B patch must
+    // back up that entire span: returning to target + 4/8 would then execute
+    // LSPosed's inline pointer instead of the original ART prologue.
+    let displaced = memory::read(target, aarch64::MAX_ENTRY_WORDS * 4, true)?;
+    if displaced[..4] != first.to_le_bytes() {
         bail!("target changed while selecting its entry patch");
     }
-    let words: Vec<_> = original
+    let original = displaced[..patch.len()].to_vec();
+    let words: Vec<_> = displaced
         .chunks_exact(4)
         .map(|bytes| u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
         .collect();
@@ -218,12 +222,15 @@ mod tests {
             .publish(&aarch64::words_bytes(&[aarch64::NOP; 8]))
             .unwrap();
         let target = source.executable;
-        let original = memory::read(target, 20, true).unwrap();
+        let original = memory::read(target, aarch64::MAX_ENTRY_WORDS * 4, true).unwrap();
         let backup = install(target, target + 128).unwrap();
         assert!(install(target, target + 256).is_err());
         assert_ne!(memory::read(target, 4, true).unwrap(), original[..4]);
         remove(target).unwrap();
-        assert_eq!(memory::read(target, 20, true).unwrap(), original);
+        assert_eq!(
+            memory::read(target, aarch64::MAX_ENTRY_WORDS * 4, true).unwrap(),
+            original
+        );
         assert!(memory::read(backup, 4, true).is_ok());
         assert!(remove(target).is_err());
         let next = install(target, target + 256).unwrap();
