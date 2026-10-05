@@ -6,10 +6,8 @@ import com.tencent.wcdb.database.SQLiteDatabase
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.constants.WeChatVersions
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -136,18 +134,6 @@ object WeDatabaseListenerApi : ApiFeature() {
     // ==================== Query Hook ====================
 
     private fun hookDatabaseQuery() {
-        val isPlay = HostInfo.isHostGooglePlay
-        val version = HostInfo.versionCode
-        val isNewVersion = !isPlay && version >= WeChatVersions.MM_8_0_43 || isPlay && version >= WeChatVersions.MM_8_0_48_PLAY
-
-        if (isNewVersion) {
-            hookNewQueryMethod()
-        } else {
-            hookOldQueryMethod()
-        }
-    }
-
-    private fun hookNewQueryMethod() {
         com.tencent.wcdb.compat.SQLiteDatabase::class.reflekt()
             .firstMethod {
                 name = "rawQuery"
@@ -171,29 +157,5 @@ object WeDatabaseListenerApi : ApiFeature() {
                     WeLogger.e(TAG, "New version query dispatch failed", e)
                 }
             }
-    }
-
-    private fun hookOldQueryMethod() {
-        SQLiteDatabase::class.reflekt().firstMethod {
-            name = "rawQueryWithFactory"
-            parameterCount = 5
-        }.hookBefore {
-            try {
-                if (queryListeners.isEmpty()) return@hookBefore
-
-                val sql = args[1] as? String ?: return@hookBefore
-                var currentSql = sql
-
-                queryListeners.forEach { listener ->
-                    listener.onQuery(currentSql)?.let { currentSql = it }
-                }
-
-                if (currentSql != sql) {
-                    args[1] = currentSql
-                }
-            } catch (e: Throwable) {
-                WeLogger.e(TAG, "Old version query dispatch failed", e)
-            }
-        }
     }
 }
