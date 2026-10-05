@@ -172,7 +172,6 @@ android {
 
         release {
             optimization.enable = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             signingConfig = signingConfigs.getByName(if (foundKeystore) "release" else "debug")
         }
     }
