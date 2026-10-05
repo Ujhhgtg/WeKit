@@ -138,6 +138,7 @@ pub unsafe fn do_pre_app_specialize(module: &mut WeKitModule, args: *mut AppSpec
 
     let mod_fd = (*module.api).get_module_dir();
     if mod_fd < 0 {
+        loge!("Zygisk: get_module_dir failed for {nice_name}");
         (*module.api).set_option(DLCLOSE_MODULE_LIBRARY);
         return;
     }

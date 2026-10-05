@@ -71,6 +71,10 @@ mv -f "$MODPATH/module.apk.tmp" "$MODPATH/module.apk" || abort "! 无法写入 W
 rm -rf "$MODPATH/payload"
 rm -f "$MODPATH/post-fs-data.sh" "$MODPATH/service.sh" "$MODPATH/verify.sh"
 
+# SKIPUNZIP=1 skips the installer's default relabel of $MODPATH. Without this,
+# the directory can keep the root manager app's MLS categories, and Zygisk then
+# cannot pass its fd to zygote (get_module_dir fails).
+set_perm "$MODPATH" 0 0 0755
 set_perm_recursive "$MODPATH/zygisk" 0 0 0755 0644
 set_perm "$MODPATH/module.apk" 0 0 0644
 set_perm "$MODPATH/module.prop" 0 0 0644
