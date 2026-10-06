@@ -117,6 +117,7 @@
     <string name="feature_error_dependency_dex_failed">Error: Dex resolution of dependency “%1$s” failed</string>
     <string name="feature_error_google_play_unsupported">Error: Feature is unavailable on the Google Play version of WeChat</string>
     <string name="feature_error_host_version_unsupported">Error: Feature does not support the current WeChat version</string>
+    <string name="feature_error_requires_android_11">Error: Requires Android 11 or later</string>
     <string name="feature_error_requires_android_14">Error: Requires Android 14 or later</string>
     <string name="location_picker_instruction">Tap the map or the coordinates below to choose a virtual location.</string>
     <string name="location_picker_title">Choose location on map</string>
@@ -3503,7 +3504,6 @@
     <string name="settings_page_transition_animation_title">Page transition animation</string>
     <string name="settings_page_transition_animation_aosp">AOSP</string>
     <string name="settings_page_transition_animation_miuix">Miuix</string>
-    <string name="monet_unsupported">Android 11 or newer is required.</string>
     <string name="monet_resolve_title">Analyzing WeChat resources</string>
     <string name="monet_resolve_failed">Analysis failed during %1$s: %2$s</string>
     <string name="monet_options_title">Monet engine</string>

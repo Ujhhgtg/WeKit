@@ -101,6 +101,7 @@
     <string name="feature_error_dependency_dex_failed">错误：依赖功能「%1$s」Dex 解析失败</string>
     <string name="feature_error_google_play_unsupported">错误：功能在 Google Play 版微信上不可用</string>
     <string name="feature_error_host_version_unsupported">错误：功能不支持当前版本微信</string>
+    <string name="feature_error_requires_android_11">错误：需要 Android 11 或更高版本</string>
     <string name="feature_error_requires_android_14">错误：需要 Android 14 或更高版本</string>
     <string name="location_picker_instruction">点击地图或下方坐标以选择虚拟位置</string>
     <string name="location_picker_title">地图选点</string>
@@ -3530,7 +3531,6 @@
     <string name="settings_page_transition_animation_title">页面过渡动画</string>
     <string name="settings_page_transition_animation_aosp">AOSP</string>
     <string name="settings_page_transition_animation_miuix">Miuix</string>
-    <string name="monet_unsupported">需要 Android 11 或更高版本。</string>
     <string name="monet_resolve_title">正在分析微信资源</string>
     <string name="monet_resolve_failed">在%1$s阶段分析失败：%2$s</string>
     <string name="monet_options_title">莫奈引擎</string>

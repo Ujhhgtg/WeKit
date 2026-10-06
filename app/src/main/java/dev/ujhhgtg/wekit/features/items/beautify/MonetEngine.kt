@@ -99,6 +99,12 @@ object MonetEngine : ClickableFeature() {
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
     override val descriptionRes = R.string.feature_monet_engine_description
 
+    /** [MonetAssetInjector]'s ResourcesLoader needs API 30. */
+    override val declaredErrors: List<Int>
+        get() = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            listOf(R.string.feature_error_requires_android_11)
+        } else emptyList()
+
     private const val TAG = "MonetEngine"
 
     private var bubbleStylePref by KvStore.prefOption("monet_bubble_style", MonetBubbleStyle.MODERN.name)
@@ -173,27 +179,16 @@ object MonetEngine : ClickableFeature() {
         val key: String get() = MonetResourceResolver.sha256("$RENDER_VERSION:$this").take(16)
     }
 
+    @SuppressLint("NewApi") // declaredErrors keeps this feature off below API 30.
     override fun onBeforeToggle(newState: Boolean, context: Context): Boolean {
         if (!newState) return true
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            showUnsupportedDialog(context)
-            return false
-        }
         if (MonetResourceResolver.load(cacheDir, hostResources().fingerprint) != null) return true
         showResolveDialog(context) { applyToggle(true) }
         return false
     }
 
+    @SuppressLint("NewApi") // declaredErrors keeps this feature off below API 30.
     override fun onEnable() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            WeLogger.w(TAG, "ResourcesLoader needs API 30, not enabling")
-            return
-        }
-        enableRuntime()
-    }
-
-    @RequiresApi(Build.VERSION_CODES.R)
-    private fun enableRuntime() {
         val resources = hostResources().also { host = it }
         val fingerprint = resources.fingerprint
         MonetAssetInjector.init(resources.apks)
@@ -230,6 +225,7 @@ object MonetEngine : ClickableFeature() {
         startObserver()
     }
 
+    @SuppressLint("NewApi") // Only runs after onEnable, which declaredErrors keeps off below API 30.
     override fun onDisable() {
         clearPendingResolve()
         host = null
@@ -237,13 +233,11 @@ object MonetEngine : ClickableFeature() {
         scope = null
         configCallbacks?.let(HostInfo.application::unregisterComponentCallbacks)
         configCallbacks = null
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            postOnUiThread {
-                MonetAssetInjector.swap(null)
-                currentProvider = null
-                appliedKey = null
-                surfaceColorsState.value = null
-            }
+        postOnUiThread {
+            MonetAssetInjector.swap(null)
+            currentProvider = null
+            appliedKey = null
+            surfaceColorsState.value = null
         }
     }
 
@@ -480,12 +474,8 @@ object MonetEngine : ClickableFeature() {
         multiSceneCornersPref = next.multiSceneCorners
     }
 
+    @SuppressLint("NewApi") // Re-resolving needs isActive, which declaredErrors keeps false below API 30.
     override fun onClick(context: ComponentActivity) {
-        // Everything below reaches MonetAssetInjector, whose ResourcesLoader needs API 30.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            showUnsupportedDialog(context)
-            return
-        }
         showComposeDialog(context) {
             val current by options
             val bindings by bindingsState
@@ -545,16 +535,6 @@ object MonetEngine : ClickableFeature() {
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
-            )
-        }
-    }
-
-    private fun showUnsupportedDialog(context: Context) {
-        showComposeDialog(context) {
-            AlertDialogContent(
-                title = { Text(stringResource(R.string.feature_monet_engine_name)) },
-                text = { Text(stringResource(R.string.monet_unsupported)) },
                 dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
             )
         }
