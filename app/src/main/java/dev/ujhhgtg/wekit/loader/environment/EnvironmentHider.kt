@@ -20,6 +20,7 @@ import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.reflection.int
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.lang.reflect.Modifier
 import java.security.MessageDigest
@@ -33,15 +34,157 @@ object EnvironmentHider {
 
     fun install(context: Context, modulePath: String) {
         if (installed) return
+
+        // basic
+        installPackageVisibility()
+        installSettings()
+        installDebug()
+
+        // ClientCheckConsistency
+        installConsistencyRootIndicator(context.classLoader)
+        installConsistencyLogging(context)
+        installConsistencyCheck(context)
+
+        // ClientCheckHook
+        installReport(context, modulePath)
+
+        installed = true
+        WeLogger.i(TAG, "early environment hooks installed")
+    }
+
+    private fun installConsistencyCheck(context: Context) {
+        val hostApk = File(context.applicationInfo.sourceDir)
+        // Same directory as KnownPaths.moduleRoot; HostInfo is not initialized at this early stage.
+        val moduleRoot = File(context.filesDir, "wekit")
+        val localOrigin = File(moduleRoot, "origin.apk")
+        val origin = try {
+            if (localOrigin.isFile) {
+                localOrigin
+            } else {
+                EmbeddedOriginApk.findAndExtract(hostApk, File(moduleRoot, "cache/client-check-consistency"))?.file
+            }
+        } catch (error: IOException) {
+            WeLogger.e(TAG, "failed to prepare origin APK for ClientCheckConsistency", error)
+            null
+        }
+        if (origin != null) {
+            installConsistencyArchive(context.classLoader, hostApk.path, origin.path)
+            WeLogger.i(TAG, "ClientCheckConsistency APK reads use $origin")
+        } else {
+            WeLogger.i(TAG, "no usable origin APK; ClientCheckConsistency APK redirection skipped")
+        }
+    }
+
+    private fun installConsistencyRootIndicator(loader: ClassLoader) {
+        // Verified call edges: Info.q / j.r / k.r -> c$p.ab, shared by client-check replies.
+        val candidates = listOf($$"WCProbe$Info" to "q", "j" to "r", "k" to "r").mapNotNull { (type, method) ->
+            val reflected = "com.tencent.mm.normsg.$type".toClassOrNull(loader)?.reflekt() ?: return@mapNotNull null
+            if (reflected.firstMethodOrNull {
+                    name = "e"
+                    modifiers = Modifier.STATIC
+                    parameters(Int::class)
+                    returnType = ByteArray::class.java
+                } == null) return@mapNotNull null
+            reflected.firstMethodOrNull {
+                name = method
+                modifiers = Modifier.STATIC
+                parameters()
+                returnType = Boolean::class.java
+            }
+        }
+        val root = candidates.singleOrNull()
+        if (root == null) {
+            WeLogger.w(TAG, "client-check root wrapper unavailable or ambiguous")
+            return
+        }
+        root.hookBeforeDirectly {
+            result = false
+            WeLogger.d(TAG, "client-check root indicator suppressed")
+        }
+        WeLogger.i(TAG, "client-check root suppression installed on ${root.declaringClass.name}.${root.name}")
+    }
+
+    private fun installConsistencyLogging(context: Context) {
+        // 8.0.65 uses the SDK facade; later audited hosts call xlog directly.
+        val loggers = listOf("com.tencent.mars.xlog.Log" to "i", "com.tencent.mm.sdk.platformtools.m2" to "j")
+        for ((type, method) in loggers) {
+            val logger = type.toClassOrNull(context.classLoader)?.reflekt()?.firstMethodOrNull {
+                name = method
+                modifiers = Modifier.STATIC
+                parameters(String::class.java, String::class.java, Array<Any>::class.java)
+                returnType = Void.TYPE
+            } ?: continue
+            logger.hookBeforeDirectly {
+                if (args[0] != "MicroMsg.SysCmdMsgExtension" ||
+                    args[1] != "recieve a syscmd_newxml %s subType %s") return@hookBeforeDirectly
+                val values = args[2] as Array<*>
+                if (values[1] != "ClientCheckConsistency") return@hookBeforeDirectly
+                val xml = values[0] as String
+                WeLogger.logChunkedI(TAG, "ClientCheckConsistency received:\n$xml")
+                try {
+                    val directory = File(context.filesDir, "wekit/logs/client-check-consistency")
+                    if (!directory.isDirectory && !directory.mkdirs()) throw IOException("cannot create $directory")
+                    val dump = File.createTempFile("${System.currentTimeMillis()}-", ".xml", directory)
+                    dump.writeText(xml)
+                    WeLogger.i(TAG, "ClientCheckConsistency XML dumped to $dump")
+                } catch (error: IOException) {
+                    WeLogger.e(TAG, "failed to dump ClientCheckConsistency XML", error)
+                }
+            }
+        }
+    }
+
+    private data class ConsistencyReadSites(val owner: String, val methods: Set<String>)
+
+    private fun installConsistencyArchive(loader: ClassLoader, hostApk: String, originApk: String) {
+        var sites: ConsistencyReadSites? = null
+        ZipFile::class.reflekt().firstConstructor { parameters(String::class) }.self.hookBeforeDirectly {
+            if (args[0] != hostApk) return@hookBeforeDirectly
+            val stack = Thread.currentThread().stackTrace
+            val reader = sites ?: findConsistencyReadSites(loader, stack)?.also { sites = it }
+                ?: return@hookBeforeDirectly
+            if (stack.none { it.className == reader.owner && it.methodName in reader.methods }) return@hookBeforeDirectly
+            // Keep the host's hash/length helpers, target string and final signature construction intact.
+            args[0] = originApk
+            WeLogger.i(TAG, "ClientCheckConsistency APK read redirected to $originApk")
+        }
+    }
+
+    private fun findConsistencyReadSites(loader: ClassLoader, stack: Array<StackTraceElement>): ConsistencyReadSites? {
+        for (frame in stack) {
+            val type = frame.className.toClassOrNull(loader) ?: continue
+            val reflected = type.reflekt()
+            val hash = reflected.methods {
+                modifiers = Modifier.STATIC
+                parameters(String::class, Long::class, Long::class)
+                returnType = String::class.java
+            }.singleOrNull() ?: continue
+            val length = reflected.methods {
+                modifiers = Modifier.STATIC
+                parameters(String::class)
+                returnType = Long::class.java
+            }.singleOrNull() ?: continue
+            if (reflected.methods {
+                    modifiers = Modifier.STATIC
+                    parameters(Array<Any>::class.java)
+                    returnType = String::class.java
+                }.size != 1) continue
+            val methods = setOf(hash.name, length.name)
+            if (frame.methodName in methods) return ConsistencyReadSites(type.name, methods)
+        }
+        return null
+    }
+
+    private fun installDebug() {
+        Debug::class.reflekt().firstMethod { name = "isDebuggerConnected"; parameters() }
+            .hookBeforeDirectly { result = false }
+    }
+
+    private fun installReport(context: Context, modulePath: String) {
+        // No native library is loaded by these hooks. Keep tables and native profile validation lazy until aa runs.
         val policy = EnvironmentReportPolicy(
             PackageNames.MODULE, modulePath, File(context.filesDir, "wekit").path,
         )
-        installPackageVisibility()
-        installSettings()
-        Debug::class.reflekt().firstMethod { name = "isDebuggerConnected"; parameters() }
-            .hookBeforeDirectly { result = false }
-
-        // No native library is loaded by these hooks. Keep tables and native profile validation lazy until aa runs.
         val codec by lazy { loadCodec(context.applicationInfo, modulePath) }
         val endpoints = findReportEndpoints(context.classLoader)
         if (endpoints == null) {
@@ -68,8 +211,6 @@ object EnvironmentHider {
                 }
             }
         }
-        installed = true
-        WeLogger.i(TAG, "early environment hooks installed")
     }
 
     private data class ReportEndpoints(
