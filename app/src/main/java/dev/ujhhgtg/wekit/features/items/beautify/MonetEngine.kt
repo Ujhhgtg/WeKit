@@ -479,6 +479,7 @@ object MonetEngine : ClickableFeature() {
                         )
                         SegmentedColumn(contentPadding = PaddingValues(top = 16.dp)) {
                             listOf(
+                                MonetBubbleStyle.NONE to R.string.monet_bubble_none,
                                 MonetBubbleStyle.MODERN to R.string.monet_bubble_modern,
                                 MonetBubbleStyle.CLASSIC to R.string.monet_bubble_classic,
                                 MonetBubbleStyle.PRO to R.string.monet_bubble_pro,

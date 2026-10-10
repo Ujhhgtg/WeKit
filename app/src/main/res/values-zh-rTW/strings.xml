@@ -3522,6 +3522,7 @@
     <string name="monet_status_missing">尚未分析</string>
     <string name="monet_status_running">正在分析…</string>
     <string name="monet_reresolve">重新分析微信資源</string>
+    <string name="monet_bubble_none">不改變氣泡</string>
     <string name="monet_bubble_modern">現代圓角氣泡</string>
     <string name="monet_bubble_classic">經典微信氣泡</string>
     <string name="monet_bubble_pro">Pro 圓角氣泡</string>

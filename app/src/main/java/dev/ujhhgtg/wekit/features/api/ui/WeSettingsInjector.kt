@@ -4,8 +4,6 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.os.Handler
-import android.os.Looper
 import com.tencent.mm.plugin.setting.ui.setting.SettingsUI
 import com.tencent.mm.plugin.setting.ui.setting_new.base.BaseSettingPrefUI
 import com.tencent.mm.plugin.setting.ui.setting_new.base.BaseSettingUI
@@ -124,39 +122,6 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
             usingEqStrings("MicroMsg.ResourceHelper", "get string, resId %d, but context is null")
         }
     }
-//    private val methodPluginHelperLaunchIntent by dexMethod(allowFailure = true) {
-//        matcher {
-//            usingEqStrings("MicroMsg.PluginHelper", "start activity, need try load plugin[%B], entry:%s", "start activity error, context is null")
-//        }
-//    }
-//    // FIXME: using multipleIndex here, might find the wrong class
-//    private val classIntentAction by dexClass(allowFailure = true, allowMultiple = true, multipleIndex = 1) {
-//        searchPackages("com.tencent.mm.plugin.setting.ui.setting_new.uic")
-//        matcher {
-//            addMethod {
-//                name = "<init>"
-//                usingEqStrings("activity")
-//            }
-//
-//            addMethod {
-//                name = "onCreate"
-//            }
-//
-//            addMethod {
-//                name = "onDestroy"
-//            }
-//
-//            addMethod {
-//                name = "onResume"
-//            }
-//
-//            superClass {
-//                superClass {
-//                    className = "com.tencent.mm.ui.component.UIComponent"
-//                }
-//            }
-//        }
-//    }
 
     private const val TAG = "WeSettingsInjector"
 
@@ -255,7 +220,7 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
     override fun onTextChanged(chatFooter: ChatFooter, text: String) {
         if (text != "#wekit") return
         chatFooter.lastText = ""
-        openSettingsDialog(chatFooter.context)
+        openSettings(chatFooter.context)
     }
 
     private fun injectLegacy() {
@@ -304,7 +269,7 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
                 if (PREFS_KEY == key) {
                     val activity = thisObject as Activity
 
-                    openSettingsDialog(activity)
+                    openSettings(activity)
 
                     result = true
                 }
@@ -394,7 +359,7 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
             pageClass = SettingGroupMain::class.java
             parentClass = SettingAdditionHeaderSearch::class.java
             childClass = SettingGroupPersonalInfo::class.java
-            onClick = { openSettingsDialog(it) }
+            onClick = { openSettings(it) }
         }
 
         settingsManager.install()
@@ -407,38 +372,23 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
                     val activity = thisObject as Activity
                     val intent = activity.intent ?: return@hookBefore
                     intent.getStringExtra(BuildConfig.TAG) ?: return@hookBefore
-                    // 消费掉标记，否则 getIntent() 会一直带着它，
-                    // 之后每次 onNewIntent 都会重新弹出设置界面
                     intent.removeExtra(BuildConfig.TAG)
-                    // wait for resources & theme to init
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        openSettingsDialog(activity)
-                    }, 500)
+                    openSettings(activity)
                 }
 
             firstMethod { name = "onNewIntent" }
                 .hookBefore {
                     val activity = thisObject as Activity
-                    // LauncherUI 是 singleTop，新的 Intent 在 args[0] 里；
-                    // 此时 getIntent() 还是旧的那一个
                     val intent = args.getOrNull(0) as? Intent ?: return@hookBefore
                     intent.getStringExtra(BuildConfig.TAG) ?: return@hookBefore
                     intent.removeExtra(BuildConfig.TAG)
-                    openSettingsDialog(activity)
+                    openSettings(activity)
                 }
         }
     }
 
     @Suppress("NOTHING_TO_INLINE")
-    fun openSettingsDialog(context: Context) {
+    fun openSettings(context: Context) {
         context.startActivity(Intent(context, SettingsActivity::class.java))
     }
-
-//    private class SettingsMenuItemClickListener(val context: Context) :
-//        MenuItem.OnMenuItemClickListener {
-//        override fun onMenuItemClick(p0: MenuItem): Boolean {
-//            openSettingsDialog(context)
-//            return true
-//        }
-//    }
 }

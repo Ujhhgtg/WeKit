@@ -2866,7 +2866,7 @@
     <string name="home_side_panel_show_lunar_calendar">显示农历</string>
     <string name="home_side_panel_lunar_prefix">农历</string>
     <string name="home_side_panel_lunar_leap_prefix">闰</string>
-    <string name="home_side_panel_lunar_separator"></string>
+    <string name="home_side_panel_lunar_separator" />
     <string-array name="home_side_panel_lunar_month_names">
         <item>正月</item>
         <item>二月</item>
@@ -3540,6 +3540,7 @@
     <string name="monet_status_missing">尚未分析</string>
     <string name="monet_status_running">正在分析…</string>
     <string name="monet_reresolve">重新分析微信资源</string>
+    <string name="monet_bubble_none">不改变气泡</string>
     <string name="monet_bubble_modern">现代圆角气泡</string>
     <string name="monet_bubble_classic">经典微信气泡</string>
     <string name="monet_bubble_pro">Pro 圆角气泡</string>

@@ -29,6 +29,6 @@ object ModuleSettings : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsProv
         listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
                 0, BuildConfig.TAG, ExtensionIcon
-            ) { WeSettingsInjector.openSettingsDialog(LauncherUI.getInstance()!!) }
+            ) { WeSettingsInjector.openSettings(LauncherUI.getInstance()!!) }
         )
 }

@@ -94,9 +94,9 @@ object MonetThemeRenderer {
         val drawables = linkedMapOf<Int, DrawableTarget>()
         fun put(targets: List<DrawableTarget>) = targets.forEach { drawables[it.binding.id] = it }
         put(baseVisuals(resolved, palette))
-        put(modernBubbles(resolved, palette))
+        if (options.bubbleStyle != MonetBubbleStyle.NONE) put(modernBubbles(resolved, palette))
         when (options.bubbleStyle) {
-            MonetBubbleStyle.MODERN -> Unit
+            MonetBubbleStyle.NONE, MonetBubbleStyle.MODERN -> Unit
             MonetBubbleStyle.CLASSIC -> put(classicBubbles(resolved, palette))
             MonetBubbleStyle.PRO -> put(proBubbles(resolved, palette))
         }
@@ -154,18 +154,6 @@ object MonetThemeRenderer {
             "chat.brand-action.background",
             simpleSelector(rounded(palette.primaryLight, 8f), rounded(palette.primaryLight, 8f)),
             simpleSelector(rounded(palette.primaryDark, 8f), rounded(palette.primaryDark, 8f)),
-        )
-        addPair(
-            resolved,
-            "chat.red-envelope.incoming.normal",
-            messageSelector(rounded(palette.accent1_700, 16f), rounded(palette.primaryLight, 16f)),
-            messageSelector(rounded(palette.accent1_300, 16f), rounded(palette.primaryDark, 16f)),
-        )
-        addPair(
-            resolved,
-            "chat.red-envelope.outgoing.normal",
-            messageSelector(rounded(palette.accent1_700, 16f), rounded(palette.primaryLight, 16f)),
-            messageSelector(rounded(palette.accent1_300, 16f), rounded(palette.primaryDark, 16f)),
         )
         val paymentLight = paymentSelector(palette.accent1_400, palette.primaryLight)
         val paymentNight = paymentSelector(palette.accent1_400, palette.primaryDark)
@@ -229,6 +217,8 @@ object MonetThemeRenderer {
         )
         val redLight = messageSelector(rounded(palette.accent1_700, 16f), rounded(palette.primaryLight, 16f))
         val redNight = messageSelector(rounded(palette.accent1_300, 16f), rounded(palette.primaryDark, 16f))
+        addPair(resolved, "chat.red-envelope.incoming.normal", redLight, redNight)
+        addPair(resolved, "chat.red-envelope.outgoing.normal", redLight, redNight)
         addPair(resolved, "chat.red-envelope.incoming.alias", redLight, redNight)
         addPair(resolved, "chat.red-envelope.outgoing.alias", redLight, redNight)
         val received = messageSelector(rounded(palette.accent1_400, 16f), rounded(palette.accent1_300, 16f))

@@ -2,7 +2,7 @@ package dev.ujhhgtg.wekit.utils.monet
 
 import kotlinx.serialization.Serializable
 
-enum class MonetBubbleStyle { MODERN, CLASSIC, PRO }
+enum class MonetBubbleStyle { MODERN, CLASSIC, PRO, NONE }
 
 /**
  * A WeChat resource targeted by the runtime table. The loader has no idmap, so [id] is the
@@ -76,7 +76,6 @@ enum class MonetResolveStage {
     LOADING_APKS,
     BUILDING_RESOURCE_GRAPH,
     RESOLVING_ROLES,
-    BUILDING_PACKAGE,
 }
 
 data class MonetResolveProgress(

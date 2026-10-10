@@ -3513,6 +3513,7 @@
     <string name="monet_status_missing">Not analyzed yet</string>
     <string name="monet_status_running">Analyzing…</string>
     <string name="monet_reresolve">Re-analyze WeChat resources</string>
+    <string name="monet_bubble_none">Leave bubbles unchanged</string>
     <string name="monet_bubble_modern">Modern rounded bubbles</string>
     <string name="monet_bubble_classic">Classic WeChat bubbles</string>
     <string name="monet_bubble_pro">Pro rounded bubbles</string>
