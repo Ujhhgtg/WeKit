@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat.spoof
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
@@ -8,9 +9,7 @@ import android.graphics.Canvas
 import android.graphics.ImageDecoder
 import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import android.media.ExifInterface
 import android.text.SpannableStringBuilder
 import android.view.View
 import android.view.ViewGroup
@@ -18,7 +17,9 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.core.graphics.createBitmap
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.children
+import androidx.exifinterface.media.ExifInterface
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Edit_note
 import dev.ujhhgtg.reflekt.reflekt
@@ -53,6 +54,7 @@ import kotlin.math.max
  * display-only: message rows, the image gallery, the video player and the transfer detail page
  * render the spoofed value, while the stored message and anything sent stay untouched.
  */
+@SuppressLint("ThreadConstraint")
 object SpoofChatMessages : ClickableFeature(), IResolveDex, WeChatMessageContextMenuApi.IMenuItemsProvider {
 
     override val technicalId = "伪造聊天消息"
@@ -182,6 +184,7 @@ object SpoofChatMessages : ClickableFeature(), IResolveDex, WeChatMessageContext
     )
 
     // Written and read on the main thread only, like every hooked view method.
+    @SuppressLint("StaticFieldLeak")
     private var applyingImage: ImageView? = null
     private var applyingLayout = false
     private val adapters: MutableSet<Any> = Collections.newSetFromMap(WeakHashMap())
@@ -443,7 +446,7 @@ object SpoofChatMessages : ClickableFeature(), IResolveDex, WeChatMessageContext
         val height = size.getField("b") as Int
         updateGeometry(binding, width, height)
         val content = binding.content.get()!!
-        return BitmapDrawable(content.resources, thumbnail(file, width, height))
+        return thumbnail(file, width, height).toDrawable(content.resources)
     }
 
     private fun sourceSize(file: File): Pair<Int, Int> = sourceSizes.getOrPut(file.path) {
