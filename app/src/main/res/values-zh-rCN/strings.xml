@@ -3677,7 +3677,7 @@
     <string name="auto_reply_exclude_keyword">排除关键词</string>
     <string name="auto_reply_exclude_keyword_off">不排除</string>
     <string name="auto_reply_target">适用对象</string>
-    <string name="auto_reply_at_trigger">@ 条件（群聊）</string>
+    <string name="auto_reply_at_trigger">\@ 条件（群聊）</string>
     <string name="auto_reply_at_none">无需 @</string>
     <string name="auto_reply_at_me">仅 @我 时</string>
     <string name="auto_reply_at_all">仅 @所有人 时</string>
@@ -3772,8 +3772,8 @@
     <string name="custom_notify_ignore_dnd_off">遵循微信的免打扰设置</string>
     <string name="custom_notify_mute_window">静音时段</string>
     <string name="custom_notify_mute_window_off">无静音时段</string>
-    <string name="custom_notify_mentions">@ 过滤（群聊）</string>
-    <string name="custom_notify_mentions_off">@ 消息正常通知</string>
+    <string name="custom_notify_mentions">\@ 过滤（群聊）</string>
+    <string name="custom_notify_mentions_off">\@ 消息正常通知</string>
     <string name="custom_notify_mentions_all">屏蔽 @所有人</string>
     <string name="custom_notify_mentions_me">屏蔽 @我</string>
     <string name="custom_notify_mentions_both">屏蔽 @所有人 与 @我</string>
@@ -3858,7 +3858,7 @@
     <string name="automation_keywords_label">关键词 · %1$d 个</string>
     <string name="automation_long_press_hint">长按聊天可多选，然后批量编辑</string>
     <string name="automation_members_hint">未单独设置的成员跟随本群规则</string>
-    <string name="automation_mention_contact">@ 某个联系人</string>
+    <string name="automation_mention_contact">\@ 某个联系人</string>
     <string name="automation_more">更多</string>
     <string name="automation_move_down">下移</string>
     <string name="automation_move_up">上移</string>
@@ -3999,4 +3999,31 @@
     <plurals name="automation_rules_set">
         <item quantity="other">%1$d 项</item>
     </plurals>
+
+    <!-- Beautify home -->
+    <string name="feature_beautify_home_name">美化首页</string>
+    <string name="feature_beautify_home_description">将首页改为不知道谁在用的、信息密度极低的、莫名其妙的布局</string>
+    <string name="beautify_home_background">主页背景</string>
+    <string name="beautify_home_background_images">图片</string>
+    <string name="beautify_home_background_styles">样式</string>
+    <string name="beautify_home_background_style_full_bleed">平铺</string>
+    <string name="beautify_home_background_style_framed">画框</string>
+    <string name="beautify_home_background_first">内置图片 1</string>
+    <string name="beautify_home_background_second">内置图片 2</string>
+    <string name="beautify_home_background_custom">自定义图片</string>
+    <string name="beautify_home_background_system">系统壁纸</string>
+    <string name="beautify_home_background_custom_summary">点按选择图片</string>
+    <string name="beautify_home_background_importing">正在导入图片…</string>
+    <string name="beautify_home_background_import_failed">无法导入所选图片。</string>
+    <string name="beautify_home_background_load_failed">无法读取背景，暂时显示内置图片 2。</string>
+    <string name="beautify_home_brand">微信</string>
+    <string name="beautify_home_good_morning">早上好</string>
+    <string name="beautify_home_good_afternoon">下午好</string>
+    <string name="beautify_home_good_evening">晚上好</string>
+    <string name="beautify_home_menu">主页菜单</string>
+    <string name="beautify_home_search">搜索</string>
+    <string name="beautify_home_contacts">通讯录</string>
+    <string name="beautify_home_discover">发现</string>
+    <string name="beautify_home_me">我</string>
+    <string name="beautify_home_action_failed">原生操作暂不可用，请查看 WeKit 日志。</string>
 </resources>

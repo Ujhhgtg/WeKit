@@ -70,17 +70,18 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
+import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.Themes.THEMES_PATH
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -1470,6 +1471,7 @@ object Themes : ClickableFeature(), IResolveDex {
     }
 
     override fun onDisable() {
+        WeMainActivityBeautifyApi.removeListener(this)
         WeConversationListViewApi.removeListener(recyclerConversationBindListener)
     }
 
@@ -2458,12 +2460,12 @@ object Themes : ClickableFeature(), IResolveDex {
                 plus.icon = themedDrawable("home/actionbar/plus.png") ?: item1.icon
             }
 
-        // C0540fd 18 —— LauncherUI.onCreate：记录 actionbar 高度
-        LauncherUI::class.reflekt()
-            .firstMethod { name = "onCreate" }.hookAfter {
-                actionBarHeight =
-                    callMethod(thisObject, "getActionBarHeightFromTheme") as? Int ?: 0
+        WeMainActivityBeautifyApi.addListener(this, object : WeMainActivityBeautifyApi.Listener {
+            override fun onLauncherCreated(activity: Activity) {
+                actionBarHeight = callMethod(activity, "getActionBarHeightFromTheme") as? Int ?: 0
             }
+            override fun onResume(activity: Activity) { applyLauncherBackground(activity) }
+        })
 
         // C0540fd 14/15 —— HomeUI 状态栏颜色
         methodHomeUiUpdateStatusBar.hookAfter { setHomeStatusBarTransparent(thisObject) }
@@ -2558,7 +2560,7 @@ object Themes : ClickableFeature(), IResolveDex {
                     for (text in listOf("新的朋友", "仅聊天的朋友", "群聊", "标签", "公众号", "服务号")) {
                         child.findViewsWithText(texts, text, View.FIND_VIEWS_WITH_TEXT)
                     }
-                    if (!texts.isEmpty()) {
+                    if (texts.isNotEmpty()) {
                         val textView = texts[0] as? TextView
                         themeColor("home.item.primary_text", 0).takeIf { it != 0 }?.let { c ->
                             textView?.setTextColor(c)
@@ -2610,7 +2612,7 @@ object Themes : ClickableFeature(), IResolveDex {
             setNullBgRecursivelyWithTv(viewGroup)
             val texts = ArrayList<View>()
             viewGroup.findViewsWithText(texts, "新的朋友", View.FIND_VIEWS_WITH_TEXT)
-            if (!texts.isEmpty()) {
+            if (texts.isNotEmpty()) {
                 val textView = texts[0] as? TextView
                 themeColor("home.item.primary_text", 0).takeIf { it != 0 }?.let { c ->
                     textView?.setTextColor(c)
@@ -2704,58 +2706,56 @@ object Themes : ClickableFeature(), IResolveDex {
                 }
             }
 
-        // C0540fd 16 —— LauncherUI.onResume：首页全局背景 + 底部 tab
-        LauncherUI::class.reflekt()
-            .firstMethod { name = "onResume" }.hookAfter {
-                val activity = thisObject as Activity
-                val content = activity.findViewById<ViewGroup>(android.R.id.content)
-                    ?: return@hookAfter
-                if (content.getTag(VIEW_TAG_HOME_DONE) == any) return@hookAfter
-                content.setTag(VIEW_TAG_HOME_DONE, any)
-                val parent = content.parent as? ViewGroup ?: return@hookAfter
-                val sibling = parent.getChildAt(1) as? ViewGroup
-                val bottomTab = firstChildViewGroupWithClass(
-                    content,
-                    "com.tencent.mm.ui.LauncherUIBottomTabView"
-                ) as? ViewGroup
-                val viewPager = firstChildViewGroupWithClass(
-                    content,
-                    "com.tencent.mm.ui.base.CustomViewPager"
-                ) as? ViewGroup
-                var actionbarBg: ImageView? = null
-                themedDrawable("home/actionbar/background.png")?.let { d ->
-                    val iv = ImageView(activity).apply {
-                        background = d
-                        elevation = 1f
-                    }
-                    actionbarBg = iv
-                    parent.addView(
-                        iv,
-                        0,
-                        ViewGroup.LayoutParams(
-                            -1,
-                            actionBarHeightOf(activity) + statusBarHeight(activity)
-                        )
-                    )
-                }
-                themedDrawable("home/background.png")?.let { d ->
-                    val bg = themedImageView(activity, d)
-                    parent.addView(
-                        bg,
-                        0,
-                        RelativeLayout.LayoutParams(-1, -1).apply {
-                            addRule(RelativeLayout.CENTER_IN_PARENT)
-                        }
-                    )
-                }
-                if (sibling != null && bottomTab != null && viewPager != null &&
-                    actionbarBg != null
-                ) {
-                    parent.post {
-                        applyBottomTabTheme(sibling, actionbarBg, bottomTab, viewPager)
-                    }
-                }
+    }
+
+    private fun applyLauncherBackground(activity: Activity) {
+        val content = activity.findViewById<ViewGroup>(android.R.id.content)
+            ?: return
+        if (content.getTag(VIEW_TAG_HOME_DONE) == any) return
+        content.setTag(VIEW_TAG_HOME_DONE, any)
+        val parent = content.parent as? ViewGroup ?: return
+        val sibling = parent.getChildAt(1) as? ViewGroup
+        val bottomTab = firstChildViewGroupWithClass(
+            content,
+            "com.tencent.mm.ui.LauncherUIBottomTabView"
+        ) as? ViewGroup
+        val viewPager = firstChildViewGroupWithClass(
+            content,
+            "com.tencent.mm.ui.base.CustomViewPager"
+        ) as? ViewGroup
+        var actionbarBg: ImageView? = null
+        themedDrawable("home/actionbar/background.png")?.let { d ->
+            val iv = ImageView(activity).apply {
+                background = d
+                elevation = 1f
             }
+            actionbarBg = iv
+            parent.addView(
+                iv,
+                0,
+                ViewGroup.LayoutParams(
+                    -1,
+                    actionBarHeightOf(activity) + statusBarHeight(activity)
+                )
+            )
+        }
+        themedDrawable("home/background.png")?.let { d ->
+            val bg = themedImageView(activity, d)
+            parent.addView(
+                bg,
+                0,
+                RelativeLayout.LayoutParams(-1, -1).apply {
+                    addRule(RelativeLayout.CENTER_IN_PARENT)
+                }
+            )
+        }
+        if (sibling != null && bottomTab != null && viewPager != null &&
+            actionbarBg != null
+        ) {
+            parent.post {
+                applyBottomTabTheme(sibling, actionbarBg, bottomTab, viewPager)
+            }
+        }
     }
 
     /** C0540fd 14/15：HomeUI 状态栏颜色 */

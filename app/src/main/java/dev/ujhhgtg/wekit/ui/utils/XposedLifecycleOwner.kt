@@ -12,30 +12,38 @@ import androidx.savedstate.SavedStateRegistryOwner
 // used for injected 'ComposeView's
 class XposedLifecycleOwner private constructor() : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
-    private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
-    override val lifecycle: Lifecycle get() = lifecycleRegistry
+    override val lifecycle: Lifecycle
+        field = LifecycleRegistry(this)
     override val viewModelStore = ViewModelStore()
     override val savedStateRegistry: SavedStateRegistry
         get() = savedStateRegistryController.savedStateRegistry
 
     fun onCreate() {
         savedStateRegistryController.performRestore(null)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+        lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
     }
 
-    fun onStart() = lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
-    fun onResume() = lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
-    fun onPause() = lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
-    fun onStop() = lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+    fun onStart() = lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_START)
+    fun onResume() = lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+    fun onPause() = lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+    fun onStop() = lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
     fun onDestroy() {
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         viewModelStore.clear()
     }
 
+    fun moveTo(state: Lifecycle.State) {
+        lifecycle.currentState = state
+        if (state == Lifecycle.State.DESTROYED) viewModelStore.clear()
+    }
+
     companion object {
-        fun create(): XposedLifecycleOwner {
-            return XposedLifecycleOwner().apply { onCreate(); onStart(); onResume() }
+        fun create(initialState: Lifecycle.State = Lifecycle.State.RESUMED): XposedLifecycleOwner {
+            return XposedLifecycleOwner().apply {
+                onCreate()
+                moveTo(initialState)
+            }
         }
     }
 }

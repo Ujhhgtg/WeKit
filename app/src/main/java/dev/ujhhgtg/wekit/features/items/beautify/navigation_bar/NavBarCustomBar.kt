@@ -179,14 +179,15 @@ fun NavBarCustomBar(session: NavBarSession) {
         Density(baseDensity.density * barScale, baseDensity.fontScale)
     }
 
-    // Share the slide/shrink/fade animation for both hide reasons; only scroll-driven
-    // hiding is gated by the auto-hide setting, and editing always shows the bar.
+    // Home, Recent and scrolling share the same slide/shrink/fade animation. Home
+    // overrides the other reasons; only scrolling depends on the auto-hide setting.
     // barHeightPx includes the bottom padding because onSizeChanged observes the
     // padded bounds, so translating by it moves the bar fully off screen.
     val editing = session.editor != null
+    val homeOverride by session.homeBarOverride
     val barHideProgress by animateFloatAsState(
-        targetValue = if (!editing && (BeautifyNavigationBar.recentPageHiddenState.value ||
-                (config.autoHide && BeautifyNavigationBar.barScrollHiddenState.value))
+        targetValue = if (!editing && (homeOverride ?: (BeautifyNavigationBar.recentPageHiddenState.value ||
+                (config.autoHide && BeautifyNavigationBar.barScrollHiddenState.value)))
         ) 1f else 0f,
         animationSpec = tween(SCROLL_HIDE_DURATION_MS, easing = SCROLL_HIDE_EASING),
         label = "navBarHide"

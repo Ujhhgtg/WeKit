@@ -152,6 +152,10 @@ class NavBarSession(
 
     var editor by mutableStateOf<NavBarEditor?>(null)
         private set
+    val homeBarOverride = LauncherNavigation.barOverride(activity)
+    private var frostedEnabled: Boolean? = null
+    private var previousHomeOverride: Boolean? = null
+    private var disposed = false
 
     private val nativeRow = bottomTab.children.first { it is LinearLayout } as LinearLayout
     val nativeTabs: Map<Int, NativeTab> = nativeRow.children.associate { container ->
@@ -218,10 +222,27 @@ class NavBarSession(
     fun openEditor() {
         if (editor != null) return
         editor = NavBarEditor(this).also { it.show() }
+        applyHomeVisibility(resetStyle = true)
     }
 
     fun onEditorRemoved() {
         editor = null
+        if (!disposed) applyHomeVisibility(resetStyle = true)
+    }
+
+    fun dispose() {
+        if (disposed) return
+        disposed = true
+        editor?.remove()
+        composeBar.disposeComposition()
+        (composeBar.parent as? ViewGroup)?.removeView(composeBar)
+        nativeTabs.values.forEach { tab ->
+            tab.materialHost?.let { host ->
+                host.disposeComposition()
+                (host.parent as? ViewGroup)?.removeView(host)
+            }
+            tab.materialHost = null
+        }
     }
 
     /** Current editor lift of the bar, in pixels (negative is up). */
@@ -236,12 +257,37 @@ class NavBarSession(
         composeBar.translationY = if (style.isFloating) px else 0f
     }
 
-    fun applyConfig(old: NavBarConfig?, new: NavBarConfig) {
+    fun applyConfig(new: NavBarConfig) {
         mountStyle(new.style)
         applyNativeTabs(new)
-        val native = new.style == NavBarStyle.NATIVE
-        if (old == null || (old.style == NavBarStyle.NATIVE) != native) refreshFrosted(native)
+        applyHomeVisibility(resetStyle = true)
         updateNativeBarLayout()
+    }
+
+    /** Home owns visibility while present; scroll auto-hide remains independent underneath. */
+    fun applyHomeVisibility(resetStyle: Boolean = false) {
+        val style = BeautifyNavigationBar.config.style
+        // The editor is an overlay with its own bar preview, rather than the home page.
+        val override = homeBarOverride.value
+        val homeHidden = override == true && editor == null
+        if (override != null || previousHomeOverride != null || resetStyle) {
+            val nativeContainerVisible = !homeHidden && (style == NavBarStyle.NATIVE || style == NavBarStyle.DOCKED)
+            val nativeVisibility = if (nativeContainerVisible) View.VISIBLE else View.GONE
+            if (bottomTab.visibility != nativeVisibility) bottomTab.visibility = nativeVisibility
+            // Floating bars animate the home override through the same progress as
+            // scroll auto-hide. Keep their Compose host visible throughout the animation.
+            val floatingVisibility = if (style.isFloating) View.VISIBLE else View.GONE
+            // A docked Compose bar follows its native parent, and must remain visible inside it.
+            val composeVisibility = if (style == NavBarStyle.DOCKED) View.VISIBLE else floatingVisibility
+            if (composeBar.visibility != composeVisibility) composeBar.visibility = composeVisibility
+        }
+        // Once released, leave the host's Recent-page animation in control of its container.
+        previousHomeOverride = override
+        val frost = style == NavBarStyle.NATIVE && !homeHidden
+        if (frostedEnabled != frost) {
+            frostedEnabled = frost
+            refreshFrosted(frost)
+        }
     }
 
     private fun mountStyle(style: NavBarStyle) {

@@ -3981,4 +3981,31 @@
     <plurals name="automation_rules_set">
         <item quantity="other">%1$d 項</item>
     </plurals>
+
+    <!-- Beautify home -->
+    <string name="feature_beautify_home_name">美化首頁</string>
+    <string name="feature_beautify_home_description">將首頁改為不知道誰在用的、資訊密度極低的、莫名其妙的版面配置</string>
+    <string name="beautify_home_background">主頁背景</string>
+    <string name="beautify_home_background_images">圖片</string>
+    <string name="beautify_home_background_styles">樣式</string>
+    <string name="beautify_home_background_style_full_bleed">平鋪</string>
+    <string name="beautify_home_background_style_framed">畫框</string>
+    <string name="beautify_home_background_first">內建圖片 1</string>
+    <string name="beautify_home_background_second">內建圖片 2</string>
+    <string name="beautify_home_background_custom">自訂圖片</string>
+    <string name="beautify_home_background_system">系統桌布</string>
+    <string name="beautify_home_background_custom_summary">點按選擇圖片</string>
+    <string name="beautify_home_background_importing">正在匯入圖片…</string>
+    <string name="beautify_home_background_import_failed">無法匯入所選圖片。</string>
+    <string name="beautify_home_background_load_failed">無法讀取背景，暫時顯示內建圖片 2。</string>
+    <string name="beautify_home_brand">微信</string>
+    <string name="beautify_home_good_morning">早安</string>
+    <string name="beautify_home_good_afternoon">午安</string>
+    <string name="beautify_home_good_evening">晚安</string>
+    <string name="beautify_home_menu">主頁選單</string>
+    <string name="beautify_home_search">搜尋</string>
+    <string name="beautify_home_contacts">通訊錄</string>
+    <string name="beautify_home_discover">發現</string>
+    <string name="beautify_home_me">我</string>
+    <string name="beautify_home_action_failed">原生操作暫時無法使用，請查看 WeKit 日誌。</string>
 </resources>

@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.beautify
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.app.Application
 import android.app.Instrumentation
 import android.content.ComponentCallbacks
 import android.content.Context
@@ -11,7 +10,6 @@ import android.content.res.Resources
 import android.content.res.ResourcesImpl
 import android.content.res.loader.ResourcesProvider
 import android.os.Build
-import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import androidx.activity.ComponentActivity
 import androidx.annotation.RequiresApi
@@ -47,6 +45,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
+import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -125,7 +124,6 @@ object MonetEngine : ClickableFeature() {
     private var configCallbacks: ComponentCallbacks? = null
     private var appliedKey: String? = null
     private var pendingResolve = false
-    private var resolveLifecycleCallbacks: Application.ActivityLifecycleCallbacks? = null
 
     /**
      * Host resource APKs fixed when the runtime is enabled. The live AssetManager can gain APKs
@@ -244,17 +242,9 @@ object MonetEngine : ClickableFeature() {
     @RequiresApi(Build.VERSION_CODES.R)
     private fun waitForResolveActivity() {
         pendingResolve = true
-        val callbacks = object : Application.ActivityLifecycleCallbacks {
-            override fun onActivityResumed(activity: Activity) = postPendingResolve(activity)
-            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
-            override fun onActivityStarted(activity: Activity) = Unit
-            override fun onActivityPaused(activity: Activity) = Unit
-            override fun onActivityStopped(activity: Activity) = Unit
-            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
-            override fun onActivityDestroyed(activity: Activity) = Unit
-        }
-        resolveLifecycleCallbacks = callbacks
-        HostInfo.application.registerActivityLifecycleCallbacks(callbacks)
+        WeMainActivityBeautifyApi.addListener(this, object : WeMainActivityBeautifyApi.Listener {
+            override fun onResume(activity: Activity) = postPendingResolve(activity)
+        })
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
@@ -270,8 +260,7 @@ object MonetEngine : ClickableFeature() {
 
     private fun clearPendingResolve() {
         pendingResolve = false
-        resolveLifecycleCallbacks?.let(HostInfo.application::unregisterActivityLifecycleCallbacks)
-        resolveLifecycleCallbacks = null
+        WeMainActivityBeautifyApi.removeListener(this)
     }
 
     @RequiresApi(Build.VERSION_CODES.R)

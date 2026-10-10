@@ -6,7 +6,6 @@ import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Context
 import android.graphics.Outline
-import android.os.Bundle
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -46,7 +45,6 @@ import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
-import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
@@ -58,6 +56,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -183,43 +182,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         }?.hookBefore {
             result = true
         }
-        LauncherUI::class.hookAfterOnCreate {
-            ensureLauncherEdgeToEdge(thisObject as Activity)
-        }
-        LauncherUI::class.reflekt().firstMethod {
-            name = "onResume"
-            parameters()
-        }.hookAfter {
-            val activity = thisObject as Activity
-            sessions.values.mapNotNull { it.get() }.firstOrNull { it.ownsActivity(activity) }
-                ?.onLauncherResumed()
-        }
-        LauncherUI::class.reflekt().firstMethod {
-            name = "startChatting"
-            parameters(String::class, Bundle::class, Boolean::class)
-        }.hookAfter {
-            val activity = thisObject as Activity
-            sessions.values.mapNotNull { it.get() }
-                .firstOrNull { it.ownsActivity(activity) }
-                ?.onChatTransition()
-        }
-        LauncherUI::class.reflekt().firstMethod {
-            name = "closeChatting"
-            parameters(Boolean::class)
-        }.hookAfter {
-            val activity = thisObject as Activity
-            sessions.values.mapNotNull { it.get() }
-                .firstOrNull { it.ownsActivity(activity) }
-                ?.onChatTransition()
-        }
-        LauncherUI::class.reflekt().firstMethod {
-            name = "onDestroy"
-            parameters()
-        }.hookAfter {
-            val activity = thisObject as Activity
-            removePendingEdgeToEdgeAttachListener(activity)
-            removeSessionsForActivity(activity)
-        }
         ViewGroup::class.reflekt().firstMethod {
             name = "requestDisallowInterceptTouchEvent"
             parameters(Boolean::class)
@@ -256,37 +218,50 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                 }
             ) result = true
         }
-        WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
-            val activity = thisObject!!.reflekt()
-                .firstField {
-                    type = "com.tencent.mm.ui.MMFragmentActivity"
-                }
-                .get()!! as Activity
-            ensureLauncherEdgeToEdge(activity)
-            val viewPager = thisObject!!.reflekt()
-                .firstField {
-                    name = "mViewPager"
-                }
-                .get()!! as WxViewPager
-            val tabsAdapter = thisObject!!.reflekt()
-                .firstField {
-                    name = "mTabsAdapter"
-                }
-                .get()!!
-            val parent = viewPager.parent as? FrameLayout
-            if (parent == null) {
-                WeLogger.e(TAG, "MainTabUI mViewPager parent is not a FrameLayout")
-                return@hookAfter
+        WeMainActivityBeautifyApi.addListener(this, object : WeMainActivityBeautifyApi.Listener {
+            override fun onLauncherCreated(activity: Activity) { ensureLauncherEdgeToEdge(activity) }
+            override fun onResume(activity: Activity) { sessionFor(activity)?.onLauncherResumed() }
+            override fun onChatTransition(activity: Activity) { sessionFor(activity)?.onChatTransition() }
+            override fun onDestroy(activity: Activity) {
+                removePendingEdgeToEdgeAttachListener(activity)
+                removeSessionsForActivity(activity)
             }
-            if (sessions[viewPager]?.get() != null) return@hookAfter
-
-            val session = HomeSidePanelSession(activity, parent, viewPager, tabsAdapter).also { it.attach() }
-            session.setSelectedTab(viewPager.currentItem)
-            sessions[viewPager] = WeakReference(session)
-        }
+            override fun onTabsCreated(home: WeMainActivityBeautifyApi.Home) {
+                val activity = home.activity
+                ensureLauncherEdgeToEdge(activity)
+                val viewPager = home.pager
+                val parent = viewPager.parent as? FrameLayout
+                if (parent == null) {
+                    WeLogger.e(TAG, "MainTabUI mViewPager parent is not a FrameLayout")
+                    return
+                }
+                if (sessions[viewPager]?.get() != null) return
+                val session = HomeSidePanelSession(activity, parent, viewPager).also { it.attach() }
+                session.setSelectedTab(home.selectedTab)
+                sessions[viewPager] = WeakReference(session)
+            }
+            override fun onBeforePageSelected(home: WeMainActivityBeautifyApi.Home, tab: Int) {
+                sessionFor(home.activity)?.setSelectedTab(tab)
+            }
+            override fun onPageSelected(home: WeMainActivityBeautifyApi.Home, tab: Int) {
+                if (tab == HOME_TAB_INDEX) ensureLauncherEdgeToEdge(home.activity)
+            }
+            override fun onPageScrolled(home: WeMainActivityBeautifyApi.Home, tab: Int, offset: Float) {
+                sessionFor(home.activity)?.setSelectedTab(
+                    if (tab == HOME_TAB_INDEX && offset <= PAGE_SETTLED_EPSILON) home.selectedTab else -1,
+                )
+            }
+            override fun onTabsChanged(home: WeMainActivityBeautifyApi.Home) {
+                sessionFor(home.activity)?.setSelectedTab(home.selectedTab)
+            }
+        })
     }
 
+    private fun sessionFor(activity: Activity): HomeSidePanelSession? =
+        sessions.values.mapNotNull { it.get() }.firstOrNull { it.ownsActivity(activity) }
+
     override fun onDisable() {
+        WeMainActivityBeautifyApi.removeListener(this)
         sessions.values.mapNotNull { it.get() }.forEach { it.detach() }
         sessions.clear()
         HomeSidePanelWalletBalanceSource.clear()
@@ -365,7 +340,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private val activity: Activity,
         private val parent: FrameLayout,
         private val viewPager: WxViewPager,
-        private val tabsAdapter: Any,
     ) {
         private val gestureConfig = homeSidePanelGestureConfig(
             density = activity.resources.displayMetrics.density,
@@ -466,7 +440,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             }
             !changed
         }
-        private val tabsAdapterHookHandles = mutableListOf<HookHandle>()
         private val observedViews = WeakHashMap<View, ObservedViewListeners>()
         private var pendingTransitionLayoutListener: View.OnLayoutChangeListener? = null
 
@@ -556,7 +529,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                     .distinctUntilChanged()
                     .collect { syncToolbarProfileVisibility() }
             }
-            installTabsAdapterHooks()
             requestSync(SYNC_ALL)
         }
 
@@ -690,9 +662,8 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             observedToolbarProfileHosts.clear()
             animator?.cancel()
             animator = null
-            tabsAdapterHookHandles.forEach { it.unhook() }
-            tabsAdapterHookHandles.clear()
             panelState.close()
+            stateScope.cancel()
             pendingSyncFlags = 0
             syncPosted = false
             clearToolbarProfileBindings()
@@ -730,40 +701,6 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             }
             if (index != HOME_TAB_INDEX && renderedProgress > CLOSED_EPSILON) {
                 close(animated = true)
-            }
-        }
-
-        private fun installTabsAdapterHooks() {
-            val reflectedTabsAdapter = tabsAdapter.reflekt()
-            tabsAdapterHookHandles += reflectedTabsAdapter.firstMethod {
-                name = "onPageSelected"
-                parameters(int)
-            }.hookBeforeDirectly {
-                if (tabsAdapter !== thisObject) return@hookBeforeDirectly
-                setSelectedTab(args[0] as Int)
-            }
-            tabsAdapterHookHandles += reflectedTabsAdapter.firstMethod {
-                name = "onPageSelected"
-                parameters(int)
-            }.hookAfterDirectly {
-                if (tabsAdapter !== thisObject) return@hookAfterDirectly
-                val position = args[0] as Int
-                if (position == HOME_TAB_INDEX) {
-                    ensureLauncherEdgeToEdge(activity)
-                }
-            }
-            tabsAdapterHookHandles += reflectedTabsAdapter.firstMethod {
-                name = "onPageScrolled"
-                parameters(int, float, int)
-            }.hookBeforeDirectly {
-                if (tabsAdapter !== thisObject) return@hookBeforeDirectly
-                val position = args[0] as Int
-                val offset = args[1] as Float
-                if (position != HOME_TAB_INDEX || offset > PAGE_SETTLED_EPSILON) {
-                    setSelectedTab(-1)
-                } else {
-                    setSelectedTab(viewPager.currentItem)
-                }
             }
         }
 

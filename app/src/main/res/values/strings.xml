@@ -3986,4 +3986,31 @@
         <item quantity="one">%1$d rule</item>
         <item quantity="other">%1$d rules</item>
     </plurals>
+
+    <!-- Beautify home -->
+    <string name="feature_beautify_home_name">Beautify home screen</string>
+    <string name="feature_beautify_home_description">Replace the home screen with a baffling layout of extremely low information density that nobody uses</string>
+    <string name="beautify_home_background">Home background</string>
+    <string name="beautify_home_background_images">Images</string>
+    <string name="beautify_home_background_styles">Style</string>
+    <string name="beautify_home_background_style_full_bleed">Flat</string>
+    <string name="beautify_home_background_style_framed">Frame</string>
+    <string name="beautify_home_background_first">Built-in image 1</string>
+    <string name="beautify_home_background_second">Built-in image 2</string>
+    <string name="beautify_home_background_custom">Custom image</string>
+    <string name="beautify_home_background_system">System wallpaper</string>
+    <string name="beautify_home_background_custom_summary">Tap to choose an image</string>
+    <string name="beautify_home_background_importing">Importing image…</string>
+    <string name="beautify_home_background_import_failed">Could not import the selected image.</string>
+    <string name="beautify_home_background_load_failed">Could not load the background. Showing built-in image 2.</string>
+    <string name="beautify_home_brand">WeChat</string>
+    <string name="beautify_home_good_morning">Good morning</string>
+    <string name="beautify_home_good_afternoon">Good afternoon</string>
+    <string name="beautify_home_good_evening">Good evening</string>
+    <string name="beautify_home_menu">Home menu</string>
+    <string name="beautify_home_search">Search</string>
+    <string name="beautify_home_contacts">Contacts</string>
+    <string name="beautify_home_discover">Discover</string>
+    <string name="beautify_home_me">Me</string>
+    <string name="beautify_home_action_failed">Native action unavailable. See the WeKit log for details.</string>
 </resources>

@@ -90,26 +90,24 @@ import com.composables.icons.materialsymbols.outlinedfilled.Restart_alt
 import com.composables.icons.materialsymbols.outlinedfilled.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Update
 import com.composables.icons.materialsymbols.outlinedfilled.Wallet
-import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.conversation.BaseConversationUI
-import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.fastJavaMethod
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
-import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.ReorderableList
+import dev.ujhhgtg.wekit.ui.utils.removeSelf
 import dev.ujhhgtg.wekit.ui.utils.rootView
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -373,174 +371,179 @@ object AddMainScreenFab : ClickableFeature() {
     }
 
     override fun onEnable() {
-        WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
-            val activity = thisObject!!.reflekt()
-                .firstField {
-                    type = "com.tencent.mm.ui.MMFragmentActivity"
-                }
-                .get()!! as Activity
-
-            // 编辑过程中被重建（例如旋转屏幕）时不要覆盖尚未保存的位置
-            if (!editMode) loadOffset()
-
-            val configList = loadConfig()
-
-            val lifecycleOwner = LifecycleOwnerProvider.lifecycleOwner
-            val root = activity.rootView
-
-            val hostView = ComposeView(activity).apply {
-                    setLifecycleOwner(lifecycleOwner)
-
-                    setContent {
-                        InjectedUiTheme {
-                            val localizedContext = LocalWeKitLocalizedContext.current
-                            val menuItems = configList.map { item ->
-                                val icon = iconPool[item.iconName] ?: MaterialSymbols.OutlinedFilled.Add
-                                val action: () -> Unit = when (item.type) {
-                                    FabType.START_ACTIVITY -> {
-                                        { item.targetActivity?.let { startActivityByName(activity, it) } }
-                                    }
-
-                                    FabType.MARK_ALL_READ -> {
-                                        {
-                                            WeConversationApi.markAllAsRead()
-                                            showToast(localizedContext.getString(R.string.fab_all_marked_read))
-                                        }
-                                    }
-
-                                    FabType.MODULE_SETTINGS -> {
-                                        {
-                                            activity.startActivity(Intent(activity, SettingsActivity::class.java).apply {
-                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                            })
-                                        }
-                                    }
-
-                                    FabType.RESTART_HOST -> {
-                                        { restartHost() }
-                                    }
-
-                                    FabType.FORCE_STOP -> {
-                                        { killHost() }
-                                    }
-                                }
-                                FabMenuEntry(localizedName(localizedContext, item), icon, onClick = action)
-                            }
-                            // Follow the Monet engine's palette when applied, WeChat's neutrals otherwise.
-                            val monet = MonetEngine.surfaceColors(isSystemInDarkTheme())
-                            val backgroundColor = monet?.surfaceHigh?.let(::Color)
-                                ?: if (isSystemInDarkTheme()) Color(0xFF191919) else Color(0xFFF7F7F7)
-                            val activeColor = monet?.primary?.let(::Color) ?: MaterialTheme.colorScheme.primary
-                            val errorColor = MaterialTheme.colorScheme.error
-                            val layoutDirection = LocalLayoutDirection.current
-
-                            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                                val insets = WindowInsets.safeDrawing.asPaddingValues()
-                                val marginStart = insets.calculateStartPadding(layoutDirection).coerceAtLeast(MIN_SCREEN_MARGIN)
-                                val marginEnd = insets.calculateEndPadding(layoutDirection).coerceAtLeast(MIN_SCREEN_MARGIN)
-                                val marginTop = insets.calculateTopPadding().coerceAtLeast(MIN_SCREEN_MARGIN)
-                                val marginBottom = insets.calculateBottomPadding().coerceAtLeast(MIN_SCREEN_MARGIN)
-
-                                // 默认锚点：右下角，上移以避开微信底部标签栏
-                                val defaultLeft = maxWidth - EDGE_PADDING - FAB_SIZE
-                                val defaultTop = maxHeight - TAB_BAR_INSET - EDGE_PADDING - FAB_SIZE
-
-                                // 允许的偏移范围，保证 FAB 始终完整地留在屏幕内
-                                val minDx = (marginStart - defaultLeft).value
-                                val maxDx = (maxWidth - FAB_SIZE - marginEnd - defaultLeft).value.coerceAtLeast(minDx)
-                                val minDy = (marginTop - defaultTop).value
-                                val maxDy = (maxHeight - FAB_SIZE - marginBottom - defaultTop).value.coerceAtLeast(minDy)
-
-                                val fabLeft = defaultLeft + offsetXDp.coerceIn(minDx, maxDx).dp
-                                val fabTop = defaultTop + offsetYDp.coerceIn(minDy, maxDy).dp
-
-                                // FAB 靠近哪一侧，菜单就往哪一侧贴
-                                val onRight = fabLeft + FAB_SIZE / 2 >= maxWidth / 2
-
-                                val entries = if (editMode) {
-                                    listOf(
-                                        FabMenuEntry(stringResource(R.string.fab_reset_position), MaterialSymbols.OutlinedFilled.Restart_alt) {
-                                            offsetXDp = 0f
-                                            offsetYDp = 0f
-                                        },
-                                        FabMenuEntry(stringResource(R.string.dialog_cancel), MaterialSymbols.OutlinedFilled.Close, destructive = true) {
-                                            exitEditMode(save = false, localizedContext)
-                                        },
-                                    )
-                                } else {
-                                    menuItems
-                                }
-
-                                // 展开方向始终按真实菜单的高度计算，这样编辑模式下预览到的方向就是最终效果。
-                                // 上方放得下就向上展开（默认行为），放不下再考虑向下。
-                                val menuHeight = menuHeightOf(maxOf(menuItems.size, entries.size))
-                                val roomBelow = maxHeight - fabTop - FAB_SIZE
-                                val expandDown = when {
-                                    menuHeight <= fabTop -> false
-                                    menuHeight <= roomBelow -> true
-                                    else -> roomBelow > fabTop
-                                }
-
-                                // 菜单与 FAB 都只有一个固定的调用点，展开方向只改变修饰符参数。
-                                // 若改用 if/else 交换两者的顺序，翻转方向会重建 FAB 节点并中断正在进行的拖动。
-                                FabMenu(
-                                    modifier = Modifier
-                                        .align(
-                                            when {
-                                                expandDown && onRight -> Alignment.TopEnd
-                                                expandDown -> Alignment.TopStart
-                                                onRight -> Alignment.BottomEnd
-                                                else -> Alignment.BottomStart
-                                            }
-                                        )
-                                        // 只固定 FAB 紧贴的那条竖边，避免菜单标签的宽度把菜单推走
-                                        .padding(
-                                            start = if (onRight) 0.dp else fabLeft,
-                                            end = if (onRight) (maxWidth - fabLeft - FAB_SIZE).coerceAtLeast(0.dp) else 0.dp,
-                                            top = if (expandDown) fabTop + FAB_SIZE + MENU_GAP else 0.dp,
-                                            bottom = if (expandDown) 0.dp else (maxHeight - fabTop + MENU_GAP).coerceAtLeast(0.dp),
-                                        ),
-                                    entries = entries,
-                                    visible = expanded || editMode,
-                                    onRight = onRight,
-                                    expandDown = expandDown,
-                                    backgroundColor = backgroundColor,
-                                    activeColor = activeColor,
-                                    errorColor = errorColor,
-                                )
-
-                                MainFab(
-                                    modifier = Modifier
-                                        .align(Alignment.TopStart)
-                                        .offset { IntOffset(fabLeft.roundToPx(), fabTop.roundToPx()) },
-                                    backgroundColor = backgroundColor,
-                                    activeColor = activeColor,
-                                    saveColor = SAVE_GREEN,
-                                    minDx = minDx,
-                                    maxDx = maxDx,
-                                    minDy = minDy,
-                                    maxDy = maxDy,
-                                    localizedContext = localizedContext,
-                                )
-                            }
-                        }
-                    }
-                }
-            root.addView(hostView)
-            hostViews[activity] = WeakReference(hostView)
-        }
-
-        LauncherUI::startChatting.fastJavaMethod!!.hookBefore {
-            if (!editMode) expanded = false
-        }
-
+        WeMainActivityBeautifyApi.addListener(this, object : WeMainActivityBeautifyApi.Listener {
+            override fun onTabsCreated(home: WeMainActivityBeautifyApi.Home) { attachFab(home) }
+            override fun onBeforeChatting(activity: Activity) { if (!editMode) expanded = false }
+            override fun onDestroy(activity: Activity) { removeHost(activity) }
+        })
         BaseConversationUI::startChatting.fastJavaMethod!!.hookBefore {
             if (!editMode) expanded = false
         }
     }
 
+    private fun attachFab(home: WeMainActivityBeautifyApi.Home) {
+        val activity = home.activity
+        removeHost(activity)
+        // 编辑过程中被重建（例如旋转屏幕）时不要覆盖尚未保存的位置
+        if (!editMode) loadOffset()
+
+        val configList = loadConfig()
+
+        val lifecycleOwner = home.lifecycleOwner
+        val root = activity.rootView
+
+        val hostView = ComposeView(activity).apply {
+                setLifecycleOwner(lifecycleOwner)
+
+                setContent {
+                    InjectedUiTheme {
+                        val localizedContext = LocalWeKitLocalizedContext.current
+                        val menuItems = configList.map { item ->
+                            val icon = iconPool[item.iconName] ?: MaterialSymbols.OutlinedFilled.Add
+                            val action: () -> Unit = when (item.type) {
+                                FabType.START_ACTIVITY -> {
+                                    { item.targetActivity?.let { startActivityByName(activity, it) } }
+                                }
+
+                                FabType.MARK_ALL_READ -> {
+                                    {
+                                        WeConversationApi.markAllAsRead()
+                                        showToast(localizedContext.getString(R.string.fab_all_marked_read))
+                                    }
+                                }
+
+                                FabType.MODULE_SETTINGS -> {
+                                    {
+                                        activity.startActivity(Intent(activity, SettingsActivity::class.java).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        })
+                                    }
+                                }
+
+                                FabType.RESTART_HOST -> {
+                                    { restartHost() }
+                                }
+
+                                FabType.FORCE_STOP -> {
+                                    { killHost() }
+                                }
+                            }
+                            FabMenuEntry(localizedName(localizedContext, item), icon, onClick = action)
+                        }
+                        // Follow the Monet engine's palette when applied, WeChat's neutrals otherwise.
+                        val monet = MonetEngine.surfaceColors(isSystemInDarkTheme())
+                        val backgroundColor = monet?.surfaceHigh?.let(::Color)
+                            ?: if (isSystemInDarkTheme()) Color(0xFF191919) else Color(0xFFF7F7F7)
+                        val activeColor = monet?.primary?.let(::Color) ?: MaterialTheme.colorScheme.primary
+                        val errorColor = MaterialTheme.colorScheme.error
+                        val layoutDirection = LocalLayoutDirection.current
+
+                        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                            val insets = WindowInsets.safeDrawing.asPaddingValues()
+                            val marginStart = insets.calculateStartPadding(layoutDirection).coerceAtLeast(MIN_SCREEN_MARGIN)
+                            val marginEnd = insets.calculateEndPadding(layoutDirection).coerceAtLeast(MIN_SCREEN_MARGIN)
+                            val marginTop = insets.calculateTopPadding().coerceAtLeast(MIN_SCREEN_MARGIN)
+                            val marginBottom = insets.calculateBottomPadding().coerceAtLeast(MIN_SCREEN_MARGIN)
+
+                            // 默认锚点：右下角，上移以避开微信底部标签栏
+                            val defaultLeft = maxWidth - EDGE_PADDING - FAB_SIZE
+                            val defaultTop = maxHeight - TAB_BAR_INSET - EDGE_PADDING - FAB_SIZE
+
+                            // 允许的偏移范围，保证 FAB 始终完整地留在屏幕内
+                            val minDx = (marginStart - defaultLeft).value
+                            val maxDx = (maxWidth - FAB_SIZE - marginEnd - defaultLeft).value.coerceAtLeast(minDx)
+                            val minDy = (marginTop - defaultTop).value
+                            val maxDy = (maxHeight - FAB_SIZE - marginBottom - defaultTop).value.coerceAtLeast(minDy)
+
+                            val fabLeft = defaultLeft + offsetXDp.coerceIn(minDx, maxDx).dp
+                            val fabTop = defaultTop + offsetYDp.coerceIn(minDy, maxDy).dp
+
+                            // FAB 靠近哪一侧，菜单就往哪一侧贴
+                            val onRight = fabLeft + FAB_SIZE / 2 >= maxWidth / 2
+
+                            val entries = if (editMode) {
+                                listOf(
+                                    FabMenuEntry(stringResource(R.string.fab_reset_position), MaterialSymbols.OutlinedFilled.Restart_alt) {
+                                        offsetXDp = 0f
+                                        offsetYDp = 0f
+                                    },
+                                    FabMenuEntry(stringResource(R.string.dialog_cancel), MaterialSymbols.OutlinedFilled.Close, destructive = true) {
+                                        exitEditMode(save = false, localizedContext)
+                                    },
+                                )
+                            } else {
+                                menuItems
+                            }
+
+                            // 展开方向始终按真实菜单的高度计算，这样编辑模式下预览到的方向就是最终效果。
+                            // 上方放得下就向上展开（默认行为），放不下再考虑向下。
+                            val menuHeight = menuHeightOf(maxOf(menuItems.size, entries.size))
+                            val roomBelow = maxHeight - fabTop - FAB_SIZE
+                            val expandDown = when {
+                                menuHeight <= fabTop -> false
+                                menuHeight <= roomBelow -> true
+                                else -> roomBelow > fabTop
+                            }
+
+                            // 菜单与 FAB 都只有一个固定的调用点，展开方向只改变修饰符参数。
+                            // 若改用 if/else 交换两者的顺序，翻转方向会重建 FAB 节点并中断正在进行的拖动。
+                            FabMenu(
+                                modifier = Modifier
+                                    .align(
+                                        when {
+                                            expandDown && onRight -> Alignment.TopEnd
+                                            expandDown -> Alignment.TopStart
+                                            onRight -> Alignment.BottomEnd
+                                            else -> Alignment.BottomStart
+                                        }
+                                    )
+                                    // 只固定 FAB 紧贴的那条竖边，避免菜单标签的宽度把菜单推走
+                                    .padding(
+                                        start = if (onRight) 0.dp else fabLeft,
+                                        end = if (onRight) (maxWidth - fabLeft - FAB_SIZE).coerceAtLeast(0.dp) else 0.dp,
+                                        top = if (expandDown) fabTop + FAB_SIZE + MENU_GAP else 0.dp,
+                                        bottom = if (expandDown) 0.dp else (maxHeight - fabTop + MENU_GAP).coerceAtLeast(0.dp),
+                                    ),
+                                entries = entries,
+                                visible = expanded || editMode,
+                                onRight = onRight,
+                                expandDown = expandDown,
+                                backgroundColor = backgroundColor,
+                                activeColor = activeColor,
+                                errorColor = errorColor,
+                            )
+
+                            MainFab(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .offset { IntOffset(fabLeft.roundToPx(), fabTop.roundToPx()) },
+                                backgroundColor = backgroundColor,
+                                activeColor = activeColor,
+                                saveColor = SAVE_GREEN,
+                                minDx = minDx,
+                                maxDx = maxDx,
+                                minDy = minDy,
+                                maxDy = maxDy,
+                                localizedContext = localizedContext,
+                            )
+                        }
+                    }
+                }
+            }
+        root.addView(hostView)
+        hostViews[activity] = WeakReference(hostView)
+    }
+
+    private fun removeHost(activity: Activity) {
+        val view = hostViews.remove(activity)?.get() ?: return
+        view.disposeComposition()
+        view.removeSelf()
+    }
+
     override fun onDisable() {
         super.onDisable()
+        WeMainActivityBeautifyApi.removeListener(this)
+        hostViews.keys.toList().forEach(::removeHost)
         editMode = false
         expanded = false
     }

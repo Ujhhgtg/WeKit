@@ -61,7 +61,7 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
 
     private val fakeResIdToResMap = mutableIntObjectMapOf<Drawable>()
 
-    private val methodAddItem by dexMethod {
+    val methodAddItem by dexMethod {
         searchPackages("com.tencent.mm.ui")
         matcher {
             usingEqStrings(
@@ -70,7 +70,7 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
             )
         }
     }
-    private val methodHandleItemClick by dexMethod {
+    val methodHandleItemClick by dexMethod {
         searchPackages("com.tencent.mm.ui")
         matcher {
             usingEqStrings("MicroMsg.PlusSubMenuHelper", "processOnItemClick")
@@ -225,7 +225,6 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
     }
 
     override fun onDisable() {
-        // getView 的 Hook 已被 unhookAll 撤销，重新启用时需要允许再次注册
         hookedGetViewMethods.clear()
     }
 }

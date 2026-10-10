@@ -11,7 +11,6 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.view.children
-import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.mogic.WxViewPager
 import dev.ujhhgtg.reflekt.firstMethod
 import dev.ujhhgtg.reflekt.reflekt
@@ -25,6 +24,7 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.baseActivity
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
@@ -82,7 +82,6 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
     private val remapProgrammaticTab = ThreadLocal.withInitial { false }
     private val animateNextPageChange = ThreadLocal.withInitial { false }
     private val allowLogicalTabCount = ThreadLocal.withInitial { false }
-    private val callbackPagerIndex = ThreadLocal<Int?>()
     private var pageSetChanging = false
 
     private fun liveSessions(): List<NavBarSession> {
@@ -117,7 +116,7 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         if (new.visibleTabs != pagerTabs) applyPageSet(new.visibleTabs)
         if (new.style != old.style || new.autoHide != old.autoHide) resetScrollTracking()
         mutableConfigState.value = new
-        liveSessions().forEach { it.applyConfig(old, new) }
+        liveSessions().forEach { it.applyConfig(new) }
     }
 
     private fun applyPageSet(tabs: List<Int>) {
@@ -130,6 +129,8 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         } finally {
             pageSetChanging = false
         }
+        // Notify optional home overlays only after the pager uses the new position mapping.
+        sessions.forEach { LauncherNavigation.notifyTabsChanged(it.tabsAdapter) }
     }
 
     private fun managesMainTabUI(mainTabUI: Any): Boolean = mainTabUI in managedMainTabUIs
@@ -165,11 +166,7 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
                 firstMethod { name = callbackName }.apply {
                     hookBefore(priority = 100) {
                         val pagerIndex = args[0] as Int
-                        callbackPagerIndex.set(pagerIndex)
                         args[0] = tabsOf(thisObject)[pagerIndex]
-                    }
-                    hookAfter(priority = 100) {
-                        callbackPagerIndex.remove()
                     }
                 }
             }
@@ -190,34 +187,6 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
                     remapProgrammaticTab.remove()
                     animateNextPageChange.remove()
                 }
-            }
-
-            firstMethod { name = "onPageScrolled" }.hookBefore {
-                val session = sessionFor(thisObject) ?: return@hookBefore
-                val position = callbackPagerIndex.get() ?: pagerTabs.indexOf(args[0] as Int).coerceAtLeast(0)
-                val offset = args[1] as Float
-                session.selectedPageIndexState.intValue = position
-                session.scrollOffsetState.floatValue = offset
-
-                // Leaving the conversation page always restores the bar and invalidates
-                // the scroll-direction tracker, so returning to the list starts fresh.
-                if (pagerTabs[position] != TAB_HOME) {
-                    recentPageHiddenState.value = false
-                    barScrollHiddenState.value = false
-                    scrollUpdated = false
-                }
-            }
-            firstMethod { name = "onPageScrolled" }.hookAfter {
-                // WeChat pairs each tab with its logical neighbour; after reordering or
-                // hiding pages the highlight has to follow pager neighbours instead.
-                val session = sessionFor(thisObject) ?: return@hookAfter
-                session.syncNativeFocus(pagerTabs.indexOf(args[0] as Int), args[1] as Float)
-            }
-
-            firstMethod { name = "onPageSelected" }.hookBefore {
-                val session = sessionFor(thisObject) ?: return@hookBefore
-                session.targetPageIndexState.intValue =
-                    callbackPagerIndex.get() ?: pagerTabs.indexOf(args[0] as Int).coerceAtLeast(0)
             }
 
             // Live page set: map fragments to their new positions and keep hidden ones
@@ -305,60 +274,11 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
             }
         }
 
-        // Before the TabsAdapter constructor calls setAdapter(), which already reads getCount().
-        WeMainActivityBeautifyApi.methodDoOnCreate.hookBefore {
-            managedMainTabUIs += thisObject!!
-        }
-
-        WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
-            recentPageHiddenState.value = false
-            val mainTabUI = thisObject!!
-            val activity = mainTabUI.reflekt()
-                .firstField { type = "com.tencent.mm.ui.MMFragmentActivity" }
-                .get()!! as Activity
-            val viewPager = mainTabUI.reflekt()
-                .firstField { name = "mViewPager" }
-                .get()!! as WxViewPager
-            val tabsAdapter = mainTabUI.reflekt()
-                .firstField { name = "mTabsAdapter" }
-                .get()!!
-            if (!isManaged(tabsAdapter)) return@hookAfter
-            val bottomTab = (viewPager.parent as ViewGroup).children
-                .first { it.javaClass.name == "com.tencent.mm.ui.LauncherUIBottomTabView" } as ViewGroup
-
-            val session = NavBarSession(activity, mainTabUI, viewPager, tabsAdapter, bottomTab)
-            sessions += session
-
-            // Counters posted before this bar existed are kept by the native view.
-            bottomTab.reflekt().apply {
-                unreadCountState.intValue = firstMethod { name = "getMainTabUnread" }.invoke() as Int
-                contactUnreadCountState.intValue = firstMethod { name = "getContactTabUnread" }.invoke() as Int
-                finderUnreadCountState.intValue = firstMethod { name = "getFriendTabUnread" }.invoke() as Int
-                showFinderDotState.value = firstMethod { name = "getShowFriendPoint" }.invoke() as Boolean
-            }
-            session.applyConfig(null, config)
-        }
-
         "com.tencent.mm.ui.TabIconView".toClass().firstMethod {
             name = "setFocusAlpha"
             parameters(int)
         }.hookAfter {
             focusAlphaStates[thisObject as View]?.intValue = args[0] as Int
-        }
-
-        LauncherUI::class.reflekt().firstMethod {
-            name = "onResume"
-            parameters()
-        }.hookAfter {
-            if (!pendingEditor) return@hookAfter
-            pendingEditor = false
-            val session = sessionForActivity(thisObject as Activity)
-            if (session == null) {
-                // Enabled after this LauncherUI was created: the bar hooks never saw it.
-                showToast(HostInfo.application.getString(R.string.restart_wechat_to_apply))
-                return@hookAfter
-            }
-            session.openEditor()
         }
 
         // TaskBarAnimController starts this listener only when it actually hides the
@@ -441,14 +361,92 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         "com.tencent.mm.ui.FrostedContentView".toClass().firstMethod {
             parameters { it[0] == bool && it[1] == int }
         }.hookBefore {
-            if (config.style != NavBarStyle.NATIVE) args[0] = false
+            val activity = (thisObject as View).context.baseActivity
+            val hiddenByHome = activity != null &&
+                LauncherNavigation.barOverride(activity).value == true &&
+                sessionForActivity(activity)?.editor == null
+            if (config.style != NavBarStyle.NATIVE || hiddenByHome) args[0] = false
         }
+        LauncherNavigation.tabsProvider = ::tabsOf
+        LauncherNavigation.applyBarVisibility = { activity ->
+            val session = sessionForActivity(activity)
+            if (session != null) session.applyHomeVisibility()
+            session != null
+        }
+        WeMainActivityBeautifyApi.addListener(this, object : WeMainActivityBeautifyApi.Listener {
+            override fun onBeforeTabsCreate(mainTabUI: Any) { managedMainTabUIs += mainTabUI }
+            override fun onTabsCreated(home: WeMainActivityBeautifyApi.Home) { attachBar(home) }
+            override fun onResume(activity: Activity) {
+                if (!pendingEditor) return
+                pendingEditor = false
+                val session = sessionForActivity(activity)
+                if (session == null) {
+                    showToast(HostInfo.application.getString(R.string.restart_wechat_to_apply))
+                    return
+                }
+                session.openEditor()
+            }
+            override fun onBeforePageSelected(home: WeMainActivityBeautifyApi.Home, tab: Int) {
+                sessionFor(home.adapter)?.targetPageIndexState?.intValue = home.tabs.indexOf(tab)
+            }
+            override fun onPageScrolled(home: WeMainActivityBeautifyApi.Home, tab: Int, offset: Float) {
+                val session = sessionFor(home.adapter) ?: return
+                session.selectedPageIndexState.intValue = home.tabs.indexOf(tab)
+                session.scrollOffsetState.floatValue = offset
+                if (tab != TAB_HOME) {
+                    recentPageHiddenState.value = false
+                    barScrollHiddenState.value = false
+                    scrollUpdated = false
+                }
+            }
+            override fun onPageScrolledAfter(home: WeMainActivityBeautifyApi.Home, tab: Int, offset: Float) {
+                sessionFor(home.adapter)?.syncNativeFocus(home.tabs.indexOf(tab), offset)
+            }
+            override fun onDestroy(activity: Activity) {
+                sessions.filter { it.activity === activity }.forEach { session ->
+                    session.dispose()
+                    managedMainTabUIs.remove(session.mainTabUI)
+                    managedAdapters.remove(session.tabsAdapter)
+                }
+                sessions.removeAll { it.activity === activity }
+            }
+        })
+    }
+
+    private fun attachBar(home: WeMainActivityBeautifyApi.Home) {
+        val activity = home.activity
+        val mainTabUI = home.mainTabUI
+        val viewPager = home.pager
+        val tabsAdapter = home.adapter
+        recentPageHiddenState.value = false
+        if (!isManaged(tabsAdapter)) return
+        val bottomTab = (viewPager.parent as ViewGroup).children
+            .first { it.javaClass.name == "com.tencent.mm.ui.LauncherUIBottomTabView" } as ViewGroup
+
+        val session = NavBarSession(activity, mainTabUI, viewPager, tabsAdapter, bottomTab)
+        sessions += session
+
+        // Counters posted before this bar existed are kept by the native view.
+        bottomTab.reflekt().apply {
+            unreadCountState.intValue = firstMethod { name = "getMainTabUnread" }.invoke() as Int
+            contactUnreadCountState.intValue = firstMethod { name = "getContactTabUnread" }.invoke() as Int
+            finderUnreadCountState.intValue = firstMethod { name = "getFriendTabUnread" }.invoke() as Int
+            showFinderDotState.value = firstMethod { name = "getShowFriendPoint" }.invoke() as Boolean
+        }
+        session.applyConfig(config)
+        LauncherNavigation.notifyTabsChanged(tabsAdapter)
     }
 
     override fun onDisable() {
         super.onDisable()
+        WeMainActivityBeautifyApi.removeListener(this)
         pendingEditor = false
-        liveSessions().forEach { it.editor?.dismiss() }
+        val removedSessions = liveSessions()
+        removedSessions.forEach { it.dispose() }
+        sessions.clear()
+        LauncherNavigation.tabsProvider = null
+        LauncherNavigation.applyBarVisibility = null
+        removedSessions.forEach { LauncherNavigation.notifyTabsChanged(it.tabsAdapter) }
     }
 
     // Conversation-list scroll tracking, mirroring NagramXF's DialogsActivity logic:
