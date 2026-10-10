@@ -10,25 +10,20 @@
 ```bash
 ./x build           # debug (uses same signing as release)
 ./x build --release # release (with optimization on)
-./x build --release --protect false # unprotected release (no LSpeciallyParanoid)
 ./x build --native-only # only prepare application + Zygisk native libs in jniLibs/
 ./x run --zygisk    # build the dual-format APK and install it as a Zygisk module
 # (./x is alias to `cargo xtask` which orchestrates the build process)
 ```
 
 - In a Git worktree, run `git submodule update --init --recursive` before any work; otherwise
-  `libs/common/bsh`, `libs/common/reflekt` and `libs/lsparanoid` are empty and builds fail.
+  `libs/common/bsh` and `libs/common/reflekt` are empty and builds fail.
 - Work directly on `dev` unless the user explicitly requests another branch or isolated history.
 - Every debug/release APK is dual-format: install as an APK, or rename to `.zip`
   and install through a root manager. Module files enter the APK before AGP signs it; never modify
   or repack the signed output. There is no separate `zygisk build` command.
 - JDK 21, AGP 9, Gradle version catalog in `gradle/libs.versions.toml`
-- LSpeciallyParanoid (`libs/lsparanoid`) is a composite build, not a published artifact: its plugin
-  and runtime are built from source (JDK 17 toolchain, auto-provisioned). Release builds also need
-  its O-MVLL toolchain: `python3 libs/lsparanoid/tools/setup-native-toolchain.py --sdk "$ANDROID_HOME"`.
-- CI builds both release variants (`.github/scripts/build-release-variants.sh`): protected
-  `app-release.apk` and `app-release-unprotected.apk`. Only the protected APK is published (CI
-  GitHub release, Xposed repo); the unprotected one is the `wekit-apk-unprotected` artifact.
+- CI builds one release APK (`app-release.apk`) and publishes it to the CI GitHub release and
+  Xposed Modules Repository.
 
 ## Project Structure
 

@@ -3,7 +3,6 @@
 package dev.ujhhgtg.wekit.loader.entry.zygisk
 
 import android.content.pm.ApplicationInfo
-import android.util.Log
 import androidx.annotation.Keep
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.BuildConfig
@@ -48,7 +47,7 @@ object ZygiskEntry {
     ) {
         val targetPackage = processName.substringBefore(':')
         if (!PackageNames.isWeChat(targetPackage)) {
-            Log.w(TAG, "ignoring unsupported Zygisk target: $targetPackage")
+            WeLogger.w(TAG, "ignoring unsupported Zygisk target: $targetPackage")
             return
         }
         synchronized(entryLock) {
@@ -56,7 +55,7 @@ object ZygiskEntry {
 
             try {
                 NativeLoader.configureZygiskPayload(apkPath, dataDir)
-                Log.i(TAG, "ZygiskEntry.init: process=$processName apk=$apkPath dataDir=$dataDir")
+                WeLogger.i(TAG, "ZygiskEntry.init: process=$processName apk=$apkPath dataDir=$dataDir")
                 check(nativeInitialize()) {
                     "LSPlant bootstrap or hook bridge registration failed"
                 }
@@ -88,9 +87,6 @@ object ZygiskEntry {
                         val appInfo = param.args.getOrNull(0) as? ApplicationInfo ?: return
                         if (appInfo.packageName != targetPackage) return
                         val factory = param.result ?: return
-                        // postAppSpecialize runs before Android binds/names the host process.
-                        // Authenticate only once LoadedApk has a real bound ApplicationInfo.
-                        NativeLoader.initDecoder(modulePath)
                         installFinalClassLoaderHook(bridge, factory, targetPackage)
                     }
                 }, priority = 10000)
@@ -102,8 +98,7 @@ object ZygiskEntry {
                 modulePath = ""
                 moduleStarted.set(false)
                 finalClassLoaderHookInstalled.set(false)
-                // Loading the decoder can fail before WeLogger is safe to initialize.
-                Log.e(TAG, "ZygiskEntry.init failed", t)
+                WeLogger.e(TAG, "ZygiskEntry.init failed", t)
             }
         }
     }

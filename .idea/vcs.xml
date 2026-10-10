@@ -5,7 +5,6 @@
     <mapping directory="$PROJECT_DIR$/libs/common/bsh" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/libs/common/reflekt" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/libs/common/scripta" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/libs/lsparanoid" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/third_party/lsplant" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/third_party/lsplant/lsplant/src/main/jni/external/dex_builder" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/third_party/lsplant/lsplant/src/main/jni/external/dex_builder/external/parallel_hashmap" vcs="Git" />

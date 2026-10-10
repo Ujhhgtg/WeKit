@@ -6,7 +6,6 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
-    id("dev.ujhhgtg.lsparanoid") version "0.13.3"
     alias(libs.plugins.android.application)
     alias(libs.plugins.google.devtools.ksp)
     alias(libs.plugins.kotlin.compose)
@@ -14,52 +13,6 @@ plugins {
     alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.aboutlibraries.android)
     alias(libs.plugins.hiddenapirefine)
-}
-
-// Decide per variant, so a single assemble invocation can build plain debug and protected release.
-// Validation invocations share main outputs with their tests and must remain entirely unprotected.
-val protectionOverride = providers.gradleProperty("protect").map { value ->
-    requireNotNull(value.toBooleanStrictOrNull()) { "-Pprotect must be true or false" }
-}.orNull
-val protectionValidation = providers.gradleProperty("dexTestWorker").orNull == "true" ||
-    gradle.startParameter.taskNames.any { path ->
-        val name = path.substringAfterLast(':').lowercase()
-        "test" in name || name in setOf(
-            "check", "connectedcheck", "devicecheck", "build", "buildneeded", "builddependents",
-        )
-    }
-
-lsparanoid {
-    variantFilter = { variant ->
-        !protectionValidation && protectionOverride ?: (variant.buildType == "release")
-    }
-    backend = providers.gradleProperty("lspBackend").orElse("native").get()
-    automaticLoading = false
-    allowedHostCertificates = mapOf(
-        "com.tencent.mm" to setOf("0fe4ff85c215918396dadc7cd8ce6963339af33d37751a56e54c7206b63a3c7c"),
-    )
-    nativeNdkVersion = providers.gradleProperty("lspNdkVersion").orElse("29.0.14206865").get()
-    omvllPlugin = providers.gradleProperty("lspOmvllPlugin").orNull
-    omvllPythonPath = providers.gradleProperty("lspOmvllPythonPath").orNull
-    classFilter = { it.startsWith("dev.ujhhgtg.wekit.") }
-    excludedClassPrefixes = setOf(
-        "dev.ujhhgtg.wekit.application.ModuleApplication",
-        "dev.ujhhgtg.wekit.loader.startup.ModuleLoader",
-        "dev.ujhhgtg.wekit.loader.entry",
-        "dev.ujhhgtg.wekit.loader.utils.NativeLoader",
-        "dev.ujhhgtg.wekit.loader.utils.ZygiskNativePayload",
-        "dev.ujhhgtg.wekit.constants.PackageNames",
-        "dev.ujhhgtg.wekit.utils.fs.PathUtilsKt",
-        "dev.ujhhgtg.wekit.BuildConfig",
-    )
-    if (backend == "native") {
-        wrappedResourceAccess = true
-        resourceIncludes = setOf("string/*", "plurals/*", "array/*")
-        resourceExcludes = setOf(
-            "string/restart_wechat_to_apply", "string/nav_edit_enable_first",
-            "string/automation_name_required", "string/res_inject_success",
-        )
-    }
 }
 
 // Keep Git values lazy: reading them during configuration invalidates the configuration cache
@@ -507,6 +460,3 @@ tasks.withType<KotlinJvmCompile>().configureEach {
         freeCompilerArgs.add("-opt-in=kotlinx.serialization.ExperimentalSerializationApi")
     }
 }
-
-// The localization adapter remains present in JVM development variants.
-dependencies { implementation("dev.ujhhgtg.lsparanoid:runtime:0.13.3") }

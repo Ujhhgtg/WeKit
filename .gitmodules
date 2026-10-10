@@ -20,6 +20,3 @@
 [submodule "third_party/xz-embedded"]
 	path = third_party/xz-embedded
 	url = https://github.com/tukaani-project/xz-embedded.git
-[submodule "libs/lsparanoid"]
-	path = libs/lsparanoid
-	url = https://github.com/Ujhhgtg/LSpeciallyParanoid

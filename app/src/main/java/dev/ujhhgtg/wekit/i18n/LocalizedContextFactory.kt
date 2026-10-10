@@ -3,8 +3,6 @@ package dev.ujhhgtg.wekit.i18n
 import android.content.Context
 import android.content.res.Configuration
 import android.os.LocaleList
-import dev.ujhhgtg.lsparanoid.generated.LspBootstrap
-import dev.ujhhgtg.lsparanoid.runtime.LspResourceContext
 import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 
 enum class LocaleResourceMode {
@@ -28,11 +26,10 @@ object LocalizedContextFactory {
             }
             LocaleResourceMode.ModuleApp -> configured
         }
-        val decoded = LspResourceContext(localized, LspBootstrap::decode, LspBootstrap.namespace)
         return if (locale == SupportedLocale.MEOW_CHINESE) {
-            MeowResourcesContext(decoded)
+            MeowResourcesContext(localized)
         } else {
-            decoded
+            localized
         }
     }
 }
