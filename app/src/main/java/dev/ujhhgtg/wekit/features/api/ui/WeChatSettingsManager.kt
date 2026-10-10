@@ -48,13 +48,8 @@ class WeChatSettingsManager(
     private var contextGetStringUnhook: HookHandle? = null
     private var resourcesGetStringUnhook: HookHandle? = null
 
-    // 设置页可以嵌套(设置 → 通用)，superImportUIComponents 会被触发多次。
-    // 这里用弱引用集合记录当前存活的设置页，只在第一个进入时挂钩、最后一个销毁时解钩，
-    // 避免后进入的页面把前一个的 HookHandle 覆盖掉、把全局 getString Hook 永久留在微信进程里。
-    // 用弱引用而不是计数器，是为了让重复进入/未配对的销毁都不会把状态弄坏：
-    // 重复添加同一实例是空操作，移除未记录的实例也是空操作，被泄漏的页面会随 GC 自动出集合。
     private val activeSettingsUis: MutableSet<Any> =
-        Collections.newSetFromMap(WeakHashMap<Any, Boolean>())
+        Collections.newSetFromMap(WeakHashMap())
     private val settingsUiLock = Any()
 
     // 依靠 Marker 接口隔离 Proxy 类缓存
