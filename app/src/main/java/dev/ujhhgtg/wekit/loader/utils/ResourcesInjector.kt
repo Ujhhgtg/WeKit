@@ -15,8 +15,7 @@ import dev.ujhhgtg.wekit.utils.reflection.asHidden
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
-class InjectionHandle constructor(
-    val canonicalApk: File,
+class InjectionHandle(
     val sha256: String,
     val cookie: Int,
     val keepAlive: Any?,
@@ -78,7 +77,7 @@ object ResourcesInjector {
         ParcelFileDescriptor.open(apk, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
             val provider = ResourcesProvider.loadFromApk(descriptor)
             val loader = ResourcesLoader().apply { addProvider(provider) }
-            return InjectionHandle(apk, sha256, 0, loader)
+            return InjectionHandle(sha256, 0, loader)
         }
     }
 
@@ -86,7 +85,7 @@ object ResourcesInjector {
     private fun injectResLt30(resources: Resources, apk: File, sha256: String): InjectionHandle {
         val cookie = resources.assets.asHidden().addAssetPath(apk.absolutePath)
         require(cookie != 0) { "AssetManager rejected ${apk.absolutePath}" }
-        return InjectionHandle(apk, sha256, cookie, resources.assets)
+        return InjectionHandle(sha256, cookie, resources.assets)
     }
 
     private fun logInjectionFailure(path: String, error: Throwable, cookie: Int) {
