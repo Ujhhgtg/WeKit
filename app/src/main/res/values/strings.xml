@@ -4014,4 +4014,21 @@
     <string name="beautify_home_discover">Discover</string>
     <string name="beautify_home_me">Me</string>
     <string name="beautify_home_action_failed">Native action unavailable. See the WeKit log for details.</string>
+    <string name="feature_unlock_live_photos_name">Unlock live photos</string>
+    <string name="feature_unlock_live_photos_description">Enable live photos in chats and Moments. Use the system implementation when present, otherwise use WeKit for standard JPEG Motion Photos.</string>
+    <string name="live_photo_force_wekit">Force WeKit backend</string>
+    <string name="live_photo_force_wekit_description">For testing: use WeKit even when a system implementation exists. Takes effect after restarting WeChat.</string>
+    <string name="live_photo_oplus_compatibility">OPlus compatibility option</string>
+    <string name="live_photo_oplus_compatibility_description">Improve compatibility with OPlus Gallery for single-file exports. Only affects the WeKit backend; takes effect on the next save.</string>
+    <string name="live_photo_vivo_compatibility">Vivo compatibility option</string>
+    <string name="live_photo_vivo_compatibility_description">Improve saving compatibility for Motion Photos from Vivo systems. Only affects the WeKit backend; takes effect on the next save.</string>
+    <string name="live_photo_vivo_compatibility_disabled">Off</string>
+    <string name="live_photo_vivo_compatibility_dual_file">Vivo V1 dual-file format</string>
+    <string name="live_photo_vivo_compatibility_single_file">Vivo V2 single-file format</string>
+    <string name="live_photo_vivo_compatibility_standard">Standard Motion Photo format</string>
+    <string name="live_photo_current_backend">Current backend</string>
+    <string name="live_photo_backend_inactive">Feature inactive</string>
+    <string name="live_photo_backend_system">System implementation</string>
+    <string name="live_photo_backend_wekit">WeKit implementation</string>
+    <string name="live_photo_backend_unknown">Implementation source unknown; existing methods pass through</string>
 </resources>

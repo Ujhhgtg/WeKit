@@ -4027,4 +4027,21 @@
     <string name="beautify_home_discover">发现</string>
     <string name="beautify_home_me">我</string>
     <string name="beautify_home_action_failed">原生操作暂不可用，请查看 WeKit 日志。</string>
+    <string name="feature_unlock_live_photos_name">强开实况照片</string>
+    <string name="feature_unlock_live_photos_description">开启聊天和朋友圈实况照片。系统提供实现时直接使用系统，否则由 WeKit 处理标准 JPEG 实况照片。</string>
+    <string name="live_photo_force_wekit">强制使用 WeKit 后端</string>
+    <string name="live_photo_force_wekit_description">用于测试：即使系统提供实况实现，也使用 WeKit。重启微信后生效。</string>
+    <string name="live_photo_oplus_compatibility">OPlus 兼容性选项</string>
+    <string name="live_photo_oplus_compatibility_description">提高单文件实况照片在欧加系统相册中的兼容性。仅影响 WeKit 后端，下次保存生效。</string>
+    <string name="live_photo_vivo_compatibility">Vivo 兼容性选项</string>
+    <string name="live_photo_vivo_compatibility_description">提高来自 Vivo 系统的实况照片保存兼容性。仅影响 WeKit 后端，下次保存生效。</string>
+    <string name="live_photo_vivo_compatibility_disabled">关闭</string>
+    <string name="live_photo_vivo_compatibility_dual_file">Vivo V1 双文件格式</string>
+    <string name="live_photo_vivo_compatibility_single_file">Vivo V2 单文件格式</string>
+    <string name="live_photo_vivo_compatibility_standard">标准实况照片格式</string>
+    <string name="live_photo_current_backend">当前实际后端</string>
+    <string name="live_photo_backend_inactive">功能未运行</string>
+    <string name="live_photo_backend_system">系统实现</string>
+    <string name="live_photo_backend_wekit">WeKit 实现</string>
+    <string name="live_photo_backend_unknown">实现来源未确认，保留现有调用</string>
 </resources>

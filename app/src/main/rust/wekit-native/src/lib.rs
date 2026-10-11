@@ -6,6 +6,7 @@ mod audio_utils;
 mod crash_handler;
 mod crash_triggerer;
 mod logging;
+mod livephoto;
 mod owned_process;
 mod pty;
 mod telegram_sticker;
