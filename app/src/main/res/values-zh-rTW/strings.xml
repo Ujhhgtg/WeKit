@@ -4012,7 +4012,7 @@
     <string name="feature_unlock_live_photos_name">強制開啟實況照片</string>
     <string name="feature_unlock_live_photos_description">開啟聊天和朋友圈實況照片。系統提供實作時直接使用系統，否則由 WeKit 處理標準 JPEG 實況照片。</string>
     <string name="live_photo_force_wekit">強制使用 WeKit 後端</string>
-    <string name="live_photo_force_wekit_description">用於測試：即使系統提供實況實作，也使用 WeKit。重新啟動微信後生效。</string>
+    <string name="live_photo_force_wekit_description">即使系統提供實況實作，也使用 WeKit。重新啟動微信後生效。</string>
     <string name="live_photo_oplus_compatibility">OPlus 相容性選項</string>
     <string name="live_photo_oplus_compatibility_description">提高單檔案實況照片在歐加系統相簿中的相容性。僅影響 WeKit 後端，下次儲存生效。</string>
     <string name="live_photo_vivo_compatibility">Vivo 相容性選項</string>
