@@ -1,7 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
-import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +21,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
@@ -30,7 +30,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
@@ -155,8 +155,7 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
             val errType = args[0] as Int
             val errCode = args[1] as Int
             // The host also handles the timeline's 207 response as a valid result.
-            request.handledValidResponse = (errType == 0 && errCode == 0) ||
-                    (errType == 4 && errCode == 207)
+            request.handledValidResponse = errType == 0 && errCode == 0 || errType == 4 && errCode == 207
         }
         methodTimelineResponseEnd.hookAfter {
             val request = pendingRefresh.get() ?: return@hookAfter
