@@ -306,8 +306,6 @@
     <string name="extensions_pack_python_runtime_name">Python Runtime</string>
     <string name="extensions_pack_python_runtime_desc">CPython and Chaquopy runtime for Python plugins</string>
     <string name="extensions_pack_python_restart_required">Update installed; restart WeChat to use it</string>
-    <string name="extensions_pack_archlinux_name">Arch Linux ARM64</string>
-    <string name="extensions_pack_archlinux_desc">Root filesystem and PRoot launcher for local WeAgent Linux environments</string>
     <string name="extensions_pack_downloading">Downloading…</string>
     <string name="extensions_pack_installed_version">Installed: %1$s</string>
     <string name="extensions_pack_state_not_installed">Not installed</string>

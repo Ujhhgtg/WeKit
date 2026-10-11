@@ -5,12 +5,11 @@ import android.os.Process
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import java.io.File
 
-/** Initializes bundled native libraries and resolves the APK's executable artifacts. */
+/** Initializes bundled native libraries. */
 object NativeLoader {
 
     private val nativeLoadLock = Any()
     private var zygiskPayload: ZygiskNativePayload? = null
-    private var zygiskNativeLibraries: Map<String, File> = emptyMap()
     private var installedNativeLibraryDir: File? = null
     private var nativeLibrariesLoaded = false
 
@@ -54,28 +53,9 @@ object NativeLoader {
                 System.load(installedNativeLibrary(name).absolutePath)
             }
         } else {
-            zygiskNativeLibraries = payload.loadLibraries()
+            payload.loadLibraries()
         }
         nativeLibrariesLoaded = true
-    }
-
-    fun invokeToolExecutable(): File = bundledExecutable("invoke_tool")
-
-    // PRoot requires the installed APK's native directory; the Zygisk payload does not provide it.
-    fun prootExecutable(): File = synchronized(nativeLoadLock) {
-        installedNativeArtifact("proot").requireExecutable("proot")
-    }
-
-    fun prootLoaderExecutable(): File = synchronized(nativeLoadLock) {
-        installedNativeArtifact("proot_loader").requireExecutable("proot_loader")
-    }
-
-    private fun bundledExecutable(name: String): File = synchronized(nativeLoadLock) {
-        (zygiskNativeLibraries[name] ?: installedNativeArtifact(name)).requireExecutable(name)
-    }
-
-    private fun File.requireExecutable(name: String): File = also {
-        require(isFile && canExecute()) { "$name is not executable: $this" }
     }
 
     private fun installedNativeLibrary(name: String): File = installedNativeArtifact(name).also {

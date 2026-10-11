@@ -117,7 +117,7 @@ data class ScriptCatalogEntity(
     val updatedAt: Long,
 )
 
-/** Index for an extension package whose APK/SO/DEX/rootfs bytes stay in the managed files tree. */
+/** Index for an extension package whose APK/SO/DEX bytes stay in the managed files tree. */
 @Entity(
     tableName = "extension_installs",
     primaryKeys = ["extensionId", "version", "abi"],

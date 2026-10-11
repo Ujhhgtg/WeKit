@@ -80,7 +80,7 @@ class LinuxEnvironmentTest {
 
     @Test
     fun `deletion plan transitions pinned and default-following sessions with full context`() {
-        val old = environment(LinuxEnvironmentType.PROOT).toSnapshot()
+        val old = environment(LinuxEnvironmentType.SSH).toSnapshot()
         val native = nativeSnapshot("/native".asPath)
 
         val plan = WeAgentRepository.planLinuxEnvironmentDeletion(
@@ -109,10 +109,9 @@ class LinuxEnvironmentTest {
 
     @Test
     fun `deletion plan replaces a deleted binding with the surviving default`() {
-        val old = environment(LinuxEnvironmentType.PROOT).toSnapshot()
+        val old = environment(LinuxEnvironmentType.SSH).toSnapshot()
         val replacement = environment(LinuxEnvironmentType.SSH).copy(
             id = "replacement",
-            rootfsPath = null,
             sshHost = "host",
             sshPort = 22,
             sshUsername = "user",
@@ -137,9 +136,9 @@ class LinuxEnvironmentTest {
 
     @Test
     fun `environment type is immutable at repository boundary`() {
-        val existing = environment(LinuxEnvironmentType.PROOT)
+        val existing = environment(LinuxEnvironmentType.SSH)
         assertThrows(IllegalArgumentException::class.java) {
-            WeAgentRepository.validateLinuxEnvironmentUpdate(existing, existing.copy(type = LinuxEnvironmentType.SSH))
+            WeAgentRepository.validateLinuxEnvironmentUpdate(existing, existing.copy(type = LinuxEnvironmentType.NATIVE))
         }
     }
 
@@ -175,50 +174,8 @@ class LinuxEnvironmentTest {
     }
 
     @Test
-    fun `proot creation persists only after publish and removes published files on persistence failure`(@TempDir directory: Path) = runBlocking {
-        val instanceRoot = directory.resolve("instance")
-        val rootfs = instanceRoot.resolve("rootfs")
-        var persistedAfterPublish = false
-        val manager = LinuxEnvironmentManager(
-            nativeSnapshot = nativeSnapshot(directory.resolve("native").also(Files::createDirectories)),
-            prootPackAvailable = { true },
-            installProot = {
-                Files.createDirectories(rootfs)
-                ArchLinuxInstance(rootfs.toFile(), "version")
-            },
-            persistEnvironment = {
-                persistedAfterPublish = Files.isDirectory(rootfs)
-                error("database failure")
-            },
-        )
-
-        assertThrows(IllegalStateException::class.java) {
-            runBlocking { manager.createProotEnvironment("Arch", "instance") }
-        }
-        assertTrue(persistedAfterPublish)
-        assertFalse(Files.exists(instanceRoot))
-    }
-
-    @Test
-    fun `proot creation exposes missing extension pack without installing`(@TempDir directory: Path) = runBlocking {
-        var installCalled = false
-        val manager = LinuxEnvironmentManager(
-            nativeSnapshot = nativeSnapshot(directory),
-            prootPackAvailable = { false },
-            installProot = { installCalled = true; error("must not install") },
-            persistEnvironment = { error("must not persist") },
-        )
-
-        val result = manager.createProotEnvironment("Arch", "instance")
-
-        assertTrue(result is ProotEnvironmentCreationResult.MissingPack)
-        assertFalse(installCalled)
-    }
-
-    @Test
     fun `throwing deletion notification still clears runtime state and returns committed result`(@TempDir directory: Path) = runBlocking {
         val stored = environment(LinuxEnvironmentType.SSH).copy(
-            rootfsPath = null,
             sshHost = "host",
             sshPort = 22,
             sshUsername = "user",
@@ -266,7 +223,7 @@ class LinuxEnvironmentTest {
 
     @Test
     fun `persistent environment lease blocks deletion until released`(@TempDir directory: Path) = runBlocking {
-        val stored = environment(LinuxEnvironmentType.SSH).copy(rootfsPath = null)
+        val stored = environment(LinuxEnvironmentType.SSH)
         var deleted = false
         val manager = LinuxEnvironmentManager(
             nativeSnapshot = nativeSnapshot(directory.resolve("native")),
@@ -307,7 +264,7 @@ class LinuxEnvironmentTest {
 
     @Test
     fun `lease remains released when stale backend close fails after decrement`(@TempDir directory: Path) = runBlocking {
-        val stored = environment(LinuxEnvironmentType.SSH).copy(rootfsPath = null)
+        val stored = environment(LinuxEnvironmentType.SSH)
         var closes = 0
         var deleted = false
         val manager = LinuxEnvironmentManager(
@@ -363,7 +320,7 @@ class LinuxEnvironmentTest {
 
     @Test
     fun `cancelled exec waiting for environment mutex releases its lease`(@TempDir directory: Path) = runBlocking {
-        val stored = environment(LinuxEnvironmentType.SSH).copy(rootfsPath = null)
+        val stored = environment(LinuxEnvironmentType.SSH)
         val entered = CompletableDeferred<Unit>()
         val proceed = CompletableDeferred<Unit>()
         val manager = LinuxEnvironmentManager(
@@ -397,29 +354,11 @@ class LinuxEnvironmentTest {
         assertTrue(manager.delete(stored.id))
     }
 
-    @Test
-    fun `failed local database deletion restores quarantined instance`(@TempDir directory: Path) = runBlocking {
-        val instance = directory.resolve("environment")
-        val rootfs = Files.createDirectories(instance.resolve("rootfs"))
-        rootfs.resolve("kept").writeText("data")
-        val stored = environment(LinuxEnvironmentType.PROOT).copy(rootfsPath = rootfs.toString())
-        val manager = LinuxEnvironmentManager(
-            nativeSnapshot = nativeSnapshot(directory.resolve("native")),
-            getEnvironment = { stored },
-            deleteEnvironment = { _, _, _ -> error("database failure") },
-        )
-
-        assertThrows(IllegalStateException::class.java) { runBlocking { manager.delete(stored.id) } }
-        assertEquals("data", Files.readString(rootfs.resolve("kept")))
-        assertTrue(Files.list(directory).use { entries -> entries.noneMatch { it.fileName.toString().contains(".deleting-") } })
-    }
-
     private fun environment(type: LinuxEnvironmentType) = LinuxEnvironmentEntity(
         id = "environment",
         name = "Environment",
         type = type,
         workingDirectory = "/home/user",
-        rootfsPath = "/rootfs",
     )
 
     private fun nativeSnapshot(directory: Path) = EnvironmentSnapshot(

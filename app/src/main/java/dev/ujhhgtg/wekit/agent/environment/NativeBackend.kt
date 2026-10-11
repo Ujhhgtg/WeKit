@@ -3,9 +3,7 @@ package dev.ujhhgtg.wekit.agent.environment
 import dev.ujhhgtg.wekit.utils.fs.copyTo
 import dev.ujhhgtg.wekit.utils.fs.copyFrom
 import kotlin.io.path.createDirectories
-import kotlin.io.path.createSymbolicLinkPointingTo
 import kotlin.io.path.createTempFile
-import kotlin.io.path.deleteExisting
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
 import kotlin.io.path.fileSize
@@ -13,12 +11,10 @@ import kotlin.io.path.getPosixFilePermissions
 import kotlin.io.path.inputStream
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
-import kotlin.io.path.isSymbolicLink
 import kotlin.io.path.isWritable
 import kotlin.io.path.moveTo
 import kotlin.io.path.outputStream
 import kotlin.io.path.readBytes
-import kotlin.io.path.readSymbolicLink
 import kotlin.io.path.setPosixFilePermissions
 import kotlin.io.path.writeText
 import java.nio.ByteBuffer
@@ -37,7 +33,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 
 class NativeBackend constructor(
     override val snapshot: EnvironmentSnapshot,
@@ -205,17 +200,7 @@ class NativeBackend constructor(
 
     override fun resolvePath(path: String): String = resolve(path).toString()
 
-    override suspend fun ensureBridge(): BridgeInstallArtifact = withContext(Dispatchers.IO) {
-        val packaged = NativeLoader.invokeToolExecutable()
-        val bin = Paths.get(snapshot.workingDirectory).resolve(".weagent/bin")
-        bin.createDirectories()
-        val link = bin.resolve("invoke_tool")
-        if (link.isSymbolicLink() && link.readSymbolicLink() != packaged.toPath()) {
-            link.deleteExisting()
-        }
-        if (!link.exists()) link.createSymbolicLinkPointingTo(packaged.toPath())
-        BridgeInstallArtifact(link.toString(), bin.toString())
-    }
+    override suspend fun ensureBridge(): BridgeInstallArtifact? = null
 
     override suspend fun checkHealth(): EnvironmentHealth = withContext(Dispatchers.IO) {
         val directory = Paths.get(snapshot.workingDirectory)

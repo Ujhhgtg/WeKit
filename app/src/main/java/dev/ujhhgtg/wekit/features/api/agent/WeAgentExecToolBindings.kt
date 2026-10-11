@@ -16,19 +16,22 @@ object WeAgentExecToolBindings {
         val session = coroutineContext[AgentSessionContext] ?: error("no active agent session")
         val environment = session.environment ?: error("no active Linux environment context")
         val artifact = WeAgentService.linuxEnvironmentManager.ensureBridge(environment.id)
-            ?: error("invoke_tool is unavailable in ${environment.displayName}")
-        val result = WeAgentService.toolBridgeServer.withOneShot(
+        suspend fun execute(extraEnvironment: Map<String, String> = emptyMap()) =
+            WeAgentService.linuxEnvironmentManager.exec(
+                environment.id,
+                command,
+                timeout_ms ?: 60_000L,
+                environment.environmentVariables + extraEnvironment,
+            )
+        val result = if (artifact == null) execute() else WeAgentService.toolBridgeServer.withOneShot(
             owner = session.sessionId,
             environmentId = environment.id,
             parentToolCallId = coroutineContext[ToolExecutionContext]?.callId,
             visibility = session.toolVisibility,
             context = coroutineContext,
         ) { endpoint ->
-            WeAgentService.linuxEnvironmentManager.exec(
-                environment.id,
-                command,
-                timeout_ms ?: 60_000L,
-                environment.environmentVariables + endpoint.environment() + mapOf(
+            execute(
+                endpoint.environment() + mapOf(
                     "WEAGENT_INVOKE_TOOL" to artifact.executablePath,
                     "PATH" to "${artifact.binDirectory}:${System.getenv("PATH").orEmpty()}",
                 ),

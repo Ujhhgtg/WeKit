@@ -1,8 +1,5 @@
 package dev.ujhhgtg.wekit.agent.environment
 
-import kotlin.io.path.exists
-import kotlin.io.path.moveTo
-import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
@@ -12,14 +9,9 @@ import dev.ujhhgtg.wekit.agent.ssh.SshCredentialStore
 import dev.ujhhgtg.wekit.agent.ssh.SshEndpoint
 import dev.ujhhgtg.wekit.agent.ssh.SshHostKey
 import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyException
-import dev.ujhhgtg.wekit.extensions.ArchLinuxPack
-import dev.ujhhgtg.wekit.extensions.ExtensionPack
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import java.io.File
-import java.nio.file.Path
-import java.nio.file.StandardCopyOption
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,8 +27,6 @@ import kotlinx.serialization.json.jsonPrimitive
 class LinuxEnvironmentManager(
     nativeSnapshot: EnvironmentSnapshot = defaultNativeSnapshot(),
     private val backendFactory: ((EnvironmentSnapshot) -> LinuxEnvironmentBackend)? = null,
-    private val prootPackAvailable: () -> Boolean = { ArchLinuxPack.installedManifest() != null },
-    private val installProot: suspend (String) -> ArchLinuxInstance = ArchLinuxPack::createInstance,
     private val persistEnvironment: suspend (LinuxEnvironmentEntity) -> Unit = WeAgentRepository::upsertLinuxEnvironment,
     private val getEnvironment: suspend (String) -> LinuxEnvironmentEntity? = WeAgentRepository::getLinuxEnvironment,
     private val deleteEnvironment: suspend (String, EnvironmentSnapshot, EnvironmentSnapshot) -> Boolean =
@@ -70,7 +60,7 @@ class LinuxEnvironmentManager(
             val workingDirectory = File(nativeWorkingDirectory ?: nativeSnapshot.workingDirectory).apply { mkdirs() }
             nativeSnapshot = nativeSnapshot.copy(
                 workingDirectory = workingDirectory.absolutePath,
-                bridgeLocation = workingDirectory.resolve(".weagent/bin/invoke_tool").absolutePath,
+                bridgeLocation = null,
                 environmentVariables = nativeEnvironmentVariables,
             )
             mutableNativeSnapshot.value = nativeSnapshot
@@ -95,7 +85,7 @@ class LinuxEnvironmentManager(
         )
         nativeSnapshot = nativeSnapshot.copy(
             workingDirectory = directory.path,
-            bridgeLocation = directory.resolve(".weagent/bin/invoke_tool").path,
+            bridgeLocation = null,
             environmentVariables = variables,
         )
         mutableNativeSnapshot.value = nativeSnapshot
@@ -135,40 +125,6 @@ class LinuxEnvironmentManager(
         }
     }
 
-    suspend fun createProotEnvironment(
-        name: String,
-        instanceId: String = UUID.randomUUID().toString(),
-        workingDirectory: String = "/root",
-        environmentVariablesJson: String = "{}",
-    ): ProotEnvironmentCreationResult {
-        val trimmedName = name.trim()
-        require(trimmedName.isNotEmpty() && trimmedName.length <= 80) { "environment name must be 1-80 characters" }
-        require(instanceId.matches(Regex("[A-Za-z0-9._-]{1,80}"))) { "invalid instance id" }
-        validateGuestWorkingDirectory(workingDirectory)
-        parseEnvironmentVariables(environmentVariablesJson)
-        if (!prootPackAvailable()) return ProotEnvironmentCreationResult.MissingPack(ArchLinuxPack)
-
-        val instance = installProot(instanceId)
-        val entity = LinuxEnvironmentEntity(
-            id = instanceId,
-            name = trimmedName,
-            type = LinuxEnvironmentType.PROOT,
-            workingDirectory = workingDirectory,
-            environmentVariablesJson = environmentVariablesJson,
-            rootfsPath = instance.rootfs.absolutePath,
-            rootfsContentVersion = instance.contentVersion,
-            createdAt = System.currentTimeMillis(),
-            bridgePath = instance.bridgePath,
-        )
-        try {
-            persistEnvironment(entity)
-        } catch (error: Throwable) {
-            instance.rootfs.parentFile?.deleteRecursively()
-            throw error
-        }
-        return ProotEnvironmentCreationResult.Created(entity)
-    }
-
     suspend fun delete(id: String): Boolean {
         require(id != NATIVE_ENVIRONMENT_ID) { "native environment cannot be deleted" }
         val environment = getEnvironment(id)
@@ -177,40 +133,8 @@ class LinuxEnvironmentManager(
             check(deleting.add(id)) { "environment deletion is already in progress" }
         }
         var deleted = false
-        var quarantinedInstance: Path? = null
-        var originalInstance: Path? = null
         try {
-            if (environment != null && environment.type != LinuxEnvironmentType.SSH) {
-                val rootfs = requireNotNull(environment.rootfsPath).asPath
-                val instance = rootfs.parent
-                check(instance.fileName.toString() == id) { "invalid local environment layout" }
-                if (instance.exists()) {
-                    val quarantine = instance.resolveSibling(".${instance.fileName}.deleting-${UUID.randomUUID()}")
-                    instance.moveTo(quarantine, StandardCopyOption.ATOMIC_MOVE)
-                    originalInstance = instance
-                    quarantinedInstance = quarantine
-                }
-            }
-            try {
-                deleted = environment != null && deleteEnvironment(id, environment.toSnapshot(), nativeSnapshot)
-                if (!deleted && quarantinedInstance != null) {
-                    quarantinedInstance.moveTo(originalInstance!!, StandardCopyOption.ATOMIC_MOVE)
-                    quarantinedInstance = null
-                }
-            } catch (error: Throwable) {
-                quarantinedInstance?.let { quarantine ->
-                    runCatching { quarantine.moveTo(originalInstance!!, StandardCopyOption.ATOMIC_MOVE) }
-                        .exceptionOrNull()?.let(error::addSuppressed)
-                }
-                quarantinedInstance = null
-                throw error
-            }
-            quarantinedInstance?.let { quarantine ->
-                check(quarantine.toFile().deleteRecursively()) {
-                    "environment was deleted but quarantined files could not be removed: $quarantine"
-                }
-                quarantinedInstance = null
-            }
+            deleted = environment != null && deleteEnvironment(id, environment.toSnapshot(), nativeSnapshot)
             return deleted
         } finally {
             withContext(NonCancellable) {
@@ -370,7 +294,6 @@ class LinuxEnvironmentManager(
         val snapshot = entity?.toSnapshot() ?: nativeSnapshot
         val created = backendFactory?.invoke(snapshot) ?: when (snapshot.type) {
             LinuxEnvironmentType.NATIVE -> NativeBackend(snapshot)
-            LinuxEnvironmentType.PROOT -> ProotBackend(snapshot)
             LinuxEnvironmentType.SSH -> {
                 val stored = requireNotNull(entity)
                 val credentials = when {
@@ -412,11 +335,6 @@ class LinuxEnvironmentManager(
     }
 
     companion object {
-        private fun validateGuestWorkingDirectory(path: String) {
-            require(path.startsWith('/')) { "local environment working directory must be absolute" }
-            require(path.split('/').none { it == ".." }) { "local environment working directory cannot traverse upward" }
-        }
-
         fun parseEnvironmentVariables(json: String): Map<String, String> =
             kotlinx.serialization.json.Json.parseToJsonElement(json).jsonObject.mapValues { (key, value) ->
                 require(key.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) { "invalid environment variable name: $key" }
@@ -435,7 +353,7 @@ class LinuxEnvironmentManager(
                 architecture = System.getProperty("os.arch") ?: "unknown",
                 shell = "/system/bin/sh",
                 workingDirectory = workingDirectory.absolutePath,
-                bridgeLocation = workingDirectory.resolve(".weagent/bin/invoke_tool").absolutePath,
+                bridgeLocation = null,
                 privilegesAndCapabilities = "WeChat UID and SELinux domain; no additional root privileges",
             )
         }
@@ -466,9 +384,4 @@ class EnvironmentLease constructor(private val releaseBlock: suspend () -> Lease
             }
         }
     }
-}
-
-sealed interface ProotEnvironmentCreationResult {
-    data class Created(val environment: LinuxEnvironmentEntity) : ProotEnvironmentCreationResult
-    data class MissingPack(val pack: ExtensionPack) : ProotEnvironmentCreationResult
 }

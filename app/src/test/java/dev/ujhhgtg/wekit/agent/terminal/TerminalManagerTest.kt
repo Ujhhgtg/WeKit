@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test
 
 class TerminalManagerTest {
     private val environment = EnvironmentSnapshot("native", "Native", LinuxEnvironmentType.NATIVE, "Android", "arm64", "/system/bin/sh", "/tmp", null, "uid")
-    private val linuxEnvironment = environment.copy(id = "linux", type = LinuxEnvironmentType.PROOT, shell = "/bin/bash")
+    private val linuxEnvironment = environment.copy(id = "linux", type = LinuxEnvironmentType.SSH, shell = "/bin/bash")
 
     @Test
     fun `events are ordered and encoded`() = runBlocking {
@@ -63,7 +63,7 @@ class TerminalManagerTest {
         manager.start("linux", linuxEnvironment)
         manager.start("explicit", environment, listOf("/system/bin/sh", "-c", "echo hello"))
         assertEquals(listOf("/system/bin/sh"), backend.argv[0])
-        assertEquals(listOf("/bin/bash"), backend.argv[1])
+        assertEquals(listOf("/bin/bash", "-l"), backend.argv[1])
         assertEquals(listOf("/system/bin/sh", "-c", "echo hello"), backend.argv[2])
     }
 

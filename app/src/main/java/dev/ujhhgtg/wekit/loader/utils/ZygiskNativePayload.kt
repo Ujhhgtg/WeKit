@@ -31,14 +31,13 @@ class ZygiskNativePayload(val apk: File, private val dataDir: File) {
             "dexkit",
             "mmkv",
             "wekit_native",
-            "invoke_tool",
         )
         for (name in names) {
             val fileName = "lib$name.so"
             val entry = archive.getEntry("lib/$abi/$fileName") ?: continue
             val extracted = extractLibrary(archive, entry, libraryDir, fileName)
             libraries[name] = extracted
-            // MMKV loads through its callback; executable artifacts must never be dlopen-ed.
+            // MMKV loads through its callback.
             when (name) {
                 "androidx.graphics.path", "dexkit", "wekit_native" -> System.load(extracted.absolutePath)
             }

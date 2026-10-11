@@ -28,18 +28,19 @@ object WeAgentTerminalToolBindings {
         val context = coroutineContext[AgentSessionContext] ?: error("no active agent session")
         val environment = context.environment ?: error("no active Linux environment")
         val artifact = WeAgentService.linuxEnvironmentManager.ensureBridge(environment.id)
-            ?: error("invoke_tool is unavailable in ${environment.displayName}")
         val info = WeAgentService.terminalManager.start(
             owner(), environment, argv, cols = cols ?: 80, rows = rows ?: 24,
             prepareEnvironment = { terminalId ->
-                val (endpoint) = WeAgentService.toolBridgeServer.openForTerminal(
-                    WeAgentService.terminalManager, terminalId, context.sessionId, environment.id,
-                    context.toolVisibility, coroutineContext,
-                )
-                environment.environmentVariables + endpoint.environment() + mapOf(
-                    "WEAGENT_INVOKE_TOOL" to artifact.executablePath,
-                    "PATH" to "${artifact.binDirectory}:${System.getenv("PATH").orEmpty()}",
-                )
+                if (artifact == null) environment.environmentVariables else {
+                    val (endpoint) = WeAgentService.toolBridgeServer.openForTerminal(
+                        WeAgentService.terminalManager, terminalId, context.sessionId, environment.id,
+                        context.toolVisibility, coroutineContext,
+                    )
+                    environment.environmentVariables + endpoint.environment() + mapOf(
+                        "WEAGENT_INVOKE_TOOL" to artifact.executablePath,
+                        "PATH" to "${artifact.binDirectory}:${System.getenv("PATH").orEmpty()}",
+                    )
+                }
             },
         )
         return "id=${info.id}, state=${info.state}, size=${info.cols}x${info.rows}"

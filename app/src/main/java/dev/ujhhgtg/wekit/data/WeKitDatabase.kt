@@ -162,7 +162,7 @@ abstract class WeKitDatabase : RoomDatabase() {
 
     companion object {
         const val FILE_NAME = "wekit.db"
-        const val SCHEMA_VERSION = 28
+        const val SCHEMA_VERSION = 29
 
         val file: File
             get() = KnownPaths.moduleRoot.resolve(FILE_NAME).toFile()
@@ -370,6 +370,24 @@ abstract class WeKitDatabase : RoomDatabase() {
             }
         }
 
+        // 28 → 29: retire PRoot while preserving conversations, SSH environments and audits.
+        val MIGRATION_28_29 = object : Migration(28, 29) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                migration28To29Sql.forEach(db::execSQL)
+            }
+        }
+
+        val migration28To29Sql = listOf(
+            "UPDATE sessions SET linuxEnvironmentId = NULL WHERE linuxEnvironmentId IN (SELECT id FROM linux_environments WHERE type = 'PROOT')",
+            "UPDATE sessions SET lastEffectiveLinuxEnvironmentId = NULL WHERE lastEffectiveLinuxEnvironmentId IN (SELECT id FROM linux_environments WHERE type = 'PROOT')",
+            "DELETE FROM settings WHERE `key` = 'default_linux_environment_id' AND value IN (SELECT id FROM linux_environments WHERE type = 'PROOT')",
+            "DELETE FROM linux_environments WHERE type = 'PROOT'",
+            "CREATE TABLE `linux_environments_new` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `type` TEXT NOT NULL, `workingDirectory` TEXT NOT NULL, `environmentVariablesJson` TEXT NOT NULL, `createdAt` INTEGER, `sshHost` TEXT, `sshPort` INTEGER, `sshUsername` TEXT, `sshAuthenticationType` TEXT, `sshPassword` TEXT, `sshPrivateKey` TEXT, `sshPrivateKeyPassphrase` TEXT, `sshCredentialCiphertext` BLOB, `sshCredentialIv` BLOB, `sshCredentialReference` TEXT, `sshHostKeyAlgorithm` TEXT, `sshHostKeyFingerprint` TEXT, `bridgePath` TEXT, PRIMARY KEY(`id`))",
+            "INSERT INTO `linux_environments_new` (`id`, `name`, `type`, `workingDirectory`, `environmentVariablesJson`, `createdAt`, `sshHost`, `sshPort`, `sshUsername`, `sshAuthenticationType`, `sshPassword`, `sshPrivateKey`, `sshPrivateKeyPassphrase`, `sshCredentialCiphertext`, `sshCredentialIv`, `sshCredentialReference`, `sshHostKeyAlgorithm`, `sshHostKeyFingerprint`, `bridgePath`) SELECT `id`, `name`, `type`, `workingDirectory`, `environmentVariablesJson`, `createdAt`, `sshHost`, `sshPort`, `sshUsername`, `sshAuthenticationType`, `sshPassword`, `sshPrivateKey`, `sshPrivateKeyPassphrase`, `sshCredentialCiphertext`, `sshCredentialIv`, `sshCredentialReference`, `sshHostKeyAlgorithm`, `sshHostKeyFingerprint`, `bridgePath` FROM `linux_environments`",
+            "DROP TABLE `linux_environments`",
+            "ALTER TABLE `linux_environments_new` RENAME TO `linux_environments`",
+        )
+
         val migration17To18Sql = listOf(
             "CREATE TABLE IF NOT EXISTS `preference_entries` (`namespace` TEXT NOT NULL, `key` TEXT NOT NULL, `valueType` TEXT NOT NULL, `valueText` TEXT, `valueLong` INTEGER, `valueDouble` REAL, `valueBlob` BLOB, `encodingVersion` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `exportable` INTEGER NOT NULL, PRIMARY KEY(`namespace`, `key`))",
             "CREATE INDEX IF NOT EXISTS `index_preference_entries_namespace` ON `preference_entries` (`namespace`)",
@@ -404,7 +422,7 @@ abstract class WeKitDatabase : RoomDatabase() {
             file.toString()
         )
             .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28)
+            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29)
             // Destructive fallback is scoped to the pre-release schemas (1–8) only, which no
             // migration path was ever written for. From 9 onwards every step must have a
             // migration: a missing one then fails loudly at open time instead of silently

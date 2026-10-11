@@ -32,10 +32,7 @@ import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
 import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyException
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
-import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
-import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
-import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import kotlinx.coroutines.launch
@@ -47,7 +44,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var existing by remember { mutableStateOf<LinuxEnvironmentEntity?>(null) }
     var name by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf(LinuxEnvironmentType.PROOT) }
+    var type by remember { mutableStateOf(LinuxEnvironmentType.SSH) }
     var host by remember { mutableStateOf("") }
     var port by remember { mutableStateOf("22") }
     var username by remember { mutableStateOf("") }
@@ -114,22 +111,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                         confirmLabel = stringResource(android.R.string.ok), dismissLabel = stringResource(android.R.string.cancel),
                     )
                 }
-                if (environmentId == null) {
-                    item {
-                        DropDownMenuWidget(
-                            title = stringResource(R.string.agent_linux_environment_type),
-                            description = null,
-                            value = type,
-                            options = LinuxEnvironmentType.entries
-                                .filter { it != LinuxEnvironmentType.NATIVE }
-                                .map { DropdownOption(it, it.name) },
-                            enabled = !busy,
-                            onValueChange = { type = it },
-                        )
-                    }
-                } else {
-                    item { BaseWidget(title = type.name, description = stringResource(R.string.agent_linux_environment_type_immutable), enabled = false) }
-                }
+                item { BaseWidget(title = type.name, description = stringResource(R.string.agent_linux_environment_type_immutable), enabled = false) }
                 item {
                     TextFieldDialogWidget(
                         title = stringResource(R.string.agent_linux_environment_working_directory), value = workingDirectory,
@@ -186,8 +168,6 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                                     }.onFailure {
                                         if (it is SshHostKeyException) {
                                             pendingHostKey = it
-                                        } else if (it is MissingArchPackException) {
-                                            ExtensionPackDialogs.requireArchLinux(activity)
                                         } else error = it.message
                                     }
                                 operation = null
@@ -294,8 +274,6 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
 
 private enum class EnvironmentOperation { SAVE, TEST, DELETE, TRUST }
 
-private class MissingArchPackException : IllegalStateException("Arch Linux extension pack is not installed")
-
 private suspend fun saveOrCreate(id: String?, existing: LinuxEnvironmentEntity?, name: String, type: LinuxEnvironmentType, workingDirectory: String, environmentVariablesJson: String, host: String, port: String, username: String, authenticationType: String, password: String, privateKey: String, passphrase: String): Boolean {
     require(name.isNotBlank()) { "name is required" }
     val normalizedVariables = kotlinx.serialization.json.Json.parseToJsonElement(environmentVariablesJson).jsonObject
@@ -331,16 +309,6 @@ private suspend fun saveOrCreate(id: String?, existing: LinuxEnvironmentEntity?,
             sshHostKeyFingerprint = if (credentials != null && (host != existing.sshHost || username != existing.sshUsername || port.toInt() != existing.sshPort)) null else existing.sshHostKeyFingerprint,
         ))
         return true
-    }
-    if (type == LinuxEnvironmentType.PROOT) {
-        return when (WeAgentService.linuxEnvironmentManager.createProotEnvironment(
-            name,
-            workingDirectory = workingDirectory,
-            environmentVariablesJson = normalizedVariables,
-        )) {
-            is dev.ujhhgtg.wekit.agent.environment.ProotEnvironmentCreationResult.Created -> true
-            is dev.ujhhgtg.wekit.agent.environment.ProotEnvironmentCreationResult.MissingPack -> throw MissingArchPackException()
-        }
     }
     require(type == LinuxEnvironmentType.SSH) { "unsupported environment type" }
     val normalizedPassword = password.takeIf { authenticationType == "PASSWORD" }?.also { require(it.isNotEmpty()) { "password is required" } }

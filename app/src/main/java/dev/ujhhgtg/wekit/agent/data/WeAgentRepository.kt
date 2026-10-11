@@ -899,12 +899,7 @@ object WeAgentRepository {
             "SSH credentials are incomplete"
         }
         when (environment.type) {
-            LinuxEnvironmentType.PROOT -> {
-                require(!environment.rootfsPath.isNullOrBlank()) { "local environments require a rootfs path" }
-                require(environment.sshHost == null) { "local environments cannot contain SSH configuration" }
-            }
             LinuxEnvironmentType.SSH -> {
-                require(environment.rootfsPath == null) { "SSH environments cannot contain a rootfs path" }
                 require(!environment.sshHost.isNullOrBlank()) { "SSH host is required" }
                 require(environment.sshPort != null && environment.sshPort in 1..65535) { "SSH port is invalid" }
                 require(!environment.sshUsername.isNullOrBlank()) { "SSH username is required" }

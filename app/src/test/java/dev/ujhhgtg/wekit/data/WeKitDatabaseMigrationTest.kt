@@ -159,6 +159,47 @@ class WeKitDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun `migration 28 to 29 removes proot bindings and preserves SSH credentials and history`() {
+        for (keepRemoteDefault in listOf(false, true)) {
+            DriverManager.getConnection("jdbc:sqlite::memory:").use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute(WeKitDatabase.migration12To13Sql.first())
+                    statement.execute("ALTER TABLE linux_environments ADD COLUMN sshPassword TEXT")
+                    statement.execute("ALTER TABLE linux_environments ADD COLUMN sshPrivateKey TEXT")
+                    statement.execute("ALTER TABLE linux_environments ADD COLUMN sshPrivateKeyPassphrase TEXT")
+                    statement.execute("CREATE TABLE sessions (id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, linuxEnvironmentId TEXT, lastEffectiveLinuxEnvironmentId TEXT)")
+                    statement.execute("CREATE TABLE settings (`key` TEXT NOT NULL PRIMARY KEY, value TEXT NOT NULL)")
+                    statement.execute("CREATE TABLE messages (id TEXT NOT NULL PRIMARY KEY, sessionId TEXT NOT NULL, content TEXT NOT NULL)")
+                    statement.execute("CREATE TABLE bridge_tool_audits (id TEXT NOT NULL PRIMARY KEY, environmentId TEXT NOT NULL)")
+                    statement.execute("INSERT INTO linux_environments (id, name, type, workingDirectory, environmentVariablesJson, rootfsPath) VALUES ('local', 'Local', 'PROOT', '/root', '{}', '/instance/rootfs')")
+                    statement.execute("INSERT INTO linux_environments (id, name, type, workingDirectory, environmentVariablesJson, sshHost, sshPassword, sshPrivateKey, sshPrivateKeyPassphrase, sshCredentialCiphertext, sshCredentialIv, sshHostKeyAlgorithm, sshHostKeyFingerprint, bridgePath) VALUES ('remote', 'Remote', 'SSH', '/home/user', '{}', 'host', 'password', 'private-key', 'passphrase', X'0102', X'0304', 'ssh-ed25519', 'fingerprint', '/bridge')")
+                    statement.execute("INSERT INTO sessions VALUES ('local-session', 'Kept title', 'local', 'local'), ('mixed-session', 'Mixed', 'remote', 'local'), ('remote-session', 'Remote', 'remote', 'remote')")
+                    val defaultId = if (keepRemoteDefault) "remote" else "local"
+                    statement.execute("INSERT INTO settings VALUES ('default_linux_environment_id', '$defaultId'), ('unrelated', 'local')")
+                    statement.execute("INSERT INTO messages VALUES ('message', 'local-session', 'kept history')")
+                    statement.execute("INSERT INTO bridge_tool_audits VALUES ('audit', 'local')")
+
+                    WeKitDatabase.migration28To29Sql.forEach(statement::execute)
+
+                    assertEquals(1, statement.count("linux_environments"))
+                    assertEquals(1, statement.count("linux_environments", "id = 'remote' AND sshHost = 'host' AND sshPassword = 'password' AND sshPrivateKey = 'private-key' AND sshPrivateKeyPassphrase = 'passphrase' AND sshCredentialCiphertext = X'0102' AND sshCredentialIv = X'0304' AND sshHostKeyAlgorithm = 'ssh-ed25519' AND sshHostKeyFingerprint = 'fingerprint' AND bridgePath = '/bridge'"))
+                    assertEquals(3, statement.count("sessions"))
+                    assertEquals(1, statement.count("sessions", "id = 'local-session' AND title = 'Kept title' AND linuxEnvironmentId IS NULL AND lastEffectiveLinuxEnvironmentId IS NULL"))
+                    assertEquals(1, statement.count("sessions", "id = 'mixed-session' AND linuxEnvironmentId = 'remote' AND lastEffectiveLinuxEnvironmentId IS NULL"))
+                    assertEquals(1, statement.count("sessions", "id = 'remote-session' AND linuxEnvironmentId = 'remote' AND lastEffectiveLinuxEnvironmentId = 'remote'"))
+                    assertEquals(if (keepRemoteDefault) 1 else 0, statement.count("settings", "`key` = 'default_linux_environment_id'"))
+                    assertEquals(1, statement.count("settings", "`key` = 'unrelated' AND value = 'local'"))
+                    assertEquals(1, statement.count("messages", "content = 'kept history'"))
+                    assertEquals(1, statement.count("bridge_tool_audits", "environmentId = 'local'"))
+                    statement.executeQuery("PRAGMA table_info(linux_environments)").use { columns ->
+                        while (columns.next()) assertFalse(columns.getString("name").startsWith("rootfs"))
+                    }
+                }
+            }
+        }
+    }
+
     private fun java.sql.Statement.count(table: String, where: String = "1"): Int =
         executeQuery("SELECT COUNT(*) FROM $table WHERE $where").use { rows -> rows.next(); rows.getInt(1) }
 

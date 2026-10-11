@@ -22,7 +22,6 @@ import dev.ujhhgtg.wekit.agent.engine.ToolCallExecutor
 import dev.ujhhgtg.wekit.agent.bridge.ToolBridgeServer
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
-import dev.ujhhgtg.wekit.agent.environment.ProotEnvironmentCreationResult
 import dev.ujhhgtg.wekit.agent.terminal.EnvironmentTerminalBackend
 import dev.ujhhgtg.wekit.agent.terminal.SshTerminalBackend
 import dev.ujhhgtg.wekit.agent.terminal.TerminalManager
@@ -83,9 +82,6 @@ object WeAgentService : TriggerManager.TriggerHost {
     private val registry = ToolRegistry(BuiltinToolProvider.all)
 
     val linuxEnvironmentManager = LinuxEnvironmentManager()
-
-    suspend fun createProotEnvironment(name: String): ProotEnvironmentCreationResult =
-        linuxEnvironmentManager.createProotEnvironment(name)
 
     val terminalManager = TerminalManager(EnvironmentTerminalBackend(
         ssh = SshTerminalBackend(linuxEnvironmentManager::sshConnection),

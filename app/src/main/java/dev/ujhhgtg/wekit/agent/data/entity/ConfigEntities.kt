@@ -107,8 +107,6 @@ data class LinuxEnvironmentEntity(
     val type: LinuxEnvironmentType,
     val workingDirectory: String,
     val environmentVariablesJson: String = "{}",
-    val rootfsPath: String? = null,
-    val rootfsContentVersion: String? = null,
     val createdAt: Long? = null,
     val sshHost: String? = null,
     val sshPort: Int? = null,
@@ -128,7 +126,6 @@ data class LinuxEnvironmentEntity(
             id == other.id && name == other.name && type == other.type &&
             workingDirectory == other.workingDirectory &&
             environmentVariablesJson == other.environmentVariablesJson &&
-            rootfsPath == other.rootfsPath && rootfsContentVersion == other.rootfsContentVersion &&
             createdAt == other.createdAt && sshHost == other.sshHost && sshPort == other.sshPort &&
             sshUsername == other.sshUsername && sshAuthenticationType == other.sshAuthenticationType &&
             sshPassword == other.sshPassword && sshPrivateKey == other.sshPrivateKey &&

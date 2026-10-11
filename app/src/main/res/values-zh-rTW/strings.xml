@@ -275,8 +275,6 @@
     <string name="extensions_pack_python_runtime_name">Python 執行環境</string>
     <string name="extensions_pack_python_runtime_desc">Python 外掛使用的 CPython 與 Chaquopy 執行環境</string>
     <string name="extensions_pack_python_restart_required">更新已安裝；重新啟動微信後使用</string>
-    <string name="extensions_pack_archlinux_name">Arch Linux ARM64</string>
-    <string name="extensions_pack_archlinux_desc">用於本地 WeAgent Linux 環境的根文件系統和 PRoot 啟動器</string>
     <string name="extensions_pack_downloading">正在下載…</string>
     <string name="extensions_pack_installed_version">已安裝: %1$s</string>
     <string name="extensions_pack_state_not_installed">未安裝</string>

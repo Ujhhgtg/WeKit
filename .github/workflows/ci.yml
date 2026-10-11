@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       publish_extensions:
-        description: Build and publish all extension packs, including the large Arch rootfs
+        description: Build and publish all extension packs
         type: boolean
         default: false
 
@@ -86,21 +86,6 @@ jobs:
           NDK_BIN="$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin"
           test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
           test -x "$NDK_BIN/llvm-strip"
-
-      - name: Prepare PRoot cache key
-        id: proot_cache_inputs
-        run: |
-          echo "commit=$(git -C third_party/proot-static rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "ndk=$(sed -n 's/^ndk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
-          echo "min_sdk=$(sed -n 's/^minSdk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache PRoot build
-        uses: actions/cache@v6
-        with:
-          path: target/proot-static
-          key: proot-${{ runner.os }}-${{ runner.arch }}-${{ steps.proot_cache_inputs.outputs.commit }}-${{ steps.proot_cache_inputs.outputs.ndk }}-${{ steps.proot_cache_inputs.outputs.min_sdk }}-${{ hashFiles('patches/proot/android-ptrace-events.patch', 'third_party/proot-static/tools/build-static-aarch64.sh') }}
-          restore-keys: |
-            proot-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
@@ -178,7 +163,7 @@ jobs:
       - name: Free build intermediates before saving caches
         if: always()
         # APKs and mappings have already been collected into dist/ and uploaded.
-        # Keep the Gradle, Rust, and PRoot caches for their post-job save steps.
+        # Keep the Gradle and Rust caches for their post-job save steps.
         run: |
           df -h /
           rm -rf app/build
@@ -407,8 +392,6 @@ jobs:
               - 'extensions/**'
               - 'libs/python-runtime-api/**'
               - 'app/src/main/rust/**'
-              - 'patches/proot/**'
-              - 'third_party/proot-static'
               - 'xtask/**'
               - 'buildSrc/**'
               - 'gradle/**'
@@ -421,7 +404,6 @@ jobs:
   build-extensions:
     needs: extensions-changes
     runs-on: ubuntu-latest
-    # This dedicated publishing job is the only path that downloads the Arch rootfs.
     if: ${{ always() && ((github.event_name == 'workflow_dispatch' && inputs.publish_extensions) || needs.extensions-changes.outputs.changed == 'true' || needs.extensions-changes.result == 'failure') }}
     concurrency:
       group: extensions-release
@@ -462,8 +444,8 @@ jobs:
           echo "$GITHUB_WORKSPACE/wekit-zygisk/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Free disk space and report
-        # This job is much heavier than a plain APK build (cold PRoot build,
-        # Chaquopy runtime, native packs), and the hosted runner has died
+        # This job is much heavier than a plain APK build (Chaquopy
+        # runtime, native packs), and the hosted runner has died
         # silently mid-"Build packs"; keep as much headroom as possible.
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
@@ -491,69 +473,17 @@ jobs:
           test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
           test -x "$NDK_BIN/llvm-strip"
 
-      - name: Prepare PRoot cache key
-        id: proot_cache_inputs
-        run: |
-          echo "commit=$(git -C third_party/proot-static rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "ndk=$(sed -n 's/^ndk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
-          echo "min_sdk=$(sed -n 's/^minSdk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
-
-      - name: Restore PRoot build
-        id: proot_cache
-        uses: actions/cache/restore@v6
-        with:
-          path: target/proot-static
-          key: proot-${{ runner.os }}-${{ runner.arch }}-${{ steps.proot_cache_inputs.outputs.commit }}-${{ steps.proot_cache_inputs.outputs.ndk }}-${{ steps.proot_cache_inputs.outputs.min_sdk }}-${{ hashFiles('patches/proot/android-ptrace-events.patch', 'third_party/proot-static/tools/build-static-aarch64.sh') }}
-          restore-keys: |
-            proot-${{ runner.os }}-${{ runner.arch }}-
-
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
           workspaces: . -> target
 
-      - name: Download and verify Arch rootfs
-        env:
-          WEKIT_ARCH_ROOTFS: ${{ runner.temp }}/arch-pack/ArchLinuxARM-aarch64-rootfs.tar.gz
-        run: |
-          SOURCE=extension-packs/archlinux-arm64-sources.json
-          ROOTFS_URL=$(jq -r '.rootfs.url' "$SOURCE")
-          ROOTFS_MD5=$(jq -r '.rootfs.md5' "$SOURCE")
-          ROOTFS_SHA256=$(jq -er '.rootfs.sha256 | select(test("^[0-9A-Fa-f]{64}$"))' "$SOURCE")
-          ROOTFS_SIGNATURE_URL=$(jq -r '.rootfs.signature_url' "$SOURCE")
-          SIGNING_FINGERPRINT=$(jq -r '.rootfs.signing_fingerprint' "$SOURCE")
-          mkdir -p "$RUNNER_TEMP/arch-pack"
-          curl --fail --location --retry 3 \
-            "$ROOTFS_URL" \
-            -o "$WEKIT_ARCH_ROOTFS"
-          printf '%s  %s\n' "$ROOTFS_SHA256" "$WEKIT_ARCH_ROOTFS" | sha256sum --check --strict
-          printf '%s  %s\n' "$ROOTFS_MD5" "$WEKIT_ARCH_ROOTFS" | md5sum --check --strict
-          curl --fail --location --retry 3 \
-            "$ROOTFS_SIGNATURE_URL" \
-            -o "$WEKIT_ARCH_ROOTFS.sig"
-          curl --fail --location --retry 3 \
-            "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$SIGNING_FINGERPRINT" \
-            -o "$RUNNER_TEMP/arch-pack/signing-key.asc"
-          test "$(gpg --show-keys --with-colons "$RUNNER_TEMP/arch-pack/signing-key.asc" | awk -F: '$1 == "fpr" { print $10; exit }')" = "$SIGNING_FINGERPRINT"
-          gpg --batch --import "$RUNNER_TEMP/arch-pack/signing-key.asc"
-          gpg --batch --verify "$WEKIT_ARCH_ROOTFS.sig" "$WEKIT_ARCH_ROOTFS"
-
-      - name: Build native library and proot
+      - name: Build native library
         id: native_build
         run: |
           cargo xtask configure
           cargo xtask build --native-only --abi arm64-v8a
-
-      - name: Save PRoot build
-        # Save explicitly and early: the hosted runner has died silently
-        # during "Pack extensions", and the post-save of actions/cache never
-        # ran then, leaving every retry with a ~30 min cold PRoot build.
-        if: always() && steps.native_build.outcome == 'success'
-        uses: actions/cache/save@v6
-        with:
-          path: target/proot-static
-          key: ${{ steps.proot_cache.outputs.cache-primary-key }}
 
       - name: Pack extensions
         run: cargo xtask extensions pack

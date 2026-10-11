@@ -4,9 +4,6 @@
 [submodule "libs/common/reflekt"]
 	path = libs/common/reflekt
 	url = https://github.com/Ujhhgtg/reflekt
-[submodule "third_party/proot-static"]
-	path = third_party/proot-static
-	url = https://github.com/berilevi/proot-static.git
 [submodule "libs/common/scripta"]
 	path = libs/common/scripta
 	url = https://github.com/Ujhhgtg/scripta

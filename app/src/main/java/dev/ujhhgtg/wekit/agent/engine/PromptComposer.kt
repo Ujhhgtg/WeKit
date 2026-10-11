@@ -112,9 +112,6 @@ class PromptComposer(
             append("- Shell 与工作目录：${environment.shell} / ${environment.workingDirectory}\n")
             append("- 权限边界：${environment.privilegesAndCapabilities}\n")
             append("- invoke_tool：${environment.bridgeLocation ?: "不可用"}")
-            if (environment.type == dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType.PROOT) {
-                append("\n- 本地 Arch Linux 共享 Android 内核；PRoot 无内核级隔离。")
-            }
             append(
                 """
 
