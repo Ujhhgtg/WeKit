@@ -18,6 +18,7 @@ import dev.ujhhgtg.wekit.loader.entry.zygisk.ArtHookBridge
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
+import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import dev.ujhhgtg.wekit.utils.reflection.int
 import java.io.File
 import java.io.IOException
@@ -53,26 +54,75 @@ object EnvironmentHider {
     }
 
     private fun installConsistencyCheck(context: Context) {
-        val hostApk = File(context.applicationInfo.sourceDir)
+        if (hasNPatchApkRedirect(context.classLoader)) {
+            // NPatch owns APK reads in this mode, including when a manual origin.apk exists.
+            WeLogger.i(TAG, "NPatch already handles APK reads; ClientCheckConsistency APK redirection skipped")
+            return
+        }
+
+        val hostApkPath = context.applicationInfo.sourceDir
+        val hostApk = File(hostApkPath)
         // Same directory as KnownPaths.moduleRoot; HostInfo is not initialized at this early stage.
         val moduleRoot = File(context.filesDir, "wekit")
         val localOrigin = File(moduleRoot, "origin.apk")
-        val origin = try {
+        WeLogger.i(TAG, "ClientCheckConsistency runtime APK: $hostApkPath")
+
+        val originPath = try {
             if (localOrigin.isFile) {
-                localOrigin
+                localOrigin.path
+            } else if (hostApk.isFile &&
+                hostApk.canonicalFile.parentFile == File(context.cacheDir, "lspatch/origin").canonicalFile) {
+                // LSPatch already sets sourceDir to its extracted origin. Opening the installed APK
+                // can also be redirected by its openat hook, so reuse this original file directly.
+                WeLogger.i(TAG, "ClientCheckConsistency uses LSPatch's extracted origin APK")
+                hostApkPath
             } else {
-                EmbeddedOriginApk.findAndExtract(hostApk, File(moduleRoot, "cache/client-check-consistency"))?.file
+                // PackageManager reports the installed APK even when a loader changes the process's sourceDir.
+                val installedApk = File(context.packageManager.getApplicationInfo(context.packageName, 0).sourceDir)
+                WeLogger.i(TAG, "ClientCheckConsistency installed APK: $installedApk")
+                val cache = File(moduleRoot, "cache/client-check-consistency")
+                (EmbeddedOriginApk.findAndExtract(installedApk, cache)
+                    ?: if (installedApk != hostApk) EmbeddedOriginApk.findAndExtract(hostApk, cache) else null)?.file?.path
             }
         } catch (error: IOException) {
             WeLogger.e(TAG, "failed to prepare origin APK for ClientCheckConsistency", error)
             null
         }
-        if (origin != null) {
-            installConsistencyArchive(context.classLoader, hostApk.path, origin.path)
-            WeLogger.i(TAG, "ClientCheckConsistency APK reads use $origin")
+
+        if (originPath != null) {
+            if (originPath != hostApkPath) {
+                installConsistencyArchive(context.classLoader, hostApkPath, originPath)
+                WeLogger.i(TAG, "ClientCheckConsistency APK reads redirected to $originPath")
+            } else {
+                WeLogger.i(TAG, "ClientCheckConsistency already reads the original APK: $originPath")
+            }
         } else {
             WeLogger.i(TAG, "no usable origin APK; ClientCheckConsistency APK redirection skipped")
         }
+    }
+
+    private fun hasNPatchApkRedirect(hostLoader: ClassLoader): Boolean {
+        val name = "top.nkbe.npatch.loader.SigBypass"
+        val bypass = name.toClassOrNull(ClassLoaders.HYBRID) ?: name.toClassOrNull(hostLoader) ?: return false
+        val reflected = bypass.reflekt()
+        val field = reflected.firstFieldOrNull {
+            this.name = "redirectApkPath"
+            type = String::class.java
+            modifiers = Modifier.STATIC
+        } ?: return false
+        val path = field.get() as? String? ?: return false // No original path when signature bypass is disabled
+        fun enabled(state: String): Boolean {
+            val flag = reflected.firstFieldOrNull {
+                this.name = state
+                type = Boolean::class.java
+                modifiers = Modifier.STATIC
+            } ?: return false
+            return flag.get() as Boolean
+        }
+        // Check the installed Java hook and an enabled native APK-open backend, not just NPatch's presence.
+        if (!enabled("javaIoHooked") || !(enabled("nativeOpenatEnabled") || enabled("seccompRedirectEnabled"))) return false
+        WeLogger.i(TAG, "NPatch APK redirect is active: $path")
+        return true
     }
 
     private fun installConsistencyRootIndicator(loader: ClassLoader) {
@@ -138,7 +188,8 @@ object EnvironmentHider {
 
     private fun installConsistencyArchive(loader: ClassLoader, hostApk: String, originApk: String) {
         var sites: ConsistencyReadSites? = null
-        ZipFile::class.reflekt().firstConstructor { parameters(String::class) }.self.hookBeforeDirectly {
+        // If NPatch is only partially initialized, run the fallback before its default-priority redirect.
+        ZipFile::class.reflekt().firstConstructor { parameters(String::class) }.self.hookBeforeDirectly(priority = 100) {
             if (args[0] != hostApk) return@hookBeforeDirectly
             val stack = Thread.currentThread().stackTrace
             val reader = sites ?: findConsistencyReadSites(loader, stack)?.also { sites = it }
