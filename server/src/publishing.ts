@@ -247,7 +247,7 @@ export async function createPublication(
   try {
     await env.DB.batch([
       env.DB.prepare(
-        "INSERT INTO payload_releases VALUES(?,?,?,?,?,?,?, ?,'UPLOADING',?)",
+        "INSERT INTO payload_releases(payload_id,manifest_json,apk_sha256,apk_size,cipher_sha256,cipher_size,r2_key,content_key_wrapped_json,status,created_at) VALUES(?,?,?,?,?,?,?,?,'UPLOADING',?)",
       ).bind(
         v.payloadId,
         JSON.stringify(v.manifest),

@@ -126,7 +126,7 @@ const listings: Record<string, Listing> = {
     table: "payload_releases",
     key: "payload_id",
     columns:
-      "payload_id,manifest_json,apk_sha256,apk_size,cipher_sha256,cipher_size,status,created_at",
+      "payload_id,manifest_json,apk_sha256,apk_size,cipher_sha256,cipher_size,status,created_at,deleted_at",
     filters: { payloadId: "payload_id", status: "status" },
   },
   audit: {
@@ -254,15 +254,12 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
     return json({ data: { ...user, csrfToken: await csrfToken(env, user) } });
   if (req.method !== "GET") await checkCsrf(env, req, user);
   if (route === "/admin/api/attestation/refresh" && req.method === "POST") {
-    const { value: v } = await body(
-      req,
-      z.strictObject({ reason: text(512, true).min(1) }),
-    );
+    const { value: v } = await body(req, z.strictObject({}));
     await refreshAttestation(env);
     await env.DB.prepare(
       "INSERT INTO admin_audit(subject,email,action,target,reason,before_json,after_json,source_ip,created_at) VALUES(?,?,'attestation_refresh','official',?,'{}','{}',?,?)",
     )
-      .bind(user.subject, user.email, v.reason, source(req, env).ip, Date.now())
+      .bind(user.subject, user.email, "", source(req, env).ip, Date.now())
       .run();
     return json({ data: { updated: true } });
   }
@@ -274,7 +271,7 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
       "SELECT initialization_id,telegram_user_id,result,payload_id,created_at FROM initializations ORDER BY created_at DESC LIMIT 20",
     ).all();
     const payloads = await env.DB.prepare(
-      "SELECT payload_id,status,created_at FROM payload_releases ORDER BY created_at DESC LIMIT 20",
+      "SELECT payload_id,status,deleted_at,created_at FROM payload_releases ORDER BY created_at DESC LIMIT 20",
     ).all();
     const snapshot = await env.DB.prepare(
       "SELECT s.snapshot_id,s.fetched_at FROM attestation_current c JOIN attestation_snapshots s ON s.snapshot_id=c.snapshot_id",
@@ -367,15 +364,20 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
       req,
       z.strictObject({
         action: z.enum(["disable", "restore", "reconfirm", "channel"]),
-        channel: z.string().regex(/^[a-z0-9_-]{1,64}$/).optional(),
-        reason: text(512, true).min(1),
+        channel: z
+          .string()
+          .regex(/^[a-z0-9_-]{1,64}$/)
+          .optional(),
       }),
     );
     const uid = m[1]!;
     if (v.action === "channel") {
       if (!v.channel) fail(400, "CHANNEL_REQUIRED", "必须指定发布渠道");
-      const channel = await env.DB.prepare("SELECT name FROM channels WHERE name=?")
-        .bind(v.channel).first();
+      const channel = await env.DB.prepare(
+        "SELECT name FROM channels WHERE name=?",
+      )
+        .bind(v.channel)
+        .first();
       if (!channel) fail(404, "CHANNEL_NOT_FOUND", "发布渠道不存在");
       await audit(
         env,
@@ -383,12 +385,16 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
         user,
         "channel",
         uid,
-        v.reason,
+        "",
         "json_object('releaseChannel',release_channel)",
         "json_object('releaseChannel',?)",
         [v.channel, uid],
         "FROM users WHERE telegram_user_id=?",
-        [env.DB.prepare("UPDATE users SET release_channel=? WHERE telegram_user_id=?").bind(v.channel, uid)],
+        [
+          env.DB.prepare(
+            "UPDATE users SET release_channel=? WHERE telegram_user_id=?",
+          ).bind(v.channel, uid),
+        ],
       );
       return json({ data: { updated: true, releaseChannel: v.channel } });
     }
@@ -404,7 +410,7 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
       user,
       v.action,
       uid,
-      v.reason,
+      "",
       "json_object('status',status,'authEpoch',auth_epoch)",
       after,
       params,
@@ -425,7 +431,6 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
       req,
       z.strictObject({
         notes: text(16384, true),
-        reason: text(512, true).min(1),
       }),
     );
     await audit(
@@ -434,7 +439,7 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
       user,
       "notes",
       m[1]!,
-      v.reason,
+      "",
       "json_object('notes',notes)",
       "json_object('notes',?)",
       [v.notes, m[1]!],
@@ -451,10 +456,7 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
     route,
   );
   if (m && req.method === "POST") {
-    const { value: v } = await body(
-      req,
-      z.strictObject({ reason: text(512, true).min(1) }),
-    );
+    const { value: v } = await body(req, z.strictObject({}));
     const target = m[1]!;
     await audit(
       env,
@@ -462,7 +464,7 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
       user,
       "revoke",
       target,
-      v.reason,
+      "",
       "json_object('activeCredentials',(SELECT count(*) FROM credentials WHERE installation_id=installations.installation_id AND status='ACTIVE'))",
       "json_object('activeCredentials',0)",
       [target],
@@ -484,14 +486,13 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
       req,
       z.strictObject({
         action: z.enum(["allow", "stop"]),
-        reason: text(512, true).min(1),
       }),
     );
     const state = v.action === "allow" ? "ALLOWED" : "STOPPED",
       target = m[1]!;
     const predicate =
       v.action === "allow"
-        ? " AND status IN('READY','ALLOWED','STOPPED') AND EXISTS(SELECT 1 FROM publication_jobs j WHERE j.payload_id=payload_releases.payload_id AND j.state IN('READY','ALLOWED'))"
+        ? " AND deleted_at IS NULL AND status IN('READY','ALLOWED','STOPPED') AND EXISTS(SELECT 1 FROM publication_jobs j WHERE j.payload_id=payload_releases.payload_id AND j.state IN('READY','ALLOWED'))"
         : "";
     await audit(
       env,
@@ -499,7 +500,7 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
       user,
       v.action,
       target,
-      v.reason,
+      "",
       "json_object('status',status)",
       "json_object('status',?)",
       [state, target],
@@ -512,19 +513,57 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
     );
     return json({ data: { updated: true } });
   }
+  m = /^\/admin\/api\/releases\/([a-z0-9_-]{1,64})$/.exec(route);
+  if (m && req.method === "DELETE") {
+    await body(req, z.strictObject({}));
+    const target = m[1]!;
+    const release = await env.DB.prepare(
+      "SELECT status,r2_key,deleted_at FROM payload_releases WHERE payload_id=?",
+    )
+      .bind(target)
+      .first<{ status: string; r2_key: string; deleted_at: number | null }>();
+    if (!release) fail(404, "NOT_FOUND", "管理目标不存在");
+    if (release.deleted_at !== null)
+      fail(409, "RELEASE_DELETED", "发行已经删除");
+    if (release.status === "UPLOADING")
+      fail(409, "RELEASE_UPLOADING", "发行仍在上传，无法删除");
+    // Tombstone: the package and its content key are destroyed, the release
+    // can never be allowed again, and every record that references it stays.
+    const deletable =
+      "status IN('READY','ALLOWED','STOPPED','FAILED') AND deleted_at IS NULL";
+    await audit(
+      env,
+      req,
+      user,
+      "delete",
+      target,
+      "",
+      "json_object('status',status)",
+      "json_object('status','DELETED')",
+      [target],
+      `FROM payload_releases WHERE payload_id=? AND ${deletable}`,
+      [
+        env.DB.prepare(
+          `UPDATE payload_releases SET status='STOPPED',deleted_at=?,content_key_wrapped_json='' WHERE payload_id=? AND ${deletable}`,
+        ).bind(Date.now(), target),
+        env.DB.prepare(
+          "UPDATE load_grants SET revoked=1 WHERE payload_id=? AND EXISTS(SELECT 1 FROM payload_releases WHERE payload_id=? AND deleted_at IS NOT NULL)",
+        ).bind(target, target),
+      ],
+    );
+    await env.PAYLOADS.delete(release.r2_key);
+    return json({ data: { deleted: true } });
+  }
   m = /^\/admin\/api\/channels\/([a-z0-9_-]{1,64})$/.exec(route);
   if (m && req.method === "POST") {
-    const { value: v } = await body(
-      req,
-      z.strictObject({ payloadId: id, reason: text(512, true).min(1) }),
-    );
+    const { value: v } = await body(req, z.strictObject({ payloadId: id }));
     await audit(
       env,
       req,
       user,
       "channel",
       m[1]!,
-      v.reason,
+      "",
       "json_object('payloadId',(SELECT payload_id FROM channels WHERE name=?))",
       "json_object('payloadId',?)",
       [m[1]!, v.payloadId, v.payloadId],

@@ -33,7 +33,7 @@ async function decode<T>(response: Response): Promise<T> {
 
 export async function write(
   path: string,
-  method: "POST" | "PATCH",
+  method: "POST" | "PATCH" | "DELETE",
   body: Row,
 ): Promise<void> {
   // Refresh the short-lived token immediately before the user-confirmed write.

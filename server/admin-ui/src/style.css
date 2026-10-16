@@ -30,7 +30,15 @@ a,
 input,
 select,
 summary {
-  outline-offset: 4px;
+  outline-offset: 3px;
+}
+:focus-visible {
+  outline: 2px solid #267563;
+}
+input:focus-visible,
+select:focus-visible {
+  outline-offset: 0;
+  border-color: #267563;
 }
 button {
   cursor: pointer;
@@ -291,8 +299,7 @@ main {
   color: #267563;
   font-weight: 550;
   text-align: left;
-  white-space: nowrap;
-  font-size: 12px;
+  font-size: 13px;
 }
 .link:hover {
   text-decoration: underline;
@@ -338,7 +345,7 @@ main {
 }
 .metric small {
   color: #8a96a7;
-  font-size: 10px;
+  font-size: 12px;
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -413,14 +420,14 @@ main {
 table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 12px;
+  font-size: 13px;
   text-align: left;
 }
 th {
   font-weight: 550;
   background: #f9fafc;
   color: #738197;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
   padding: 13px 20px;
   border-bottom: 1px solid #edf0f4;
@@ -437,15 +444,15 @@ tbody tr:last-child td {
   border-bottom: 0;
 }
 tbody tr:hover {
-  background: #fcfefd;
+  background: #f5f9f7;
 }
 td strong {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 .mono {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 11px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 .muted {
@@ -460,7 +467,7 @@ td strong {
   gap: 6px;
   padding: 4px 9px;
   border-radius: 5px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 550;
   white-space: nowrap;
   color: #61738b;
@@ -613,6 +620,9 @@ input::placeholder {
   white-space: nowrap;
 }
 .notice {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   background: #e9f5ee;
   border: 1px solid #c7e4d2;
   border-radius: 8px;
@@ -621,6 +631,13 @@ input::placeholder {
   font-size: 12px;
   margin-bottom: 20px;
 }
+.notice button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+}
 .error {
   color: #a4434b;
   font-size: 12px;
@@ -628,28 +645,26 @@ input::placeholder {
 .padded {
   padding: 20px 23px;
 }
-.channel-strip {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  padding: 12px 16px;
-  border: 1px dashed #d1dfd7;
-  border-radius: 7px;
+.channels {
   margin-bottom: 20px;
-  font-size: 11px;
-  color: #638073;
-  background: #f8fcf9;
 }
-.channel-strip > div {
-  display: flex;
+.channels .card-heading span {
+  font-size: 12px;
+}
+.channel-list > div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 9px;
+  gap: 16px;
+  padding: 13px 23px;
+  border-bottom: 1px solid #eff2f6;
+  font-size: 13px;
 }
-.channel-strip strong {
+.channel-list > div:last-child {
+  border-bottom: 0;
+}
+.channel-list strong {
   color: #2d6551;
-}
-.channel-strip .mono {
-  color: #729384;
 }
 .facts {
   display: grid;
@@ -754,33 +769,26 @@ dialog::backdrop {
   width: 30px;
   display: grid;
   place-items: center;
-  background: #fff0e9;
-  color: #c86d45;
+  background: #e9f5ee;
+  color: #267563;
   border-radius: 50%;
   font-weight: 700;
+}
+.dialog-icon.danger {
+  background: #fceef0;
+  color: #b54348;
 }
 .dialog-description {
   color: #738097;
   font-size: 12px;
   line-height: 1.8;
-  margin: 0 0 23px;
+  margin: 0 0 20px;
 }
-.action-dialog label:not(.confirm-check) {
+.action-dialog label {
   display: block;
   font-size: 12px;
   color: #64748a;
   margin-bottom: 17px;
-}
-.confirm-check {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  font-size: 11px;
-  color: #738097;
-  margin: 20px 0;
-}
-.confirm-check input {
-  accent-color: #267563;
 }
 .dialog-actions {
   display: flex;
@@ -814,7 +822,7 @@ dialog::backdrop {
   max-height: none;
 }
 footer {
-  font-size: 10px;
+  font-size: 12px;
   color: #98a3b1;
   margin-top: 35px;
   padding: 15px 0;
@@ -951,12 +959,9 @@ footer {
     align-items: flex-end;
     font-size: 10px;
   }
-  .channel-strip {
-    flex-wrap: wrap;
-  }
-  .channel-strip > div {
-    max-width: 100%;
-    flex-wrap: wrap;
+  .channel-list > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
   }
   .profile-grid {
     grid-template-columns: 1fr;

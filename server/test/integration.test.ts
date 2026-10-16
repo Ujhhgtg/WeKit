@@ -102,8 +102,13 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
   try {
     const db = await mf.getD1Database("DB", "api");
     await db.exec(readFileSync("migrations/0001_remote_payload.sql", "utf8"));
-    await db.exec(readFileSync("migrations/0002_unattested_hardware.sql", "utf8"));
-    await db.exec(readFileSync("migrations/0003_user_release_channels.sql", "utf8"));
+    await db.exec(
+      readFileSync("migrations/0002_unattested_hardware.sql", "utf8"),
+    );
+    await db.exec(
+      readFileSync("migrations/0003_user_release_channels.sql", "utf8"),
+    );
+    await db.exec(readFileSync("migrations/0004_release_deletion.sql", "utf8"));
     const api = await mf.getWorker("api"),
       bot = await mf.getWorker("bot"),
       admin = await mf.getWorker("admin");
@@ -707,7 +712,7 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
         admin,
         "https://admin.example/admin/api/users/1001/actions",
         "POST",
-        { action: "channel", channel: "beta", reason: "test channel assignment" },
+        { action: "channel", channel: "beta" },
         {
           ...accessHeaders,
           origin: env.ADMIN_ORIGIN,
@@ -717,7 +722,9 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
     );
     assert.equal(
       (await db
-        .prepare("SELECT release_channel FROM users WHERE telegram_user_id='1001'")
+        .prepare(
+          "SELECT release_channel FROM users WHERE telegram_user_id='1001'",
+        )
         .first<{ release_channel: string }>())!.release_channel,
       "beta",
     );
@@ -726,7 +733,7 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
         admin,
         "https://admin.example/admin/api/users/1001/actions",
         "POST",
-        { action: "disable", reason: "test revocation" },
+        { action: "disable" },
         {
           ...accessHeaders,
           origin: env.ADMIN_ORIGIN,
@@ -781,6 +788,64 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
       status: "DISABLED",
       authEpoch: 1,
     });
+    const adminWrite = {
+      ...accessHeaders,
+      origin: env.ADMIN_ORIGIN,
+      "x-wekit-csrf-token": adminSession.data.csrfToken,
+    };
+    await db
+      .prepare(
+        "INSERT INTO payload_releases(payload_id,manifest_json,apk_sha256,apk_size,cipher_sha256,cipher_size,r2_key,content_key_wrapped_json,status,created_at) VALUES('doomed-release','{}',?,1,?,1,'doomed/key','{}','ALLOWED',?)",
+      )
+      .bind("0".repeat(64), "1".repeat(64), Date.now())
+      .run();
+    await db
+      .prepare("INSERT INTO channels VALUES('doomed','doomed-release',?)")
+      .bind(Date.now())
+      .run();
+    await ok(
+      await send(
+        admin,
+        "https://admin.example/admin/api/releases/doomed-release",
+        "DELETE",
+        {},
+        adminWrite,
+      ),
+    );
+    const tombstone = await db
+      .prepare(
+        "SELECT status,deleted_at,content_key_wrapped_json AS key FROM payload_releases WHERE payload_id='doomed-release'",
+      )
+      .first<{ status: string; deleted_at: number | null; key: string }>();
+    assert.equal(tombstone!.status, "STOPPED");
+    assert.notEqual(tombstone!.deleted_at, null);
+    assert.equal(tombstone!.key, "");
+    assert.equal(
+      (await db
+        .prepare("SELECT count(*) AS n FROM channels WHERE name='doomed'")
+        .first<{ n: number }>())!.n,
+      1,
+    );
+    await ok(
+      await send(
+        admin,
+        "https://admin.example/admin/api/releases/doomed-release",
+        "DELETE",
+        {},
+        adminWrite,
+      ),
+      409,
+    );
+    await ok(
+      await send(
+        admin,
+        "https://admin.example/admin/api/releases/doomed-release/actions",
+        "POST",
+        { action: "allow" },
+        adminWrite,
+      ),
+      404,
+    );
     const newToken = random(32),
       newNonce = random(32),
       newKey = await crypto.subtle.generateKey(
@@ -1013,17 +1078,22 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
         deviceInfo: { model: "unlocked-test" },
       }),
     );
-    assert.equal(lowRecovered.bindingSessionId, lowRegistration.bindingSessionId);
+    assert.equal(
+      lowRecovered.bindingSessionId,
+      lowRegistration.bindingSessionId,
+    );
     assert.equal(lowRecovered.bindingCode, lowRegistration.bindingCode);
     assert.equal(
-      (
-        await db
-          .prepare(
-            "SELECT assurance,security_level,root_spki_sha256 FROM installations WHERE installation_id=?",
-          )
-          .bind(lowRegistration.installationId)
-          .first<{ assurance: string; security_level: string; root_spki_sha256: string }>()
-      )!.assurance,
+      (await db
+        .prepare(
+          "SELECT assurance,security_level,root_spki_sha256 FROM installations WHERE installation_id=?",
+        )
+        .bind(lowRegistration.installationId)
+        .first<{
+          assurance: string;
+          security_level: string;
+          root_spki_sha256: string;
+        }>())!.assurance,
       "UNATTESTED_HARDWARE",
     );
     const lowInstall = await db
