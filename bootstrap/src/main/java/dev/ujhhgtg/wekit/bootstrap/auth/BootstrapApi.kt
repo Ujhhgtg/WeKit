@@ -17,6 +17,7 @@ import io.ktor.http.contentType
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
+import okhttp3.CertificatePinner
 import io.ktor.utils.io.readAvailable
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -27,11 +28,20 @@ class RemoteApiException(val code: String, message: String, val retryable: Boole
 
 /** Synchronous API for startup and background account/download work; responses are scoped to execute. */
 class BootstrapApi(private val config: BootstrapConfig, private val store: InstallationStore) {
-    private val client = HttpClient(OkHttp) {
-        expectSuccess = false
-        followRedirects = false
-        install(HttpTimeout) { connectTimeoutMillis = 15000; socketTimeoutMillis = 30000 }
-        engine { config { retryOnConnectionFailure(false) } }
+    private val client = pinnedClient(config)
+
+    private fun pinnedClient(bootstrap: BootstrapConfig): HttpClient {
+        require(bootstrap.tlsPins.isNotEmpty())
+        // The pinner trusts only these CA keys for the API host, on top of normal chain validation.
+        val pinner = CertificatePinner.Builder().apply {
+            bootstrap.tlsPins.forEach { add(URI(bootstrap.apiOrigin).host, "sha256/$it") }
+        }.build()
+        return HttpClient(OkHttp) {
+            expectSuccess = false
+            followRedirects = false
+            install(HttpTimeout) { connectTimeoutMillis = 15000; socketTimeoutMillis = 30000 }
+            engine { config { retryOnConnectionFailure(false); certificatePinner(pinner) } }
+        }
     }
 
     fun publicPost(path: String, body: JsonObject): JsonObject = runBlocking {

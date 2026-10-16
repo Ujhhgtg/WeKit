@@ -122,7 +122,7 @@ object BootstrapCoordinator {
         if (::api.isInitialized) return
         check(Process.is64Bit()) { "WeKit bootstrap requires arm64" }
         val apk = File(loaderService.mainModulePath)
-        config = BootstrapConfig.load(apk)
+        config = BootstrapConfig.DEFAULT
         BootstrapNativeLibraries.initialize(application, apk)
         api = BootstrapApi(config, store)
         cache = PayloadCache(store, config)
