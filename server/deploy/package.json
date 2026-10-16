@@ -1,0 +1,14 @@
+{
+  "name": "wekit-worker-deployment",
+  "private": true,
+  "type": "module",
+  "scripts": {"check": "tsc --noEmit"},
+  "devDependencies": {
+    "@cloudflare/config": "0.24.1",
+    "@cloudflare/build-output-utils": "0.9.0",
+    "cf": "1.0.0-beta.14",
+    "@types/node": "24.9.0",
+    "@cloudflare/workers-types": "5.20261006.1",
+    "typescript": "7.0.2"
+  }
+}

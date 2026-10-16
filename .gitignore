@@ -38,3 +38,13 @@ local.properties
 
 # Extension-pack build outputs (./x extensions pack/lock)
 dist/
+
+/bootstrap/src/main/jniLibs/
+/server/node_modules/
+/server/admin-ui/node_modules/
+/server/dist/
+/server/admin-ui/dist/
+/server/.cloudflare/
+/server/.cf/
+# Modern cf CLI local cache.
+/.cloudflare/

@@ -212,6 +212,9 @@
         <item quantity="other">最近 %1$d 天新增 %2$d 個功能</item>
     </plurals>
     <string name="home_module_activated">模塊已激活</string>
+    <string name="home_authorization_title">授權與綁定</string>
+    <string name="home_telegram_binding_title">Telegram 綁定</string>
+    <string name="home_telegram_binding_summary">查看綁定並重新確認</string>
     <string name="home_device_info_title">裝置資訊</string>
     <string name="home_learn_more_title">瞭解更多</string>
     <string name="home_learn_more_item_title">WeKit 文件</string>
@@ -264,9 +267,6 @@
     <string name="settings_import_config_summary">驗證備份後替換全部模組資料並重新啟動微信</string>
     <string name="settings_clear_config_title">清除資料</string>
     <string name="settings_clear_config_summary">刪除模組資料庫、腳本、擴充套件、快取和暫存檔</string>
-    <string name="settings_section_update">更新</string>
-    <string name="settings_check_update_title">檢查更新</string>
-    <string name="settings_check_update_summary">立即檢查模塊是否有新版本並自動下載</string>
     <string name="settings_extensions_title">擴展包</string>
     <string name="settings_extensions_summary">管理可下載的擴展包</string>
     <string name="extensions_screen_title">擴展包</string>
@@ -326,17 +326,10 @@
     <string name="settings_safe_mode_summary">在不穩定環境中保守加載模塊能力</string>
     <string name="action_reset">重置</string>
     <string name="action_clear">清除</string>
-    <string name="update_checking">正在檢查更新…</string>
-    <string name="update_up_to_date">已是最新版本</string>
     <string name="clear_config_dialog_title">清除全部模組資料</string>
     <string name="clear_config_dialog_message">確定刪除 Room 資料庫、腳本、擴充套件、日誌、崩潰記錄、快取和暫存檔嗎？此操作不可逆。</string>
     <string name="config_clearing">正在清除…</string>
     <string name="config_clear_success">清除成功!</string>
-    <string name="update_available_title">檢測到新版本</string>
-    <string name="update_available_message">當前版本: %1$s\n新版本: %2$s\n是否下載並安裝?</string>
-    <string name="update_download_failed">下載更新失敗: %1$s</string>
-    <string name="update_check_failed_title">檢查更新失敗</string>
-    <string name="update_error_message">錯誤信息: %1$s</string>
     <string name="licenses_title">開放源代碼庫</string>
     <string name="licenses_search_hint">搜索庫</string>
     <string name="licenses_visit_home_page">訪問主頁</string>
@@ -901,6 +894,8 @@
     <string name="feature_we_unsafe_api_description">提供調用 sun.misc.Unsafe 功能的能力</string>
     <string name="feature_we_xml_parser_api_name">XML 解析鉤子服務</string>
     <string name="feature_we_xml_parser_api_description">提供篡改 XML 解析流程的能力</string>
+    <string name="feature_environment_hider_name">環境隱藏服務</string>
+    <string name="feature_environment_hider_description">在宿主檢測中隱藏模組及開發環境</string>
     <string name="feature_we_net_scene_api_name">NetScene 服務</string>
     <string name="feature_we_net_scene_api_description">提供 NetScene 發送能力</string>
     <string name="feature_we_packet_helper_name">網絡數據包服務</string>
@@ -3414,8 +3409,6 @@
     <string name="noncompose_bsh_empty_result">錯誤：反編譯結果爲空。</string>
     <string name="noncompose_bsh_error">錯誤：%1$s</string>
     <string name="noncompose_bsh_selection_cancelled">已取消選擇文件。</string>
-    <string name="noncompose_update_download_title">WeKit 更新</string>
-    <string name="noncompose_update_downloading">正在下載更新…</string>
     <string name="noncompose_moments_thumbnail_warning">警告：正在使用縮略圖。建議先查看一次圖片以下載原圖。</string>
     <string name="noncompose_chat_input_no_actions">沒有可用的聊天輸入欄功能。</string>
     <string name="noncompose_chat_input_actions_title">聊天功能</string>

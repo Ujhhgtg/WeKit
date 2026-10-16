@@ -1,0 +1,1 @@
+{"name":"wekit-remote-api-deployment","private":true,"type":"module","scripts":{"build":"node ../build.mjs api"}}

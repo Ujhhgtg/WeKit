@@ -3,7 +3,9 @@ package dev.ujhhgtg.wekit.loader.utils
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
+import java.net.URL
 import java.util.Collections
+import java.util.Enumeration
 import java.util.IdentityHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -15,6 +17,9 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
     lateinit var hostClassLoader: ClassLoader
     val additionalLoaders = CopyOnWriteArrayList<ClassLoader>()
     private val resolvingAdditionalLoaders = ThreadLocal.withInitial<MutableSet<ClassLoader>> {
+        Collections.newSetFromMap(IdentityHashMap())
+    }
+    private val resolvingResourceLoaders = ThreadLocal.withInitial<MutableSet<ClassLoader>> {
         Collections.newSetFromMap(IdentityHashMap())
     }
 
@@ -48,15 +53,20 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
             return bootClassLoader.loadClass(name)
         } catch (_: ClassNotFoundException) {}
 
-        if (::moduleParentClassLoader.isInitialized) {
-            try {
-                return moduleParentClassLoader.loadClass(name)
-            } catch (_: ClassNotFoundException) {}
+        if (SHARED_PREFIXES.any(name::startsWith)) {
+            // A missing shared type must fail; defining another copy in business breaks identity.
+            return moduleParentClassLoader.loadClass(name)
         }
 
         if (::moduleClassLoader.isInitialized) {
             try {
                 return findModuleOwnClass(name)
+            } catch (_: ClassNotFoundException) {}
+        }
+
+        if (::moduleParentClassLoader.isInitialized) {
+            try {
+                return moduleParentClassLoader.loadClass(name)
             } catch (_: ClassNotFoundException) {}
         }
 
@@ -86,6 +96,62 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
         throw ClassNotFoundException(name)
     }
 
+    override fun findResource(name: String): URL? {
+        val resolving = resolvingResourceLoaders.get()!!
+        try {
+            for (loader in resourceLoaders()) {
+                if (!resolving.add(loader)) continue
+                try {
+                    loader.getResource(name)?.let { return it }
+                } finally {
+                    resolving.remove(loader)
+                }
+            }
+            return null
+        } finally {
+            if (resolving.isEmpty()) resolvingResourceLoaders.remove()
+        }
+    }
+
+    override fun findResources(name: String): Enumeration<URL> {
+        val urls = linkedMapOf<String, URL>()
+        val resolving = resolvingResourceLoaders.get()!!
+        try {
+            for (loader in resourceLoaders()) {
+                if (!resolving.add(loader)) continue
+                try {
+                    val resources = loader.getResources(name)
+                    while (resources.hasMoreElements()) {
+                        val resource = resources.nextElement()
+                        urls.putIfAbsent(resource.toExternalForm(), resource)
+                    }
+                } finally {
+                    resolving.remove(loader)
+                }
+            }
+        } finally {
+            if (resolving.isEmpty()) resolvingResourceLoaders.remove()
+        }
+        return Collections.enumeration(urls.values)
+    }
+
+    override fun getResources(name: String): Enumeration<URL> {
+        val resources = super.getResources(name)
+        val urls = linkedMapOf<String, URL>()
+        while (resources.hasMoreElements()) {
+            val resource = resources.nextElement()
+            urls.putIfAbsent(resource.toExternalForm(), resource)
+        }
+        return Collections.enumeration(urls.values)
+    }
+
+    private fun resourceLoaders(): List<ClassLoader> = buildList {
+        // The parent's resource-only bridge owns the sealed APK ZIP; don't recurse through MODULE.
+        if (::moduleParentClassLoader.isInitialized) add(moduleParentClassLoader)
+        if (::hostClassLoader.isInitialized) add(hostClassLoader)
+        addAll(additionalLoaders)
+    }
+
     private fun loadModuleClass(name: String): Class<*> {
         if (::moduleClassLoader.isInitialized) {
             try {
@@ -107,4 +173,14 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
     } catch (e: InvocationTargetException) {
         throw e.targetException
     }
+
+    private val SHARED_PREFIXES = listOf(
+        "dev.ujhhgtg.wekit.loader.abc.",
+        "dev.ujhhgtg.wekit.loader.api.",
+        "dev.ujhhgtg.wekit.bootstrap.",
+        "dev.ujhhgtg.reflekt.",
+        "org.luckypray.dexkit.",
+        "com.google.flatbuffers.",
+        "kotlin.",
+    )
 }

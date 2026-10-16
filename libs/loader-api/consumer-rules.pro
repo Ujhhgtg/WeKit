@@ -1,0 +1,2 @@
+-keep class dev.ujhhgtg.wekit.loader.api.** { *; }
+-keep class dev.ujhhgtg.wekit.loader.abc.** { *; }

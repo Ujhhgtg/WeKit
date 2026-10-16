@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import tempfile
 import zipfile
+from apk_dex_definitions import dex_definitions
 
 
 REQUIRED = (
@@ -21,7 +22,8 @@ REQUIRED = (
     "META-INF/com/google/android/updater-script",
     "webroot/index.html", "webroot/css/app.css", "webroot/js/bridge.js",
     "webroot/js/app.js", "webroot/js/kernelsu.js",
-    "lib/arm64-v8a/libwekit_native.so", "lib/arm64-v8a/libwekit_zygisk.so",
+    "lib/arm64-v8a/libwekit_loader.so", "lib/arm64-v8a/libdexkit.so", "lib/arm64-v8a/libwekit_zygisk.so",
+    "lib/arm64-v8a/libandroidx.graphics.path.so",
 )
 
 
@@ -32,18 +34,40 @@ def check_apk(apk, tools):
         assert archive.testzip() is None, "ZIP CRC failed"
         for name in REQUIRED:
             assert archive.getinfo(name).file_size > 0 or name == "sepolicy.rule", f"missing or empty: {name}"
+        for name in ("lib/arm64-v8a/libdexkit.so", "lib/arm64-v8a/libwekit_loader.so",
+                     "lib/arm64-v8a/libandroidx.graphics.path.so"):
+            assert archive.getinfo(name).compress_type == zipfile.ZIP_STORED, f"framework native lookup requires STORED: {name}"
         assert not any(name.endswith((".apk", "dex.list")) or name.startswith(("payload/", "zygisk/")) for name in names), "nested payload or duplicated loader"
         assert not any(name in names for name in ("verify.sh", "post-fs-data.sh", "service.sh")), "obsolete installer files"
         dex = [name for name in names if name.endswith(".dex")]
         assert set(dex) == {"classes.dex", *(f"classes{i}.dex" for i in range(2, len(dex) + 1))}, "noncanonical or duplicate DEX"
         assert {name.split('/')[1] for name in names if name.startswith('lib/') and name.endswith('.so')} == {"arm64-v8a"}
         assert "assets/xposed_init" not in names
+        assert not any(name.endswith("/libwekit_native.so") for name in names), "business JNI in public bootstrap"
+        assert archive.read("META-INF/xposed/java_init.list").decode().strip() == "dev.ujhhgtg.wekit.bootstrap.loader.entry.lxp.LxpHookEntry"
         props = dict(line.split('=', 1) for line in archive.read("module.prop").decode().splitlines() if '=' in line and not line.startswith('#'))
         assert props["id"] == "wekit_zygisk"
+        definitions = dex_definitions(archive, tools)
+        business = ("Ldev/ujhhgtg/wekit/features/", "Ldev/ujhhgtg/wekit/agent/", "Ldev/ujhhgtg/wekit/data/")
+        assert not any(name.startswith(business) for name in definitions), "business classes in public bootstrap"
+        assert "Ldev/ujhhgtg/wekit/loader/abc/IClassLoaderHelper;" not in definitions, "obsolete loader helper retained"
+        for name in ("Ldev/ujhhgtg/wekit/loader/api/PayloadEntry;",
+                     "Ldev/ujhhgtg/wekit/loader/api/PayloadEnvironment;",
+                     "Ldev/ujhhgtg/wekit/loader/api/AuthorizationControls;",
+                     "Ldev/ujhhgtg/wekit/loader/abc/IHookBridge;",
+                     "Ldev/ujhhgtg/wekit/loader/abc/ILoaderService;",
+                     "Ldev/ujhhgtg/reflekt/ReflektKt;", "Lorg/luckypray/dexkit/DexKitBridge;",
+                     "Lcom/google/flatbuffers/FlatBufferBuilder;", "Lkotlin/jvm/internal/Intrinsics;",
+                     "Lkotlin/reflect/jvm/ReflectJvmMapping;"):
+            assert definitions[name] == 1, f"missing/duplicate shared definition: {name}"
 
     badging = subprocess.check_output([str(tools / "aapt2"), "dump", "badging", str(apk)], text=True)
     package = re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", badging, re.M)
     assert package and package.group(2) == props["versionCode"] and package.group(3) == props["version"], "APK/module version mismatch"
+    assert package.group(1) == "dev.ujhhgtg.wekit", "wrong public application ID"
+    assert "minSdkVersion:'29'" in badging and "targetSdkVersion:'37'" in badging, "wrong public SDK contract"
+    resources = subprocess.check_output([str(tools / "aapt2"), "dump", "resources", str(apk)], text=True)
+    assert re.search(r"^Package name=dev\.ujhhgtg\.wekit\.bootstrap id=68$", resources, re.M), "wrong public resource package name/ID"
     subprocess.run([str(tools / "apksigner"), "verify", "--verbose", str(apk)], check=True, stdout=subprocess.DEVNULL)
     subprocess.run([str(tools / "zipalign"), "-c", "-P", "16", "4", str(apk)], check=True, stdout=subprocess.DEVNULL)
     print(f"PASS {apk.name}: signed/aligned, {len(dex)} DEX, {props['description']}")

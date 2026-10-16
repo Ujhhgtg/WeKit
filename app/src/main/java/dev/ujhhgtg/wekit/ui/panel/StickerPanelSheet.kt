@@ -127,7 +127,7 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerImport
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerImportProgress
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerImportResult
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerPackRepository
-import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
+import dev.ujhhgtg.wekit.loader.api.InjectionMode
 import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskTelegramRootClient
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.ui.content.GlobalImageLoader
@@ -1730,7 +1730,7 @@ private fun StickerPanelContent(
             onSelect = { source ->
                 telegramSourcePrompt = false
                 if (source == TelegramDatabaseSource.ROOT &&
-                    StartupInfo.loaderService is ZygiskLoaderService
+                    StartupInfo.injectionMode == InjectionMode.ZYGISK
                 ) {
                     zygiskInstancePickerVisible = true
                     return@TelegramDatabaseSourcePrompt

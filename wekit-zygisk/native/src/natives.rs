@@ -73,7 +73,7 @@ extern "C" fn jni_allocate_instance(
 extern "C" fn jni_hide_loaded_module_libraries(_env: *mut RawJNIEnv, _class: jclass) -> jboolean {
     let ok = crate::so_hider::hide_path("libdexkit.so") >= 0
         && crate::so_hider::hide_path("libwekit_native.so") >= 0
-        && crate::so_hider::hide_path("libmmkv.so") >= 0;
+        && crate::so_hider::hide_path("libwekit_loader.so") >= 0;
     if ok { JNI_TRUE } else { JNI_FALSE }
 }
 
@@ -373,7 +373,7 @@ pub unsafe fn register_hook_bridge_natives(env: *mut RawJNIEnv, class_loader: jo
     let class = load_class_from_loader(
         env,
         class_loader,
-        "dev.ujhhgtg.wekit.loader.entry.zygisk.ArtHookBridge",
+        "dev.ujhhgtg.wekit.bootstrap.loader.entry.zygisk.ArtHookBridge",
     );
     if class.is_null() {
         loge!("Zygisk: failed to load ArtHookBridge class");
@@ -425,7 +425,7 @@ pub unsafe fn register_entry_natives(env: *mut RawJNIEnv, class_loader: jobject)
     let class = load_class_from_loader(
         env,
         class_loader,
-        "dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskEntry",
+        "dev.ujhhgtg.wekit.bootstrap.loader.entry.zygisk.ZygiskEntry",
     );
     if class.is_null() {
         loge!("Zygisk: failed to load ZygiskEntry class");

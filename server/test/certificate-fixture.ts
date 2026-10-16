@@ -1,0 +1,117 @@
+import * as asn1 from "asn1js";
+import {
+  AttributeTypeAndValue,
+  Certificate,
+  CryptoEngine,
+  Extension,
+  setEngine,
+} from "pkijs";
+import { b64, unb64 } from "../src/crypto.ts";
+// Entirely local test CA. The production refresh only downloads Google roots;
+// this generated trust anchor is inserted into the isolated test DB explicitly.
+export async function hardwareClaimFixture(
+  target: CryptoKey,
+  challenge: string,
+) {
+  setEngine(
+    "test",
+    crypto,
+    new CryptoEngine({ name: "test", crypto, subtle: crypto.subtle }),
+  );
+  const keys = await Promise.all(
+    Array.from({ length: 3 }, () =>
+      crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, [
+        "sign",
+        "verify",
+      ]),
+    ),
+  );
+  const certificates: Certificate[] = [];
+  for (let i = 0; i < 4; i++) {
+    const c = new Certificate();
+    c.version = 2;
+    c.serialNumber = new asn1.Integer({ value: i + 1 });
+    const attributes =
+      i < 2
+        ? [
+            new AttributeTypeAndValue({
+              type: "2.5.4.5",
+              value: new asn1.PrintableString({
+                value: i === 0 ? "test-root" : "test-factory",
+              }),
+            }),
+          ]
+        : [
+            new AttributeTypeAndValue({
+              type: "2.5.4.3",
+              value: new asn1.Utf8String({
+                value: i === 2 ? "Test Attester" : "Android Keystore Key",
+              }),
+            }),
+          ];
+    c.subject.typesAndValues = attributes;
+    c.issuer.typesAndValues =
+      i === 0 ? attributes : certificates[i - 1]!.subject.typesAndValues;
+    c.notBefore.value = new Date(Date.now() - 60000);
+    c.notAfter.value = new Date(Date.now() + 86400000);
+    await c.subjectPublicKeyInfo.importKey(
+      i === 3 ? target : keys[i]!.publicKey,
+    );
+    if (i === 3) {
+      const tag = (n: number, value: asn1.BaseBlock) =>
+        new asn1.Constructed({
+          idBlock: { tagClass: 3, tagNumber: n },
+          value: [value],
+        });
+      const int = (value: number) => new asn1.Integer({ value });
+      const description = new asn1.Sequence({
+        value: [
+          int(300),
+          new asn1.Enumerated({ value: 1 }),
+          int(3),
+          new asn1.Enumerated({ value: 1 }),
+          new asn1.OctetString({ valueHex: unb64(challenge) }),
+          new asn1.OctetString({ valueHex: new Uint8Array() }),
+          new asn1.Sequence({ value: [] }),
+          new asn1.Sequence({
+            value: [
+              tag(1, new asn1.Set({ value: [int(2)] })),
+              tag(2, int(3)),
+              tag(3, int(256)),
+              tag(5, new asn1.Set({ value: [int(4)] })),
+              tag(10, int(1)),
+              tag(503, new asn1.Null()),
+              tag(702, int(0)),
+              tag(
+                704,
+                new asn1.Sequence({
+                  value: [
+                    new asn1.OctetString({ valueHex: new Uint8Array(32) }),
+                    new asn1.Boolean({ value: false }),
+                    new asn1.Enumerated({ value: 2 }),
+                    new asn1.OctetString({ valueHex: new Uint8Array(32) }),
+                  ],
+                }),
+              ),
+            ],
+          }),
+        ],
+      });
+      c.extensions = [
+        new Extension({
+          extnID: "1.3.6.1.4.1.11129.2.1.17",
+          extnValue: description.toBER(false),
+        }),
+      ];
+    }
+    await c.sign(keys[Math.max(i - 1, 0)]!.privateKey, "SHA-256");
+    certificates.push(c);
+  }
+  return {
+    root: b64(certificates[0]!.toSchema().toBER(false)),
+    rootSpki: b64(
+      certificates[0]!.subjectPublicKeyInfo.toSchema().toBER(false),
+    ),
+    chain: certificates.reverse().map((c) => b64(c.toSchema().toBER(false))),
+  };
+}

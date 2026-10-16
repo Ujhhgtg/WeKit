@@ -44,7 +44,7 @@ android {
     ndkVersion = libs.versions.ndk.get()
 
     defaultConfig {
-        applicationId = libs.versions.namespace.get()
+        applicationId = "dev.ujhhgtg.wekit"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
 
@@ -125,6 +125,7 @@ android {
 
         release {
             optimization.enable = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "payload-rules.pro")
             signingConfig = signingConfigs.getByName(if (foundKeystore) "release" else "debug")
         }
     }
@@ -140,6 +141,7 @@ android {
         }
         jniLibs {
             useLegacyPackaging = true
+            excludes += setOf("**/libwekit_zygisk.so", "**/libwekit_loader.so", "**/libdexkit.so")
         }
         resources.excludes += listOf(
             "kotlin/**",
@@ -198,21 +200,6 @@ androidComponents {
         variant.buildConfigFields!!.put("COMMIT_TIMESTAMP", commitTimestamp.map {
             BuildConfigField("long", "${it}L", null)
         })
-
-        val generateZygiskResources = tasks.register<GenerateZygiskResourcesTask>(
-            "generate${variant.name.replaceFirstChar { it.uppercase() }}ZygiskResources"
-        ) {
-            description = "Generate Zygisk module Resources"
-            templateDir.set(rootProject.layout.projectDirectory.dir("wekit-zygisk/template"))
-            versionCode.set(variant.outputs.single().versionCode)
-            versionName.set(variant.outputs.single().versionName)
-            variantName.set(variant.name)
-            outputDir.set(layout.buildDirectory.dir("generated/zygiskResources/${variant.name}"))
-        }
-        variant.sources.resources!!.addGeneratedSourceDirectory(
-            generateZygiskResources,
-            GenerateZygiskResourcesTask::outputDir
-        )
 
         val kotlinSources = variant.sources.kotlin ?: return@onVariants
 
@@ -296,7 +283,7 @@ val generateScriptDepsDex = tasks.register<GenerateScriptDepsDexTask>("generateS
     description = "Compile the script-deps extension pack DEX (fastjson2 + okhttp + kotlin-stdlib)"
     jars.from(scriptDeps)
     r8Classpath.from(r8Tool)
-    minApi.set(28)
+    minApi.set(libs.versions.minSdk.get().toInt())
     // Bump together with compileSdk when it changes.
     androidJar.set(
         androidComponents.sdkComponents.bootClasspath.map { jars -> jars.first().asFile.absolutePath },
@@ -359,9 +346,16 @@ dependencies {
 
     compileOnly(libs.libxposed.api)
     implementation(libs.libxposed.service)
-    implementation(libs.dexkit)
+    compileOnly(libs.dexkit)
+    // DexKit exposes FlatBufferBuilder in public methods, but declares it runtime-only in its POM.
+    compileOnly(libs.flatbuffers)
+    compileOnly(kotlin("reflect"))
+    compileOnly(project(":libs:loader-api"))
+    testImplementation(project(":libs:loader-api"))
+    testImplementation(libs.dexkit)
     implementation(libs.hiddenapibypass)
-    implementation(project(":libs:common:reflekt"))
+    compileOnly(project(":libs:common:reflekt"))
+    testImplementation(project(":libs:common:reflekt"))
     implementation(libs.libsu.core)
     implementation(libs.dexmaker)
     implementation(project(":libs:common:annotation-scanner"))
@@ -460,3 +454,15 @@ tasks.withType<KotlinJvmCompile>().configureEach {
         freeCompilerArgs.add("-opt-in=kotlinx.serialization.ExperimentalSerializationApi")
     }
 }
+
+// The bootstrap owns these exact runtime definitions. Keep them available to the compiler,
+// but exclude stdlib pulled transitively by Compose/other payload-only libraries from DEX.
+configurations.matching { it.name == "debugRuntimeClasspath" || it.name == "releaseRuntimeClasspath" }
+    .configureEach {
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib")
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk7")
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk8")
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-reflect")
+        exclude(group = "org.luckypray", module = "dexkit")
+        exclude(group = "com.google.flatbuffers", module = "flatbuffers-java")
+    }

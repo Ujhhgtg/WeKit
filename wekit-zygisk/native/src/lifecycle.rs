@@ -233,7 +233,7 @@ pub unsafe fn do_post_app_specialize(module: &mut WeKitModule, _args: *const App
     }
 
     // Load ZygiskEntry class
-    let entry_name = "dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskEntry";
+    let entry_name = "dev.ujhhgtg.wekit.bootstrap.loader.entry.zygisk.ZygiskEntry";
     let entry_cls = crate::natives::load_class_from_loader(module.env, cl, entry_name);
     if entry_cls.is_null() {
         loge!("Zygisk: ZygiskEntry class not found");

@@ -26,7 +26,8 @@ for entry in module.prop customize.sh uninstall.sh sepolicy.rule config.sh actio
   webroot/js/app.js webroot/js/kernelsu.js \
   META-INF/com/google/android/update-binary META-INF/com/google/android/updater-script \
   AndroidManifest.xml classes.dex resources.arsc \
-  lib/arm64-v8a/libwekit_native.so lib/arm64-v8a/libwekit_zygisk.so
+  lib/arm64-v8a/libdexkit.so lib/arm64-v8a/libwekit_loader.so \
+  lib/arm64-v8a/libandroidx.graphics.path.so lib/arm64-v8a/libwekit_zygisk.so
 do
   # BusyBox unzip may return success when a requested name matches no entry.
   # All required names are fixed and contain no whitespace.

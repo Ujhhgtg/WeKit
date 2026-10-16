@@ -75,6 +75,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
         with:
+          toolchain: nightly-2026-09-13
           targets: aarch64-linux-android
 
       - name: Install Android NDK
@@ -126,23 +127,23 @@ jobs:
           WEKIT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           WEKIT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           WEKIT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./x build --release
+        run: ./x build-bootstrap --release
 
       - name: Build Release (Unsigned)
         if: github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./x build --release
+        run: ./x build-bootstrap --release
 
       - name: Verify and collect Release APK and mapping
         run: |
           set -euo pipefail
-          apk="app/build/outputs/apk/release/app-release.apk"
+          apk="bootstrap/build/outputs/apk/release/bootstrap-release.apk"
           uv run --no-sync --project wekit-zygisk python .github/scripts/verify-dual-apk.py --check-installer "$apk"
           WEKIT_TEST_APK="$GITHUB_WORKSPACE/$apk" cargo test -p wekit-zygisk --lib apk::tests::reads_built_apk -- --ignored
           mkdir -p dist/apk dist/mapping
-          cp -v "$apk" dist/apk/
-          cp -v app/build/outputs/mapping/release/mapping.txt dist/mapping/mapping-release.txt
+          cp -v "$apk" dist/apk/app-release.apk
+          cp -v bootstrap/build/outputs/mapping/release/mapping.txt dist/mapping/mapping-release.txt
 
           echo "Collected APKs:"
           ls -1 dist/apk
@@ -166,7 +167,7 @@ jobs:
         # Keep the Gradle and Rust caches for their post-job save steps.
         run: |
           df -h /
-          rm -rf app/build
+          rm -rf bootstrap/build
           df -h /
 
   dex-test:
@@ -193,6 +194,8 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly-2026-09-13
 
       - name: Install system dependencies
         run: |
@@ -324,6 +327,8 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly-2026-09-13
 
       - name: Download Dex resolution reports
         uses: actions/download-artifact@v8
@@ -428,6 +433,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
         with:
+          toolchain: nightly-2026-09-13
           targets: aarch64-linux-android
 
       - name: Set up uv
@@ -483,7 +489,7 @@ jobs:
         id: native_build
         run: |
           cargo xtask configure
-          cargo xtask build --native-only --abi arm64-v8a
+          cargo xtask build-payload --native-only --abi arm64-v8a
 
       - name: Pack extensions
         run: cargo xtask extensions pack

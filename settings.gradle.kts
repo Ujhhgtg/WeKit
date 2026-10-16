@@ -70,6 +70,8 @@ includeBuild("libs/common/scripta")
 
 include(
     ":app",
+    ":bootstrap",
+    ":libs:loader-api",
     ":libs:common:annotation-scanner",
     ":libs:common:stubs",
     ":libs:common:bsh",

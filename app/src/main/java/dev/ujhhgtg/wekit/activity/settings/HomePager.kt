@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.activity.settings
 
 import android.os.Build
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Android
 import com.composables.icons.materialsymbols.outlined.Chat
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Check_circle
 import com.composables.icons.materialsymbols.outlined.Deployed_code
 import com.composables.icons.materialsymbols.outlined.Layers
@@ -41,7 +43,7 @@ import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.openLsposedManager
 import dev.ujhhgtg.wekit.activity.openRootManager
-import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
+import dev.ujhhgtg.wekit.loader.api.InjectionMode
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -62,6 +64,7 @@ fun HomePager() {
                 modifier = Modifier.padding(top = 12.dp),
             ) {
                 StatusCard()
+                AuthorizationBinding()
                 DeviceInformation()
                 LearnMore()
                 Spacer(Modifier.height(CONTENT_BOTTOM_INSET))
@@ -87,7 +90,7 @@ private fun StatusCard() {
         contentColor = contentColor,
         shape = MaterialTheme.shapes.large,
         onClick = {
-            if (StartupInfo.loaderService is ZygiskLoaderService) {
+            if (StartupInfo.injectionMode == InjectionMode.ZYGISK) {
                 showNoRootManager = !openRootManager(context)
             } else {
                 openLsposedManager(activity)
@@ -160,6 +163,25 @@ private fun StatusTag(label: String, backgroundColor: Color, contentColor: Color
             style = MaterialTheme.typography.labelSmallEmphasized,
             color = contentColor,
         )
+    }
+}
+
+@Composable
+private fun AuthorizationBinding() {
+    val controls = StartupInfo.payloadEnvironment.authorizationControls ?: return
+    val activity = LocalActivity.current!!
+    SegmentedColumn(title = stringResource(R.string.home_authorization_title)) {
+        item {
+            BaseWidget(
+                icon = MaterialSymbols.Outlined.Chat,
+                title = stringResource(R.string.home_telegram_binding_title),
+                description = stringResource(R.string.home_telegram_binding_summary),
+                onClick = { controls.show(activity) },
+                trailingContent = {
+                    Icon(MaterialSymbols.Outlined.Chevron_right, contentDescription = null)
+                },
+            )
+        }
     }
 }
 

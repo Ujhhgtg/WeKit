@@ -5,15 +5,17 @@ class EnvironmentReportPolicy(
     private val modulePackage: String,
     private val moduleApk: String,
     private val moduleDataDirectory: String,
+    private val loaderDataDirectory: String = moduleDataDirectory,
 ) {
     fun isModuleMapping(path: String): Boolean {
         val clean = path.removeSuffix(" (deleted)")
         return clean == moduleApk || clean.startsWith("$moduleApk!/") ||
             clean == moduleDataDirectory || clean.startsWith("$moduleDataDirectory/") ||
+            clean == loaderDataDirectory || clean.startsWith("$loaderDataDirectory/") ||
             clean.split('/').any { it == modulePackage || it.startsWith("$modulePackage-") } ||
             clean.startsWith("/data/adb/lspd/") || clean.startsWith("/data/adb/modules/zygisk_lsposed/") ||
-            clean == "/memfd:wk" || clean == "/memfd:wekit-inline-hook" ||
-            clean.substringAfterLast('/') in setOf("libwekit_native.so", "libwekit_zygisk.so", "liblsposed.so", "liblspd.so")
+            clean == "/memfd:wk" || clean == "/memfd:wekit-inline-hook" || clean == "/memfd:wekit-payload" ||
+            clean.substringAfterLast('/') in setOf("libwekit_native.so", "libwekit_zygisk.so", "libwekit_loader.so", "libdexkit.so", "liblsposed.so", "liblspd.so")
     }
 
     fun rewriteFields(message: ByteArray): ByteArray {

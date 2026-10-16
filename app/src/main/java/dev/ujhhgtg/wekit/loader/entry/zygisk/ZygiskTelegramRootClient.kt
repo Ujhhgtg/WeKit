@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.loader.entry.zygisk
 
 import android.os.ParcelFileDescriptor
+import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramInstalledStickerSet
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerDatabase
 import java.io.File
@@ -14,11 +15,11 @@ import kotlin.io.path.isRegularFile
  */
 object ZygiskTelegramRootClient {
 
-    fun isAvailable(): Boolean = ZygiskEntry.hasTelegramRootCompanion()
+    fun isAvailable(): Boolean = StartupInfo.telegramRootAccess?.hasTelegramRootCompanion() == true
 
     fun discoverInstances(): Result<List<String>> = runCatching {
         check(isAvailable()) { "Zygisk Root Companion 不可用，请完全结束并重新启动微信" }
-        ZygiskEntry.listTelegramRootInstances()
+        StartupInfo.telegramRootAccess!!.listTelegramRootInstances()
             .distinct()
             .sortedWith(String.CASE_INSENSITIVE_ORDER)
             .also { require(it.isNotEmpty()) { "未找到可读取的 Telegram 实例" } }
@@ -53,7 +54,7 @@ object ZygiskTelegramRootClient {
                                 ParcelFileDescriptor.MODE_TRUNCATE or
                                 ParcelFileDescriptor.MODE_READ_WRITE,
                     ).use { shmFd ->
-                        ZygiskEntry.copyTelegramRootDatabaseSnapshot(
+                        StartupInfo.telegramRootAccess!!.copyTelegramRootDatabaseSnapshot(
                             packageName = packageName,
                             databaseFd = databaseFd.fd,
                             walFd = walFd.fd,

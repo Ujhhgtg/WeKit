@@ -1,11 +1,9 @@
 package dev.ujhhgtg.wekit.constants
 
-import dev.ujhhgtg.wekit.BuildConfig
-
 object PackageNames {
 
     const val WECHAT = "com.tencent.mm"
-    const val MODULE = BuildConfig.APPLICATION_ID
+    const val MODULE = "dev.ujhhgtg.wekit"
 
     @Suppress("NOTHING_TO_INLINE")
     @JvmStatic

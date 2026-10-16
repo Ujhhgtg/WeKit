@@ -4,6 +4,7 @@
 //!
 //!   configure            Regenerate wekit-native/.cargo/config.toml from the local NDK.
 //!   build [OPTIONS]      Build the project (default: full Android debug build via Gradle).
+//!   publish              Build the private release payload and publish it locally.
 //!   check [OPTIONS]      Run `cargo check` on the native library.
 //!   clippy [OPTIONS]     Run `cargo clippy` on the native library.
 //!   dex-test [OPTIONS]   Resolve WeKit DexKit targets against desktop APKs.
@@ -34,7 +35,7 @@ mod i18n_check;
 // ── Project constants (mirror app/build.gradle.kts / libs.versions.toml) ──────
 
 /// Matches `minSdk` in libs.versions.toml.
-const MIN_SDK: u32 = 28;
+const MIN_SDK: u32 = 29;
 
 /// Minimum NDK major version accepted by `configure`; the pinned NDK must be at least this new.
 const MIN_NDK_MAJOR: u32 = 29;
@@ -59,12 +60,14 @@ enum ApkNativeBuildStep {
     Configure,
     WeKitNative,
     ZygiskNative,
+    BootstrapLoader,
 }
 
 const APK_NATIVE_BUILD_STEPS: &[ApkNativeBuildStep] = &[
     ApkNativeBuildStep::Configure,
     ApkNativeBuildStep::WeKitNative,
     ApkNativeBuildStep::ZygiskNative,
+    ApkNativeBuildStep::BootstrapLoader,
 ];
 
 // Order matches the template in ConfigureCargoTask.kt so that
@@ -105,6 +108,18 @@ enum Cmd {
     /// Default: prepares native inputs, then runs `./gradlew assembleDebug`.
     /// Pass --native-only to compile only the Rust .so and copy it to jniLibs/.
     Build(BuildArgs),
+
+    /// Build only the public dual-format bootstrap APK.
+    BuildBootstrap(BuildArgs),
+
+    /// Build only the private business payload APK.
+    BuildPayload(BuildArgs),
+
+    /// Build the release business APK locally, then encrypt/sign and publish it.
+    Publish(PublishArgs),
+
+    /// Encrypt/sign one business APK and publish it (legacy spelling).
+    PublishPayload(PublishArgs),
 
     /// Build and install the app, or flash the same APK as a Zygisk module.
     ///
@@ -152,6 +167,37 @@ struct BuildArgs {
 
     #[command(flatten)]
     native: NativeArgs,
+}
+
+#[derive(Args)]
+struct PublishArgs {
+    /// Signed private business APK.
+    #[arg(long, default_value = "app/build/outputs/apk/release/app-release.apk")]
+    apk: PathBuf,
+    /// API origin containing /ci endpoints.
+    #[arg(long, default_value = "https://auth.wekit.ujhhgtg.dev")]
+    api_url: String,
+    /// Publication audience (retained for the GitHub OIDC compatibility path).
+    #[arg(long, default_value = "wekit-payload-publication")]
+    audience: String,
+    /// P-256 release signing private key PEM path; never printed or uploaded.
+    #[arg(long, default_value = "/home/ujhhgtg/.config/wekit-release/remote-payload-release-20261011.pem")]
+    signing_key_file: PathBuf,
+    #[arg(long, default_value = "release-20261011-1")]
+    key_id: String,
+    /// Local release-machine secret JSON. Omit only when running inside GitHub Actions.
+    #[arg(long, default_value = "/home/ujhhgtg/.config/wekit-release/remote-payload-production-secrets.json")]
+    local_secrets_file: Option<PathBuf>,
+    #[arg(long, default_value = "stable")]
+    channel: String,
+    /// Explicit immutable payload ID; omit to generate one.
+    #[arg(long)]
+    payload_id: Option<String>,
+    /// Prepare encrypted artifact without contacting publication API.
+    #[arg(long)]
+    prepare_only: bool,
+    #[arg(long, default_value = "target/private-payload")]
+    output_dir: PathBuf,
 }
 
 /// Arguments for `run` (install + launch via Gradle).
@@ -224,6 +270,10 @@ fn main() -> Result<()> {
     match cli.command {
         Cmd::Configure => task_configure()?,
         Cmd::Build(args) => task_build(args)?,
+        Cmd::BuildBootstrap(args) => task_build_module(&args, "bootstrap")?,
+        Cmd::BuildPayload(args) => task_build_module(&args, "app")?,
+        Cmd::Publish(args) => task_publish(args)?,
+        Cmd::PublishPayload(args) => task_publish_payload(&args)?,
         Cmd::Run(args) => task_run(args)?,
         Cmd::Check(args) => task_cargo_cmd("check", &args.abis, &[])?,
         Cmd::Clippy(args) => task_cargo_cmd("clippy", &args.abis, &["--", "-D", "warnings"])?,
@@ -459,16 +509,27 @@ fn task_build_android(args: &BuildArgs) -> Result<()> {
     let root = workspace_root();
     let gradle_task = gradle_variant_task("assemble", args.release);
     println!("build: ./gradlew {gradle_task}");
-    run_gradlew(&[&gradle_task], &root)
+    let bootstrap_task = format!(":bootstrap:{gradle_task}");
+    let payload_task = format!(":app:{gradle_task}");
+    let mut tasks = vec![bootstrap_task.as_str(), payload_task.as_str()];
+    if args.release {
+        tasks.push("--no-configuration-cache");
+    }
+    run_gradlew(&tasks, &root)
 }
 
 /// Install the app on a connected device or emulator via the Gradle wrapper (native lib compiled first).
 fn task_run(args: RunArgs) -> Result<()> {
     validate_root_manager(args.root.as_deref())?;
-    task_prepare_apk_native_inputs(&[], false)?;
     let root = workspace_root();
+    task_configure()?;
+    build_zygisk_native(&root, &[], false)?;
+    build_bootstrap_loader(&root, &[])?;
     let verb = if args.zygisk { "assemble" } else { "install" };
-    let gradle_task = gradle_variant_task(verb, args.is_release());
+    let gradle_task = format!(
+        ":bootstrap:{}",
+        gradle_variant_task(verb, args.is_release())
+    );
     println!("run: ./gradlew {gradle_task}");
     let mut command = Command::new(root.join(if cfg!(windows) {
         "gradlew.bat"
@@ -486,7 +547,9 @@ fn task_run(args: RunArgs) -> Result<()> {
         } else {
             "debug"
         };
-        let apk = root.join(format!("app/build/outputs/apk/{profile}/app-{profile}.apk"));
+        let apk = root.join(format!(
+            "bootstrap/build/outputs/apk/{profile}/bootstrap-{profile}.apk"
+        ));
         validate_module_apk(&apk)?;
         install_zygisk_apk(&root, &apk, args.device.as_deref(), args.root.as_deref())?;
         if args.reboot {
@@ -517,9 +580,126 @@ fn task_prepare_apk_native_inputs(abi_args: &[String], save_symbols: bool) -> Re
             ApkNativeBuildStep::ZygiskNative => {
                 build_zygisk_native(&workspace_root(), abi_args, save_symbols)?
             }
+            ApkNativeBuildStep::BootstrapLoader => {
+                build_bootstrap_loader(&workspace_root(), abi_args)?
+            }
         }
     }
     Ok(())
+}
+
+fn task_build_module(args: &BuildArgs, module: &str) -> Result<()> {
+    let root = workspace_root();
+    task_configure()?;
+    if module == "bootstrap" {
+        build_zygisk_native(&root, &args.native.abis, args.save_symbols)?;
+        build_bootstrap_loader(&root, &args.native.abis)?;
+    } else {
+        task_build_native(&args.native.abis)?;
+    }
+    if !args.native_only {
+        let task = format!(
+            ":{module}:{}",
+            gradle_variant_task("assemble", args.release)
+        );
+        let mut tasks = vec![task.as_str()];
+        if args.release {
+            tasks.push("--no-configuration-cache");
+        }
+        run_gradlew(&tasks, &root)?;
+    }
+    Ok(())
+}
+
+fn build_bootstrap_loader(root: &Path, abi_names: &[String]) -> Result<()> {
+    let ndk = pinned_ndk_dir(root, None)?;
+    let bin = ndk
+        .join("toolchains/llvm/prebuilt")
+        .join(host_prebuilt_tag()?)
+        .join("bin");
+    let source = root.join("bootstrap/src/main/cpp/payload_memory.c");
+    for abi in resolve_abis(abi_names)? {
+        let destination = root
+            .join("bootstrap/src/main/jniLibs")
+            .join(abi.android_name)
+            .join("libwekit_loader.so");
+        fs::create_dir_all(destination.parent().unwrap())?;
+        let temporary = destination.with_extension("so.part");
+        let compiler = bin.join(format!(
+            "{}{MIN_SDK}-clang{}",
+            abi.clang_prefix,
+            if cfg!(windows) { ".cmd" } else { "" }
+        ));
+        let mut command = Command::new(compiler);
+        command
+            .args([
+                "-std=c11",
+                "-O2",
+                "-fPIC",
+                "-shared",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-Wl,-z,max-page-size=16384",
+                "-Wl,-z,relro,-z,now",
+            ])
+            .arg(&source)
+            .arg("-o")
+            .arg(&temporary);
+        run_checked(&mut command, "compile bootstrap memfd JNI")?;
+        copy_if_changed(&temporary, &destination)?;
+        fs::remove_file(temporary)?;
+        println!("build(loader): {}", destination.display());
+    }
+    Ok(())
+}
+
+fn task_publish_payload(args: &PublishArgs) -> Result<()> {
+    let root = workspace_root();
+    let mut command = Command::new(if cfg!(windows) { "python" } else { "python3" });
+    command
+        .current_dir(&root)
+        .arg(root.join(".github/scripts/publish-payload.py"))
+        .arg("--apk")
+        .arg(&args.apk)
+        .args([
+            "--api-url",
+            &args.api_url,
+            "--audience",
+            &args.audience,
+            "--key-id",
+            &args.key_id,
+            "--channel",
+            &args.channel,
+        ])
+        .arg("--signing-key-file")
+        .arg(&args.signing_key_file)
+        .arg("--output-dir")
+        .arg(&args.output_dir);
+    if let Some(id) = &args.payload_id {
+        command.args(["--payload-id", id]);
+    }
+    if args.prepare_only {
+        command.arg("--prepare-only");
+    }
+    if let Some(path) = &args.local_secrets_file {
+        command.arg("--local-secrets-file").arg(path);
+    }
+    run_checked(&mut command, "prepare/publish private encrypted payload")
+}
+
+/// Build exactly the private release payload, then publish that immutable APK.
+/// The bootstrap APK is intentionally not part of this command: it is the
+/// separately distributed loader and must not be rebuilt for each payload.
+fn task_publish(args: PublishArgs) -> Result<()> {
+    let build = BuildArgs {
+        native_only: false,
+        release: true,
+        save_symbols: false,
+        native: NativeArgs { abis: Vec::new() },
+    };
+    task_build_module(&build, "app")?;
+    task_publish_payload(&args)
 }
 
 fn run_checked(command: &mut Command, action: &str) -> Result<()> {
@@ -545,7 +725,13 @@ fn task_build_native(abi_args: &[String]) -> Result<()> {
         );
 
         run_cargo(
-            &["build", "--release", "--target", spec.cargo_triple],
+            &[
+                "build",
+                "--locked",
+                "--release",
+                "--target",
+                spec.cargo_triple,
+            ],
             &native_dir,
         )?;
 
@@ -669,6 +855,7 @@ fn build_zygisk_native(root: &Path, abi_names: &[String], save_symbols: bool) ->
         run_cargo(
             &[
                 "build",
+                "--locked",
                 "-p",
                 ZYGISK_CARGO_PACKAGE,
                 "--target",
@@ -683,7 +870,10 @@ fn build_zygisk_native(root: &Path, abi_names: &[String], save_symbols: bool) ->
             .join(abi.cargo_triple)
             .join("release")
             .join(&name);
-        let destination = jni_libs_dir(root).join(abi.android_name).join(&name);
+        let destination = root
+            .join("bootstrap/src/main/jniLibs")
+            .join(abi.android_name)
+            .join(&name);
         let cache = root.join("target/zygisk").join(abi.android_name);
         fs::create_dir_all(&cache)?;
         let mut hash = Sha256::new();
@@ -742,7 +932,9 @@ fn validate_module_apk(path: &Path) -> Result<()> {
         "META-INF/com/google/android/update-binary",
         "META-INF/com/google/android/updater-script",
         "lib/arm64-v8a/libwekit_zygisk.so",
-        "lib/arm64-v8a/libwekit_native.so",
+        "lib/arm64-v8a/libwekit_loader.so",
+        "lib/arm64-v8a/libdexkit.so",
+        "lib/arm64-v8a/libandroidx.graphics.path.so",
     ] {
         let mut entry = archive.by_name(name).with_context(|| {
             format!(
@@ -1003,6 +1195,7 @@ mod tests {
                 ApkNativeBuildStep::Configure,
                 ApkNativeBuildStep::WeKitNative,
                 ApkNativeBuildStep::ZygiskNative,
+                ApkNativeBuildStep::BootstrapLoader,
             ],
         );
     }
