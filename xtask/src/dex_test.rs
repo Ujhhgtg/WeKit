@@ -27,7 +27,8 @@ const DEXKIT_REVISION: &str = "c9cd12a14b75409bebd2f73e4dfc5ff575df3eb8";
 
 #[derive(Args, Debug)]
 pub struct DexTestArgs {
-    /// APK path. Repeat to test multiple versions; without this option ~/coding/wechat_*.apk is used.
+    /// APK path, or a split bundle (.apks/.xapk/.apkm) whose base.apk is extracted and tested.
+    /// Repeat to test multiple versions; without this option ~/coding/wechat_*.{apk,apks,xapk,apkm} is used.
     #[arg(long = "apk", value_name = "APK")]
     pub apks: Vec<PathBuf>,
 
@@ -197,6 +198,10 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
             "no WeChat APKs found; pass --apk /absolute/path/to/wechat.apk or place files under ~/coding/wechat_*.apk"
         )
     }
+    let apks = apks
+        .into_iter()
+        .map(|path| resolve_bundle(&root, path))
+        .collect::<Result<Vec<_>>>()?;
 
     let output_root = args
         .output_dir
@@ -317,11 +322,57 @@ fn discover_apks() -> Result<Vec<PathBuf>> {
         .filter(|path| {
             path.file_name()
                 .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with("wechat_") && name.ends_with(".apk"))
+                .is_some_and(|name| name.starts_with("wechat_") && is_apk_or_bundle(name))
         })
         .collect::<Vec<_>>();
     files.sort_by(|a, b| natural_cmp(&a.to_string_lossy(), &b.to_string_lossy()));
     Ok(files)
+}
+
+const BUNDLE_EXTENSIONS: [&str; 3] = [".apks", ".xapk", ".apkm"];
+
+fn is_bundle(name: &str) -> bool {
+    BUNDLE_EXTENSIONS.iter().any(|ext| name.ends_with(ext))
+}
+
+fn is_apk_or_bundle(name: &str) -> bool {
+    name.ends_with(".apk") || is_bundle(name)
+}
+
+/// Split bundles keep all dex code in the base APK, so extract it (cached by bundle hash)
+/// and test that; plain APKs are returned unchanged.
+fn resolve_bundle(root: &Path, path: PathBuf) -> Result<PathBuf> {
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .context("non-utf8 APK path")?
+        .to_owned();
+    let Some(ext) = BUNDLE_EXTENSIONS.iter().find(|ext| name.ends_with(*ext)) else {
+        return Ok(path);
+    };
+    let stem = &name[..name.len() - ext.len()];
+    let hash = sha256_file(&path)?;
+    let dir = root
+        .join("target/dex-test-bundles")
+        .join(format!("{stem}-{}", &hash[..8]));
+    let dest = dir.join(format!("{stem}.apk"));
+    if dest.is_file() {
+        return Ok(dest);
+    }
+    let mut archive = zip::ZipArchive::new(fs::File::open(&path)?)
+        .with_context(|| format!("{} is not a zip bundle", path.display()))?;
+    let entry_name = ["base.apk", "com.tencent.mm.apk"]
+        .into_iter()
+        .find(|candidate| archive.by_name(candidate).is_ok())
+        .with_context(|| format!("no base APK found in bundle {}", path.display()))?;
+    fs::create_dir_all(&dir)?;
+    let partial = dir.join(format!("{stem}.apk.part"));
+    let mut entry = archive.by_name(entry_name)?;
+    std::io::copy(&mut entry, &mut fs::File::create(&partial)?)
+        .with_context(|| format!("extract {entry_name} from {}", path.display()))?;
+    fs::rename(&partial, &dest)?;
+    println!("dex-test: extracted {entry_name} from {}", path.display());
+    Ok(dest)
 }
 
 fn canonical_apk(path: PathBuf) -> Result<PathBuf> {

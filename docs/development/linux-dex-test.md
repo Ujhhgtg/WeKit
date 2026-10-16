@@ -10,7 +10,8 @@ DEX 文件中解析出目标。
 ./x dex-test --output-dir /absolute/report/root --verbose
 ```
 
-未指定 `--apk` 时，工具会对符合 `~/coding/wechat_*.apk` 的普通文件进行自然排序并逐一测试。
+未指定 `--apk` 时，工具会对符合 `~/coding/wechat_*.apk`（以及 `.apks`、`.xapk`、`.apkm` 拆分包）的普通文件进行自然排序并逐一测试。
+拆分包的全部 DEX 都位于 `base.apk` 中，工具会将其提取到 `target/dex-test-bundles/`（按拆分包 SHA-256 缓存）后再测试。
 每个 APK 都会在独立的 JVM 工作进程中运行。默认情况下，报告会写入
 `dex-test-results/<run-id>/`（也可使用指定的输出目录），每个 APK 对应一个 JSON 文件，
 并生成汇总文件 `summary.json`。DexKit 源码和原生构建缓存保存在 `.wekit/dex-test/` 下。
