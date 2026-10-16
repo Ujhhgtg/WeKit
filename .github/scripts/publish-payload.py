@@ -181,6 +181,29 @@ class Publisher:
         return self.request(self.origin + path, body, self.session(), method)
 
 
+def load_resumable_state(args, output, state_path):
+    """Return the saved state only if it is an interrupted publication of this exact APK.
+
+    Anything else (finished, prepare-only, never created remotely, or built from a
+    different APK) is stale: resuming it would re-activate the old payload instead
+    of publishing the new one, so the caller prepares a fresh publication.
+    """
+    if not state_path.is_file():
+        return None
+    state = json.loads(state_path.read_text())
+    try:
+        old_apk_hash = json.loads(b64_decode(state["manifest"]["manifest"]))["apkSha256"]
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if state.get("state") == "ALLOWED" or not state.get("created") or old_apk_hash != digest_file(args.apk):
+        return None
+    if state["apiUrl"] != args.api_url.rstrip("/") or (args.payload_id and state["payloadId"] != args.payload_id):
+        raise ValueError("existing publication belongs to a different API/payload")
+    if digest_file(output / "cipher.bin") != state["cipherSha256"]:
+        raise ValueError("existing ciphertext no longer matches publication")
+    return state
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--apk", type=Path, required=True)
@@ -203,13 +226,8 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     state_path = output / "publication.json"
     key = None
-    if state_path.is_file():
-        state = json.loads(state_path.read_text())
-        if state["apiUrl"] != args.api_url.rstrip("/") or (args.payload_id and state["payloadId"] != args.payload_id):
-            raise ValueError("existing publication belongs to a different API/payload")
-        if digest_file(output / "cipher.bin") != state["cipherSha256"]:
-            raise ValueError("existing ciphertext no longer matches publication")
-    else:
+    state = load_resumable_state(args, output, state_path)
+    if state is None:
         state, key = prepare(args, output)
     # Older resumable state files predate the explicit sourceCommit field.
     # Recover it from the signed manifest without trusting a mutable sidecar.
