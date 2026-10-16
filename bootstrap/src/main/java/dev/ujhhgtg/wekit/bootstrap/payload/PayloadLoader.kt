@@ -14,6 +14,7 @@ import java.net.URLStreamHandler
 import java.nio.ByteBuffer
 import java.util.Collections
 import java.util.Enumeration
+import java.util.UUID
 import java.util.zip.CRC32
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
@@ -26,12 +27,29 @@ class PreparedPayload(
     val classLoader: InMemoryDexClassLoader,
     private val archive: ZipFile,
 ) : Closeable {
+    /**
+     * Removes the plaintext libraries once the payload has loaded them. A deleted file stays mapped, but
+     * the class loader's `findLibrary` stops resolving it, so any later `System.loadLibrary` from payload
+     * code would throw. Each file is therefore replaced by an empty placeholder: ART returns early for a
+     * library it already loaded under that path, so the placeholder is never handed to the linker.
+     * This relies on ART behavior and needs a check on a device.
+     */
+    fun scrubNativeLibraries() {
+        nativeDirectory.listFiles()?.forEach { file ->
+            check(file.delete() && file.createNewFile()) { "cannot scrub native library: $file" }
+        }
+    }
+
     /** Only for a failed startup; never close the input of an active payload. */
     override fun close() {
         try {
             archive.close()
         } finally {
-            apk.close()
+            try {
+                apk.close()
+            } finally {
+                nativeDirectory.deleteRecursively()
+            }
         }
     }
 }
@@ -42,6 +60,7 @@ object PayloadLoader {
     private const val MAX_DEX_SIZE = 128L * 1024 * 1024
     private const val MAX_NATIVE_SIZE = 64L * 1024 * 1024
     private const val ABI = "arm64-v8a"
+    private const val NATIVE_PREFIX = "proc-"
 
     /** The caller has verified the envelope; this method never resolves or reopens the cache name. */
     fun prepare(
@@ -70,8 +89,16 @@ object PayloadLoader {
             try {
                 val entries = validateArchive(archive)
                 val dex = readDex(archive, entries)
-                val directory = File(nativeRoot, "${manifest.apkSha256}/$ABI")
-                extractNative(archive, entries, directory)
+                sweepNativeRoot(nativeRoot)
+                // Each process owns its directory: the libraries are scrubbed after loading, so a shared
+                // directory would let one process delete a file another is about to load.
+                val directory = File(nativeRoot, "$NATIVE_PREFIX${Os.getpid()}-${UUID.randomUUID()}")
+                try {
+                    extractNative(archive, entries, directory)
+                } catch (error: Throwable) {
+                    directory.deleteRecursively()
+                    throw error
+                }
                 // R8 deliberately minifies the payload and the bootstrap independently. Both
                 // APKs therefore contain short names such as `ix`, `lx`, and `et2`. A normal
                 // parent-first InMemoryDexClassLoader would resolve those payload references to
@@ -81,7 +108,12 @@ object PayloadLoader {
                 val resourceParent = ApkResourceClassLoader(
                     PayloadParentClassLoader(parent), archive, manifest.apkSha256,
                 )
-                val loader = InMemoryDexClassLoader(dex, directory.absolutePath, resourceParent)
+                val loader = try {
+                    InMemoryDexClassLoader(dex, directory.absolutePath, resourceParent)
+                } catch (error: Throwable) {
+                    directory.deleteRecursively()
+                    throw error
+                }
                 return PreparedPayload(apk, dex, directory, loader, archive)
             } catch (error: Throwable) {
                 archive.close()
@@ -194,8 +226,21 @@ object PayloadLoader {
         return bytes
     }
 
+    /**
+     * Drops directories left by processes that died before scrubbing, plus the shared per-release
+     * directories earlier builds kept. A live process's directory is left alone.
+     */
+    private fun sweepNativeRoot(root: File) {
+        for (child in root.listFiles().orEmpty()) {
+            val owner = if (child.name.startsWith(NATIVE_PREFIX)) {
+                child.name.removePrefix(NATIVE_PREFIX).substringBefore('-').toIntOrNull()
+            } else null
+            if (owner == null || !File("/proc/$owner").exists()) child.deleteRecursively()
+        }
+    }
+
     private fun extractNative(archive: ZipFile, entries: List<ZipEntry>, directory: File) {
-        require(directory.isDirectory || directory.mkdirs()) { "cannot create native directory: $directory" }
+        require(directory.mkdirs()) { "cannot create native directory: $directory" }
         val prefix = "lib/$ABI/"
         val libraries = entries.filter { !it.isDirectory && it.name.startsWith(prefix) }
         require(libraries.isNotEmpty()) { "payload has no $ABI native libraries" }
@@ -204,50 +249,26 @@ object PayloadLoader {
             val name = entry.name.removePrefix(prefix)
             require('/' !in name && name.startsWith("lib") && name.endsWith(".so")) { "unexpected native entry: ${entry.name}" }
             val target = File(directory, name)
-            if (isValidNative(target, entry)) continue
-            val temporary = File.createTempFile(".$name-", ".tmp", directory)
-            try {
-                val crc = CRC32()
-                var size = 0L
-                archive.getInputStream(entry).use { input ->
-                    FileOutputStream(temporary).use { output ->
-                        val bytes = ByteArray(32 * 1024)
-                        while (true) {
-                            val count = input.read(bytes)
-                            if (count == -1) break
-                            size += count
-                            check(size <= entry.size) { "oversized native entry: ${entry.name}" }
-                            crc.update(bytes, 0, count)
-                            output.write(bytes, 0, count)
-                        }
-                        output.fd.sync()
+            val crc = CRC32()
+            var size = 0L
+            archive.getInputStream(entry).use { input ->
+                FileOutputStream(target).use { output ->
+                    val bytes = ByteArray(32 * 1024)
+                    while (true) {
+                        val count = input.read(bytes)
+                        if (count == -1) break
+                        size += count
+                        check(size <= entry.size) { "oversized native entry: ${entry.name}" }
+                        crc.update(bytes, 0, count)
+                        output.write(bytes, 0, count)
                     }
                 }
-                check(size == entry.size && crc.value == entry.crc) { "native entry CRC/length mismatch: ${entry.name}" }
-                check(temporary.setReadable(true, true) && temporary.setExecutable(true, true) && temporary.setWritable(false, false)) {
-                    "cannot protect native library: $temporary"
-                }
-                // A concurrently published identical library is already complete; leave it in place.
-                if (isValidNative(target, entry)) continue
-                check(temporary.renameTo(target)) { "cannot publish native library: $target" }
-            } finally {
-                temporary.delete()
+            }
+            check(size == entry.size && crc.value == entry.crc) { "native entry CRC/length mismatch: ${entry.name}" }
+            check(target.setReadable(true, true) && target.setExecutable(true, true) && target.setWritable(false, false)) {
+                "cannot protect native library: $target"
             }
         }
-    }
-
-    private fun isValidNative(file: File, entry: ZipEntry): Boolean {
-        if (!file.isFile || file.length() != entry.size) return false
-        val crc = CRC32()
-        file.inputStream().use { input ->
-            val bytes = ByteArray(32 * 1024)
-            while (true) {
-                val count = input.read(bytes)
-                if (count == -1) break
-                crc.update(bytes, 0, count)
-            }
-        }
-        return crc.value == entry.crc
     }
 
 }

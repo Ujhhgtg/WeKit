@@ -211,7 +211,8 @@ object BootstrapCoordinator {
             entryAttempted = true
             val entry = loaded.classLoader.loadClass(release.descriptor.entryClass)
                 .getDeclaredConstructor().newInstance() as PayloadEntry
-            entry.start(environment)
+            // start() loads the JNI libraries; do not leave the plaintext copies on disk, even if it throws.
+            try { entry.start(environment) } finally { loaded.scrubNativeLibraries() }
             BootstrapLog.i("Bootstrap", "Payload entry returned synchronously on the main thread")
             loadedWxId = identity.wxId
             successfulInitializationId = initializationId
