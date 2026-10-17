@@ -73,7 +73,6 @@ class PayloadCache(private val store: InstallationStore, private val config: Boo
                 var received = 0L
                 var networkRetries = 0
                 var deniedRenewed = false
-                val hash = MessageDigest.getInstance("SHA-256")
                 fun renewGrant() {
                     val body = WireJson.body(RenewGrantRequest(WireProtocol.requestId(), state.installationId!!,
                         processNonce, initializationId, grantId, descriptor.payloadId, descriptor.apkSha256))
@@ -81,26 +80,46 @@ class PayloadCache(private val store: InstallationStore, private val config: Boo
                     require(renewed.string("payloadId") == descriptor.payloadId)
                     grantId = renewed.string("grantId"); expiresAt = renewed.integer("grantExpiresAt")
                 }
-                while (received < descriptor.cipherSize) {
-                    if (expiresAt - System.currentTimeMillis() < 10000) renewGrant()
-                    try {
-                        api.download(path, state, processNonce, grantId, received, descriptor.cipherSize - received) { buffer, count ->
-                            output.write(buffer, 0, count); hash.update(buffer, 0, count); received += count
+                ParcelFileDescriptor.dup(output.fd).use { nativeOutput ->
+                    while (received < descriptor.cipherSize) {
+                        if (expiresAt - System.currentTimeMillis() < 10000) renewGrant()
+                        try {
+                            val count = api.download(path, state, processNonce, grantId, received,
+                                descriptor.cipherSize - received, nativeOutput.fd, headerSize + received)
+                            received += count
+                        } catch (error: java.io.IOException) {
+                            if (error is RemoteApiException) {
+                                // The server clock is authoritative. Renewal rechecks revocation before retrying.
+                                if (error.code != "AUTHORIZATION_DENIED" || deniedRenewed) throw error
+                                deniedRenewed = true; renewGrant()
+                            } else if (networkRetries++ >= 2) throw error
                         }
-                    } catch (error: java.io.IOException) {
-                        if (error is RemoteApiException) {
-                            // The server clock is authoritative. Renewal rechecks revocation before retrying.
-                            if (error.code != "AUTHORIZATION_DENIED" || deniedRenewed) throw error
-                            deniedRenewed = true; renewGrant()
-                        } else if (networkRetries++ >= 2) throw error
                     }
                 }
-                check(WireProtocol.hex(hash.digest()) == descriptor.cipherSha256) { "Payload ciphertext checksum failed" }
+                check(sha256Range(partial, headerSize, descriptor.cipherSize) == descriptor.cipherSha256) {
+                    "Payload ciphertext checksum failed"
+                }
                 check(output.length() == headerSize + descriptor.cipherSize)
                 output.fd.sync()
             }
             check(partial.renameTo(destination)) { "Cannot publish payload cache" }
         } finally { partial.delete() }
+    }
+
+    private fun sha256Range(file: File, offset: Long, length: Long): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        RandomAccessFile(file, "r").use { input ->
+            input.seek(offset)
+            val buffer = ByteArray(64 * 1024)
+            var remaining = length
+            while (remaining > 0) {
+                val count = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+                check(count > 0) { "payload cache ended before ciphertext checksum" }
+                digest.update(buffer, 0, count)
+                remaining -= count
+            }
+        }
+        return WireProtocol.hex(digest.digest())
     }
 
     companion object { private val MAGIC = "WKPC0001".toByteArray(Charsets.US_ASCII) }

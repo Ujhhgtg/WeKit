@@ -25,9 +25,10 @@ REQUIRED = (
     "lib/arm64-v8a/libwekit_loader.so", "lib/arm64-v8a/libdexkit.so", "lib/arm64-v8a/libwekit_zygisk.so",
     "lib/arm64-v8a/libandroidx.graphics.path.so",
 )
+EXPECTED_BOOTSTRAP_CERT_SHA256 = "6bc3be50d46327b8c66b564ff946a9c51bbb72a198fc7cd651e9726901584315"
 
 
-def check_apk(apk, tools):
+def check_apk(apk, tools, expected_cert_sha256=EXPECTED_BOOTSTRAP_CERT_SHA256, expected_apk_sha256=None):
     with zipfile.ZipFile(apk) as archive:
         names = archive.namelist()
         assert not [name for name, count in Counter(names).items() if count != 1], "duplicate ZIP entries"
@@ -44,6 +45,11 @@ def check_apk(apk, tools):
         assert {name.split('/')[1] for name in names if name.startswith('lib/') and name.endswith('.so')} == {"arm64-v8a"}
         assert "assets/xposed_init" not in names
         assert not any(name.endswith("/libwekit_native.so") for name in names), "business JNI in public bootstrap"
+        for name in names:
+            assert "frida" not in name.lower() and "gum-js-loop" not in name.lower(), "Frida artifact name shipped"
+        for name in ("lib/arm64-v8a/libwekit_loader.so", "lib/arm64-v8a/libwekit_zygisk.so"):
+            native = archive.read(name).lower()
+            assert b"frida" not in native and b"gum-js-loop" not in native, f"Frida marker shipped in {name}"
         assert archive.read("META-INF/xposed/java_init.list").decode().strip() == "dev.ujhhgtg.wekit.bootstrap.loader.entry.lxp.LxpHookEntry"
         props = dict(line.split('=', 1) for line in archive.read("module.prop").decode().splitlines() if '=' in line and not line.startswith('#'))
         assert props["id"] == "wekit_zygisk"
@@ -68,9 +74,21 @@ def check_apk(apk, tools):
     assert "minSdkVersion:'29'" in badging and "targetSdkVersion:'37'" in badging, "wrong public SDK contract"
     resources = subprocess.check_output([str(tools / "aapt2"), "dump", "resources", str(apk)], text=True)
     assert re.search(r"^Package name=dev\.ujhhgtg\.wekit\.bootstrap id=68$", resources, re.M), "wrong public resource package name/ID"
-    subprocess.run([str(tools / "apksigner"), "verify", "--verbose", str(apk)], check=True, stdout=subprocess.DEVNULL)
+    signer_output = subprocess.check_output(
+        [str(tools / "apksigner"), "verify", "--verbose", "--print-certs", str(apk)],
+        text=True,
+        stderr=subprocess.STDOUT,
+    )
+    certificate_digests = re.findall(r"Signer(?: #\d+)? certificate SHA-256 digest: ([0-9A-Fa-f:]+)", signer_output)
+    assert len(certificate_digests) == 1, "APK must have exactly one signer certificate"
+    certificate_digest = certificate_digests[0].replace(":", "").lower()
+    if expected_cert_sha256 is not None:
+        assert certificate_digest == expected_cert_sha256.lower().replace(":", ""), "unexpected bootstrap signer certificate"
     subprocess.run([str(tools / "zipalign"), "-c", "-P", "16", "4", str(apk)], check=True, stdout=subprocess.DEVNULL)
-    print(f"PASS {apk.name}: signed/aligned, {len(dex)} DEX, {props['description']}")
+    apk_sha256 = hashlib.sha256(apk.read_bytes()).hexdigest()
+    if expected_apk_sha256 is not None:
+        assert apk_sha256 == expected_apk_sha256.lower(), "unexpected bootstrap APK SHA-256"
+    print(f"PASS {apk.name}: signed/aligned, signer {certificate_digest}, sha256 {apk_sha256}, {len(dex)} DEX, {props['description']}")
 
 
 def check_installer(apk):
@@ -147,6 +165,9 @@ def main():
     parser.add_argument("apk", type=Path, nargs="+")
     parser.add_argument("--build-tools", type=Path)
     parser.add_argument("--check-installer", action="store_true")
+    parser.add_argument("--expected-cert-sha256", default=EXPECTED_BOOTSTRAP_CERT_SHA256)
+    parser.add_argument("--expected-apk-sha256", default=os.environ.get("WEKIT_BOOTSTRAP_APK_SHA256"))
+    parser.add_argument("--allow-nonproduction-signer", action="store_true")
     args = parser.parse_args()
     tools = args.build_tools
     if tools is None:
@@ -154,7 +175,8 @@ def main():
         stable = [path for path in (sdk / "build-tools").iterdir() if re.fullmatch(r"\d+\.\d+\.\d+", path.name)]
         tools = max(stable, key=lambda path: tuple(map(int, path.name.split('.'))))
     for apk in args.apk:
-        check_apk(apk.resolve(), tools.resolve())
+        expected_cert = None if args.allow_nonproduction_signer else args.expected_cert_sha256
+        check_apk(apk.resolve(), tools.resolve(), expected_cert, args.expected_apk_sha256)
         if args.check_installer:
             check_installer(apk.resolve())
 

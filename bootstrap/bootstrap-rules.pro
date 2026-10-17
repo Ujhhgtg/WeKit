@@ -7,7 +7,7 @@
 -keep class com.google.flatbuffers.** { *; }
 # Native registration and injection metadata name these classes directly.
 -keep class dev.ujhhgtg.wekit.bootstrap.loader.entry.** { *; }
--keep class dev.ujhhgtg.wekit.bootstrap.payload.MemoryApkNative { *; }
+-keep class dev.ujhhgtg.wekit.bootstrap.payload.LoaderNatives { *; }
 
 # BeanShell snapshots use Java serialization of AST classes and fields.
 -keep class bsh.** { *; }

@@ -21,6 +21,7 @@ use clap::{Args, Parser, Subcommand};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
+    collections::HashMap,
     env, fs,
     io::{BufWriter, Write},
     path::{Path, PathBuf},
@@ -127,10 +128,25 @@ struct BootstrapArgs {
 #[derive(Subcommand)]
 enum BootstrapCommand {
     /// Build the public dual-format bootstrap APK.
-    Build(BuildArgs),
+    Build(BootstrapBuildArgs),
 
     /// Build and install the bootstrap APK, or flash it as a Zygisk module.
     Install(InstallArgs),
+}
+
+#[derive(Args)]
+struct BootstrapBuildArgs {
+    /// Prepare this module's native inputs in its jniLibs/.
+    /// Skips the Gradle Android build entirely.
+    #[arg(long)]
+    native_only: bool,
+
+    /// Also archive unstripped Zygisk native symbols under target/zygisk-symbols/.
+    #[arg(long)]
+    save_symbols: bool,
+
+    #[command(flatten)]
+    native: NativeArgs,
 }
 
 #[derive(Args)]
@@ -230,14 +246,6 @@ struct PayloadInstallArgs {
 /// Arguments for `bootstrap install` (install + launch via Gradle).
 #[derive(Args)]
 struct InstallArgs {
-    /// Explicitly install the debug build (default).
-    #[arg(long, conflicts_with = "release")]
-    debug: bool,
-
-    /// Install the release build instead of debug.
-    #[arg(long, conflicts_with = "debug")]
-    release: bool,
-
     /// Install the APK as a Zygisk module through the device's root manager.
     #[arg(long)]
     zygisk: bool,
@@ -257,11 +265,7 @@ struct InstallArgs {
 
 impl InstallArgs {
     fn is_release(&self) -> bool {
-        match (self.debug, self.release) {
-            (false, false) | (true, false) => false,
-            (false, true) => true,
-            (true, true) => unreachable!("clap rejects --debug with --release"),
-        }
+        true
     }
 }
 
@@ -297,7 +301,15 @@ fn main() -> Result<()> {
     match cli.command {
         Cmd::Configure => task_configure()?,
         Cmd::Bootstrap(args) => match args.command {
-            BootstrapCommand::Build(args) => task_build_module(&args, "bootstrap")?,
+            BootstrapCommand::Build(args) => task_build_module(
+                &BuildArgs {
+                    native_only: args.native_only,
+                    release: true,
+                    save_symbols: args.save_symbols,
+                    native: args.native,
+                },
+                "bootstrap",
+            )?,
             BootstrapCommand::Install(args) => task_install(args)?,
         },
         Cmd::Payload(args) => match args.command {
@@ -531,7 +543,7 @@ fn task_install(args: InstallArgs) -> Result<()> {
     let root = workspace_root();
     task_configure()?;
     build_zygisk_native(&root, &[], false)?;
-    build_bootstrap_loader(&root, &[])?;
+    build_bootstrap_loader(&root, &[], args.is_release())?;
     let verb = if args.zygisk { "assemble" } else { "install" };
     let gradle_task = format!(
         ":bootstrap:{}",
@@ -660,7 +672,7 @@ fn task_build_module(args: &BuildArgs, module: &str) -> Result<()> {
     task_configure()?;
     if module == "bootstrap" {
         build_zygisk_native(&root, &args.native.abis, args.save_symbols)?;
-        build_bootstrap_loader(&root, &args.native.abis)?;
+        build_bootstrap_loader(&root, &args.native.abis, args.release)?;
     } else {
         task_build_native(&args.native.abis)?;
     }
@@ -678,13 +690,142 @@ fn task_build_module(args: &BuildArgs, module: &str) -> Result<()> {
     Ok(())
 }
 
-fn build_bootstrap_loader(root: &Path, abi_names: &[String]) -> Result<()> {
+struct OmvllLoaderConfig {
+    plugin: PathBuf,
+    config: PathBuf,
+    python_path: PathBuf,
+    clang_bin: PathBuf,
+    runtime_library_path: PathBuf,
+}
+
+/// Resolve the separately provisioned O-MVLL toolchain used for the public loader.
+///
+/// O-MVLL is coupled to the LLVM revision used by its NDK.  WeKit's Android build
+/// currently uses NDK r30, while released O-MVLL toolchains target r29, so silently
+/// passing the plugin to the project compiler would produce an unprotected or broken
+/// loader.  Release builds therefore require an explicit, complete r29 toolchain.
+fn omvll_loader_config(root: &Path, required: bool) -> Result<Option<OmvllLoaderConfig>> {
+    let mut configured = HashMap::new();
+    let config_file = root.join("omvll.env");
+    if let Ok(contents) = fs::read_to_string(&config_file) {
+        for line in contents.lines().map(str::trim) {
+            let line = line.strip_prefix("export ").unwrap_or(line);
+            let Some((name, value)) = line.split_once('=') else {
+                continue;
+            };
+            if matches!(
+                name.trim(),
+                "WEKIT_OMVLL_PLUGIN"
+                    | "WEKIT_OMVLL_CONFIG"
+                    | "WEKIT_OMVLL_PYTHONPATH"
+                    | "WEKIT_OMVLL_NDK"
+            ) {
+                configured.insert(
+                    name.trim().to_owned(),
+                    value.trim().trim_matches(['\"', '\'']).to_owned(),
+                );
+            }
+        }
+    }
+    let value = |name: &str| {
+        env::var_os(name)
+            .map(PathBuf::from)
+            .or_else(|| configured.get(name).map(PathBuf::from))
+    };
+    let plugin = value("WEKIT_OMVLL_PLUGIN");
+    let config = value("WEKIT_OMVLL_CONFIG");
+    let python_path = value("WEKIT_OMVLL_PYTHONPATH");
+    let ndk = value("WEKIT_OMVLL_NDK");
+    let any_configured =
+        plugin.is_some() || config.is_some() || python_path.is_some() || ndk.is_some();
+    if !required && !any_configured {
+        return Ok(None);
+    }
+    let missing = [
+        ("WEKIT_OMVLL_PLUGIN", plugin.as_ref()),
+        ("WEKIT_OMVLL_CONFIG", config.as_ref()),
+        ("WEKIT_OMVLL_PYTHONPATH", python_path.as_ref()),
+        ("WEKIT_OMVLL_NDK", ndk.as_ref()),
+    ]
+    .into_iter()
+    .filter_map(|(name, value)| value.is_none().then_some(name))
+    .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        bail!(
+            "O-MVLL is required for a release bootstrap loader; missing {}. Configure {} or set WEKIT_OMVLL_*",
+            missing.join(", "),
+            config_file.display()
+        );
+    }
+    let plugin = plugin.unwrap();
+    let config = config.unwrap();
+    let python_path = python_path.unwrap();
+    let ndk = ndk.unwrap();
+    for (name, path) in [
+        ("WEKIT_OMVLL_PLUGIN", &plugin),
+        ("WEKIT_OMVLL_CONFIG", &config),
+        ("WEKIT_OMVLL_PYTHONPATH", &python_path),
+        ("WEKIT_OMVLL_NDK", &ndk),
+    ] {
+        if !path.exists() {
+            bail!("{name} does not exist: {}", path.display());
+        }
+    }
+    let version = ndk
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    if !version.starts_with("29.") {
+        bail!(
+            "WEKIT_OMVLL_NDK must be an NDK r29 toolchain matching the pinned O-MVLL plugin, got {}",
+            ndk.display()
+        );
+    }
+    let host = host_prebuilt_tag()?;
+    let toolchain_bin = ndk.join("toolchains/llvm/prebuilt").join(host).join("bin");
+    let clang_bin = env::var_os("WEKIT_OMVLL_CLANG")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| toolchain_bin.join(format!("aarch64-linux-android{MIN_SDK}-clang")));
+    if !clang_bin.is_file() {
+        bail!(
+            "O-MVLL clang compiler does not exist: {}",
+            clang_bin.display()
+        );
+    }
+    let runtime_library_path = env::var_os("WEKIT_OMVLL_LD_LIBRARY_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            let root = toolchain_bin.parent().unwrap();
+            let lib64 = root.join("lib64");
+            if lib64.is_dir() {
+                lib64
+            } else {
+                root.join("lib")
+            }
+        });
+    if !runtime_library_path.is_dir() {
+        bail!(
+            "O-MVLL runtime library directory does not exist: {}",
+            runtime_library_path.display()
+        );
+    }
+    Ok(Some(OmvllLoaderConfig {
+        plugin,
+        config,
+        python_path,
+        clang_bin,
+        runtime_library_path,
+    }))
+}
+
+fn build_bootstrap_loader(root: &Path, abi_names: &[String], release: bool) -> Result<()> {
+    let omvll = omvll_loader_config(root, release)?;
     let ndk = pinned_ndk_dir(root, None)?;
     let bin = ndk
         .join("toolchains/llvm/prebuilt")
         .join(host_prebuilt_tag()?)
         .join("bin");
-    let source = root.join("bootstrap/src/main/cpp/payload_memory.c");
+    let source = root.join("bootstrap/src/main/cpp/wekit_loader.c");
     for abi in resolve_abis(abi_names)? {
         let destination = root
             .join("bootstrap/src/main/jniLibs")
@@ -692,11 +833,16 @@ fn build_bootstrap_loader(root: &Path, abi_names: &[String]) -> Result<()> {
             .join("libwekit_loader.so");
         fs::create_dir_all(destination.parent().unwrap())?;
         let temporary = destination.with_extension("so.part");
-        let compiler = bin.join(format!(
-            "{}{MIN_SDK}-clang{}",
-            abi.clang_prefix,
-            if cfg!(windows) { ".cmd" } else { "" }
-        ));
+        let compiler = omvll
+            .as_ref()
+            .map(|config| config.clang_bin.clone())
+            .unwrap_or_else(|| {
+                bin.join(format!(
+                    "{}{MIN_SDK}-clang{}",
+                    abi.clang_prefix,
+                    if cfg!(windows) { ".cmd" } else { "" }
+                ))
+            });
         let mut command = Command::new(compiler);
         command
             .args([
@@ -713,7 +859,70 @@ fn build_bootstrap_loader(root: &Path, abi_names: &[String]) -> Result<()> {
             .arg(&source)
             .arg("-o")
             .arg(&temporary);
-        run_checked(&mut command, "compile bootstrap memfd JNI")?;
+        if let Some(config) = &omvll {
+            command.arg(format!("-fpass-plugin={}", config.plugin.display()));
+            command.env("OMVLL_CONFIG", &config.config);
+            command.env("OMVLL_PYTHONPATH", &config.python_path);
+            command.env("LD_LIBRARY_PATH", &config.runtime_library_path);
+        }
+        if omvll.is_some() {
+            let output = command
+                .output()
+                .context("failed to start O-MVLL bootstrap loader compiler")?;
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            print!("{stdout}");
+            eprint!("{stderr}");
+            if !output.status.success() {
+                bail!("compile bootstrap memfd JNI failed with {}", output.status);
+            }
+            for marker in [
+                "WEKIT_OMVLL_SELECTED flatten_cfg loader_request",
+                "WEKIT_OMVLL_SELECTED flatten_cfg loader_decrypt_payload",
+                "WEKIT_OMVLL_SELECTED flatten_cfg loader_configuration",
+                "WEKIT_OMVLL_SELECTED arithmetic loader_request",
+                "WEKIT_OMVLL_SELECTED arithmetic loader_decrypt_payload",
+                "WEKIT_OMVLL_SELECTED arithmetic loader_configuration",
+                "WEKIT_OMVLL_SELECTED strings wekit_loader.c",
+            ] {
+                if !stdout.contains(marker) && !stderr.contains(marker) {
+                    bail!("O-MVLL compiler did not report required transform: {marker}");
+                }
+            }
+        } else {
+            run_checked(&mut command, "compile bootstrap memfd JNI")?;
+        }
+        let strip = bin.join("llvm-strip");
+        run_cmd_owned(
+            strip.to_str().context("non-UTF-8 llvm-strip path")?,
+            &["--strip-all".into(), temporary.display().to_string()],
+            root,
+        )?;
+        let nm = bin.join("llvm-nm");
+        let symbols = Command::new(&nm)
+            .args(["-D", "--defined-only"])
+            .arg(&temporary)
+            .output()
+            .with_context(|| {
+                format!("failed to inspect stripped loader: {}", temporary.display())
+            })?;
+        if !symbols.status.success() {
+            bail!(
+                "llvm-nm failed while inspecting stripped loader: {}",
+                temporary.display()
+            );
+        }
+        let symbol_text = String::from_utf8_lossy(&symbols.stdout);
+        let exported = symbol_text
+            .lines()
+            .filter_map(|line| line.split_whitespace().last())
+            .collect::<Vec<_>>();
+        if exported != ["JNI_OnLoad"] {
+            bail!(
+                "stripped loader exports unexpected symbols: {}",
+                exported.join(", ")
+            );
+        }
         copy_if_changed(&temporary, &destination)?;
         fs::remove_file(temporary)?;
         println!("build(loader): {}", destination.display());
@@ -1285,7 +1494,12 @@ mod tests {
         match Cli::try_parse_from(argv).unwrap().command {
             Cmd::Bootstrap(BootstrapArgs {
                 command: BootstrapCommand::Build(args),
-            }) if scope == "bootstrap" => args,
+            }) if scope == "bootstrap" => BuildArgs {
+                native_only: args.native_only,
+                release: true,
+                save_symbols: args.save_symbols,
+                native: args.native,
+            },
             Cmd::Payload(PayloadArgs {
                 command: PayloadCommand::Build(args),
             }) if scope == "payload" => args,
@@ -1295,54 +1509,27 @@ mod tests {
 
     #[test]
     fn scoped_build_commands_parse_their_module_options() {
-        assert!(!parse_build_args("bootstrap", &[]).release);
+        assert!(parse_build_args("bootstrap", &[]).release);
+        assert!(Cli::try_parse_from(["xtask", "bootstrap", "build", "--release"]).is_err());
         assert!(parse_build_args("payload", &["--release"]).release);
         assert!(parse_build_args("payload", &["--native-only"]).native_only);
         assert!(Cli::try_parse_from(["xtask", "build"]).is_err());
     }
 
     #[test]
-    fn install_debug_flag_matches_the_default() {
-        let default = parse_install_args(&[]);
-        let explicit_debug = parse_install_args(&["--debug"]);
-
+    fn bootstrap_install_always_uses_release() {
         assert_eq!(
-            gradle_variant_task("install", default.is_release()),
-            "installDebug",
+            gradle_variant_task("install", parse_install_args(&[]).is_release()),
+            "installRelease"
         );
-        assert_eq!(
-            gradle_variant_task("install", explicit_debug.is_release()),
-            "installDebug",
-        );
-    }
-
-    #[test]
-    fn install_profile_flags_select_the_expected_variant() {
-        let release = parse_install_args(&["--release"]);
-
-        assert_eq!(
-            gradle_variant_task("install", release.is_release()),
-            "installRelease",
-        );
-    }
-
-    #[test]
-    fn install_rejects_conflicting_profile_flags() {
-        assert!(
-            Cli::try_parse_from(["xtask", "bootstrap", "install", "--debug", "--release"]).is_err()
-        );
+        assert!(Cli::try_parse_from(["xtask", "bootstrap", "install", "--debug"]).is_err());
+        assert!(Cli::try_parse_from(["xtask", "bootstrap", "install", "--release"]).is_err());
     }
 
     #[test]
     fn install_zygisk_accepts_install_options_and_rejects_them_for_app_install() {
         let args = parse_install_args(&[
-            "--zygisk",
-            "--release",
-            "--device",
-            "serial",
-            "--root",
-            "ksu",
-            "--reboot",
+            "--zygisk", "--device", "serial", "--root", "ksu", "--reboot",
         ]);
         assert!(args.zygisk && args.is_release() && args.reboot);
         assert_eq!(args.device.as_deref(), Some("serial"));

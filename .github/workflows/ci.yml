@@ -88,6 +88,28 @@ jobs:
           test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
           test -x "$NDK_BIN/llvm-strip"
 
+      - name: Provision pinned O-MVLL toolchain
+        run: |
+          set -euo pipefail
+          omvll_version="1.9.1"
+          omvll_url="https://github.com/open-obfuscator/o-mvll/releases/download/1.9.1/omvll_v1-9-1_linux_2026-07-06T09_44_15.tar.gz"
+          omvll_sha256="f1f8f88812e173ea44d74372502c4a09600810de3254dbae1f82599bfc339aa0"
+          omvll_archive="$RUNNER_TEMP/omvll-${omvll_version}.tar.gz"
+          curl --fail --location --retry 3 --output "$omvll_archive" "$omvll_url"
+          echo "$omvll_sha256  $omvll_archive" | sha256sum --check --status
+          omvll_dir="$RUNNER_TEMP/omvll-${omvll_version}"
+          mkdir -p "$omvll_dir"
+          tar -xzf "$omvll_archive" -C "$omvll_dir"
+          test -f "$omvll_dir/omvll-ndk.so"
+          test -d "$omvll_dir/Python-3.10.7/Lib"
+          {
+            echo "WEKIT_OMVLL_PLUGIN=$omvll_dir/omvll-ndk.so"
+            echo "WEKIT_OMVLL_CONFIG=$GITHUB_WORKSPACE/bootstrap/src/main/cpp/omvll_config.py"
+            echo "WEKIT_OMVLL_PYTHONPATH=$omvll_dir/Python-3.10.7/Lib"
+            echo "WEKIT_OMVLL_NDK=$ANDROID_HOME/ndk/29.0.14206865"
+          } >> "$GITHUB_ENV"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;29.0.14206865"
+
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -127,19 +149,23 @@ jobs:
           WEKIT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           WEKIT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           WEKIT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./x bootstrap build --release
+        run: ./x bootstrap build
 
       - name: Build Release (Unsigned)
         if: github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./x bootstrap build --release
+        run: ./x bootstrap build
 
       - name: Verify and collect Release APK and mapping
         run: |
           set -euo pipefail
           apk="bootstrap/build/outputs/apk/release/bootstrap-release.apk"
-          uv run --no-sync --project wekit-zygisk python .github/scripts/verify-dual-apk.py --check-installer "$apk"
+          verify_args=(--check-installer)
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            verify_args+=(--allow-nonproduction-signer)
+          fi
+          uv run --no-sync --project wekit-zygisk python .github/scripts/verify-dual-apk.py "${verify_args[@]}" "$apk"
           WEKIT_TEST_APK="$GITHUB_WORKSPACE/$apk" cargo test -p wekit-zygisk --lib apk::tests::reads_built_apk -- --ignored
           mkdir -p dist/apk dist/mapping
           cp -v "$apk" dist/apk/app-release.apk

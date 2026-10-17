@@ -61,7 +61,6 @@ The APK and loader follow the manager's module activation lifecycle together.
 ```bash
 # Bootstrap dual-format APKs (arm64-v8a).
 ./x bootstrap build
-./x bootstrap build --release
 
 # Private payload APKs (built separately from the bootstrap).
 ./x payload build
@@ -81,7 +80,7 @@ The APK and loader follow the manager's module activation lifecycle together.
 
 # Build and install as a module; omit --root for manager auto-detection.
 ./x bootstrap install --zygisk --device SERIAL --root ksu --reboot
-./x bootstrap install --zygisk --release
+./x bootstrap install --zygisk
 ```
 
 Bootstrap APKs are in `bootstrap/build/outputs/apk/<type>/`. Payload APKs are in
@@ -90,7 +89,7 @@ The device-side `.zip` used by `bootstrap install --zygisk` has exactly the APK'
 bytes. Symbols are in `target/zygisk-symbols/`.
 Module resources are added by `GenerateZygiskResourcesTask` before AGP signs each
 APK; never append files to or repack the signed output.
-Run `./x bootstrap build --help` or `./x bootstrap install --help` for options.
+Bootstrap builds always use the release profile. Run `./x bootstrap build --help` or `./x bootstrap install --help` for options.
 
 ## Development environment
 

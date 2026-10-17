@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Application
 import dalvik.system.BaseDexClassLoader
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.bootstrap.payload.LoaderNatives
 import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
@@ -54,6 +55,12 @@ object BootstrapNativeLibraries {
                     temporary.delete()
                 }
             }
+        }
+        // Load the tiny native verifier directly from the freshly extracted copy.
+        // It must run before DexKit or any other bootstrap JNI is accepted.
+        LoaderNatives.initialize(File(directory, "libwekit_loader.so"))
+        check(LoaderNatives.verifyBootstrap(application, bootstrapApk.absolutePath)) {
+            "bootstrap APK/process verification failed"
         }
         val owner = BootstrapNativeLibraries::class.java.classLoader as BaseDexClassLoader
         // LibXposed's module loader supplies its own APK lookup and namespace path.

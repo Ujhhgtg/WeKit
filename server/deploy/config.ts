@@ -13,7 +13,7 @@ function required(name: string): string {
 /** Public deployment inputs only; secrets are declared by name and supplied by cf. */
 export function workerConfig(role: WorkerRole) {
     const bootstrap = JSON.parse(readFileSync(
-        new URL('../../bootstrap/src/main/assets/remote-loader.json', import.meta.url), 'utf8',
+        new URL('./remote-loader.json', import.meta.url), 'utf8',
     )) as { releasePublicKeys: Record<string, string> };
     const env: NonNullable<WorkerConfig['env']> = {
         DB: bindings.d1({ id: required('WEKIT_D1_DATABASE_ID'), name: 'wekit-remote-prod' }),

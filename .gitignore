@@ -40,11 +40,15 @@ local.properties
 dist/
 
 /bootstrap/src/main/jniLibs/
+/omvll-logs/
+/omvll-tmp/
+/omvll.env
 /server/node_modules/
 /server/admin-ui/node_modules/
 /server/dist/
 /server/admin-ui/dist/
 /server/.cloudflare/
 /server/.cf/
-# Modern cf CLI local cache.
+
+# cf CLI local cache.
 /.cloudflare/

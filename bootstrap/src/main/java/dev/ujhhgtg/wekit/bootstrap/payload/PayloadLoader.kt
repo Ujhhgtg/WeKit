@@ -76,10 +76,14 @@ object PayloadLoader {
         require(Os.fstat(cache.fileDescriptor).st_size == ciphertextOffset + manifest.cipherSize) {
             "cache length does not match the signed release"
         }
-        val writableApk = ParcelFileDescriptor.adoptFd(MemoryApkNative.create())
+        val writableApk = ParcelFileDescriptor.adoptFd(LoaderNatives.create())
         val apk = writableApk.use {
-            decrypt(cache, ciphertextOffset, manifest, contentKey, it)
-            MemoryApkNative.seal(it.fd)
+            LoaderNatives.decryptPayload(
+                cache.fd, ciphertextOffset, it.fd, manifest.apkSize,
+                manifest.chunkCount, manifest.chunkSize, manifest.noncePrefix,
+                manifest.payloadId, manifest.apkSha256, manifest.cipherSha256, contentKey,
+            )
+            LoaderNatives.seal(it.fd)
             // F_SEAL_WRITE rejects AssetManager's shared mapping through the original
             // O_RDWR open file description. Reopen read-only; dup() would retain O_RDWR.
             ParcelFileDescriptor.open(File("/proc/self/fd/" + it.fd), ParcelFileDescriptor.MODE_READ_ONLY)
@@ -148,43 +152,6 @@ object PayloadLoader {
             archive.close()
             throw error
         }
-    }
-
-    private fun decrypt(
-        cache: ParcelFileDescriptor,
-        offset: Long,
-        manifest: PayloadDescriptor,
-        key: ByteArray,
-        apk: ParcelFileDescriptor,
-    ) {
-        val input = object : InputStream() {
-            private var readOffset = offset
-            private val end = offset + manifest.cipherSize
-            override fun read(): Int {
-                val byte = ByteArray(1)
-                return if (read(byte, 0, 1) == -1) -1 else byte[0].toInt() and 0xff
-            }
-            override fun read(bytes: ByteArray, start: Int, length: Int): Int {
-                if (length == 0) return 0
-                if (readOffset == end) return -1
-                val count = Os.pread(cache.fileDescriptor, bytes, start,
-                    minOf(length.toLong(), end - readOffset).toInt(), readOffset)
-                if (count == 0) return -1
-                readOffset += count
-                return count
-            }
-        }
-        var apkOffset = 0L
-        PayloadCipher.decrypt(input, manifest, key) { plaintext ->
-            var written = 0
-            while (written < plaintext.size) {
-                val count = Os.pwrite(apk.fileDescriptor, plaintext, written, plaintext.size - written, apkOffset + written)
-                check(count > 0) { "short write to memory APK" }
-                written += count
-            }
-            apkOffset += plaintext.size
-        }
-        check(Os.fstat(apk.fileDescriptor).st_size == manifest.apkSize)
     }
 
     private fun validateArchive(archive: ZipFile): List<ZipEntry> {

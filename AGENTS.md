@@ -8,8 +8,7 @@
 ## Build
 
 ```bash
-./x bootstrap build                 # debug bootstrap APK
-./x bootstrap build --release       # release bootstrap APK
+./x bootstrap build                 # release bootstrap APK
 ./x bootstrap build --native-only   # only prepare Zygisk native inputs
 ./x payload build                   # debug payload APK
 ./x payload install --device SERIAL # write debug payload.cache to the default WeChat user

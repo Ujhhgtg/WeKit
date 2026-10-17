@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { decodeBody, encodeBody } from "./body-transform";
 export class HttpError extends Error {
   constructor(
     public status: number,
@@ -31,8 +32,17 @@ export async function endpoint(
   handler: () => Promise<Response>,
   env?: { DB: D1Database; PSEUDO_IPV4_MODE?: string },
 ): Promise<Response> {
+  const transform = request.headers.get("x-wekit-body-transform") === "WKX1";
+  const wireResponse = async (response: Response): Promise<Response> => {
+    if (!transform || !response.headers.get("content-type")?.startsWith("application/json")) return response;
+    const encoded = encodeBody(new Uint8Array(await response.arrayBuffer()));
+    const headers = new Headers(response.headers);
+    headers.set("X-WeKit-Body-Transform", "WKX1");
+    headers.set("Content-Length", String(encoded.byteLength));
+    return new Response(encoded, { status: response.status, statusText: response.statusText, headers });
+  };
   try {
-    return await handler();
+    return await wireResponse(await handler());
   } catch (e) {
     const known = e instanceof HttpError;
     if (!known)
@@ -72,7 +82,7 @@ export async function endpoint(
         console.error(JSON.stringify({ event: "rejection_log_failed" }));
       }
     }
-    return json(
+    return await wireResponse(json(
       {
         error: {
           code: known ? e.code : "SERVICE_UNAVAILABLE",
@@ -85,7 +95,7 @@ export async function endpoint(
         },
       },
       known ? e.status : 503,
-    );
+    ));
   }
 }
 export async function bytes(
@@ -218,7 +228,12 @@ export async function body<T>(
     "application/json"
   )
     fail(415, "CONTENT_TYPE", "使用 application/json");
-  const raw = await bytes(req, maximum);
+  const wire = await bytes(req, maximum + 4);
+  let raw: Uint8Array<ArrayBuffer>;
+  if (req.headers.get("x-wekit-body-transform") === "WKX1") {
+    try { raw = new Uint8Array(decodeBody(wire)); }
+    catch { fail(400, "INVALID_BODY_TRANSFORM", "请求编码无效"); }
+  } else raw = wire;
   const result = schema.safeParse(decodeJson(raw));
   if (!result.success) fail(400, "INVALID_INPUT", "请求字段无效");
   return { value: result.data, raw };

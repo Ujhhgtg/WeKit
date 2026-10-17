@@ -122,8 +122,8 @@ object BootstrapCoordinator {
         if (::api.isInitialized) return
         check(Process.is64Bit()) { "WeKit bootstrap requires arm64" }
         val apk = File(loaderService.mainModulePath)
-        config = BootstrapConfig.DEFAULT
         BootstrapNativeLibraries.initialize(application, apk)
+        config = BootstrapConfig.DEFAULT
         api = BootstrapApi(config, store)
         cache = PayloadCache(store, config)
     }
@@ -217,7 +217,7 @@ object BootstrapCoordinator {
             key = WireProtocol.decode(authorization.string("contentKey"), 32)
             val release = ReleaseManifest.verify(authorization.obj("manifest"), config)
             require(authorization.string("payloadId") == release.descriptor.payloadId)
-            if (mainProcess && (openedCache == null || openedCache.release == null || openedCache.release.manifestSha256 != release.manifestSha256)) {
+            if (mainProcess && (openedCache?.release == null || openedCache.release.manifestSha256 != release.manifestSha256)) {
                 openedCache?.close(); selectedCache = null
                 val download = {
                     cache.download(api, state, processNonce, authorization, release)
