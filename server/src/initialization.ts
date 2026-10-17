@@ -40,6 +40,7 @@ interface InitResult {
   grantId: string;
   grantExpiresAt: number;
   payloadId: string | null;
+  payloadMode: "CLOUD" | "LOCAL";
   result: string;
   currentResult?: string;
 }
@@ -66,8 +67,8 @@ export async function initialize(env: Env, req: Request): Promise<Response> {
     now = Date.now(),
     expires = now + LIMITS.grantMs,
     origin = source(req, env);
-  const decision = `CASE WHEN c.auth_epoch!=u.auth_epoch THEN 'RECONFIRM_REQUIRED' WHEN NOT(${authoritySql()}) THEN 'AUTHORIZATION_DENIED' WHEN p.payload_id IS NULL OR p.status!='ALLOWED' THEN 'PAYLOAD_UNAVAILABLE' WHEN ? IS NOT NULL AND (?!=p.payload_id OR p.apk_sha256!=?) THEN 'CACHE_MISMATCH' ELSE 'ALLOWED' END`;
-  const query = `SELECT json_object('initializationId',?,'grantId',?,'grantExpiresAt',?,'payloadId',p.payload_id,'result',${decision}) AS result_json ${authorityFrom} LEFT JOIN channels ch ON ch.name=u.release_channel LEFT JOIN payload_releases p ON p.payload_id=ch.payload_id WHERE c.credential_id=?`;
+  const decision = `CASE WHEN c.auth_epoch!=u.auth_epoch THEN 'RECONFIRM_REQUIRED' WHEN NOT(${authoritySql()}) THEN 'AUTHORIZATION_DENIED' WHEN u.release_channel='local' THEN 'ALLOWED' WHEN p.payload_id IS NULL OR p.status!='ALLOWED' THEN 'PAYLOAD_UNAVAILABLE' WHEN ? IS NOT NULL AND (?!=p.payload_id OR p.apk_sha256!=?) THEN 'CACHE_MISMATCH' ELSE 'ALLOWED' END`;
+  const query = `SELECT json_object('initializationId',?,'grantId',?,'grantExpiresAt',?,'payloadId',CASE WHEN u.release_channel='local' THEN NULL ELSE p.payload_id END,'payloadMode',CASE WHEN u.release_channel='local' THEN 'LOCAL' ELSE 'CLOUD' END,'result',${decision}) AS result_json ${authorityFrom} LEFT JOIN channels ch ON ch.name=u.release_channel LEFT JOIN payload_releases p ON p.payload_id=ch.payload_id WHERE c.credential_id=?`;
   const result = await transact<InitResult>(
     env,
     req,
@@ -118,10 +119,22 @@ export async function initialize(env: Env, req: Request): Promise<Response> {
         ...g.bindings,
       ),
     ],
-    `SELECT json_set(o.result_json,'$.currentResult',CASE WHEN c.auth_epoch!=u.auth_epoch THEN 'RECONFIRM_REQUIRED' WHEN NOT(${authoritySql()}) THEN 'AUTHORIZATION_DENIED' WHEN p.payload_id IS NULL OR p.status!='ALLOWED' THEN 'PAYLOAD_UNAVAILABLE' ELSE json_extract(o.result_json,'$.result') END) AS result_json FROM request_operations o ${authorityFrom.replace("FROM", "JOIN")} LEFT JOIN payload_releases p ON p.payload_id=json_extract(o.result_json,'$.payloadId') WHERE o.actor_type=? AND o.actor_id=? AND o.operation=? AND o.request_id=? AND c.credential_id=o.actor_id`,
+    `SELECT json_set(o.result_json,'$.currentResult',CASE WHEN c.auth_epoch!=u.auth_epoch THEN 'RECONFIRM_REQUIRED' WHEN NOT(${authoritySql()}) THEN 'AUTHORIZATION_DENIED' WHEN u.release_channel='local' THEN json_extract(o.result_json,'$.result') WHEN p.payload_id IS NULL OR p.status!='ALLOWED' THEN 'PAYLOAD_UNAVAILABLE' ELSE json_extract(o.result_json,'$.result') END) AS result_json FROM request_operations o ${authorityFrom.replace("FROM", "JOIN")} LEFT JOIN payload_releases p ON p.payload_id=json_extract(o.result_json,'$.payloadId') WHERE o.actor_type=? AND o.actor_id=? AND o.operation=? AND o.request_id=? AND c.credential_id=o.actor_id`,
     [auth.actorType, auth.actorId, auth.operation, auth.requestId],
   );
   allowed(result);
+  if (result.payloadMode === "LOCAL") {
+    return json({
+      initializationId: result.initializationId,
+      grantId: result.grantId,
+      grantExpiresAt: result.grantExpiresAt,
+      payloadMode: "LOCAL",
+      payloadId: null,
+      manifest: null,
+      contentKey: null,
+      downloadPath: null,
+    });
+  }
   const release = await env.DB.prepare(
     "SELECT manifest_json,content_key_wrapped_json FROM payload_releases WHERE payload_id=?",
   )
@@ -138,6 +151,7 @@ export async function initialize(env: Env, req: Request): Promise<Response> {
     initializationId: result.initializationId,
     grantId: result.grantId,
     grantExpiresAt: result.grantExpiresAt,
+    payloadMode: "CLOUD",
     payloadId: result.payloadId,
     manifest: JSON.parse(release.manifest_json) as ManifestEnvelope,
     contentKey: b64(key),

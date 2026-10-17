@@ -373,12 +373,14 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
     const uid = m[1]!;
     if (v.action === "channel") {
       if (!v.channel) fail(400, "CHANNEL_REQUIRED", "必须指定发布渠道");
-      const channel = await env.DB.prepare(
-        "SELECT name FROM channels WHERE name=?",
-      )
-        .bind(v.channel)
-        .first();
-      if (!channel) fail(404, "CHANNEL_NOT_FOUND", "发布渠道不存在");
+      if (v.channel !== "local") {
+        const channel = await env.DB.prepare(
+          "SELECT name FROM channels WHERE name=?",
+        )
+          .bind(v.channel)
+          .first();
+        if (!channel) fail(404, "CHANNEL_NOT_FOUND", "发布渠道不存在");
+      }
       await audit(
         env,
         req,

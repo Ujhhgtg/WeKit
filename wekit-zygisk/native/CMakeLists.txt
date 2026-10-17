@@ -42,7 +42,7 @@ enable_language(CXX)
 
 set(LSPLANT_SOURCE "${WEKIT_ROOT}/third_party/lsplant/lsplant/src/main/jni")
 if(NOT EXISTS "${LSPLANT_SOURCE}/external/dex_builder/external/parallel_hashmap/CMakeLists.txt")
-    message(FATAL_ERROR "Missing LSPlant sources; prepare them with ./x build --native-only")
+    message(FATAL_ERROR "Missing LSPlant sources; prepare them with ./x bootstrap build --native-only")
 endif()
 
 set(LSPLANT_BUILD_SHARED OFF CACHE BOOL "" FORCE)

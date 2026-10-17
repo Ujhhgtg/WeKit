@@ -127,13 +127,13 @@ jobs:
           WEKIT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           WEKIT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           WEKIT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./x build-bootstrap --release
+        run: ./x bootstrap build --release
 
       - name: Build Release (Unsigned)
         if: github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./x build-bootstrap --release
+        run: ./x bootstrap build --release
 
       - name: Verify and collect Release APK and mapping
         run: |
@@ -489,7 +489,7 @@ jobs:
         id: native_build
         run: |
           cargo xtask configure
-          cargo xtask build-payload --native-only --abi arm64-v8a
+          cargo xtask payload build --native-only --abi arm64-v8a
 
       - name: Pack extensions
         run: cargo xtask extensions pack

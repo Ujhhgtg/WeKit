@@ -778,7 +778,7 @@ function Channels({ revision }: { revision: number }) {
       <div className="card-heading">
         <h2>发布渠道</h2>
         <span className="muted">
-          用户读取所分配渠道的当前版本，未分配时使用 stable
+          用户读取所分配渠道的当前版本；local 使用设备上的本地载荷，未分配时使用 stable
         </span>
       </div>
       {channels.length ? (
@@ -1198,6 +1198,7 @@ function UserDetail({
                   value={channel}
                   onChange={(e) => setChannel(e.target.value)}
                 >
+                  <option value="local">local（本地载荷）</option>
                   {(channelData?.data ?? []).map((row) => (
                     <option key={text(row.name)} value={text(row.name)}>
                       {text(row.name)}
@@ -1207,7 +1208,7 @@ function UserDetail({
               </label>
               <p className="help">
                 未分配用户默认使用
-                stable；修改只影响后续初始化，已运行进程不会切换。
+                stable；选择 local 后，后续初始化只使用设备上由 `x payload install` 写入的本地载荷；修改只影响后续初始化，已运行进程不会切换。
               </p>
               <button
                 className="button secondary"

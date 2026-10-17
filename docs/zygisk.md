@@ -87,7 +87,7 @@ WebUI 会自动列出设备上所有 Android 用户中包名以 `com.tencent.mm`
 2. WeKit 模块已启用。
 3. WebUI 中正确 Android 用户和微信包名的开关已打开。
 4. 打开开关或更新模块后, 微信已经完全结束并重新启动。
-5. 刷入的是最新二合一 APK 改名后的 ZIP, 且更新已按 Root 管理器要求激活。
+5. 刷入的是最新 bootstrap 二合一 APK 改名后的 ZIP, 且更新已按 Root 管理器要求激活。
 6. 同一微信实例没有同时通过 Xposed 加载 WeKit。
 
 debug / release 均支持 Zygisk, debug 构建本身不是不加载的原因。

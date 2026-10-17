@@ -33,11 +33,11 @@ Zygisk 的 Python 工具依赖由 `wekit-zygisk/pyproject.toml` 和 `uv.lock` �
 执行以下命令，可使用锁定的构建工具完成 APK 构建：
 
 ```bash
-uv run --locked --project wekit-zygisk --group build ./x build
+uv run --locked --project wekit-zygisk --group build ./x bootstrap build
 ```
 
 uv 自动管理 `wekit-zygisk/.venv`。也可将已安装的 CMake 和 Ninja 放入 `PATH` 后
-直接使用 `./x build`。构建会初始化固定版本的 LSPlant 及其运行时子模块，无须拉取
+直接使用 `./x bootstrap build`。构建会初始化固定版本的 LSPlant 及其运行时子模块，无须拉取
 LSPlant 的测试和文档子模块。
 
 ### Arch Linux
@@ -90,8 +90,11 @@ exec cargo xtask "$@"
 | 命令 | 用途 |
 |------|------|
 | `./x configure` | 生成 Rust Android linker 配置 |
-| `./x build` | 构建二合一 APK，或仅准备应用与 Zygisk native 库 |
-| `./x run` | 构建并安装 APK；添加 `--zygisk` 则作为模块刷入 |
+| `./x bootstrap build` | 构建公开的二合一 bootstrap APK，或仅准备 Zygisk native 输入 |
+| `./x bootstrap install` | 构建并安装 bootstrap APK；添加 `--zygisk` 则作为模块刷入 |
+| `./x payload build` | 构建私有业务 payload APK |
+| `./x payload install` | 构建 debug payload 并写入设备上指定 WeChat 用户的 `payload.cache` |
+| `./x payload publish` | 构建、加密、签名并发布 release payload |
 | `./x check` | 对 Rust native 库执行 `cargo check` |
 | `./x clippy` | 对 Rust native 库执行 `cargo clippy -- -D warnings` |
 | `./x i18n-check` | 校验 Android 国际化资源目录 |
@@ -114,8 +117,8 @@ app/src/main/rust/wekit-native/.cargo/config.toml
 wekit-zygisk/native/.cargo/config.toml
 ```
 
-完整 APK 模式的 `./x build` 和 `./x run` 会自动执行该步骤。直接运行
-`./x check` 或 `./x clippy` 前应执行一次 `./x configure`；`./x build --native-only` 自动准备配置和应用/Zygisk native 输入。
+完整 APK 模式的 `./x bootstrap build`、`./x bootstrap install` 和 `./x payload build` 会自动执行该步骤。直接运行
+`./x check` 或 `./x clippy` 前应执行一次 `./x configure`；`./x bootstrap build --native-only` 自动准备配置和 Zygisk native 输入，`./x payload build --native-only` 自动准备应用 native 输入。
 
 ## APK
 
@@ -125,34 +128,60 @@ wekit-zygisk/native/.cargo/config.toml
 ### 构建
 
 ```bash
-# debug APK
-./x build
+# debug bootstrap APK
+./x bootstrap build
 
-# release APK
-./x build --release
+# release bootstrap APK
+./x bootstrap build --release
 
-# 只准备应用与 Zygisk native 库，跳过 Gradle
-./x build --native-only
-./x build --native-only --abi arm64-v8a
+# 只准备 bootstrap 的 Zygisk native 输入，跳过 Gradle
+./x bootstrap build --native-only
+./x bootstrap build --native-only --abi arm64-v8a
+
+# debug/release payload APK
+./x payload build
+./x payload build --release
+
+# 只准备 payload 的应用 native 输入，跳过 Gradle
+./x payload build --native-only
+./x payload build --native-only --abi arm64-v8a
 ```
 
-完整 APK 构建依次执行：
+每个 APK 构建命令依次执行：
 
 1. `./x configure`
-2. 为所选 ABI 准备应用与 Zygisk native 库及所需输入
-3. 将 native 库复制到 `app/src/main/jniLibs/<abi>/`
+2. 为所选 ABI 准备该模块所需的 native 输入
+3. 将 native 库复制到对应模块的 `jniLibs/<abi>/`（payload 使用 `app/src/main/jniLibs/`，bootstrap 使用 `bootstrap/src/main/jniLibs/`）
 4. 执行对应的 Gradle `assemble` 任务，在签名前放入模块文件
 
 Rust native 仅支持 `arm64-v8a`。
 `--native-only` 会忽略 `--release`，native 库始终使用 Cargo release
 profile。
 
-Gradle 输出仅包含 ARM64 native 库的 APK：
+Gradle 输出包含 ARM64 APK：
 
 ```text
 app/build/outputs/apk/debug/app-debug.apk
 app/build/outputs/apk/release/app-release.apk
+bootstrap/build/outputs/apk/debug/bootstrap-debug.apk
+bootstrap/build/outputs/apk/release/bootstrap-release.apk
 ```
+
+发布 payload 时，`payload publish` 会先构建 release payload，再加密、签名并提交到配置的发布服务：
+
+```bash
+./x payload publish
+./x payload publish --prepare-only
+```
+
+调试 payload 时，先在管理员 WebUI 将用户渠道切换为 `local`，再把 debug APK 直接写入目标设备：
+
+```bash
+./x payload install --device SERIAL --user 0 --package com.tencent.mm
+./x payload install --release --device SERIAL --user 0 --package com.tencent.mm
+```
+
+设备上的 WeKit bootstrap 仍会向服务端进行初始化授权；`local` 渠道授权后才读取这个本地 APK。
 
 ### 安装
 
@@ -160,18 +189,18 @@ app/build/outputs/apk/release/app-release.apk
 
 ```bash
 # 默认安装 debug
-./x run
-./x run --debug
+./x bootstrap install
+./x bootstrap install --debug
 
-./x run --release
+./x bootstrap install --release
 ```
 
-当前 `run` 命令执行 `installDebug` 或 `installRelease` Gradle 任务。它会先重新构建 ARM64 native 库。
+当前 `bootstrap install` 命令执行 `installDebug` 或 `installRelease` Gradle 任务。它会先重新构建 bootstrap 所需的 ARM64 native 输入。
 
 存在多个 adb 设备时，可通过 `ANDROID_SERIAL` 选择设备：
 
 ```bash
-ANDROID_SERIAL=SERIAL ./x run
+ANDROID_SERIAL=SERIAL ./x bootstrap install
 ```
 
 可选：应用基准配置（Baseline Profile）：
@@ -196,34 +225,35 @@ adb shell cmd package compile -m speed-profile dev.ujhhgtg.wekit
 
 ## APK / Zygisk 二合一
 
-所有 debug / release APK 都同时是可刷入的 Zygisk 模块，仅支持
-`arm64-v8a`。直接安装 APK 用于 Android / Xposed；把同一文件改名 `.zip` 后可通过
+所有 bootstrap debug / release APK 都同时是可刷入的 Zygisk 模块，仅支持
+`arm64-v8a`。直接安装 bootstrap APK 用于 Android / Xposed；把同一文件改名 `.zip` 后可通过
 Magisk、KernelSU 或 APatch 的模块安装入口刷入。首次刷入后在 WebUI 选择注入目标，
-并按管理器要求重启。APK 安装与 Zygisk 刷入分别更新各自部署，不能互相代替。
+并按管理器要求重启。Payload APK 是私有运行时载荷，不直接安装或刷入。
 同一微信实例只启用一种加载方式，操作步骤见 [Zygisk 模式](../zygisk.md)。
 
 ```bash
-# 二合一 debug APK
-./x build
+# 二合一 bootstrap debug APK
+./x bootstrap build
 
-# 二合一 release APK
-./x build --release
+# 二合一 bootstrap release APK
+./x bootstrap build --release
 
-# 仅准备应用和 Zygisk native 输入
-./x build --native-only
+# 仅准备 bootstrap 的 Zygisk native 输入
+./x bootstrap build --native-only
 
 # 额外导出注入器的未剥离符号
-./x build --save-symbols
+./x bootstrap build --save-symbols
 
 # 正常 APK 安装；默认 debug
-./x run
+./x bootstrap install
 
 # 构建同一 APK，以模块方式刷入；仅显式 --reboot 才重启
-./x run --zygisk --device SERIAL --root ksu --reboot
-./x run --zygisk --release
+./x bootstrap install --zygisk --device SERIAL --root ksu --reboot
+./x bootstrap install --zygisk --release
 ```
 
-APK 仍输出到 `app/build/outputs/apk/<debug|release>/`。
+Bootstrap APK 输出到 `bootstrap/build/outputs/apk/<debug|release>/`；payload APK 输出到
+`app/build/outputs/apk/<debug|release>/`。
 符号归档输出到 `target/zygisk-symbols/WeKit-<commit>-arm64-v8a-symbols.zip`。
 注入器始终使用 release profile；`--release` 控制 Android 代码优化。
 
@@ -232,7 +262,7 @@ APK 仍输出到 `app/build/outputs/apk/<debug|release>/`。
 `GenerateZygiskResourcesTask` 将 `wekit-zygisk/template/` 的安装脚本、WebUI 和
 `module.prop` 作为资源加入每个 APK 变体，版本信息取自同一 APK 变体。
 模块文件在 AGP 签名前进入 APK；签名完成后不得再追加文件或重新打包。
-刷入用的 ZIP 与最终 APK 内容完全相同，`./x run --zygisk` 也只在推送到设备时
+刷入用的 ZIP 与最终 APK 内容完全相同，`./x bootstrap install --zygisk` 也只在推送到设备时
 使用 `.zip` 文件名。CI 检查后发布这份 APK，不另行构建或发布模块 ZIP。
 
 模块安装器直接保存原始 APK 为 `$MODPATH/module.apk`，注入器从这份 APK 读取 DEX。
@@ -252,8 +282,8 @@ APK 仍输出到 `app/build/outputs/apk/<debug|release>/`。
 不再提供独立 `zygisk` 构建/刷入命令或按修改时间选择旧 ZIP 的选项。
 
 原生调试可在 `wekit-zygisk/native` 中直接运行 `cargo build --target aarch64-linux-android`；
-先用 `./x configure` 准备 NDK 链接配置。正常出包始终使用 `./x build`，确保两个 Rust 库
-都已更新；Gradle 只负责消费这些 native 输入并打包签名。直接 Cargo 构建还需要已
+先用 `./x configure` 准备 NDK 链接配置。正常出 bootstrap 包使用 `./x bootstrap build`，
+正常出 payload 包使用 `./x payload build`；Gradle 只负责消费这些 native 输入并打包签名。直接 Cargo 构建还需要已
 初始化的 LSPlant 运行时依赖，以及可用的 CMake / Ninja。
 
 ### ART Hook 实现与验证

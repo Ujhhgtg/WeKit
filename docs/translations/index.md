@@ -48,12 +48,12 @@ rebase，以免破坏 Weblate 的 Git 同步历史。简体和繁体资源在首
 
 ```bash
 ./x i18n-check
-./x build
+./x payload build
 git diff --check
 ```
 
 `./x i18n-check` 检查资源目录、XML、重复/仅目标 key、资源类型、markup、复数和格式参数。
-完整构建必须使用 `./x build`，以同步刷新 Rust native 库和 APK。
+完整构建必须使用 `./x payload build`，以同步刷新 Rust native 库和 payload APK。
 
 ## 许可与署名
 

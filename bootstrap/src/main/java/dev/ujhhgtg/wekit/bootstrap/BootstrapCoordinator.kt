@@ -164,8 +164,8 @@ object BootstrapCoordinator {
             return
         }
         var request = initializationBody(state, identity)
-        if (!mainProcess) {
-            request = request.copy(requestedPayloadId = openedCache!!.release.descriptor.payloadId,
+        if (!mainProcess && openedCache?.release != null) {
+            request = request.copy(requestedPayloadId = openedCache.release.descriptor.payloadId,
                 cachedApkSha256 = openedCache.release.descriptor.apkSha256)
         }
         var initializationId: String? = null
@@ -175,12 +175,49 @@ object BootstrapCoordinator {
             val authorization = run {
                 val response = api.signedPost("/v1/initializations", WireJson.body(request), state, processNonce)
                 initializationId = response.string("initializationId")
-                key = WireProtocol.decode(response.string("contentKey"), 32)
                 JsonObject(response.filterKeys { it != "contentKey" })
             }
+            val payloadMode = authorization.string("payloadMode")
+            if (payloadMode == "LOCAL") {
+                val selected = selectedCache ?: error("Local payload cache is missing")
+                require(selected.release == null) { "Local payload cache is not a plain APK" }
+                val localApkSha256 = selected.localApkSha256 ?: error("Local payload cache is missing")
+                if (!allowEntry) {
+                    payloadReadyForRestart = true
+                    message(uiText(R.string.wekit_auth_payload_ready))
+                    return
+                }
+                check(Looper.myLooper() == Looper.getMainLooper())
+                val loaded = PayloadLoader.preparePlain(selected.fd, localApkSha256,
+                    File(store.directory, "native"), BootstrapCoordinator::class.java.classLoader!!)
+                prepared = loaded
+                val environment = PayloadEnvironment(application, hostLoader, hookBridge, loaderService,
+                    injectionMode, telegramRootAccess, File(loaderService.mainModulePath), loaded.apk,
+                    localApkSha256, loaded.nativeDirectory, if (mainProcess) authorizationControls else null)
+                entryAttempted = true
+                val entry = loaded.classLoader.loadClass("dev.ujhhgtg.wekit.loader.startup.PayloadEntryImpl")
+                    .getDeclaredConstructor().newInstance() as PayloadEntry
+                try { entry.start(environment) } finally { loaded.scrubNativeLibraries() }
+                BootstrapLog.i("Bootstrap", "Local payload entry returned synchronously on the main thread")
+                loadedWxId = identity.wxId
+                successfulInitializationId = initializationId
+                successfulState = state
+                reportedAlias = identity.alias
+                report(state, initializationId!!, "ENTRY_RETURNED", "LOADED", identity)
+                mainHandler.post { bindingDialog?.dismiss(); pendingMessage = null }
+                return
+            }
+            require(payloadMode == "CLOUD") { "Unknown payload mode: $payloadMode" }
+            if (!mainProcess && selectedCache?.release == null) {
+                selectedCache?.close()
+                selectedCache = null
+                BootstrapLog.i("Bootstrap", "Cloud payload cache is not ready in this process")
+                return
+            }
+            key = WireProtocol.decode(authorization.string("contentKey"), 32)
             val release = ReleaseManifest.verify(authorization.obj("manifest"), config)
             require(authorization.string("payloadId") == release.descriptor.payloadId)
-            if (mainProcess && (openedCache == null || openedCache.release.manifestSha256 != release.manifestSha256)) {
+            if (mainProcess && (openedCache == null || openedCache.release == null || openedCache.release.manifestSha256 != release.manifestSha256)) {
                 openedCache?.close(); selectedCache = null
                 val download = {
                     cache.download(api, state, processNonce, authorization, release)
@@ -193,14 +230,15 @@ object BootstrapCoordinator {
                 return
             }
             val selected = selectedCache!!
-            require(selected.release.manifestSha256 == release.manifestSha256) { "Cache differs from authorized manifest" }
+            val selectedRelease = selected.release ?: error("Cloud payload cache is missing")
+            require(selectedRelease.manifestSha256 == release.manifestSha256) { "Cache differs from authorized manifest" }
             if (!allowEntry) {
                 payloadReadyForRestart = true
                 message(uiText(R.string.wekit_auth_payload_ready))
                 return
             }
             check(Looper.myLooper() == Looper.getMainLooper())
-            val loaded = PayloadLoader.prepare(selected.fd, selected.offset, release.descriptor, key!!,
+            val loaded = PayloadLoader.prepare(selected.fd, selected.offset, release.descriptor, key,
                 File(store.directory, "native"), BootstrapCoordinator::class.java.classLoader!!)
             key.fill(0); key = null
             prepared = loaded

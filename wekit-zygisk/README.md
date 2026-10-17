@@ -24,7 +24,7 @@ updates retain it; uninstall removes it without touching app data.
 
 ## Installation and updates
 
-Every debug/release WeKit APK is also an ARM64 Zygisk module ZIP.
+Every debug/release bootstrap APK is also an ARM64 Zygisk module ZIP.
 Rename `.apk` to `.zip`, install it
 from your root manager, select the target instances in the WebUI, and restart as
 required by the manager. APK installation and module installation update their
@@ -59,30 +59,38 @@ The APK and loader follow the manager's module activation lifecycle together.
 ## Build
 
 ```bash
-# Dual-format APKs (arm64-v8a).
-./x build
-./x build --release
+# Bootstrap dual-format APKs (arm64-v8a).
+./x bootstrap build
+./x bootstrap build --release
 
-# Prepare application and Zygisk native libraries without building an APK.
-./x build --native-only
+# Private payload APKs (built separately from the bootstrap).
+./x payload build
+./x payload build --release
+
+# Write the debug payload APK directly to a rooted WeChat installation.
+./x payload install --device SERIAL --user 0 --package com.tencent.mm
+
+# Prepare Zygisk native libraries without building an APK.
+./x bootstrap build --native-only
 
 # Also export the unstripped Zygisk loader symbols.
-./x build --save-symbols
+./x bootstrap build --save-symbols
 
 # Normal Android installation.
-./x run
+./x bootstrap install
 
 # Build and install as a module; omit --root for manager auto-detection.
-./x run --zygisk --device SERIAL --root ksu --reboot
-./x run --zygisk --release
+./x bootstrap install --zygisk --device SERIAL --root ksu --reboot
+./x bootstrap install --zygisk --release
 ```
 
-APKs are in `app/build/outputs/apk/<type>/`. No separate module ZIP is
-built or published. The device-side `.zip` used by `run --zygisk` has exactly the
-APK's bytes. Symbols are in `target/zygisk-symbols/`.
+Bootstrap APKs are in `bootstrap/build/outputs/apk/<type>/`. Payload APKs are in
+`app/build/outputs/apk/<type>/`. No separate module ZIP is built or published.
+The device-side `.zip` used by `bootstrap install --zygisk` has exactly the APK's
+bytes. Symbols are in `target/zygisk-symbols/`.
 Module resources are added by `GenerateZygiskResourcesTask` before AGP signs each
 APK; never append files to or repack the signed output.
-Run `./x build --help` or `./x run --help` for options.
+Run `./x bootstrap build --help` or `./x bootstrap install --help` for options.
 
 ## Development environment
 
@@ -91,7 +99,7 @@ Run `./x build --help` or `./x run --help` for options.
 - Android NDK pinned in `gradle/libs.versions.toml`
 - CMake 3.28 or newer and Ninja (CI uses CMake 3.31.6 and Ninja 1.11.1.4)
 
-`./x build` initializes the pinned LSPlant and XZ Embedded sources.
+`./x bootstrap build` initializes the pinned LSPlant and XZ Embedded sources.
 LSPlant's unrelated test/documentation submodules are
 not required. `./x configure` writes the selected NDK and API level into the
 Cargo configuration; direct Android Cargo builds also need this configuration
@@ -162,7 +170,7 @@ CMake and Ninja. uv creates and manages `wekit-zygisk/.venv` automatically.
 To make the pinned build tools available to the native build, run:
 
 ```sh
-uv run --locked --project wekit-zygisk --group build ./x build --native-only
+uv run --locked --project wekit-zygisk --group build ./x bootstrap build --native-only
 ```
 
 The Unicorn suite compiles the production Rust emitter, executes original and

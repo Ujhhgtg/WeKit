@@ -85,42 +85,67 @@ object PayloadLoader {
             ParcelFileDescriptor.open(File("/proc/self/fd/" + it.fd), ParcelFileDescriptor.MODE_READ_ONLY)
         }
         try {
-            val archive = ZipFile("/proc/self/fd/${apk.fd}")
-            try {
-                val entries = validateArchive(archive)
-                val dex = readDex(archive, entries)
-                sweepNativeRoot(nativeRoot)
-                // Each process owns its directory: the libraries are scrubbed after loading, so a shared
-                // directory would let one process delete a file another is about to load.
-                val directory = File(nativeRoot, "$NATIVE_PREFIX${Os.getpid()}-${UUID.randomUUID()}")
-                try {
-                    extractNative(archive, entries, directory)
-                } catch (error: Throwable) {
-                    directory.deleteRecursively()
-                    throw error
-                }
-                // R8 deliberately minifies the payload and the bootstrap independently. Both
-                // APKs therefore contain short names such as `ix`, `lx`, and `et2`. A normal
-                // parent-first InMemoryDexClassLoader would resolve those payload references to
-                // an unrelated bootstrap class and ART rejects the merged type graph with a
-                // VerifyError. The filtered parent exposes only platform and explicitly shared
-                // runtime classes; every other class must come from the payload DEX itself.
-                val resourceParent = ApkResourceClassLoader(
-                    PayloadParentClassLoader(parent), archive, manifest.apkSha256,
-                )
-                val loader = try {
-                    InMemoryDexClassLoader(dex, directory.absolutePath, resourceParent)
-                } catch (error: Throwable) {
-                    directory.deleteRecursively()
-                    throw error
-                }
-                return PreparedPayload(apk, dex, directory, loader, archive)
-            } catch (error: Throwable) {
-                archive.close()
-                throw error
-            }
+            return prepareArchive(apk, manifest.apkSha256, nativeRoot, parent)
         } catch (error: Throwable) {
             apk.close()
+            throw error
+        }
+    }
+
+    /** Loads a plain local payload APK after the server has authorized local mode. */
+    fun preparePlain(
+        cache: ParcelFileDescriptor,
+        apkSha256: String,
+        nativeRoot: File,
+        parent: ClassLoader,
+    ): PreparedPayload {
+        val apk = ParcelFileDescriptor.dup(cache.fileDescriptor)
+        return try {
+            prepareArchive(apk, apkSha256, nativeRoot, parent)
+        } catch (error: Throwable) {
+            apk.close()
+            throw error
+        }
+    }
+
+    private fun prepareArchive(
+        apk: ParcelFileDescriptor,
+        apkSha256: String,
+        nativeRoot: File,
+        parent: ClassLoader,
+    ): PreparedPayload {
+        val archive = ZipFile("/proc/self/fd/${apk.fd}")
+        try {
+            val entries = validateArchive(archive)
+            val dex = readDex(archive, entries)
+            sweepNativeRoot(nativeRoot)
+            // Each process owns its directory: the libraries are scrubbed after loading, so a shared
+            // directory would let one process delete a file another is about to load.
+            val directory = File(nativeRoot, "$NATIVE_PREFIX${Os.getpid()}-${UUID.randomUUID()}")
+            try {
+                extractNative(archive, entries, directory)
+            } catch (error: Throwable) {
+                directory.deleteRecursively()
+                throw error
+            }
+            // R8 deliberately minifies the payload and the bootstrap independently. Both
+            // APKs therefore contain short names such as `ix`, `lx`, and `et2`. A normal
+            // parent-first InMemoryDexClassLoader would resolve those payload references to
+            // an unrelated bootstrap class and ART rejects the merged type graph with a
+            // VerifyError. The filtered parent exposes only platform and explicitly shared
+            // runtime classes; every other class must come from the payload DEX itself.
+            val resourceParent = ApkResourceClassLoader(
+                PayloadParentClassLoader(parent), archive, apkSha256,
+            )
+            val loader = try {
+                InMemoryDexClassLoader(dex, directory.absolutePath, resourceParent)
+            } catch (error: Throwable) {
+                directory.deleteRecursively()
+                throw error
+            }
+            return PreparedPayload(apk, dex, directory, loader, archive)
+        } catch (error: Throwable) {
+            archive.close()
             throw error
         }
     }

@@ -3,8 +3,10 @@
 //! Usage: cargo xtask <COMMAND>
 //!
 //!   configure            Regenerate wekit-native/.cargo/config.toml from the local NDK.
-//!   build [OPTIONS]      Build the project (default: full Android debug build via Gradle).
-//!   publish              Build the private release payload and publish it locally.
+//!   bootstrap build      Build the public dual-format bootstrap APK.
+//!   bootstrap install    Build and install the bootstrap APK, or flash it as a Zygisk module.
+//!   payload build        Build the private business payload APK.
+//!   payload publish      Build the private release payload and publish it locally.
 //!   check [OPTIONS]      Run `cargo check` on the native library.
 //!   clippy [OPTIONS]     Run `cargo clippy` on the native library.
 //!   dex-test [OPTIONS]   Resolve WeKit DexKit targets against desktop APKs.
@@ -55,21 +57,6 @@ struct AbiSpec {
     env_key: &'static str,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum ApkNativeBuildStep {
-    Configure,
-    WeKitNative,
-    ZygiskNative,
-    BootstrapLoader,
-}
-
-const APK_NATIVE_BUILD_STEPS: &[ApkNativeBuildStep] = &[
-    ApkNativeBuildStep::Configure,
-    ApkNativeBuildStep::WeKitNative,
-    ApkNativeBuildStep::ZygiskNative,
-    ApkNativeBuildStep::BootstrapLoader,
-];
-
 // Order matches the template in ConfigureCargoTask.kt so that
 // `cargo xtask configure` and the Gradle task produce identical output.
 static ABI_TABLE: &[AbiSpec] = &[AbiSpec {
@@ -103,29 +90,11 @@ enum Cmd {
     /// Regenerate wekit-native/.cargo/config.toml from the local NDK.
     Configure,
 
-    /// Build the project.
-    ///
-    /// Default: prepares native inputs, then runs `./gradlew assembleDebug`.
-    /// Pass --native-only to compile only the Rust .so and copy it to jniLibs/.
-    Build(BuildArgs),
+    /// Build and install the public bootstrap APK.
+    Bootstrap(BootstrapArgs),
 
-    /// Build only the public dual-format bootstrap APK.
-    BuildBootstrap(BuildArgs),
-
-    /// Build only the private business payload APK.
-    BuildPayload(BuildArgs),
-
-    /// Build the release business APK locally, then encrypt/sign and publish it.
-    Publish(PublishArgs),
-
-    /// Encrypt/sign one business APK and publish it (legacy spelling).
-    PublishPayload(PublishArgs),
-
-    /// Build and install the app, or flash the same APK as a Zygisk module.
-    ///
-    /// Defaults to installDebug. With --zygisk, assembles the selected
-    /// APK and installs it through the device's root manager instead.
-    Run(RunArgs),
+    /// Build and publish the private business payload.
+    Payload(PayloadArgs),
 
     /// Run `cargo check` on the native library for each target ABI.
     Check(NativeArgs),
@@ -150,8 +119,41 @@ enum Cmd {
 }
 
 #[derive(Args)]
+struct BootstrapArgs {
+    #[command(subcommand)]
+    command: BootstrapCommand,
+}
+
+#[derive(Subcommand)]
+enum BootstrapCommand {
+    /// Build the public dual-format bootstrap APK.
+    Build(BuildArgs),
+
+    /// Build and install the bootstrap APK, or flash it as a Zygisk module.
+    Install(InstallArgs),
+}
+
+#[derive(Args)]
+struct PayloadArgs {
+    #[command(subcommand)]
+    command: PayloadCommand,
+}
+
+#[derive(Subcommand)]
+enum PayloadCommand {
+    /// Build the private business payload APK.
+    Build(BuildArgs),
+
+    /// Build the payload APK and write it as the local payload.cache on a rooted device.
+    Install(PayloadInstallArgs),
+
+    /// Build the private release payload locally, then encrypt/sign and publish it.
+    Publish(PublishArgs),
+}
+
+#[derive(Args)]
 struct BuildArgs {
-    /// Prepare all application and Zygisk native inputs in jniLibs/.
+    /// Prepare this module's native inputs in its jniLibs/.
     /// Skips the Gradle Android build entirely.
     #[arg(long)]
     native_only: bool,
@@ -161,7 +163,7 @@ struct BuildArgs {
     #[arg(long)]
     release: bool,
 
-    /// Also archive unstripped Zygisk native symbols under target/zygisk-symbols/.
+    /// Also archive unstripped Zygisk native symbols under target/zygisk-symbols/ (bootstrap only).
     #[arg(long)]
     save_symbols: bool,
 
@@ -181,12 +183,18 @@ struct PublishArgs {
     #[arg(long, default_value = "wekit-payload-publication")]
     audience: String,
     /// P-256 release signing private key PEM path; never printed or uploaded.
-    #[arg(long, default_value = "/home/ujhhgtg/.config/wekit-release/remote-payload-release-20261011.pem")]
+    #[arg(
+        long,
+        default_value = "/home/ujhhgtg/.config/wekit-release/remote-payload-release-20261011.pem"
+    )]
     signing_key_file: PathBuf,
     #[arg(long, default_value = "release-20261011-1")]
     key_id: String,
     /// Local release-machine secret JSON. Omit only when running inside GitHub Actions.
-    #[arg(long, default_value = "/home/ujhhgtg/.config/wekit-release/remote-payload-production-secrets.json")]
+    #[arg(
+        long,
+        default_value = "/home/ujhhgtg/.config/wekit-release/remote-payload-production-secrets.json"
+    )]
     local_secrets_file: Option<PathBuf>,
     #[arg(long, default_value = "stable")]
     channel: String,
@@ -200,9 +208,28 @@ struct PublishArgs {
     output_dir: PathBuf,
 }
 
-/// Arguments for `run` (install + launch via Gradle).
 #[derive(Args)]
-struct RunArgs {
+struct PayloadInstallArgs {
+    /// adb device serial; uses the default device when omitted.
+    #[arg(short, long)]
+    device: Option<String>,
+
+    /// Android user ID owning the WeChat installation.
+    #[arg(long, default_value_t = 0)]
+    user: u32,
+
+    /// WeChat package to update.
+    #[arg(long, default_value = "com.tencent.mm")]
+    package: String,
+
+    /// Build and install the release payload instead of debug.
+    #[arg(long)]
+    release: bool,
+}
+
+/// Arguments for `bootstrap install` (install + launch via Gradle).
+#[derive(Args)]
+struct InstallArgs {
     /// Explicitly install the debug build (default).
     #[arg(long, conflicts_with = "release")]
     debug: bool,
@@ -228,7 +255,7 @@ struct RunArgs {
     reboot: bool,
 }
 
-impl RunArgs {
+impl InstallArgs {
     fn is_release(&self) -> bool {
         match (self.debug, self.release) {
             (false, false) | (true, false) => false,
@@ -269,12 +296,15 @@ fn main() -> Result<()> {
     print_banner();
     match cli.command {
         Cmd::Configure => task_configure()?,
-        Cmd::Build(args) => task_build(args)?,
-        Cmd::BuildBootstrap(args) => task_build_module(&args, "bootstrap")?,
-        Cmd::BuildPayload(args) => task_build_module(&args, "app")?,
-        Cmd::Publish(args) => task_publish(args)?,
-        Cmd::PublishPayload(args) => task_publish_payload(&args)?,
-        Cmd::Run(args) => task_run(args)?,
+        Cmd::Bootstrap(args) => match args.command {
+            BootstrapCommand::Build(args) => task_build_module(&args, "bootstrap")?,
+            BootstrapCommand::Install(args) => task_install(args)?,
+        },
+        Cmd::Payload(args) => match args.command {
+            PayloadCommand::Build(args) => task_build_module(&args, "app")?,
+            PayloadCommand::Install(args) => task_payload_install(args)?,
+            PayloadCommand::Publish(args) => task_publish(args)?,
+        },
         Cmd::Check(args) => task_cargo_cmd("check", &args.abis, &[])?,
         Cmd::Clippy(args) => task_cargo_cmd("clippy", &args.abis, &["--", "-D", "warnings"])?,
         Cmd::DexTest(args) => dex_test::task_dex_test(args)?,
@@ -487,15 +517,7 @@ fn task_configure() -> Result<()> {
     Ok(())
 }
 
-// ── Task: build ────────────────────────────────────────────────────────────────
-
-fn task_build(args: BuildArgs) -> Result<()> {
-    if args.native_only {
-        task_prepare_apk_native_inputs(&args.native.abis, args.save_symbols)
-    } else {
-        task_build_android(&args)
-    }
-}
+// ── Tasks: bootstrap / payload ─────────────────────────────────────────────────
 
 /// Compose a Gradle task name from a verb and build profile.
 fn gradle_variant_task(verb: &str, release: bool) -> String {
@@ -503,23 +525,8 @@ fn gradle_variant_task(verb: &str, release: bool) -> String {
     format!("{verb}{profile}")
 }
 
-/// Full Android build via the Gradle wrapper (native lib compiled first).
-fn task_build_android(args: &BuildArgs) -> Result<()> {
-    task_prepare_apk_native_inputs(&args.native.abis, args.save_symbols)?;
-    let root = workspace_root();
-    let gradle_task = gradle_variant_task("assemble", args.release);
-    println!("build: ./gradlew {gradle_task}");
-    let bootstrap_task = format!(":bootstrap:{gradle_task}");
-    let payload_task = format!(":app:{gradle_task}");
-    let mut tasks = vec![bootstrap_task.as_str(), payload_task.as_str()];
-    if args.release {
-        tasks.push("--no-configuration-cache");
-    }
-    run_gradlew(&tasks, &root)
-}
-
-/// Install the app on a connected device or emulator via the Gradle wrapper (native lib compiled first).
-fn task_run(args: RunArgs) -> Result<()> {
+/// Install the bootstrap APK on a connected device or emulator via Gradle (native inputs compiled first).
+fn task_install(args: InstallArgs) -> Result<()> {
     validate_root_manager(args.root.as_deref())?;
     let root = workspace_root();
     task_configure()?;
@@ -530,7 +537,7 @@ fn task_run(args: RunArgs) -> Result<()> {
         ":bootstrap:{}",
         gradle_variant_task(verb, args.is_release())
     );
-    println!("run: ./gradlew {gradle_task}");
+    println!("bootstrap install: ./gradlew {gradle_task}");
     let mut command = Command::new(root.join(if cfg!(windows) {
         "gradlew.bat"
     } else {
@@ -568,22 +575,82 @@ fn task_run(args: RunArgs) -> Result<()> {
     Ok(())
 }
 
-fn apk_native_build_steps() -> &'static [ApkNativeBuildStep] {
-    APK_NATIVE_BUILD_STEPS
+/// Build the selected payload variant and copy the plain APK to a rooted WeChat installation.
+fn task_payload_install(args: PayloadInstallArgs) -> Result<()> {
+    validate_android_package(&args.package)?;
+    let build = BuildArgs {
+        native_only: false,
+        release: args.release,
+        save_symbols: false,
+        native: NativeArgs { abis: Vec::new() },
+    };
+    task_build_module(&build, "app")?;
+    let root = workspace_root();
+    let profile = if args.release { "release" } else { "debug" };
+    let apk = root.join(format!("app/build/outputs/apk/{profile}/app-{profile}.apk"));
+    let pid = adb_output(
+        &root,
+        args.device.as_deref(),
+        &["shell".into(), "pidof".into(), args.package.clone()],
+    )?
+    .split_whitespace()
+    .next()
+    .map(str::to_owned)
+    .with_context(|| {
+        format!(
+            "{} must be running while installing the payload",
+            args.package
+        )
+    })?;
+    let remote = format!("/data/local/tmp/wekit-payload-{}.apk", std::process::id());
+    run_adb(
+        &root,
+        args.device.as_deref(),
+        &["push".into(), apk.display().to_string(), remote.clone()],
+    )?;
+
+    let data_dir = format!("/data/user/{}/{}", args.user, args.package);
+    let loader_dir = format!("{data_dir}/no_backup/wekit-loader");
+    let cache = format!("{loader_dir}/payload.cache");
+    let temporary = format!("{cache}.part");
+    let command = format!(
+        "set -eu; data={data_dir}; dir={loader_dir}; test -d \"$data\" || exit 2; uid=$(stat -c %u \"$data\") || exit 3; mkdir -p \"$dir\" || exit 4; chown \"$uid:$uid\" \"$dir\" || exit 5; cp {remote} {temporary} || exit 6; chown \"$uid:$uid\" {temporary} || exit 7; chmod 600 {temporary} || exit 8; mv -f {temporary} {cache} || exit 9; test -f {cache} || exit 10; test \"$(stat -c %u {cache})\" = \"$uid\" || exit 11; rm -f {remote}",
+    );
+    let namespace_command =
+        format!("nsenter -t {pid} -m -u -i -n -p -- /system/bin/sh -c '{command}' >/dev/null");
+    let result = run_adb(
+        &root,
+        args.device.as_deref(),
+        &["shell".into(), "su".into(), "-c".into(), namespace_command],
+    );
+    if result.is_err() {
+        let _ = run_adb(
+            &root,
+            args.device.as_deref(),
+            &[
+                "shell".into(),
+                "su".into(),
+                "-c".into(),
+                format!("nsenter -t {pid} -m -u -i -n -p -- /system/bin/rm -f {remote} >/dev/null"),
+            ],
+        );
+    }
+    result?;
+    println!(
+        "payload install: wrote {cache} for Android user {} package {}",
+        args.user, args.package
+    );
+    Ok(())
 }
 
-fn task_prepare_apk_native_inputs(abi_args: &[String], save_symbols: bool) -> Result<()> {
-    for step in apk_native_build_steps() {
-        match step {
-            ApkNativeBuildStep::Configure => task_configure()?,
-            ApkNativeBuildStep::WeKitNative => task_build_native(abi_args)?,
-            ApkNativeBuildStep::ZygiskNative => {
-                build_zygisk_native(&workspace_root(), abi_args, save_symbols)?
-            }
-            ApkNativeBuildStep::BootstrapLoader => {
-                build_bootstrap_loader(&workspace_root(), abi_args)?
-            }
-        }
+fn validate_android_package(package: &str) -> Result<()> {
+    if package.is_empty()
+        || package.len() > 255
+        || !package
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_'))
+    {
+        bail!("invalid Android package `{package}`");
     }
     Ok(())
 }
@@ -1057,6 +1124,29 @@ fn run_adb(root: &Path, device: Option<&str>, args: &[String]) -> Result<()> {
     run_cmd_owned("adb", &adb_args, root)
 }
 
+fn adb_output(root: &Path, device: Option<&str>, args: &[String]) -> Result<String> {
+    let mut adb_args = Vec::new();
+    if let Some(device) = device {
+        adb_args.push("-s".to_owned());
+        adb_args.push(device.to_owned());
+    }
+    adb_args.extend(args.iter().cloned());
+    let output = Command::new("adb")
+        .args(&adb_args)
+        .current_dir(root)
+        .output()
+        .context("failed to run adb")?;
+    if !output.status.success() {
+        bail!(
+            "`adb {}` exited with {}: {}",
+            adb_args.join(" "),
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    Ok(String::from_utf8(output.stdout)?.trim().to_owned())
+}
+
 fn install_zygisk_apk(
     root: &Path,
     apk_path: &Path,
@@ -1178,32 +1268,43 @@ mod tests {
 
     const VERSION_CATALOG_PATH: &str = "gradle/libs.versions.toml";
 
-    fn parse_run_args(extra: &[&str]) -> RunArgs {
-        let mut argv = vec!["xtask", "run"];
+    fn parse_install_args(extra: &[&str]) -> InstallArgs {
+        let mut argv = vec!["xtask", "bootstrap", "install"];
         argv.extend_from_slice(extra);
         match Cli::try_parse_from(argv).unwrap().command {
-            Cmd::Run(args) => args,
+            Cmd::Bootstrap(BootstrapArgs {
+                command: BootstrapCommand::Install(args),
+            }) => args,
+            _ => unreachable!(),
+        }
+    }
+
+    fn parse_build_args(scope: &str, extra: &[&str]) -> BuildArgs {
+        let mut argv = vec!["xtask", scope, "build"];
+        argv.extend_from_slice(extra);
+        match Cli::try_parse_from(argv).unwrap().command {
+            Cmd::Bootstrap(BootstrapArgs {
+                command: BootstrapCommand::Build(args),
+            }) if scope == "bootstrap" => args,
+            Cmd::Payload(PayloadArgs {
+                command: PayloadCommand::Build(args),
+            }) if scope == "payload" => args,
             _ => unreachable!(),
         }
     }
 
     #[test]
-    fn apk_native_build_plan_runs_configure_before_wekit_native() {
-        assert_eq!(
-            apk_native_build_steps(),
-            &[
-                ApkNativeBuildStep::Configure,
-                ApkNativeBuildStep::WeKitNative,
-                ApkNativeBuildStep::ZygiskNative,
-                ApkNativeBuildStep::BootstrapLoader,
-            ],
-        );
+    fn scoped_build_commands_parse_their_module_options() {
+        assert!(!parse_build_args("bootstrap", &[]).release);
+        assert!(parse_build_args("payload", &["--release"]).release);
+        assert!(parse_build_args("payload", &["--native-only"]).native_only);
+        assert!(Cli::try_parse_from(["xtask", "build"]).is_err());
     }
 
     #[test]
-    fn run_debug_flag_matches_the_default() {
-        let default = parse_run_args(&[]);
-        let explicit_debug = parse_run_args(&["--debug"]);
+    fn install_debug_flag_matches_the_default() {
+        let default = parse_install_args(&[]);
+        let explicit_debug = parse_install_args(&["--debug"]);
 
         assert_eq!(
             gradle_variant_task("install", default.is_release()),
@@ -1216,8 +1317,8 @@ mod tests {
     }
 
     #[test]
-    fn run_profile_flags_select_the_expected_variant() {
-        let release = parse_run_args(&["--release"]);
+    fn install_profile_flags_select_the_expected_variant() {
+        let release = parse_install_args(&["--release"]);
 
         assert_eq!(
             gradle_variant_task("install", release.is_release()),
@@ -1226,13 +1327,15 @@ mod tests {
     }
 
     #[test]
-    fn run_rejects_conflicting_profile_flags() {
-        assert!(Cli::try_parse_from(["xtask", "run", "--debug", "--release"]).is_err());
+    fn install_rejects_conflicting_profile_flags() {
+        assert!(
+            Cli::try_parse_from(["xtask", "bootstrap", "install", "--debug", "--release"]).is_err()
+        );
     }
 
     #[test]
-    fn run_zygisk_accepts_install_options_and_rejects_them_for_app_install() {
-        let args = parse_run_args(&[
+    fn install_zygisk_accepts_install_options_and_rejects_them_for_app_install() {
+        let args = parse_install_args(&[
             "--zygisk",
             "--release",
             "--device",
@@ -1244,8 +1347,8 @@ mod tests {
         assert!(args.zygisk && args.is_release() && args.reboot);
         assert_eq!(args.device.as_deref(), Some("serial"));
         assert_eq!(args.root.as_deref(), Some("ksu"));
-        assert!(Cli::try_parse_from(["xtask", "run", "--root", "ksu"]).is_err());
-        assert!(Cli::try_parse_from(["xtask", "run", "--reboot"]).is_err());
+        assert!(Cli::try_parse_from(["xtask", "bootstrap", "install", "--root", "ksu"]).is_err());
+        assert!(Cli::try_parse_from(["xtask", "bootstrap", "install", "--reboot"]).is_err());
         assert!(Cli::try_parse_from(["xtask", "zygisk", "build"]).is_err());
     }
 

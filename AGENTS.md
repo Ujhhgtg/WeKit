@@ -8,19 +8,24 @@
 ## Build
 
 ```bash
-./x build           # debug (uses same signing as release)
-./x build --release # release (with optimization on)
-./x build --native-only # only prepare application + Zygisk native libs in jniLibs/
-./x run --zygisk    # build the dual-format APK and install it as a Zygisk module
+./x bootstrap build                 # debug bootstrap APK
+./x bootstrap build --release       # release bootstrap APK
+./x bootstrap build --native-only   # only prepare Zygisk native inputs
+./x payload build                   # debug payload APK
+./x payload install --device SERIAL # write debug payload.cache to the default WeChat user
+./x payload install --release --device SERIAL # write release payload.cache
+./x payload publish                 # build, encrypt, sign, and publish the release payload
+./x bootstrap install --zygisk      # build the bootstrap APK and install it as a Zygisk module
 # (./x is alias to `cargo xtask` which orchestrates the build process)
 ```
 
 - In a Git worktree, run `git submodule update --init --recursive` before any work; otherwise
   `libs/common/bsh` and `libs/common/reflekt` are empty and builds fail.
 - Work directly on `dev` unless the user explicitly requests another branch or isolated history.
-- Every debug/release APK is dual-format: install as an APK, or rename to `.zip`
-  and install through a root manager. Module files enter the APK before AGP signs it; never modify
-  or repack the signed output. There is no separate `zygisk build` command.
+- Bootstrap debug/release APKs are dual-format: install as an APK, or rename to `.zip`
+  and install through a root manager. Module files enter the bootstrap APK before AGP signs it;
+  never modify or repack the signed output. Payload APKs are private runtime payloads and are not
+  installed or flashed directly. There is no separate `zygisk build` command.
 - JDK 21, AGP 9, Gradle version catalog in `gradle/libs.versions.toml`
 - CI builds one release APK (`app-release.apk`) and publishes it to the CI GitHub release and
   Xposed Modules Repository.
@@ -93,7 +98,7 @@
   `dexClass`, `dexField`, inline matchers, or `resolveDex`/`resolveInlineDex` logic; don't rerun a
   passed version for unrelated changes.
 - Before reporting a Dex resolver change complete, run the affected desktop tests, any relevant
-  qualifying Gradle tests (see Testing Strategy), `./x build`, and `git diff --check`.
+  qualifying Gradle tests (see Testing Strategy), `./x payload build`, and `git diff --check`.
 
 ### Desktop-safe Dex resolver rules
 

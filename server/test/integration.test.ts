@@ -733,6 +733,41 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
         admin,
         "https://admin.example/admin/api/users/1001/actions",
         "POST",
+        { action: "channel", channel: "local" },
+        {
+          ...accessHeaders,
+          origin: env.ADMIN_ORIGIN,
+          "x-wekit-csrf-token": adminSession.data.csrfToken,
+        },
+      ),
+    );
+    const localInit = await signed("/v1/initializations", initBody, {
+      registration: false,
+      nonce: processNonce,
+      requestId: opaqueId(),
+    });
+    const local = await ok(localInit.response);
+    assert.equal(local.payloadMode, "LOCAL");
+    assert.equal(local.payloadId, null);
+    assert.equal(local.contentKey, null);
+    await ok(
+      await send(
+        admin,
+        "https://admin.example/admin/api/users/1001/actions",
+        "POST",
+        { action: "channel", channel: "beta" },
+        {
+          ...accessHeaders,
+          origin: env.ADMIN_ORIGIN,
+          "x-wekit-csrf-token": adminSession.data.csrfToken,
+        },
+      ),
+    );
+    await ok(
+      await send(
+        admin,
+        "https://admin.example/admin/api/users/1001/actions",
+        "POST",
         { action: "disable" },
         {
           ...accessHeaders,
@@ -751,7 +786,7 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
       (await db
         .prepare("SELECT count(*) AS n FROM initializations")
         .first<{ n: number }>())!.n,
-      2,
+      3,
     );
     const revokedReport = await signed(
       "/v1/initializations/report",
