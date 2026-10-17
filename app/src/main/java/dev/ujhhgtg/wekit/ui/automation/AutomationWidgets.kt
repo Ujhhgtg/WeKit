@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +70,8 @@ import dev.ujhhgtg.wekit.ui.content.contacts.ContactAvatar
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.ConnectedButtonGroup
 import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
+import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.nav.gesture.WindowNavigationEventBridge
 
 private const val SECONDS_PER_DAY = 24 * 3600
 
@@ -76,7 +79,8 @@ private const val SECONDS_PER_DAY = 24 * 3600
 
 /**
  * Modal bottom sheet for editing one value: [content] scrolls between a title and a fixed footer
- * with Cancel / Done ([onConfirm] null shows only Cancel) and optional [footerStart] actions.
+ * with Cancel / Done ([onConfirm] null shows only Cancel) and optional [footerStart] actions. The
+ * footer callback receives a completion helper so actions can run after the hide animation.
  */
 @Composable
 fun AutomationSheet(
@@ -86,17 +90,28 @@ fun AutomationSheet(
     subtitle: String? = null,
     icon: ImageVector? = null,
     confirmEnabled: Boolean = true,
-    footerStart: @Composable RowScope.() -> Unit = {},
+    footerStart: @Composable RowScope.((() -> Unit) -> Unit) -> Unit = { _ -> },
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+    )
+    val scope = rememberCoroutineScope()
+
+    fun finishSheet(action: () -> Unit) {
+        scope.launch {
+            sheetState.hide()
+            if (!sheetState.isVisible) action()
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberBottomSheetState(
-            initialValue = SheetValue.Hidden,
-            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-        ),
+        sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
+        WindowNavigationEventBridge()
         Column(Modifier.fillMaxWidth().imePadding()) {
             Row(
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 4.dp),
@@ -136,11 +151,14 @@ fun AutomationSheet(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                footerStart()
+                footerStart(::finishSheet)
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                TextButton(onClick = { finishSheet(onDismiss) }) { Text(stringResource(R.string.dialog_cancel)) }
                 if (onConfirm != null) {
-                    Button(onClick = onConfirm, enabled = confirmEnabled) { Text(stringResource(R.string.action_done)) }
+                    val confirm = onConfirm
+                    Button(onClick = { finishSheet(confirm) }, enabled = confirmEnabled) {
+                        Text(stringResource(R.string.action_done))
+                    }
                 }
             }
         }

@@ -604,9 +604,9 @@ private fun StepSheet(
         onDismiss = onDismiss,
         onConfirm = { onDone(step.copy(content = content.trim())) },
         confirmEnabled = content.isNotBlank(),
-        footerStart = {
+        footerStart = { finish ->
             if (onDelete != null) {
-                TextButton(onClick = onDelete) {
+                TextButton(onClick = { finish(onDelete) }) {
                     Icon(MaterialSymbols.Outlined.Delete, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)

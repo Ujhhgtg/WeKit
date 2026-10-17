@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -53,6 +54,8 @@ import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
 import dev.ujhhgtg.wekit.ui.content.m3AppBarColor
 import dev.ujhhgtg.wekit.ui.content.m3BackdropLayer
 import dev.ujhhgtg.wekit.ui.content.rememberMaterial3BlurBackdrop
+import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.nav.gesture.WindowNavigationEventBridge
 
 /** Bottom padding so scrollable content clears the system nav bar comfortably. */
 val SETTINGS_CONTENT_BOTTOM_INSET = 32.dp
@@ -307,17 +310,28 @@ fun SettingsEditorSheet(
     show: Boolean,
     title: String,
     onDismiss: () -> Unit,
-    bottomBar: @Composable () -> Unit,
+    bottomBar: @Composable (dismiss: () -> Unit, finish: (() -> Unit) -> Unit) -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (!show) return
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+    )
+    val scope = rememberCoroutineScope()
+
+    fun finish(action: () -> Unit) {
+        scope.launch {
+            sheetState.hide()
+            if (!sheetState.isVisible) action()
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberBottomSheetState(
-            initialValue = SheetValue.Hidden,
-            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-        ),
+        sheetState = sheetState,
     ) {
+        WindowNavigationEventBridge()
         Column(Modifier.fillMaxWidth()) {
             Text(
                 text = title,
@@ -337,7 +351,7 @@ fun SettingsEditorSheet(
                     .navigationBarsPadding()
                     .padding(top = 8.dp),
             ) {
-                bottomBar()
+                bottomBar({ finish(onDismiss) }, ::finish)
             }
         }
     }

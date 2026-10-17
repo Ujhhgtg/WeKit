@@ -502,13 +502,13 @@ private fun SystemPromptEditor(
         show = show,
         title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_system_prompt else R.string.agent_edit_system_prompt),
         onDismiss = onDismiss,
-        bottomBar = {
+        bottomBar = { dismiss, finish ->
             EditorBottomBar(
                 showDelete = onDelete != null,
                 onDelete = { showDeleteConfirm = true },
-                onDismiss = onDismiss,
+                onDismiss = dismiss,
                 saveEnabled = content.isNotBlank(),
-                onSave = { onSave(name, content) },
+                onSave = { finish { onSave(name, content) } },
             )
         },
     ) {
@@ -560,13 +560,13 @@ private fun PerTurnPromptEditor(
         show = show,
         title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_per_turn_prompt else R.string.agent_edit_per_turn_prompt),
         onDismiss = onDismiss,
-        bottomBar = {
+        bottomBar = { dismiss, finish ->
             EditorBottomBar(
                 showDelete = onDelete != null,
                 onDelete = { showDeleteConfirm = true },
-                onDismiss = onDismiss,
+                onDismiss = dismiss,
                 saveEnabled = content.isNotBlank(),
-                onSave = { onSave(title, content) },
+                onSave = { finish { onSave(title, content) } },
             )
         },
     ) {
@@ -619,13 +619,13 @@ private fun ConditionalPromptEditor(
         show = show,
         title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_conditional_prompt else R.string.agent_edit_conditional_prompt),
         onDismiss = onDismiss,
-        bottomBar = {
+        bottomBar = { dismiss, finish ->
             EditorBottomBar(
                 showDelete = onDelete != null,
                 onDelete = { showDeleteConfirm = true },
-                onDismiss = onDismiss,
+                onDismiss = dismiss,
                 saveEnabled = content.isNotBlank() && regexError == null,
-                onSave = { onSave(regex, content) },
+                onSave = { finish { onSave(regex, content) } },
             )
         },
     ) {
@@ -683,13 +683,13 @@ private fun PresetPromptEditor(
         show = show,
         title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_preset_prompt else R.string.agent_edit_preset_prompt),
         onDismiss = onDismiss,
-        bottomBar = {
+        bottomBar = { dismiss, finish ->
             EditorBottomBar(
                 showDelete = onDelete != null,
                 onDelete = { showDeleteConfirm = true },
-                onDismiss = onDismiss,
+                onDismiss = dismiss,
                 saveEnabled = content.isNotBlank(),
-                onSave = { onSave(title, content) },
+                onSave = { finish { onSave(title, content) } },
             )
         },
     ) {

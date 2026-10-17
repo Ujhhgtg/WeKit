@@ -314,7 +314,7 @@ private fun TriggerEditorSheet(
         show = show,
         title = stringResource(if (creating) R.string.agent_add_trigger else R.string.agent_edit_trigger),
         onDismiss = onDismiss,
-        bottomBar = {
+        bottomBar = { dismiss, finish ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -328,43 +328,45 @@ private fun TriggerEditorSheet(
                     ) { Text(stringResource(R.string.action_delete)) }
                 }
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                TextButton(onClick = dismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 Spacer(Modifier.width(8.dp))
                 Button(
                     onClick = {
-                        val built = buildTrigger(
-                            existing = existing,
-                            name = name,
-                            promptTemplate = promptTemplate,
-                            type = type,
-                            scope = selectedScope,
-                            sessionId = if (selectedScope == TriggerScope.SESSION)
-                                sessionList.getOrNull(boundSessionIndex)?.id else null,
-                            kind = kind,
-                            intervalSeconds = intervalSeconds.toLongOrNull(),
-                            dailyMinuteOfDay = (dailyHour.toIntOrNull() ?: 0) * 60 + (dailyMinute.toIntOrNull() ?: 0),
-                            cronExpr = cronExpr,
-                            conditions = TriggerConditions(
-                                contentRegex = contentRegex.ifBlank { null },
-                                talkerRegex = talkerRegex.ifBlank { null },
-                                msgTypes = msgTypes.split(',').mapNotNull { it.trim().toIntOrNull() }.takeIf { it.isNotEmpty() },
-                                direction = directions[directionIndex],
-                                sqlOps = buildList {
-                                    if (opInsert) add(SqlOp.INSERT)
-                                    if (opUpdate) add(SqlOp.UPDATE)
-                                    if (opQuery) add(SqlOp.QUERY)
-                                }.takeIf { it.size < 3 } ?: emptyList(),
-                                tableRegex = tableRegex.ifBlank { null },
-                                sqlRegex = sqlRegex.ifBlank { null },
-                                valuesRegex = valuesRegex.ifBlank { null },
-                            ),
-                            debounceSec = debounceSec.toLongOrNull(),
-                            maxEvents = maxEvents.toIntOrNull(),
-                            maxWaitSec = maxWaitSec.toLongOrNull(),
-                            cooldownSec = cooldownSec.toLongOrNull(),
-                            filterOwn = filterOwn,
-                        )
-                        onSave(built)
+                        finish {
+                            val built = buildTrigger(
+                                existing = existing,
+                                name = name,
+                                promptTemplate = promptTemplate,
+                                type = type,
+                                scope = selectedScope,
+                                sessionId = if (selectedScope == TriggerScope.SESSION)
+                                    sessionList.getOrNull(boundSessionIndex)?.id else null,
+                                kind = kind,
+                                intervalSeconds = intervalSeconds.toLongOrNull(),
+                                dailyMinuteOfDay = (dailyHour.toIntOrNull() ?: 0) * 60 + (dailyMinute.toIntOrNull() ?: 0),
+                                cronExpr = cronExpr,
+                                conditions = TriggerConditions(
+                                    contentRegex = contentRegex.ifBlank { null },
+                                    talkerRegex = talkerRegex.ifBlank { null },
+                                    msgTypes = msgTypes.split(',').mapNotNull { it.trim().toIntOrNull() }.takeIf { it.isNotEmpty() },
+                                    direction = directions[directionIndex],
+                                    sqlOps = buildList {
+                                        if (opInsert) add(SqlOp.INSERT)
+                                        if (opUpdate) add(SqlOp.UPDATE)
+                                        if (opQuery) add(SqlOp.QUERY)
+                                    }.takeIf { it.size < 3 } ?: emptyList(),
+                                    tableRegex = tableRegex.ifBlank { null },
+                                    sqlRegex = sqlRegex.ifBlank { null },
+                                    valuesRegex = valuesRegex.ifBlank { null },
+                                ),
+                                debounceSec = debounceSec.toLongOrNull(),
+                                maxEvents = maxEvents.toIntOrNull(),
+                                maxWaitSec = maxWaitSec.toLongOrNull(),
+                                cooldownSec = cooldownSec.toLongOrNull(),
+                                filterOwn = filterOwn,
+                            )
+                            onSave(built)
+                        }
                     },
                     enabled = saveEnabled,
                 ) { Text(stringResource(R.string.action_save)) }

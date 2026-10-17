@@ -156,7 +156,7 @@ private fun SkillEditorSheet(
         show = show,
         title = stringResource(if (existing == null) R.string.agent_add_skill else R.string.agent_edit_skill),
         onDismiss = onDismiss,
-        bottomBar = {
+        bottomBar = { dismiss, finish ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -170,10 +170,10 @@ private fun SkillEditorSheet(
                     ) { Text(stringResource(R.string.action_delete)) }
                 }
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                TextButton(onClick = dismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 Spacer(Modifier.width(8.dp))
                 Button(
-                    onClick = { onSave(name, description, body) },
+                    onClick = { finish { onSave(name, description, body) } },
                     enabled = name.isNotBlank() && body.isNotBlank(),
                 ) { Text(stringResource(R.string.action_save)) }
             }

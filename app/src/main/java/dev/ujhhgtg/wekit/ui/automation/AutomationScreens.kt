@@ -1214,8 +1214,8 @@ private fun PresetSheet(
         subtitle = stringResource(R.string.automation_presets_order_hint),
         onDismiss = onDismiss,
         onConfirm = { onConfirm(selected) },
-        footerStart = {
-            if (batch) TextButton(onClick = { onConfirm(null) }) { Text(stringResource(R.string.automation_keep_unchanged)) }
+        footerStart = { finish ->
+            if (batch) TextButton(onClick = { finish { onConfirm(null) } }) { Text(stringResource(R.string.automation_keep_unchanged)) }
         },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
