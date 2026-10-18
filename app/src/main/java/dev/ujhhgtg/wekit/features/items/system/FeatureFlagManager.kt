@@ -101,14 +101,35 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
      * Identified by its [i]() method containing "Int", "Float", "String", "Long", "".
      * Hierarchy: [ly4.h]->[ly4.e]->[ly4.d]->[ly4.i] (Int) or [ly4.e]->[ly4.f] (String).
      */
-    private val classFeatureFlagBase by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('Int', 'Int', 'Float', 'String', 'Long', '', '') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 7 ORDER BY ms.method_class;""")
+    private val classFeatureFlagBase by dexClass {
+        matcher {
+            addMethod {
+                usingEqStrings("Int")
+            }
+            addMethod {
+                usingEqStrings("Int", "Float", "String", "Long", "")
+            }
+            addMethod {
+                usingEqStrings("")
+            }
+        }
+    }
 
     /**
      * Central API method: [fd5.d1].[b](String, Object) -> Object.
      * Key format: splits input key by '_', uses last segment for type dispatch.
      * Type names: "Int", "Float", "Long", "String" — matched by last _-segment.
      */
-    private val methodRepairerConfigApiGet by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('RepairerConfigThread', 'ValueStrategy_', 'String', 'Int', 'Long', 'Float', 'key', 'defaultValue') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 8 ORDER BY ms.method;""")
+    private val methodRepairerConfigApiGet by dexMethod {
+        matcher {
+            declaredClass {
+                usingEqStrings("RepairerConfigThread", "ValueStrategy_")
+            }
+            usingEqStrings("String", "Int", "Long", "Float", "key", "defaultValue")
+            paramTypes(String::class.java, Any::class.java)
+            returnType(Any::class.java)
+        }
+    }
 
     // ---------------------------------------------------------------------------
     // Flag details data model & reflective resolver

@@ -64,9 +64,17 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
         }
     }
     private val methodTextStatusStorageAccessor by dexMethod()
-    private val methodLatestStatusByUsername by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.TextStatus.StatusInfoAffStorage', 'getLatestStatusByUserName: failed') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
-    private val methodTextStatusTopicInfo by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('Super calls with default arguments not supported in this target, function: getTopicInfo') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
-    private val methodSetTextStatusIcon by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('Super calls with default arguments not supported in this target, function: setIcon') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
+    private val methodLatestStatusByUsername by dexMethod {
+        matcher {
+            paramTypes(String::class.java)
+            usingEqStrings(
+                "MicroMsg.TextStatus.StatusInfoAffStorage",
+                "getLatestStatusByUserName: failed",
+            )
+        }
+    }
+    private val methodTextStatusTopicInfo by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'Super calls with default arguments not supported in this target, function: getTopicInfo' ORDER BY m.descriptor;""")
+    private val methodSetTextStatusIcon by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'Super calls with default arguments not supported in this target, function: setIcon' ORDER BY m.descriptor;""")
     private val methodTextStatusIconHelperAccessor by dexMethod()
     private val methodTextStatusDescription by dexMethod()
     private val methodCurrentStatusActions by dexMethod()

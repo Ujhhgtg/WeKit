@@ -81,10 +81,10 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     private var latestContainer: WeakReference<View>? = null
     private var latestBackend: Backend? = null
 
-    val methodLegacyGetView by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.ConversationWithCacheAdapter', 'Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d') AND m.class_descriptor LIKE 'Lcom/tencent/mm/ui/conversation/%' AND m.name = 'getView' AND m.return_descriptor = 'Landroid/view/View;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""", allowFailure = true)
-    val methodMvvmGetView by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.ConversationAdapter.MvvmConversationAdapter', 'Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d') AND m.name = 'getView' AND m.return_descriptor = 'Landroid/view/View;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    val methodLegacyGetView by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.ConversationWithCacheAdapter' AND ms1.value = 'Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d' AND m.name = 'getView' AND m.return_descriptor = 'Landroid/view/View;' AND m.param_descriptors = 'I,Landroid/view/View;,Landroid/view/ViewGroup;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/ui/conversation/%') ORDER BY m.descriptor;""", allowFailure = true)
+    val methodMvvmGetView by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.name = 'getView' AND m.return_descriptor = 'Landroid/view/View;' AND m.param_descriptors = 'I,Landroid/view/View;,Landroid/view/ViewGroup;' ORDER BY m.descriptor;""")
 
-    private val methodListViewCheckEmptyFooter by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('[checkEmptyFooter] isRealFull:', '[checkEmptyFooter] setSelection') AND m.class_descriptor = 'Lcom/tencent/mm/ui/conversation/ConversationListView;' AND m.return_descriptor = 'V' AND m.param_count = 0 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val methodListViewCheckEmptyFooter by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = '[checkEmptyFooter] isRealFull:' AND ms1.value = '[checkEmptyFooter] setSelection' AND m.class_descriptor = 'Lcom/tencent/mm/ui/conversation/ConversationListView;' AND m.return_descriptor = 'V' AND m.param_count = 0 ORDER BY m.descriptor;""")
 
     private val fieldListViewActionBar by dexField {
         matcher {
@@ -132,7 +132,7 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     private val methodListHostView by dexMethod()
 
     /** 8.0.78's optional RecyclerView conversation-list path. */
-    val classConversationRecyclerAdapter by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.ConversationRecyclerAdapter', 'loadFirstPage size:') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""", allowFailure = true)
+    val classConversationRecyclerAdapter by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.ConversationRecyclerAdapter' AND ms1.value = 'loadFirstPage size:' ORDER BY c.descriptor;""", allowFailure = true)
 
     private val methodRecyclerConversationBind by dexMethod()
 

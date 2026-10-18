@@ -128,13 +128,32 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     private val fieldRoomId by dexField()
 
     /** TalkRoomServer.enterTalkRoom(String, int) —— 发起「实时对讲机」. */
-    private val methodEnterTalkRoom by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('enterTalkRoom %s scene %d') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
+    private val methodEnterTalkRoom by dexMethod {
+        matcher {
+            usingStrings("enterTalkRoom %s scene %d")
+            paramTypes("java.lang.String", "int")
+            returnType("void")
+        }
+    }
 
     /** TalkRoomServer.exitTalkRoom() —— 终止当前「实时对讲机」. */
-    private val methodExitTalkRoom by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('exitTalkRoom', 'exitTalkRoom: has exited') AND m.param_count = 0 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val methodExitTalkRoom by dexMethod {
+        matcher {
+            declaredClass = methodEnterTalkRoom.data.declaredClassName
+            usingStrings("exitTalkRoom", "exitTalkRoom: has exited")
+            paramCount = 0
+            returnType("void")
+        }
+    }
 
     /** SubCoreTalkRoom 上返回 TalkRoomServer 单例的静态方法. */
-    private val methodGetTalkRoomServer by dexMethod("""SELECT m.descriptor AS method FROM methods m WHERE m.param_count = 0 ORDER BY m.descriptor;""")
+    private val methodGetTalkRoomServer by dexMethod {
+        matcher {
+            modifiers = ReflectModifier.PUBLIC or ReflectModifier.STATIC
+            paramCount = 0
+            returnType = methodEnterTalkRoom.data.declaredClassName
+        }
+    }
 
     /** TalkRoomServer 当前房间 ID; 空值表示没有正在进行的实时对讲. */
     private val fieldCurrentTalkRoom by dexField {

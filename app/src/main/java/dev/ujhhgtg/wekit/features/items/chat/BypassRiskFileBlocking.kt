@@ -24,7 +24,7 @@ object BypassRiskFileBlocking : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_bypass_risk_file_blocking_description
 
-    private val methodRiskFileFlag by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('uuid', 'sfn', 'fold-reduce', 'show-h5', 'sec-ctrl-flag', 'clip-len', 'share-tip-url', 'media-to-emoji', 'block-range', 'bubble-type', 'preview-type', 'url-click-type', 'risk-file-flag', 'risk-file-md5-list', 'risk-warning-url', 'unread-media-expired') AND m.param_count = 0 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 16 ORDER BY ms.method;""")
+    private val methodRiskFileFlag by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = 'Ljava/lang/Integer;' AND m.param_count = 0 ORDER BY m.descriptor;""")
 
     override fun onEnable() {
         methodRiskFileFlag.hookBefore {

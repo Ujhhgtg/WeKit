@@ -39,7 +39,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
 
     // 核心 Protobuf 类
-    private val classProtoBase by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('Cannot use this method') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method_class;""")
+    private val classProtoBase by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = c.descriptor WHERE ms0.value = 'Cannot use this method' AND cm1.name = 'op' AND cm1.param_descriptors = 'I,[Ljava/lang/Object;' ORDER BY c.descriptor;""")
     private val classRawReq by dexClass {
         matcher {
             fields {

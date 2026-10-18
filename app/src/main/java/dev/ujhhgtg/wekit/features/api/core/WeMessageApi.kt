@@ -104,26 +104,64 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     // -------------------------------------------------------------------------------------
     // 基础消息类
     // -------------------------------------------------------------------------------------
-    val classNetSceneSendMsg by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.NetSceneSendMsg', 'markMsgFailed for id:%d') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    val classNetSceneQueue by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('worker thread has not been se', 'MicroMsg.NetSceneQueue') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    val classNetSceneBase by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('scene security verification not passed, type=') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method_class;""")
-    private val classNetSceneObserverOwner by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.Mvvm.NetSceneObserverOwner') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method_class;""")
+    val classNetSceneSendMsg by dexClass {
+        matcher {
+            methods {
+                add {
+                    paramCount = 1
+                    usingStrings("MicroMsg.NetSceneSendMsg", "markMsgFailed for id:%d")
+                }
+            }
+        }
+    }
+    val classNetSceneQueue by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm0 ON cm0.class_descriptor = c.descriptor JOIN method_strings ms1 ON ms1.method = cm0.descriptor JOIN method_strings ms2 ON ms2.method = cm0.descriptor WHERE ms1.value LIKE '%worker thread has not been se%' AND ms2.value LIKE '%MicroMsg.NetSceneQueue%' AND cm0.param_count = 2 AND (c.descriptor LIKE 'Lcom/tencent/mm/modelbase/%') ORDER BY c.descriptor;""")
+    val classNetSceneBase by dexClass {
+        matcher {
+            usingEqStrings("scene security verification not passed, type=")
+        }
+    }
+    private val classNetSceneObserverOwner by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm0 ON cm0.class_descriptor = c.descriptor JOIN method_strings ms1 ON ms1.method = cm0.descriptor WHERE ms1.value LIKE '%MicroMsg.Mvvm.NetSceneObserverOwner%' AND cm0.param_count = 4 ORDER BY c.descriptor;""")
 
     // hi0.j1::d() is identical to xv0.a9::e()
-    val methodGetSendMsgObject by dexMethod("""SELECT m.descriptor AS method FROM methods m WHERE m.param_count = 0 ORDER BY m.descriptor;""", allowMultiple = true)
-    private val methodPostToQueue by dexMethod("""SELECT DISTINCT mn.method AS method FROM method_using_numbers mn JOIN methods m ON m.descriptor = mn.method WHERE mn.long_value IN (0) AND m.class_descriptor LIKE 'Lcom/tencent/mm/modelbase/%' AND m.return_descriptor = 'Z' GROUP BY mn.method HAVING COUNT(DISTINCT mn.long_value) = 1 ORDER BY mn.method;""")
+    val methodGetSendMsgObject by dexMethod(allowMultiple = true) {
+        matcher {
+            paramCount = 0
+            returnType = classNetSceneObserverOwner.data.name
+            modifiers(AccessFlagsMatcher(Modifier.STATIC))
+        }
+    }
+    private val methodPostToQueue by dexMethod {
+        searchPackages("com.tencent.mm.modelbase")
+        matcher {
+            declaredClass = classNetSceneQueue.data.name
+            paramTypes(classNetSceneBase.data.name)
+            returnType = "boolean"
+            usingNumbers(0)
+        }
+    }
 
-    private val classPatMsgExtension by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.PatMsgExtension', 'insert pat msg %d %s %s') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    private val ctorNetSceneSendPat by dexConstructor("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.NetSceneSendPat') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
-    private val ctorNetSceneRevokeMsg by dexConstructor("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.NetSceneRevokeMsg') AND ms.method_class LIKE 'Lcom/tencent/mm/modelsimple/%' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
-    private val ctorNetSceneSendMsg by dexConstructor("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.NetSceneSendMsg', '[mergeMsgSource] rawSource:%s args is null:%s flag:%s') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val classPatMsgExtension by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.PatMsgExtension' AND ms1.value = 'insert pat msg %d %s %s' ORDER BY c.descriptor;""")
+    private val ctorNetSceneSendPat by dexConstructor("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'MicroMsg.NetSceneSendPat' AND m.param_count = 4 ORDER BY m.descriptor;""")
+    private val ctorNetSceneRevokeMsg by dexConstructor("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'MicroMsg.NetSceneRevokeMsg' AND m.param_count = 3 AND (m.class_descriptor LIKE 'Lcom/tencent/mm/modelsimple/%') ORDER BY m.descriptor;""")
+    private val ctorNetSceneSendMsg by dexConstructor {
+        matcher {
+            declaredClass = classNetSceneSendMsg.data.name
+            usingEqStrings("MicroMsg.NetSceneSendMsg", "[mergeMsgSource] rawSource:%s args is null:%s flag:%s")
+            addAnyOf {
+                paramTypes("java.lang.String", "java.lang.String", "int", "int", "java.lang.Object")
+            }
+            addAnyOf {
+                paramTypes("java.lang.String", "java.lang.String", "int", "int", "java.lang.Object", "java.lang.String")
+            }
+        }
+    }
     /** 8.0.79+ VideoMsgSendFeatureService.forwardVideo(VideoSendElement, toUser). */
-    private val methodForwardVideo by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.VideoMsg.VideoMsgSendFeatureService', 'forwardVideo, videoSendElement:') AND m.return_descriptor = 'Z' AND m.param_count = 2 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""", allowFailure = true)
-    private val methodGenVideoFileName by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('yyMMddHHmmss') AND m.return_descriptor = 'Ljava/lang/String;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""", allowFailure = true)
+    private val methodForwardVideo by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.VideoMsg.VideoMsgSendFeatureService' AND ms1.value = 'forwardVideo, videoSendElement:' AND m.return_descriptor = 'Z' AND m.param_count = 2 ORDER BY m.descriptor;""", allowFailure = true)
+    private val methodGenVideoFileName by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'yyMMddHHmmss' AND m.return_descriptor = 'Ljava/lang/String;' AND m.param_descriptors = 'Ljava/lang/String;' ORDER BY m.descriptor;""", allowFailure = true)
     /** Legacy ImportMultiVideo thread, removed in 8.0.79; still preferred where present. */
-    private val classImportMultiVideo by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.GetVideoMetadata', 'get video file name, dataString ') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""", allowFailure = true)
-    private val classAppMessage by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.AppMessage', 'parse amessage xml failed') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    val methodSendAppMsg by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.AppMsgLogic', 'summerbig sendAppMsg attachFilePath[%s], content[%s]') AND ms.method_class LIKE 'Lcom/tencent/mm/pluginsdk/model/app/%' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val classImportMultiVideo by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.GetVideoMetadata' AND ms1.value = 'get video file name, dataString ' ORDER BY c.descriptor;""", allowFailure = true)
+    private val classAppMessage by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.AppMessage' AND ms1.value = 'parse amessage xml failed' ORDER BY c.descriptor;""")
+    val methodSendAppMsg by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.AppMsgLogic' AND ms1.value = 'summerbig sendAppMsg attachFilePath[%s], content[%s]' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/pluginsdk/model/app/%') ORDER BY m.descriptor;""")
     private val methodShareFile by dexMethod {
         matcher {
             paramTypes(
@@ -136,15 +174,26 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             )
         }
     }
-    val classMsgInfo by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.MsgInfo', '[parseNewXmlSysMsg]') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    val classMsgInfoStorage by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.MsgInfoStorage', 'deleted dirty msg ,count is %d') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    val methodMsgInfoHandleApiInsertMessage by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.MsgInfoStorage', 'protect:c2c msg should not here') AND ms.method_class LIKE 'Lcom/tencent/mm/storage/%' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
-    val methodMsgInfoStorageInsertMessage by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MsgInfo processAddMsg insert db error') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
-    val classChattingContext by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.ChattingContext', '[notifyDataSetChange]') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    val methodChattingContextGetTalker by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('getTalker returns null.') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
-    val classChattingDataAdapter by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.ChattingDataAdapterV3', '[handleMsgChange] isLockNotify:') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    val classTransformChattingComponent by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.TransformComponent', '[onChattingPause]') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    val methodGetIsTransformed by dexMethod("""SELECT DISTINCT mn.method AS method FROM method_using_numbers mn JOIN methods m ON m.descriptor = mn.method WHERE mn.long_value IN (64, 0) AND m.return_descriptor = 'Z' GROUP BY mn.method HAVING COUNT(DISTINCT mn.long_value) = 2 ORDER BY mn.method;""")
+    val classMsgInfo by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.MsgInfo' AND ms1.value = '[parseNewXmlSysMsg]' AND (c.descriptor LIKE 'Lcom/tencent/mm/storage/%') ORDER BY c.descriptor;""")
+    val classMsgInfoStorage by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.MsgInfoStorage' AND ms1.value = 'deleted dirty msg ,count is %d' AND (c.descriptor LIKE 'Lcom/tencent/mm/storage/%') ORDER BY c.descriptor;""")
+    val methodMsgInfoHandleApiInsertMessage by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.MsgInfoStorage' AND ms1.value = 'protect:c2c msg should not here' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/storage/%') ORDER BY m.descriptor;""")
+    val methodMsgInfoStorageInsertMessage by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'MsgInfo processAddMsg insert db error' ORDER BY m.descriptor;""")
+    val classChattingContext by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.ChattingContext' AND ms1.value = '[notifyDataSetChange]' ORDER BY c.descriptor;""")
+    val methodChattingContextGetTalker by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'getTalker returns null.' ORDER BY m.descriptor;""")
+    val classChattingDataAdapter by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.ChattingDataAdapterV3' AND ms1.value = '[handleMsgChange] isLockNotify:' ORDER BY c.descriptor;""")
+    val classTransformChattingComponent by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.TransformComponent' AND ms1.value = '[onChattingPause]' AND (c.descriptor LIKE 'Lcom/tencent/mm/ui/chatting/component/%') ORDER BY c.descriptor;""")
+    val methodGetIsTransformed by dexMethod {
+        matcher {
+            declaredClass(classMsgInfo.data.name)
+            usingNumbers(64, 0)
+            usingFields {
+                add {
+                    type = "int"
+                }
+            }
+            returnType = "boolean"
+        }
+    }
 
     // -------------------------------------------------------------------------------------
     // 原生引用文本发送
@@ -162,8 +211,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
     private val classQuoteMsgItem by dexClass("""SELECT descriptor FROM classes WHERE descriptor = 'Lcom/tencent/mm/plugin/msgquote/model/MsgQuoteItem;' ORDER BY descriptor;""")
-    private val classQuoteRelation by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MsgQute{field_msgId=', 'field_quotedMsgTalker=') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    private val classQuoteStorage by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.msgquote.MsgQuoteStorage', 'getMsgQuteByMsgId:%s') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
+    private val classQuoteRelation by dexClass()
     private val methodQuoteNormalizeType by dexMethod()
     private val methodQuoteMsgSource by dexMethod()
     private val methodQuoteStorageGetter by dexMethod()
@@ -175,18 +223,20 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     // -------------------------------------------------------------------------------------
     // 图片发送组件
     // -------------------------------------------------------------------------------------
-    private val classMvvmBase by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.Mvvm.MvvmPlugin', 'onAccountInitialized start') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
+    private val classMvvmBase by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value LIKE '%MicroMsg.Mvvm.MvvmPlugin%' AND ms1.value LIKE '%onAccountInitialized start%' ORDER BY c.descriptor;""")
     private val classImageSender by dexClass()
-    private val classImageTask by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('msg_raw_img_send') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method_class;""", allowFailure = true)
-    private val classConfigLogic by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.ConfigStorageLogic', 'get userinfo fail') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    private val classImageServiceImpl by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.ImgUpload.MsgImgFeatureService') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method_class;""", allowFailure = true)
+    private val classImageTask by dexClass(allowFailure = true) {
+        matcher { usingStrings("msg_raw_img_send") }
+    }
+    private val classConfigLogic by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.ConfigStorageLogic' AND ms1.value = 'get userinfo fail' ORDER BY c.descriptor;""")
+    private val classImageServiceImpl by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor WHERE ms0.value LIKE '%MicroMsg.ImgUpload.MsgImgFeatureService%' ORDER BY c.descriptor;""", allowFailure = true)
     private val methodImageSendEntry by dexMethod()
 
     // -------------------------------------------------------------------------------------
     // 语音发送组件
     // -------------------------------------------------------------------------------------
-    private val classVoiceNameGen by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.VoiceLogic', 'startRecord insert voicestg success') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""", allowFailure = true)
-    val classVfs by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.VFSFileOp', 'Cannot resolve path or URI') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
+    private val classVoiceNameGen by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.VoiceLogic' AND ms1.value = 'startRecord insert voicestg success' ORDER BY c.descriptor;""", allowFailure = true)
+    val classVfs by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value LIKE '%MicroMsg.VFSFileOp%' AND ms1.value LIKE '%Cannot resolve path or URI%' ORDER BY c.descriptor;""")
     private val classPathUtil by dexClass {
         searchPackages("com.tencent.mm.sdk.platformtools")
         matcher {
@@ -205,16 +255,35 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
         }
     }
-    val methodChattingDataAdapterOnBindViewHolder by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.ChattingDataAdapterV3', '_onBindViewHolder[') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
-    private val classVoiceLogic by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.VoiceLogic', 'startRecord insert voicestg success') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    private val methodSetVoice by dexMethod("""SELECT m.descriptor AS method FROM methods m WHERE m.return_descriptor = 'Z' ORDER BY m.descriptor;""")
-    private val methodGetAmrFullPath by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('getAmrFullPath cost: ') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
-    private val methodStartRecvAndSend by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.SceneVoiceService', 'Start Recv[%s] :%s', 'Start Send :') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 3 ORDER BY ms.method;""")
-    private val classSceneVoiceService by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.SceneVoiceService', '//voicetrymore', 'getVoiceService %s') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 3 ORDER BY ms.method_class;""")
+    val methodChattingDataAdapterOnBindViewHolder by dexMethod {
+        matcher {
+            declaredClass {
+                usingEqStrings("MicroMsg.ChattingDataAdapterV3")
+            }
+            usingEqStrings("_onBindViewHolder[")
+            paramTypes(null, Int::class.java)
+            returnType("void")
+        }
+    }
+    private val classVoiceLogic by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.VoiceLogic' AND ms1.value = 'startRecord insert voicestg success' ORDER BY c.descriptor;""")
+    private val methodSetVoice by dexMethod {
+        matcher {
+            declaredClass = classVoiceLogic.data.name
+            modifiers = Modifier.STATIC
+            returnType = "boolean"
+            addAnyOf { paramTypes("java.lang.String", "int", "int", classMsgInfo.data.name) }
+            addAnyOf {
+                paramTypes("java.lang.String", "int", "int", classMsgInfo.data.name, "java.lang.String")
+            }
+        }
+    }
+    private val methodGetAmrFullPath by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'getAmrFullPath cost: ' ORDER BY m.descriptor;""")
+    private val methodStartRecvAndSend by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor JOIN method_strings ms2 ON ms2.method = m.descriptor WHERE ms0.value = 'MicroMsg.SceneVoiceService' AND ms1.value = 'Start Recv[%s] :%s' AND ms2.value = 'Start Send :' ORDER BY m.descriptor;""")
+    private val classSceneVoiceService by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor JOIN method_strings ms2 ON ms2.method = cm.descriptor WHERE ms0.value = 'MicroMsg.SceneVoiceService' AND ms1.value = '//voicetrymore' AND ms2.value = 'getVoiceService %s' ORDER BY c.descriptor;""")
 
     // SceneVoiceService.run() — 在服务自身的 looper 线程上派发，避免在 IO 线程直接调用
     // startRecvAndSend 时构造 Handler 抛出 "looper and serial is null!"
-    private val methodRunVoiceService by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.SceneVoiceService', 'run() %s') AND m.param_count = 0 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""", allowFailure = true)
+    private val methodRunVoiceService by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.SceneVoiceService' AND ms1.value = 'run() %s' AND m.param_count = 0 ORDER BY m.descriptor;""", allowFailure = true)
 
     // -------------------------------------------------------------------------------------
     // 运行时缓存
@@ -332,9 +401,22 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
         )
 
+        val quoteRelation = dexKit.findClass {
+            matcher { usingStrings("MsgQute{field_msgId=", "field_quotedMsgTalker=") }
+        }.single()
+        classQuoteRelation.setDescriptor(quoteRelation)
+        val quoteStorage = dexKit.findClass {
+            matcher {
+                usingStrings(
+                    "MicroMsg.msgquote.MsgQuoteStorage",
+                    "getMsgQuteByMsgId:%s",
+                )
+            }
+        }.single()
+
         methodQuoteRelationInsert.setDescriptor(
-            classQuoteStorage.data.methods.single { candidate ->
-                candidate.paramTypeNames == listOf(classQuoteRelation.data.name) &&
+            quoteStorage.methods.single { candidate ->
+                candidate.paramTypeNames == listOf(quoteRelation.name) &&
                     candidate.returnTypeName == "boolean" &&
                     candidate.usingFields.any {
                         it.usingType == FieldUsingType.Write &&
@@ -346,7 +428,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             quoteCompose.invokes.distinctBy { it.descriptor }.single {
                 !Modifier.isStatic(it.modifiers) &&
                     it.paramCount == 0 &&
-                    it.returnTypeName == classQuoteStorage.data.name
+                    it.returnTypeName == quoteStorage.name
             }
         )
 
@@ -583,7 +665,16 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         return revokeMsg(MessageInfo(getMsgInfoInstanceByMsgSvrId(msgSvrId, null)))
     }
 
-    private val methodGetMsgInfoByTalkerAndSvrId by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.MsgInfoStorage', 'build new index last %d', 'msgSvrId=?') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 3 ORDER BY ms.method;""")
+    private val methodGetMsgInfoByTalkerAndSvrId by dexMethod {
+        matcher {
+            declaredClass {
+                usingEqStrings("MicroMsg.MsgInfoStorage", "build new index last %d")
+            }
+            paramTypes(BString, long)
+            returnType(classMsgInfo.data.name)
+            usingEqStrings("msgSvrId=?")
+        }
+    }
 
     /** 通过本地 msgId 解析 msgSvrId；找不到或 msgSvrId 为 0 时返回 null。 */
     fun getMsgSvrIdByMsgId(msgId: Long): Long? {
@@ -1824,14 +1915,19 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
     // ---- 媒体下载/保存 ----
 
-    private val classEmojiFileEncryptMgr by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.emoji.EmojiFileEncryptMgr', 'decode emoji file failed. path is no exist :%s ') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
+    private val classEmojiFileEncryptMgr by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm0 ON cm0.class_descriptor = c.descriptor JOIN method_strings ms1 ON ms1.method = cm0.descriptor JOIN method_strings ms2 ON ms2.method = cm0.descriptor WHERE ms1.value = 'MicroMsg.emoji.EmojiFileEncryptMgr' AND ms2.value = 'decode emoji file failed. path is no exist :%s ' ORDER BY c.descriptor;""")
 
-    val methodLoadEmojiFile by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.EmojiLoader', 'load emoji file ') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    val methodLoadEmojiFile by dexMethod {
+        matcher {
+            usingEqStrings("MicroMsg.EmojiLoader", "load emoji file ")
+            paramTypes("com.tencent.mm.storage.emotion.EmojiInfo", "boolean", null)
+        }
+    }
 
     // com.tencent.mm.pluginsdk.model.app 里的 "自动下载文件" Runnable (8069 为 b0, 8074 为 c0),
     // 构造参数为一个 MsgInfo, run() 会解析 appmsg XML、创建 appattach 行并向 CDN 发起下载任务。
     // 这正是微信里点击文件气泡"下载/缓存"所走的逻辑。
-    private val classAppAttachAutoDownload by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.AppMessageExtension', 'autoDownloadFile2 %s %s') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
+    private val classAppAttachAutoDownload by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm0 ON cm0.class_descriptor = c.descriptor JOIN method_strings ms1 ON ms1.method = cm0.descriptor JOIN method_strings ms2 ON ms2.method = cm0.descriptor WHERE ms1.value = 'MicroMsg.AppMessageExtension' AND ms2.value = 'autoDownloadFile2 %s %s' AND (c.descriptor LIKE 'Lcom/tencent/mm/pluginsdk/model/app/%') ORDER BY c.descriptor;""")
 
     /** 从 message 表读取指定 msgSvrId 消息的 imgPath 字段 (贴纸为 md5, 语音为加密路径)。 */
     private fun queryImgPathByMsgSvrId(msgSvrId: Long): String? {

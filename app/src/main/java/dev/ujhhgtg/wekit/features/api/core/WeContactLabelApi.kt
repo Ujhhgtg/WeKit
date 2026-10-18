@@ -25,14 +25,14 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
 
     data class ContactLabel(val labelId: Int, val labelName: String)
 
-    private val classNetSceneModifyContactLabelList by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('/cgi-bin/micromsg-bin/modifycontactlabellist') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method_class;""")
+    private val classNetSceneModifyContactLabelList by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor WHERE ms0.value = '/cgi-bin/micromsg-bin/modifycontactlabellist' ORDER BY c.descriptor;""")
 
     /**
      * `NetSceneAddContactLabel` (e.g. `e93.a` on 8.0.74). Anchored on the unique cgi path plus its
      * single-`String` constructor, which takes the new label's name. On success the host persists
      * the label (with a server-assigned id) into the `ContactLabel` table inside `onGYNetEnd`.
      */
-    private val classNetSceneAddContactLabel by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('/cgi-bin/micromsg-bin/addcontactlabel') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method_class;""")
+    private val classNetSceneAddContactLabel by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor WHERE ms0.value = '/cgi-bin/micromsg-bin/addcontactlabel' ORDER BY c.descriptor;""")
 
     /**
      * Get all contact labels.

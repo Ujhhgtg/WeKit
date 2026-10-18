@@ -123,7 +123,7 @@ object QrCodeRecord : ClickableFeature(), IResolveDex, WeHomeScreenPopupMenuApi.
         KvStore.remove(KEY_RECORDS)
     }
 
-    val methodQBarString by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.QBarStringHandler', 'key_offline_scan_show_tips') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    val methodQBarString by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.QBarStringHandler' AND ms1.value = 'key_offline_scan_show_tips' ORDER BY m.descriptor;""")
 
     override fun resolveDex(dexKit: DexKitBridge) {
     }

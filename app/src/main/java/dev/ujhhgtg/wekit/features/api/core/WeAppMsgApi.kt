@@ -27,8 +27,8 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
     private val methodSendAppMsg by dexMethod()  // k0.J(...)
     private val fieldQuoteItem by dexField()
     private val fieldQuoteMsgSource by dexField()
-    private val classAppMsgContent by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('<appmsg appid="', 'parse amessage xml failed') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    private val classAppMsgLogic by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.AppMsgLogic', 'summerbig sendAppMsg attachFilePath') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
+    private val classAppMsgContent by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value LIKE '%<appmsg appid="%' AND ms1.value LIKE '%parse amessage xml failed%' ORDER BY c.descriptor;""")
+    private val classAppMsgLogic by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value LIKE '%MicroMsg.AppMsgLogic%' AND ms1.value LIKE '%summerbig sendAppMsg attachFilePath%' ORDER BY c.descriptor;""")
 
     private const val TAG = "WeAppMsgApi"
 

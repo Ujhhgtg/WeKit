@@ -23,27 +23,52 @@ object WeServiceApi : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_we_service_api_description
 
-    private val methodServiceManagerGetService by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('calling getService(...)') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
-    private val classEmojiFeatureService by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.EmojiFeatureService', '[onAccountInitialized]') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    private val classStorageFeatureService by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('PRAGMA table_info( contact_ext )', 'MicroMsg.MsgInfoStorage', 'deleted dirty msg ,count is %d', 'PRAGMA table_info( rconversation)') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 4 ORDER BY ms.method_class;""")
-    private val classChatroomService by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.ChatroomService', '[isEnableRoomManager]') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    val classImageInfoStorage by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.ImgInfoStorage', 'generateMd5: %s, %s') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    val methodDownloadImageServiceDownloadImage by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('ModelImage.DownloadImgService', '] add failed, task already done') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val methodServiceManagerGetService by dexMethod {
+        matcher {
+            modifiers(Modifier.STATIC)
+            paramTypes(Class::class.java)
+            usingEqStrings("calling getService(...)")
+        }
+    }
+    private val classEmojiFeatureService by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm0 ON cm0.class_descriptor = c.descriptor JOIN method_strings ms1 ON ms1.method = cm0.descriptor JOIN method_strings ms2 ON ms2.method = cm0.descriptor WHERE ms1.value = 'MicroMsg.EmojiFeatureService' AND ms2.value = '[onAccountInitialized]' AND (c.descriptor LIKE 'Lcom/tencent/mm/feature/emoji/%') ORDER BY c.descriptor;""")
+    private val classStorageFeatureService by dexClass {
+        searchPackages("com.tencent.mm.plugin.messenger.foundation")
+        matcher {
+            addMethod {
+                returnType {
+                    usingEqStrings("PRAGMA table_info( contact_ext )")
+                }
+            }
+            addMethod {
+                returnType {
+                    usingEqStrings("MicroMsg.MsgInfoStorage", "deleted dirty msg ,count is %d")
+                }
+            }
+            addMethod {
+                returnType {
+                    usingEqStrings("PRAGMA table_info( rconversation)")
+                }
+            }
+        }
+    }
+    private val classChatroomService by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.ChatroomService' AND ms1.value = '[isEnableRoomManager]' ORDER BY c.descriptor;""")
+    val classImageInfoStorage by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.ImgInfoStorage' AND ms1.value = 'generateMd5: %s, %s' ORDER BY c.descriptor;""")
+    val methodDownloadImageServiceDownloadImage by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'ModelImage.DownloadImgService' AND ms1.value = '] add failed, task already done' ORDER BY m.descriptor;""")
     val classImageFeatureService by dexClass {
         matcher {
             addFieldForType(classImageInfoStorage.data.name)
             addFieldForType(methodDownloadImageServiceDownloadImage.data.declaredClassName)
         }
     }
-    private val methodApiManagerGetApi by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('[get] ', ' is not a interface!') AND ms.method_class LIKE 'Lcom/tencent/mm/ui/chatting/manager/%' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val methodApiManagerGetApi by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = '[get] ' AND ms1.value = ' is not a interface!' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/manager/%') ORDER BY m.descriptor;""")
     private val methodMmKernelGetServiceImpl by dexMethod()
-    private val classMmKernel by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.MMKernel', 'Kernel not null, has initialized.') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
+    private val classMmKernel by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.MMKernel' AND ms1.value = 'Kernel not null, has initialized.' ORDER BY c.descriptor;""")
     private val methodVideoPathFeatureServiceRestoreMp4Path by dexMethod() // formerly VideoInfoStorage
-    val classVideoService by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.VideoService', 'MicroMsg.SubCoreVideo', 'quitVideoSendThread') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 3 ORDER BY ms.method_class;""")
-    val classEmojiMgrImpl by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.emoji.EmojiMgrImpl', 'sendEmoji: context is null') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    val classEmojiInfoStorage by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.emoji.EmojiInfoStorage', 'md5 is null or invalue. md5:%s') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    private val classEmojiStorageMgr by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.emoji.EmojiStorageMgr', 'EmojiStorageMgr: %s') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
-    val methodSaveEmojiThumb by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('save emoji thumb error') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
+    val classVideoService by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor JOIN method_strings ms2 ON ms2.method = cm.descriptor WHERE ms0.value = 'MicroMsg.VideoService' AND ms1.value = 'MicroMsg.SubCoreVideo' AND ms2.value = 'quitVideoSendThread' ORDER BY c.descriptor;""")
+    val classEmojiMgrImpl by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.emoji.EmojiMgrImpl' AND ms1.value = 'sendEmoji: context is null' ORDER BY c.descriptor;""")
+    val classEmojiInfoStorage by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.emoji.EmojiInfoStorage' AND ms1.value = 'md5 is null or invalue. md5:%s' ORDER BY c.descriptor;""")
+    private val classEmojiStorageMgr by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.emoji.EmojiStorageMgr' AND ms1.value = 'EmojiStorageMgr: %s' AND (c.descriptor LIKE 'Lcom/tencent/mm/storage/%') ORDER BY c.descriptor;""")
+    val methodSaveEmojiThumb by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'save emoji thumb error' AND m.class_descriptor = 'Lcom/tencent/mm/storage/emotion/EmojiInfo;' ORDER BY m.descriptor;""")
     val apiManagerClass: Class<*>
         get() = methodApiManagerGetApi.method.declaringClass
 

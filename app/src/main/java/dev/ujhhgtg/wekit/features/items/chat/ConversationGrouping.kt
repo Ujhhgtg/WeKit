@@ -1191,7 +1191,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
 
     private val fieldRecyclerLoading by dexField()
 
-    private val methodOnTabCreate by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.MainUI', 'onTabCreate, %d') AND m.class_descriptor = 'Lcom/tencent/mm/ui/conversation/MainUI;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val methodOnTabCreate by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.MainUI' AND ms1.value = 'onTabCreate, %d' AND m.class_descriptor = 'Lcom/tencent/mm/ui/conversation/MainUI;' ORDER BY m.descriptor;""")
 
     override fun resolveDex(dexKit: DexKitBridge) {
         DexResolutionContext.ensureResolved(WeConversationListViewApi.classConversationRecyclerAdapter)

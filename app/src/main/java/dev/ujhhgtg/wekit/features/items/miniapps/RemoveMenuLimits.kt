@@ -37,7 +37,7 @@ object RemoveMenuLimits : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val methodGetMenuItemVisibility1 by dexMethod("""SELECT DISTINCT mn.method AS method FROM method_using_numbers mn JOIN methods m ON m.descriptor = mn.method WHERE mn.long_value IN (39) AND mn.method_class LIKE 'Lcom/tencent/mm/plugin/appbrand/menu/%' GROUP BY mn.method HAVING COUNT(DISTINCT mn.long_value) = 1 ORDER BY mn.method;""")
+    private val methodGetMenuItemVisibility1 by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = 'Lcom/tencent/mm/plugin/appbrand/menu;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/appbrand/menu/%') ORDER BY m.descriptor;""")
 
-    private val methodGetMenuItemVisibility2 by dexMethod("""SELECT DISTINCT mn.method AS method FROM method_using_numbers mn JOIN methods m ON m.descriptor = mn.method WHERE mn.long_value IN (30) AND mn.method_class LIKE 'Lcom/tencent/mm/plugin/appbrand/menu/%' GROUP BY mn.method HAVING COUNT(DISTINCT mn.long_value) = 1 ORDER BY mn.method;""")
+    private val methodGetMenuItemVisibility2 by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = 'Lcom/tencent/mm/plugin/appbrand/menu;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/appbrand/menu/%') ORDER BY m.descriptor;""")
 }

@@ -121,7 +121,14 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: LauncherUI.dispatchKeyEvent and the predicates it checks before HomeUI ---
 
-    private val methodLauncherDispatchKeyEvent by dexMethod("""SELECT m.descriptor AS method FROM methods m WHERE m.name = 'dispatchKeyEvent' AND m.return_descriptor = 'Z' ORDER BY m.descriptor;""")
+    private val methodLauncherDispatchKeyEvent by dexMethod {
+        matcher {
+            declaredClass = LAUNCHER_UI
+            name = "dispatchKeyEvent"
+            paramTypes("android.view.KeyEvent")
+            returnType = "boolean"
+        }
+    }
 
     /** `VASLauncher.r7()`: a VAS pane is shown and takes every key. */
     private val methodVasPaneVisible by dexMethod()
@@ -149,7 +156,14 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: MainUI.onKeyDown closes the conversation list's pull-down header ---
 
-    private val methodMainUiOnKeyDown by dexMethod("""SELECT m.descriptor AS method FROM methods m WHERE m.name = 'onKeyDown' AND m.return_descriptor = 'Z' ORDER BY m.descriptor;""")
+    private val methodMainUiOnKeyDown by dexMethod {
+        matcher {
+            declaredClass = MAIN_UI
+            name = "onKeyDown"
+            paramTypes("int", "android.view.KeyEvent")
+            returnType = "boolean"
+        }
+    }
 
     /** MainUI's conversation list host (a ConversationListView, or the list-host interface on 8.0.78+). */
     private val fieldMainUiListHost by dexField()
@@ -159,9 +173,9 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: the chat FootComponent's key handler, the only chat component that takes BACK ---
 
-    private val classFootComponent by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.ChattingUI.FootComponent', 'onNotifyChange event %s talker %s') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
+    private val classFootComponent by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.ChattingUI.FootComponent' AND ms1.value = 'onNotifyChange event %s talker %s' AND (c.descriptor LIKE 'Lcom/tencent/mm/ui/chatting/component/%') ORDER BY c.descriptor;""")
 
-    private val methodFootKeyHandler by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('chatting onKeyDown, code:%d action:%d') AND m.return_descriptor = 'Z' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
+    private val methodFootKeyHandler by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'chatting onKeyDown, code:%d action:%d' AND m.return_descriptor = 'Z' AND m.param_descriptors = 'I,Landroid/view/KeyEvent;' ORDER BY m.descriptor;""")
 
     /** `ChatFooter`'s voice-input (speech-to-text) panel flag. */
     private val fieldFooterVoiceInput by dexField()
@@ -174,11 +188,20 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: SwipeBackLayout's gesture switch (off during the chat enter animation and after pop-out) ---
 
-    private val fieldSwipeBackGestureEnabled by dexField("""SELECT descriptor FROM fields WHERE name = 'setEnableGesture' ORDER BY descriptor;""")
+    private val fieldSwipeBackGestureEnabled by dexField {
+        matcher {
+            declaredClass = SWIPE_BACK_LAYOUT
+            type = "boolean"
+            addWriteMethod {
+                declaredClass = SWIPE_BACK_LAYOUT
+                name = "setEnableGesture"
+            }
+        }
+    }
 
     // --- Dex: MMActivity.onKeyDown's controller collapses an expanded action-bar search on BACK ---
 
-    private val methodControllerKeyDown by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.MMActivityController', 'dancy onKeyDown ++') AND m.class_descriptor LIKE 'Lcom/tencent/mm/ui/%' AND m.return_descriptor = 'Z' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val methodControllerKeyDown by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.MMActivityController' AND ms1.value = 'dancy onKeyDown ++' AND m.return_descriptor = 'Z' AND m.param_descriptors = 'I,Landroid/view/KeyEvent;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/ui/%') ORDER BY m.descriptor;""")
 
     /** The controller's action-bar search helper. */
     private val fieldControllerSearchHelper by dexField()
@@ -192,7 +215,21 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
      * The global UIC's children by tag. Children (text status and Finder previews) register and
      * unregister through their interface's `(MMFragmentActivity)` default methods.
      */
-    private val fieldGlobalUicChildren by dexField("""SELECT descriptor FROM fields WHERE name = 'onBackPressed' ORDER BY descriptor;""")
+    private val fieldGlobalUicChildren by dexField {
+        matcher {
+            declaredClass { superClass = UI_COMPONENT }
+            type = "java.util.HashMap"
+            addReadMethod {
+                name = "onBackPressed"
+                paramCount = 0
+                returnType = "boolean"
+            }
+            addReadMethod {
+                paramTypes(MM_FRAGMENT_ACTIVITY)
+                returnType = "void"
+            }
+        }
+    }
 
     // --- Dex: the Moments timeline header collapses its pulled-down cover on BACK ---
 

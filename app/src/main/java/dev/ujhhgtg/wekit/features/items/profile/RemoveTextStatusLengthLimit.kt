@@ -18,7 +18,7 @@ object RemoveTextStatusLengthLimit : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.PROFILE)
     override val descriptionRes = R.string.feature_remove_text_status_length_limit_description
 
-    private val methodStatusTextChanged by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.TextStatus.TextStatusDoWhatActivityV2', 'afterTextChanged inputCount:') AND m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/textstatus/ui/%' AND m.name = 'afterTextChanged' AND m.return_descriptor = 'V' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val methodStatusTextChanged by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.TextStatus.TextStatusDoWhatActivityV2' AND ms1.value = 'afterTextChanged inputCount:' AND m.name = 'afterTextChanged' AND m.return_descriptor = 'V' AND m.param_descriptors = 'Landroid/text/Editable;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/textstatus/ui/%') ORDER BY m.descriptor;""")
     private val fieldStatusTextLengthLimit by dexField()
 
     override fun resolveDex(dexKit: DexKitBridge) {

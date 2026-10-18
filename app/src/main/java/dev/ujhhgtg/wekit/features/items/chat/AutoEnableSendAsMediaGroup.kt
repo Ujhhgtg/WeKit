@@ -34,13 +34,23 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
      * 宿主自身 AOP 埋点字符串 initSendAsMediaGroupingViews），8.0.65/8.0.67 不存在，
      * 因此允许解析失败。
      */
-    private val methodInitSendAsMediaGroupingViews by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('initSendAsMediaGroupingViews') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""", allowFailure = true)
+    private val methodInitSendAsMediaGroupingViews by dexMethod(allowFailure = true) {
+        matcher {
+            declaredClass = ALBUM_PREVIEW_UI
+            usingEqStrings("initSendAsMediaGroupingViews")
+        }
+    }
 
     /**
      * 选择数量变化回调（包含 updateSendAsMediaGroupViews 埋点字符串的方法）。
      * 微信在数量 < 3 时会把勾选状态重置为 false，因此需要在这里随数量重新勾选。
      */
-    private val methodUpdateSendAsMediaGroupViews by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('updateSendAsMediaGroupViews') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""", allowFailure = true)
+    private val methodUpdateSendAsMediaGroupViews by dexMethod(allowFailure = true) {
+        matcher {
+            declaredClass = ALBUM_PREVIEW_UI
+            usingEqStrings("updateSendAsMediaGroupViews")
+        }
+    }
 
     /**
      * 勾选状态字段：在三个支持版本中，包含 updateSendAsMediaGroupViews 埋点字符串的方法

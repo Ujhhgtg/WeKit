@@ -100,13 +100,13 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
     // container only sees MOVE events after it intercepts them — which is why we must hook
     // onInterceptTouchEvent here rather than rely on an OnTouchListener alone. Scoping the hook to
     // this one class (instead of global ViewGroup) keeps the blast radius tiny.
-    private val classChattingItemContainer by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.ChattingItemContainer', 'warn!!! cacheSize:%s sysSize:%s') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
+    private val classChattingItemContainer by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.ChattingItemContainer' AND ms1.value = 'warn!!! cacheSize:%s sysSize:%s' AND (c.descriptor LIKE 'Lcom/tencent/mm/ui/chatting/viewitems/%') ORDER BY c.descriptor;""")
 
     // ChattingUIFragment installs this listener on the chat list. On ACTION_DOWN it asks the
     // current ChatFooter to close the keyboard/panel, then returns false so normal list handling
     // continues. A blank-area DOWN claimed by our row never reaches that listener, so resolve the
     // exact ChatFooter call and mirror it at the point where we claim the stream.
-    private val methodChatListOnTouch by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('onTouch: touch down', 'onTouch: touch up') AND m.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/%' AND m.return_descriptor = 'Z' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val methodChatListOnTouch by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'onTouch: touch down' AND ms1.value = 'onTouch: touch up' AND m.return_descriptor = 'Z' AND m.param_descriptors = 'Landroid/view/View;,Landroid/view/MotionEvent;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/%') ORDER BY m.descriptor;""")
 
     private val methodHideChatInput by dexMethod()
 
@@ -647,7 +647,7 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
         QuickRevokeAndEdit.quickRevokeAndEdit(view.context, msgInfo)
     }
 
-    private val classChattingUiFootComponent by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.ChattingUI.FootComponent', 'onNotifyChange event %s talker %s') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
+    private val classChattingUiFootComponent by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.ChattingUI.FootComponent' AND ms1.value = 'onNotifyChange event %s talker %s' AND (c.descriptor LIKE 'Lcom/tencent/mm/ui/chatting/component/%') ORDER BY c.descriptor;""")
 
-    private val methodGetMsgInfo by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('ItemDataTag', 'getCurrentMsg2 err') AND ms.method_class LIKE 'Lcom/tencent/mm/ui/chatting/viewitems/%' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val methodGetMsgInfo by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'ItemDataTag' AND ms1.value = 'getCurrentMsg2 err' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/viewitems/%') ORDER BY m.descriptor;""")
 }
