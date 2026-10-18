@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 
 enum class HomeSidePanelTransitionKind {
     ENTER_EDITOR,
@@ -69,6 +70,10 @@ fun HomeSidePanelContent(
     panelState: HomeSidePanelState,
 ) {
     val platformView = LocalView.current
+    val watermarkSource = StartupInfo.payloadEnvironment.watermarkToken
+    val watermarkToken = remember(watermarkSource) {
+        homeSidePanelWatermarkToken(watermarkSource)
+    }
     val dragState = remember(platformView) {
         var interceptingParent: ViewParent? = null
         HomeSidePanelDragState { active ->
@@ -89,82 +94,88 @@ fun HomeSidePanelContent(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
     ) {
-        HomeSidePanelDragHost(
-            dragState = dragState,
-            listState = listState,
-            state = state,
-            panelState = panelState,
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .homeSidePanelWatermark(watermarkToken),
         ) {
-            if (!state.initialized) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else AnimatedContent(
-                targetState = state.route,
-                contentKey = ::homeSidePanelRouteContentKey,
-                transitionSpec = {
-                    homeSidePanelRouteContentTransform(
-                        homeSidePanelTransitionKind(initialState, targetState),
-                    )
-                },
-                label = "HomeSidePanelRoute",
-            ) { route ->
-                when (route) {
-                    HomeSidePanelRoute.Home,
-                    HomeSidePanelRoute.EditHome,
-                    -> HomeSidePanelHome(
-                        state = state,
-                        panelState = panelState,
-                        dragState = dragState,
-                        listState = listState,
-                    )
+            HomeSidePanelDragHost(
+                dragState = dragState,
+                listState = listState,
+                state = state,
+                panelState = panelState,
+            ) {
+                if (!state.initialized) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else AnimatedContent(
+                    targetState = state.route,
+                    contentKey = ::homeSidePanelRouteContentKey,
+                    transitionSpec = {
+                        homeSidePanelRouteContentTransform(
+                            homeSidePanelTransitionKind(initialState, targetState),
+                        )
+                    },
+                    label = "HomeSidePanelRoute",
+                ) { route ->
+                    when (route) {
+                        HomeSidePanelRoute.Home,
+                        HomeSidePanelRoute.EditHome,
+                        -> HomeSidePanelHome(
+                            state = state,
+                            panelState = panelState,
+                            dragState = dragState,
+                            listState = listState,
+                        )
 
-                    HomeSidePanelRoute.PanelSettings -> HomeSidePanelPanelSettings(state, panelState)
-                    HomeSidePanelRoute.AddCard -> HomeSidePanelAddCardPage(
-                        onBack = panelState::closeCardSettings,
-                        onAddCard = panelState::addCard,
-                        onLongPressCard = panelState::emitAddCardCandidate,
-                    )
+                        HomeSidePanelRoute.PanelSettings -> HomeSidePanelPanelSettings(state, panelState)
+                        HomeSidePanelRoute.AddCard -> HomeSidePanelAddCardPage(
+                            onBack = panelState::closeCardSettings,
+                            onAddCard = panelState::addCard,
+                            onLongPressCard = panelState::emitAddCardCandidate,
+                        )
 
-                    is HomeSidePanelRoute.AddAction -> HomeSidePanelAddActionPage(
-                        card = state.renderedLayout.cards.single { it.id == route.cardId },
-                        onBack = panelState::closeCardSettings,
-                        onAddAction = panelState::addAction,
-                        onLongPressAction = panelState::emitAddActionCandidate,
-                    )
+                        is HomeSidePanelRoute.AddAction -> HomeSidePanelAddActionPage(
+                            card = state.renderedLayout.cards.single { it.id == route.cardId },
+                            onBack = panelState::closeCardSettings,
+                            onAddAction = panelState::addAction,
+                            onLongPressAction = panelState::emitAddActionCandidate,
+                        )
 
-                    is HomeSidePanelRoute.DateTimeSettings -> HomeSidePanelDateTimeSettings(
-                        card = state.renderedLayout.cards.single {
-                            it.id == route.cardId
-                        } as DateTimeCardConfig,
-                        panelState = panelState,
-                    )
-
-                    is HomeSidePanelRoute.WeatherSettings -> HomeSidePanelWeatherSettings(
-                        card = state.renderedLayout.cards.single { it.id == route.cardId } as WeatherCardConfig,
-                        panelState = panelState,
-                    )
-
-                    is HomeSidePanelRoute.WalletSettings -> HomeSidePanelWalletSettings(
-                        card = state.renderedLayout.cards.single { it.id == route.cardId } as WalletCardConfig,
-                        panelState = panelState,
-                    )
-
-                    is HomeSidePanelRoute.HitokotoSettings -> {
-                        val card = state.renderedLayout.cards.single {
-                            it.id == route.cardId
-                        } as HitokotoCardConfig
-                        val runtime = checkNotNull(panelState.runtimeState(card.id)) {
-                            "Hitokoto card '${card.id}' has no runtime state"
-                        }
-                        require(runtime is HomeSidePanelCardRuntimeState.Hitokoto) {
-                            "Hitokoto card '${card.id}' has mismatched runtime state $runtime"
-                        }
-                        HomeSidePanelHitokotoSettings(
-                            card = card,
-                            runtime = runtime.state,
+                        is HomeSidePanelRoute.DateTimeSettings -> HomeSidePanelDateTimeSettings(
+                            card = state.renderedLayout.cards.single {
+                                it.id == route.cardId
+                            } as DateTimeCardConfig,
                             panelState = panelState,
                         )
+
+                        is HomeSidePanelRoute.WeatherSettings -> HomeSidePanelWeatherSettings(
+                            card = state.renderedLayout.cards.single { it.id == route.cardId } as WeatherCardConfig,
+                            panelState = panelState,
+                        )
+
+                        is HomeSidePanelRoute.WalletSettings -> HomeSidePanelWalletSettings(
+                            card = state.renderedLayout.cards.single { it.id == route.cardId } as WalletCardConfig,
+                            panelState = panelState,
+                        )
+
+                        is HomeSidePanelRoute.HitokotoSettings -> {
+                            val card = state.renderedLayout.cards.single {
+                                it.id == route.cardId
+                            } as HitokotoCardConfig
+                            val runtime = checkNotNull(panelState.runtimeState(card.id)) {
+                                "Hitokoto card '${card.id}' has no runtime state"
+                            }
+                            require(runtime is HomeSidePanelCardRuntimeState.Hitokoto) {
+                                "Hitokoto card '${card.id}' has mismatched runtime state $runtime"
+                            }
+                            HomeSidePanelHitokotoSettings(
+                                card = card,
+                                runtime = runtime.state,
+                                panelState = panelState,
+                            )
+                        }
                     }
                 }
             }

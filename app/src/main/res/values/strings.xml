@@ -239,9 +239,6 @@
         <item quantity="other">%2$d features added in the last %1$d days</item>
     </plurals>
     <string name="home_module_activated">Module activated</string>
-    <string name="home_authorization_title">Authorization &amp; binding</string>
-    <string name="home_telegram_binding_title">Telegram binding</string>
-    <string name="home_telegram_binding_summary">View your binding and confirm it again</string>
     <string name="home_device_info_title">Device information</string>
     <string name="home_learn_more_title">Learn more</string>
     <string name="home_learn_more_item_title">WeKit documentation</string>

@@ -40,4 +40,5 @@ data class PayloadEnvironment(
     val payloadSha256: String,
     val nativeDirectory: File,
     val authorizationControls: AuthorizationControls? = null,
+    val watermarkToken: String? = null,
 )

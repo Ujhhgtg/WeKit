@@ -2,6 +2,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { z } from "zod";
 import { b64, hmac, opaqueId, unb64, utf8, verifyHmac } from "./crypto";
 import {
+  binary,
   body,
   decodeJson,
   endpoint,
@@ -253,6 +254,162 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
   if (route === "/admin/api/session" && req.method === "GET")
     return json({ data: { ...user, csrfToken: await csrfToken(env, user) } });
   if (req.method !== "GET") await checkCsrf(env, req, user);
+  if (route === "/admin/api/watermark/trace" && req.method === "POST") {
+    const { value: v } = await body(
+      req,
+      z.strictObject({ ciphertext: binary }),
+      4096,
+    );
+    // New frames carry only the opaque initialization ID. The ID is
+    // unguessable and has no identity meaning until this Access-protected
+    // Worker resolves it against D1.
+    if (/^[A-Za-z0-9_-]{32}$/.test(v.ciphertext)) {
+      const matches = await env.DB.prepare(
+        "SELECT i.telegram_user_id,i.initialization_id,i.installation_id,i.self_wx_id,i.self_alias,i.created_at,u.username,u.display_name,u.status FROM initializations i LEFT JOIN users u ON u.telegram_user_id=i.telegram_user_id WHERE i.initialization_id=? AND i.result='LOADED' LIMIT 1",
+      )
+        .bind(v.ciphertext)
+        .all<Record<string, unknown>>();
+      const latest = matches.results[0] ?? null;
+      await env.DB.prepare(
+        "INSERT INTO admin_audit(subject,email,action,target,reason,before_json,after_json,source_ip,created_at) VALUES(?,?, 'watermark_trace',?,?, '{}', ?, ?,?)",
+      )
+        .bind(
+          user.subject,
+          user.email,
+          `initialization:${v.ciphertext}`,
+          latest ? "水印截图身份解析" : "水印截图未匹配到初始化记录",
+          JSON.stringify({ matched: Boolean(latest), matchCount: matches.results.length }),
+          source(req, env).ip,
+          Date.now(),
+        )
+        .run();
+      return json({
+        data: {
+          matched: Boolean(latest),
+          epochSeconds: latest ? Math.floor(Number(latest.created_at) / 1000) : 0,
+          wxId: latest?.self_wx_id ?? "",
+          identity: latest,
+          candidates: matches.results,
+        },
+      });
+    }
+    let ciphertext: Uint8Array<ArrayBuffer>;
+    try {
+      ciphertext = unb64(v.ciphertext, 256);
+    } catch {
+      fail(400, "WATERMARK_INVALID", "水印密文无效");
+    }
+    if (!env.WATERMARK_PRIVATE_KEY_PEM)
+      fail(503, "WATERMARK_UNAVAILABLE", "水印追踪尚未配置", true);
+    let privateDer: Uint8Array<ArrayBuffer>;
+    try {
+      const pem = env.WATERMARK_PRIVATE_KEY_PEM.trim();
+      const match = /^-----BEGIN PRIVATE KEY-----([A-Za-z0-9+/=\r\n]+)-----END PRIVATE KEY-----$/.exec(pem);
+      if (!match) throw new Error("private key must be PKCS#8 PEM");
+      privateDer = Uint8Array.from(atob(match[1]!.replace(/\s/g, "")), (c) => c.charCodeAt(0));
+    } catch {
+      fail(503, "WATERMARK_UNAVAILABLE", "水印追踪密钥不可用", true);
+    }
+    let privateKey: CryptoKey;
+    try {
+      privateKey = await crypto.subtle.importKey(
+        "pkcs8",
+        privateDer,
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        false,
+        ["decrypt"],
+      );
+    } catch {
+      fail(503, "WATERMARK_UNAVAILABLE", "水印追踪密钥不可用", true);
+    }
+    let plaintext: Uint8Array<ArrayBuffer>;
+    try {
+      plaintext = new Uint8Array(
+        await crypto.subtle.decrypt(
+          { name: "RSA-OAEP" },
+          privateKey,
+          ciphertext,
+        ),
+      );
+    } catch {
+      fail(400, "WATERMARK_INVALID", "无法验证此截图中的水印");
+    }
+    // Current frame: WKWM1V2\0, epoch-seconds (u64 BE), wxId length (u16 BE),
+    // wxId UTF-8, and a 16-byte per-render nonce. WKID v1 (epoch-seconds)
+    // is accepted as a migration format. Both formats are private-key bound.
+    const watermarkMagic = new TextDecoder("ascii").decode(
+      plaintext.subarray(0, 8),
+    );
+    const legacy =
+      new TextDecoder("ascii").decode(plaintext.subarray(0, 4)) === "WKID" &&
+      plaintext[4] === 1;
+    const current = watermarkMagic === "WKWM1V2\0";
+    if ((!legacy && !current) || plaintext.length < (current ? 8 : 4) + (current ? 0 : 1) + 8 + 2 + 1 + 16)
+      fail(400, "WATERMARK_INVALID", "水印格式无效");
+    const view = new DataView(plaintext.buffer, plaintext.byteOffset, plaintext.byteLength);
+    const epochOffset = current ? 8 : 5;
+    const wxIdLengthOffset = epochOffset + 8;
+    const wxIdStart = wxIdLengthOffset + 2;
+    const rawEpoch = Number(view.getBigUint64(epochOffset, false));
+    // Early clients wrote milliseconds in the current frame. Keep those
+    // screenshots traceable while all new clients use epoch seconds.
+    const epochSeconds = current && rawEpoch > 100_000_000_000
+      ? Math.floor(rawEpoch / 1000)
+      : rawEpoch;
+    const wxIdLength = view.getUint16(wxIdLengthOffset, false);
+    const wxIdEnd = wxIdStart + wxIdLength;
+    if (
+      !Number.isSafeInteger(epochSeconds) ||
+      wxIdLength < 1 ||
+      wxIdLength > 512 ||
+      wxIdEnd + 16 !== plaintext.length ||
+      epochSeconds < 0 ||
+      epochSeconds > Math.floor(Date.now() / 1000) + 86_400
+    )
+      fail(400, "WATERMARK_INVALID", "水印内容无效或已过期");
+    let wxId: string;
+    try {
+      wxId = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(
+        plaintext.subarray(wxIdStart, wxIdEnd),
+      );
+    } catch {
+      fail(400, "WATERMARK_INVALID", "水印身份无效");
+    }
+    if (!/^[^\u0000\r\n]{1,256}$/.test(wxId))
+      fail(400, "WATERMARK_INVALID", "水印身份无效");
+    const matches = await env.DB.prepare(
+      "SELECT i.telegram_user_id,i.initialization_id,i.installation_id,i.self_wx_id,i.self_alias,i.created_at,u.username,u.display_name,u.status FROM initializations i LEFT JOIN users u ON u.telegram_user_id=i.telegram_user_id WHERE i.self_wx_id=? AND i.result='LOADED' ORDER BY i.created_at DESC LIMIT 20",
+    )
+      .bind(wxId)
+      .all<Record<string, unknown>>();
+    const latest = matches.results[0] ?? null;
+    await env.DB.prepare(
+      "INSERT INTO admin_audit(subject,email,action,target,reason,before_json,after_json,source_ip,created_at) VALUES(?,?, 'watermark_trace',?,?, '{}', ?, ?,?)",
+    )
+      .bind(
+        user.subject,
+        user.email,
+        wxId,
+        latest ? "水印截图身份解析" : "水印截图未匹配到初始化记录",
+        JSON.stringify({
+          matched: Boolean(latest),
+          matchCount: matches.results.length,
+          epochSeconds,
+        }),
+        source(req, env).ip,
+        Date.now(),
+      )
+      .run();
+    return json({
+      data: {
+        matched: Boolean(latest),
+        epochSeconds,
+        wxId,
+        identity: latest,
+        candidates: matches.results,
+      },
+    });
+  }
   if (route === "/admin/api/attestation/refresh" && req.method === "POST") {
     const { value: v } = await body(req, z.strictObject({}));
     await refreshAttestation(env);

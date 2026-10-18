@@ -26,6 +26,9 @@ object ModuleLoader {
     private var started = false
 
     fun startPayload(environment: PayloadEnvironment) {
+        // PayloadEntryImpl is created reflectively by the bootstrap. Keep an explicit D8 edge so
+        // debug payload builds do not discard the entry class before the reflective load.
+        check(PayloadEntryImpl::class.java.name.isNotEmpty()) { "payload entry class is unavailable" }
         check(!started) { "business payload has already started in this process" }
         // Publish the actual hook bridge before any business hook helper is used.
         StartupInfo.payloadEnvironment = environment

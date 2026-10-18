@@ -10,11 +10,13 @@ import {
   query,
   read,
   write,
+  traceWatermark,
   type Envelope,
   type Page,
   type Row,
   type Session,
 } from "./api";
+import { extractWatermarkCandidates } from "./watermark";
 
 type Section =
   | "overview"
@@ -22,7 +24,8 @@ type Section =
   | "initializations"
   | "releases"
   | "publications"
-  | "audit";
+  | "audit"
+  | "watermark";
 type Action = {
   title: string;
   description: string;
@@ -41,6 +44,7 @@ const sections: [Section, string, string][] = [
   ["releases", "发行管理", "◇"],
   ["publications", "发布任务", "↗"],
   ["audit", "管理审计", "≡"],
+  ["watermark", "截图溯源", "⌁"],
 ];
 const labels: Record<string, string> = {
   ACTIVE: "正常",
@@ -554,8 +558,81 @@ function Metric({
     </div>
   );
 }
+
+function WatermarkTracePage() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<Awaited<ReturnType<typeof traceWatermark>>>();
+  async function choose(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    setResult(undefined);
+    try {
+      const candidates = await extractWatermarkCandidates(file);
+      let lastResult: Awaited<ReturnType<typeof traceWatermark>> | undefined;
+      for (const ciphertext of candidates) {
+        lastResult = await traceWatermark(ciphertext);
+        if (lastResult.matched) break;
+      }
+      if (!lastResult) throw new Error("未检测到有效的 WeKit 水印。");
+      setResult(lastResult);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const identity = result?.identity;
+  return (
+    <>
+      <Card title="截图水印溯源">
+        <div className="card-body">
+          <p className="muted">
+            选择包含 HomeSidePanel 的截图。浏览器会尝试裁剪、缩放、旋转、通道去噪与压缩修复，再把不透明令牌交给受保护的管理 Worker 查询身份。
+          </p>
+          <label className="upload-picker">
+            <span className="button">选择截图</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              disabled={busy}
+              onChange={(event) => {
+                void choose(event.target.files?.[0]);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+          {busy && <p className="loading" role="status"><span />正在解析水印…</p>}
+          {error && <p className="error" role="alert">{error}</p>}
+        </div>
+      </Card>
+      {result && (
+        <Card title={result.matched ? "已找到对应身份" : "未找到对应身份"} aside={result.matched ? badge("ACTIVE") : badge("FAILED")}>
+          <dl className="facts padded">
+            <Fact label="wxId" value={result.wxId} mono />
+            <Fact label="水印生成时间" value={date(result.epochSeconds * 1000)} />
+            <Fact label="匹配记录数" value={result.candidates.length} />
+            {identity && (
+              <>
+                <Fact label="Telegram 用户" value={identity.telegram_user_id} mono />
+                <Fact label="显示名称" value={identity.display_name} />
+                <Fact label="用户名" value={identity.username ? `@${identity.username}` : null} />
+                <Fact label="安装实例" value={identity.installation_id} mono />
+                <Fact label="最近初始化" value={identity.initialization_id} mono />
+              </>
+            )}
+          </dl>
+          {result.candidates.length > 1 && (
+            <p className="help padded">该 wxId 曾出现在多个初始化记录中，已显示最近一条；完整记录请查看初始化历史。</p>
+          )}
+        </Card>
+      )}
+    </>
+  );
+}
 const filterDefinitions: Record<
-  Exclude<Section, "overview">,
+  Exclude<Section, "overview" | "watermark">,
   [string, string][]
 > = {
   users: [
@@ -593,7 +670,7 @@ function ListPage({
   revision,
   act,
 }: {
-  kind: Exclude<Section, "overview">;
+  kind: Exclude<Section, "overview" | "watermark">;
   initial: Record<string, string>;
   revision: number;
   act: (a: Action) => void;
@@ -809,7 +886,7 @@ function Channels({ revision }: { revision: number }) {
   );
 }
 function columnsFor(
-  kind: Exclude<Section, "overview">,
+  kind: Exclude<Section, "overview" | "watermark">,
   act: (a: Action) => void,
   detail: (r: Row) => void,
 ): Column[] {
@@ -1450,6 +1527,7 @@ export default function App() {
     );
   else if (selected === "overview")
     content = <Overview revision={revision} act={setAction} />;
+  else if (selected === "watermark") content = <WatermarkTracePage />;
   else
     content = (
       <ListPage
@@ -1523,6 +1601,8 @@ export default function App() {
                         ? "控制后续初始化允许使用的业务发行"
                         : selected === "publications"
                           ? "查看构建发布任务与完成状态"
+                          : selected === "watermark"
+                            ? "从 HomeSidePanel 截图恢复受保护的用户身份"
                           : "每次管理操作的对象、操作者与前后状态"}
               </p>
             </div>

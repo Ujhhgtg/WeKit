@@ -51,6 +51,7 @@ export function workerConfig(role: WorkerRole) {
             ADMIN_EMAILS_JSON: bindings.text(JSON.stringify(['feyxiexzf@gmail.com'])),
             ADMIN_ORIGIN: bindings.text('https://admin.wekit.ujhhgtg.dev'),
             CSRF_SECRET: bindings.secret(),
+            WATERMARK_PRIVATE_KEY_PEM: bindings.secret(),
         });
     }
     return defineConfig({

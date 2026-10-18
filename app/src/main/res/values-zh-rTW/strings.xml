@@ -212,9 +212,6 @@
         <item quantity="other">最近 %1$d 天新增 %2$d 個功能</item>
     </plurals>
     <string name="home_module_activated">模塊已激活</string>
-    <string name="home_authorization_title">授權與綁定</string>
-    <string name="home_telegram_binding_title">Telegram 綁定</string>
-    <string name="home_telegram_binding_summary">查看綁定並重新確認</string>
     <string name="home_device_info_title">裝置資訊</string>
     <string name="home_learn_more_title">瞭解更多</string>
     <string name="home_learn_more_item_title">WeKit 文件</string>

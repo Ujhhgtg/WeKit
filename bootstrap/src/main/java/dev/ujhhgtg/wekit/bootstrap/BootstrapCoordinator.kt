@@ -193,7 +193,8 @@ object BootstrapCoordinator {
                 prepared = loaded
                 val environment = PayloadEnvironment(application, hostLoader, hookBridge, loaderService,
                     injectionMode, telegramRootAccess, File(loaderService.mainModulePath), loaded.apk,
-                    localApkSha256, loaded.nativeDirectory, if (mainProcess) authorizationControls else null)
+                    localApkSha256, loaded.nativeDirectory, if (mainProcess) authorizationControls else null,
+                    watermarkToken = initializationId)
                 entryAttempted = true
                 val entry = loaded.classLoader.loadClass("dev.ujhhgtg.wekit.loader.startup.PayloadEntryImpl")
                     .getDeclaredConstructor().newInstance() as PayloadEntry
@@ -244,7 +245,8 @@ object BootstrapCoordinator {
             prepared = loaded
             val environment = PayloadEnvironment(application, hostLoader, hookBridge, loaderService,
                 injectionMode, telegramRootAccess, File(loaderService.mainModulePath), loaded.apk,
-                release.descriptor.apkSha256, loaded.nativeDirectory, if (mainProcess) authorizationControls else null)
+                release.descriptor.apkSha256, loaded.nativeDirectory, if (mainProcess) authorizationControls else null,
+                watermarkToken = initializationId)
             // Keep all inputs alive even if partially initialized business hooks later throw.
             entryAttempted = true
             val entry = loaded.classLoader.loadClass(release.descriptor.entryClass)

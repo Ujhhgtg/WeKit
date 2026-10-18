@@ -12,6 +12,13 @@ export interface Envelope<T> {
   data: T;
   nextCursor?: string | null;
 }
+export interface WatermarkTrace {
+  matched: boolean;
+  epochSeconds: number;
+  wxId: string;
+  identity: Row | null;
+  candidates: Row[];
+}
 
 export async function read<T>(path: string): Promise<T> {
   const response = await fetch(`/admin/api/${path}`, {
@@ -49,6 +56,23 @@ export async function write(
     body: JSON.stringify(body),
   });
   await decode(response);
+}
+
+export async function traceWatermark(
+  ciphertext: string,
+): Promise<WatermarkTrace> {
+  const session = await read<Envelope<Session>>("session");
+  const response = await fetch("/admin/api/watermark/trace", {
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      "X-WeKit-CSRF-Token": session.data.csrfToken,
+    },
+    body: JSON.stringify({ ciphertext }),
+  });
+  return (await decode<Envelope<WatermarkTrace>>(response)).data;
 }
 
 export function query(

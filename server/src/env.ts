@@ -17,6 +17,8 @@ export interface Env {
   ADMIN_EMAILS_JSON: string;
   ADMIN_ORIGIN: string;
   CSRF_SECRET: string;
+  /** PEM-encoded PKCS#8 RSA-2048 private key used only by watermark tracing. */
+  WATERMARK_PRIVATE_KEY_PEM: string;
   CI_AUDIENCE: string;
   CI_REPOSITORY_ID: string;
   CI_REPOSITORY_OWNER_ID: string;

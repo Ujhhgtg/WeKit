@@ -105,6 +105,7 @@ import dev.ujhhgtg.wekit.i18n.LanguageSelection
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.i18n.SupportedLocale
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.ui.content.DexResolutionMode
 import dev.ujhhgtg.wekit.ui.content.DexResolutionPrompt
 import dev.ujhhgtg.wekit.ui.content.WeColorPickerDialog
@@ -318,6 +319,11 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 @Composable
 private fun ProfileCard() {
     val wxId = remember { WeApi.selfWxId }
+    val activity = LocalComponentActivity.current
+    val authorizationControls = StartupInfo.payloadEnvironment.authorizationControls
+    val cardModifier = authorizationControls?.let { controls ->
+        Modifier.clickable { controls.show(activity) }
+    } ?: Modifier
 
     // WeChat identity — loaded once from the local DB; doesn't change mid-session.
     data class WechatIdentity(val nickname: String, val avatarUrl: String)
@@ -336,7 +342,7 @@ private fun ProfileCard() {
 
     SegmentedColumn {
         item {
-            BaseItemContainer {
+            BaseItemContainer(modifier = cardModifier) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
