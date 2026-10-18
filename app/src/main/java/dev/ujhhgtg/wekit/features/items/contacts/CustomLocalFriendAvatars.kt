@@ -116,48 +116,15 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
     @Volatile
     private var loadedAvatarRevision = Long.MIN_VALUE
 
-    private val methodNotificationAvatar by dexMethod {
-        matcher {
-            paramTypes("android.content.Context", "java.lang.String", "java.lang.String")
-            returnType = "android.graphics.Bitmap"
-            usingEqStrings("MicroMsg.NotificationAvatar", "wcf://avatar/")
-        }
-    }
+    private val methodNotificationAvatar by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.NotificationAvatar', 'wcf://avatar/') AND m.return_descriptor = 'Landroid/graphics/Bitmap;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
 
-    private val methodDesktopShortcut by dexMethod {
-        matcher {
-            paramTypes("android.content.Context", "java.lang.String", "boolean", "java.lang.String")
-            returnType = "android.content.Intent"
-            usingEqStrings(
-                "MicroMsg.ShortcutManager", "getScaledBitmap fail, bmp is null",
-                "com.tencent.qlauncher.extra.EXTRA_PUSH_ITEM_UNIQUE_ID",
-            )
-        }
-    }
+    private val methodDesktopShortcut by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.ShortcutManager', 'getScaledBitmap fail, bmp is null', 'com.tencent.qlauncher.extra.EXTRA_PUSH_ITEM_UNIQUE_ID') AND m.return_descriptor = 'Landroid/content/Intent;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 3 ORDER BY ms.method;""")
 
-    private val methodAddressLayout by dexMethod {
-        matcher {
-            declaredClass = "com.tencent.mm.ui.contact.address.MvvmAddressUIFragment"
-            name = "getLayoutView"
-            paramCount = 0
-            returnType = "android.view.View"
-        }
-    }
+    private val methodAddressLayout by dexMethod("""SELECT m.descriptor AS method FROM methods m WHERE m.name = 'getLayoutView' AND m.class_descriptor = 'Lcom/tencent/mm/ui/contact/address/MvvmAddressUIFragment;' AND m.return_descriptor = 'Landroid/view/View;' AND m.param_count = 0 ORDER BY m.descriptor;""")
 
     // ji1.s.og, most of com.tencent.mm.feature.avatar.w calls this,
     // e.g. Cg, ig, cg, og, rg
-    private val methodMvvmLoadAvatar1 by dexMethod(allowFailure = true) {
-        matcher {
-            paramTypes(
-                "android.widget.ImageView",
-                "java.lang.String",
-                "java.lang.String",
-                "float"
-            )
-            returnType(Void.TYPE)
-            usingEqStrings("MicroMsg.AvatarGetContactServiceHelper", "put stack into pool: ")
-        }
-    }
+    private val methodMvvmLoadAvatar1 by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.AvatarGetContactServiceHelper', 'put stack into pool: ') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""", allowFailure = true)
 
     // ji1.s.pg: another exception
     private val methodMvvmLoadAvatar2 by dexMethod(allowFailure = true) {
@@ -176,12 +143,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
         }
     }
 
-    private val classAvatarDrawable by dexClass {
-        searchPackages("com.tencent.mm.feature.avatar")
-        matcher {
-            usingEqStrings("MicroMsg.AvatarDrawable", "imageView is null", "?access_token=")
-        }
-    }
+    private val classAvatarDrawable by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.AvatarDrawable', 'imageView is null', '?access_token=') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 3 ORDER BY ms.method_class;""")
 
     // com.tencent.mm.feature.avatar.w.pg; an exception: this doesn't call methodMvvmLoadAvatar
     private val methodFeatureAvatarSimple1 by dexMethod()
@@ -217,58 +179,14 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
         )
     }
 
-    private val methodPluginsdkLoadAvatar by dexMethod(allowFailure = true) {
-        searchPackages("com.tencent.mm.pluginsdk.ui")
-        matcher {
-            paramTypes(
-                "android.widget.ImageView",
-                "java.lang.String"
-            )
-            returnType(Void.TYPE)
-            usingEqStrings("MicroMsg.AvatarDrawable")
-        }
-    }
+    private val methodPluginsdkLoadAvatar by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.AvatarDrawable') AND ms.method_class LIKE 'Lcom/tencent/mm/pluginsdk/ui/%' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""", allowFailure = true)
 
-    private val methodHdGallerySetUsername by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass = "com.tencent.mm.plugin.setting.ui.setting.view.GetHdHeadImageGalleryView"
-            name = "setUsername"
-            paramTypes("java.lang.String")
-            returnType(Void.TYPE)
-        }
-    }
+    private val methodHdGallerySetUsername by dexMethod("""SELECT m.descriptor AS method FROM methods m WHERE m.name = 'setUsername' AND m.class_descriptor = 'Lcom/tencent/mm/plugin/setting/ui/setting/view/GetHdHeadImageGalleryView;' ORDER BY m.descriptor;""", allowFailure = true)
 
-    private val methodRoundBitmap by dexMethod(allowFailure = true) {
-        searchPackages("com.tencent.mm.sdk.platformtools")
-        matcher {
-            paramTypes("android.graphics.Bitmap", "boolean", "float")
-            returnType = "android.graphics.Bitmap"
-
-            addInvoke {
-                usingEqStrings("MicroMsg.BitmapUtil", "getRoundedCornerBitmap in bitmap is null")
-            }
-        }
-    }
+    private val methodRoundBitmap by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.BitmapUtil', 'getRoundedCornerBitmap in bitmap is null') AND m.class_descriptor LIKE 'Lcom/tencent/mm/sdk/platformtools/%' AND m.return_descriptor = 'Landroid/graphics/Bitmap;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""", allowFailure = true)
 
     // com.tencent.mm.pluginsdk.ui.u.b
-    val methodConversationAvatar by dexMethod {
-        searchPackages("com.tencent.mm.pluginsdk.ui")
-        matcher {
-            usingEqStrings("MicroMsg.AvatarDrawable", "imageView is null")
-            paramTypes(
-                "android.widget.ImageView",
-                "java.lang.String",
-                "float",
-                "boolean"
-            )
-            returnType = "void"
-
-            addInvoke {
-                declaredClass = "android.view.View"
-                name = "invalidate"
-            }
-        }
-    }
+    val methodConversationAvatar by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.AvatarDrawable', 'imageView is null') AND m.class_descriptor LIKE 'Lcom/tencent/mm/pluginsdk/ui/%' AND m.name = 'invalidate' AND m.class_descriptor = 'Landroid/view/View;' AND m.return_descriptor = 'V' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
 
     @Volatile
     private var avatarUsernamesCache: Set<String>? = null

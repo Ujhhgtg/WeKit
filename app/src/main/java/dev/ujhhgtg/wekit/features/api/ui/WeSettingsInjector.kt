@@ -49,29 +49,8 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
     private val methodAddPref by dexMethod()
 
     // modern method
-    private val classSettingItemClassesProvider by dexClass(allowFailure = true) {
-        matcher {
-            usingEqStrings("Repairer_Setting")
-
-            superClass {
-                usingEqStrings("type")
-            }
-        }
-    }
-    private val classBaseSettingItem by dexClass(allowFailure = true) {
-        matcher {
-            usingEqStrings("", "activity", "context", "intent")
-
-            addMethod {
-                name = "<init>"
-                paramTypes("androidx.appcompat.app.AppCompatActivity")
-            }
-
-            addInterface {
-                className("com.tencent.mm.plugin.newtips.model", StringMatchType.StartsWith)
-            }
-        }
-    }
+    private val classSettingItemClassesProvider by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('Repairer_Setting', 'type') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""", allowFailure = true)
+    private val classBaseSettingItem by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('', 'activity', 'context', 'intent') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 4 ORDER BY ms.method_class;""", allowFailure = true)
     private val classBaseSettingSwitchItem by dexClass(allowFailure = true) {
         matcher {
             usingEqStrings("activity", "context", "itemView", "1", "0")
@@ -92,36 +71,11 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
             }
         }
     }
-    private val classSettingLocation by dexClass(allowFailure = true) {
-        matcher {
-            usingEqStrings("SettingLocation(parentGroup=", ", frontItem=")
-        }
-    }
-    private val methodSettingGroupAccountInfoGetStringId by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass = "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
-            usingEqStrings("SettingGroup_Main_AccountInfo")
-            returnType = "java.lang.String"
-        }
-    }
-    private val methodSettingGroupAccountInfoReturns1 by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass = "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
-            usingNumbers(1)
-            returnType = "int"
-        }
-    }
-    private val methodSettingGroupPersonalInfoGetGroupNameResId by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass = "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupPersonalInfo"
-            returnType = "java.lang.Integer"
-        }
-    }
-    private val methodResourceHelperGetStringById by dexMethod(allowFailure = true) {
-        matcher {
-            usingEqStrings("MicroMsg.ResourceHelper", "get string, resId %d, but context is null")
-        }
-    }
+    private val classSettingLocation by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('SettingLocation(parentGroup=', ', frontItem=') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""", allowFailure = true)
+    private val methodSettingGroupAccountInfoGetStringId by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('SettingGroup_Main_AccountInfo') AND m.class_descriptor = 'Lcom/tencent/mm/plugin/setting/ui/setting_new/settings/SettingGroupAccountInfo;' AND m.return_descriptor = 'Ljava/lang/String;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""", allowFailure = true)
+    private val methodSettingGroupAccountInfoReturns1 by dexMethod("""SELECT DISTINCT mn.method AS method FROM method_using_numbers mn JOIN methods m ON m.descriptor = mn.method WHERE mn.long_value IN (1) AND m.class_descriptor = 'Lcom/tencent/mm/plugin/setting/ui/setting_new/settings/SettingGroupAccountInfo;' AND m.return_descriptor = 'I' GROUP BY mn.method HAVING COUNT(DISTINCT mn.long_value) = 1 ORDER BY mn.method;""", allowFailure = true)
+    private val methodSettingGroupPersonalInfoGetGroupNameResId by dexMethod("""SELECT m.descriptor AS method FROM methods m WHERE m.class_descriptor = 'Lcom/tencent/mm/plugin/setting/ui/setting_new/settings/SettingGroupPersonalInfo;' AND m.return_descriptor = 'Ljava/lang/Integer;' ORDER BY m.descriptor;""", allowFailure = true)
+    private val methodResourceHelperGetStringById by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.ResourceHelper', 'get string, resId %d, but context is null') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""", allowFailure = true)
 
     private const val TAG = "WeSettingsInjector"
 

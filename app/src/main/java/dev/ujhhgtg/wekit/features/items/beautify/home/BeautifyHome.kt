@@ -31,49 +31,10 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
     override val descriptionRes = R.string.feature_beautify_home_description
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
 
-    private val methodConversationReady by dexMethod {
-        matcher {
-            declaredClass = "com.tencent.mm.ui.conversation.MainUI"
-            paramTypes("android.os.Bundle")
-            returnType = "void"
-            usingEqStrings("MicroMsg.MainUI", "main ui init view")
-        }
-    }
-    private val methodListMargins by dexMethod {
-        matcher {
-            declaredClass = "com.tencent.mm.ui.conversation.MainUI"
-            paramTypes("int", "int")
-            returnType = "void"
-            usingEqStrings("MicroMsg.MainUI", "setListMargin isInMultiWindowMode: %b")
-        }
-    }
-    val methodNativeTitleView by dexMethod {
-        searchPackages("androidx.appcompat.app")
-        matcher {
-            paramCount = 0
-            returnType = "android.view.View"
-            addCaller {
-                declaredClass = "com.tencent.mm.ui.HomeUI"
-                usingEqStrings("[initActionBar] mActionBar == null")
-            }
-        }
-    }
-    val methodStatusBarHeight by dexMethod {
-        matcher {
-            declaredClass {
-                superClass = "android.widget.FrameLayout"
-                usingEqStrings("MicroMsg.DrawStatusBarFrameLayout")
-                addMethod {
-                    name = "getDrawnStatusBarHeight"
-                    paramCount = 0
-                    returnType = "int"
-                }
-            }
-            paramTypes("int")
-            returnType = "void"
-            usingEqStrings("applyStatusBarHeight setPadding e=%s")
-        }
-    }
+    private val methodConversationReady by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.MainUI', 'main ui init view') AND m.class_descriptor = 'Lcom/tencent/mm/ui/conversation/MainUI;' AND m.return_descriptor = 'V' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val methodListMargins by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.MainUI', 'setListMargin isInMultiWindowMode: %b') AND m.class_descriptor = 'Lcom/tencent/mm/ui/conversation/MainUI;' AND m.return_descriptor = 'V' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    val methodNativeTitleView by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('[initActionBar] mActionBar == null') AND m.class_descriptor LIKE 'Landroidx/appcompat/app/%' AND m.class_descriptor = 'Lcom/tencent/mm/ui/HomeUI;' AND m.return_descriptor = 'Landroid/view/View;' AND m.param_count = 0 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
+    val methodStatusBarHeight by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.DrawStatusBarFrameLayout', 'applyStatusBarHeight setPadding e=%s') AND m.name = 'getDrawnStatusBarHeight' AND m.return_descriptor = 'I' AND m.param_count = 0 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
     val fieldListActionBar by dexField {
         matcher {
             declaredClass = "com.tencent.mm.ui.conversation.ConversationListView"
@@ -90,9 +51,7 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
         }
     }
 
-    val classRecyclerView by dexClass(allowFailure = true) {
-        matcher { className = "com.tencent.mm.ui.conversation.recycler.ConversationRecyclerView" }
-    }
+    val classRecyclerView by dexClass("""SELECT descriptor FROM classes WHERE descriptor = 'Lcom/tencent/mm/ui/conversation/recycler/ConversationRecyclerView;' ORDER BY descriptor;""", allowFailure = true)
     val fieldRecyclerActionBar by dexField()
     val fieldRecyclerSpacer by dexField()
 

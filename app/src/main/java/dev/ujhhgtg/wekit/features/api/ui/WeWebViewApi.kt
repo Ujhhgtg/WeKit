@@ -56,32 +56,8 @@ object WeWebViewApi : ApiFeature(), IResolveDex {
     /** A snapshot of all currently-live tracked WebViews (dead entries already evicted by GC). */
     fun snapshot(): List<Any> = synchronized(lock) { tracked.filterNotNull() }
 
-    val xwebOnPageFinished by dexMethod {
-        searchPackages("com.tencent.mm.plugin.appbrand.page")
-        matcher {
-            declaredClass {
-                usingEqStrings(
-                    "MicroMsg.AppBrandWebView",
-                    "onReceivedHttpError, WebResourceRequest url = %s, ErrWebResourceResponse mimeType = %s, status = %d"
-                )
-                superClass {
-                    className("com.tencent.xweb", StringMatchType.StartsWith)
-                }
-            }
-            paramTypes("com.tencent.xweb.WebView", "java.lang.String", "android.graphics.Bitmap")
-            returnType = "void"
-        }
-    }
-    val androidOnPageFinished by dexMethod {
-        searchPackages("com.tencent.mm.plugin.appbrand.page")
-        matcher {
-            declaredClass {
-                superClass = "android.webkit.WebViewClient"
-            }
-            paramCount = 2
-            returnType = "void"
-        }
-    }
+    val xwebOnPageFinished by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.AppBrandWebView', 'onReceivedHttpError, WebResourceRequest url = %s, ErrWebResourceResponse mimeType = %s, status = %d') AND m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/appbrand/page/%' AND m.return_descriptor = 'V' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    val androidOnPageFinished by dexMethod("""SELECT m.descriptor AS method FROM methods m WHERE m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/appbrand/page/%' AND m.return_descriptor = 'V' AND m.param_count = 2 ORDER BY m.descriptor;""")
 
     override fun onEnable() {
         xwebOnPageFinished.hookAfter {

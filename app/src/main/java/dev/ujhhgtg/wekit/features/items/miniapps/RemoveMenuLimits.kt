@@ -37,38 +37,7 @@ object RemoveMenuLimits : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val methodGetMenuItemVisibility1 by dexMethod {
-        searchPackages("com.tencent.mm.plugin.appbrand.menu")
+    private val methodGetMenuItemVisibility1 by dexMethod("""SELECT DISTINCT mn.method AS method FROM method_using_numbers mn JOIN methods m ON m.descriptor = mn.method WHERE mn.long_value IN (39) AND mn.method_class LIKE 'Lcom/tencent/mm/plugin/appbrand/menu/%' GROUP BY mn.method HAVING COUNT(DISTINCT mn.long_value) = 1 ORDER BY mn.method;""")
 
-        matcher {
-            declaredClass {
-                superClass {
-                    modifiers(AccessFlagsMatcher(Modifier.ABSTRACT))
-                }
-
-                addMethod {
-                    usingNumbers(39)
-                }
-            }
-
-            returnType("com.tencent.mm.plugin.appbrand.menu", StringMatchType.Contains)
-        }
-    }
-
-    private val methodGetMenuItemVisibility2 by dexMethod {
-        searchPackages("com.tencent.mm.plugin.appbrand.menu")
-        matcher {
-            declaredClass {
-                superClass {
-                    modifiers(AccessFlagsMatcher(Modifier.ABSTRACT))
-                }
-
-                addMethod {
-                    usingNumbers(30)
-                }
-            }
-
-            returnType("com.tencent.mm.plugin.appbrand.menu", StringMatchType.Contains)
-        }
-    }
+    private val methodGetMenuItemVisibility2 by dexMethod("""SELECT DISTINCT mn.method AS method FROM method_using_numbers mn JOIN methods m ON m.descriptor = mn.method WHERE mn.long_value IN (30) AND mn.method_class LIKE 'Lcom/tencent/mm/plugin/appbrand/menu/%' GROUP BY mn.method HAVING COUNT(DISTINCT mn.long_value) = 1 ORDER BY mn.method;""")
 }

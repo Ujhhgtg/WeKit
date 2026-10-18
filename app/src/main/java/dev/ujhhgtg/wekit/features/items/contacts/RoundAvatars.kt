@@ -35,11 +35,7 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
 
     private const val KEY_ROUND_AVATAR = "round_avatar_radius_factor"
 
-    private val ctorAvatarCreate by dexConstructor {
-        matcher {
-            usingEqStrings("workerScope", "username")
-        }
-    }
+    private val ctorAvatarCreate by dexConstructor("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('workerScope', 'username') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
     private val methodAvatarModify by dexMethod()
 
     private val radiusFactor: Float

@@ -621,12 +621,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * `AddressLiveList.e(List snapshotList)` — the 通讯录 MvvmList preprocessor.
      * See hidecontacts/HideContactsLists.kt for why this is the right cut point.
      */
-    val methodAddressMvvmListPreprocessList by dexMethod {
-        matcher {
-            declaredClass = "com.tencent.mm.ui.contact.address.AddressLiveList"
-            usingEqStrings("snapshotList")
-        }
-    }
+    val methodAddressMvvmListPreprocessList by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('snapshotList') AND m.class_descriptor = 'Lcom/tencent/mm/ui/contact/address/AddressLiveList;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
 
     /**
      * `AtSomeoneLiveList.e(List snapshotList)` — the @成员选择器's MvvmList preprocessor, structurally
@@ -640,12 +635,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * in 8.0.65–8.0.76 we want the @成员 list to stay unfiltered, not to fail dex resolution for the
      * whole feature and take every other hidden-contact surface down with it.
      */
-    val methodAtSomeoneMvvmListPreprocessList by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass = "com.tencent.mm.ui.chatting.atsomeone.AtSomeoneLiveList"
-            usingEqStrings("snapshotList")
-        }
-    }
+    val methodAtSomeoneMvvmListPreprocessList by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('snapshotList') AND m.class_descriptor = 'Lcom/tencent/mm/ui/chatting/atsomeone/AtSomeoneLiveList;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""", allowFailure = true)
 
     /**
      * `cc.d(List usernames)` — `SeeRoomMemberUI`'s adapter rebuild (`tc.d` on 8.0.69).
@@ -654,15 +644,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * adapter and three listeners) exactly one declares a `void (List)` method: the adapter, at
      * `chatroom/ui/cc.java:96` on 8.0.76 and `chatroom/ui/tc.java:95` on 8.0.69.
      */
-    val methodSeeRoomMemberSetMemberList by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.SeeRoomMemberUI")
-            }
-            paramTypes("java.util.List")
-            returnType("void")
-        }
-    }
+    val methodSeeRoomMemberSetMemberList by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.SeeRoomMemberUI') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""", allowFailure = true)
 
     /**
      * `SelectMemberUI.V6()` — the member-username list the @全体成员 / 删除成员 / 邀请 adapters load
@@ -672,13 +654,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * trees (`chatroom/ui/SelectMemberUI.java:115` on 8.0.76, `:178` on 8.0.69), so class + arity +
      * return type is unambiguous without needing the obfuscated method name.
      */
-    val methodSelectMemberUiGetMemberList by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass = "com.tencent.mm.chatroom.ui.SelectMemberUI"
-            paramCount = 0
-            returnType("java.util.List")
-        }
-    }
+    val methodSelectMemberUiGetMemberList by dexMethod("""SELECT m.descriptor AS method FROM methods m WHERE m.class_descriptor = 'Lcom/tencent/mm/chatroom/ui/SelectMemberUI;' AND m.param_count = 0 ORDER BY m.descriptor;""", allowFailure = true)
 
     /**
      * `c.r(List)` — `FavoriteAdapter`'s single data-list setter (`c.t(List)` on 8.0.69).
@@ -689,13 +665,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * `c.java:1054` on 8.0.76 / `c.java:1051` on 8.0.69), so the tag + shape pair resolves to `r`
      * alone. `d(List)` uses no string constants at all.
      */
-    val methodFavoriteAdapterSetDataList by dexMethod(allowFailure = true) {
-        matcher {
-            usingEqStrings("MicroMsg.FavoriteAdapter")
-            paramTypes("java.util.List")
-            returnType("void")
-        }
-    }
+    val methodFavoriteAdapterSetDataList by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.FavoriteAdapter') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""", allowFailure = true)
 
     /**
      * The 视频号 like-drawer *refresh* callback — `jd.call(Object)` on 8.0.76
@@ -709,15 +679,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * each tree. Strings are preferred over a structural discriminator here because `allowFailure`
      * only guards the 0-hit case — a multi-hit would `error(...)` and take the whole feature down.
      */
-    val methodFinderLikeDrawerRefresh by dexMethod(allowFailure = true) {
-        matcher {
-            usingEqStrings(
-                "Finder.DrawerPresenter",
-                "[refreshData] Cost=",
-                "com/tencent/mm/plugin/finder/view/builder/FinderLikeDrawerBuilder"
-            )
-        }
-    }
+    val methodFinderLikeDrawerRefresh by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('Finder.DrawerPresenter', '[refreshData] Cost=', 'com/tencent/mm/plugin/finder/view/builder/FinderLikeDrawerBuilder') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 3 ORDER BY ms.method;""", allowFailure = true)
 
     /**
      * The 视频号 like-drawer *load-more* callback — `yc.call(Object)` on 8.0.76
@@ -730,15 +692,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * `FinderItem.getUnsignedId()` to stamp each entry with its feed id, the other never does.
      * `FinderItem` is an unobfuscated (kept) class, so that method name is stable across versions.
      */
-    val methodFinderLikeDrawerLoadMore by dexMethod(allowFailure = true) {
-        matcher {
-            usingEqStrings("Finder.DrawerPresenter", "[loadMoreData] empty!")
-            invokeMethods {
-                add { name = "getUnsignedId" }
-                matchType = MatchType.Contains
-            }
-        }
-    }
+    val methodFinderLikeDrawerLoadMore by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('Finder.DrawerPresenter', '[loadMoreData] empty!') AND m.name = 'getUnsignedId' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""", allowFailure = true)
 
     /**
      * `fts.logic.q0.p(FTSResult)` — SearchChatroomMemberTask's body, the 群聊内搜索成员 task.
@@ -748,15 +702,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * class declares only `<init>(l, FTSRequest)`, `getName()` and `p(FTSResult)`, so class anchor +
      * one parameter + `void` resolves to `p` alone. See hidecontacts/HideContactsSearch.kt.
      */
-    val methodFtsSearchChatroomMemberTask by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass {
-                usingEqStrings("SearchChatroomMemberTask")
-            }
-            paramCount = 1
-            returnType("void")
-        }
-    }
+    val methodFtsSearchChatroomMemberTask by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('SearchChatroomMemberTask') AND m.param_count = 1 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""", allowFailure = true)
 
     /**
      * `fts.logic.h.p(FTSResult)` — SearchCommonChatroomUserTask, the 共同群聊好友建议 task.
@@ -767,15 +713,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * `getName()` and `p(FTSResult)`. NB: the neighbouring tasks `g` and `s0` both report
      * `"SearchCommonChatroomTask"` — the `User` suffix is what makes this one unambiguous.
      */
-    val methodFtsSearchCommonChatroomUserTask by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass {
-                usingEqStrings("SearchCommonChatroomUserTask")
-            }
-            paramCount = 1
-            returnType("void")
-        }
-    }
+    val methodFtsSearchCommonChatroomUserTask by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('SearchCommonChatroomUserTask') AND m.param_count = 1 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""", allowFailure = true)
 
     /**
      * `ContactStorage.getNormalContactCount(boolean includeBlack, String[], String...) -> int`
@@ -787,14 +725,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * (`j4.java:487` / `l3.java:461`), so an appended `AND ...` would bind to that OR's right
      * operand and silently do nothing. See hidecontacts/HideContactsLists.kt.
      */
-    val methodNormalContactCount by dexMethod(allowFailure = true) {
-        matcher {
-            usingEqStrings(
-                "MicroMsg.ContactStorage",
-                "getNormalContactCount, sql:%s, result:%d, includeBlack:%s, time:%d"
-            )
-        }
-    }
+    val methodNormalContactCount by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.ContactStorage', 'getNormalContactCount, sql:%s, result:%d, includeBlack:%s, time:%d') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""", allowFailure = true)
 
     /**
      * `PatMsgExtension.insertPatMsg(String talker, String fromUser, String pattedUser, String
@@ -804,11 +735,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * `"insert pat msg %d %s %s"` appears in exactly one method per tree (`nq3/l.java:620`,
      * `ti3/l.java:320`); pairing it with the class tag keeps the match method-local.
      */
-    val methodPatMsgInsert by dexMethod(allowFailure = true) {
-        matcher {
-            usingEqStrings("MicroMsg.PatMsgExtension", "insert pat msg %d %s %s")
-        }
-    }
+    val methodPatMsgInsert by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.PatMsgExtension', 'insert pat msg %d %s %s') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""", allowFailure = true)
 
     /**
      * `fb4.z0.D0(SnsInfo, SnsObject, Context, rs, boolean, d8, String, Map, Map, List)` —
@@ -816,11 +743,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * struct for every Moments renderer. See hidecontacts/HideContactsMoments.kt for why this is
      * the right chokepoint for a hidden contact's inline likes/comments on someone else's post.
      */
-    val methodSnsInfoToSnsStruct by dexMethod {
-        matcher {
-            usingEqStrings("snsInfoToSnsStruct", "com.tencent.mm.plugin.sns.data.SnsUtil", "mSnsInfo is null, why?")
-        }
-    }
+    val methodSnsInfoToSnsStruct by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('snsInfoToSnsStruct', 'com.tencent.mm.plugin.sns.data.SnsUtil', 'mSnsInfo is null, why?') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 3 ORDER BY ms.method;""")
 
     /**
      * `static void c3.H(c3 netSceneSnsSync, SnsObject snsObject)` (8.0.76; the same method is
@@ -841,93 +764,36 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * method shape — `static void (c3, SnsObject)` — is identical on both trees, so the hook body
      * needs no per-version branching.
      */
-    val methodSnsSyncUpdateRedDotCache by dexMethod {
-        matcher {
-            usingEqStrings("updateSyncDataCache", "com.tencent.mm.plugin.sns.model.NetSceneSnsSync")
-        }
-    }
+    val methodSnsSyncUpdateRedDotCache by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('updateSyncDataCache', 'com.tencent.mm.plugin.sns.model.NetSceneSnsSync') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
 
     // ── VoIPMP / ILink (the stack that actually runs on 8.0.7x) ──────────────────────────────
     // See hidecontacts/HideContactsVoip.kt for how these fit together.
 
     /** `ZIDL_ibmKH7hbMB.ZIDL_FBV(long, int, int, long, long, byte[] username, byte[][], boolean)` */
-    val methodVoipMpLaunchIncomingCard by dexMethod {
-        matcher {
-            // 8.0.76 changed from "launchInComingCardAsync: " to "[volume report] launchInComingCardAsync: "
-            usingStrings("MicroMsg.VoIPMP.CoreV2", "launchInComingCardAsync: ")
-        }
-    }
+    val methodVoipMpLaunchIncomingCard by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.VoIPMP.CoreV2', 'launchInComingCardAsync: ') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
 
     /**
      * `mp5.q2.qa(Context, int, is4.r, long, long, String username, ArrayList, boolean)` — the
      * banner/notification/ringtone dispatcher. q2 declares exactly one 8-parameter method, so the
      * class anchor plus the parameter count is unambiguous.
      */
-    val methodVoipMpLaunchBanner by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.VoIPMP.Launcher", "closeReceiverBanner")
-            }
-            paramCount = 8
-            returnType("void")
-        }
-    }
+    val methodVoipMpLaunchBanner by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.VoIPMP.Launcher', 'closeReceiverBanner') AND m.param_count = 8 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
 
     /** `mp5.q2.Qa()` — "rejectByShortCut", the entry WeChat's own quick-reject uses. */
-    val methodVoipMpReject by dexMethod(allowFailure = true) {
-        matcher {
-            usingEqStrings("MicroMsg.VoIPMP.CoreV2", "rejectByShortCut")
-            paramCount = 0
-            returnType("void")
-        }
-    }
+    val methodVoipMpReject by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.VoIPMP.CoreV2', 'rejectByShortCut') AND m.param_count = 0 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""", allowFailure = true)
 
     /**
      * `nq5.e.a(String username, boolean videoCall, boolean outCall, long, boolean)` — the incoming
      * ringtone. NB: this is NOT the old `MicroMsg.RingPlayer` / "playSound, type: ..." match, which
      * resolved to the call-ENDED tone and therefore never silenced anything.
      */
-    val methodVoipMpStartRing by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.VoIPMPRingtoneController", "startRing() called with: username = ")
-        }
-    }
+    val methodVoipMpStartRing by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.VoIPMPRingtoneController', 'startRing() called with: username = ') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
 
     /** `xp5.b.d(String username, boolean, boolean, boolean)` — starts the VoIP foreground service. */
-    val methodVoipMpStartFgs by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.VoIPMPVoIPNotificationHelper", "startFGS isBindVoIPForegroundService ")
-        }
-    }
+    val methodVoipMpStartFgs by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.VoIPMPVoIPNotificationHelper', 'startFGS isBindVoIPForegroundService ') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
 
     /** `mp5.q2.Ii(String toUser, ...)` — VoIPMP call-record insertion (未接听 / 已取消 / duration). */
-    val methodVoipMpInsertMsg by dexMethod {
-        matcher {
-            paramTypes(
-                "java.lang.String",
-                "boolean",
-                "int",
-                "long",
-                "long",
-                "long",
-                "int",
-            )
-            returnType("void")
-            anyOf(
-                MethodMatcher().apply {
-                    usingEqStrings(
-                        "MicroMsg.VoIPMP.Launcher",
-                        "insertMsg() called with: toUser = ",
-                    )
-                },
-                MethodMatcher().apply {
-                    declaredClass {
-                        usingEqStrings("MicroMsg.VoIPMP.Launcher", "closeReceiverBanner")
-                    }
-                },
-            )
-        }
-    }
+    val methodVoipMpInsertMsg by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.VoIPMP.Launcher', 'insertMsg() called with: toUser = ', 'MicroMsg.VoIPMP.Launcher', 'closeReceiverBanner') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 3 ORDER BY ms.method;""")
 
     // ── multitalk (群通话), used when the VoIPMP multitalk experiment is off ───────────────────
 
@@ -961,12 +827,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     // ── legacy v2protocal stack (only reached when the peer downgrades) ───────────────────────
 
     /** `nr4.y.x(...)` — the incoming float card. Shared by both stacks, so live on 8.0.76 as well. */
-    val methodVoipShowFloatingCard by dexMethod {
-        matcher {
-            usingEqStrings(".ui.voip.VoipFloatView")
-            paramCount = 8
-        }
-    }
+    val methodVoipShowFloatingCard by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('.ui.voip.VoipFloatView') AND m.param_count = 8 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
 
     /**
      * `nr4.y.z(Context, String toUser)` — AnimatedVoipBaseFloatCardManager.showFinishCard, the
@@ -977,41 +838,14 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * The bare "showFinishCard" string constant occurs only in this method (the lambda classes
      * carry longer `...$showFinishCard$3$2$...` constants, which `usingEqStrings` will not match).
      */
-    val methodVoipShowFinishCard by dexMethod(allowFailure = true) {
-        matcher {
-            usingEqStrings("showFinishCard", "(Landroid/content/Context;Ljava/lang/String;)V")
-            paramCount = 2
-        }
-    }
-    val methodVoipAcceptIncomingCall by dexMethod {
-        searchPackages("com.tencent.mm.plugin.voip")
-        matcher {
-            usingEqStrings("MicroMsg.VoipIncomingCallManager", "acceptIncomingCal, roomInfo:")
-        }
-    }
-    val methodVoipStartAcceptVoip by dexMethod {
-        searchPackages("com.tencent.mm.plugin.voip")
-        matcher {
-            usingEqStrings("MicroMsg.VoipIncomingCallManager", "startAcceptVoIP, roomInfo:")
-        }
-    }
-    val methodVoipServiceExSetInviteContent by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.Voip.VoipServiceEx", "Failed to setInviteContent during calling, status =")
-        }
-    }
-    val methodVoipServiceExReject by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.Voip.VoipServiceEx", "Failed to reject with calling, status =")
-        }
-    }
+    val methodVoipShowFinishCard by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('showFinishCard', '(Landroid/content/Context;Ljava/lang/String;)V') AND m.param_count = 2 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""", allowFailure = true)
+    val methodVoipAcceptIncomingCall by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.VoipIncomingCallManager', 'acceptIncomingCal, roomInfo:') AND ms.method_class LIKE 'Lcom/tencent/mm/plugin/voip/%' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    val methodVoipStartAcceptVoip by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.VoipIncomingCallManager', 'startAcceptVoIP, roomInfo:') AND ms.method_class LIKE 'Lcom/tencent/mm/plugin/voip/%' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    val methodVoipServiceExSetInviteContent by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.Voip.VoipServiceEx', 'Failed to setInviteContent during calling, status =') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    val methodVoipServiceExReject by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.Voip.VoipServiceEx', 'Failed to reject with calling, status =') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
 
     /** `j0.j(String content, a65.j4 addMsg)` — server-pushed `<voipmsg>` bubble (msg type 50). */
-    val methodVoipBubbleHandle by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.VoIPBubbleHelper", "handlerBubbleMsg: parse bubble info error")
-        }
-    }
+    val methodVoipBubbleHandle by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.VoIPBubbleHelper', 'handlerBubbleMsg: parse bubble info error') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
 
     /**
      * `b2.d(String talker, String, int, int, String, boolean, k0, f16.l)` — legacy call-record
@@ -1022,15 +856,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * `args[0]` throw on every legacy call record. The callagain URL is unique to b2 itself, and
      * `d` is the only 8-parameter method it declares.
      */
-    val methodVoipLegacyInsertMsg by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.VoipPluginManager", "weixin://voip/callagain/?username=")
-            }
-            paramCount = 8
-            returnType("void")
-        }
-    }
+    val methodVoipLegacyInsertMsg by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.VoipPluginManager', 'weixin://voip/callagain/?username=') AND m.param_count = 8 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""", allowFailure = true)
 
 //    private val classVoipService by dexClass()
 //    private val classVoipManager by dexClass()

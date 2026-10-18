@@ -79,54 +79,12 @@ object SpoofChatMessages : ClickableFeature(), IResolveDex, WeChatMessageContext
         "com.tencent.mm.plugin.thumbplayer.view.ThumbPlayerSurfaceView",
     )
 
-    private val methodGalleryImagePath by dexMethod {
-        searchPackages("com.tencent.mm.ui.chatting.gallery")
-        matcher {
-            returnType = "java.lang.String"
-            paramTypes(WeMessageApi.classMsgInfo.data.name, null, "boolean")
-            usingEqStrings(
-                "MicroMsg.ImageGalleryHolderImage",
-                "getImagePath is null because of isTryToGetProgress %s img.isGetCompleted() %s",
-            )
-        }
-    }
-    private val methodGalleryPreviewPath by dexMethod {
-        matcher {
-            declaredClass = methodGalleryImagePath.data.declaredClassName
-            returnType = "java.lang.String"
-            paramTypes(WeMessageApi.classMsgInfo.data.name, null)
-            usingEqStrings("get previewPath img not completed")
-        }
-    }
-    private val methodGalleryCachedPath by dexMethod {
-        matcher {
-            declaredClass = methodGalleryImagePath.data.declaredClassName
-            returnType = "java.lang.String"
-            paramTypes(WeMessageApi.classMsgInfo.data.name, null, "boolean")
-            addInvoke(methodGalleryImagePath.data.descriptor)
-        }
-    }
-    private val methodGalleryInitImage by dexMethod {
-        matcher {
-            declaredClass = methodGalleryImagePath.data.declaredClassName
-            returnType = "boolean"
-            usingEqStrings("initImageView image : %s bigImgPath %s position : %s")
-        }
-    }
-    private val methodChattingImageMask by dexMethod {
-        matcher {
-            modifiers(Modifier.STATIC)
-            paramTypes("android.graphics.Bitmap", "int")
-            returnType = "android.graphics.Bitmap"
-            usingEqStrings("MicroMsg.BitmapUtil", "[createChattingImage] maskBitmap is null.")
-        }
-    }
-    private val methodImageViewBind by dexMethod {
-        matcher {
-            declaredClass = IMAGE_MVVM_VIEW
-            usingEqStrings("MicroMsg.ChattingImgMvvmView", "viewModel.thumbImgW: ")
-        }
-    }
+    private val methodGalleryImagePath by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.ImageGalleryHolderImage', 'getImagePath is null because of isTryToGetProgress %s img.isGetCompleted() %s') AND m.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/gallery/%' AND m.return_descriptor = 'Ljava/lang/String;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val methodGalleryPreviewPath by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('get previewPath img not completed') AND m.return_descriptor = 'Ljava/lang/String;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
+    private val methodGalleryCachedPath by dexMethod("""SELECT m.descriptor AS method FROM methods m WHERE m.return_descriptor = 'Ljava/lang/String;' ORDER BY m.descriptor;""")
+    private val methodGalleryInitImage by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('initImageView image : %s bigImgPath %s position : %s') AND m.return_descriptor = 'Z' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
+    private val methodChattingImageMask by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('MicroMsg.BitmapUtil', '[createChattingImage] maskBitmap is null.') AND m.return_descriptor = 'Landroid/graphics/Bitmap;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val methodImageViewBind by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.ChattingImgMvvmView', 'viewModel.thumbImgW: ') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
     private val methodThumbnailSize by dexMethod()
     private val methodImageServiceGetter by dexMethod()
     private val classImageSizeService by dexClass()

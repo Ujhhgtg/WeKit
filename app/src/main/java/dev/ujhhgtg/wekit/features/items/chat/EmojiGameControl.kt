@@ -76,23 +76,8 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
     private const val MOTION_THRESHOLD = 2.0f
     private const val TAG = "EmojiGameControl"
 
-    private val methodRandom by dexMethod {
-        searchPackages("com.tencent.mm.sdk.platformtools")
-        matcher {
-            returnType(Int::class.java)
-            paramTypes(Int::class.java, Int::class.java)
-            invokeMethods {
-                add { name = "currentTimeMillis" }
-                add { name = "nextInt" }
-                matchType = MatchType.Contains
-            }
-        }
-    }
-    private val methodPanelClick by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.EmojiPanelClickListener")
-        }
-    }
+    private val methodRandom by dexMethod("""SELECT m.descriptor AS method FROM methods m WHERE m.class_descriptor LIKE 'Lcom/tencent/mm/sdk/platformtools/%' AND m.name = 'currentTimeMillis' ORDER BY m.descriptor;""")
+    private val methodPanelClick by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms WHERE ms.value IN ('MicroMsg.EmojiPanelClickListener') GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
 
     private var valMorra = 0
     private var valDice = 0

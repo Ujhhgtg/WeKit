@@ -25,30 +25,14 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
 
     data class ContactLabel(val labelId: Int, val labelName: String)
 
-    private val classNetSceneModifyContactLabelList by dexClass {
-        matcher {
-            usingEqStrings("/cgi-bin/micromsg-bin/modifycontactlabellist")
-            addMethod {
-                name = "<init>"
-                paramTypes(LinkedList::class.java)
-            }
-        }
-    }
+    private val classNetSceneModifyContactLabelList by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('/cgi-bin/micromsg-bin/modifycontactlabellist') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method_class;""")
 
     /**
      * `NetSceneAddContactLabel` (e.g. `e93.a` on 8.0.74). Anchored on the unique cgi path plus its
      * single-`String` constructor, which takes the new label's name. On success the host persists
      * the label (with a server-assigned id) into the `ContactLabel` table inside `onGYNetEnd`.
      */
-    private val classNetSceneAddContactLabel by dexClass {
-        matcher {
-            usingEqStrings("/cgi-bin/micromsg-bin/addcontactlabel")
-            addMethod {
-                name = "<init>"
-                paramTypes(String::class.java)
-            }
-        }
-    }
+    private val classNetSceneAddContactLabel by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('/cgi-bin/micromsg-bin/addcontactlabel') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method_class;""")
 
     /**
      * Get all contact labels.

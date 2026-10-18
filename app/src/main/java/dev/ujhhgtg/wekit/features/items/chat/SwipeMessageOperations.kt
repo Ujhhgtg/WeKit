@@ -100,28 +100,13 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
     // container only sees MOVE events after it intercepts them — which is why we must hook
     // onInterceptTouchEvent here rather than rely on an OnTouchListener alone. Scoping the hook to
     // this one class (instead of global ViewGroup) keeps the blast radius tiny.
-    private val classChattingItemContainer by dexClass {
-        searchPackages("com.tencent.mm.ui.chatting.viewitems")
-        matcher {
-            usingEqStrings(
-                "MicroMsg.ChattingItemContainer",
-                "warn!!! cacheSize:%s sysSize:%s"
-            )
-        }
-    }
+    private val classChattingItemContainer by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.ChattingItemContainer', 'warn!!! cacheSize:%s sysSize:%s') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
 
     // ChattingUIFragment installs this listener on the chat list. On ACTION_DOWN it asks the
     // current ChatFooter to close the keyboard/panel, then returns false so normal list handling
     // continues. A blank-area DOWN claimed by our row never reaches that listener, so resolve the
     // exact ChatFooter call and mirror it at the point where we claim the stream.
-    private val methodChatListOnTouch by dexMethod {
-        searchPackages("com.tencent.mm.ui.chatting")
-        matcher {
-            usingEqStrings("onTouch: touch down", "onTouch: touch up")
-            paramTypes("android.view.View", "android.view.MotionEvent")
-            returnType = "boolean"
-        }
-    }
+    private val methodChatListOnTouch by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('onTouch: touch down', 'onTouch: touch up') AND m.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/%' AND m.return_descriptor = 'Z' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
 
     private val methodHideChatInput by dexMethod()
 
@@ -662,18 +647,7 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
         QuickRevokeAndEdit.quickRevokeAndEdit(view.context, msgInfo)
     }
 
-    private val classChattingUiFootComponent by dexClass {
-        searchPackages("com.tencent.mm.ui.chatting.component")
-        matcher {
-            usingEqStrings(
-                "MicroMsg.ChattingUI.FootComponent",
-                "onNotifyChange event %s talker %s"
-            )
-        }
-    }
+    private val classChattingUiFootComponent by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.ChattingUI.FootComponent', 'onNotifyChange event %s talker %s') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
 
-    private val methodGetMsgInfo by dexMethod {
-        searchPackages("com.tencent.mm.ui.chatting.viewitems")
-        matcher { usingEqStrings("ItemDataTag", "getCurrentMsg2 err") }
-    }
+    private val methodGetMsgInfo by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('ItemDataTag', 'getCurrentMsg2 err') AND ms.method_class LIKE 'Lcom/tencent/mm/ui/chatting/viewitems/%' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
 }
