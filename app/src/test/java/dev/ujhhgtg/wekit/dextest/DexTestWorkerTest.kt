@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.dextest
 
 import dev.ujhhgtg.wekit.utils.fs.asPath
+import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import dev.ujhhgtg.wekit.dexkit.resolution.DexHostMetadata
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestEntry
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestRegistry
@@ -15,6 +16,7 @@ import org.luckypray.dexkit.DexKitBridge
 internal data class DexTestWorkerConfig(
     val apk: Path,
     val nativeLibrary: Path,
+    val dexSqlNativeLibrary: Path?,
     val report: Path,
     val dexKitVersion: String,
     val dexKitRevision: String,
@@ -36,6 +38,11 @@ internal data class DexTestWorkerConfig(
             return DexTestWorkerConfig(
                 apk = required("wekit.dexTest.apk").asPath.toAbsolutePath().normalize(),
                 nativeLibrary = required("wekit.dexTest.nativeLibrary").asPath.toAbsolutePath().normalize(),
+                dexSqlNativeLibrary = properties.getProperty("wekit.dexTest.dexSqlNativeLibrary")
+                    ?.takeIf(String::isNotBlank)
+                    ?.asPath
+                    ?.toAbsolutePath()
+                    ?.normalize(),
                 report = required("wekit.dexTest.report").asPath.toAbsolutePath().normalize(),
                 dexKitVersion = required("wekit.dexTest.dexKitVersion"),
                 dexKitRevision = required("wekit.dexTest.dexKitRevision"),
@@ -85,23 +92,34 @@ class DexTestWorkerTest {
             )
             require(Files.isRegularFile(config.apk)) { "APK is not a regular file: ${config.apk}" }
             require(Files.isRegularFile(config.nativeLibrary)) { "DexKit native library is not a regular file: ${config.nativeLibrary}" }
+            config.dexSqlNativeLibrary?.let {
+                require(Files.isRegularFile(it)) { "DexSQL native library is not a regular file: $it" }
+                System.load(it.toString())
+            }
             System.load(config.nativeLibrary.toString())
             DexKitBridge.create(config.apk.toString()).use { dexKit ->
                 val host = DexHostMetadata(config.versionCode, config.versionName, config.isGooglePlay)
                 val classLoader = javaClass.classLoader ?: error("worker class loader is null")
-                val features = if (config.workers != null) {
-                    runDexBatchFeatures(entries, dexKit, host, classLoader, config.workers)
-                } else entries.map { entry ->
-                    runDexFeature(entry, dexKit, host, classLoader)
+                val dexSql = if (config.dexSqlNativeLibrary != null && hasDexSqlDelegates(entries, classLoader)) {
+                    DexSqlBridge.open(listOf(config.apk.toString()))
+                } else null
+                try {
+                    val features = if (config.workers != null) {
+                        runDexBatchFeatures(entries, dexKit, host, classLoader, config.workers, dexSql)
+                    } else entries.map { entry ->
+                        runDexFeature(entry, dexKit, host, classLoader, dexSql = dexSql)
+                    }
+                    buildReport(
+                        config = config,
+                        environment = environment,
+                        dexCount = dexKit.getDexNum(),
+                        started = started,
+                        elapsedMillis = elapsedMillis(startedNanos),
+                        features = features,
+                    )
+                } finally {
+                    dexSql?.close()
                 }
-                buildReport(
-                    config = config,
-                    environment = environment,
-                    dexCount = dexKit.getDexNum(),
-                    started = started,
-                    elapsedMillis = elapsedMillis(startedNanos),
-                    features = features,
-                )
             }
         } catch (error: Throwable) {
             DexTestApkReport(

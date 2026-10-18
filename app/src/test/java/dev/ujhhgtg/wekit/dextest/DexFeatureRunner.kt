@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
 import dev.ujhhgtg.wekit.dexkit.resolution.resolveAllDex
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionEvent
 import dev.ujhhgtg.wekit.dexkit.resolution.resolveDexBatch
+import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestEntry
 import org.luckypray.dexkit.DexKitBridge
@@ -21,6 +22,7 @@ internal fun runDexFeature(
     dexKit: DexKitBridge,
     host: DexHostMetadata,
     classLoader: ClassLoader,
+    dexSql: DexSqlBridge? = null,
 ): DexTestFeatureReport {
     val started = TimeSource.Monotonic.markNow()
     val feature = try {
@@ -36,7 +38,7 @@ internal fun runDexFeature(
             featureError = error.toDexTestError(),
         )
     }
-    return runDexFeature(feature, entry, dexKit, host, started)
+    return runDexFeature(feature, entry, dexKit, host, started, dexSql)
 }
 
 internal fun runDexFeature(
@@ -45,6 +47,7 @@ internal fun runDexFeature(
     dexKit: DexKitBridge,
     host: DexHostMetadata,
     started: TimeMark = TimeSource.Monotonic.markNow(),
+    dexSql: DexSqlBridge? = null,
 ): DexTestFeatureReport {
     val resolver = feature as? IResolveDex
         ?: return DexTestFeatureReport(
@@ -60,7 +63,7 @@ internal fun runDexFeature(
     feature.dexDelegates.forEach(BaseDexDelegate::resetForResolution)
 
     val error = runCatching {
-        resolver.resolveAllDex(dexKit, host)
+        resolver.resolveAllDex(dexKit, host, dexSql = dexSql)
     }.exceptionOrNull()
     error?.rethrowIfFatal()
 
@@ -116,6 +119,7 @@ internal fun runDexBatchFeatures(
     host: DexHostMetadata,
     classLoader: ClassLoader,
     workerCount: Int,
+    dexSql: DexSqlBridge? = null,
 ): List<DexTestFeatureReport> {
     val reports = mutableMapOf<DexResolutionTestEntry, DexTestFeatureReport>()
     val loaded = entries.mapNotNull { entry ->
@@ -142,7 +146,13 @@ internal fun runDexBatchFeatures(
     loaded.forEach { (_, feature) -> feature.dexDelegates.forEach(BaseDexDelegate::resetForResolution) }
     val finished = mutableMapOf<IResolveDex, DexResolutionEvent.Finished>()
     runBlocking {
-        resolveDexBatch(loaded.map { it.second as IResolveDex }, dexKit, host, workerCount) { event ->
+        resolveDexBatch(
+            loaded.map { it.second as IResolveDex },
+            dexKit,
+            host,
+            workerCount,
+            dexSql,
+        ) { event ->
             if (event is DexResolutionEvent.Finished) finished[event.item] = event
         }
     }
@@ -151,6 +161,20 @@ internal fun runDexBatchFeatures(
         reports[entry] = dexFeatureReport(feature, entry, result.error, result.elapsedMillis)
     }
     return entries.map(reports::getValue)
+}
+
+/**
+ * Loads the selected feature singletons before opening a native DexSQL session. A worker that
+ * only exercises legacy DexKit delegates therefore keeps the extra native dependency unloaded.
+ */
+internal fun hasDexSqlDelegates(
+    entries: List<DexResolutionTestEntry>,
+    classLoader: ClassLoader,
+): Boolean = entries.any { entry ->
+    (runCatching { loadFeature(entry, classLoader) }
+        .getOrNull()
+        ?.dexDelegates
+        ?.any { it.dexSqlSpec != null }) == true
 }
 
 private fun loadFeature(entry: DexResolutionTestEntry, classLoader: ClassLoader): BaseFeature {

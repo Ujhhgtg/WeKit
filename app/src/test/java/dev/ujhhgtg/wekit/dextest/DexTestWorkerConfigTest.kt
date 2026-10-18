@@ -15,6 +15,7 @@ class DexTestWorkerConfigTest {
         assertEquals("8.0.69", config.versionName)
         assertFalse(config.isGooglePlay)
         assertNull(config.featureSelectors)
+        assertNull(config.dexSqlNativeLibrary)
     }
 
     @Test
@@ -26,6 +27,18 @@ class DexTestWorkerConfigTest {
         assertEquals(
             listOf("AntiReadReceipts", "AntiSecMsg"),
             DexTestWorkerConfig.fromSystemProperties(properties).featureSelectors,
+        )
+    }
+
+    @Test
+    fun parsesOptionalDexSqlNativeLibrary() {
+        val properties = properties().apply {
+            setProperty("wekit.dexTest.dexSqlNativeLibrary", "../target/release/libwekit_native.so")
+        }
+
+        assertEquals(
+            java.nio.file.Paths.get("../target/release/libwekit_native.so").toAbsolutePath().normalize(),
+            DexTestWorkerConfig.fromSystemProperties(properties).dexSqlNativeLibrary,
         )
     }
 

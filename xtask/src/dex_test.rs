@@ -236,6 +236,15 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
         .unwrap_or_else(|| root.join("dex-test-results"));
     let run_dir = create_run_dir(&output_root)?;
     let native = ensure_linux_dexkit(&root)?;
+    let dex_sql_native = match ensure_linux_wekit_native(&root) {
+        Ok(path) => path,
+        Err(error) => {
+            eprintln!(
+                "dex-test: DexSQL host native unavailable; SQL delegates will use DexKit: {error:#}"
+            );
+            None
+        }
+    };
     let identities = apks
         .iter()
         .map(|path| ApkIdentity {
@@ -278,6 +287,7 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
             &report_path,
             args.features.as_deref(),
             args.workers,
+            dex_sql_native.as_deref(),
         );
         let report = match (status, read_report(&report_path)) {
             (_, Ok(report)) => report,
@@ -763,6 +773,48 @@ fn ensure_linux_dexkit(root: &Path) -> Result<DexKitNative> {
     })
 }
 
+/// Build and locate the host (Linux x86_64) copy of WeKit's JNI library.
+///
+/// The desktop worker still runs the Kotlin/DexKit resolver.  This library is
+/// loaded only when the selected feature set contains a DexSQL delegate, so a
+/// missing host toolchain does not make legacy DexKit-only runs unavailable.
+fn ensure_linux_wekit_native(root: &Path) -> Result<Option<PathBuf>> {
+    if env::consts::OS != "linux" {
+        return Ok(None);
+    }
+    let target_dir = env::var_os("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .map(|path| {
+            if path.is_absolute() {
+                path
+            } else {
+                root.join(path)
+            }
+        })
+        .unwrap_or_else(|| root.join("target"));
+    let library = target_dir.join("release/libwekit_native.so");
+    if !library.is_file() {
+        println!("dex-test: building host WeKit native library");
+        run_command(
+            Command::new("cargo").current_dir(root).args([
+                "build",
+                "--locked",
+                "--release",
+                "-p",
+                "wekit-native",
+            ]),
+            "build host WeKit native library",
+        )?;
+    }
+    if !library.is_file() {
+        bail!(
+            "host WeKit native build did not produce {}",
+            library.display()
+        );
+    }
+    Ok(Some(fs::canonicalize(library)?))
+}
+
 fn validate_dexkit_source(source: &Path, version: &str) -> Result<()> {
     let head = command_output(
         Command::new("git").args(["-C", source.to_str().unwrap(), "rev-parse", "HEAD"]),
@@ -894,6 +946,7 @@ fn run_worker(
     report: &Path,
     features: Option<&str>,
     workers: Option<u16>,
+    dex_sql_native: Option<&Path>,
 ) -> Result<i32> {
     let gradle = root.join("gradlew");
     let mut properties = vec![
@@ -921,6 +974,12 @@ fn run_worker(
     }
     if let Some(workers) = workers {
         properties.push(("wekit.dexTest.workers", workers.to_string()));
+    }
+    if let Some(library) = dex_sql_native {
+        properties.push((
+            "wekit.dexTest.dexSqlNativeLibrary",
+            library.to_string_lossy().into_owned(),
+        ));
     }
     let mut command = Command::new(&gradle);
     command

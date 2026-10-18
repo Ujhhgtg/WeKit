@@ -408,6 +408,7 @@ dependencies {
 val dexTestWorkerProperties = listOf(
     "wekit.dexTest.apk",
     "wekit.dexTest.nativeLibrary",
+    "wekit.dexTest.dexSqlNativeLibrary",
     "wekit.dexTest.report",
     "wekit.dexTest.dexKitVersion",
     "wekit.dexTest.dexKitRevision",
