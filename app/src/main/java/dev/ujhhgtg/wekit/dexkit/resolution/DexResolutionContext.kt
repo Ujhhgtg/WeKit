@@ -2,6 +2,8 @@ package dev.ujhhgtg.wekit.dexkit.resolution
 
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
+import dev.ujhhgtg.wekit.dexkit.dsl.resolveFromDexSql
+import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import org.luckypray.dexkit.DexKitBridge
@@ -25,6 +27,7 @@ object DexResolutionContext {
         val dexKit: DexKitBridge,
         val host: DexHostMetadata,
         val coordinator: ResolutionCoordinator<BaseFeature>,
+        val dexSql: DexSqlBridge?,
         val stack: MutableList<BaseFeature> = mutableListOf(),
     )
 
@@ -35,6 +38,9 @@ object DexResolutionContext {
 
     val host: DexHostMetadata
         get() = current.get()?.host ?: error("Dex resolution context is not active")
+
+    val dexSql: DexSqlBridge?
+        get() = current.get()?.dexSql
 
     fun ensureResolved(delegate: BaseDexDelegate) {
         val owner = delegate.owner as IResolveDex
@@ -54,13 +60,14 @@ object DexResolutionContext {
         dexKit: DexKitBridge,
         host: DexHostMetadata,
         coordinator: ResolutionCoordinator<BaseFeature>? = null,
+        dexSql: DexSqlBridge? = null,
         block: () -> T,
     ): T {
         val previous = current.get()
-        if (previous?.dexKit === dexKit && previous.host == host &&
+        if (previous?.dexKit === dexKit && previous.host == host && previous.dexSql === dexSql &&
             (coordinator == null || previous.coordinator === coordinator)
         ) return block()
-        current.set(Session(dexKit, host, coordinator ?: newCoordinator(emptyList())))
+        current.set(Session(dexKit, host, coordinator ?: newCoordinator(emptyList()), dexSql))
         try {
             return block()
         } finally {
@@ -82,6 +89,12 @@ object DexResolutionContext {
             try {
                 item.dexDelegates.forEach(BaseDexDelegate::resetForResolution)
                 feature.resolveInlineDex(session.dexKit)
+                val sqlDelegates = item.dexDelegates.filter { it.dexSqlSpec != null }
+                if (sqlDelegates.isNotEmpty()) {
+                    val dexSql = session.dexSql
+                        ?: error("DexSQL resolution context is not active for ${feature.technicalPath}")
+                    sqlDelegates.forEach { it.resolveFromDexSql(dexSql) }
+                }
                 item.resolveDex(session.dexKit)
                 item.dexDelegates.forEach(BaseDexDelegate::markIncomplete)
                 check(item.dexDelegates.all(BaseDexDelegate::isSettled)) {
@@ -109,6 +122,7 @@ fun IResolveDex.resolveAllDex(
     dexKit: DexKitBridge,
     host: DexHostMetadata = DexHostMetadata.currentAndroidHost(),
     coordinator: ResolutionCoordinator<BaseFeature> = DexResolutionContext.newCoordinator(listOf(this)),
-) = DexResolutionContext.withResolutionContext(dexKit, host, coordinator) {
+    dexSql: DexSqlBridge? = null,
+) = DexResolutionContext.withResolutionContext(dexKit, host, coordinator, dexSql) {
     DexResolutionContext.resolve(this)
 }

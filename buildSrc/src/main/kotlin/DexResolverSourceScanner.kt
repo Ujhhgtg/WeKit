@@ -1,6 +1,13 @@
 import java.io.File
 
-internal enum class ResolveBlockKind { CUSTOM, INLINE_CLASS, INLINE_FIELD, INLINE_METHOD, INLINE_CONSTRUCTOR }
+internal enum class ResolveBlockKind {
+    CUSTOM,
+    INLINE_CLASS,
+    INLINE_FIELD,
+    INLINE_METHOD,
+    INLINE_CONSTRUCTOR,
+    INLINE_SQL,
+}
 
 internal data class ResolveSourceBlock(
     val kind: ResolveBlockKind,
@@ -89,9 +96,24 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
         ?.unescapeKotlinLiteral()
 
     val separatorRegex = Regex("""\b(val|fun|private|public|internal|class|object|override)\b""")
+    clean.findAllCode(SQL_INLINE_DELEGATE).filter(::isDirectMember).forEach { match ->
+        val openParenthesis = clean.indexOfCode('(', match.range.last)
+        val end = if (openParenthesis == -1) -1 else clean.findParenthesisEnd(openParenthesis)
+        val firstArgument = if (openParenthesis == -1) null else clean.firstCodeIndex(openParenthesis + 1, end)
+        if (firstArgument != null && clean.text[firstArgument] == '"' && end < classBodyEnd) {
+            addBlock(ResolveBlockKind.INLINE_SQL, match.range.first, end)
+        }
+    }
     clean.findAllCode(INLINE_DELEGATE).filter(::isDirectMember).forEach { match ->
         val startScan = match.range.last + 1
         val nextOpenBrace = clean.indexOfCode('{', startScan)
+        val candidateParenthesis = clean.indexOfCode('(', match.range.last)
+        val openParenthesis = candidateParenthesis.takeIf {
+            it >= startScan && (nextOpenBrace == -1 || it < nextOpenBrace)
+        } ?: -1
+        val parenthesisEnd = if (openParenthesis == -1) -1 else clean.findParenthesisEnd(openParenthesis)
+        val firstArgument = if (openParenthesis == -1) null else clean.firstCodeIndex(openParenthesis + 1, parenthesisEnd)
+        if (firstArgument != null && clean.text[firstArgument] == '"') return@forEach
         if (nextOpenBrace != -1 && !clean.containsCodeMatch(separatorRegex, startScan, nextOpenBrace)) {
             val end = clean.findBlockEnd(nextOpenBrace)
             if (end != -1 && end < classBodyEnd) {
@@ -131,6 +153,7 @@ private fun String.toResolveBlockKind(): ResolveBlockKind = when (this) {
     else -> error("Unsupported dex resolver delegate kind: $this")
 }
 
+private val SQL_INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\s*\(""")
 private val INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\b""")
 private val LIVE_HOST_ACCESS = Regex("""\b(?:class|method|field|ctor)[A-Za-z0-9_]*\.(clazz|method|field|constructor)\b""")
 private val HOST_VERSION_ACCESS = Regex("""\bHostInfo\.(versionCode|versionName|isHostGooglePlay)\b""")
@@ -196,6 +219,26 @@ private class ScannedSource(
             }
         }
         return -1
+    }
+
+    fun findParenthesisEnd(openParenthesisIndex: Int): Int {
+        var depth = 0
+        for (i in openParenthesisIndex until text.length) {
+            if (!codeMask[i]) continue
+            when (text[i]) {
+                '(' -> depth++
+                ')' -> if (--depth == 0) return i
+            }
+        }
+        return -1
+    }
+
+    fun firstCodeIndex(startIndex: Int, endIndex: Int): Int? {
+        val end = endIndex.takeIf { it >= 0 } ?: text.length
+        for (i in startIndex.coerceAtLeast(0) until end) {
+            if (!text[i].isWhitespace()) return i
+        }
+        return null
     }
 
     fun braceDepthAt(index: Int): Int {

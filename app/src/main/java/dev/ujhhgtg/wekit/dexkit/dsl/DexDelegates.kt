@@ -102,6 +102,9 @@ sealed class BaseDexDelegate(val key: String) {
 
     protected abstract fun clearCachedMember()
 
+    /** SQL plan attached by a `dexX(sql, ...)` delegate, or null for DexKit delegates. */
+    open val dexSqlSpec: DexSqlSpec? = null
+
     /** 执行内联查找（如果是内联声明的话） */
     open fun findInline(dexKit: DexKitBridge): Boolean = true
 }
@@ -115,8 +118,12 @@ sealed class BaseDexDelegate(val key: String) {
  */
 class DexClassDelegate(
     key: String,
-    private val inlineBlock: ((DexClassDelegate, DexKitBridge) -> Boolean)? = null
+    private val inlineBlock: ((DexClassDelegate, DexKitBridge) -> Boolean)? = null,
+    private val sqlSpec: DexSqlSpec? = null,
 ) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexClassDelegate> {
+
+    override val dexSqlSpec: DexSqlSpec?
+        get() = sqlSpec
 
     private var cachedClass: Class<*>? = null
 
@@ -190,8 +197,12 @@ class DexClassDelegate(
  */
 class DexFieldDelegate(
     key: String,
-    private val inlineBlock: ((DexFieldDelegate, DexKitBridge) -> Boolean)? = null
+    private val inlineBlock: ((DexFieldDelegate, DexKitBridge) -> Boolean)? = null,
+    private val sqlSpec: DexSqlSpec? = null,
 ) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexFieldDelegate> {
+
+    override val dexSqlSpec: DexSqlSpec?
+        get() = sqlSpec
 
     private var cachedField: Field? = null
 
@@ -272,8 +283,12 @@ class DexFieldDelegate(
  */
 class DexMethodDelegate(
     key: String,
-    private val inlineBlock: ((DexMethodDelegate, DexKitBridge) -> Boolean)? = null
+    private val inlineBlock: ((DexMethodDelegate, DexKitBridge) -> Boolean)? = null,
+    private val sqlSpec: DexSqlSpec? = null,
 ) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexMethodDelegate> {
+
+    override val dexSqlSpec: DexSqlSpec?
+        get() = sqlSpec
 
     private var cachedMethod: Method? = null
 
@@ -349,8 +364,12 @@ class DexMethodDelegate(
  */
 class DexConstructorDelegate(
     key: String,
-    private val inlineBlock: ((DexConstructorDelegate, DexKitBridge) -> Boolean)? = null
+    private val inlineBlock: ((DexConstructorDelegate, DexKitBridge) -> Boolean)? = null,
+    private val sqlSpec: DexSqlSpec? = null,
 ) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexConstructorDelegate> {
+
+    override val dexSqlSpec: DexSqlSpec?
+        get() = sqlSpec
 
     private var cachedConstructor: Constructor<*>? = null
 
@@ -455,6 +474,69 @@ fun dexMethod(): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeat
         DexMethodDelegate(key).also { item.registerDexDelegate(it) }
     }
 
+/**
+ * Create a SQL-backed method delegate. The query's first column must contain
+ * a method descriptor (`L...;->name(args)return`).
+ */
+fun dexMethod(
+    sql: String,
+    allowMultiple: Boolean = false,
+    allowFailure: Boolean = false,
+    resultIndex: Int = 0,
+): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexMethodDelegate>> =
+    PropertyDelegateProvider { item, property ->
+        val key = property.name
+        DexMethodDelegate(
+            key,
+            sqlSpec = DexSqlSpec(sql, allowMultiple, allowFailure, resultIndex),
+        ).also { item.registerDexDelegate(it) }
+    }
+
+/** Create a SQL-backed class delegate; the first column must contain a class descriptor. */
+fun dexClass(
+    sql: String,
+    allowMultiple: Boolean = false,
+    allowFailure: Boolean = false,
+    resultIndex: Int = 0,
+): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexClassDelegate>> =
+    PropertyDelegateProvider { item, property ->
+        val key = property.name
+        DexClassDelegate(
+            key,
+            sqlSpec = DexSqlSpec(sql, allowMultiple, allowFailure, resultIndex),
+        ).also { item.registerDexDelegate(it) }
+    }
+
+/** Create a SQL-backed field delegate; the first column must contain a field descriptor. */
+fun dexField(
+    sql: String,
+    allowMultiple: Boolean = false,
+    allowFailure: Boolean = false,
+    resultIndex: Int = 0,
+): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexFieldDelegate>> =
+    PropertyDelegateProvider { item, property ->
+        val key = property.name
+        DexFieldDelegate(
+            key,
+            sqlSpec = DexSqlSpec(sql, allowMultiple, allowFailure, resultIndex),
+        ).also { item.registerDexDelegate(it) }
+    }
+
+/** Create a SQL-backed constructor delegate; the first column must contain a constructor descriptor. */
+fun dexConstructor(
+    sql: String,
+    allowMultiple: Boolean = false,
+    allowFailure: Boolean = false,
+    resultIndex: Int = 0,
+): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexConstructorDelegate>> =
+    PropertyDelegateProvider { item, property ->
+        val key = property.name
+        DexConstructorDelegate(
+            key,
+            sqlSpec = DexSqlSpec(sql, allowMultiple, allowFailure, resultIndex),
+        ).also { item.registerDexDelegate(it) }
+    }
+
 @Suppress("NOTHING_TO_INLINE")
 inline fun DexKitBridge.findClassData(clazz: String): ClassData? =
     getClassData(clazz)
@@ -498,9 +580,9 @@ fun dexConstructor(
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexConstructorDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
-        DexConstructorDelegate(key) { delegate, dexKit ->
+        DexConstructorDelegate(key, inlineBlock = { delegate, dexKit ->
             delegate.find(dexKit, allowMultiple, throwOnFailure, resultIndex, block)
-        }.also { item.registerDexDelegate(it) }
+        }).also { item.registerDexDelegate(it) }
     }
 
 /**
@@ -514,9 +596,9 @@ fun dexClass(
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexClassDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
-        DexClassDelegate(key) { delegate, dexKit ->
+        DexClassDelegate(key, inlineBlock = { delegate, dexKit ->
             delegate.find(dexKit, allowMultiple, allowFailure, multipleIndex, block)
-        }.also { item.registerDexDelegate(it) }
+        }).also { item.registerDexDelegate(it) }
     }
 
 /**
@@ -530,9 +612,9 @@ fun dexField(
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexFieldDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
-        DexFieldDelegate(key) { delegate, dexKit ->
+        DexFieldDelegate(key, inlineBlock = { delegate, dexKit ->
             delegate.find(dexKit, allowMultiple, allowFailure, resultIndex, block)
-        }.also { item.registerDexDelegate(it) }
+        }).also { item.registerDexDelegate(it) }
     }
 
 /**
@@ -546,7 +628,7 @@ fun dexMethod(
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexMethodDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
-        DexMethodDelegate(key) { delegate, dexKit ->
+        DexMethodDelegate(key, inlineBlock = { delegate, dexKit ->
             delegate.find(dexKit, allowMultiple, allowFailure, resultIndex, block)
-        }.also { item.registerDexDelegate(it) }
+        }).also { item.registerDexDelegate(it) }
     }

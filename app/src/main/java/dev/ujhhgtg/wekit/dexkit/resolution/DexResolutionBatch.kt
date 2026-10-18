@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.dexkit.resolution
 
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +29,7 @@ suspend fun resolveDexBatch(
     dexKit: DexKitBridge,
     host: DexHostMetadata,
     workerCount: Int = 4,
+    dexSql: DexSqlBridge? = null,
     onEvent: suspend (DexResolutionEvent) -> Unit,
 ) = coroutineScope {
     require(workerCount > 0)
@@ -51,7 +53,7 @@ suspend fun resolveDexBatch(
                             events.send(DexResolutionEvent.Start(item))
                             val started = TimeSource.Monotonic.markNow()
                             val error = try {
-                                item.resolveAllDex(dexKit, host, coordinator)
+                                item.resolveAllDex(dexKit, host, coordinator, dexSql)
                                 null
                             } catch (error: CancellationException) {
                                 throw error

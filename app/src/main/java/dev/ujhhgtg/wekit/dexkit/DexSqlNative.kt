@@ -28,6 +28,5 @@ object DexSqlNative {
         allowFailure: Boolean,
     ): String
 
-    /** Returns an `{ok:true,...}` or `{ok:false,error}` JSON envelope. */
-    external fun close(handle: Long): String
+    external fun close(handle: Long)
 }

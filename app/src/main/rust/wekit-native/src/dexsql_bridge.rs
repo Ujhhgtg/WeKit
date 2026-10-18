@@ -224,9 +224,9 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_resolve(
     response_string(env, response)
 }
 
-/// Close a session.  The Kotlin surface currently uses `Unit`; failures are
-/// still emitted using the same structured JSON envelope as query/resolve so
-/// native diagnostics retain an actionable error kind and message.
+/// Close a session.  The Kotlin surface uses `Unit`; failures are logged with
+/// the same structured envelope as query/resolve so native diagnostics retain
+/// an actionable error kind and message.
 ///
 /// Java signature: `(J)V`
 #[unsafe(no_mangle)]

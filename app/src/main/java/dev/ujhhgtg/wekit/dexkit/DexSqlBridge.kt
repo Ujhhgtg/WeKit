@@ -107,7 +107,7 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
                 .distinct()
             require(inputs.isNotEmpty()) { "DexSQL requires at least one input path" }
             val handle = DexSqlNative.open(inputs.toTypedArray())
-            check(handle != 0L) { "DexSQL native open failed" }
+            if (handle == 0L) throw DexSqlException("DexSQL native open failed")
             return DexSqlBridge(handle)
         }
 

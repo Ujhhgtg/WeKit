@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.dexkit.resolution
 
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -54,8 +55,20 @@ object LocalDexResolver {
             val (result, elapsed) = measureTimedValue {
                 val failures = mutableMapOf<IResolveDex, LocalDexFailure>()
                 try {
-                    if (roots.isNotEmpty()) withDexKitSuspending { dexKit ->
-                        resolveDexBatch(roots, dexKit, DexHostMetadata.currentAndroidHost(), WORKER_COUNT) { event ->
+                    if (roots.isNotEmpty()) {
+                        val needsDexSql = roots.any { item ->
+                            (item as BaseFeature).dexDelegates.any { it.dexSqlSpec != null }
+                        }
+                        val dexSql = if (needsDexSql) DexSqlBridge.openHost() else null
+                        try {
+                            withDexKitSuspending { dexKit ->
+                                resolveDexBatch(
+                                    roots,
+                                    dexKit,
+                                    DexHostMetadata.currentAndroidHost(),
+                                    WORKER_COUNT,
+                                    dexSql,
+                                ) { event ->
                             val item = event.item
                             val displayName = (item as BaseFeature).technicalPath
                             when (event) {
@@ -81,6 +94,10 @@ object LocalDexResolver {
                                     finished += item
                                 }
                             }
+                                }
+                            }
+                        } finally {
+                            dexSql?.close()
                         }
                     }
                 } catch (error: CancellationException) {
