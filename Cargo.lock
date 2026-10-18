@@ -707,7 +707,7 @@ dependencies = [
 [[package]]
 name = "dexsql"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=77afd40#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=800ee9f#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
 dependencies = [
  "dexsql-cache",
  "dexsql-query",
@@ -716,7 +716,7 @@ dependencies = [
 [[package]]
 name = "dexsql-cache"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=77afd40#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=800ee9f#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
 dependencies = [
  "crc32fast",
  "dexsql-inflate",
@@ -730,7 +730,7 @@ dependencies = [
 [[package]]
 name = "dexsql-exec"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=77afd40#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=800ee9f#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
 dependencies = [
  "dexsql-ir",
 ]
@@ -738,7 +738,7 @@ dependencies = [
 [[package]]
 name = "dexsql-inflate"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=77afd40#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=800ee9f#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
 dependencies = [
  "flate2",
  "memmap2",
@@ -748,12 +748,12 @@ dependencies = [
 [[package]]
 name = "dexsql-ir"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=77afd40#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=800ee9f#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
 
 [[package]]
 name = "dexsql-lower"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=77afd40#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=800ee9f#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
 dependencies = [
  "dexsql-ir",
  "sqlparser",
@@ -762,12 +762,12 @@ dependencies = [
 [[package]]
 name = "dexsql-mutf8"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=77afd40#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=800ee9f#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
 
 [[package]]
 name = "dexsql-optimizer"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=77afd40#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=800ee9f#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
 dependencies = [
  "dexsql-ir",
 ]
@@ -775,7 +775,7 @@ dependencies = [
 [[package]]
 name = "dexsql-query"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=77afd40#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=800ee9f#800ee9f385c9cb01a0dcc467ffd8b32b6792437d"
 dependencies = [
  "dexsql-cache",
  "dexsql-exec",
@@ -3514,6 +3514,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cc",
+ "dexsql",
  "flate2",
  "gif",
  "jni",

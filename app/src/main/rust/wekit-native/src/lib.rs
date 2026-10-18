@@ -5,6 +5,7 @@
 mod audio_utils;
 mod crash_handler;
 mod crash_triggerer;
+mod dexsql_bridge;
 mod livephoto;
 mod logging;
 mod owned_process;
