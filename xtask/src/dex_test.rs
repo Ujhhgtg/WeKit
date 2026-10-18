@@ -236,15 +236,7 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
         .unwrap_or_else(|| root.join("dex-test-results"));
     let run_dir = create_run_dir(&output_root)?;
     let native = ensure_linux_dexkit(&root)?;
-    let dex_sql_native = match ensure_linux_wekit_native(&root) {
-        Ok(path) => path,
-        Err(error) => {
-            eprintln!(
-                "dex-test: DexSQL host native unavailable; SQL delegates will use DexKit: {error:#}"
-            );
-            None
-        }
-    };
+    let dex_sql_native = ensure_linux_wekit_native(&root)?;
     let identities = apks
         .iter()
         .map(|path| ApkIdentity {
