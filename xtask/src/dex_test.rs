@@ -5,7 +5,8 @@
 //! source set so it executes the production Kotlin resolver code.
 
 use anyhow::{Context, Result, bail};
-use clap::Args;
+use clap::{Args, ValueEnum};
+use dexsql::{Engine, EngineOptions, IndexNeeds};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
@@ -47,6 +48,23 @@ pub struct DexTestArgs {
     /// Print every successful delegate and descriptor.
     #[arg(long)]
     pub verbose: bool,
+
+    /// Resolution engine. `dexkit` runs the existing Kotlin/JVM worker;
+    /// `dexsql` executes the supplied SQL statements directly in Rust.
+    #[arg(long, value_enum, default_value_t = DexTestEngine::Dexkit)]
+    pub engine: DexTestEngine,
+
+    /// SQL statement for the `dexsql` engine. Repeat for a multi-query smoke
+    /// run. Each statement should include its own deterministic ordering and
+    /// LIMIT when it is intended to return a bounded report.
+    #[arg(long = "sql", value_name = "SQL")]
+    pub sql: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq)]
+pub enum DexTestEngine {
+    Dexkit,
+    Dexsql,
 }
 
 #[derive(Clone, Debug)]
@@ -184,6 +202,9 @@ struct SummaryReport {
 
 pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
     let root = workspace_root();
+    if args.engine == DexTestEngine::Dexsql {
+        return task_dexsql_test(&args, &root);
+    }
     let started = now_rfc3339();
     let apks = if args.apks.is_empty() {
         discover_apks()?
@@ -301,6 +322,187 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
             run_dir.display()
         )
     }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DexSqlQueryReport {
+    sql: String,
+    columns: Vec<String>,
+    rows: Vec<Vec<String>>,
+    error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DexSqlApkReport {
+    schema_version: i64,
+    engine: &'static str,
+    apk_path: String,
+    file_name: String,
+    apk_size: i64,
+    apk_sha256: String,
+    dex_count: usize,
+    outcome: &'static str,
+    queries: Vec<DexSqlQueryReport>,
+    error: Option<String>,
+}
+
+/// Run direct Rust SQL queries against the same APK inputs accepted by the
+/// legacy DexKit worker. This is intentionally a separate report shape: it
+/// validates the published facade without pretending that the Kotlin feature
+/// resolver graph has already been migrated.
+fn task_dexsql_test(args: &DexTestArgs, root: &Path) -> Result<()> {
+    if args.sql.is_empty() {
+        bail!("--engine dexsql requires at least one --sql statement")
+    }
+    if args.features.is_some() || args.workers.is_some() {
+        bail!("--features/--workers are only supported by the dexkit engine")
+    }
+    let paths = if args.apks.is_empty() {
+        discover_apks()?
+            .into_iter()
+            .map(canonical_apk)
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        normalize_explicit_apks(&args.apks)?
+    };
+    if paths.is_empty() {
+        bail!(
+            "no WeChat APKs found; pass --apk /absolute/path/to/wechat.apk or place files under ~/coding/wechat_*.apk"
+        )
+    }
+    let apks = paths
+        .into_iter()
+        .map(|path| resolve_bundle(root, path))
+        .collect::<Result<Vec<_>>>()?;
+    let output_root = args
+        .output_dir
+        .clone()
+        .map(|path| {
+            if path.is_absolute() {
+                path
+            } else {
+                env::current_dir().unwrap().join(path)
+            }
+        })
+        .unwrap_or_else(|| root.join("dex-test-results"));
+    let run_dir = create_run_dir(&output_root)?;
+    let identities = apks
+        .iter()
+        .map(|path| ApkIdentity {
+            path: path.clone(),
+            sha256: sha256_file(path).unwrap_or_default(),
+        })
+        .collect::<Vec<_>>();
+    let report_names = report_file_names(&identities);
+    let mut passed = 0usize;
+    for (index, apk) in apks.iter().enumerate() {
+        println!(
+            "\n--- [dexsql {} / {}] {} ---",
+            index + 1,
+            apks.len(),
+            apk.display()
+        );
+        let report = match run_dexsql_apk(apk, &args.sql) {
+            Ok(report) => {
+                if report.outcome == "PASS" {
+                    passed += 1;
+                }
+                report
+            }
+            Err(error) => DexSqlApkReport {
+                schema_version: 1,
+                engine: "dexsql",
+                apk_path: apk.to_string_lossy().into_owned(),
+                file_name: apk
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("apk")
+                    .to_owned(),
+                apk_size: fs::metadata(apk)
+                    .map(|meta| meta.len() as i64)
+                    .unwrap_or_default(),
+                apk_sha256: identities[index].sha256.clone(),
+                dex_count: 0,
+                outcome: "INFRASTRUCTURE_FAILURE",
+                queries: Vec::new(),
+                error: Some(error.to_string()),
+            },
+        };
+        let report_path = run_dir.join(&report_names[index]);
+        write_json_atomic(&report_path, &report)?;
+        if args.verbose {
+            println!("report: {}", report_path.display());
+            for query in &report.queries {
+                println!("{}: {} row(s)", query.sql, query.rows.len());
+            }
+        }
+    }
+    println!(
+        "\ndexsql: {passed}/{} APK(s) passed; reports: {}",
+        apks.len(),
+        run_dir.display()
+    );
+    if passed == apks.len() {
+        Ok(())
+    } else {
+        bail!(
+            "dexsql query test found failures; reports: {}",
+            run_dir.display()
+        )
+    }
+}
+
+fn run_dexsql_apk(apk: &Path, sql: &[String]) -> Result<DexSqlApkReport> {
+    let options = EngineOptions {
+        index_needs: IndexNeeds::all(),
+        eager_code_items: true,
+        full_code_items: true,
+        retain_classes: true,
+        threads: Some(1),
+    };
+    let engine = Engine::open_with_options([apk.to_path_buf()], options)
+        .map_err(|error| anyhow::anyhow!(error))?;
+    let mut queries = Vec::with_capacity(sql.len());
+    let mut failed = false;
+    for statement in sql {
+        match engine.query(statement) {
+            Ok(result) => queries.push(DexSqlQueryReport {
+                sql: statement.clone(),
+                columns: result.columns,
+                rows: result.rows,
+                error: None,
+            }),
+            Err(error) => {
+                failed = true;
+                queries.push(DexSqlQueryReport {
+                    sql: statement.clone(),
+                    columns: Vec::new(),
+                    rows: Vec::new(),
+                    error: Some(error.to_string()),
+                });
+            }
+        }
+    }
+    Ok(DexSqlApkReport {
+        schema_version: 1,
+        engine: "dexsql",
+        apk_path: apk.to_string_lossy().into_owned(),
+        file_name: apk
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("apk")
+            .to_owned(),
+        apk_size: fs::metadata(apk)
+            .map(|meta| meta.len() as i64)
+            .unwrap_or_default(),
+        apk_sha256: sha256_file(apk).unwrap_or_default(),
+        dex_count: engine.dex_count(),
+        outcome: if failed { "FAIL" } else { "PASS" },
+        queries,
+        error: None,
+    })
 }
 
 fn parse_feature_filter(value: &str) -> std::result::Result<String, String> {
