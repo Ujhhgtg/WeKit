@@ -37,6 +37,7 @@ object WeServiceApi : ApiFeature(), IResolveDex {
     }
     private val methodApiManagerGetApi by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('[get] ', ' is not a interface!') AND ms.method_class LIKE 'Lcom/tencent/mm/ui/chatting/manager/%' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
     private val methodMmKernelGetServiceImpl by dexMethod()
+    private val classMmKernel by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.MMKernel', 'Kernel not null, has initialized.') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
     private val methodVideoPathFeatureServiceRestoreMp4Path by dexMethod() // formerly VideoInfoStorage
     val classVideoService by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.VideoService', 'MicroMsg.SubCoreVideo', 'quitVideoSendThread') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 3 ORDER BY ms.method_class;""")
     val classEmojiMgrImpl by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.emoji.EmojiMgrImpl', 'sendEmoji: context is null') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
@@ -170,15 +171,9 @@ object WeServiceApi : ApiFeature(), IResolveDex {
     }
 
     override fun resolveDex(dexKit: DexKitBridge) {
-        val classMmKernel = dexKit.findClass {
-            matcher {
-                usingEqStrings("MicroMsg.MMKernel", "Kernel not null, has initialized.")
-            }
-        }.single()
-
         methodMmKernelGetServiceImpl.find(dexKit) {
             matcher {
-                declaredClass = classMmKernel.name
+                declaredClass = classMmKernel.data.name
                 paramTypes(Class::class.java)
             }
         }

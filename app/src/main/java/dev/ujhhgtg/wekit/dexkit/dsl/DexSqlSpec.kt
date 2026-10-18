@@ -42,9 +42,16 @@ fun BaseDexDelegate.resolveFromDexSql(bridge: DexSqlBridge) {
     }
     require(descriptor.isNotBlank()) { "DexSQL delegate $key returned a blank descriptor" }
     when (this) {
-        is DexClassDelegate -> setDescriptor(descriptor)
+        is DexClassDelegate -> setDescriptor(descriptor.toJavaClassName())
         is DexFieldDelegate -> setDescriptor(descriptor)
         is DexMethodDelegate -> setDescriptor(DexMethodDescriptor(descriptor))
         is DexConstructorDelegate -> setDescriptor(DexMethodDescriptor(descriptor))
     }
 }
+
+private fun String.toJavaClassName(): String =
+    if (startsWith("L") && endsWith(";")) {
+        substring(1, length - 1).replace('/', '.')
+    } else {
+        this
+    }

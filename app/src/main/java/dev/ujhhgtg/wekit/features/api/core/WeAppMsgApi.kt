@@ -3,6 +3,8 @@ package dev.ujhhgtg.wekit.features.api.core
 import android.util.Pair
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.data
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -25,39 +27,29 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
     private val methodSendAppMsg by dexMethod()  // k0.J(...)
     private val fieldQuoteItem by dexField()
     private val fieldQuoteMsgSource by dexField()
+    private val classAppMsgContent by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('<appmsg appid="', 'parse amessage xml failed') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
+    private val classAppMsgLogic by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.AppMsgLogic', 'summerbig sendAppMsg attachFilePath') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
 
     private const val TAG = "WeAppMsgApi"
 
     override fun resolveDex(dexKit: DexKitBridge) {
-        val classAppMsgContent = dexKit.findClass {
-            matcher {
-                usingStrings("<appmsg appid=\"", "parse amessage xml failed")
-            }
-        }.single()
-
-        val classAppMsgLogic = dexKit.findClass {
-            matcher {
-                usingStrings("MicroMsg.AppMsgLogic", "summerbig sendAppMsg attachFilePath")
-            }
-        }.single()
-
         methodParseXml.find(dexKit, true) {
             matcher {
-                declaredClass = classAppMsgContent.name
+                declaredClass = classAppMsgContent.data.name
                 modifiers = Modifier.PUBLIC or Modifier.STATIC
                 paramTypes(String::class.java.name)
-                returnType = classAppMsgContent.name
+                returnType = classAppMsgContent.data.name
                 usingStrings("parse msg failed")
             }
         }
 
         methodSendAppMsg.find(dexKit) {
             matcher {
-                declaredClass = classAppMsgLogic.name
+                declaredClass = classAppMsgLogic.data.name
                 modifiers = Modifier.STATIC
                 paramCount = 6
                 paramTypes(
-                    classAppMsgContent.name,
+                    classAppMsgContent.data.name,
                     "java.lang.String",
                     null,
                     null,
@@ -67,13 +59,13 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
             }
         }
 
-        val quoteItemField = classAppMsgContent.fields.single {
+        val quoteItemField = classAppMsgContent.data.fields.single {
             it.typeName == "com.tencent.mm.plugin.msgquote.model.MsgQuoteItem"
         }
         fieldQuoteItem.setDescriptor(quoteItemField)
         // AppMsgLogic reads the outgoing msgSource, not the quoted message's msgsource.
         fieldQuoteMsgSource.setDescriptor(
-            classAppMsgLogic.methods.asSequence()
+            classAppMsgLogic.data.methods.asSequence()
                 .flatMap { it.usingFields.asSequence() }
                 .filter { it.usingType == FieldUsingType.Read }
                 .map { it.field }

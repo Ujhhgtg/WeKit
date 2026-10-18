@@ -161,8 +161,9 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             usingNumbers(57)
         }
     }
-    private val classQuoteMsgItem by dexClass()
-    private val classQuoteRelation by dexClass()
+    private val classQuoteMsgItem by dexClass("""SELECT descriptor FROM classes WHERE descriptor = 'Lcom/tencent/mm/plugin/msgquote/model/MsgQuoteItem;' ORDER BY descriptor;""")
+    private val classQuoteRelation by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MsgQute{field_msgId=', 'field_quotedMsgTalker=') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
+    private val classQuoteStorage by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.msgquote.MsgQuoteStorage', 'getMsgQuteByMsgId:%s') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method_class;""")
     private val methodQuoteNormalizeType by dexMethod()
     private val methodQuoteMsgSource by dexMethod()
     private val methodQuoteStorageGetter by dexMethod()
@@ -292,10 +293,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     @SuppressLint("NonUniqueDexKitData")
     override fun resolveDex(dexKit: DexKitBridge) {
         val quoteCompose = methodQuoteCompose.data
-        val quoteMsgItem = dexKit.findClass {
-            matcher { className = "com.tencent.mm.plugin.msgquote.model.MsgQuoteItem" }
-        }.single()
-        classQuoteMsgItem.setDescriptor(quoteMsgItem)
 
         val appMessageName = classAppMessage.data.name
         val quoteWrites = quoteCompose.usingFields
@@ -314,7 +311,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         )
         fieldQuoteAppItem.setDescriptor(
             quoteWrites.single {
-                it.className == appMessageName && it.typeName == quoteMsgItem.name
+                it.className == appMessageName && it.typeName == classQuoteMsgItem.data.name
             }
         )
 
@@ -335,21 +332,9 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
         )
 
-        val quoteRelation = dexKit.findClass {
-            matcher { usingStrings("MsgQute{field_msgId=", "field_quotedMsgTalker=") }
-        }.single()
-        classQuoteRelation.setDescriptor(quoteRelation)
-        val quoteStorage = dexKit.findClass {
-            matcher {
-                usingStrings(
-                    "MicroMsg.msgquote.MsgQuoteStorage",
-                    "getMsgQuteByMsgId:%s",
-                )
-            }
-        }.single()
         methodQuoteRelationInsert.setDescriptor(
-            quoteStorage.methods.single { candidate ->
-                candidate.paramTypeNames == listOf(quoteRelation.name) &&
+            classQuoteStorage.data.methods.single { candidate ->
+                candidate.paramTypeNames == listOf(classQuoteRelation.data.name) &&
                     candidate.returnTypeName == "boolean" &&
                     candidate.usingFields.any {
                         it.usingType == FieldUsingType.Write &&
@@ -361,7 +346,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             quoteCompose.invokes.distinctBy { it.descriptor }.single {
                 !Modifier.isStatic(it.modifiers) &&
                     it.paramCount == 0 &&
-                    it.returnTypeName == quoteStorage.name
+                    it.returnTypeName == classQuoteStorage.data.name
             }
         )
 
