@@ -115,6 +115,11 @@ private const val BROAD_FIELDS =
     "SELECT DISTINCT f.descriptor AS descriptor FROM fields f ORDER BY f.descriptor;"
 
 private fun methodCandidateSql(spec: MethodSpec, packages: List<String>): String? {
+    // Exact descriptor equality is a cheap, fully-superset candidate filter.
+    spec.descriptor?.let { descriptor ->
+        return "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.descriptor = " +
+            sqlLiteral(descriptor) + " ORDER BY m.descriptor;"
+    }
     val steps = mutableListOf<(SqlMethodQuery) -> Unit>()
     spec.name?.takeIf { it.match == NameMatch.Equals }?.let { nameSpec ->
         steps += { query -> query.name = nameSpec.value }
@@ -198,6 +203,8 @@ private fun fieldCandidateSql(spec: FieldSpec, packages: List<String>): String? 
     if (steps.isEmpty()) return null
     return sqlField { steps.forEach { step -> step(this) } }.toSql()
 }
+
+private fun sqlLiteral(value: String): String = "'" + value.replace("'", "''") + "'"
 
 private fun classSpecIsNameOnly(spec: ClassSpec): Boolean =
     spec.className != null &&
