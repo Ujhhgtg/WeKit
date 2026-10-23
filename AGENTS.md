@@ -83,7 +83,10 @@
   constraints use modifiers(...) or modifiers = ... and compile to
   (alias.access_flags & mask) = mask (DexKit Contains semantics). Literal LIKE
   values only escape backslash/percent/underscore and add ESCAPE when needed;
-  equality literals stay raw.
+  equality literals stay raw. Class-name, type, string and number slots may also take
+  a deferred { } value whose expression is evaluated during resolution from other
+  delegates' .data metadata (deferred SQL delegates run after the inline phase);
+  such providers must stay side-effect free and only reference resolvable delegates.
 - UI: Jetpack Compose + Material 3; dialogs via `showComposeDialog` and `AlertDialogContent`;
   settings screens follow Material 3 UI Standards below
 - Storage: everything lives in the host's private `filesDir/wekit/`; the Room database
