@@ -110,11 +110,11 @@ class DexMethodInfo internal constructor(
 
     /** Fields read by this method (DexKit MethodData.readFields() equivalent). */
     fun readFields(): List<DexFieldInfo> =
-        usingFields.filter { it.usingType.isRead }.map { it.field }
+        usingFields.filter { it.usingType.isRead }.map { it.field }.distinctBy { it.descriptor }
 
     /** Fields written by this method. */
     fun writeFields(): List<DexFieldInfo> =
-        usingFields.filter { it.usingType.isWrite }.map { it.field }
+        usingFields.filter { it.usingType.isWrite }.map { it.field }.distinctBy { it.descriptor }
 
     override fun toString(): String = descriptor
 }

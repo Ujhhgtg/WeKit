@@ -142,7 +142,7 @@ class DexClassDelegate(
     fun setDescriptor(className: String) = setResolvedDescriptor(className)
 
     @Suppress("unused")
-    fun setDescriptor(c: DexClassInfo) = setDescriptor(c.descriptor)
+    fun setDescriptor(c: DexClassInfo) = setDescriptor(c.name)
 
     fun setDescriptor(c: ClassData) {
         setDescriptor(c.name)
