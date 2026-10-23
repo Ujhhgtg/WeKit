@@ -46,6 +46,37 @@ class DexResolverSourceScannerTest {
     }
 
     @Test
+    fun includesSqlDslDelegateExpressionsInResolverHashInput() {
+        val source = scanDexResolverSource(
+            "Sample.kt",
+            """
+                package sample
+                object Sample : IResolveDex {
+                    private val method by dexMethod(
+                        sqlMethod {
+                            name = "onCreate"
+                            returnType = "void"
+                        },
+                        allowFailure = true,
+                    )
+                    private val clazz by dexClass(sqlClass { className = "com.example.Host" })
+                    private val field by dexField(sqlField { type = "int" })
+                    private val ctor by dexConstructor(sqlConstructor { paramCount = 0 })
+                }
+            """.trimIndent(),
+        )!!
+
+        assertEquals(
+            List(4) { ResolveBlockKind.INLINE_SQL },
+            source.blocks.map { it.kind },
+        )
+        val methodBlock = source.blocks.first()
+        assertEquals(3, methodBlock.startLine)
+        assertEquals(true, methodBlock.text.contains("sqlMethod"))
+        assertEquals(true, methodBlock.text.contains("allowFailure = true"))
+    }
+
+    @Test
     fun flagsHostReflectionOnlyInsideResolutionBlocks() {
         val source = scanDexResolverSource("Sample.kt", sampleSource)!!
 

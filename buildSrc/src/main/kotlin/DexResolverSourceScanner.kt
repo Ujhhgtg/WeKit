@@ -100,7 +100,11 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
         val openParenthesis = clean.indexOfCode('(', match.range.last)
         val end = if (openParenthesis == -1) -1 else clean.findParenthesisEnd(openParenthesis)
         val firstArgument = if (openParenthesis == -1) null else clean.firstCodeIndex(openParenthesis + 1, end)
-        if (firstArgument != null && clean.text[firstArgument] == '"' && end < classBodyEnd) {
+        if (
+            firstArgument != null &&
+            end < classBodyEnd &&
+            (clean.text[firstArgument] == '"' || clean.matchesAt(SQL_DSL_CALL, firstArgument))
+        ) {
             addBlock(ResolveBlockKind.INLINE_SQL, match.range.first, end)
         }
     }
@@ -113,7 +117,10 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
         } ?: -1
         val parenthesisEnd = if (openParenthesis == -1) -1 else clean.findParenthesisEnd(openParenthesis)
         val firstArgument = if (openParenthesis == -1) null else clean.firstCodeIndex(openParenthesis + 1, parenthesisEnd)
-        if (firstArgument != null && clean.text[firstArgument] == '"') return@forEach
+        if (
+            firstArgument != null &&
+            (clean.text[firstArgument] == '"' || clean.matchesAt(SQL_DSL_CALL, firstArgument))
+        ) return@forEach
         if (nextOpenBrace != -1 && !clean.containsCodeMatch(separatorRegex, startScan, nextOpenBrace)) {
             val end = clean.findBlockEnd(nextOpenBrace)
             if (end != -1 && end < classBodyEnd) {
@@ -154,6 +161,7 @@ private fun String.toResolveBlockKind(): ResolveBlockKind = when (this) {
 }
 
 private val SQL_INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\s*\(""")
+private val SQL_DSL_CALL = Regex("""sql(?:Method|Class|Field|Constructor)\b""")
 private val INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\b""")
 private val LIVE_HOST_ACCESS = Regex("""\b(?:class|method|field|ctor)[A-Za-z0-9_]*\.(clazz|method|field|constructor)\b""")
 private val HOST_VERSION_ACCESS = Regex("""\bHostInfo\.(versionCode|versionName|isHostGooglePlay)\b""")
@@ -232,6 +240,9 @@ private class ScannedSource(
         }
         return -1
     }
+
+    fun matchesAt(regex: Regex, index: Int): Boolean =
+        regex.find(text, index)?.range?.first == index
 
     fun firstCodeIndex(startIndex: Int, endIndex: Int): Int? {
         val end = endIndex.takeIf { it >= 0 } ?: text.length

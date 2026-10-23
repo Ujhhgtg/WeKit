@@ -8,17 +8,6 @@ import kotlinx.serialization.json.Json
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 
-/** Selection policy used by [DexSqlBridge.resolve]. */
-data class ResolveOptions(
-    val resultIndex: Int = 0,
-    val allowMultiple: Boolean = false,
-    val allowFailure: Boolean = false,
-) {
-    init {
-        require(resultIndex >= 0) { "resultIndex must be non-negative" }
-    }
-}
-
 /** Owned, allocation-safe representation of one DexSQL query result. */
 @Keep
 data class DexSqlQueryResult(
@@ -40,6 +29,9 @@ class DexSqlProtocolException(message: String, cause: Throwable? = null) :
  * [close] takes the write side and therefore waits for in-flight calls before releasing the
  * native handle. Closing is idempotent; every other operation after close fails loudly.
  * Prefer `DexSqlBridge.open(...).use { ... }` so the native dataset is always released.
+ *
+ * This class only runs queries. Which row is "the" answer, and whether an empty result is an
+ * expected failure, is resolver policy owned by WeKit's Dex delegate layer.
  */
 @Keep
 class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
@@ -51,28 +43,8 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
         decodeQuery(DexSqlNative.query(handle, sql))
     }
 
-    /** Resolve one value from the first result column; an allowed empty result returns null. */
-    fun resolve(sql: String, options: ResolveOptions = ResolveOptions()): String? =
-        withHandle { handle ->
-            decodeResolve(
-                DexSqlNative.resolve(
-                    handle = handle,
-                    sql = sql,
-                    resultIndex = options.resultIndex,
-                    allowMultiple = options.allowMultiple,
-                    allowFailure = options.allowFailure,
-                ),
-            )
-        }
-
     /** Exception-free convenience form for callers that already use Kotlin [Result]. */
     fun queryResult(sql: String): Result<DexSqlQueryResult> = runCatching { query(sql) }
-
-    /** Exception-free convenience form for callers that already use Kotlin [Result]. */
-    fun resolveResult(
-        sql: String,
-        options: ResolveOptions = ResolveOptions(),
-    ): Result<String?> = runCatching { resolve(sql, options) }
 
     override fun close() {
         val writeLock = lifecycleLock.writeLock()
@@ -134,11 +106,6 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
             return DexSqlQueryResult(response.columns, response.rows)
         }
 
-        private fun decodeResolve(raw: String): String? {
-            val response = decodeEnvelope(raw, "resolve")
-            return response.value
-        }
-
         private fun decodeEnvelope(raw: String, operation: String): NativeResponse {
             val response = try {
                 json.decodeFromString<NativeResponse>(raw)
@@ -163,7 +130,6 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
         val ok: Boolean,
         val columns: List<String>? = null,
         val rows: List<List<String>>? = null,
-        val value: String? = null,
         val error: NativeError? = null,
     )
 

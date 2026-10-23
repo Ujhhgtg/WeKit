@@ -7,6 +7,7 @@ import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.dexkit.DexMethodDescriptor
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionState
+import dev.ujhhgtg.wekit.dexkit.sql.DexSqlQuery
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
@@ -79,7 +80,7 @@ sealed class BaseDexDelegate(val key: String) {
         updateState(DexResolutionState.ExpectedFailure)
     }
 
-    protected fun recordUnexpectedFailure(error: Throwable) = updateState(
+    fun recordUnexpectedFailure(error: Throwable) = updateState(
         DexResolutionState.UnexpectedFailure(
             message = error.message,
             exceptionType = error::class.java.name,
@@ -148,12 +149,13 @@ class DexClassDelegate(
 
     /**
      * 查找 Dex 类。结果直接写入委托自身。
+     *
+     * A matcher that matches several classes is an ambiguity bug: each delegate must
+     * describe exactly one host member (or be an allowed expected failure).
      */
     fun find(
         dexKit: DexKitBridge,
-        allowMultiple: Boolean = false,
         allowFailure: Boolean = false,
-        multipleIndex: Int = 0,
         block: FindClass.() -> Unit
     ): Boolean {
         try {
@@ -164,13 +166,13 @@ class DexClassDelegate(
                 markExpectedFailure()
                 return false
             }
-            if (results.size > 1 && !allowMultiple)
+            if (results.size > 1)
                 error(
                     "DexKit: Multiple classes found for key: $key, count: ${results.size}, classes: ${
                     results.joinToString(",") { it.name }
                 }")
 
-            setDescriptor(results[multipleIndex].name)
+            setDescriptor(results.single().name)
             return true
         } catch (e: Throwable) {
             recordUnexpectedFailure(e)
@@ -220,11 +222,10 @@ class DexFieldDelegate(
         cachedField = null
     }
 
+    /** 查找 Dex 字段。A multi-row match is an ambiguity bug, not a selection policy. */
     fun find(
         dexKit: DexKitBridge,
-        allowMultiple: Boolean = false,
         allowFailure: Boolean = false,
-        resultIndex: Int = 0,
         block: FindField.() -> Unit
     ): Boolean {
         try {
@@ -235,14 +236,14 @@ class DexFieldDelegate(
                 markExpectedFailure()
                 return false
             }
-            if (results.size > 1 && !allowMultiple)
+            if (results.size > 1)
                 error(
                     "DexKit: Multiple fields found for key: $key, count: ${results.size}, fields:${
                         results.map { "${it.className}::${it.fieldName}" }
                     }"
                 )
 
-            setDescriptor(results[resultIndex].descriptor)
+            setDescriptor(results.single().descriptor)
             return true
         } catch (e: Throwable) {
             recordUnexpectedFailure(e)
@@ -315,11 +316,10 @@ class DexMethodDelegate(
     /**
      * 查找 Dex 方法。结果直接写入委托自身。
      */
+    /** 查找 Dex 方法。A multi-row match is an ambiguity bug, not a selection policy. */
     fun find(
         dexKit: DexKitBridge,
-        allowMultiple: Boolean = false,
         allowFailure: Boolean = false,
-        resultIndex: Int = 0,
         block: FindMethod.() -> Unit
     ): Boolean {
         try {
@@ -330,7 +330,7 @@ class DexMethodDelegate(
                 markExpectedFailure()
                 return false
             }
-            if (results.size > 1 && !allowMultiple)
+            if (results.size > 1)
                 error(
                     "DexKit: Multiple methods found for key: $key, count: ${results.size}, methods:${
                         results.map {
@@ -339,7 +339,7 @@ class DexMethodDelegate(
                     }"
                 )
 
-            val m = results[resultIndex]
+            val m = results.single()
             setDescriptor(DexMethodDescriptor(m.className, m.methodName, m.methodSign))
             return true
         } catch (e: Throwable) {
@@ -396,11 +396,10 @@ class DexConstructorDelegate(
     /**
      * 查找 Dex 构造函数。结果直接写入委托自身。
      */
+    /** 查找 Dex 构造函数。A multi-row match is an ambiguity bug, not a selection policy. */
     fun find(
         dexKit: DexKitBridge,
-        allowMultiple: Boolean = false,
-        throwOnFailure: Boolean = true,
-        resultIndex: Int = 0,
+        allowFailure: Boolean = false,
         block: FindMethod.() -> Unit
     ): Boolean {
         try {
@@ -411,14 +410,14 @@ class DexConstructorDelegate(
             }
 
             if (results.isEmpty()) {
-                if (throwOnFailure) error("DexKit: No constructor found for key: $key")
+                if (!allowFailure) error("DexKit: No constructor found for key: $key")
                 markExpectedFailure()
                 return false
             }
-            if (results.size > 1 && !allowMultiple)
+            if (results.size > 1)
                 error("DexKit: Multiple constructors found for key: $key, count: ${results.size}")
 
-            val m = results[resultIndex]
+            val m = results.single()
             setDescriptor(DexMethodDescriptor(m.className, "<init>", m.methodSign))
             return true
         } catch (e: Throwable) {
@@ -474,66 +473,87 @@ fun dexMethod(): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeat
         DexMethodDelegate(key).also { item.registerDexDelegate(it) }
     }
 
+/** Create a SQL-backed method delegate from a [dev.ujhhgtg.wekit.dexkit.sql.sqlMethod] query. */
+fun dexMethod(
+    query: DexSqlQuery,
+    allowFailure: Boolean = false,
+): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexMethodDelegate>> =
+    dexMethod(query.toSql(), allowFailure)
+
+/** Create a SQL-backed class delegate from a [dev.ujhhgtg.wekit.dexkit.sql.sqlClass] query. */
+fun dexClass(
+    query: DexSqlQuery,
+    allowFailure: Boolean = false,
+): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexClassDelegate>> =
+    dexClass(query.toSql(), allowFailure)
+
+/** Create a SQL-backed field delegate from a [dev.ujhhgtg.wekit.dexkit.sql.sqlField] query. */
+fun dexField(
+    query: DexSqlQuery,
+    allowFailure: Boolean = false,
+): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexFieldDelegate>> =
+    dexField(query.toSql(), allowFailure)
+
+/** Create a SQL-backed constructor delegate from a [dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor] query. */
+fun dexConstructor(
+    query: DexSqlQuery,
+    allowFailure: Boolean = false,
+): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexConstructorDelegate>> =
+    dexConstructor(query.toSql(), allowFailure)
+
 /**
- * Create a SQL-backed method delegate. The query's first column must contain
- * a method descriptor (`L...;->name(args)return`).
+ * Create a SQL-backed method delegate from a raw SQL string. Prefer the
+ * [dev.ujhhgtg.wekit.dexkit.sql.sqlMethod] overload; raw SQL is an escape hatch
+ * for queries the matcher DSL cannot express.
  */
 fun dexMethod(
     sql: String,
-    allowMultiple: Boolean = false,
     allowFailure: Boolean = false,
-    resultIndex: Int = 0,
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexMethodDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
         DexMethodDelegate(
             key,
-            sqlSpec = DexSqlSpec(sql, allowMultiple, allowFailure, resultIndex),
+            sqlSpec = DexSqlSpec(sql, allowFailure),
         ).also { item.registerDexDelegate(it) }
     }
 
 /** Create a SQL-backed class delegate; the first column must contain a class descriptor. */
 fun dexClass(
     sql: String,
-    allowMultiple: Boolean = false,
     allowFailure: Boolean = false,
-    resultIndex: Int = 0,
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexClassDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
         DexClassDelegate(
             key,
-            sqlSpec = DexSqlSpec(sql, allowMultiple, allowFailure, resultIndex),
+            sqlSpec = DexSqlSpec(sql, allowFailure),
         ).also { item.registerDexDelegate(it) }
     }
 
 /** Create a SQL-backed field delegate; the first column must contain a field descriptor. */
 fun dexField(
     sql: String,
-    allowMultiple: Boolean = false,
     allowFailure: Boolean = false,
-    resultIndex: Int = 0,
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexFieldDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
         DexFieldDelegate(
             key,
-            sqlSpec = DexSqlSpec(sql, allowMultiple, allowFailure, resultIndex),
+            sqlSpec = DexSqlSpec(sql, allowFailure),
         ).also { item.registerDexDelegate(it) }
     }
 
 /** Create a SQL-backed constructor delegate; the first column must contain a constructor descriptor. */
 fun dexConstructor(
     sql: String,
-    allowMultiple: Boolean = false,
     allowFailure: Boolean = false,
-    resultIndex: Int = 0,
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexConstructorDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
         DexConstructorDelegate(
             key,
-            sqlSpec = DexSqlSpec(sql, allowMultiple, allowFailure, resultIndex),
+            sqlSpec = DexSqlSpec(sql, allowFailure),
         ).also { item.registerDexDelegate(it) }
     }
 
@@ -573,15 +593,13 @@ val DexFieldDelegate.data: FieldData
  * 创建带有内联查找逻辑的 dexConstructor 委托
  */
 fun dexConstructor(
-    allowMultiple: Boolean = false,
-    throwOnFailure: Boolean = true,
-    resultIndex: Int = 0,
+    allowFailure: Boolean = false,
     block: FindMethod.() -> Unit
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexConstructorDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
         DexConstructorDelegate(key, inlineBlock = { delegate, dexKit ->
-            delegate.find(dexKit, allowMultiple, throwOnFailure, resultIndex, block)
+            delegate.find(dexKit, allowFailure, block)
         }).also { item.registerDexDelegate(it) }
     }
 
@@ -589,15 +607,13 @@ fun dexConstructor(
  * 创建带有内联查找逻辑的 dexClass 委托
  */
 fun dexClass(
-    allowMultiple: Boolean = false,
     allowFailure: Boolean = false,
-    multipleIndex: Int = 0,
     block: FindClass.() -> Unit
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexClassDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
         DexClassDelegate(key, inlineBlock = { delegate, dexKit ->
-            delegate.find(dexKit, allowMultiple, allowFailure, multipleIndex, block)
+            delegate.find(dexKit, allowFailure, block)
         }).also { item.registerDexDelegate(it) }
     }
 
@@ -605,15 +621,13 @@ fun dexClass(
  * 创建带有内联查找逻辑的 dexField 委托
  */
 fun dexField(
-    allowMultiple: Boolean = false,
     allowFailure: Boolean = false,
-    resultIndex: Int = 0,
     block: FindField.() -> Unit
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexFieldDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
         DexFieldDelegate(key, inlineBlock = { delegate, dexKit ->
-            delegate.find(dexKit, allowMultiple, allowFailure, resultIndex, block)
+            delegate.find(dexKit, allowFailure, block)
         }).also { item.registerDexDelegate(it) }
     }
 
@@ -621,14 +635,12 @@ fun dexField(
  * 创建带有内联查找逻辑的 dexMethod 委托
  */
 fun dexMethod(
-    allowMultiple: Boolean = false,
     allowFailure: Boolean = false,
-    resultIndex: Int = 0,
     block: FindMethod.() -> Unit
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexMethodDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
         DexMethodDelegate(key, inlineBlock = { delegate, dexKit ->
-            delegate.find(dexKit, allowMultiple, allowFailure, resultIndex, block)
+            delegate.find(dexKit, allowFailure, block)
         }).also { item.registerDexDelegate(it) }
     }

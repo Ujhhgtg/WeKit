@@ -88,13 +88,17 @@ object DexResolutionContext {
             session.stack += feature
             try {
                 item.dexDelegates.forEach(BaseDexDelegate::resetForResolution)
-                feature.resolveInlineDex(session.dexKit)
+                // SQL delegates are pure queries resolved from static text, so they can run
+                // before the DexKit inline phase. Inline matchers restored from a SQL migration
+                // may read another delegate's .data; resolving SQL first keeps those
+                // dependencies available without introducing declaration-order coupling.
                 val sqlDelegates = item.dexDelegates.filter { it.dexSqlSpec != null }
                 if (sqlDelegates.isNotEmpty()) {
                     val dexSql = session.dexSql
                         ?: error("DexSQL resolution context is not active for ${feature.technicalPath}")
                     sqlDelegates.forEach { it.resolveFromDexSql(dexSql) }
                 }
+                feature.resolveInlineDex(session.dexKit)
                 item.resolveDex(session.dexKit)
                 item.dexDelegates.forEach(BaseDexDelegate::markIncomplete)
                 check(item.dexDelegates.all(BaseDexDelegate::isSettled)) {

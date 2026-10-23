@@ -2,9 +2,10 @@
 //!
 //! The bridge deliberately keeps the native session independent of Kotlin
 //! objects.  Paths and SQL are copied out of JNI strings before they reach
-//! DexSQL, while query and resolve responses are returned as small JSON
-//! envelopes that can be consumed by either the feature code or desktop
-//! tooling.  Session handles are IDs in a process-wide registry rather than
+//! DexSQL, while query responses are returned as small JSON envelopes that can
+//! be consumed by either the feature code or desktop tooling. The WeKit Kotlin
+//! layer owns row selection and resolver-state classification; this bridge only
+//! exposes the read-only SQL contract.  Session handles are IDs in a process-wide registry rather than
 //! raw pointers: an in-flight query keeps its `Arc<Engine>` alive when another
 //! thread closes the handle, and a stale handle is reported as a structured
 //! error instead of becoming a use-after-free.
@@ -13,10 +14,8 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use dexsql::{Engine, EngineOptions, Error as DexSqlError, IndexNeeds, ResolveOptions};
-use jni::sys::{
-    JNI_FALSE, JNIEnv as RawJNIEnv, jboolean, jint, jlong, jobject, jobjectArray, jstring,
-};
+use dexsql::{Engine, EngineOptions, Error as DexSqlError, IndexNeeds};
+use jni::sys::{JNIEnv as RawJNIEnv, jlong, jobject, jobjectArray, jstring};
 use serde_json::{Value, json};
 
 use crate::utils::with_jstring;
@@ -74,15 +73,6 @@ fn engine_error(error: DexSqlError) -> String {
     match error {
         DexSqlError::Load(message) => failure("load", message),
         DexSqlError::Query(message) => failure("query", message),
-        DexSqlError::EmptyResult => failure("empty_result", "query returned no rows"),
-        DexSqlError::MultipleResults { count } => failure(
-            "multiple_results",
-            format!("query returned {count} rows; expected one"),
-        ),
-        DexSqlError::ResultIndexOutOfRange { index, count } => failure(
-            "result_index_out_of_range",
-            format!("result index {index} is out of range for {count} rows"),
-        ),
     }
 }
 
@@ -142,18 +132,28 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_open(
         }
     };
 
+    // Match the WeKit SQL DSL's relation surface exactly: the canonical
+    // queries only use method strings, method numbers and field accesses. The
+    // loader keeps code offsets (eager_code_items) but does not retain full
+    // code items, and the shared Rayon pool uses the host's default width.
     let options = EngineOptions {
-        index_needs: IndexNeeds::all(),
+        index_needs: IndexNeeds {
+            method_strings: true,
+            method_numbers: true,
+            method_calls: false,
+            method_field_accesses: true,
+            method_used_types: false,
+        },
         eager_code_items: true,
-        full_code_items: true,
+        full_code_items: false,
         retain_classes: true,
-        threads: Some(1),
+        threads: None,
     };
     match Engine::open_with_options(paths, options) {
         Ok(engine) => insert_session(engine),
         Err(error) => {
             // `open` returns a primitive handle for the Kotlin API.  Keep the
-            // same structured error vocabulary as query/resolve in native
+            // same structured error vocabulary as query in native
             // logs; callers receive the unambiguous zero handle.
             loge!("DexSQL open failed: {}", engine_error(error));
             0
@@ -186,46 +186,8 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_query(
     response_string(env, response)
 }
 
-/// Resolve one descriptor-like value from the first result column.
-///
-/// Java signature: `(JLjava/lang/String;IZZ)Ljava/lang/String;` where the
-/// integer is the selected row and the booleans are `allowMultiple` and
-/// `allowFailure`.
-#[unsafe(no_mangle)]
-pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_resolve(
-    env: *mut RawJNIEnv,
-    _thiz: jobject,
-    handle: jlong,
-    sql: jstring,
-    result_index: jint,
-    allow_multiple: jboolean,
-    allow_failure: jboolean,
-) -> jstring {
-    let session = match session_for(handle) {
-        Ok(session) => session,
-        Err(error) => return response_string(env, failure("invalid_handle", error)),
-    };
-    if result_index < 0 {
-        return response_string(
-            env,
-            failure("invalid_input", "result index must be non-negative"),
-        );
-    }
-    let options = ResolveOptions {
-        result_index: result_index as usize,
-        allow_multiple: allow_multiple != JNI_FALSE,
-        allow_failure: allow_failure != JNI_FALSE,
-    };
-    let response = with_jstring(env, sql, |sql| match session.resolve_one(sql, options) {
-        Ok(value) => success(json!({ "value": value })),
-        Err(error) => engine_error(error),
-    })
-    .unwrap_or_else(|| failure("invalid_input", "SQL string is null or unreadable"));
-    response_string(env, response)
-}
-
 /// Close a session.  The Kotlin surface uses `Unit`; failures are logged with
-/// the same structured envelope as query/resolve so native diagnostics retain
+/// the same structured envelope as query so native diagnostics retain
 /// an actionable error kind and message.
 ///
 /// Java signature: `(J)V`
