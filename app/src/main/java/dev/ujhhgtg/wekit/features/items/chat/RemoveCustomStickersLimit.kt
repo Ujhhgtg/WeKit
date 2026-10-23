@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -43,12 +44,12 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
         },
     )
 
-    private val methodGetMmkv by dexMethod {
-        matcher {
-            declaredClass(classMmkv.data.name)
+    private val methodGetMmkv by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classMmkv.data.name })
             usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
-        }
-    }
+        },
+    )
 
     private val classCgiBack by dexClass(
         sqlClass {
@@ -56,14 +57,14 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
         },
     )
 
-    private val methodCreateCgiBack by dexMethod {
-        matcher {
-            declaredClass(classCgiBack.data.name)
-            modifiers = Modifier.STATIC
-            paramCount(6)
-            returnType(classCgiBack.data.name)
-        }
-    }
+    private val methodCreateCgiBack by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classCgiBack.data.name })
+            returnType(deferred { classCgiBack.data.name })
+            paramCount = 6
+            modifiers = 8
+        },
+    )
 
     private val methodAddEmojiOnSceneEnd by dexMethod(
         sqlMethod {

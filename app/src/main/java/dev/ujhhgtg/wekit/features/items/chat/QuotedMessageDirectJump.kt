@@ -15,6 +15,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -44,24 +45,21 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
             usingEqStrings("MicroMsg.msgquote.QuoteMsgSourceClickLogic", "handleItemClickEvent,quotedMsg is null!")
         },
     )
-    private val methodClickToPositionEvent by dexMethod {
-        matcher {
-            declaredClass(methodClickEvent.data.declaredClassName)
+    private val methodClickToPositionEvent by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { methodClickEvent.data.declaredClassName })
             usingEqStrings(
                 "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
-                "handleItemClickToPositionEvent,quotedMsg is null!"
+                "handleItemClickToPositionEvent,quotedMsg is null!",
             )
-        }
-    }
-    private val methodGetQuoteMessageInfo by dexMethod {
-        matcher {
-            declaredClass(methodClickEvent.data.declaredClassName)
-            usingStrings(
-                "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
-                "%s msgId:%s msgSvrId:%s"
-            )
-        }
-    }
+        },
+    )
+    private val methodGetQuoteMessageInfo by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { methodClickEvent.data.declaredClassName })
+            usingStrings("MicroMsg.msgquote.QuoteMsgSourceClickLogic", "%s msgId:%s msgSvrId:%s")
+        },
+    )
     private val classEnumQuoteJumpToPositionSource by dexClass(
         sqlClass {
             usingEqStrings("QuoteLongClickFromQuoteView", "QuoteClickFromTextPreviewLocateView")

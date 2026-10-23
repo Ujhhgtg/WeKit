@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.FavInfoProto
@@ -54,35 +55,43 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
     )
 
     /** `FavItemInfoStorage.getFirstPageList(type, limit, blockList, blockTypes, filter)`: newest first; type -1 is all. */
-    private val methodFavStorageGetFirstPage by dexMethod {
-        matcher {
-            declaredClass(methodFavStorageGetByLocalId.data.declaredClassName)
-            usingEqStrings("MicroMsg.Fav.FavItemInfoStorage", "getFirstPageList::block set contains target type, error, do return null")
-        }
-    }
+    private val methodFavStorageGetFirstPage by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { methodFavStorageGetByLocalId.data.declaredClassName })
+            usingEqStrings(
+                "MicroMsg.Fav.FavItemInfoStorage",
+                "getFirstPageList::block set contains target type, error, do return null",
+            )
+        },
+    )
 
     /** `FavApiLogic.restartItemDownload(FavItemInfo, force)`: re-downloads a failed or done item's data. */
-    private val methodRestartItemDownload by dexMethod {
-        matcher {
-            modifiers(Modifier.STATIC)
+    private val methodRestartItemDownload by dexMethod(
+        sqlMethod {
+            paramTypes(deferred { methodFavStorageGetByLocalId.data.returnTypeName }, "boolean")
+            modifiers = 8
             usingEqStrings("status not download failed or done!")
-            paramTypes(methodFavStorageGetByLocalId.data.returnTypeName, "boolean")
-        }
-    }
+        },
+    )
 
     /** `FavSendLogic.send(Context, toUser, extra, isBizChat, FavItemInfo, Runnable)`. */
-    private val methodSendFavItem by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.FavSendLogic", "want to send fav msg, but context is null")
-            }
-            modifiers(Modifier.STATIC)
+    private val methodSendFavItem by dexMethod(
+        sqlMethod {
             paramTypes(
-                "android.content.Context", "java.lang.String", "java.lang.String", "boolean",
-                methodFavStorageGetByLocalId.data.returnTypeName, "java.lang.Runnable",
+                "android.content.Context",
+                "java.lang.String",
+                "java.lang.String",
+                "boolean",
+                deferred { methodFavStorageGetByLocalId.data.returnTypeName },
+                "java.lang.Runnable",
             )
-        }
-    }
+            modifiers = 8
+            declaredClass {
+                usingEqStrings("MicroMsg.FavSendLogic")
+                usingEqStrings("want to send fav msg, but context is null")
+            }
+        },
+    )
 
     private val favStorage: Any
         get() {

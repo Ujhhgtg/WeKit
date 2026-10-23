@@ -27,7 +27,10 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
+import dev.ujhhgtg.wekit.dexkit.sql.sqlField
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.TimelineObjectProto
@@ -166,12 +169,12 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         },
     )
 
-    val fieldInteractionSnsInfo by dexField {
-        matcher {
-            declaredClass(classImproveInteractionLayout.data.name)
-            type(classImproveSnsInfo.data.name)
-        }
-    }
+    val fieldInteractionSnsInfo by dexField(
+        sqlField {
+            declaredClass(deferred { classImproveInteractionLayout.data.name })
+            type(deferred { classImproveSnsInfo.data.name })
+        },
+    )
 
     // --- end used by AutoMomentsBase ---
     private val methodSendLike by dexMethod(allowFailure = true) {
@@ -181,14 +184,14 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             paramTypes(SNS_INFO_CLASS, "int", null, "int")
         }
     }
-    private val methodCancelLike by dexMethod {
-        matcher {
-            declaredClass(classSnsService.data.name)
-            modifiers = Modifier.STATIC
-            paramTypes(String::class.java)
-            returnType(Void.TYPE)
-        }
-    }
+    private val methodCancelLike by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classSnsService.data.name })
+            returnType = "void"
+            paramTypes("java.lang.String")
+            modifiers = 8
+        },
+    )
     private val methodGetSnsInfoByLocalId by dexMethod(
         sqlMethod {
             returnType = "com.tencent.mm.plugin.sns.storage.SnsInfo"
@@ -196,36 +199,33 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             usingStrings("getByLocalId", "select *,rowid from SnsInfo  where SnsInfo.rowid=")
         },
     )
-    val methodGetSnsInfoStorage by dexMethod {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
-            modifiers = Modifier.STATIC
-            paramCount(0)
-            returnType(methodGetSnsInfoByLocalId.data.declaredClassName)
-            usingStrings(
-                "com.tencent.mm.plugin.sns.model.SnsCore",
-                "getSnsInfoStorage"
-            )
-        }
-    }
-    private val methodGetSnsInfoBySnsId by dexMethod {
-        matcher {
-            declaredClass(methodGetSnsInfoByLocalId.data.declaredClassName)
+    val methodGetSnsInfoStorage by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.sns.model")
+            returnType(deferred { methodGetSnsInfoByLocalId.data.declaredClassName })
+            paramCount = 0
+            modifiers = 8
+            usingStrings("com.tencent.mm.plugin.sns.model.SnsCore", "getSnsInfoStorage")
+        },
+    )
+    private val methodGetSnsInfoBySnsId by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { methodGetSnsInfoByLocalId.data.declaredClassName })
+            returnType = "com.tencent.mm.plugin.sns.storage.SnsInfo"
             paramTypes("long")
-            returnType(SNS_INFO_CLASS)
             usingStrings("select *,rowid from SnsInfo  where SnsInfo.snsId=")
-        }
-    }
+        },
+    )
 
     // SnsInfoStorage.update(long snsId, SnsInfo): writes the whole row by snsId
-    val methodUpdateSnsInfo by dexMethod {
-        matcher {
-            declaredClass(methodGetSnsInfoByLocalId.data.declaredClassName)
-            paramTypes("long", SNS_INFO_CLASS)
-            returnType("boolean")
+    val methodUpdateSnsInfo by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { methodGetSnsInfoByLocalId.data.declaredClassName })
+            returnType = "boolean"
+            paramTypes("long", "com.tencent.mm.plugin.sns.storage.SnsInfo")
             usingEqStrings("update", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
-        }
-    }
+        },
+    )
 
     private val snsInfoClass by lazy { SNS_INFO_CLASS.toClass() }
 
@@ -258,72 +258,72 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         },
     )
 
-    val ctorUploadPackHelper by dexConstructor {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
-            declaredClass(classUploadPackHelper.data.name)
-            paramCount(2)
-        }
-    }
+    val ctorUploadPackHelper by dexConstructor(
+        sqlConstructor {
+            searchPackages("com.tencent.mm.plugin.sns.model")
+            declaredClass(deferred { classUploadPackHelper.data.name })
+            paramCount = 2
+        },
+    )
 
-    val methodCommit by dexMethod {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
-            declaredClass(classUploadPackHelper.data.name)
+    val methodCommit by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.sns.model")
+            declaredClass(deferred { classUploadPackHelper.data.name })
             usingEqStrings("commit", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
-        }
-    }
+        },
+    )
 
-    val methodSetContentDes by dexMethod {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
-            declaredClass(classUploadPackHelper.data.name)
+    val methodSetContentDes by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.sns.model")
+            declaredClass(deferred { classUploadPackHelper.data.name })
             usingEqStrings("setContentDes", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
-        }
-    }
+        },
+    )
 
-    val methodSetSdkId by dexMethod {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
-            declaredClass(classUploadPackHelper.data.name)
+    val methodSetSdkId by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.sns.model")
+            declaredClass(deferred { classUploadPackHelper.data.name })
             usingEqStrings("setSdkId", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
-        }
-    }
+        },
+    )
 
-    val methodSetSdkAppName by dexMethod {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
-            declaredClass(classUploadPackHelper.data.name)
+    val methodSetSdkAppName by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.sns.model")
+            declaredClass(deferred { classUploadPackHelper.data.name })
             usingEqStrings("setSdkAppName", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
-        }
-    }
+        },
+    )
 
-    val methodSetUploadList by dexMethod {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
-            declaredClass(classUploadPackHelper.data.name)
+    val methodSetUploadList by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.sns.model")
+            declaredClass(deferred { classUploadPackHelper.data.name })
             usingEqStrings("setUploadList", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
-        }
-    }
+        },
+    )
 
-    val methodAddImageMediaObjByPath by dexMethod {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
-            declaredClass(classUploadPackHelper.data.name)
-            returnType(bool)
-            paramCount(2)
+    val methodAddImageMediaObjByPath by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.sns.model")
+            declaredClass(deferred { classUploadPackHelper.data.name })
+            returnType = "boolean"
+            paramCount = 2
             usingStrings("addImageMediaObjByPath", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
-        }
-    }
+        },
+    )
 
-    val methodAddSightObjectByPath by dexMethod {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
-            declaredClass(classUploadPackHelper.data.name)
-            returnType(bool)
+    val methodAddSightObjectByPath by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.sns.model")
+            declaredClass(deferred { classUploadPackHelper.data.name })
+            returnType = "boolean"
             usingStrings("addSightObjectByPath", "com.tencent.mm.plugin.sns.model.UploadPackHelper")
-        }
-    }
+        },
+    )
 
     // setUploadList 的列表元素, 实况图片必须经此路径构造。
     val classSnsUploadElement by dexClass(
@@ -337,13 +337,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     )
 
     // 媒体上传元素构造器: (path, type)。
-    val ctorSnsUploadElement by dexConstructor {
-        matcher {
-            declaredClass(classSnsUploadElement.data.name)
-            paramCount(2)
+    val ctorSnsUploadElement by dexConstructor(
+        sqlConstructor {
+            declaredClass(deferred { classSnsUploadElement.data.name })
+            paramCount = 2
             paramTypes("java.lang.String", "int")
-        }
-    }
+        },
+    )
 
     val classSnsUtil by dexClass(
         sqlClass {
@@ -351,19 +351,19 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         },
     )
 
-    val methodGetSnsBigName by dexMethod {
-        matcher {
-            declaredClass(classSnsUtil.data.name)
+    val methodGetSnsBigName by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classSnsUtil.data.name })
             usingEqStrings("getSnsBigName")
-        }
-    }
+        },
+    )
 
-    val methodGetSnsThumbName by dexMethod {
-        matcher {
-            declaredClass(classSnsUtil.data.name)
+    val methodGetSnsThumbName by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classSnsUtil.data.name })
             usingEqStrings("getSnsThumbName")
-        }
-    }
+        },
+    )
 
     val classSnsPathHelper by dexClass(
         sqlClass {
@@ -371,12 +371,12 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         },
     )
 
-    val methodGetMediaFilePath by dexMethod {
-        matcher {
-            declaredClass(classSnsPathHelper.data.name)
+    val methodGetMediaFilePath by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classSnsPathHelper.data.name })
             usingEqStrings("getMediaFilePath")
-        }
-    }
+        },
+    )
 
     val classSnsVideoLogic by dexClass(
         sqlClass {
@@ -384,12 +384,12 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         },
     )
 
-    val methodGetSnsVideoPath by dexMethod {
-        matcher {
-            declaredClass(classSnsVideoLogic.data.name)
+    val methodGetSnsVideoPath by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classSnsVideoLogic.data.name })
             usingEqStrings("getSnsVideoPath")
-        }
-    }
+        },
+    )
 
     val methodGenCdnMediaId by dexMethod(allowFailure = true) {
         matcher {
@@ -430,12 +430,12 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
-    val methodGetSnsVideoThumbImagePath by dexMethod {
-        matcher {
-            declaredClass(classSnsVideoLogic.data.name)
+    val methodGetSnsVideoThumbImagePath by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classSnsVideoLogic.data.name })
             usingEqStrings("getSnsVideoThumbImagePath")
-        }
-    }
+        },
+    )
 
     val classSnsCore by dexClass(
         sqlClass {
@@ -443,24 +443,24 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         },
     )
 
-    val methodGetAccSnsPath by dexMethod {
-        matcher {
-            declaredClass(classSnsCore.data.name)
-            modifiers = Modifier.STATIC
-            paramCount(0)
-            returnType(String::class.java)
+    val methodGetAccSnsPath by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classSnsCore.data.name })
+            returnType = "java.lang.String"
+            paramCount = 0
+            modifiers = 8
             usingStrings("getAccSnsPath", "com.tencent.mm.plugin.sns.model.SnsCore")
-        }
-    }
+        },
+    )
 
-    val methodGetSnsVideoService by dexMethod {
-        matcher {
-            declaredClass(classSnsCore.data.name)
-            modifiers = Modifier.STATIC
-            paramCount(0)
+    val methodGetSnsVideoService by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classSnsCore.data.name })
+            paramCount = 0
+            modifiers = 8
             usingStrings("getSnsVideoService", "com.tencent.mm.plugin.sns.model.SnsCore")
-        }
-    }
+        },
+    )
 
     val methodDownloadVideo by dexMethod {
         matcher {
@@ -482,25 +482,25 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     )
 
     // SnsCore.getSnsDownManager(): 取 DownloadManager 单例, 与 getSnsVideoService 同构。
-    val methodGetSnsDownManager by dexMethod {
-        matcher {
-            declaredClass(classSnsCore.data.name)
-            modifiers = Modifier.STATIC
-            paramCount(0)
+    val methodGetSnsDownManager by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classSnsCore.data.name })
+            paramCount = 0
+            modifiers = 8
             usingStrings("getSnsDownManager", "com.tencent.mm.plugin.sns.model.SnsCore")
-        }
-    }
+        },
+    )
 
     // DownloadManager.addDownLoadSns(mediaObj, downType, decodeElement, sourceScene) 的 4 参便捷重载。
-    val methodAddDownLoadSns by dexMethod {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
-            declaredClass(classSnsDownloadManager.data.name)
-            paramCount(4)
-            returnType(bool)
+    val methodAddDownLoadSns by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.sns.model")
+            declaredClass(deferred { classSnsDownloadManager.data.name })
+            returnType = "boolean"
+            paramCount = 4
             usingEqStrings("addDownLoadSns", "com.tencent.mm.plugin.sns.model.DownloadManager")
-        }
-    }
+        },
+    )
 
     // 图片来源场景枚举 (com.tencent.mm.storage.t6): 朋友圈图片用 "timeline" 实例。
     val classSnsSourceScene by dexClass(
@@ -578,25 +578,25 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         },
     )
 
-    private val methodSnsUiActionOnActivityResult by dexMethod {
-        matcher {
-            declaredClass(classSnsUiAction.data.name)
-            paramCount(3)
-            paramTypes(Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Intent::class.java)
-            returnType(Void.TYPE)
+    private val methodSnsUiActionOnActivityResult by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classSnsUiAction.data.name })
+            returnType = "void"
+            paramCount = 3
+            paramTypes("int", "int", "android.content.Intent")
             usingEqStrings("onActivityResult", "com.tencent.mm.plugin.sns.ui.SnsUIAction")
-        }
-    }
+        },
+    )
 
-    private val methodSnsUploadOnCreate by dexMethod {
-        matcher {
-            declaredClass(classSnsUploadUi.data.name)
-            paramCount(1)
-            paramTypes(Bundle::class.java)
-            returnType(Void.TYPE)
+    private val methodSnsUploadOnCreate by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classSnsUploadUi.data.name })
+            returnType = "void"
+            paramCount = 1
+            paramTypes("android.os.Bundle")
             usingEqStrings("onCreate", "com.tencent.mm.plugin.sns.ui.SnsUploadUI")
-        }
-    }
+        },
+    )
 
     val vfsReadMethod by lazy {
         WeMessageApi.classVfs.reflekt().firstMethod {

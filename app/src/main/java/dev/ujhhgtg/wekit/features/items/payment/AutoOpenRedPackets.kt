@@ -17,7 +17,9 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -89,20 +91,20 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
             usingEqStrings("LuckyMoneyNotHookReceiveUI")
         },
     )
-    private val methodReceiveUnionOnGYNetEnd by dexMethod {
-        matcher {
-            declaredClass(classReceiveLuckyMoneyUnion.data.name)
+    private val methodReceiveUnionOnGYNetEnd by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classReceiveLuckyMoneyUnion.data.name })
             name = "onGYNetEnd"
             paramCount = 3
-        }
-    }
-    private val methodOpenUnionOnGYNetEnd by dexMethod {
-        matcher {
-            declaredClass(classOpenLuckyMoneyUnion.data.name)
+        },
+    )
+    private val methodOpenUnionOnGYNetEnd by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classOpenLuckyMoneyUnion.data.name })
             name = "onGYNetEnd"
             paramCount = 3
-        }
-    }
+        },
+    )
 
     private val currentRedPacketMap = ConcurrentHashMap<String, RedPacketInfo>()
 

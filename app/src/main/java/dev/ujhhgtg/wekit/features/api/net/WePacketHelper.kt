@@ -12,6 +12,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -128,20 +129,17 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     val classOplogReq by dexClass()
 
     // 网络
-    val classNetScenePat by dexClass {
-        matcher {
-            superClass = WeMessageApi.classNetSceneBase.data.name
-
-            methods {
-                add {
-                    name = "getType"
-                    returnType = "int"
-                    usingNumbers(849)
-                }
-            }
+    val classNetScenePat by dexClass(
+        sqlClass {
+            superClass(deferred { WeMessageApi.classNetSceneBase.data.name })
             usingStrings("/cgi-bin/micromsg-bin/sendpat")
-        }
-    }
+            method {
+                name = "getType"
+                returnType = "int"
+                usingNumbers(849L)
+            }
+        },
+    )
     private val classNetDispatcher by dexClass()
     private val classIOnSceneEnd by dexClass {
         matcher {

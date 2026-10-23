@@ -27,6 +27,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
@@ -134,14 +135,14 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
         }
     }
 
-    private val methodTimelineResponseEnd by dexMethod {
-        matcher {
-            declaredClass(ctorTimelineRequest.data.declaredClassName)
+    private val methodTimelineResponseEnd by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { ctorTimelineRequest.data.declaredClassName })
             name = "onGYNetEnd"
+            returnType = "void"
             paramCount = 6
-            returnType("void")
-        }
-    }
+        },
+    )
 
     override fun onEnable() {
         // The type=1 doFpList branch constructs its scene synchronously before enqueueing it.

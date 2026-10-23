@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -41,25 +42,25 @@ object WeConversationApi : ApiFeature(), IResolveDex {
             usingEqStrings("rconversation", "PRAGMA table_info( rconversation)")
         },
     )
-    val methodUpdateUnreadByTalker by dexMethod {
-        matcher {
-            declaredClass(classConversationStorage.data.name)
+    val methodUpdateUnreadByTalker by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classConversationStorage.data.name })
             usingEqStrings("MicroMsg.ConversationStorage", "updateUnreadByTalker %s")
-        }
-    }
+        },
+    )
 
     // ConversationStorage.k(String) aka `delChatContact`: deletes the rconversation row through the
     // cache-aware storage wrapper and notifies list observers, which is the core of WeChat's native
     // "不显示该聊天" for a normal contact.
-    private val methodDelChatContact by dexMethod {
-        matcher {
-            declaredClass(classConversationStorage.data.name)
-            usingStrings("MicroMsg.ConversationStorage", "delChatContact username:")
+    private val methodDelChatContact by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classConversationStorage.data.name })
+            returnType = "void"
             paramCount = 1
-            paramTypes(String::class.java)
-            returnType(Void.TYPE)
-        }
-    }
+            paramTypes("java.lang.String")
+            usingStrings("MicroMsg.ConversationStorage", "delChatContact username:")
+        },
+    )
 
     //    private val methodClearConvRedHintsOnMarkRead by dexMethod(allowFailure = true) {
 //        matcher {
@@ -85,12 +86,12 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 //            )
 //        }
 //    }
-    private val methodHiddenConvParent by dexMethod {
-        matcher {
-            declaredClass(classConversationStorage.data.name)
+    private val methodHiddenConvParent by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classConversationStorage.data.name })
             usingEqStrings("Update rconversation set parentRef = '", "' where 1 != 1 ")
-        }
-    }
+        },
+    )
 
     //    private val methodGetConvByName by dexMethod {
 //        matcher {
@@ -157,15 +158,16 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 
     // ConversationStorage.M(String) / isPlacedTop — returns true when the conversation's flag
     // has the "placed top" high bits set. Anchored by the string it logs on a null/empty talker.
-    private val methodIsPlacedTop by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass(classConversationStorage.data.name)
-            usingStrings("MicroMsg.ConversationStorage", "isPlacedTop failed")
+    private val methodIsPlacedTop by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classConversationStorage.data.name })
+            returnType = "boolean"
             paramCount = 1
-            paramTypes(String::class.java)
-            returnType(Boolean::class.javaPrimitiveType!!)
-        }
-    }
+            paramTypes("java.lang.String")
+            usingStrings("MicroMsg.ConversationStorage", "isPlacedTop failed")
+        },
+        allowFailure = true,
+    )
 
     // ConversationStorage.U(String) / setPlacedTop — sets the high bits in rconversation.flag
     // that WeChat uses to sort pinned conversations to the top.
@@ -180,15 +182,16 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     }
 
     // ConversationStorage.X(String) / unSetPlacedTop — clears the high bits, unpinning the row.
-    private val methodUnSetPlacedTop by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass(classConversationStorage.data.name)
-            usingStrings("MicroMsg.ConversationStorage", "unSetPlacedTop conversation failed")
+    private val methodUnSetPlacedTop by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classConversationStorage.data.name })
+            returnType = "boolean"
             paramCount = 1
-            paramTypes(String::class.java)
-            returnType(Boolean::class.javaPrimitiveType!!)
-        }
-    }
+            paramTypes("java.lang.String")
+            usingStrings("MicroMsg.ConversationStorage", "unSetPlacedTop conversation failed")
+        },
+        allowFailure = true,
+    )
 
     // ContactStorageLogic.toModContactOplog(z3) -> the `tn4` modContact proto WeChat sends as
     // oplog cmd 2 to sync a contact's flags (mute/top/...) to the server. Reusing WeChat's own
@@ -201,25 +204,27 @@ object WeConversationApi : ApiFeature(), IResolveDex {
             )
         },
     )
-    val methodNotifyConversationChanged by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass(classConversationStorage.data.superClass!!.name)
+    val methodNotifyConversationChanged by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classConversationStorage.data.superClass!!.name })
+            returnType = "void"
             paramCount = 3
-            paramTypes("int", classConversationStorage.data.superClass!!.name, "java.lang.Object")
-            returnType(Void.TYPE)
-        }
-    }
+            paramTypes("int", deferred { classConversationStorage.data.superClass!!.name }, "java.lang.Object")
+        },
+        allowFailure = true,
+    )
 
     // ConversationStorage.p(String) -> com.tencent.mm.storage.m3 (the rconversation model for a
     // talker), or null. Needed to hand the conversation object to the native delete helper below.
-    private val methodGetConversationByTalker by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass(classConversationStorage.data.name)
-            usingStrings("MicroMsg.ConversationStorage", "get null with username:")
+    private val methodGetConversationByTalker by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classConversationStorage.data.name })
             paramCount = 1
-            paramTypes(String::class.java)
-        }
-    }
+            paramTypes("java.lang.String")
+            usingStrings("MicroMsg.ConversationStorage", "get null with username:")
+        },
+        allowFailure = true,
+    )
 
     // com.tencent.mm.ui.conversation.s1#d(context, talker, m3, PBool, ProgressDialog, boolean) =
     // doDeleteConv: the work WeChat runs AFTER the user taps 删除 in the "删除该聊天" confirm dialog

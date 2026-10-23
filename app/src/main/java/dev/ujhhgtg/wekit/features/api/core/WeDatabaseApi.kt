@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.models.ChatroomSyncStateReadResult
@@ -41,14 +42,14 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.MMKernel", "Kernel not null, has initialized.")
         },
     )
-    val methodGetStorage by dexMethod {
-        matcher {
-            declaredClass(classMmKernel.data.name)
-            modifiers = Modifier.PUBLIC or Modifier.STATIC
+    val methodGetStorage by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classMmKernel.data.name })
             paramCount = 0
+            modifiers = 9
             usingStrings("mCoreStorage not initialized!")
-        }
-    }
+        },
+    )
     private val classCoreStorage by dexClass(
         sqlClass {
             usingEqStrings("MMKernel.CoreStorage", "CheckData path[%s] blocksize:%s blockcount:%s availcount:%s")

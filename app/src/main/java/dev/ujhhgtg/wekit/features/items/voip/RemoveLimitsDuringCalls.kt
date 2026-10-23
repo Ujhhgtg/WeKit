@@ -4,6 +4,8 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.deferred
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.lang.reflect.Modifier
@@ -54,61 +56,71 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
             }
         }
     }
-    private val methodIsMultiTalking by dexMethod {
-        matcher {
-            declaredClass(methodIsDuringCall.data.declaredClassName)
-            usingEqStrings("MicroMsg.DeviceOccupy", "isMultiTalking")
+    private val methodIsMultiTalking by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
             paramCount = 1
-        }
-    }
+            usingEqStrings("MicroMsg.DeviceOccupy", "isMultiTalking")
+        },
+    )
 
-    private val methodIsMultiTalking2 by dexMethod {
-        matcher {
-            declaredClass(methodIsDuringCall.data.declaredClassName)
+    private val methodIsMultiTalking2 by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
+            paramCount = 2
             usingEqStrings("MicroMsg.DeviceOccupy", "isMultiTalking")
-            paramCount = 2
-        }
-    }
-    private val methodIsCameraUsing by dexMethod {
-        matcher {
-            declaredClass(methodIsDuringCall.data.declaredClassName)
+        },
+    )
+    private val methodIsCameraUsing by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
             usingEqStrings("MicroMsg.DeviceOccupy", "isCameraUsing", "")
-        }
-    }
-    private val methodIsCameraUsing2 by dexMethod {
-        matcher {
-            declaredClass(methodIsDuringCall.data.declaredClassName)
-            usingEqStrings("MicroMsg.DeviceOccupy", "isCameraUsing", "isLiving %b isAnchor %b isAudioMicing %s isVideoMicing %s")
-        }
-    }
-    private val methodIsVoiceUsing by dexMethod {
-        matcher {
-            declaredClass(methodIsDuringCall.data.declaredClassName)
-            usingEqStrings("MicroMsg.DeviceOccupy", "isVoiceUsing")
+        },
+    )
+    private val methodIsCameraUsing2 by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
+            usingEqStrings(
+                "MicroMsg.DeviceOccupy",
+                "isCameraUsing",
+                "isLiving %b isAnchor %b isAudioMicing %s isVideoMicing %s",
+            )
+        },
+    )
+    private val methodIsVoiceUsing by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
             paramCount = 1
-        }
-    }
-    private val methodIsVoiceUsing2 by dexMethod {
-        matcher {
-            declaredClass(methodIsDuringCall.data.declaredClassName)
             usingEqStrings("MicroMsg.DeviceOccupy", "isVoiceUsing")
+        },
+    )
+    private val methodIsVoiceUsing2 by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
             paramCount = 2
-        }
-    }
-    private val methodCheckAppBrandVoiceUsing by dexMethod {
-        matcher {
-            declaredClass(methodIsDuringCall.data.declaredClassName)
-            usingEqStrings("MicroMsg.DeviceOccupy", "checkAppBrandVoiceUsingAndShowToast isVoiceUsing:%b, isCameraUsing:%b")
+            usingEqStrings("MicroMsg.DeviceOccupy", "isVoiceUsing")
+        },
+    )
+    private val methodCheckAppBrandVoiceUsing by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
             paramCount = 1
-        }
-    }
-    private val methodCheckAppBrandVoiceUsing2 by dexMethod {
-        matcher {
-            declaredClass(methodIsDuringCall.data.declaredClassName)
-            usingEqStrings("MicroMsg.DeviceOccupy", "checkAppBrandVoiceUsingAndShowToast isVoiceUsing:%b, isCameraUsing:%b")
+            usingEqStrings(
+                "MicroMsg.DeviceOccupy",
+                "checkAppBrandVoiceUsingAndShowToast isVoiceUsing:%b, isCameraUsing:%b",
+            )
+        },
+    )
+    private val methodCheckAppBrandVoiceUsing2 by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
             paramCount = 2
-        }
-    }
+            usingEqStrings(
+                "MicroMsg.DeviceOccupy",
+                "checkAppBrandVoiceUsingAndShowToast isVoiceUsing:%b, isCameraUsing:%b",
+            )
+        },
+    )
 
     // 8.0.77 moved the multitalk action listener out of
     // com.tencent.mm.plugin.multitalk.model (MultiTalkManager$18) into

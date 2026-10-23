@@ -32,6 +32,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -140,15 +141,15 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
     // hi0.j1::d() is identical to xv0.a9::e(); either duplicate is a valid target.
     val methodGetSendMsgObject by dexMethod()
-    private val methodPostToQueue by dexMethod {
-        searchPackages("com.tencent.mm.modelbase")
-        matcher {
-            declaredClass = classNetSceneQueue.data.name
-            paramTypes(classNetSceneBase.data.name)
+    private val methodPostToQueue by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.modelbase")
+            declaredClass(deferred { classNetSceneQueue.data.name })
             returnType = "boolean"
-            usingNumbers(0)
-        }
-    }
+            paramTypes(deferred { classNetSceneBase.data.name })
+            usingNumbers(0L)
+        },
+    )
 
     private val classPatMsgExtension by dexClass(
         sqlClass {
@@ -246,23 +247,23 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.MsgInfoStorage", "protect:c2c msg should not here")
         },
     )
-    val methodMsgInfoStorageInsertMessage by dexMethod {
-        matcher {
-            declaredClass(classMsgInfoStorage.data.name)
+    val methodMsgInfoStorageInsertMessage by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classMsgInfoStorage.data.name })
             usingEqStrings("MsgInfo processAddMsg insert db error")
-        }
-    }
+        },
+    )
     val classChattingContext by dexClass(
         sqlClass {
             usingEqStrings("MicroMsg.ChattingContext", "[notifyDataSetChange]")
         },
     )
-    val methodChattingContextGetTalker by dexMethod {
-        matcher {
-            declaredClass(classChattingContext.data.name)
+    val methodChattingContextGetTalker by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classChattingContext.data.name })
             usingEqStrings("getTalker returns null.")
-        }
-    }
+        },
+    )
     val classChattingDataAdapter by dexClass(
         sqlClass {
             usingEqStrings("MicroMsg.ChattingDataAdapterV3", "[handleMsgChange] isLockNotify:")
@@ -336,12 +337,13 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.ConfigStorageLogic", "get userinfo fail")
         },
     )
-    private val classImageServiceImpl by dexClass(allowFailure = true) {
-        matcher {
+    private val classImageServiceImpl by dexClass(
+        sqlClass {
+            superClass(deferred { classMvvmBase.data.name })
             usingStrings("MicroMsg.ImgUpload.MsgImgFeatureService")
-            superClass(classMvvmBase.data.name)
-        }
-    }
+        },
+        allowFailure = true,
+    )
     private val methodImageSendEntry by dexMethod()
 
     // -------------------------------------------------------------------------------------
@@ -813,16 +815,17 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         return revokeMsg(MessageInfo(getMsgInfoInstanceByMsgSvrId(msgSvrId, null)))
     }
 
-    private val methodGetMsgInfoByTalkerAndSvrId by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.MsgInfoStorage", "build new index last %d")
-            }
-            paramTypes(BString, long)
-            returnType(classMsgInfo.data.name)
+    private val methodGetMsgInfoByTalkerAndSvrId by dexMethod(
+        sqlMethod {
+            returnType(deferred { classMsgInfo.data.name })
+            paramTypes("java.lang.String", "long")
             usingEqStrings("msgSvrId=?")
-        }
-    }
+            declaredClass {
+                usingEqStrings("MicroMsg.MsgInfoStorage")
+                usingEqStrings("build new index last %d")
+            }
+        },
+    )
 
     /** 通过本地 msgId 解析 msgSvrId；找不到或 msgSvrId 为 0 时返回 null。 */
     fun getMsgSvrIdByMsgId(msgId: Long): Long? {
@@ -2439,14 +2442,14 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
-    val methodToggleMessageSelection by dexMethod {
-        matcher {
-            declaredClass(classChattingDataAdapter.data.name)
-            usingNumbers(100)
+    val methodToggleMessageSelection by dexMethod(
+        sqlMethod {
+            declaredClass(deferred { classChattingDataAdapter.data.name })
+            returnType = "boolean"
             usingEqStrings("msgIdTalker")
-            returnType(bool)
-        }
-    }
+            usingNumbers(100L)
+        },
+    )
 
     private fun triggerDownload(imgLocalId: Long, talker: String): Boolean {
         return try {
