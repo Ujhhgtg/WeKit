@@ -49,9 +49,15 @@ internal class DexMatcherEvaluator(
         }
         if (!injectiveMatch(spec.interfaces, info.interfaces) { s, c -> matchesClass(c, s) }) return false
         if (!injectiveMatch(spec.fields, info.fields) { s, c -> matchesField(c, s) }) return false
-        if (!injectiveMatch(spec.methods, info.methods) { s, c -> matchesMethod(c, s) }) return false
+        // Array-class member refs (e.g. "[Lx;->clone()...") are not real class members and their
+        // metadata documents cannot be resolved; skip them instead of querying the native API.
+        val realMethods = info.methods.filterNot(::isArrayClassMember)
+        if (!injectiveMatch(spec.methods, realMethods) { s, c -> matchesMethod(c, s) }) return false
         for (stringSpec in spec.usingStrings) {
-            if (info.methods.none { method -> method.usingStrings.any { stringSpec.matches(it) } }) {
+            if (realMethods.none { method ->
+                    !isArrayClassMember(method) && method.usingStrings.any { stringSpec.matches(it) }
+                }
+            ) {
                 return false
             }
         }
@@ -186,6 +192,10 @@ internal class DexMatcherEvaluator(
             spec.modifiers == null &&
             spec.usingStrings.isEmpty()
     }
+
+    /** Array-class methods are not valid dataset members and cannot be resolved natively. */
+    private fun isArrayClassMember(method: DexMethodInfo): Boolean =
+        method.descriptor.startsWith("[")
 
     /** True when this instance is the shallow fallback produced for a non-dataset class. */
     private fun isShallow(info: DexClassInfo): Boolean =

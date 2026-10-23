@@ -18,6 +18,7 @@ internal object MatcherFixtures {
     const val ALPHA_INIT = "Lcom/test/Alpha;-><init>()V"
     const val CALL = "Lcom/test/Call;"
     const val CALL_HELPER = "Lcom/test/Call;->helper()V"
+    const val CALL_MAKE = "Lcom/test/Call;->make()Lcom/test/Base;"
     const val BASE = "Lcom/test/Base;"
     const val IFACE = "Lcom/test/I1;"
     const val GAMMA = "Lcom/test/Gamma;"
@@ -170,6 +171,15 @@ internal object MatcherFixtures {
         )
         putEntry(DexMetadataKind.Method, ALPHA_INIT, methodDoc(initRef))
         putEntry(
+            DexMetadataKind.Method, CALL_MAKE,
+            methodDoc(
+                methodRef(
+                    CALL_MAKE, "make", "com.test.Call", "()Lcom/test/Base;", "com.test.Base",
+                    emptyList(),
+                ),
+            ),
+        )
+        putEntry(
             DexMetadataKind.Method, CALL_HELPER,
             methodDoc(callHelperRef, usingStrings = listOf("call helper"), usingNumbers = listOf("long" to "7")),
         )
@@ -213,12 +223,15 @@ internal object MatcherFixtures {
         )
     }
 
-    val metadata = DexMetadata(object : DexMetadataProvider {
+    val provider: DexMetadataProvider = object : DexMetadataProvider {
         override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? =
             entries[kind.key + "|" + descriptor]
-    })
+    }
 
-    fun methodDescriptors(): List<String> = listOf(ALPHA_RUN, ALPHA_HELPER, ALPHA_INIT, CALL_HELPER, GAMMA_RUN)
+    val metadata: DexMetadata = DexMetadata(provider)
+
+    fun methodDescriptors(): List<String> =
+        listOf(ALPHA_RUN, ALPHA_HELPER, ALPHA_INIT, CALL_HELPER, CALL_MAKE, GAMMA_RUN)
     fun classDescriptors(): List<String> = listOf(ALPHA, BASE, IFACE, GAMMA)
     fun fieldDescriptors(): List<String> = listOf(ALPHA_COUNT_FIELD, ALPHA_NAME_FIELD)
 }
