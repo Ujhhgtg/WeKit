@@ -4,25 +4,50 @@ import dev.ujhhgtg.wekit.dexkit.DexMethodDescriptor
 import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 
 /**
- * SQL query and expected-failure policy attached to a Dex delegate.
+ * Resolution plan attached to a Dex delegate.
  *
- * The SQL text is produced lazily by [sqlProvider], which runs during resolution inside the active
- * Dex resolution context. A DexSQL builder block can therefore read other delegates' metadata
- * naturally (for example declaredClass = classFoo.data.name), exactly like a DexKit matcher block;
- * static raw SQL simply returns its string. The SQL must return the descriptor in its first column
- * and is written to produce exactly one row (or none); deciding that an empty result is an expected
- * failure and that a multi-row result is an ambiguity bug is WeKit resolver policy, implemented
- * here rather than in the engine.
+ * Two kinds exist:
+ *
+ * - SQL-backed (the default): the SQL text is produced lazily by a provider, which runs during
+ *   resolution inside the active Dex resolution context. A DexSQL builder block can therefore read
+ *   other delegates' metadata naturally (for example declaredClass = classFoo.data.name), exactly
+ *   like a DexKit matcher block; static raw SQL simply returns its string.
+ * - Query-matcher-backed ([queryMatcher]): a Kotlin resolver runs a [dev.ujhhgtg.wekit.dexkit.matcher.QueryMatcherScope]
+ *   block during resolution and returns the descriptor (or null for a not-found result).
+ *
+ * For SQL-backed plans the SQL must return the descriptor in its first column and is written to
+ * produce exactly one row (or none); deciding that an empty result is an expected failure and that
+ * a multi-row result is an ambiguity bug is WeKit resolver policy, implemented here rather than in
+ * the engine. Query-matcher ambiguity is raised by the matcher scope's unique* helpers.
  */
-class DexSqlSpec(
-    private val sqlProvider: () -> String,
-    val allowFailure: Boolean = false,
+class DexSqlSpec private constructor(
+    val allowFailure: Boolean,
+    private val sqlProvider: (() -> String)?,
+    private val matcherProvider: ((DexSqlBridge) -> String?)?,
 ) {
-    /** Builds the executable SQL text; called once per resolution attempt. */
-    fun sql(): String = sqlProvider()
+    /** SQL-backed plan: [sqlProvider] runs lazily once per resolution attempt. */
+    constructor(
+        sqlProvider: () -> String,
+        allowFailure: Boolean = false,
+    ) : this(allowFailure, sqlProvider, null)
 
-    /** Returns the descriptor, or null when the empty result is an allowed failure. */
+    /** Builds the executable SQL text; called once per resolution attempt. */
+    fun sql(): String = sqlProvider?.invoke()
+        ?: error("DexSqlSpec is query-matcher backed and has no SQL text")
+
+    /**
+     * Resolves the descriptor: null means the delegate's expected-failure policy decided the
+     * member does not exist; non-null is the resolved descriptor (or class name for class plans).
+     */
     fun resolve(bridge: DexSqlBridge): String? {
+        if (matcherProvider != null) {
+            val descriptor = matcherProvider.invoke(bridge)
+            return when {
+                descriptor != null -> descriptor
+                allowFailure -> null
+                else -> error("Query matcher: no result found (allowFailure = false)")
+            }
+        }
         val sql = sql()
         val result = bridge.query(sql)
         return when (result.rows.size) {
@@ -36,6 +61,17 @@ class DexSqlSpec(
 
             else -> error("DexSQL: query returned " + result.rows.size + " rows; expected one: " + sql)
         }
+    }
+
+    internal companion object {
+        /**
+         * Query-matcher plan: [provider] runs during resolution inside the active Dex resolution
+         * context and returns the descriptor or null (null is interpreted with [allowFailure]).
+         */
+        fun queryMatcher(
+            allowFailure: Boolean,
+            provider: (DexSqlBridge) -> String?,
+        ): DexSqlSpec = DexSqlSpec(allowFailure, null, provider)
     }
 }
 
