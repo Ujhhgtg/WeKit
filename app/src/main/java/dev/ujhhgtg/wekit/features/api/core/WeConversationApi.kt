@@ -170,15 +170,16 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 
     // ConversationStorage.U(String) / setPlacedTop — sets the high bits in rconversation.flag
     // that WeChat uses to sort pinned conversations to the top.
-    private val methodSetPlacedTop by dexMethod(allowFailure = true) {
-        matcher {
+    private val methodSetPlacedTop by dexMethod(
+        sqlMethod {
             declaredClass(classConversationStorage.data.name)
-            usingStrings("MicroMsg.ConversationStorage", "setPlacedTop conversation failed")
+            returnType = "boolean"
             paramCount = 1
-            paramTypes(String::class.java)
-            returnType(Boolean::class.javaPrimitiveType!!)
-        }
-    }
+            paramTypes("java.lang.String")
+            usingStrings("MicroMsg.ConversationStorage", "setPlacedTop conversation failed")
+        },
+        allowFailure = true,
+    )
 
     // ConversationStorage.X(String) / unSetPlacedTop — clears the high bits, unpinning the row.
     private val methodUnSetPlacedTop by dexMethod(

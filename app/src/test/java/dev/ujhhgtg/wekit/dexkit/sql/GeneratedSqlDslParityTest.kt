@@ -20,7 +20,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0001_WeAppMsgApi_classAppMsgContent() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value LIKE '%<appmsg appid="%' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value LIKE '%parse amessage xml failed%' ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND instr(ms0.value, '<appmsg appid="') > 0 AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND instr(ms2.value, 'parse amessage xml failed') > 0 ORDER BY cm.class_descriptor;""",
             sqlClass {
                 usingStrings("<appmsg appid=\"", "parse amessage xml failed")
             },
@@ -30,7 +30,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0002_WeAppMsgApi_classAppMsgLogic() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value LIKE '%MicroMsg.AppMsgLogic%' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value LIKE '%summerbig sendAppMsg attachFilePath%' ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND instr(ms0.value, 'MicroMsg.AppMsgLogic') > 0 AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND instr(ms2.value, 'summerbig sendAppMsg attachFilePath') > 0 ORDER BY cm.class_descriptor;""",
             sqlClass {
                 usingStrings("MicroMsg.AppMsgLogic", "summerbig sendAppMsg attachFilePath")
             },
@@ -68,7 +68,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0005_WeMessageApi_classAppAttachAutoDownload() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.AppMessageExtension' AND ms1.file_id = cm.file_id AND ms1.method_idx = cm.method_idx AND ms1.value = 'autoDownloadFile2 %s %s' AND (cm.class_descriptor LIKE 'Lcom/tencent/mm/pluginsdk/model/app/%') ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.AppMessageExtension' AND ms1.file_id = cm.file_id AND ms1.method_idx = cm.method_idx AND ms1.value = 'autoDownloadFile2 %s %s' AND (instr(cm.class_descriptor, 'Lcom/tencent/mm/pluginsdk/model/app/') = 1) ORDER BY cm.class_descriptor;""",
             sqlClass {
                 searchPackages("com.tencent.mm.pluginsdk.model.app")
                 method {
@@ -143,7 +143,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0012_WeMessageApi_classMsgInfo() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.MsgInfo' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = '[parseNewXmlSysMsg]' AND (cm.class_descriptor LIKE 'Lcom/tencent/mm/storage/%') ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.MsgInfo' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = '[parseNewXmlSysMsg]' AND (instr(cm.class_descriptor, 'Lcom/tencent/mm/storage/') = 1) ORDER BY cm.class_descriptor;""",
             sqlClass {
                 searchPackages("com.tencent.mm.storage")
                 usingEqStrings("MicroMsg.MsgInfo", "[parseNewXmlSysMsg]")
@@ -154,7 +154,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0013_WeMessageApi_classMsgInfoStorage() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.MsgInfoStorage' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = 'deleted dirty msg ,count is %d' AND (cm.class_descriptor LIKE 'Lcom/tencent/mm/storage/%') ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.MsgInfoStorage' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = 'deleted dirty msg ,count is %d' AND (instr(cm.class_descriptor, 'Lcom/tencent/mm/storage/') = 1) ORDER BY cm.class_descriptor;""",
             sqlClass {
                 searchPackages("com.tencent.mm.storage")
                 usingEqStrings("MicroMsg.MsgInfoStorage", "deleted dirty msg ,count is %d")
@@ -165,7 +165,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0014_WeMessageApi_classMvvmBase() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value LIKE '%MicroMsg.Mvvm.MvvmPlugin%' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value LIKE '%onAccountInitialized start%' ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND instr(ms0.value, 'MicroMsg.Mvvm.MvvmPlugin') > 0 AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND instr(ms2.value, 'onAccountInitialized start') > 0 ORDER BY cm.class_descriptor;""",
             sqlClass {
                 usingStrings("MicroMsg.Mvvm.MvvmPlugin", "onAccountInitialized start")
             },
@@ -175,7 +175,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0015_WeMessageApi_classNetSceneObserverOwner() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value LIKE '%MicroMsg.Mvvm.NetSceneObserverOwner%' AND cm.param_count = 4 ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND instr(ms0.value, 'MicroMsg.Mvvm.NetSceneObserverOwner') > 0 AND cm.param_count = 4 ORDER BY cm.class_descriptor;""",
             sqlClass {
                 method {
                     paramCount = 4
@@ -188,7 +188,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0016_WeMessageApi_classNetSceneQueue() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value LIKE '%worker thread has not been se%' AND ms1.file_id = cm.file_id AND ms1.method_idx = cm.method_idx AND ms1.value LIKE '%MicroMsg.NetSceneQueue%' AND cm.param_count = 2 AND (cm.class_descriptor LIKE 'Lcom/tencent/mm/modelbase/%') ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND instr(ms0.value, 'worker thread has not been se') > 0 AND ms1.file_id = cm.file_id AND ms1.method_idx = cm.method_idx AND instr(ms1.value, 'MicroMsg.NetSceneQueue') > 0 AND cm.param_count = 2 AND (instr(cm.class_descriptor, 'Lcom/tencent/mm/modelbase/') = 1) ORDER BY cm.class_descriptor;""",
             sqlClass {
                 searchPackages("com.tencent.mm.modelbase")
                 method {
@@ -232,7 +232,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0020_WeMessageApi_classTransformChattingComponent() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.TransformComponent' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = '[onChattingPause]' AND (cm.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/component/%') ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.TransformComponent' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = '[onChattingPause]' AND (instr(cm.class_descriptor, 'Lcom/tencent/mm/ui/chatting/component/') = 1) ORDER BY cm.class_descriptor;""",
             sqlClass {
                 searchPackages("com.tencent.mm.ui.chatting.component")
                 usingEqStrings("MicroMsg.TransformComponent", "[onChattingPause]")
@@ -243,7 +243,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0021_WeMessageApi_classVfs() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value LIKE '%MicroMsg.VFSFileOp%' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value LIKE '%Cannot resolve path or URI%' ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND instr(ms0.value, 'MicroMsg.VFSFileOp') > 0 AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND instr(ms2.value, 'Cannot resolve path or URI') > 0 ORDER BY cm.class_descriptor;""",
             sqlClass {
                 usingStrings("MicroMsg.VFSFileOp", "Cannot resolve path or URI")
             },
@@ -273,7 +273,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0024_WeMessageApi_ctorNetSceneRevokeMsg() {
         assertParity(
-            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE m.name = '<init>' AND ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.NetSceneRevokeMsg' AND m.param_count = 3 AND (m.class_descriptor LIKE 'Lcom/tencent/mm/modelsimple/%') ORDER BY m.descriptor;""",
+            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE m.name = '<init>' AND ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.NetSceneRevokeMsg' AND m.param_count = 3 AND (instr(m.class_descriptor, 'Lcom/tencent/mm/modelsimple/') = 1) ORDER BY m.descriptor;""",
             sqlConstructor {
                 searchPackages("com.tencent.mm.modelsimple")
                 paramCount = 3
@@ -331,7 +331,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0029_WeMessageApi_methodMsgInfoHandleApiInsertMessage() {
         assertParity(
-            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.MsgInfoStorage' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'protect:c2c msg should not here' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/storage/%') ORDER BY m.descriptor;""",
+            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.MsgInfoStorage' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'protect:c2c msg should not here' AND (instr(m.class_descriptor, 'Lcom/tencent/mm/storage/') = 1) ORDER BY m.descriptor;""",
             sqlMethod {
                 searchPackages("com.tencent.mm.storage")
                 usingEqStrings("MicroMsg.MsgInfoStorage", "protect:c2c msg should not here")
@@ -353,7 +353,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0031_WeMessageApi_methodSendAppMsg() {
         assertParity(
-            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.AppMsgLogic' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'summerbig sendAppMsg attachFilePath[%s], content[%s]' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/pluginsdk/model/app/%') ORDER BY m.descriptor;""",
+            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.AppMsgLogic' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'summerbig sendAppMsg attachFilePath[%s], content[%s]' AND (instr(m.class_descriptor, 'Lcom/tencent/mm/pluginsdk/model/app/') = 1) ORDER BY m.descriptor;""",
             sqlMethod {
                 searchPackages("com.tencent.mm.pluginsdk.model.app")
                 usingEqStrings("MicroMsg.AppMsgLogic", "summerbig sendAppMsg attachFilePath[%s], content[%s]")
@@ -384,7 +384,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0034_WeServiceApi_classEmojiFeatureService() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.EmojiFeatureService' AND ms1.file_id = cm.file_id AND ms1.method_idx = cm.method_idx AND ms1.value = '[onAccountInitialized]' AND (cm.class_descriptor LIKE 'Lcom/tencent/mm/feature/emoji/%') ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.EmojiFeatureService' AND ms1.file_id = cm.file_id AND ms1.method_idx = cm.method_idx AND ms1.value = '[onAccountInitialized]' AND (instr(cm.class_descriptor, 'Lcom/tencent/mm/feature/emoji/') = 1) ORDER BY cm.class_descriptor;""",
             sqlClass {
                 searchPackages("com.tencent.mm.feature.emoji")
                 method {
@@ -417,7 +417,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0037_WeServiceApi_classEmojiStorageMgr() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.emoji.EmojiStorageMgr' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = 'EmojiStorageMgr: %s' AND (cm.class_descriptor LIKE 'Lcom/tencent/mm/storage/%') ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.emoji.EmojiStorageMgr' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = 'EmojiStorageMgr: %s' AND (instr(cm.class_descriptor, 'Lcom/tencent/mm/storage/') = 1) ORDER BY cm.class_descriptor;""",
             sqlClass {
                 searchPackages("com.tencent.mm.storage")
                 usingEqStrings("MicroMsg.emoji.EmojiStorageMgr", "EmojiStorageMgr: %s")
@@ -458,7 +458,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0041_WeServiceApi_methodApiManagerGetApi() {
         assertParity(
-            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = '[get] ' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = ' is not a interface!' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/manager/%') ORDER BY m.descriptor;""",
+            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = '[get] ' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = ' is not a interface!' AND (instr(m.class_descriptor, 'Lcom/tencent/mm/ui/chatting/manager/') = 1) ORDER BY m.descriptor;""",
             sqlMethod {
                 searchPackages("com.tencent.mm.ui.chatting.manager")
                 usingEqStrings("[get] ", " is not a interface!")
@@ -534,7 +534,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0048_WeConversationListViewApi_methodLegacyGetView() {
         assertParity(
-            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.ConversationWithCacheAdapter' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d' AND m.name = 'getView' AND m.return_descriptor = 'Landroid/view/View;' AND m.param_descriptors = 'I,Landroid/view/View;,Landroid/view/ViewGroup;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/ui/conversation/%') ORDER BY m.descriptor;""",
+            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.ConversationWithCacheAdapter' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d' AND m.name = 'getView' AND m.return_descriptor = 'Landroid/view/View;' AND m.param_descriptors = 'I,Landroid/view/View;,Landroid/view/ViewGroup;' AND (instr(m.class_descriptor, 'Lcom/tencent/mm/ui/conversation/') = 1) ORDER BY m.descriptor;""",
             sqlMethod {
                 searchPackages("com.tencent.mm.ui.conversation")
                 name = "getView"
@@ -734,7 +734,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0063_SwipeMessageOperations_classChattingItemContainer() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.ChattingItemContainer' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = 'warn!!! cacheSize:%s sysSize:%s' AND (cm.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/viewitems/%') ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.ChattingItemContainer' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = 'warn!!! cacheSize:%s sysSize:%s' AND (instr(cm.class_descriptor, 'Lcom/tencent/mm/ui/chatting/viewitems/') = 1) ORDER BY cm.class_descriptor;""",
             sqlClass {
                 searchPackages("com.tencent.mm.ui.chatting.viewitems")
                 usingEqStrings("MicroMsg.ChattingItemContainer", "warn!!! cacheSize:%s sysSize:%s")
@@ -745,7 +745,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0064_SwipeMessageOperations_classChattingUiFootComponent() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.ChattingUI.FootComponent' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = 'onNotifyChange event %s talker %s' AND (cm.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/component/%') ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.ChattingUI.FootComponent' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = 'onNotifyChange event %s talker %s' AND (instr(cm.class_descriptor, 'Lcom/tencent/mm/ui/chatting/component/') = 1) ORDER BY cm.class_descriptor;""",
             sqlClass {
                 searchPackages("com.tencent.mm.ui.chatting.component")
                 usingEqStrings("MicroMsg.ChattingUI.FootComponent", "onNotifyChange event %s talker %s")
@@ -756,7 +756,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0065_SwipeMessageOperations_methodChatListOnTouch() {
         assertParity(
-            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'onTouch: touch down' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'onTouch: touch up' AND m.return_descriptor = 'Z' AND m.param_descriptors = 'Landroid/view/View;,Landroid/view/MotionEvent;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/%') ORDER BY m.descriptor;""",
+            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'onTouch: touch down' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'onTouch: touch up' AND m.return_descriptor = 'Z' AND m.param_descriptors = 'Landroid/view/View;,Landroid/view/MotionEvent;' AND (instr(m.class_descriptor, 'Lcom/tencent/mm/ui/chatting/') = 1) ORDER BY m.descriptor;""",
             sqlMethod {
                 searchPackages("com.tencent.mm.ui.chatting")
                 returnType = "boolean"
@@ -769,7 +769,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0066_SwipeMessageOperations_methodGetMsgInfo() {
         assertParity(
-            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'ItemDataTag' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'getCurrentMsg2 err' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/viewitems/%') ORDER BY m.descriptor;""",
+            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'ItemDataTag' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'getCurrentMsg2 err' AND (instr(m.class_descriptor, 'Lcom/tencent/mm/ui/chatting/viewitems/') = 1) ORDER BY m.descriptor;""",
             sqlMethod {
                 searchPackages("com.tencent.mm.ui.chatting.viewitems")
                 usingEqStrings("ItemDataTag", "getCurrentMsg2 err")
@@ -861,7 +861,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0073_CustomLocalFriendAvatars_classAvatarDrawable() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor JOIN methods cm3 ON cm3.class_descriptor = cm.class_descriptor JOIN method_strings ms4 ON ms4.method = cm3.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.AvatarDrawable' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = 'imageView is null' AND cm3.file_id = cm.file_id AND cm3.class_idx = cm.class_idx AND ms4.file_id = cm3.file_id AND ms4.method_idx = cm3.method_idx AND ms4.value = '?access_token=' AND (cm.class_descriptor LIKE 'Lcom/tencent/mm/feature/avatar/%') ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor JOIN methods cm3 ON cm3.class_descriptor = cm.class_descriptor JOIN method_strings ms4 ON ms4.method = cm3.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.AvatarDrawable' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = 'imageView is null' AND cm3.file_id = cm.file_id AND cm3.class_idx = cm.class_idx AND ms4.file_id = cm3.file_id AND ms4.method_idx = cm3.method_idx AND ms4.value = '?access_token=' AND (instr(cm.class_descriptor, 'Lcom/tencent/mm/feature/avatar/') = 1) ORDER BY cm.class_descriptor;""",
             sqlClass {
                 searchPackages("com.tencent.mm.feature.avatar")
                 usingEqStrings("MicroMsg.AvatarDrawable", "imageView is null", "?access_token=")
@@ -938,7 +938,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0079_CustomLocalFriendAvatars_methodPluginsdkLoadAvatar() {
         assertParity(
-            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.AvatarDrawable' AND m.return_descriptor = 'V' AND m.param_descriptors = 'Landroid/widget/ImageView;,Ljava/lang/String;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/pluginsdk/ui/%') ORDER BY m.descriptor;""",
+            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.AvatarDrawable' AND m.return_descriptor = 'V' AND m.param_descriptors = 'Landroid/widget/ImageView;,Ljava/lang/String;' AND (instr(m.class_descriptor, 'Lcom/tencent/mm/pluginsdk/ui/') = 1) ORDER BY m.descriptor;""",
             sqlMethod {
                 searchPackages("com.tencent.mm.pluginsdk.ui")
                 returnType = "void"
@@ -1096,7 +1096,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0092_HideContacts_methodVoipAcceptIncomingCall() {
         assertParity(
-            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.VoipIncomingCallManager' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'acceptIncomingCal, roomInfo:' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/voip/%') ORDER BY m.descriptor;""",
+            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.VoipIncomingCallManager' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'acceptIncomingCal, roomInfo:' AND (instr(m.class_descriptor, 'Lcom/tencent/mm/plugin/voip/') = 1) ORDER BY m.descriptor;""",
             sqlMethod {
                 searchPackages("com.tencent.mm.plugin.voip")
                 usingEqStrings("MicroMsg.VoipIncomingCallManager", "acceptIncomingCal, roomInfo:")
@@ -1147,7 +1147,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0096_HideContacts_methodVoipMpLaunchIncomingCard() {
         assertParity(
-            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%MicroMsg.VoIPMP.CoreV2%' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value LIKE '%launchInComingCardAsync: %' ORDER BY m.descriptor;""",
+            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND instr(ms0.value, 'MicroMsg.VoIPMP.CoreV2') > 0 AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND instr(ms1.value, 'launchInComingCardAsync: ') > 0 ORDER BY m.descriptor;""",
             sqlMethod {
                 usingStrings("MicroMsg.VoIPMP.CoreV2", "launchInComingCardAsync: ")
             },
@@ -1231,7 +1231,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0104_HideContacts_methodVoipStartAcceptVoip() {
         assertParity(
-            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.VoipIncomingCallManager' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'startAcceptVoIP, roomInfo:' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/voip/%') ORDER BY m.descriptor;""",
+            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.VoipIncomingCallManager' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'startAcceptVoIP, roomInfo:' AND (instr(m.class_descriptor, 'Lcom/tencent/mm/plugin/voip/') = 1) ORDER BY m.descriptor;""",
             sqlMethod {
                 searchPackages("com.tencent.mm.plugin.voip")
                 usingEqStrings("MicroMsg.VoipIncomingCallManager", "startAcceptVoIP, roomInfo:")
@@ -1252,7 +1252,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0106_RemoveTextStatusLengthLimit_methodStatusTextChanged() {
         assertParity(
-            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.TextStatus.TextStatusDoWhatActivityV2' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'afterTextChanged inputCount:' AND m.name = 'afterTextChanged' AND m.return_descriptor = 'V' AND m.param_descriptors = 'Landroid/text/Editable;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/textstatus/ui/%') ORDER BY m.descriptor;""",
+            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.TextStatus.TextStatusDoWhatActivityV2' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'afterTextChanged inputCount:' AND m.name = 'afterTextChanged' AND m.return_descriptor = 'V' AND m.param_descriptors = 'Landroid/text/Editable;' AND (instr(m.class_descriptor, 'Lcom/tencent/mm/plugin/textstatus/ui/') = 1) ORDER BY m.descriptor;""",
             sqlMethod {
                 searchPackages("com.tencent.mm.plugin.textstatus.ui")
                 name = "afterTextChanged"
@@ -1286,7 +1286,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0109_PredictiveBackGestures_classFootComponent() {
         assertParity(
-            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.ChattingUI.FootComponent' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = 'onNotifyChange event %s talker %s' AND (cm.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/component/%') ORDER BY cm.class_descriptor;""",
+            """SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'MicroMsg.ChattingUI.FootComponent' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value = 'onNotifyChange event %s talker %s' AND (instr(cm.class_descriptor, 'Lcom/tencent/mm/ui/chatting/component/') = 1) ORDER BY cm.class_descriptor;""",
             sqlClass {
                 searchPackages("com.tencent.mm.ui.chatting.component")
                 usingEqStrings("MicroMsg.ChattingUI.FootComponent", "onNotifyChange event %s talker %s")
@@ -1297,7 +1297,7 @@ class GeneratedSqlDslParityTest {
     @Test
     fun case_0110_PredictiveBackGestures_methodControllerKeyDown() {
         assertParity(
-            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.MMActivityController' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'dancy onKeyDown ++' AND m.return_descriptor = 'Z' AND m.param_descriptors = 'I,Landroid/view/KeyEvent;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/ui/%') ORDER BY m.descriptor;""",
+            """SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'MicroMsg.MMActivityController' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'dancy onKeyDown ++' AND m.return_descriptor = 'Z' AND m.param_descriptors = 'I,Landroid/view/KeyEvent;' AND (instr(m.class_descriptor, 'Lcom/tencent/mm/ui/') = 1) ORDER BY m.descriptor;""",
             sqlMethod {
                 searchPackages("com.tencent.mm.ui")
                 returnType = "boolean"
