@@ -13,6 +13,12 @@ internal class SqlLiteralCall(
 /** One ordered read/write method access matcher of a field query. */
 internal class SqlFieldAccess(val query: SqlMethodQuery, val usingType: String)
 
+/** One class/type name match: mode plus the Java-name literal. */
+internal class SqlNameMatch(val mode: SqlStringMatchMode, val value: String)
+
+/** Literal domain of a name match: dotted class name vs Java type name. */
+internal enum class SqlNameLiteralKind { Class, JavaType }
+
 /**
  * Shared predicate storage for the public builders.
  *
@@ -157,17 +163,76 @@ private fun numberSuffix(number: Number): String {
     return "long_value = " + number.toLong()
 }
 
-/** One param_descriptors condition: normalize every part, join with commas and quote once. */
-private fun paramDescriptorsCondition(baseAlias: String, types: List<Any>): String =
-    baseAlias + ".param_descriptors = " +
-        sqlQuote(types.joinToString(",") { javaType(it.toString()) })
+/**
+ * Canonical parameter condition: exact equality when every type is known, otherwise the
+ * positional wildcard form param_types_match(<alias>.param_descriptors, 'I,?,J'). Empty calls
+ * mean exactly zero parameters (empty pattern).
+ */
+private fun paramTypesCondition(baseAlias: String, types: List<Any?>): String {
+    val column = baseAlias + ".param_descriptors"
+    if (types.isEmpty()) return "param_types_match(" + column + ", '')"
+    if (types.none { it == null }) {
+        return column + " = " + sqlQuote(types.joinToString(",") { javaType(it.toString()) })
+    }
+    val pattern = types.joinToString(",") { type -> if (type == null) "?" else javaType(type.toString()) }
+    return "param_types_match(" + column + ", " + sqlQuote(pattern) + ")"
+}
+
+/** Convert one non-equals name-match literal to the descriptor-core slash form. */
+private fun nameMatchSlashLiteral(value: String): String {
+    val name = value.trim()
+    require(name.isNotEmpty()) { "DexSQL name match literal must not be blank" }
+    require(name !in PRIMITIVE_DESCRIPTORS) {
+        "DexSQL class name match literal must not be a primitive type: '" + name + "'"
+    }
+    require(!name.contains('/')) {
+        "DexSQL class name match literal must be a dotted Java class name: '" + name + "'"
+    }
+    require(!name.contains('[') && !name.contains(']') && !name.endsWith(';')) {
+        "DexSQL class name match literal must not be an array/descriptor form: '" + name + "'"
+    }
+    return name.replace('.', '/')
+}
+
+/** One name-match predicate on a descriptor column (className/returnType/superClass). */
+private fun nameMatchCondition(
+    column: String,
+    match: SqlNameMatch,
+    kind: SqlNameLiteralKind,
+): String = when (match.mode) {
+    SqlStringMatchMode.Equals -> column + " = " + sqlQuote(
+        if (kind == SqlNameLiteralKind.Class) classDescriptor(match.value) else javaType(match.value),
+    )
+
+    SqlStringMatchMode.StartsWith -> {
+        val converted = "L" + nameMatchSlashLiteral(match.value)
+        "instr(" + column + ", " + sqlQuote(converted) + ") = 1"
+    }
+
+    SqlStringMatchMode.Contains -> {
+        val converted = nameMatchSlashLiteral(match.value)
+        "instr(" + column + ", " + sqlQuote(converted) + ") > 0"
+    }
+
+    SqlStringMatchMode.EndsWith -> {
+        require(kind == SqlNameLiteralKind.Class) {
+            "DexSQL returnType EndsWith is not supported (DexKit array/primitive name semantics " +
+                "cannot be expressed in SQL)"
+        }
+        val converted = nameMatchSlashLiteral(match.value)
+        val suffix = converted + ";"
+        "substr(" + column + ", -" + (converted.codePointCount(0, converted.length) + 1) + ") = " +
+            sqlQuote(suffix)
+    }
+}
 
 private class MethodProperties(
     val name: String?,
-    val declaredClass: String?,
-    val returnType: String?,
-    val paramCount: Int?,
-    val paramTypes: List<Any>?,
+    val classNameMatch: SqlNameMatch?,
+    val returnTypeMatch: SqlNameMatch?,
+    val paramTypes: List<Any?>?,
+    val paramCount: Int? = null,
+    val paramCountRange: IntRange? = null,
     /** Access-flag mask emitted after the properties: add for nested method matchers only. */
     val modifiers: Int? = null,
 )
@@ -179,8 +244,8 @@ private class MethodJoinResult(
 )
 
 private fun MethodProperties.hasPredicates(): Boolean =
-    name != null || declaredClass != null || returnType != null ||
-        paramCount != null || paramTypes != null || modifiers != null
+    name != null || classNameMatch != null || returnTypeMatch != null ||
+        paramCount != null || paramCountRange != null || paramTypes != null || modifiers != null
 
 /** One existential method unit of a class query. */
 private class ClassUnit(
@@ -194,10 +259,13 @@ private class ClassUnit(
 private fun SqlMethodQuery.toMethodProperties(includeModifiers: Boolean = false): MethodProperties =
     MethodProperties(
         name = name,
-        declaredClass = declaredClass,
-        returnType = returnType,
-        paramCount = paramCount,
+        classNameMatch = declaredClassMatch
+            ?: declaredClass?.let { SqlNameMatch(SqlStringMatchMode.Equals, it) },
+        returnTypeMatch = returnTypeMatch
+            ?: returnType?.let { SqlNameMatch(SqlStringMatchMode.Equals, it) },
         paramTypes = paramTypes,
+        paramCount = paramCount,
+        paramCountRange = paramCountRange,
         modifiers = if (includeModifiers) modifiers else null,
     )
 
@@ -223,15 +291,25 @@ private fun methodJoins(
     }
     if (properties != null) {
         properties.name?.let { where += baseAlias + ".name = " + sqlQuote(it) }
-        properties.declaredClass?.let {
-            where += baseAlias + ".class_descriptor = " + sqlQuote(classDescriptor(it))
+        properties.classNameMatch?.let {
+            where += nameMatchCondition(baseAlias + ".class_descriptor", it, SqlNameLiteralKind.Class)
         }
-        properties.returnType?.let {
-            where += baseAlias + ".return_descriptor = " + sqlQuote(javaType(it))
+        properties.returnTypeMatch?.let {
+            where += nameMatchCondition(baseAlias + ".return_descriptor", it, SqlNameLiteralKind.JavaType)
         }
-        properties.paramCount?.let { where += baseAlias + ".param_count = " + it }
+        val range = properties.paramCountRange
+        if (range != null) {
+            if (range.first == range.last) {
+                where += baseAlias + ".param_count = " + range.first
+            } else {
+                where += baseAlias + ".param_count >= " + range.first
+                where += baseAlias + ".param_count <= " + range.last
+            }
+        } else {
+            properties.paramCount?.let { where += baseAlias + ".param_count = " + it }
+        }
         properties.paramTypes?.let {
-            where += paramDescriptorsCondition(baseAlias, it)
+            where += paramTypesCondition(baseAlias, it)
         }
         properties.modifiers?.let { mask ->
             where += "((" + baseAlias + ".access_flags & " + mask + ") = " + mask + ")"
@@ -310,8 +388,22 @@ private fun appendDeclaredClassConstraint(
             unitIndex++
         }
     }
+    constraint.classNameMatch?.let {
+        where += nameMatchCondition(baseAlias + ".class_descriptor", it, SqlNameLiteralKind.Class)
+    }
+    constraint.superClassMatch?.let { match ->
+        val alias = classMatchJoinAlias(baseAlias)
+        joins += "JOIN classes " + alias + " ON " + alias + ".descriptor = " + baseAlias + ".class_descriptor"
+        where += alias + ".file_id = " + baseAlias + ".file_id"
+        where += alias + ".class_idx = " + baseAlias + ".class_idx"
+        where += nameMatchCondition(alias + ".superclass_descriptor", match, SqlNameLiteralKind.Class)
+    }
     return index
 }
+
+/** Stable alias for a classes join matching a unit anchor's superclass (avoids c/cc clashes). */
+private fun classMatchJoinAlias(anchorAlias: String): String =
+    "csm" + anchorAlias.takeLastWhile { it.isDigit() }
 
 /**
  * Append the superClass { ... } units of a class query. Every literal VALUE is one existential unit
@@ -350,6 +442,14 @@ private fun appendSuperClassConstraint(
             unitIndex++
         }
     }
+    constraint.classNameMatch?.let {
+        where += nameMatchCondition(anchor, it, SqlNameLiteralKind.Class)
+    }
+    constraint.superClassMatch?.let {
+        throw IllegalArgumentException(
+            "DexSQL superClass { } cannot match the superclass of the superclass",
+        )
+    }
     return index
 }
 
@@ -363,10 +463,13 @@ internal fun emitMethod(query: SqlMethodQuery, constructor: Boolean): String {
         where += "m.name = " + sqlQuote(CONSTRUCTOR_NAME)
         properties = MethodProperties(
             name = null,
-            declaredClass = query.declaredClass,
-            returnType = query.returnType,
-            paramCount = query.paramCount,
+            classNameMatch = query.declaredClassMatch
+                ?: query.declaredClass?.let { SqlNameMatch(SqlStringMatchMode.Equals, it) },
+            returnTypeMatch = query.returnTypeMatch
+                ?: query.returnType?.let { SqlNameMatch(SqlStringMatchMode.Equals, it) },
             paramTypes = query.paramTypes,
+            paramCount = query.paramCount,
+            paramCountRange = query.paramCountRange,
         )
     } else {
         properties = query.toMethodProperties()
@@ -426,8 +529,10 @@ internal fun emitClass(query: SqlClassQuery): String {
             nestedMethodMatcher = true,
         )
     }
-    val className = query.className
-    val superClass = query.superClass
+    val classNameMatch = query.classNameMatch
+        ?: query.className?.let { SqlNameMatch(SqlStringMatchMode.Equals, it) }
+    val superClassMatch = query.superClassMatch
+        ?: query.superClass?.let { SqlNameMatch(SqlStringMatchMode.Equals, it) }
     if (units.isNotEmpty()) {
         var nextIndex = 0
         // DexKit matches class method matchers injectively: every nested method matcher must be
@@ -451,17 +556,20 @@ internal fun emitClass(query: SqlClassQuery): String {
             where += result.where
             nextIndex = result.nextIndex
         }
-        className?.let { where += "cm.class_descriptor = " + sqlQuote(classDescriptor(it)) }
-        superClass?.let {
+        classNameMatch?.let {
+            where += nameMatchCondition("cm.class_descriptor", it, SqlNameLiteralKind.Class)
+        }
+        var classesJoined = false
+        superClassMatch?.let {
             joins += "JOIN classes c ON c.descriptor = cm.class_descriptor"
             where += "c.file_id = cm.file_id"
             where += "c.class_idx = cm.class_idx"
-            where += "c.superclass_descriptor = " + sqlQuote(classDescriptor(it))
+            classesJoined = true
+            where += nameMatchCondition("c.superclass_descriptor", it, SqlNameLiteralKind.Class)
         }
         packageCondition("cm.class_descriptor", query.literals.packages)?.let { where += it }
         query.modifiers?.let { mask ->
-            val hasSuperClassString = superClass != null
-            if (!hasSuperClassString) {
+            if (!classesJoined) {
                 joins += "JOIN classes c ON c.descriptor = cm.class_descriptor"
                 where += "c.file_id = cm.file_id"
                 where += "c.class_idx = cm.class_idx"
@@ -488,14 +596,18 @@ internal fun emitClass(query: SqlClassQuery): String {
     query.literals.validateRange()
     val superClassConstraint = query.superClassConstraint
     require(
-        className != null || superClass != null ||
+        classNameMatch != null || superClassMatch != null ||
             query.literals.packages.isNotEmpty() || superClassConstraint != null ||
             query.modifiers != null,
     ) {
         "sqlClass requires at least one predicate"
     }
-    className?.let { where += "c.descriptor = " + sqlQuote(classDescriptor(it)) }
-    superClass?.let { where += "c.superclass_descriptor = " + sqlQuote(classDescriptor(it)) }
+    classNameMatch?.let {
+        where += nameMatchCondition("c.descriptor", it, SqlNameLiteralKind.Class)
+    }
+    superClassMatch?.let {
+        where += nameMatchCondition("c.superclass_descriptor", it, SqlNameLiteralKind.Class)
+    }
     packageCondition("c.descriptor", query.literals.packages)?.let { where += it }
     query.modifiers?.let { mask ->
         where += "((c.access_flags & " + mask + ") = " + mask + ")"

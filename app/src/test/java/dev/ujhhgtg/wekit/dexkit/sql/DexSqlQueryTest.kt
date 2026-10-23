@@ -1246,12 +1246,351 @@ class DexSqlQueryTest {
         }
     }
 
+    // ------------------------------------------------------------------
+    // T1: paramTypes null wildcards, zero args, paramCount ranges
+    // ------------------------------------------------------------------
+
     @Test
-    fun paramTypesWithoutArgumentsThrows() {
+    fun emptyParamTypesMeansZeroParameters() {
+        val query = sqlMethod {
+            paramTypes()
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE param_types_match(m.param_descriptors, '') ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun nullParamTypeIsOneWildcard() {
+        val query = sqlMethod {
+            paramTypes(null)
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE param_types_match(m.param_descriptors, '?') ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun paramTypeWildcardsKeepExactTypePositions() {
+        val query = sqlMethod {
+            paramTypes("int", null, "long")
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE param_types_match(m.param_descriptors, 'I,?,J') ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun exactParamTypesKeepEqualityBytes() {
+        val query = sqlMethod {
+            paramTypes("java.lang.String", "int")
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.param_descriptors = 'Ljava/lang/String;,I' ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun paramTypesRuntimeValuesStayLazy() {
+        var wildcardType: String? = null
+        val query = sqlMethod {
+            paramTypes("int", wildcardType, "long")
+        }
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE param_types_match(m.param_descriptors, 'I,?,J') ORDER BY m.descriptor;",
+            query.toSql(),
+        )
+        // With no null entry left, the exact equality form stays canonical.
+        wildcardType = "java.lang.String"
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.param_descriptors = 'I,Ljava/lang/String;,J' ORDER BY m.descriptor;",
+            query.toSql(),
+        )
+    }
+
+    @Test
+    fun wildcardParamTypesInNestedClassAndFieldContexts() {
+        val classQuery = sqlClass {
+            method {
+                usingEqStrings("x")
+                paramTypes("int", null)
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'x' AND param_types_match(cm.param_descriptors, 'I,?') ORDER BY cm.class_descriptor;",
+            classQuery,
+        )
+
+        val fieldQuery = sqlField {
+            name = "f"
+            readMethod {
+                usingEqStrings("x")
+                paramTypes("int", null)
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT f.descriptor AS descriptor FROM fields f JOIN method_field_accesses fa0 ON fa0.field = f.descriptor JOIN methods fm0 ON fm0.descriptor = fa0.method JOIN method_strings ms1 ON ms1.method = fm0.descriptor WHERE f.name = 'f' AND fa0.file_id = f.file_id AND fa0.field_idx = f.field_idx AND fm0.file_id = fa0.file_id AND fm0.method_idx = fa0.method_idx AND fa0.using_type = 'get' AND ms1.file_id = fm0.file_id AND ms1.method_idx = fm0.method_idx AND ms1.value = 'x' AND param_types_match(fm0.param_descriptors, 'I,?') ORDER BY f.descriptor;",
+            fieldQuery,
+        )
+    }
+
+    @Test
+    fun blankParamTypeThrows() {
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
-                paramTypes()
+                paramTypes("  ")
             }.toSql()
+        }
+    }
+
+    @Test
+    fun paramCountRangeEmitsInclusiveBounds() {
+        val query = sqlMethod {
+            paramCount(2, 4)
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.param_count >= 2 AND m.param_count <= 4 ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun paramCountEqualBoundsKeepEquality() {
+        val query = sqlMethod {
+            paramCount(2, 2)
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.param_count = 2 ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun paramCountRangeFormsAndValidation() {
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.param_count = 3 ORDER BY m.descriptor;",
+            sqlMethod { paramCount(3) },
+        )
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.param_count >= 3 AND m.param_count <= 5 ORDER BY m.descriptor;",
+            sqlMethod { paramCount(3..5) },
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            sqlMethod { paramCount(4, 2) }.toSql()
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            sqlMethod { paramCount(-1, 2) }.toSql()
+        }
+    }
+
+    @Test
+    fun paramCountRangeCombinesWithWildcardParamTypes() {
+        val query = sqlMethod {
+            paramCount(1, 3)
+            paramTypes("int", null)
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.param_count >= 1 AND m.param_count <= 3 AND param_types_match(m.param_descriptors, 'I,?') ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    // ------------------------------------------------------------------
+    // T3: case-sensitive name match modes
+    // ------------------------------------------------------------------
+
+    @Test
+    fun classNameStartsWithEmitsInstrPrefix() {
+        val query = sqlMethod {
+            className(SqlStringMatchMode.StartsWith, "com.tencent.xweb")
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE instr(m.class_descriptor, 'Lcom/tencent/xweb') = 1 ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun declaredClassContainsEmitsInstrContains() {
+        val query = sqlMethod {
+            declaredClass(SqlStringMatchMode.Contains, "com.tencent.mm.ui")
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE instr(m.class_descriptor, 'com/tencent/mm/ui') > 0 ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun returnTypeContainsEmitsInstrContains() {
+        val query = sqlMethod {
+            returnType(SqlStringMatchMode.Contains, "com.tencent.mm.plugin.appbrand.menu")
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE instr(m.return_descriptor, 'com/tencent/mm/plugin/appbrand/menu') > 0 ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun returnTypeStartsWithEmitsDescriptorPrefix() {
+        val query = sqlMethod {
+            returnType(SqlStringMatchMode.StartsWith, "android.content")
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE instr(m.return_descriptor, 'Landroid/content') = 1 ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun classNameEndsWithCountsCodePointsIncludingTerminator() {
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE substr(m.class_descriptor, -16) = 'BaseSettingItem;' ORDER BY m.descriptor;",
+            sqlMethod { className(SqlStringMatchMode.EndsWith, "BaseSettingItem") },
+        )
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE substr(m.class_descriptor, -25) = 'settings/BaseSettingItem;' ORDER BY m.descriptor;",
+            sqlMethod { className(SqlStringMatchMode.EndsWith, "settings.BaseSettingItem") },
+        )
+    }
+
+    @Test
+    fun nameMatchEqualsKeepsExistingBytes() {
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.class_descriptor = 'Lcom/tencent/mm/Foo;' ORDER BY m.descriptor;",
+            sqlMethod { className(SqlStringMatchMode.Equals, "com.tencent.mm.Foo") },
+        )
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.class_descriptor = 'Lcom/foo/Bar;' ORDER BY m.descriptor;",
+            sqlMethod { declaredClass(SqlStringMatchMode.Equals, "Lcom/foo/Bar;") },
+        )
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = 'I' ORDER BY m.descriptor;",
+            sqlMethod { returnType(SqlStringMatchMode.Equals, "int") },
+        )
+    }
+
+    @Test
+    fun classQueryNameMatchModesUseCDescriptor() {
+        assertSql(
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE instr(c.descriptor, 'Lcom/tencent/mm/plugin/newtips/model') = 1 ORDER BY c.descriptor;",
+            sqlClass { className(SqlStringMatchMode.StartsWith, "com.tencent.mm.plugin.newtips.model") },
+        )
+        assertSql(
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE instr(c.superclass_descriptor, 'Landroid/app') = 1 ORDER BY c.descriptor;",
+            sqlClass { superClass(SqlStringMatchMode.StartsWith, "android.app") },
+        )
+    }
+
+    @Test
+    fun classQueryUnitScopedMatchModesUseCmAlias() {
+        assertSql(
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'a' AND instr(cm.class_descriptor, 'Lcom/tencent/mm') = 1 ORDER BY cm.class_descriptor;",
+            sqlClass {
+                usingEqStrings("a")
+                className(SqlStringMatchMode.StartsWith, "com.tencent.mm")
+            },
+        )
+    }
+
+    @Test
+    fun classQuerySuperClassMatchAddsClassesJoin() {
+        val query = sqlClass {
+            usingEqStrings("a")
+            superClass(SqlStringMatchMode.Contains, "android.app")
+        }
+        assertSql(
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN classes c ON c.descriptor = cm.class_descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'a' AND c.file_id = cm.file_id AND c.class_idx = cm.class_idx AND instr(c.superclass_descriptor, 'android/app') > 0 ORDER BY cm.class_descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun fieldAccessMethodNameMatchUsesFmAlias() {
+        val query = sqlField {
+            name = "f"
+            readMethod {
+                className(SqlStringMatchMode.StartsWith, "com.tencent.mm.ui")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT f.descriptor AS descriptor FROM fields f JOIN method_field_accesses fa0 ON fa0.field = f.descriptor JOIN methods fm0 ON fm0.descriptor = fa0.method WHERE f.name = 'f' AND fa0.file_id = f.file_id AND fa0.field_idx = f.field_idx AND fm0.file_id = fa0.file_id AND fm0.method_idx = fa0.method_idx AND fa0.using_type = 'get' AND instr(fm0.class_descriptor, 'Lcom/tencent/mm/ui') = 1 ORDER BY f.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun declaredClassConstraintNameMatchesUseAnchorClass() {
+        val query = sqlMethod {
+            declaredClass {
+                usingEqStrings("marker")
+                className(SqlStringMatchMode.StartsWith, "com.tencent")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor JOIN method_strings ms0 ON ms0.method = ccm0.descriptor WHERE ccm0.file_id = m.file_id AND ccm0.class_idx = m.class_idx AND ms0.file_id = ccm0.file_id AND ms0.method_idx = ccm0.method_idx AND ms0.value = 'marker' AND instr(m.class_descriptor, 'Lcom/tencent') = 1 ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun declaredClassConstraintSuperClassMatchAddsCsmJoin() {
+        val query = sqlMethod {
+            declaredClass {
+                usingEqStrings("marker")
+                superClass(SqlStringMatchMode.StartsWith, "com.tencent.xweb")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor JOIN method_strings ms0 ON ms0.method = ccm0.descriptor JOIN classes csm ON csm.descriptor = m.class_descriptor WHERE ccm0.file_id = m.file_id AND ccm0.class_idx = m.class_idx AND ms0.file_id = ccm0.file_id AND ms0.method_idx = ccm0.method_idx AND ms0.value = 'marker' AND csm.file_id = m.file_id AND csm.class_idx = m.class_idx AND instr(csm.superclass_descriptor, 'Lcom/tencent/xweb') = 1 ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun superClassConstraintClassNameMatchTargetsSuperclassColumn() {
+        val query = sqlClass {
+            superClass {
+                usingEqStrings("marker")
+                className(SqlStringMatchMode.Contains, "xweb")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods scm0 ON scm0.class_descriptor = c.superclass_descriptor JOIN method_strings ms0 ON ms0.method = scm0.descriptor WHERE ms0.file_id = scm0.file_id AND ms0.method_idx = scm0.method_idx AND ms0.value = 'marker' AND instr(c.superclass_descriptor, 'xweb') > 0 ORDER BY c.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun returnTypeEndsWithThrows() {
+        assertThrows(IllegalArgumentException::class.java) {
+            sqlMethod {
+                returnType(SqlStringMatchMode.EndsWith, "java.lang.String")
+            }.toSql()
+        }
+    }
+
+    @Test
+    fun nameMatchRejectsInvalidLiterals() {
+        assertThrows(IllegalArgumentException::class.java) {
+            sqlMethod { className(SqlStringMatchMode.StartsWith, "int") }.toSql()
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            sqlMethod { className(SqlStringMatchMode.Contains, "Lcom/x/Y;") }.toSql()
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            sqlMethod { className(SqlStringMatchMode.EndsWith, "  ") }.toSql()
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            sqlMethod { returnType(SqlStringMatchMode.Contains, "int") }.toSql()
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            sqlMethod { returnType(SqlStringMatchMode.StartsWith, "java.lang.String[]") }.toSql()
         }
     }
 }

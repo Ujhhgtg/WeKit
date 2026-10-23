@@ -16,9 +16,23 @@ class DexSqlQuery internal constructor(
 }
 
 /**
- * Build a dexMethod query. The block runs when [DexSqlQuery.toSql] is called; an empty block throws
- * then. Only predicates DexSQL can express are exposed on the builder.
+ * Case-sensitive name match mode for class/type descriptor matchers (DexKit StringMatchType).
+ *
+ * The SQL engine has no case-insensitive or regex name predicates, so only these modes are
+ * exposed: [Equals] keeps the plain descriptor equality, [StartsWith] emits
+ * instr(col, 'Lconverted') = 1, [Contains] emits instr(col, 'converted') > 0 and [EndsWith] emits
+ * substr(col, -N) = 'converted;' (N includes the descriptor terminator). Literal values are Java
+ * names and are converted to descriptor form by the builder.
  */
+enum class SqlStringMatchMode {
+    Equals,
+    StartsWith,
+    Contains,
+    EndsWith,
+}
+
+/** Build a dexMethod query. The block runs when [DexSqlQuery.toSql] is called; an empty block throws
+ * then. Only predicates DexSQL can express are exposed on the builder. */
 fun sqlMethod(block: SqlMethodQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
     val query = SqlMethodQuery()
     query.block()
@@ -63,15 +77,36 @@ class SqlMethodQuery internal constructor() {
 
     /** Declaring class (m.class_descriptor); accepts com.foo.Bar or Lcom/foo/Bar;. */
     var declaredClass: String? = null
+        set(value) {
+            field = value
+            declaredClassMatch = null
+        }
+
+    /** Name-match slot for [declaredClass]; the exact property maps to [SqlStringMatchMode.Equals]. */
+    internal var declaredClassMatch: SqlNameMatch? = null
 
     /**
      * Return type (m.return_descriptor); accepts void, int, java.lang.String, java.lang.String[], or
      * an L...; descriptor.
      */
     var returnType: String? = null
+        set(value) {
+            field = value
+            returnTypeMatch = null
+        }
 
-    /** Parameter count (m.param_count). */
+    /** Name-match slot for [returnType]; the exact property maps to [SqlStringMatchMode.Equals]. */
+    internal var returnTypeMatch: SqlNameMatch? = null
+
+    /** Exact parameter count (m.param_count); assigning clears any range set via [paramCount]. */
     var paramCount: Int? = null
+        set(value) {
+            field = value
+            paramCountRange = null
+        }
+
+    /** Inclusive parameter-count range; emitted as two comparisons (equality when min == max). */
+    internal var paramCountRange: IntRange? = null
 
     /**
      * Access-flag mask (decimal), emitted as ((m.access_flags & mask) = mask); DexKit modifiers
@@ -80,7 +115,7 @@ class SqlMethodQuery internal constructor() {
     var modifiers: Int? = null
 
     internal val literals = DexSqlLiterals()
-    internal var paramTypes: List<Any>? = null
+    internal var paramTypes: List<Any?>? = null
 
     internal var declaredClassConstraint: SqlClassLiteralConstraint? = null
 
@@ -88,6 +123,18 @@ class SqlMethodQuery internal constructor() {
     fun declaredClass(value: String) {
         declaredClass = value
     }
+
+    /** Match the declaring class name case-sensitively (DexKit className with a match type). */
+    fun declaredClass(mode: SqlStringMatchMode, value: String) {
+        declaredClass = null
+        declaredClassMatch = SqlNameMatch(mode, value)
+    }
+
+    /** Set the declaring class; alias of [declaredClass]. */
+    fun className(value: String) = declaredClass(value)
+
+    /** Match the declaring class name; alias of [declaredClass] with a match mode. */
+    fun className(mode: SqlStringMatchMode, value: String) = declaredClass(mode, value)
 
     /**
      * Require the declaring class to contain methods satisfying the class-level literals in
@@ -104,12 +151,45 @@ class SqlMethodQuery internal constructor() {
         returnType = value
     }
 
+    /** Match the return type name case-sensitively (DexKit returnType with a match type). */
+    fun returnType(mode: SqlStringMatchMode, value: String) {
+        returnType = null
+        returnTypeMatch = SqlNameMatch(mode, value)
+    }
+
+    /** Set the parameter count; same as assigning [paramCount]. */
+    fun paramCount(count: Int) {
+        paramCount = count
+    }
+
+    /** Inclusive parameter count range; min == max keeps the canonical equality form. */
+    fun paramCount(min: Int, max: Int) {
+        require(min >= 0 && min <= max) {
+            "DexSQL paramCount range must satisfy 0 <= min <= max, was " + min + ".." + max
+        }
+        paramCount = null
+        paramCountRange = min..max
+    }
+
+    /** Inclusive parameter count range; same as [paramCount] with two bounds. */
+    fun paramCount(range: IntRange) = paramCount(range.first, range.last)
+
     /**
-     * Exact parameter types, emitted as one m.param_descriptors condition. Repeated calls replace
-     * the previous value.
+     * Positional parameter types (m.param_descriptors). A null entry matches exactly one parameter
+     * of any type (DexKit ParametersMatcher wildcard); zero arguments require exactly zero
+     * parameters. With no null entries and at least one type the existing exact equality form is
+     * kept (param_descriptors = 'I,J'); otherwise the canonical
+     * param_types_match(..., '<pattern>') form is emitted with '?' per wildcard. Repeated calls
+     * replace the previous value.
      */
-    fun paramTypes(vararg types: Any) {
-        require(types.isNotEmpty()) { "DexSQL paramTypes requires at least one type" }
+    fun paramTypes(vararg types: Any?) {
+        types.forEach { type ->
+            if (type != null) {
+                require(type.toString().isNotBlank()) {
+                    "DexSQL paramTypes entries must not be blank"
+                }
+            }
+        }
         paramTypes = types.toList()
     }
 
@@ -161,9 +241,24 @@ class SqlClassQuery internal constructor() {
      * and against c.descriptor otherwise.
      */
     var className: String? = null
+        set(value) {
+            field = value
+            classNameMatch = null
+        }
+
+    /** Name-match slot for [className]; the exact property maps to [SqlStringMatchMode.Equals]. */
+    internal var classNameMatch: SqlNameMatch? = null
 
     /** Superclass descriptor; joins classes and matches superclass_descriptor. */
     var superClass: String? = null
+        set(value) {
+            field = value
+            superClassMatch = null
+        }
+
+    /** Name-match slot for [superClass]; the exact property maps to [SqlStringMatchMode.Equals]. */
+    internal var superClassMatch: SqlNameMatch? = null
+
     internal var superClassConstraint: SqlClassLiteralConstraint? = null
 
     /**
@@ -181,9 +276,21 @@ class SqlClassQuery internal constructor() {
         className = value
     }
 
+    /** Match the matched class name case-sensitively (DexKit className with a match type). */
+    fun className(mode: SqlStringMatchMode, value: String) {
+        className = null
+        classNameMatch = SqlNameMatch(mode, value)
+    }
+
     /** Set the superclass descriptor; same as assigning [superClass]. */
     fun superClass(value: String) {
         superClass = value
+    }
+
+    /** Match the superclass name case-sensitively (DexKit superClass with a match type). */
+    fun superClass(mode: SqlStringMatchMode, value: String) {
+        superClass = null
+        superClassMatch = SqlNameMatch(mode, value)
     }
 
     /**
@@ -285,23 +392,45 @@ private fun classLiteralConstraint(
     block: SqlClassLiteralConstraint.() -> Unit,
 ): SqlClassLiteralConstraint {
     val constraint = SqlClassLiteralConstraint().apply(block)
-    require(constraint.calls.isNotEmpty()) {
-        "sql* " + owner + " { } requires at least one literal call"
+    require(
+        constraint.calls.isNotEmpty() ||
+            constraint.classNameMatch != null ||
+            constraint.superClassMatch != null,
+    ) {
+        "sql* " + owner + " { } requires at least one literal or name-match call"
     }
     return constraint
 }
 
 /**
- * Class-level literal constraint used by [SqlMethodQuery.declaredClass] and
- * [SqlClassQuery.superClass].
+ * Class-level matcher used by [SqlMethodQuery.declaredClass] and [SqlClassQuery.superClass].
  *
  * Every literal value is one independent existential unit over the methods of the constrained
- * class; a method may satisfy several values. Only class-level literal calls exist on this
- * builder, so any other DexKit construct is a Kotlin compile error instead of a silently dropped
- * predicate.
+ * class; a method may satisfy several values. The name-match slots describe the constrained class
+ * itself (className) and its superclass (superClass) and are emitted as class-level joins. Only
+ * class-level constructs exist on this builder, so any other DexKit construct is a Kotlin compile
+ * error instead of a silently dropped predicate.
  */
 class SqlClassLiteralConstraint internal constructor() {
     internal val calls = mutableListOf<SqlLiteralCall>()
+    internal var classNameMatch: SqlNameMatch? = null
+    internal var superClassMatch: SqlNameMatch? = null
+
+    /** Match the constrained class name (hoisted to the anchor class descriptor). */
+    fun className(mode: SqlStringMatchMode, value: String) {
+        classNameMatch = SqlNameMatch(mode, value)
+    }
+
+    /** Match the constrained class name; equals form. */
+    fun className(value: String) = className(SqlStringMatchMode.Equals, value)
+
+    /** Match the constrained class's superclass name (adds one classes join on the anchor). */
+    fun superClass(mode: SqlStringMatchMode, value: String) {
+        superClassMatch = SqlNameMatch(mode, value)
+    }
+
+    /** Match the constrained class's superclass name; equals form. */
+    fun superClass(value: String) = superClass(SqlStringMatchMode.Equals, value)
 
     /** Add one method_strings.value LIKE '%value%' (contains) call. */
     fun usingStrings(vararg values: Any) = addStringCall(SqlStringMode.CONTAINS, values)
