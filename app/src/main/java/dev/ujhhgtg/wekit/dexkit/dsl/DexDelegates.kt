@@ -478,28 +478,44 @@ fun dexMethod(
     query: DexSqlQuery,
     allowFailure: Boolean = false,
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexMethodDelegate>> =
-    dexMethod(query.toSql(), allowFailure)
+    PropertyDelegateProvider { item, property ->
+        val key = property.name
+        DexMethodDelegate(key, sqlSpec = DexSqlSpec.deferred(query, allowFailure))
+            .also { item.registerDexDelegate(it) }
+    }
 
 /** Create a SQL-backed class delegate from a [dev.ujhhgtg.wekit.dexkit.sql.sqlClass] query. */
 fun dexClass(
     query: DexSqlQuery,
     allowFailure: Boolean = false,
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexClassDelegate>> =
-    dexClass(query.toSql(), allowFailure)
+    PropertyDelegateProvider { item, property ->
+        val key = property.name
+        DexClassDelegate(key, sqlSpec = DexSqlSpec.deferred(query, allowFailure))
+            .also { item.registerDexDelegate(it) }
+    }
 
 /** Create a SQL-backed field delegate from a [dev.ujhhgtg.wekit.dexkit.sql.sqlField] query. */
 fun dexField(
     query: DexSqlQuery,
     allowFailure: Boolean = false,
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexFieldDelegate>> =
-    dexField(query.toSql(), allowFailure)
+    PropertyDelegateProvider { item, property ->
+        val key = property.name
+        DexFieldDelegate(key, sqlSpec = DexSqlSpec.deferred(query, allowFailure))
+            .also { item.registerDexDelegate(it) }
+    }
 
 /** Create a SQL-backed constructor delegate from a [dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor] query. */
 fun dexConstructor(
     query: DexSqlQuery,
     allowFailure: Boolean = false,
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexConstructorDelegate>> =
-    dexConstructor(query.toSql(), allowFailure)
+    PropertyDelegateProvider { item, property ->
+        val key = property.name
+        DexConstructorDelegate(key, sqlSpec = DexSqlSpec.deferred(query, allowFailure))
+            .also { item.registerDexDelegate(it) }
+    }
 
 /**
  * Create a SQL-backed method delegate from a raw SQL string. Prefer the
@@ -514,7 +530,7 @@ fun dexMethod(
         val key = property.name
         DexMethodDelegate(
             key,
-            sqlSpec = DexSqlSpec(sql, allowFailure),
+            sqlSpec = DexSqlSpec.static(sql, allowFailure),
         ).also { item.registerDexDelegate(it) }
     }
 
@@ -527,7 +543,7 @@ fun dexClass(
         val key = property.name
         DexClassDelegate(
             key,
-            sqlSpec = DexSqlSpec(sql, allowFailure),
+            sqlSpec = DexSqlSpec.static(sql, allowFailure),
         ).also { item.registerDexDelegate(it) }
     }
 
@@ -540,7 +556,7 @@ fun dexField(
         val key = property.name
         DexFieldDelegate(
             key,
-            sqlSpec = DexSqlSpec(sql, allowFailure),
+            sqlSpec = DexSqlSpec.static(sql, allowFailure),
         ).also { item.registerDexDelegate(it) }
     }
 
@@ -553,7 +569,7 @@ fun dexConstructor(
         val key = property.name
         DexConstructorDelegate(
             key,
-            sqlSpec = DexSqlSpec(sql, allowFailure),
+            sqlSpec = DexSqlSpec.static(sql, allowFailure),
         ).also { item.registerDexDelegate(it) }
     }
 

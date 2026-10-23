@@ -1,7 +1,10 @@
 package dev.ujhhgtg.wekit.dexkit.sql
 
+import dev.ujhhgtg.wekit.dexkit.dsl.DexSqlSpec
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
@@ -953,6 +956,215 @@ class DexSqlQueryTest {
             "SELECT DISTINCT f.descriptor AS descriptor FROM fields f JOIN method_field_accesses fa0 ON fa0.field = f.descriptor JOIN methods fm0 ON fm0.descriptor = fa0.method WHERE f.name = 'field' AND fa0.file_id = f.file_id AND fa0.field_idx = f.field_idx AND fm0.file_id = fa0.file_id AND fm0.method_idx = fa0.method_idx AND fa0.using_type = 'get' AND fm0.name = 'getX' AND ((fm0.access_flags & 1) = 1) ORDER BY f.descriptor;",
             query,
         )
+    }
+
+    // ------------------------------------------------------------------
+    // Deferred values (Pass C)
+    // ------------------------------------------------------------------
+
+    @Test
+    fun deferredTemplateUsesEmissionOrderedTokens() {
+        val query = sqlMethod {
+            usingEqStrings(deferred { "x" })
+            declaredClass(deferred { "com.foo.Bar" })
+            returnType(deferred { "void" })
+            paramTypes("java.lang.String", deferred { "int" })
+        }
+        assertFalse(query.isStatic)
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = @@WEKIT_DEFERRED_0@@ AND m.class_descriptor = @@WEKIT_DEFERRED_1@@ AND m.return_descriptor = @@WEKIT_DEFERRED_2@@ AND m.param_descriptors = @@WEKIT_DEFERRED_3@@ ORDER BY m.descriptor;",
+            query,
+        )
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'x' AND m.class_descriptor = 'Lcom/foo/Bar;' AND m.return_descriptor = 'V' AND m.param_descriptors = 'Ljava/lang/String;,I' ORDER BY m.descriptor;",
+            query.buildSql(),
+        )
+    }
+
+    @Test
+    fun deferredClassNameRendersDottedNameAsDescriptor() {
+        val query = sqlClass {
+            className(deferred { "com.foo.Bar" })
+        }
+        assertEquals(
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE c.descriptor = @@WEKIT_DEFERRED_0@@ ORDER BY c.descriptor;",
+            query.toSql(),
+        )
+        assertEquals(
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE c.descriptor = 'Lcom/foo/Bar;' ORDER BY c.descriptor;",
+            query.buildSql(),
+        )
+    }
+
+    @Test
+    fun deferredClassDescriptorPassesThrough() {
+        val query = sqlMethod {
+            declaredClass(deferred { "Lcom/foo/Bar;" })
+        }
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.class_descriptor = @@WEKIT_DEFERRED_0@@ ORDER BY m.descriptor;",
+            query.toSql(),
+        )
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.class_descriptor = 'Lcom/foo/Bar;' ORDER BY m.descriptor;",
+            query.buildSql(),
+        )
+    }
+
+    @Test
+    fun deferredPrimitiveTypeBecomesTypeDescriptor() {
+        val query = sqlMethod {
+            returnType(deferred { "void" })
+        }
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = @@WEKIT_DEFERRED_0@@ ORDER BY m.descriptor;",
+            query.toSql(),
+        )
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = 'V' ORDER BY m.descriptor;",
+            query.buildSql(),
+        )
+    }
+
+    @Test
+    fun deferredArrayTypeBecomesTypeDescriptor() {
+        val query = sqlMethod {
+            returnType(deferred { "byte[]" })
+        }
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = '[B' ORDER BY m.descriptor;",
+            query.buildSql(),
+        )
+    }
+
+    @Test
+    fun deferredMixedParamTypesUseOneToken() {
+        val query = sqlMethod {
+            paramTypes("java.lang.String", deferred { "int" })
+        }
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.param_descriptors = @@WEKIT_DEFERRED_0@@ ORDER BY m.descriptor;",
+            query.toSql(),
+        )
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.param_descriptors = 'Ljava/lang/String;,I' ORDER BY m.descriptor;",
+            query.buildSql(),
+        )
+    }
+
+    @Test
+    fun deferredContainsLiteralKeepsConditionalEscaping() {
+        val escaped = sqlMethod {
+            usingStrings(deferred { "id:50%" })
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE @@WEKIT_DEFERRED_0@@ ORDER BY m.descriptor;",
+            escaped,
+        )
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%id:50\\%%' ESCAPE '\\' ORDER BY m.descriptor;",
+            escaped.buildSql(),
+        )
+        val plain = sqlMethod {
+            usingStrings(deferred { "plain" })
+        }
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%plain%' ORDER BY m.descriptor;",
+            plain.buildSql(),
+        )
+        val prefix = sqlMethod {
+            usingPrefixStrings(deferred { "a_b" })
+        }
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE 'a\\_b%' ESCAPE '\\' ORDER BY m.descriptor;",
+            prefix.buildSql(),
+        )
+    }
+
+    @Test
+    fun deferredEqualityLiteralKeepsRawValue() {
+        val query = sqlMethod {
+            usingEqStrings(deferred { "it's" })
+        }
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'it''s' ORDER BY m.descriptor;",
+            query.buildSql(),
+        )
+    }
+
+    @Test
+    fun deferredNumbersRenderLongOrDoubleCondition() {
+        val longQuery = sqlMethod {
+            usingNumbers(deferred { 57 })
+        }
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_using_numbers mn0 ON mn0.method = m.descriptor WHERE mn0.file_id = m.file_id AND mn0.method_idx = m.method_idx AND mn0.@@WEKIT_DEFERRED_0@@ ORDER BY m.descriptor;",
+            longQuery.toSql(),
+        )
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_using_numbers mn0 ON mn0.method = m.descriptor WHERE mn0.file_id = m.file_id AND mn0.method_idx = m.method_idx AND mn0.long_value = 57 ORDER BY m.descriptor;",
+            longQuery.buildSql(),
+        )
+        val doubleQuery = sqlMethod {
+            usingNumbers(deferred { 0.5 })
+        }
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_using_numbers mn0 ON mn0.method = m.descriptor WHERE mn0.file_id = m.file_id AND mn0.method_idx = m.method_idx AND mn0.double_value = 0.5 ORDER BY m.descriptor;",
+            doubleQuery.buildSql(),
+        )
+    }
+
+    @Test
+    fun staticQueriesRemainByteIdentical() {
+        val query = sqlMethod {
+            name = "x"
+            declaredClass = "com.foo.Bar"
+            usingEqStrings("y")
+        }
+        assertTrue(query.isStatic)
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'y' AND m.name = 'x' AND m.class_descriptor = 'Lcom/foo/Bar;' ORDER BY m.descriptor;",
+            query.toSql(),
+        )
+        assertEquals(query.toSql(), query.buildSql())
+    }
+
+    @Test
+    fun deferredQueryRendersSameTextAsEquivalentStaticQuery() {
+        val staticQuery = sqlMethod {
+            usingEqStrings("v")
+            declaredClass = "com.foo.Bar"
+            returnType = "void"
+            paramTypes("int")
+        }
+        val deferredQuery = sqlMethod {
+            usingEqStrings(deferred { "v" })
+            declaredClass(deferred { "com.foo.Bar" })
+            returnType(deferred { "void" })
+            paramTypes(deferred { "int" })
+        }
+        assertFalse(deferredQuery.isStatic)
+        assertEquals(staticQuery.toSql(), deferredQuery.buildSql())
+    }
+
+    @Test
+    fun dexSqlSpecExposesStaticAndDeferredSql() {
+        val staticSpec = DexSqlSpec.static("SELECT 1;")
+        assertTrue(staticSpec.isStatic)
+        assertEquals("SELECT 1;", staticSpec.sql())
+
+        val staticQuery = sqlMethod { name = "x" }
+        val staticQuerySpec = DexSqlSpec.deferred(staticQuery)
+        assertTrue(staticQuerySpec.isStatic)
+        assertEquals(staticQuery.toSql(), staticQuerySpec.sql())
+
+        val deferredQuery = sqlMethod {
+            name = "x"
+            usingEqStrings(deferred { "y" })
+        }
+        val deferredSpec = DexSqlSpec.deferred(deferredQuery)
+        assertFalse(deferredSpec.isStatic)
+        assertEquals(deferredQuery.buildSql(), deferredSpec.sql())
     }
 
     // ------------------------------------------------------------------

@@ -29,6 +29,8 @@ object DexResolutionContext {
         val coordinator: ResolutionCoordinator<BaseFeature>,
         val dexSql: DexSqlBridge?,
         val stack: MutableList<BaseFeature> = mutableListOf(),
+        /** Delegates currently being resolved on demand (cycle detection). */
+        val resolving: MutableList<BaseDexDelegate> = mutableListOf(),
     )
 
     private val current = ThreadLocal<Session?>()
@@ -43,17 +45,49 @@ object DexResolutionContext {
         get() = current.get()?.dexSql
 
     fun ensureResolved(delegate: BaseDexDelegate) {
-        val owner = delegate.owner as IResolveDex
         val session = current.get() ?: error("Dex resolution context is not active")
         if (session.coordinator.isOwnedByCurrentThread(delegate.owner)) {
-            check(delegate.state != DexResolutionState.Pending) {
-                "Unresolved recursive Dex dependency: " +
-                    (session.stack.map { it.technicalPath } + "${delegate.owner.technicalPath}#${delegate.key}")
-                        .joinToString(" -> ")
-            }
+            resolveWithinOwner(delegate, session)
             return
         }
-        resolve(owner, session)
+        resolve(delegate.owner as IResolveDex, session)
+    }
+
+    /**
+     * Resolves a delegate whose owner feature is the one currently being resolved. Inline
+     * matchers are resolved by the owner's inline phase, but a later SQL delegate may refer to a
+     * delegate that has not been touched yet; in that case resolve it on demand. This also
+     * permits deferred SQL providers to read each other's metadata as long as there is no cycle.
+     */
+    private fun resolveWithinOwner(delegate: BaseDexDelegate, session: Session) {
+        if (delegate.isSettled) return
+        check(session.stack.lastOrNull() === delegate.owner) {
+            "Dex delegate " + delegate.key + " belongs to " + delegate.owner.technicalPath +
+                ", which is not the feature currently being resolved"
+        }
+        check(session.resolving.none { it === delegate }) {
+            "Unresolved recursive Dex dependency: " +
+                (session.resolving.map { it.owner.technicalPath + "#" + it.key } +
+                    (delegate.owner.technicalPath + "#" + delegate.key))
+                    .joinToString(" -> ")
+        }
+        session.resolving += delegate
+        try {
+            val spec = delegate.dexSqlSpec
+            if (spec != null) {
+                val dexSql = session.dexSql
+                    ?: error("DexSQL resolution context is not active for " + delegate.owner.technicalPath)
+                delegate.resolveFromDexSql(dexSql)
+            } else {
+                delegate.findInline(session.dexKit)
+            }
+            check(delegate.isSettled) {
+                "Dex delegate " + delegate.owner.technicalPath + "#" + delegate.key +
+                    " did not settle during on-demand resolution"
+            }
+        } finally {
+            session.resolving.removeAt(session.resolving.lastIndex)
+        }
     }
 
     fun <T> withResolutionContext(
@@ -88,17 +122,25 @@ object DexResolutionContext {
             session.stack += feature
             try {
                 item.dexDelegates.forEach(BaseDexDelegate::resetForResolution)
-                // SQL delegates are pure queries resolved from static text, so they can run
-                // before the DexKit inline phase. Inline matchers restored from a SQL migration
-                // may read another delegate's .data; resolving SQL first keeps those
-                // dependencies available without introducing declaration-order coupling.
+                // Static SQL delegates are pure queries whose text is known at declaration time,
+                // so they run before the DexKit inline phase; inline matchers restored from a SQL
+                // migration may read their .data. Deferred SQL delegates need other delegates'
+                // metadata to build their query, so they run after the inline phase; on-demand
+                // resolution still covers dependencies not touched by the inline phase.
                 val sqlDelegates = item.dexDelegates.filter { it.dexSqlSpec != null }
-                if (sqlDelegates.isNotEmpty()) {
+                val staticSql = sqlDelegates.filter { it.dexSqlSpec!!.isStatic }
+                val deferredSql = sqlDelegates.filter { !it.dexSqlSpec!!.isStatic }
+                if (staticSql.isNotEmpty()) {
                     val dexSql = session.dexSql
-                        ?: error("DexSQL resolution context is not active for ${feature.technicalPath}")
-                    sqlDelegates.forEach { it.resolveFromDexSql(dexSql) }
+                        ?: error("DexSQL resolution context is not active for " + feature.technicalPath)
+                    staticSql.forEach { it.resolveFromDexSql(dexSql) }
                 }
                 feature.resolveInlineDex(session.dexKit)
+                if (deferredSql.isNotEmpty()) {
+                    val dexSql = session.dexSql
+                        ?: error("DexSQL resolution context is not active for " + feature.technicalPath)
+                    deferredSql.forEach { if (!it.isSettled) it.resolveFromDexSql(dexSql) }
+                }
                 item.resolveDex(session.dexKit)
                 item.dexDelegates.forEach(BaseDexDelegate::markIncomplete)
                 check(item.dexDelegates.all(BaseDexDelegate::isSettled)) {

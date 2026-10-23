@@ -2,27 +2,39 @@ package dev.ujhhgtg.wekit.dexkit.dsl
 
 import dev.ujhhgtg.wekit.dexkit.DexMethodDescriptor
 import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
+import dev.ujhhgtg.wekit.dexkit.sql.DexSqlQuery
 
 /**
  * SQL query and expected-failure policy attached to a Dex delegate.
  *
- * The SQL must return the descriptor in its first column and is written to produce
- * exactly one row (or none). DexSQL only executes queries; deciding that an empty
- * result is an expected failure and that a multi-row result is an ambiguity bug is
- * WeKit resolver policy, implemented here rather than in the engine.
+ * The SQL must return the descriptor in its first column and is written to produce exactly one row
+ * (or none). DexSQL only executes queries; deciding that an empty result is an expected failure and
+ * that a multi-row result is an ambiguity bug is WeKit resolver policy, implemented here rather than
+ * in the engine.
  *
- * The query is kept as source text so the existing room cache hash can include it.
+ * A spec is either static (final SQL text known at declaration time) or deferred (a [DexSqlQuery]
+ * whose deferred slots are rendered when the query runs). The template text keeps the existing room
+ * cache hash stable; rendering happens through [sql].
  */
-data class DexSqlSpec(
-    val sql: String,
-    val allowFailure: Boolean = false,
+class DexSqlSpec private constructor(
+    private val template: String,
+    private val query: DexSqlQuery?,
+    private val allowFailure: Boolean,
 ) {
     init {
-        require(sql.isNotBlank()) { "DexSQL query must not be blank" }
+        require(template.isNotBlank()) { "DexSQL query must not be blank" }
     }
+
+    /** Whether the query is complete at declaration time, i.e. it has no deferred values. */
+    val isStatic: Boolean
+        get() = query?.isStatic ?: true
+
+    /** The executable SQL text: the static query, or the rendered deferred query. */
+    fun sql(): String = if (isStatic) template else requireNotNull(query).buildSql()
 
     /** Returns the descriptor, or null when the empty result is an allowed failure. */
     fun resolve(bridge: DexSqlBridge): String? {
+        val sql = sql()
         val result = bridge.query(sql)
         return when (result.rows.size) {
             0 -> {
@@ -33,8 +45,18 @@ data class DexSqlSpec(
             1 -> result.rows.single().firstOrNull()
                 ?: error("DexSQL: query returned no columns: $sql")
 
-            else -> error("DexSQL: query returned ${result.rows.size} rows; expected one: $sql")
+            else -> error("DexSQL: query returned " + result.rows.size + " rows; expected one: " + sql)
         }
+    }
+
+    companion object {
+        /** Static raw SQL that is complete at declaration time. */
+        fun static(sql: String, allowFailure: Boolean = false): DexSqlSpec =
+            DexSqlSpec(sql, null, allowFailure)
+
+        /** Query built by the DexSQL DSL; deferred slots are rendered when the query runs. */
+        fun deferred(query: DexSqlQuery, allowFailure: Boolean = false): DexSqlSpec =
+            DexSqlSpec(query.toSql(), query, allowFailure)
     }
 }
 

@@ -3,65 +3,94 @@ package dev.ujhhgtg.wekit.dexkit.sql
 /**
  * A canonical DexSQL query produced by [sqlMethod], [sqlConstructor], [sqlClass] or [sqlField].
  *
- * The text is byte-for-byte identical to the canonical output of the WeKit migration tooling
- * (~/coding/dexsql/tools/extract_wekit_queries.py), so generated queries stay stable as cache keys
- * and remain reviewable.
+ * Static queries contain the final SQL text. Deferred queries contain one
+ * @@WEKIT_DEFERRED_n@@ token per deferred slot in [toSql]; [buildSql] replaces each token with the
+ * literal rendered from that slot. Static queries are byte-for-byte identical to the canonical
+ * migration extractor output; for deferred queries the tokenized template is the parity text.
  */
 class DexSqlQuery internal constructor(
     internal val sql: String,
+    private val deferredRenderers: List<() -> String> = emptyList(),
 ) {
-    /** Returns the canonical DexSQL text, including the trailing semicolon. */
+    /** Whether the query text contains no deferred values, i.e. [toSql] is the final SQL text. */
+    val isStatic: Boolean
+        get() = deferredRenderers.isEmpty()
+
+    /** Returns the canonical SQL template, including @@WEKIT_DEFERRED_n@@ tokens for deferred slots. */
     fun toSql(): String = sql
+
+    /** Renders every deferred token and returns the executable SQL text. */
+    fun buildSql(): String {
+        if (deferredRenderers.isEmpty()) return sql
+        var text = sql
+        deferredRenderers.forEachIndexed { index, render ->
+            text = text.replace(deferredToken(index), render())
+        }
+        return text
+    }
 
     override fun toString(): String = sql
 }
 
-/**
- * Build a dexMethod query.
- *
- * Every declared predicate is combined with AND (DexKit all-of semantics). At least one predicate
- * is required; an empty block throws [IllegalArgumentException].
- */
-fun sqlMethod(block: SqlMethodQuery.() -> Unit): DexSqlQuery =
-    DexSqlQuery(emitMethod(SqlMethodQuery().apply(block), constructor = false))
+/** Placeholder token emitted for the deferred value at [index] in emission order. */
+internal fun deferredToken(index: Int): String = "@@WEKIT_DEFERRED_" + index + "@@"
 
 /**
- * Build a dexConstructor query.
+ * A runtime-computed value for one DexSQL builder slot.
  *
- * DexKit forces the method name for constructor matchers, so "m.name = '<init>'" is always emitted
- * as the first WHERE condition. Setting [SqlMethodQuery.name] to any other value throws
- * [IllegalArgumentException]; setting it to "<init>" is accepted.
+ * The emitted query keeps a @@WEKIT_DEFERRED_n@@ token where the rendered literal would be;
+ * [DexSqlQuery.buildSql] evaluates [provider] and renders the result exactly like the equivalent
+ * static literal (class descriptor, type descriptor, quoted literal or canonical number).
  */
-fun sqlConstructor(block: SqlMethodQuery.() -> Unit): DexSqlQuery =
-    DexSqlQuery(emitMethod(SqlMethodQuery().apply(block), constructor = true))
+class SqlDeferredValue internal constructor(
+    internal val provider: () -> Any?,
+)
 
 /**
- * Build a dexClass query.
- *
- * [SqlClassQuery.usingStrings], the other literal matchers and [SqlClassQuery.method] are
- * existential over the methods of the matched class, so two literals may be used by two different
- * methods. A query without any class-level literal, nested method, [SqlClassQuery.className],
- * [SqlClassQuery.superClass] or package predicate throws [IllegalArgumentException].
+ * Mark one builder slot value as deferred. The provider runs when [DexSqlQuery.buildSql] renders the
+ * query, so it may read another delegate's metadata; exceptions propagate unchanged.
  */
-fun sqlClass(block: SqlClassQuery.() -> Unit): DexSqlQuery =
-    DexSqlQuery(emitClass(SqlClassQuery().apply(block)))
+fun deferred(provider: () -> Any?): SqlDeferredValue = SqlDeferredValue(provider)
+
+/** Build a dexMethod query. At least one predicate is required; an empty block throws. */
+fun sqlMethod(block: SqlMethodQuery.() -> Unit): DexSqlQuery {
+    val emission = DexSqlEmission()
+    val query = SqlMethodQuery().apply(block)
+    return emission.build(emitMethod(query, constructor = false, emission = emission))
+}
 
 /**
- * Build a dexField query.
- *
- * A query without a field predicate or read/write method matcher throws [IllegalArgumentException].
+ * Build a dexConstructor query. DexKit forces the method name for constructor matchers, so
+ * m.name = '<init>' is always emitted as the first WHERE condition.
  */
-fun sqlField(block: SqlFieldQuery.() -> Unit): DexSqlQuery =
-    DexSqlQuery(emitField(SqlFieldQuery().apply(block)))
+fun sqlConstructor(block: SqlMethodQuery.() -> Unit): DexSqlQuery {
+    val emission = DexSqlEmission()
+    val query = SqlMethodQuery().apply(block)
+    return emission.build(emitMethod(query, constructor = true, emission = emission))
+}
+
+/** Build a dexClass query; class-level literal and nested method matchers are existential units. */
+fun sqlClass(block: SqlClassQuery.() -> Unit): DexSqlQuery {
+    val emission = DexSqlEmission()
+    val query = SqlClassQuery().apply(block)
+    return emission.build(emitClass(query, emission))
+}
+
+/** Build a dexField query; a query without a field predicate or access matcher throws. */
+fun sqlField(block: SqlFieldQuery.() -> Unit): DexSqlQuery {
+    val emission = DexSqlEmission()
+    val query = SqlFieldQuery().apply(block)
+    return emission.build(emitField(query, emission))
+}
 
 /**
  * Builder for method and constructor queries ([sqlMethod], [sqlConstructor]) and for nested method
  * matchers inside [SqlClassQuery.method], [SqlFieldQuery.readMethod] and
  * [SqlFieldQuery.writeMethod].
  *
- * Only DexKit predicates that DexSQL can express are exposed. Unsupported DexKit matchers
- * (modifiers, interfaces, annotations, callers, fields, invoke methods, ...) intentionally do not
- * exist here, so using them is a Kotlin compile error instead of a silently dropped predicate.
+ * Only DexKit predicates that DexSQL can express are exposed; unsupported constructs are Kotlin
+ * compile errors instead of silently dropped predicates. Slots accept a static value or a
+ * [SqlDeferredValue] produced by [deferred], emitted as a token in [DexSqlQuery.toSql].
  */
 class SqlMethodQuery internal constructor() {
     /** Exact method name (m.name); constructors use "<init>". */
@@ -69,8 +98,35 @@ class SqlMethodQuery internal constructor() {
 
     /** Declaring class (m.class_descriptor); accepts com.foo.Bar or Lcom/foo/Bar;. */
     var declaredClass: String? = null
+    internal var declaredClassValue: Any? = null
+
+    /**
+     * Return type (m.return_descriptor); accepts void, int, java.lang.String, java.lang.String[], or
+     * an L...; descriptor.
+     */
+    var returnType: String? = null
+    internal var returnTypeValue: Any? = null
+
+    /** Parameter count (m.param_count). */
+    var paramCount: Int? = null
+
+    /**
+     * Access-flag mask (decimal), emitted as ((m.access_flags & mask) = mask); DexKit modifiers
+     * semantics require every masked bit to be set. Assign this property or call [modifiers].
+     */
+    var modifiers: Int? = null
+
+    internal val literals = DexSqlLiterals()
+    internal var paramTypes: List<Any>? = null
 
     internal var declaredClassConstraint: SqlClassLiteralConstraint? = null
+
+    /**
+     * Declaring class slot accepting a static class name/descriptor or a [SqlDeferredValue].
+     */
+    fun declaredClass(value: Any) {
+        declaredClassValue = value
+    }
 
     /**
      * Require the declaring class to contain methods satisfying the class-level literals in
@@ -82,69 +138,43 @@ class SqlMethodQuery internal constructor() {
         declaredClassConstraint = classLiteralConstraint("declaredClass", block)
     }
 
-    /**
-     * Return type (m.return_descriptor); accepts void, int, java.lang.String, java.lang.String[], or
-     * an L...; descriptor.
-     */
-    var returnType: String? = null
-
-    /** Parameter count (m.param_count). */
-    var paramCount: Int? = null
-
-    /**
-     * Access-flag mask (decimal), emitted as ((m.access_flags & mask) = mask); DexKit modifiers
-     * semantics require every masked bit to be set. Assign this property or call [modifiers].
-     */
-    var modifiers: Int? = null
-
-    /** Set the access-flag mask; same as assigning [modifiers]. */
-    fun modifiers(mask: Int) {
-        modifiers = mask
+    /** Return type slot accepting a static type or a [SqlDeferredValue]. */
+    fun returnType(value: Any) {
+        returnTypeValue = value
     }
 
-    internal val literals = DexSqlLiterals()
-    internal var paramDescriptors: String? = null
-
     /**
-     * Exact parameter types, emitted as one m.param_descriptors condition: paramTypes("java.lang.String",
-     * "int") produces 'Ljava/lang/String;,I'.
-     *
-     * Every element must be a literal type; null/wildcard parameters are not supported by the DSL.
-     * Repeated calls replace the previous value.
+     * Exact parameter types, emitted as one m.param_descriptors condition. Parts may mix static
+     * types and [SqlDeferredValue]s; a deferred part makes the whole list one token. Repeated calls
+     * replace the previous value.
      */
-    fun paramTypes(vararg types: String) {
+    fun paramTypes(vararg types: Any) {
         require(types.isNotEmpty()) { "DexSQL paramTypes requires at least one type" }
-        paramDescriptors = types.joinToString(",") { javaType(it) }
+        paramTypes = types.toList()
     }
 
     /** Add method_strings.value LIKE '%value%' (contains) predicates. */
-    fun usingStrings(vararg values: String) = literals.usingStrings(*values)
+    fun usingStrings(vararg values: Any) = literals.usingStrings(*values)
 
     /** Add method_strings.value = 'value' (equals) predicates. */
-    fun usingEqStrings(vararg values: String) = literals.usingEqStrings(*values)
+    fun usingEqStrings(vararg values: Any) = literals.usingEqStrings(*values)
 
     /** Add method_strings.value LIKE 'value%' (prefix) predicates. */
-    fun usingPrefixStrings(vararg values: String) = literals.usingPrefixStrings(*values)
+    fun usingPrefixStrings(vararg values: Any) = literals.usingPrefixStrings(*values)
 
     /** Add method_strings.value LIKE '%value' (suffix) predicates. */
-    fun usingSuffixStrings(vararg values: String) = literals.usingSuffixStrings(*values)
+    fun usingSuffixStrings(vararg values: Any) = literals.usingSuffixStrings(*values)
 
     /** Add one method_strings.value LIKE '%value%' (contains) predicate. */
-    fun addUsingString(value: String) = literals.addUsingString(value)
+    fun addUsingString(value: Any) = literals.addUsingString(value)
 
     /** Add one method_strings.value = 'value' (equals) predicate. */
-    fun addEqString(value: String) = literals.addEqString(value)
+    fun addEqString(value: Any) = literals.addEqString(value)
 
-    /**
-     * Add method_using_numbers predicates. Integer values (Int, Long, Short, Byte) use long_value;
-     * Float and Double use double_value.
-     */
-    fun usingNumbers(vararg values: Number) = literals.usingNumbers(*values)
+    /** Add method_using_numbers predicates; integers use long_value, Float/Double use double_value. */
+    fun usingNumbers(vararg values: Any) = literals.usingNumbers(*values)
 
-    /**
-     * Restrict the declaring class package, emitted as (m.class_descriptor LIKE 'Lpackage/%');
-     * several packages are OR-joined inside the parentheses.
-     */
+    /** Restrict the declaring class package; several packages are OR-joined inside parentheses. */
     fun searchPackages(vararg packages: String) = literals.searchPackages(*packages)
 
     /** Append LIMIT n after ORDER BY. */
@@ -152,14 +182,18 @@ class SqlMethodQuery internal constructor() {
 
     /** Append OFFSET n after LIMIT; requires [limit]. */
     fun offset(value: Int) = literals.setOffset(value)
+
+    /** Set the access-flag mask; same as assigning [modifiers]. */
+    fun modifiers(mask: Int) {
+        modifiers = mask
+    }
 }
 
 /**
  * Builder for class queries ([sqlClass]).
  *
  * Class-level literal matchers and nested [method] matchers are existential over the methods of the
- * matched class (DexKit semantics), so different literals may come from different methods. Only
- * [className] and [superClass] constrain the class definition itself.
+ * matched class (DexKit semantics), so different literals may come from different methods.
  */
 class SqlClassQuery internal constructor() {
     /**
@@ -167,11 +201,32 @@ class SqlClassQuery internal constructor() {
      * and against c.descriptor otherwise.
      */
     var className: String? = null
+    internal var classNameValue: Any? = null
 
     /** Superclass descriptor; joins classes and matches superclass_descriptor. */
     var superClass: String? = null
-
+    internal var superClassValue: Any? = null
     internal var superClassConstraint: SqlClassLiteralConstraint? = null
+
+    /**
+     * Access-flag mask (decimal) of the matched class, emitted as
+     * ((c.access_flags & mask) = mask); DexKit modifiers semantics require every masked bit to be
+     * set. Assign this property or call [modifiers].
+     */
+    var modifiers: Int? = null
+
+    internal val literals = DexSqlLiterals()
+    internal val methods = mutableListOf<SqlMethodQuery>()
+
+    /** Class descriptor slot accepting a static class name/descriptor or a [SqlDeferredValue]. */
+    fun className(value: Any) {
+        classNameValue = value
+    }
+
+    /** Superclass slot accepting a static class name/descriptor or a [SqlDeferredValue]. */
+    fun superClass(value: Any) {
+        superClassValue = value
+    }
 
     /**
      * Require the superclass to contain methods satisfying the class-level literals in [block].
@@ -182,35 +237,20 @@ class SqlClassQuery internal constructor() {
         superClassConstraint = classLiteralConstraint("superClass", block)
     }
 
-    /**
-     * Access-flag mask (decimal) of the matched class, emitted as
-     * ((c.access_flags & mask) = mask); DexKit modifiers semantics require every masked bit to be
-     * set. Assign this property or call [modifiers].
-     */
-    var modifiers: Int? = null
-
-    /** Set the access-flag mask; same as assigning [modifiers]. */
-    fun modifiers(mask: Int) {
-        modifiers = mask
-    }
-
-    internal val literals = DexSqlLiterals()
-    internal val methods = mutableListOf<SqlMethodQuery>()
-
     /** Add class-level method_strings.value LIKE '%value%' (contains) predicates. */
-    fun usingStrings(vararg values: String) = literals.usingStrings(*values)
+    fun usingStrings(vararg values: Any) = literals.usingStrings(*values)
 
     /** Add class-level method_strings.value = 'value' (equals) predicates. */
-    fun usingEqStrings(vararg values: String) = literals.usingEqStrings(*values)
+    fun usingEqStrings(vararg values: Any) = literals.usingEqStrings(*values)
 
     /** Add class-level method_strings.value LIKE 'value%' (prefix) predicates. */
-    fun usingPrefixStrings(vararg values: String) = literals.usingPrefixStrings(*values)
+    fun usingPrefixStrings(vararg values: Any) = literals.usingPrefixStrings(*values)
 
     /** Add class-level method_strings.value LIKE '%value' (suffix) predicates. */
-    fun usingSuffixStrings(vararg values: String) = literals.usingSuffixStrings(*values)
+    fun usingSuffixStrings(vararg values: Any) = literals.usingSuffixStrings(*values)
 
     /** Add class-level method_using_numbers predicates (existential over class methods). */
-    fun usingNumbers(vararg values: Number) = literals.usingNumbers(*values)
+    fun usingNumbers(vararg values: Any) = literals.usingNumbers(*values)
 
     /** Add an existential nested method matcher (DexKit methods { add { ... } }). */
     fun method(block: SqlMethodQuery.() -> Unit) {
@@ -225,6 +265,11 @@ class SqlClassQuery internal constructor() {
 
     /** Append OFFSET n after LIMIT; requires [limit]. */
     fun offset(value: Int) = literals.setOffset(value)
+
+    /** Set the access-flag mask; same as assigning [modifiers]. */
+    fun modifiers(mask: Int) {
+        modifiers = mask
+    }
 }
 
 /**
@@ -239,12 +284,24 @@ class SqlFieldQuery internal constructor() {
 
     /** Declaring class (f.class_descriptor); accepts com.foo.Bar or Lcom/foo/Bar;. */
     var declaredClass: String? = null
+    internal var declaredClassValue: Any? = null
 
     /** Field type (f.type_descriptor); same type syntax as [SqlMethodQuery.returnType]. */
     var type: String? = null
+    internal var typeValue: Any? = null
 
     internal val literals = DexSqlLiterals()
     internal val accesses = mutableListOf<SqlFieldAccess>()
+
+    /** Declaring class slot accepting a static class name/descriptor or a [SqlDeferredValue]. */
+    fun declaredClass(value: Any) {
+        declaredClassValue = value
+    }
+
+    /** Field type slot accepting a static type or a [SqlDeferredValue]. */
+    fun type(value: Any) {
+        typeValue = value
+    }
 
     /** Add a read-access method matcher (method_field_accesses.using_type = 'get'). */
     fun readMethod(block: SqlMethodQuery.() -> Unit) {
@@ -284,35 +341,35 @@ private fun classLiteralConstraint(
  *
  * Every literal value is one independent existential unit over the methods of the constrained
  * class; a method may satisfy several values. Only class-level literal calls exist on this
- * builder, so any other DexKit construct is a Kotlin compile error instead of a silently
- * dropped predicate.
+ * builder, so any other DexKit construct is a Kotlin compile error instead of a silently dropped
+ * predicate.
  */
 class SqlClassLiteralConstraint internal constructor() {
     internal val calls = mutableListOf<SqlLiteralCall>()
 
     /** Add one method_strings.value LIKE '%value%' (contains) call. */
-    fun usingStrings(vararg values: String) = addStringCall(SqlStringMode.CONTAINS, values)
+    fun usingStrings(vararg values: Any) = addStringCall(SqlStringMode.CONTAINS, values)
 
     /** Add one method_strings.value = 'value' (equals) call. */
-    fun usingEqStrings(vararg values: String) = addStringCall(SqlStringMode.EQUALS, values)
+    fun usingEqStrings(vararg values: Any) = addStringCall(SqlStringMode.EQUALS, values)
 
     /** Add one method_strings.value LIKE 'value%' (prefix) call. */
-    fun usingPrefixStrings(vararg values: String) = addStringCall(SqlStringMode.PREFIX, values)
+    fun usingPrefixStrings(vararg values: Any) = addStringCall(SqlStringMode.PREFIX, values)
 
     /** Add one method_strings.value LIKE '%value' (suffix) call. */
-    fun usingSuffixStrings(vararg values: String) = addStringCall(SqlStringMode.SUFFIX, values)
+    fun usingSuffixStrings(vararg values: Any) = addStringCall(SqlStringMode.SUFFIX, values)
 
     /** Add one method_using_numbers call. */
-    fun usingNumbers(vararg values: Number) = addNumberCall(values)
+    fun usingNumbers(vararg values: Any) = addNumberCall(values)
 
-    private fun addStringCall(mode: SqlStringMode, values: Array<out String>) {
+    private fun addStringCall(mode: SqlStringMode, values: Array<out Any>) {
         require(values.isNotEmpty()) {
             "SqlClassLiteralConstraint requires at least one value per call"
         }
         calls += SqlLiteralCall(values.map { SqlStringLiteral(it, mode) })
     }
 
-    private fun addNumberCall(values: Array<out Number>) {
+    private fun addNumberCall(values: Array<out Any>) {
         require(values.isNotEmpty()) {
             "SqlClassLiteralConstraint requires at least one value per call"
         }

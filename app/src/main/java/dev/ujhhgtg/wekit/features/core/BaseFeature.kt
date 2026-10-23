@@ -109,7 +109,9 @@ abstract class BaseFeature {
     }
 
     fun resolveInlineDex(dexKit: DexKitBridge) {
-        dexDelegates.forEach { it.findInline(dexKit) }
+        dexDelegates.forEach { delegate ->
+            if (!delegate.isSettled) delegate.findInline(dexKit)
+        }
     }
 
     val unhooks = mutableListOf<HookHandle>()
