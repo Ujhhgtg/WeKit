@@ -59,19 +59,19 @@ class DexSqlQueryTest {
             addEqString("one")
         }
         assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor JOIN method_strings ms2 ON ms2.method = m.descriptor JOIN method_strings ms3 ON ms3.method = m.descriptor JOIN method_strings ms4 ON ms4.method = m.descriptor JOIN method_strings ms5 ON ms5.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%hello%' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'exact' AND ms2.file_id = m.file_id AND ms2.method_idx = m.method_idx AND ms2.value LIKE 'pre%' AND ms3.file_id = m.file_id AND ms3.method_idx = m.method_idx AND ms3.value LIKE '%fix' AND ms4.file_id = m.file_id AND ms4.method_idx = m.method_idx AND ms4.value LIKE '%single%' AND ms5.file_id = m.file_id AND ms5.method_idx = m.method_idx AND ms5.value = 'one' ORDER BY m.descriptor;",
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor JOIN method_strings ms2 ON ms2.method = m.descriptor JOIN method_strings ms3 ON ms3.method = m.descriptor JOIN method_strings ms4 ON ms4.method = m.descriptor JOIN method_strings ms5 ON ms5.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND instr(ms0.value, 'hello') > 0 AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'exact' AND ms2.file_id = m.file_id AND ms2.method_idx = m.method_idx AND instr(ms2.value, 'pre') = 1 AND ms3.file_id = m.file_id AND ms3.method_idx = m.method_idx AND substr(ms3.value, -3) = 'fix' AND ms4.file_id = m.file_id AND ms4.method_idx = m.method_idx AND instr(ms4.value, 'single') > 0 AND ms5.file_id = m.file_id AND ms5.method_idx = m.method_idx AND ms5.value = 'one' ORDER BY m.descriptor;",
             query,
         )
     }
 
     @Test
-    fun methodEscapesLikeWildcardsAndQuotes() {
+    fun methodContainsLiteralKeepsWildcardCharactersRaw() {
         val query = sqlMethod {
             usingStrings("a_b%c[d]e")
             usingEqStrings("it's")
         }
         assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%a\\_b\\%c[d]e%' ESCAPE '\\' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'it''s' ORDER BY m.descriptor;",
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND instr(ms0.value, 'a_b%c[d]e') > 0 AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'it''s' ORDER BY m.descriptor;",
             query,
         )
     }
@@ -106,7 +106,7 @@ class DexSqlQueryTest {
             searchPackages("com.tencent.mm", "com.tencent.mm.plugin")
         }
         assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'x' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/%' OR m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/%') ORDER BY m.descriptor;",
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'x' AND (instr(m.class_descriptor, 'Lcom/tencent/mm/') = 1 OR instr(m.class_descriptor, 'Lcom/tencent/mm/plugin/') = 1) ORDER BY m.descriptor;",
             query,
         )
     }
@@ -205,7 +205,7 @@ class DexSqlQueryTest {
             usingStrings("constructor marker")
         }
         assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE m.name = '<init>' AND ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%constructor marker%' ORDER BY m.descriptor;",
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE m.name = '<init>' AND ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND instr(ms0.value, 'constructor marker') > 0 ORDER BY m.descriptor;",
             query,
         )
     }
@@ -242,7 +242,7 @@ class DexSqlQueryTest {
             searchPackages("com.tencent.mm.ui", "com.tencent.mm.plugin")
         }
         assertSql(
-            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE (c.descriptor LIKE 'Lcom/tencent/mm/ui/%' OR c.descriptor LIKE 'Lcom/tencent/mm/plugin/%') ORDER BY c.descriptor;",
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE (instr(c.descriptor, 'Lcom/tencent/mm/ui/') = 1 OR instr(c.descriptor, 'Lcom/tencent/mm/plugin/') = 1) ORDER BY c.descriptor;",
             query,
         )
     }
@@ -265,7 +265,7 @@ class DexSqlQueryTest {
             usingStrings("b")
         }
         assertSql(
-            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'a' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value LIKE '%b%' ORDER BY cm.class_descriptor;",
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'a' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND instr(ms2.value, 'b') > 0 ORDER BY cm.class_descriptor;",
             query,
         )
     }
@@ -291,7 +291,7 @@ class DexSqlQueryTest {
             searchPackages("com.tencent")
         }
         assertSql(
-            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'a' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value LIKE 'b%' AND (cm.class_descriptor LIKE 'Lcom/tencent/%') ORDER BY cm.class_descriptor;",
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'a' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND instr(ms2.value, 'b') = 1 AND (instr(cm.class_descriptor, 'Lcom/tencent/') = 1) ORDER BY cm.class_descriptor;",
             query,
         )
     }
@@ -345,7 +345,7 @@ class DexSqlQueryTest {
             }
         }
         assertSql(
-            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN methods cm0 ON cm0.class_descriptor = cm.class_descriptor JOIN classes c ON c.descriptor = cm.class_descriptor WHERE cm.name = 'getView' AND cm.param_count = 3 AND cm0.file_id = cm.file_id AND cm0.class_idx = cm.class_idx AND cm0.name = '<init>' AND cm0.param_count = 3 AND c.file_id = cm.file_id AND c.class_idx = cm.class_idx AND c.superclass_descriptor = 'Landroid/widget/BaseAdapter;' AND (cm.class_descriptor LIKE 'Lcom/tencent/mm/ui/base/preference/%') AND NOT (cm.file_id = cm0.file_id AND cm.method_idx = cm0.method_idx) ORDER BY cm.class_descriptor;",
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN methods cm0 ON cm0.class_descriptor = cm.class_descriptor JOIN classes c ON c.descriptor = cm.class_descriptor WHERE cm.name = 'getView' AND cm.param_count = 3 AND cm0.file_id = cm.file_id AND cm0.class_idx = cm.class_idx AND cm0.name = '<init>' AND cm0.param_count = 3 AND c.file_id = cm.file_id AND c.class_idx = cm.class_idx AND c.superclass_descriptor = 'Landroid/widget/BaseAdapter;' AND (instr(cm.class_descriptor, 'Lcom/tencent/mm/ui/base/preference/') = 1) AND NOT (cm.file_id = cm0.file_id AND cm.method_idx = cm0.method_idx) ORDER BY cm.class_descriptor;",
             query,
         )
     }
@@ -409,7 +409,7 @@ class DexSqlQueryTest {
             }
         }
         assertSql(
-            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'a' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND ms2.value LIKE '%b%' AND cm1.name = 'run' ORDER BY cm.class_descriptor;",
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN method_strings ms2 ON ms2.method = cm1.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'a' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND ms2.file_id = cm1.file_id AND ms2.method_idx = cm1.method_idx AND instr(ms2.value, 'b') > 0 AND cm1.name = 'run' ORDER BY cm.class_descriptor;",
             query,
         )
     }
@@ -513,7 +513,7 @@ class DexSqlQueryTest {
             searchPackages("com.tencent.mm")
         }
         assertSql(
-            "SELECT DISTINCT f.descriptor AS descriptor FROM fields f WHERE f.type_descriptor = 'Ljava/lang/String;' AND (f.class_descriptor LIKE 'Lcom/tencent/mm/%') ORDER BY f.descriptor;",
+            "SELECT DISTINCT f.descriptor AS descriptor FROM fields f WHERE f.type_descriptor = 'Ljava/lang/String;' AND (instr(f.class_descriptor, 'Lcom/tencent/mm/') = 1) ORDER BY f.descriptor;",
             query,
         )
     }
@@ -624,7 +624,7 @@ class DexSqlQueryTest {
             }
         }
         assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor JOIN method_strings ms1 ON ms1.method = ccm0.descriptor JOIN methods ccm1 ON ccm1.class_descriptor = m.class_descriptor JOIN method_strings ms2 ON ms2.method = ccm1.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%outer%' AND ccm0.file_id = m.file_id AND ccm0.class_idx = m.class_idx AND ms1.file_id = ccm0.file_id AND ms1.method_idx = ccm0.method_idx AND ms1.value = 'first' AND ccm1.file_id = m.file_id AND ccm1.class_idx = m.class_idx AND ms2.file_id = ccm1.file_id AND ms2.method_idx = ccm1.method_idx AND ms2.value LIKE 'second%' ORDER BY m.descriptor;",
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor JOIN method_strings ms1 ON ms1.method = ccm0.descriptor JOIN methods ccm1 ON ccm1.class_descriptor = m.class_descriptor JOIN method_strings ms2 ON ms2.method = ccm1.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND instr(ms0.value, 'outer') > 0 AND ccm0.file_id = m.file_id AND ccm0.class_idx = m.class_idx AND ms1.file_id = ccm0.file_id AND ms1.method_idx = ccm0.method_idx AND ms1.value = 'first' AND ccm1.file_id = m.file_id AND ccm1.class_idx = m.class_idx AND ms2.file_id = ccm1.file_id AND ms2.method_idx = ccm1.method_idx AND instr(ms2.value, 'second') = 1 ORDER BY m.descriptor;",
             query,
         )
     }
@@ -733,49 +733,49 @@ class DexSqlQueryTest {
     }
 
     // ------------------------------------------------------------------
-    // LIKE wildcard escaping (Pass B1)
+    // Case-sensitive string predicates (Pass D)
     // ------------------------------------------------------------------
 
     @Test
-    fun methodContainsPercentLiteralUsesBackslashEscape() {
+    fun methodContainsPercentLiteralIsRaw() {
         val query = sqlMethod {
             usingStrings("id:50%")
         }
         assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%id:50\\%%' ESCAPE '\\' ORDER BY m.descriptor;",
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND instr(ms0.value, 'id:50%') > 0 ORDER BY m.descriptor;",
             query,
         )
     }
 
     @Test
-    fun methodPrefixUnderscoreLiteralUsesBackslashEscape() {
+    fun methodPrefixUnderscoreLiteralUsesInstr() {
         val query = sqlMethod {
             usingPrefixStrings("a_b")
         }
         assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE 'a\\_b%' ESCAPE '\\' ORDER BY m.descriptor;",
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND instr(ms0.value, 'a_b') = 1 ORDER BY m.descriptor;",
             query,
         )
     }
 
     @Test
-    fun methodSuffixBackslashLiteralIsEscaped() {
+    fun methodSuffixBackslashLiteralUsesSubstr() {
         val query = sqlMethod {
             usingSuffixStrings("x\\y")
         }
         assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%x\\\\y' ESCAPE '\\' ORDER BY m.descriptor;",
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND substr(ms0.value, -3) = 'x\\y' ORDER BY m.descriptor;",
             query,
         )
     }
 
     @Test
-    fun methodPlainContainsKeepsOldBytesWithoutEscapeClause() {
+    fun methodPlainContainsUsesCaseSensitiveInstr() {
         val query = sqlMethod {
             usingStrings("plain")
         }
         assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%plain%' ORDER BY m.descriptor;",
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND instr(ms0.value, 'plain') > 0 ORDER BY m.descriptor;",
             query,
         )
     }
@@ -792,38 +792,38 @@ class DexSqlQueryTest {
     }
 
     @Test
-    fun classLevelLiteralUsesBackslashEscape() {
+    fun classLevelLiteralUsesCaseSensitiveInstr() {
         val query = sqlClass {
             usingStrings("a_b")
         }
         assertSql(
-            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value LIKE '%a\\_b%' ESCAPE '\\' ORDER BY cm.class_descriptor;",
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND instr(ms0.value, 'a_b') > 0 ORDER BY cm.class_descriptor;",
             query,
         )
     }
 
     @Test
-    fun declaredClassConstraintLiteralUsesBackslashEscape() {
+    fun declaredClassConstraintLiteralUsesInstrPrefix() {
         val query = sqlMethod {
             declaredClass {
                 usingPrefixStrings("a_b")
             }
         }
         assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor JOIN method_strings ms0 ON ms0.method = ccm0.descriptor WHERE ccm0.file_id = m.file_id AND ccm0.class_idx = m.class_idx AND ms0.file_id = ccm0.file_id AND ms0.method_idx = ccm0.method_idx AND ms0.value LIKE 'a\\_b%' ESCAPE '\\' ORDER BY m.descriptor;",
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor JOIN method_strings ms0 ON ms0.method = ccm0.descriptor WHERE ccm0.file_id = m.file_id AND ccm0.class_idx = m.class_idx AND ms0.file_id = ccm0.file_id AND ms0.method_idx = ccm0.method_idx AND instr(ms0.value, 'a_b') = 1 ORDER BY m.descriptor;",
             query,
         )
     }
 
     @Test
-    fun superClassConstraintLiteralUsesBackslashEscape() {
+    fun superClassConstraintLiteralUsesInstrContains() {
         val query = sqlClass {
             superClass {
                 usingStrings("100%")
             }
         }
         assertSql(
-            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods scm0 ON scm0.class_descriptor = c.superclass_descriptor JOIN method_strings ms0 ON ms0.method = scm0.descriptor WHERE ms0.file_id = scm0.file_id AND ms0.method_idx = scm0.method_idx AND ms0.value LIKE '%100\\%%' ESCAPE '\\' ORDER BY c.descriptor;",
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods scm0 ON scm0.class_descriptor = c.superclass_descriptor JOIN method_strings ms0 ON ms0.method = scm0.descriptor WHERE ms0.file_id = scm0.file_id AND ms0.method_idx = scm0.method_idx AND instr(ms0.value, '100%') > 0 ORDER BY c.descriptor;",
             query,
         )
     }
@@ -840,7 +840,7 @@ class DexSqlQueryTest {
             modifiers = 9
         }
         assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'x' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/%') AND ((m.access_flags & 9) = 9) ORDER BY m.descriptor;",
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'x' AND (instr(m.class_descriptor, 'Lcom/tencent/mm/') = 1) AND ((m.access_flags & 9) = 9) ORDER BY m.descriptor;",
             query,
         )
     }
@@ -1066,6 +1066,68 @@ class DexSqlQueryTest {
         assertEquals(
             "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.name = 'two' ORDER BY m.descriptor;",
             spec.sql(),
+        )
+    }
+
+    @Test
+    fun containsPredicateIsCaseSensitiveByConstruction() {
+        val upper = sqlMethod {
+            usingStrings("B")
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND instr(ms0.value, 'B') > 0 ORDER BY m.descriptor;",
+            upper,
+        )
+        val lower = sqlMethod {
+            usingStrings("b")
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND instr(ms0.value, 'b') > 0 ORDER BY m.descriptor;",
+            lower,
+        )
+    }
+
+    @Test
+    fun prefixAndSuffixPredicatesUseInstrAndSubstr() {
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND instr(ms0.value, 'pre') = 1 ORDER BY m.descriptor;",
+            sqlMethod {
+                usingPrefixStrings("pre")
+            },
+        )
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND substr(ms0.value, -3) = 'fix' ORDER BY m.descriptor;",
+            sqlMethod {
+                usingSuffixStrings("fix")
+            },
+        )
+    }
+
+    @Test
+    fun suffixLengthCountsUnicodeCodePoints() {
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND substr(ms0.value, -2) = '😀x' ORDER BY m.descriptor;",
+            sqlMethod {
+                usingSuffixStrings("😀x")
+            },
+        )
+    }
+
+    @Test
+    fun emptyNonEqualsLiteralFallsBackToEquals() {
+        val expected = "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = '' ORDER BY m.descriptor;"
+        assertSql(expected, sqlMethod { usingStrings("") })
+        assertSql(expected, sqlMethod { usingPrefixStrings("") })
+        assertSql(expected, sqlMethod { usingSuffixStrings("") })
+    }
+
+    @Test
+    fun packagePrefixUsesCaseSensitiveInstrEqualsOne() {
+        assertSql(
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE (instr(c.descriptor, 'Lcom/tencent/mm/') = 1) ORDER BY c.descriptor;",
+            sqlClass {
+                searchPackages("com.tencent.mm")
+            },
         )
     }
 

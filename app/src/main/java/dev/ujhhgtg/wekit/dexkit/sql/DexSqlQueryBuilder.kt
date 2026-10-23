@@ -112,50 +112,34 @@ internal fun classDescriptor(value: String): String {
 internal fun sqlQuote(value: String): String = "'" + value.replace("'", "''") + "'"
 
 private fun packageDescriptor(packageName: String): String =
-    "L" + packageName.replace('.', '/').trim('/') + "/%"
+    "L" + packageName.replace('.', '/').trim('/') + "/"
 
+/** Search-packages prefix condition: case-sensitive instr(...) = 1, OR-grouped. */
 private fun packageCondition(column: String, packages: List<String>): String? {
     if (packages.isEmpty()) return null
     return packages.joinToString(separator = " OR ", prefix = "(", postfix = ")") { packageName ->
-        column + " LIKE " + sqlQuote(packageDescriptor(packageName))
+        "instr(" + column + ", " + sqlQuote(packageDescriptor(packageName)) + ") = 1"
     }
 }
 
 /**
- * Escape a contains/prefix/suffix literal and wrap it into a SQL LIKE pattern. Only used when the
- * literal contains backslash, percent or underscore; brackets stay literal characters.
+ * Render one DexKit string predicate (case-sensitive): contains uses instr(...) > 0, prefix uses
+ * instr(...) = 1, suffix uses substr(column, -N) = literal with N in Unicode code points, and
+ * equals keeps the raw literal. DexKit forces Equals for an empty non-equals literal.
  */
-private fun likePattern(value: String, mode: SqlStringMode): String {
-    val escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return wrapLikePattern(escaped, mode)
-}
-
-/**
- * Wrap a plain contains/prefix/suffix literal into a SQL LIKE pattern. The caller only uses this
- * when the literal contains no backslash, percent or underscore, which keeps already-applied
- * delegate bytes identical.
- */
-private fun wrapLikePattern(value: String, mode: SqlStringMode): String = when (mode) {
-    SqlStringMode.CONTAINS -> "%" + value + "%"
-    SqlStringMode.PREFIX -> value + "%"
-    SqlStringMode.SUFFIX -> "%" + value
-    SqlStringMode.EQUALS -> error("EQUALS literals are not LIKE patterns")
-}
-
-/** Render one literal fragment: raw equals, or a LIKE pattern with conditional escaping. */
-private fun likeFragment(value: String, mode: SqlStringMode): String {
-    if (mode == SqlStringMode.EQUALS) return sqlQuote(value)
-    val needsEscape = value.any { it == '\\' || it == '%' || it == '_' }
-    return if (needsEscape) {
-        sqlQuote(likePattern(value, mode)) + " ESCAPE '\\'"
-    } else {
-        sqlQuote(wrapLikePattern(value, mode))
+private fun stringCondition(column: String, literal: SqlStringLiteral): String {
+    val value = literal.value.toString()
+    if (value.isEmpty() && literal.mode != SqlStringMode.EQUALS) {
+        return column + " = " + sqlQuote(value)
+    }
+    return when (literal.mode) {
+        SqlStringMode.EQUALS -> column + " = " + sqlQuote(value)
+        SqlStringMode.CONTAINS -> "instr(" + column + ", " + sqlQuote(value) + ") > 0"
+        SqlStringMode.PREFIX -> "instr(" + column + ", " + sqlQuote(value) + ") = 1"
+        SqlStringMode.SUFFIX ->
+            "substr(" + column + ", -" + value.codePointCount(0, value.length) + ") = " + sqlQuote(value)
     }
 }
-
-private fun stringCondition(column: String, literal: SqlStringLiteral): String =
-    column + (if (literal.mode == SqlStringMode.EQUALS) " = " else " LIKE ") +
-        likeFragment(literal.value.toString(), literal.mode)
 
 private fun asNumber(value: Any?): Number =
     value as? Number ?: error("DexSQL number predicate requires a Number, was " + value)
