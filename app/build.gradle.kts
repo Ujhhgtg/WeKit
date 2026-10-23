@@ -420,6 +420,12 @@ val dexTestWorkerProperties = listOf(
     "wekit.dexTest.workers",
 )
 val dexTestWorker = providers.gradleProperty("dexTestWorker").map(String::toBoolean).orElse(false)
+// Temporary Phase 0 tool for the DexKit-removal migration; removed together with DexKit.
+val dexKitSnapshotProperties = listOf(
+    "wekit.dexSnapshot.manifest",
+    "wekit.dexSnapshot.nativeLibrary",
+)
+val dexKitSnapshot = providers.gradleProperty("dexKitSnapshot").map(String::toBoolean).orElse(false)
 val monetCorpus = providers.gradleProperty("wekit.monetCorpus").map(String::toBoolean).orElse(false)
 
 tasks.withType<Test>().configureEach {
@@ -427,7 +433,15 @@ tasks.withType<Test>().configureEach {
     systemProperty("wekit.monetRuntime.dump", providers.gradleProperty("wekit.monetRuntime.dump").orNull.orEmpty())
     // Monet resource-graph tests load complete host APKs.
     maxHeapSize = "4g"
-    if (dexTestWorker.get()) {
+    if (dexKitSnapshot.get()) {
+        filter {
+            includeTestsMatching("dev.ujhhgtg.wekit.dextest.DexKitDataSnapshotTest")
+        }
+        dexKitSnapshotProperties.forEach { propertyName ->
+            systemProperty(propertyName, providers.gradleProperty(propertyName).orNull.orEmpty())
+        }
+        outputs.upToDateWhen { false }
+    } else if (dexTestWorker.get()) {
         filter {
             includeTestsMatching("dev.ujhhgtg.wekit.dextest.DexTestWorkerTest")
         }
