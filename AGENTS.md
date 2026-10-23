@@ -82,8 +82,10 @@
   over the constraint class's methods with one unit per literal value. Access-flag
   constraints use modifiers(...) or modifiers = ... and compile to
   (alias.access_flags & mask) = mask (DexKit Contains semantics). Literal LIKE
-  values only escape backslash/percent/underscore and add ESCAPE when needed;
-  equality literals stay raw. The builder block is LAZY: it executes when the
+  matchers are case-sensitive like DexKit: contains compiles to instr(col, lit) > 0,
+  prefix to instr(col, lit) = 1, suffix to substr(col, -N) = lit, and class packages to
+  instr(descriptor, 'Lpkg/') = 1; equality stays plain and an empty literal with a
+  non-equals mode falls back to equals. The builder block is LAZY: it executes when the
   delegate is resolved, inside the DexResolutionContext, so matcher arguments may read
   another delegate's metadata directly, e.g. declaredClass = classFoo.data.name or
   paramTypes(methodX.data.returnTypeName, "boolean"), exactly like DexKit matcher
