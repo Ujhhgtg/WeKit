@@ -2,9 +2,7 @@ package dev.ujhhgtg.wekit.dexkit.sql
 
 import dev.ujhhgtg.wekit.dexkit.dsl.DexSqlSpec
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
@@ -708,19 +706,19 @@ class DexSqlQueryTest {
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 declaredClass {}
-            }
+            }.toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 declaredClass {
                     usingStrings()
                 }
-            }
+            }.toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlClass {
                 superClass {}
-            }
+            }.toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
@@ -730,7 +728,7 @@ class DexSqlQueryTest {
                 declaredClass {
                     usingEqStrings("b")
                 }
-            }
+            }.toSql()
         }
     }
 
@@ -959,212 +957,116 @@ class DexSqlQueryTest {
     }
 
     // ------------------------------------------------------------------
-    // Deferred values (Pass C)
+    // Lazy builders (Pass C2)
     // ------------------------------------------------------------------
 
     @Test
-    fun deferredTemplateUsesEmissionOrderedTokens() {
-        val query = sqlMethod {
-            usingEqStrings(deferred { "x" })
-            declaredClass(deferred { "com.foo.Bar" })
-            returnType(deferred { "void" })
-            paramTypes("java.lang.String", deferred { "int" })
+    fun builderBlockRunsOnEachToSqlCall() {
+        var runs = 0
+        val query = sqlField {
+            runs += 1
+            name = "field"
         }
-        assertFalse(query.isStatic)
-        assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = @@WEKIT_DEFERRED_0@@ AND m.class_descriptor = @@WEKIT_DEFERRED_1@@ AND m.return_descriptor = @@WEKIT_DEFERRED_2@@ AND m.param_descriptors = @@WEKIT_DEFERRED_3@@ ORDER BY m.descriptor;",
-            query,
-        )
+        assertEquals(0, runs)
         assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'x' AND m.class_descriptor = 'Lcom/foo/Bar;' AND m.return_descriptor = 'V' AND m.param_descriptors = 'Ljava/lang/String;,I' ORDER BY m.descriptor;",
-            query.buildSql(),
+            "SELECT DISTINCT f.descriptor AS descriptor FROM fields f WHERE f.name = 'field' ORDER BY f.descriptor;",
+            query.toSql(),
+        )
+        assertEquals(1, runs)
+        assertEquals(query.toSql(), query.toSql())
+        assertEquals(3, runs)
+    }
+
+    @Test
+    fun builderReflectsValuesReadAtToSqlTime() {
+        var marker = "first"
+        val query = sqlMethod {
+            declaredClass = marker
+        }
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.class_descriptor = 'Lfirst;' ORDER BY m.descriptor;",
+            query.toSql(),
+        )
+        marker = "second"
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.class_descriptor = 'Lsecond;' ORDER BY m.descriptor;",
+            query.toSql(),
         )
     }
 
     @Test
-    fun deferredClassNameRendersDottedNameAsDescriptor() {
+    fun lazyBuilderReadsDelegateStyleRuntimeValues() {
+        var fakeDeclaredName = "com.foo.First"
+        var fakeReturnTypeName = "void"
+        var fakeParamTypeName = "int"
+        val query = sqlMethod {
+            declaredClass = fakeDeclaredName
+            returnType = fakeReturnTypeName
+            paramTypes(fakeParamTypeName, "java.lang.String")
+        }
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.class_descriptor = 'Lcom/foo/First;' AND m.return_descriptor = 'V' AND m.param_descriptors = 'I,Ljava/lang/String;' ORDER BY m.descriptor;",
+            query.toSql(),
+        )
+        fakeDeclaredName = "com.foo.Second"
+        fakeReturnTypeName = "int"
+        fakeParamTypeName = "long"
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.class_descriptor = 'Lcom/foo/Second;' AND m.return_descriptor = 'I' AND m.param_descriptors = 'J,Ljava/lang/String;' ORDER BY m.descriptor;",
+            query.toSql(),
+        )
+    }
+
+    @Test
+    fun lazyFunctionSlotFormsReadRuntimeValues() {
+        var classNameValue = "com.foo.Old"
+        var superName = "android.app.Old"
         val query = sqlClass {
-            className(deferred { "com.foo.Bar" })
+            className(classNameValue)
+            superClass(superName)
+            modifiers = 1
         }
         assertEquals(
-            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE c.descriptor = @@WEKIT_DEFERRED_0@@ ORDER BY c.descriptor;",
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE c.descriptor = 'Lcom/foo/Old;' AND c.superclass_descriptor = 'Landroid/app/Old;' AND ((c.access_flags & 1) = 1) ORDER BY c.descriptor;",
             query.toSql(),
         )
+        classNameValue = "Lcom/foo/New;"
+        superName = "android.app.New"
         assertEquals(
-            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE c.descriptor = 'Lcom/foo/Bar;' ORDER BY c.descriptor;",
-            query.buildSql(),
-        )
-    }
-
-    @Test
-    fun deferredClassDescriptorPassesThrough() {
-        val query = sqlMethod {
-            declaredClass(deferred { "Lcom/foo/Bar;" })
-        }
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.class_descriptor = @@WEKIT_DEFERRED_0@@ ORDER BY m.descriptor;",
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE c.descriptor = 'Lcom/foo/New;' AND c.superclass_descriptor = 'Landroid/app/New;' AND ((c.access_flags & 1) = 1) ORDER BY c.descriptor;",
             query.toSql(),
         )
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.class_descriptor = 'Lcom/foo/Bar;' ORDER BY m.descriptor;",
-            query.buildSql(),
-        )
     }
 
     @Test
-    fun deferredPrimitiveTypeBecomesTypeDescriptor() {
+    fun staticQueryBytesAreStableAcrossToSqlCalls() {
+        val query = sqlClass {
+            usingEqStrings("a")
+            method {
+                name = "run"
+            }
+        }
+        val expected = "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'a' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND cm1.name = 'run' ORDER BY cm.class_descriptor;"
+        assertEquals(expected, query.toSql())
+        assertEquals(expected, query.toSql())
+    }
+
+    @Test
+    fun dexSqlSpecBuildsSqlLazily() {
+        var marker = "one"
         val query = sqlMethod {
-            returnType(deferred { "void" })
+            name = marker
         }
+        val spec = DexSqlSpec({ query.toSql() })
         assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = @@WEKIT_DEFERRED_0@@ ORDER BY m.descriptor;",
-            query.toSql(),
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.name = 'one' ORDER BY m.descriptor;",
+            spec.sql(),
         )
+        marker = "two"
         assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = 'V' ORDER BY m.descriptor;",
-            query.buildSql(),
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.name = 'two' ORDER BY m.descriptor;",
+            spec.sql(),
         )
-    }
-
-    @Test
-    fun deferredArrayTypeBecomesTypeDescriptor() {
-        val query = sqlMethod {
-            returnType(deferred { "byte[]" })
-        }
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = '[B' ORDER BY m.descriptor;",
-            query.buildSql(),
-        )
-    }
-
-    @Test
-    fun deferredMixedParamTypesUseOneToken() {
-        val query = sqlMethod {
-            paramTypes("java.lang.String", deferred { "int" })
-        }
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.param_descriptors = @@WEKIT_DEFERRED_0@@ ORDER BY m.descriptor;",
-            query.toSql(),
-        )
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.param_descriptors = 'Ljava/lang/String;,I' ORDER BY m.descriptor;",
-            query.buildSql(),
-        )
-    }
-
-    @Test
-    fun deferredContainsLiteralKeepsConditionalEscaping() {
-        val escaped = sqlMethod {
-            usingStrings(deferred { "id:50%" })
-        }
-        assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE @@WEKIT_DEFERRED_0@@ ORDER BY m.descriptor;",
-            escaped,
-        )
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%id:50\\%%' ESCAPE '\\' ORDER BY m.descriptor;",
-            escaped.buildSql(),
-        )
-        val plain = sqlMethod {
-            usingStrings(deferred { "plain" })
-        }
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%plain%' ORDER BY m.descriptor;",
-            plain.buildSql(),
-        )
-        val prefix = sqlMethod {
-            usingPrefixStrings(deferred { "a_b" })
-        }
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE 'a\\_b%' ESCAPE '\\' ORDER BY m.descriptor;",
-            prefix.buildSql(),
-        )
-    }
-
-    @Test
-    fun deferredEqualityLiteralKeepsRawValue() {
-        val query = sqlMethod {
-            usingEqStrings(deferred { "it's" })
-        }
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'it''s' ORDER BY m.descriptor;",
-            query.buildSql(),
-        )
-    }
-
-    @Test
-    fun deferredNumbersRenderLongOrDoubleCondition() {
-        val longQuery = sqlMethod {
-            usingNumbers(deferred { 57 })
-        }
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_using_numbers mn0 ON mn0.method = m.descriptor WHERE mn0.file_id = m.file_id AND mn0.method_idx = m.method_idx AND mn0.@@WEKIT_DEFERRED_0@@ ORDER BY m.descriptor;",
-            longQuery.toSql(),
-        )
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_using_numbers mn0 ON mn0.method = m.descriptor WHERE mn0.file_id = m.file_id AND mn0.method_idx = m.method_idx AND mn0.long_value = 57 ORDER BY m.descriptor;",
-            longQuery.buildSql(),
-        )
-        val doubleQuery = sqlMethod {
-            usingNumbers(deferred { 0.5 })
-        }
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_using_numbers mn0 ON mn0.method = m.descriptor WHERE mn0.file_id = m.file_id AND mn0.method_idx = m.method_idx AND mn0.double_value = 0.5 ORDER BY m.descriptor;",
-            doubleQuery.buildSql(),
-        )
-    }
-
-    @Test
-    fun staticQueriesRemainByteIdentical() {
-        val query = sqlMethod {
-            name = "x"
-            declaredClass = "com.foo.Bar"
-            usingEqStrings("y")
-        }
-        assertTrue(query.isStatic)
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'y' AND m.name = 'x' AND m.class_descriptor = 'Lcom/foo/Bar;' ORDER BY m.descriptor;",
-            query.toSql(),
-        )
-        assertEquals(query.toSql(), query.buildSql())
-    }
-
-    @Test
-    fun deferredQueryRendersSameTextAsEquivalentStaticQuery() {
-        val staticQuery = sqlMethod {
-            usingEqStrings("v")
-            declaredClass = "com.foo.Bar"
-            returnType = "void"
-            paramTypes("int")
-        }
-        val deferredQuery = sqlMethod {
-            usingEqStrings(deferred { "v" })
-            declaredClass(deferred { "com.foo.Bar" })
-            returnType(deferred { "void" })
-            paramTypes(deferred { "int" })
-        }
-        assertFalse(deferredQuery.isStatic)
-        assertEquals(staticQuery.toSql(), deferredQuery.buildSql())
-    }
-
-    @Test
-    fun dexSqlSpecExposesStaticAndDeferredSql() {
-        val staticSpec = DexSqlSpec.static("SELECT 1;")
-        assertTrue(staticSpec.isStatic)
-        assertEquals("SELECT 1;", staticSpec.sql())
-
-        val staticQuery = sqlMethod { name = "x" }
-        val staticQuerySpec = DexSqlSpec.deferred(staticQuery)
-        assertTrue(staticQuerySpec.isStatic)
-        assertEquals(staticQuery.toSql(), staticQuerySpec.sql())
-
-        val deferredQuery = sqlMethod {
-            name = "x"
-            usingEqStrings(deferred { "y" })
-        }
-        val deferredSpec = DexSqlSpec.deferred(deferredQuery)
-        assertFalse(deferredSpec.isStatic)
-        assertEquals(deferredQuery.buildSql(), deferredSpec.sql())
     }
 
     // ------------------------------------------------------------------
@@ -1174,9 +1076,9 @@ class DexSqlQueryTest {
 
     @Test
     fun emptyQueriesThrow() {
-        assertThrows(IllegalArgumentException::class.java) { sqlMethod {} }
-        assertThrows(IllegalArgumentException::class.java) { sqlClass {} }
-        assertThrows(IllegalArgumentException::class.java) { sqlField {} }
+        assertThrows(IllegalArgumentException::class.java) { sqlMethod {}.toSql() }
+        assertThrows(IllegalArgumentException::class.java) { sqlClass {}.toSql() }
+        assertThrows(IllegalArgumentException::class.java) { sqlField {}.toSql() }
     }
 
     @Test
@@ -1184,7 +1086,7 @@ class DexSqlQueryTest {
         assertThrows(IllegalArgumentException::class.java) {
             sqlClass {
                 method {}
-            }
+            }.toSql()
         }
     }
 
@@ -1194,7 +1096,7 @@ class DexSqlQueryTest {
             sqlClass {
                 usingEqStrings("a")
                 method {}
-            }
+            }.toSql()
         }
     }
 
@@ -1203,7 +1105,7 @@ class DexSqlQueryTest {
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 limit(1)
-            }
+            }.toSql()
         }
     }
 
@@ -1212,7 +1114,7 @@ class DexSqlQueryTest {
         assertThrows(IllegalArgumentException::class.java) {
             sqlConstructor {
                 name = "notAConstructor"
-            }
+            }.toSql()
         }
     }
 
@@ -1222,7 +1124,7 @@ class DexSqlQueryTest {
             sqlMethod {
                 name = "doThing"
                 offset(1)
-            }
+            }.toSql()
         }
     }
 
@@ -1232,14 +1134,14 @@ class DexSqlQueryTest {
             sqlMethod {
                 name = "doThing"
                 limit(-1)
-            }
+            }.toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 name = "doThing"
                 limit(1)
                 offset(-2)
-            }
+            }.toSql()
         }
     }
 
@@ -1251,7 +1153,7 @@ class DexSqlQueryTest {
                 method {
                     searchPackages("com.tencent.mm")
                 }
-            }
+            }.toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlField {
@@ -1259,7 +1161,7 @@ class DexSqlQueryTest {
                 readMethod {
                     limit(1)
                 }
-            }
+            }.toSql()
         }
     }
 
@@ -1268,17 +1170,17 @@ class DexSqlQueryTest {
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 declaredClass = "   "
-            }
+            }.toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 returnType = " "
-            }
+            }.toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlClass {
                 className = ""
-            }
+            }.toSql()
         }
     }
 
@@ -1287,7 +1189,7 @@ class DexSqlQueryTest {
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 paramTypes()
-            }
+            }.toSql()
         }
     }
 }

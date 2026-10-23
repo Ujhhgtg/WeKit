@@ -3,84 +3,50 @@ package dev.ujhhgtg.wekit.dexkit.sql
 /**
  * A canonical DexSQL query produced by [sqlMethod], [sqlConstructor], [sqlClass] or [sqlField].
  *
- * Static queries contain the final SQL text. Deferred queries contain one
- * @@WEKIT_DEFERRED_n@@ token per deferred slot in [toSql]; [buildSql] replaces each token with the
- * literal rendered from that slot. Static queries are byte-for-byte identical to the canonical
- * migration extractor output; for deferred queries the tokenized template is the parity text.
+ * The builder block is lazy: it runs on every [toSql] call, never at declaration time. Delegate
+ * declarations can therefore read other delegates' metadata naturally, for example
+ * declaredClass = classFoo.data.name, exactly like DexKit matcher blocks. The emitted static text
+ * is byte-for-byte identical to the canonical migration extractor output.
  */
 class DexSqlQuery internal constructor(
-    internal val sql: String,
-    private val deferredRenderers: List<() -> String> = emptyList(),
+    private val factory: () -> String,
 ) {
-    /** Whether the query text contains no deferred values, i.e. [toSql] is the final SQL text. */
-    val isStatic: Boolean
-        get() = deferredRenderers.isEmpty()
-
-    /** Returns the canonical SQL template, including @@WEKIT_DEFERRED_n@@ tokens for deferred slots. */
-    fun toSql(): String = sql
-
-    /** Renders every deferred token and returns the executable SQL text. */
-    fun buildSql(): String {
-        if (deferredRenderers.isEmpty()) return sql
-        var text = sql
-        deferredRenderers.forEachIndexed { index, render ->
-            text = text.replace(deferredToken(index), render())
-        }
-        return text
-    }
-
-    override fun toString(): String = sql
+    /** Compiles the query; the builder block runs on every call (evaluate it during resolution). */
+    fun toSql(): String = factory()
 }
 
-/** Placeholder token emitted for the deferred value at [index] in emission order. */
-internal fun deferredToken(index: Int): String = "@@WEKIT_DEFERRED_" + index + "@@"
-
 /**
- * A runtime-computed value for one DexSQL builder slot.
- *
- * The emitted query keeps a @@WEKIT_DEFERRED_n@@ token where the rendered literal would be;
- * [DexSqlQuery.buildSql] evaluates [provider] and renders the result exactly like the equivalent
- * static literal (class descriptor, type descriptor, quoted literal or canonical number).
+ * Build a dexMethod query. The block runs when [DexSqlQuery.toSql] is called; an empty block throws
+ * then. Only predicates DexSQL can express are exposed on the builder.
  */
-class SqlDeferredValue internal constructor(
-    internal val provider: () -> Any?,
-)
-
-/**
- * Mark one builder slot value as deferred. The provider runs when [DexSqlQuery.buildSql] renders the
- * query, so it may read another delegate's metadata; exceptions propagate unchanged.
- */
-fun deferred(provider: () -> Any?): SqlDeferredValue = SqlDeferredValue(provider)
-
-/** Build a dexMethod query. At least one predicate is required; an empty block throws. */
-fun sqlMethod(block: SqlMethodQuery.() -> Unit): DexSqlQuery {
-    val emission = DexSqlEmission()
-    val query = SqlMethodQuery().apply(block)
-    return emission.build(emitMethod(query, constructor = false, emission = emission))
+fun sqlMethod(block: SqlMethodQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
+    val query = SqlMethodQuery()
+    query.block()
+    emitMethod(query, constructor = false)
 }
 
 /**
  * Build a dexConstructor query. DexKit forces the method name for constructor matchers, so
  * m.name = '<init>' is always emitted as the first WHERE condition.
  */
-fun sqlConstructor(block: SqlMethodQuery.() -> Unit): DexSqlQuery {
-    val emission = DexSqlEmission()
-    val query = SqlMethodQuery().apply(block)
-    return emission.build(emitMethod(query, constructor = true, emission = emission))
+fun sqlConstructor(block: SqlMethodQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
+    val query = SqlMethodQuery()
+    query.block()
+    emitMethod(query, constructor = true)
 }
 
 /** Build a dexClass query; class-level literal and nested method matchers are existential units. */
-fun sqlClass(block: SqlClassQuery.() -> Unit): DexSqlQuery {
-    val emission = DexSqlEmission()
-    val query = SqlClassQuery().apply(block)
-    return emission.build(emitClass(query, emission))
+fun sqlClass(block: SqlClassQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
+    val query = SqlClassQuery()
+    query.block()
+    emitClass(query)
 }
 
 /** Build a dexField query; a query without a field predicate or access matcher throws. */
-fun sqlField(block: SqlFieldQuery.() -> Unit): DexSqlQuery {
-    val emission = DexSqlEmission()
-    val query = SqlFieldQuery().apply(block)
-    return emission.build(emitField(query, emission))
+fun sqlField(block: SqlFieldQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
+    val query = SqlFieldQuery()
+    query.block()
+    emitField(query)
 }
 
 /**
@@ -89,8 +55,7 @@ fun sqlField(block: SqlFieldQuery.() -> Unit): DexSqlQuery {
  * [SqlFieldQuery.writeMethod].
  *
  * Only DexKit predicates that DexSQL can express are exposed; unsupported constructs are Kotlin
- * compile errors instead of silently dropped predicates. Slots accept a static value or a
- * [SqlDeferredValue] produced by [deferred], emitted as a token in [DexSqlQuery.toSql].
+ * compile errors instead of silently dropped predicates.
  */
 class SqlMethodQuery internal constructor() {
     /** Exact method name (m.name); constructors use "<init>". */
@@ -98,14 +63,12 @@ class SqlMethodQuery internal constructor() {
 
     /** Declaring class (m.class_descriptor); accepts com.foo.Bar or Lcom/foo/Bar;. */
     var declaredClass: String? = null
-    internal var declaredClassValue: Any? = null
 
     /**
      * Return type (m.return_descriptor); accepts void, int, java.lang.String, java.lang.String[], or
      * an L...; descriptor.
      */
     var returnType: String? = null
-    internal var returnTypeValue: Any? = null
 
     /** Parameter count (m.param_count). */
     var paramCount: Int? = null
@@ -121,11 +84,9 @@ class SqlMethodQuery internal constructor() {
 
     internal var declaredClassConstraint: SqlClassLiteralConstraint? = null
 
-    /**
-     * Declaring class slot accepting a static class name/descriptor or a [SqlDeferredValue].
-     */
-    fun declaredClass(value: Any) {
-        declaredClassValue = value
+    /** Set the declaring class; same as assigning [declaredClass]. */
+    fun declaredClass(value: String) {
+        declaredClass = value
     }
 
     /**
@@ -138,15 +99,14 @@ class SqlMethodQuery internal constructor() {
         declaredClassConstraint = classLiteralConstraint("declaredClass", block)
     }
 
-    /** Return type slot accepting a static type or a [SqlDeferredValue]. */
-    fun returnType(value: Any) {
-        returnTypeValue = value
+    /** Set the return type; same as assigning [returnType]. */
+    fun returnType(value: String) {
+        returnType = value
     }
 
     /**
-     * Exact parameter types, emitted as one m.param_descriptors condition. Parts may mix static
-     * types and [SqlDeferredValue]s; a deferred part makes the whole list one token. Repeated calls
-     * replace the previous value.
+     * Exact parameter types, emitted as one m.param_descriptors condition. Repeated calls replace
+     * the previous value.
      */
     fun paramTypes(vararg types: Any) {
         require(types.isNotEmpty()) { "DexSQL paramTypes requires at least one type" }
@@ -201,11 +161,9 @@ class SqlClassQuery internal constructor() {
      * and against c.descriptor otherwise.
      */
     var className: String? = null
-    internal var classNameValue: Any? = null
 
     /** Superclass descriptor; joins classes and matches superclass_descriptor. */
     var superClass: String? = null
-    internal var superClassValue: Any? = null
     internal var superClassConstraint: SqlClassLiteralConstraint? = null
 
     /**
@@ -218,14 +176,14 @@ class SqlClassQuery internal constructor() {
     internal val literals = DexSqlLiterals()
     internal val methods = mutableListOf<SqlMethodQuery>()
 
-    /** Class descriptor slot accepting a static class name/descriptor or a [SqlDeferredValue]. */
-    fun className(value: Any) {
-        classNameValue = value
+    /** Set the class descriptor; same as assigning [className]. */
+    fun className(value: String) {
+        className = value
     }
 
-    /** Superclass slot accepting a static class name/descriptor or a [SqlDeferredValue]. */
-    fun superClass(value: Any) {
-        superClassValue = value
+    /** Set the superclass descriptor; same as assigning [superClass]. */
+    fun superClass(value: String) {
+        superClass = value
     }
 
     /**
@@ -284,23 +242,21 @@ class SqlFieldQuery internal constructor() {
 
     /** Declaring class (f.class_descriptor); accepts com.foo.Bar or Lcom/foo/Bar;. */
     var declaredClass: String? = null
-    internal var declaredClassValue: Any? = null
 
     /** Field type (f.type_descriptor); same type syntax as [SqlMethodQuery.returnType]. */
     var type: String? = null
-    internal var typeValue: Any? = null
 
     internal val literals = DexSqlLiterals()
     internal val accesses = mutableListOf<SqlFieldAccess>()
 
-    /** Declaring class slot accepting a static class name/descriptor or a [SqlDeferredValue]. */
-    fun declaredClass(value: Any) {
-        declaredClassValue = value
+    /** Set the declaring class; same as assigning [declaredClass]. */
+    fun declaredClass(value: String) {
+        declaredClass = value
     }
 
-    /** Field type slot accepting a static type or a [SqlDeferredValue]. */
-    fun type(value: Any) {
-        typeValue = value
+    /** Set the field type; same as assigning [type]. */
+    fun type(value: String) {
+        type = value
     }
 
     /** Add a read-access method matcher (method_field_accesses.using_type = 'get'). */

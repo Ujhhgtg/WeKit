@@ -480,7 +480,7 @@ fun dexMethod(
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexMethodDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
-        DexMethodDelegate(key, sqlSpec = DexSqlSpec.deferred(query, allowFailure))
+        DexMethodDelegate(key, sqlSpec = DexSqlSpec({ query.toSql() }, allowFailure))
             .also { item.registerDexDelegate(it) }
     }
 
@@ -491,7 +491,7 @@ fun dexClass(
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexClassDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
-        DexClassDelegate(key, sqlSpec = DexSqlSpec.deferred(query, allowFailure))
+        DexClassDelegate(key, sqlSpec = DexSqlSpec({ query.toSql() }, allowFailure))
             .also { item.registerDexDelegate(it) }
     }
 
@@ -502,7 +502,7 @@ fun dexField(
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexFieldDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
-        DexFieldDelegate(key, sqlSpec = DexSqlSpec.deferred(query, allowFailure))
+        DexFieldDelegate(key, sqlSpec = DexSqlSpec({ query.toSql() }, allowFailure))
             .also { item.registerDexDelegate(it) }
     }
 
@@ -513,7 +513,7 @@ fun dexConstructor(
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexConstructorDelegate>> =
     PropertyDelegateProvider { item, property ->
         val key = property.name
-        DexConstructorDelegate(key, sqlSpec = DexSqlSpec.deferred(query, allowFailure))
+        DexConstructorDelegate(key, sqlSpec = DexSqlSpec({ query.toSql() }, allowFailure))
             .also { item.registerDexDelegate(it) }
     }
 
@@ -530,7 +530,7 @@ fun dexMethod(
         val key = property.name
         DexMethodDelegate(
             key,
-            sqlSpec = DexSqlSpec.static(sql, allowFailure),
+            sqlSpec = DexSqlSpec({ sql }, allowFailure),
         ).also { item.registerDexDelegate(it) }
     }
 
@@ -543,7 +543,7 @@ fun dexClass(
         val key = property.name
         DexClassDelegate(
             key,
-            sqlSpec = DexSqlSpec.static(sql, allowFailure),
+            sqlSpec = DexSqlSpec({ sql }, allowFailure),
         ).also { item.registerDexDelegate(it) }
     }
 
@@ -556,7 +556,7 @@ fun dexField(
         val key = property.name
         DexFieldDelegate(
             key,
-            sqlSpec = DexSqlSpec.static(sql, allowFailure),
+            sqlSpec = DexSqlSpec({ sql }, allowFailure),
         ).also { item.registerDexDelegate(it) }
     }
 
@@ -569,7 +569,7 @@ fun dexConstructor(
         val key = property.name
         DexConstructorDelegate(
             key,
-            sqlSpec = DexSqlSpec.static(sql, allowFailure),
+            sqlSpec = DexSqlSpec({ sql }, allowFailure),
         ).also { item.registerDexDelegate(it) }
     }
 

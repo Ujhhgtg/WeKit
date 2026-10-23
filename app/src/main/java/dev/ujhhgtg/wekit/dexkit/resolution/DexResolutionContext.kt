@@ -122,25 +122,18 @@ object DexResolutionContext {
             session.stack += feature
             try {
                 item.dexDelegates.forEach(BaseDexDelegate::resetForResolution)
-                // Static SQL delegates are pure queries whose text is known at declaration time,
-                // so they run before the DexKit inline phase; inline matchers restored from a SQL
-                // migration may read their .data. Deferred SQL delegates need other delegates'
-                // metadata to build their query, so they run after the inline phase; on-demand
-                // resolution still covers dependencies not touched by the inline phase.
+                // SQL builders are lazy: they execute here, inside the resolution context, so
+                // .data references inside a builder resolve their dependencies on demand. SQL
+                // delegates still run before the inline phase because inline matchers restored
+                // from a SQL migration may read their .data; on-demand resolution also covers
+                // inline dependencies referenced from a SQL builder.
                 val sqlDelegates = item.dexDelegates.filter { it.dexSqlSpec != null }
-                val staticSql = sqlDelegates.filter { it.dexSqlSpec!!.isStatic }
-                val deferredSql = sqlDelegates.filter { !it.dexSqlSpec!!.isStatic }
-                if (staticSql.isNotEmpty()) {
+                if (sqlDelegates.isNotEmpty()) {
                     val dexSql = session.dexSql
                         ?: error("DexSQL resolution context is not active for " + feature.technicalPath)
-                    staticSql.forEach { it.resolveFromDexSql(dexSql) }
+                    sqlDelegates.forEach { it.resolveFromDexSql(dexSql) }
                 }
                 feature.resolveInlineDex(session.dexKit)
-                if (deferredSql.isNotEmpty()) {
-                    val dexSql = session.dexSql
-                        ?: error("DexSQL resolution context is not active for " + feature.technicalPath)
-                    deferredSql.forEach { if (!it.isSettled) it.resolveFromDexSql(dexSql) }
-                }
                 item.resolveDex(session.dexKit)
                 item.dexDelegates.forEach(BaseDexDelegate::markIncomplete)
                 check(item.dexDelegates.all(BaseDexDelegate::isSettled)) {
