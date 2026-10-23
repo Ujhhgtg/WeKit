@@ -231,6 +231,32 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_metadata(
     response_string(env, response)
 }
 
+/// Read the caller list for one method descriptor (opt-in; can be very large).
+///
+/// Java signature: (JLjava/lang/String;)Ljava/lang/String;
+/// Envelope: {ok:true, callers:<array|null>} or {ok:false,error}.
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_metadataCallers(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+    descriptor: jstring,
+) -> jstring {
+    let session = match session_for(handle) {
+        Ok(session) => session,
+        Err(error) => return response_string(env, failure("invalid_handle", error)),
+    };
+    let response = with_jstring(env, descriptor, |descriptor| {
+        match session.metadata_callers(descriptor) {
+            Ok(value) => success(json!({ "callers": value })),
+            Err(error) => failure("metadata", error),
+        }
+    });
+    let response = response
+        .unwrap_or_else(|| failure("invalid_input", "caller descriptor is null or unreadable"));
+    response_string(env, response)
+}
+
 /// Close a session.  The Kotlin surface uses `Unit`; failures are logged with
 /// the same structured envelope as query so native diagnostics retain
 /// an actionable error kind and message.

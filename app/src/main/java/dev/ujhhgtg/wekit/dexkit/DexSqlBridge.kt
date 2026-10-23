@@ -56,6 +56,11 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
         decodeMetadata(DexSqlNative.metadata(handle, kind, descriptor))
     }
 
+    /** Caller list for one method descriptor; opt-in because pathological methods can be huge. */
+    fun metadataCallers(descriptor: String): JsonElement? = withHandle { handle ->
+        decodeMetadataCallers(DexSqlNative.metadataCallers(handle, descriptor))
+    }
+
     override fun close() {
         val writeLock = lifecycleLock.writeLock()
         writeLock.lock()
@@ -113,6 +118,11 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
             return response.metadata as? JsonObject
         }
 
+        private fun decodeMetadataCallers(raw: String): JsonElement? {
+            val response = decodeEnvelope(raw, "metadataCallers")
+            return response.callers
+        }
+
         private fun decodeQuery(raw: String): DexSqlQueryResult {
             val response = decodeEnvelope(raw, "query")
             if (response.columns == null || response.rows == null) {
@@ -146,6 +156,7 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
         val columns: List<String>? = null,
         val rows: List<List<String>>? = null,
         val metadata: JsonElement? = null,
+        val callers: JsonElement? = null,
         val error: NativeError? = null,
     )
 

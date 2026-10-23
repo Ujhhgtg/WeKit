@@ -26,5 +26,8 @@ object DexSqlNative {
     /** Metadata envelope: {ok:true, metadata:<object|null>}; kind is class/method/field. */
     external fun metadata(handle: Long, kind: String, descriptor: String): String
 
+    /** Caller envelope: {ok:true, callers:<array|null>} for one method descriptor. */
+    external fun metadataCallers(handle: Long, descriptor: String): String
+
     external fun close(handle: Long)
 }
