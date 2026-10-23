@@ -4,6 +4,12 @@ internal enum class SqlStringMode { CONTAINS, EQUALS, PREFIX, SUFFIX }
 
 internal class SqlStringLiteral(val value: String, val mode: SqlStringMode)
 
+/** One class-level literal call: either string literals with one mode, or number literals. */
+internal class SqlLiteralCall(
+    val strings: List<SqlStringLiteral> = emptyList(),
+    val numbers: List<Number> = emptyList(),
+)
+
 /** One ordered read/write method access matcher of a field query. */
 internal class SqlFieldAccess(val query: SqlMethodQuery, val usingType: String)
 
@@ -116,25 +122,39 @@ private fun packageCondition(column: String, packages: List<String>): String? {
 }
 
 /**
- * Escape a contains/prefix/suffix literal for SQL LIKE. DexSQL has no ESCAPE clause and treats
- * % and _ as wildcards, so wildcard characters are escaped with bracket expressions.
+ * Escape a contains/prefix/suffix literal and wrap it into a SQL LIKE pattern. Only used when
+ * the literal contains backslash, percent or underscore; brackets stay literal characters.
  */
 private fun likePattern(value: String, mode: SqlStringMode): String {
-    val escaped = value.replace("[", "[[]").replace("%", "[%]").replace("_", "[_]")
-    return when (mode) {
-        SqlStringMode.CONTAINS -> "%$escaped%"
-        SqlStringMode.PREFIX -> "$escaped%"
-        SqlStringMode.SUFFIX -> "%$escaped"
-        SqlStringMode.EQUALS -> error("EQUALS literals are not LIKE patterns")
-    }
+    val escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return wrapLikePattern(escaped, mode)
 }
 
-private fun stringCondition(column: String, literal: SqlStringLiteral): String =
+/**
+ * Wrap a plain contains/prefix/suffix literal into a SQL LIKE pattern. The caller only uses
+ * this when the literal contains no backslash, percent or underscore, which keeps
+ * already-applied delegate bytes identical.
+ */
+private fun wrapLikePattern(value: String, mode: SqlStringMode): String = when (mode) {
+    SqlStringMode.CONTAINS -> "%$value%"
+    SqlStringMode.PREFIX -> "$value%"
+    SqlStringMode.SUFFIX -> "%$value"
+    SqlStringMode.EQUALS -> error("EQUALS literals are not LIKE patterns")
+}
+
+private fun stringCondition(column: String, literal: SqlStringLiteral): String {
     if (literal.mode == SqlStringMode.EQUALS) {
-        column + " = " + sqlQuote(literal.value)
-    } else {
-        column + " LIKE " + sqlQuote(likePattern(literal.value, literal.mode))
+        return column + " = " + sqlQuote(literal.value)
     }
+    val value = literal.value
+    val needsEscape = value.any { it == '\\' || it == '%' || it == '_' }
+    return if (needsEscape) {
+        column + " LIKE " + sqlQuote(likePattern(value, literal.mode)) +
+            " ESCAPE '\\'"
+    } else {
+        column + " LIKE " + sqlQuote(wrapLikePattern(value, literal.mode))
+    }
+}
 
 /**
  * Format one numeric predicate value. Integral floats need an explicit fraction because the
@@ -155,6 +175,8 @@ private class MethodProperties(
     val returnType: String?,
     val paramCount: Int?,
     val paramDescriptors: String?,
+    /** Access-flag mask emitted after the properties: add for nested method matchers only. */
+    val modifiers: Int? = null,
 )
 
 private class MethodJoinResult(
@@ -165,7 +187,7 @@ private class MethodJoinResult(
 
 private fun MethodProperties.hasPredicates(): Boolean =
     name != null || declaredClass != null || returnType != null ||
-        paramCount != null || paramDescriptors != null
+        paramCount != null || paramDescriptors != null || modifiers != null
 
 /** One existential method unit of a class query. */
 private class ClassUnit(
@@ -176,13 +198,15 @@ private class ClassUnit(
     val nestedMethodMatcher: Boolean = false,
 )
 
-private fun SqlMethodQuery.toMethodProperties(): MethodProperties = MethodProperties(
-    name = name,
-    declaredClass = declaredClass,
-    returnType = returnType,
-    paramCount = paramCount,
-    paramDescriptors = paramDescriptors,
-)
+private fun SqlMethodQuery.toMethodProperties(includeModifiers: Boolean = false): MethodProperties =
+    MethodProperties(
+        name = name,
+        declaredClass = declaredClass,
+        returnType = returnType,
+        paramCount = paramCount,
+        paramDescriptors = paramDescriptors,
+        modifiers = if (includeModifiers) modifiers else null,
+    )
 
 /**
  * Emit the joins and conditions of one method matcher.
@@ -200,24 +224,9 @@ private fun methodJoins(
 ): MethodJoinResult {
     val joins = mutableListOf<String>()
     val where = mutableListOf<String>()
-    var index = start
-    for (literal in strings) {
-        val alias = "ms$index"
-        joins += "JOIN method_strings $alias ON $alias.method = $baseAlias.descriptor"
-        where += "$alias.file_id = $baseAlias.file_id"
-        where += "$alias.method_idx = $baseAlias.method_idx"
-        where += stringCondition("$alias.value", literal)
-        index++
-    }
+    var index = appendStringLiteralJoins(strings, baseAlias, start, joins, where)
     for (numberCall in numberCalls) {
-        for (number in numberCall) {
-            val alias = "mn$index"
-            joins += "JOIN method_using_numbers $alias ON $alias.method = $baseAlias.descriptor"
-            where += "$alias.file_id = $baseAlias.file_id"
-            where += "$alias.method_idx = $baseAlias.method_idx"
-            where += numberCondition(alias, number)
-            index++
-        }
+        index = appendNumberLiteralJoins(numberCall, baseAlias, index, joins, where)
     }
     if (properties != null) {
         properties.name?.let { where += baseAlias + ".name = " + sqlQuote(it) }
@@ -231,8 +240,124 @@ private fun methodJoins(
         properties.paramDescriptors?.let {
             where += baseAlias + ".param_descriptors = " + sqlQuote(it)
         }
+        properties.modifiers?.let { mask ->
+            where += "((" + baseAlias + ".access_flags & " + mask + ") = " + mask + ")"
+        }
     }
     return MethodJoinResult(joins, where, index)
+}
+
+private fun appendStringLiteralJoins(
+    strings: List<SqlStringLiteral>,
+    baseAlias: String,
+    start: Int,
+    joins: MutableList<String>,
+    where: MutableList<String>,
+): Int {
+    var index = start
+    for (literal in strings) {
+        val alias = "ms$index"
+        joins += "JOIN method_strings $alias ON $alias.method = $baseAlias.descriptor"
+        where += "$alias.file_id = $baseAlias.file_id"
+        where += "$alias.method_idx = $baseAlias.method_idx"
+        where += stringCondition("$alias.value", literal)
+        index++
+    }
+    return index
+}
+
+private fun appendNumberLiteralJoins(
+    numbers: List<Number>,
+    baseAlias: String,
+    start: Int,
+    joins: MutableList<String>,
+    where: MutableList<String>,
+): Int {
+    var index = start
+    for (number in numbers) {
+        val alias = "mn$index"
+        joins += "JOIN method_using_numbers $alias ON $alias.method = $baseAlias.descriptor"
+        where += "$alias.file_id = $baseAlias.file_id"
+        where += "$alias.method_idx = $baseAlias.method_idx"
+        where += numberCondition(alias, number)
+        index++
+    }
+    return index
+}
+
+/**
+ * Append the declaredClass { ... } units of a method or constructor query. Every literal VALUE is
+ * one independent existential unit over the methods of the declaring class; a method may satisfy
+ * several values and no injective distinctness applies.
+ */
+private fun appendDeclaredClassConstraint(
+    constraint: SqlClassLiteralConstraint,
+    baseAlias: String,
+    start: Int,
+    joins: MutableList<String>,
+    where: MutableList<String>,
+): Int {
+    var index = start
+    var unitIndex = 0
+    for (call in constraint.calls) {
+        for (literal in call.strings) {
+            val alias = "ccm$unitIndex"
+            joins += "JOIN methods $alias ON $alias.class_descriptor = $baseAlias.class_descriptor"
+            where += "$alias.file_id = $baseAlias.file_id"
+            where += "$alias.class_idx = $baseAlias.class_idx"
+            index = appendStringLiteralJoins(listOf(literal), alias, index, joins, where)
+            unitIndex++
+        }
+        for (number in call.numbers) {
+            val alias = "ccm$unitIndex"
+            joins += "JOIN methods $alias ON $alias.class_descriptor = $baseAlias.class_descriptor"
+            where += "$alias.file_id = $baseAlias.file_id"
+            where += "$alias.class_idx = $baseAlias.class_idx"
+            index = appendNumberLiteralJoins(listOf(number), alias, index, joins, where)
+            unitIndex++
+        }
+    }
+    return index
+}
+
+/**
+ * Append the superClass { ... } units of a class query. Every literal VALUE is one existential unit
+ * over the methods of the superclass; units carry no file scoping because the superclass may live
+ * in another DEX, and no injective distinctness applies.
+ */
+private fun appendSuperClassConstraint(
+    constraint: SqlClassLiteralConstraint,
+    methodsBaseAlias: String?,
+    start: Int,
+    joins: MutableList<String>,
+    where: MutableList<String>,
+): Int {
+    val anchor: String
+    if (methodsBaseAlias != null) {
+        joins += "JOIN classes cc ON cc.descriptor = $methodsBaseAlias.class_descriptor"
+        where += "cc.file_id = $methodsBaseAlias.file_id"
+        where += "cc.class_idx = $methodsBaseAlias.class_idx"
+        anchor = "cc.superclass_descriptor"
+    } else {
+        anchor = "c.superclass_descriptor"
+    }
+    var index = start
+    var unitIndex = 0
+    for (call in constraint.calls) {
+        for (literal in call.strings) {
+            val alias = "scm$unitIndex"
+            joins += "JOIN methods $alias ON $alias.class_descriptor = $anchor"
+            index = appendStringLiteralJoins(listOf(literal), alias, index, joins, where)
+            unitIndex++
+        }
+        for (number in call.numbers) {
+            val alias = "scm$unitIndex"
+            joins += "JOIN methods $alias ON $alias.class_descriptor = $anchor"
+            index = appendNumberLiteralJoins(listOf(number), alias, index, joins, where)
+            unitIndex++
+        }
+    }
+    return index
 }
 
 internal fun emitMethod(query: SqlMethodQuery, constructor: Boolean): String {
@@ -254,15 +379,22 @@ internal fun emitMethod(query: SqlMethodQuery, constructor: Boolean): String {
         properties = query.toMethodProperties()
     }
     val result = methodJoins(query.literals.strings, query.literals.numberCalls, "m", 0, properties)
+    val joins = result.joins.toMutableList()
     where += result.where
     packageCondition("m.class_descriptor", query.literals.packages)?.let { where += it }
+    query.modifiers?.let { mask ->
+        where += "((m.access_flags & " + mask + ") = " + mask + ")"
+    }
+    query.declaredClassConstraint?.let {
+        appendDeclaredClassConstraint(it, "m", result.nextIndex, joins, where)
+    }
     query.literals.validateRange()
     require(result.joins.isNotEmpty() || where.isNotEmpty()) {
         "sqlMethod requires at least one predicate"
     }
     return buildString {
         append("SELECT DISTINCT m.descriptor AS method FROM methods m")
-        appendJoins(result.joins)
+        appendJoins(joins)
         append(" WHERE ").append(where.joinToString(" AND "))
         append(" ORDER BY m.descriptor")
         appendRange(query.literals)
@@ -284,7 +416,7 @@ internal fun emitClass(query: SqlClassQuery): String {
     }
     for (methodQuery in query.methods) {
         requireNestedMethod(methodQuery)
-        val properties = methodQuery.toMethodProperties()
+        val properties = methodQuery.toMethodProperties(includeModifiers = true)
         // An unconstrained unit is vacuously satisfied by every method and the extractor rejects
         // it; refuse it here too instead of emitting a meaningless extra methods join.
         require(
@@ -325,6 +457,7 @@ internal fun emitClass(query: SqlClassQuery): String {
             nextIndex = result.nextIndex
         }
         query.className?.let { where += "cm.class_descriptor = " + sqlQuote(classDescriptor(it)) }
+        val hasSuperClassString = query.superClass != null
         query.superClass?.let {
             joins += "JOIN classes c ON c.descriptor = cm.class_descriptor"
             where += "c.file_id = cm.file_id"
@@ -332,7 +465,18 @@ internal fun emitClass(query: SqlClassQuery): String {
             where += "c.superclass_descriptor = " + sqlQuote(classDescriptor(it))
         }
         packageCondition("cm.class_descriptor", query.literals.packages)?.let { where += it }
+        query.modifiers?.let { mask ->
+            if (!hasSuperClassString) {
+                joins += "JOIN classes c ON c.descriptor = cm.class_descriptor"
+                where += "c.file_id = cm.file_id"
+                where += "c.class_idx = cm.class_idx"
+            }
+            where += "((c.access_flags & " + mask + ") = " + mask + ")"
+        }
         where += methodMatcherDistinctnessConditions(nestedMethodAliases)
+        query.superClassConstraint?.let {
+            appendSuperClassConstraint(it, "cm", nextIndex, joins, where)
+        }
         query.literals.validateRange()
         require(joins.isNotEmpty() || where.isNotEmpty()) {
             "sqlClass requires at least one predicate"
@@ -349,16 +493,30 @@ internal fun emitClass(query: SqlClassQuery): String {
     query.literals.validateRange()
     val className = query.className
     val superClass = query.superClass
-    require(className != null || superClass != null || query.literals.packages.isNotEmpty()) {
+    val superClassConstraint = query.superClassConstraint
+    require(
+        className != null || superClass != null ||
+            query.literals.packages.isNotEmpty() || superClassConstraint != null ||
+            query.modifiers != null,
+    ) {
         "sqlClass requires at least one predicate"
     }
-    className?.let { where += "c.descriptor = " + sqlQuote(classDescriptor(it)) }
+    className?.let {
+        where += "c.descriptor = " + sqlQuote(classDescriptor(it))
+    }
     superClass?.let {
         where += "c.superclass_descriptor = " + sqlQuote(classDescriptor(it))
     }
     packageCondition("c.descriptor", query.literals.packages)?.let { where += it }
+    query.modifiers?.let { mask ->
+        where += "((c.access_flags & " + mask + ") = " + mask + ")"
+    }
+    superClassConstraint?.let {
+        appendSuperClassConstraint(it, null, 0, joins, where)
+    }
     return buildString {
         append("SELECT DISTINCT c.descriptor AS descriptor FROM classes c")
+        appendJoins(joins)
         append(" WHERE ").append(where.joinToString(" AND "))
         append(" ORDER BY c.descriptor")
         appendRange(query.literals)
@@ -392,7 +550,7 @@ internal fun emitField(query: SqlFieldQuery): String {
             access.query.literals.numberCalls,
             methodAlias,
             start,
-            access.query.toMethodProperties(),
+            access.query.toMethodProperties(includeModifiers = true),
         )
         joins += result.joins
         where += result.where

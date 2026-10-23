@@ -70,6 +70,18 @@ class SqlMethodQuery internal constructor() {
     /** Declaring class (m.class_descriptor); accepts com.foo.Bar or Lcom/foo/Bar;. */
     var declaredClass: String? = null
 
+    internal var declaredClassConstraint: SqlClassLiteralConstraint? = null
+
+    /**
+     * Require the declaring class to contain methods satisfying the class-level literals in
+     * [block]. Every literal value is an independent existential unit; one method may satisfy
+     * several values (no injective distinctness).
+     */
+    fun declaredClass(block: SqlClassLiteralConstraint.() -> Unit) {
+        require(declaredClassConstraint == null) { "declaredClass { } may be declared only once" }
+        declaredClassConstraint = classLiteralConstraint("declaredClass", block)
+    }
+
     /**
      * Return type (m.return_descriptor); accepts void, int, java.lang.String, java.lang.String[], or
      * an L...; descriptor.
@@ -78,6 +90,17 @@ class SqlMethodQuery internal constructor() {
 
     /** Parameter count (m.param_count). */
     var paramCount: Int? = null
+
+    /**
+     * Access-flag mask (decimal), emitted as ((m.access_flags & mask) = mask); DexKit modifiers
+     * semantics require every masked bit to be set. Assign this property or call [modifiers].
+     */
+    var modifiers: Int? = null
+
+    /** Set the access-flag mask; same as assigning [modifiers]. */
+    fun modifiers(mask: Int) {
+        modifiers = mask
+    }
 
     internal val literals = DexSqlLiterals()
     internal var paramDescriptors: String? = null
@@ -147,6 +170,29 @@ class SqlClassQuery internal constructor() {
 
     /** Superclass descriptor; joins classes and matches superclass_descriptor. */
     var superClass: String? = null
+
+    internal var superClassConstraint: SqlClassLiteralConstraint? = null
+
+    /**
+     * Require the superclass to contain methods satisfying the class-level literals in [block].
+     * Every literal value is an independent existential unit; no injective distinctness applies.
+     */
+    fun superClass(block: SqlClassLiteralConstraint.() -> Unit) {
+        require(superClassConstraint == null) { "superClass { } may be declared only once" }
+        superClassConstraint = classLiteralConstraint("superClass", block)
+    }
+
+    /**
+     * Access-flag mask (decimal) of the matched class, emitted as
+     * ((c.access_flags & mask) = mask); DexKit modifiers semantics require every masked bit to be
+     * set. Assign this property or call [modifiers].
+     */
+    var modifiers: Int? = null
+
+    /** Set the access-flag mask; same as assigning [modifiers]. */
+    fun modifiers(mask: Int) {
+        modifiers = mask
+    }
 
     internal val literals = DexSqlLiterals()
     internal val methods = mutableListOf<SqlMethodQuery>()
@@ -218,4 +264,58 @@ class SqlFieldQuery internal constructor() {
 
     /** Append OFFSET n after LIMIT; requires [limit]. */
     fun offset(value: Int) = literals.setOffset(value)
+}
+
+/** Build and validate one [SqlClassLiteralConstraint] block. */
+private fun classLiteralConstraint(
+    owner: String,
+    block: SqlClassLiteralConstraint.() -> Unit,
+): SqlClassLiteralConstraint {
+    val constraint = SqlClassLiteralConstraint().apply(block)
+    require(constraint.calls.isNotEmpty()) {
+        "sql* " + owner + " { } requires at least one literal call"
+    }
+    return constraint
+}
+
+/**
+ * Class-level literal constraint used by [SqlMethodQuery.declaredClass] and
+ * [SqlClassQuery.superClass].
+ *
+ * Every literal value is one independent existential unit over the methods of the constrained
+ * class; a method may satisfy several values. Only class-level literal calls exist on this
+ * builder, so any other DexKit construct is a Kotlin compile error instead of a silently
+ * dropped predicate.
+ */
+class SqlClassLiteralConstraint internal constructor() {
+    internal val calls = mutableListOf<SqlLiteralCall>()
+
+    /** Add one method_strings.value LIKE '%value%' (contains) call. */
+    fun usingStrings(vararg values: String) = addStringCall(SqlStringMode.CONTAINS, values)
+
+    /** Add one method_strings.value = 'value' (equals) call. */
+    fun usingEqStrings(vararg values: String) = addStringCall(SqlStringMode.EQUALS, values)
+
+    /** Add one method_strings.value LIKE 'value%' (prefix) call. */
+    fun usingPrefixStrings(vararg values: String) = addStringCall(SqlStringMode.PREFIX, values)
+
+    /** Add one method_strings.value LIKE '%value' (suffix) call. */
+    fun usingSuffixStrings(vararg values: String) = addStringCall(SqlStringMode.SUFFIX, values)
+
+    /** Add one method_using_numbers call. */
+    fun usingNumbers(vararg values: Number) = addNumberCall(values)
+
+    private fun addStringCall(mode: SqlStringMode, values: Array<out String>) {
+        require(values.isNotEmpty()) {
+            "SqlClassLiteralConstraint requires at least one value per call"
+        }
+        calls += SqlLiteralCall(values.map { SqlStringLiteral(it, mode) })
+    }
+
+    private fun addNumberCall(values: Array<out Number>) {
+        require(values.isNotEmpty()) {
+            "SqlClassLiteralConstraint requires at least one value per call"
+        }
+        calls += SqlLiteralCall(numbers = values.toList())
+    }
 }

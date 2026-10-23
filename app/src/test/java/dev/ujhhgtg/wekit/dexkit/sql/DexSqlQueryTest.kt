@@ -70,7 +70,7 @@ class DexSqlQueryTest {
             usingEqStrings("it's")
         }
         assertSql(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%a[_]b[%]c[[]d]e%' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'it''s' ORDER BY m.descriptor;",
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%a\\_b\\%c[d]e%' ESCAPE '\\' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'it''s' ORDER BY m.descriptor;",
             query,
         )
     }
@@ -596,8 +596,369 @@ class DexSqlQueryTest {
     }
 
     // ------------------------------------------------------------------
+    // declaredClass { } / superClass { } class-literal constraints
+    // ------------------------------------------------------------------
+
+    @Test
+    fun methodDeclaredClassLiteralEmitsCcmUnit() {
+        val query = sqlMethod {
+            name = "target"
+            declaredClass {
+                usingEqStrings("marker")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor JOIN method_strings ms0 ON ms0.method = ccm0.descriptor WHERE m.name = 'target' AND ccm0.file_id = m.file_id AND ccm0.class_idx = m.class_idx AND ms0.file_id = ccm0.file_id AND ms0.method_idx = ccm0.method_idx AND ms0.value = 'marker' ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun methodDeclaredClassUnitsContinueSharedLiteralCounter() {
+        val query = sqlMethod {
+            usingStrings("outer")
+            declaredClass {
+                usingEqStrings("first")
+                usingPrefixStrings("second")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor JOIN method_strings ms1 ON ms1.method = ccm0.descriptor JOIN methods ccm1 ON ccm1.class_descriptor = m.class_descriptor JOIN method_strings ms2 ON ms2.method = ccm1.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%outer%' AND ccm0.file_id = m.file_id AND ccm0.class_idx = m.class_idx AND ms1.file_id = ccm0.file_id AND ms1.method_idx = ccm0.method_idx AND ms1.value = 'first' AND ccm1.file_id = m.file_id AND ccm1.class_idx = m.class_idx AND ms2.file_id = ccm1.file_id AND ms2.method_idx = ccm1.method_idx AND ms2.value LIKE 'second%' ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun methodDeclaredClassNumbersSplitIntoPerValueUnits() {
+        val query = sqlMethod {
+            declaredClass {
+                usingNumbers(57, 0.5)
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor JOIN method_using_numbers mn0 ON mn0.method = ccm0.descriptor JOIN methods ccm1 ON ccm1.class_descriptor = m.class_descriptor JOIN method_using_numbers mn1 ON mn1.method = ccm1.descriptor WHERE ccm0.file_id = m.file_id AND ccm0.class_idx = m.class_idx AND mn0.file_id = ccm0.file_id AND mn0.method_idx = ccm0.method_idx AND mn0.long_value = 57 AND ccm1.file_id = m.file_id AND ccm1.class_idx = m.class_idx AND mn1.file_id = ccm1.file_id AND mn1.method_idx = ccm1.method_idx AND mn1.double_value = 0.5 ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun methodDeclaredClassMultiValueCallSplitsIntoPerValueUnits() {
+        val query = sqlMethod {
+            declaredClass {
+                usingEqStrings("a", "b")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor JOIN method_strings ms0 ON ms0.method = ccm0.descriptor JOIN methods ccm1 ON ccm1.class_descriptor = m.class_descriptor JOIN method_strings ms1 ON ms1.method = ccm1.descriptor WHERE ccm0.file_id = m.file_id AND ccm0.class_idx = m.class_idx AND ms0.file_id = ccm0.file_id AND ms0.method_idx = ccm0.method_idx AND ms0.value = 'a' AND ccm1.file_id = m.file_id AND ccm1.class_idx = m.class_idx AND ms1.file_id = ccm1.file_id AND ms1.method_idx = ccm1.method_idx AND ms1.value = 'b' ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun classSuperClassLiteralOnMethodsBasedQuery() {
+        val query = sqlClass {
+            method {
+                name = "target"
+            }
+            superClass {
+                usingEqStrings("marker")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN classes cc ON cc.descriptor = cm.class_descriptor JOIN methods scm0 ON scm0.class_descriptor = cc.superclass_descriptor JOIN method_strings ms0 ON ms0.method = scm0.descriptor WHERE cm.name = 'target' AND cc.file_id = cm.file_id AND cc.class_idx = cm.class_idx AND ms0.file_id = scm0.file_id AND ms0.method_idx = scm0.method_idx AND ms0.value = 'marker' ORDER BY cm.class_descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun classSuperClassLiteralOnBareClassQuery() {
+        val query = sqlClass {
+            superClass {
+                usingEqStrings("marker")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods scm0 ON scm0.class_descriptor = c.superclass_descriptor JOIN method_strings ms0 ON ms0.method = scm0.descriptor WHERE ms0.file_id = scm0.file_id AND ms0.method_idx = scm0.method_idx AND ms0.value = 'marker' ORDER BY c.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun classSuperClassLiteralsContinueSharedCounter() {
+        val query = sqlClass {
+            usingEqStrings("outer")
+            method {
+                name = "m"
+            }
+            superClass {
+                usingEqStrings("sc")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor JOIN classes cc ON cc.descriptor = cm.class_descriptor JOIN methods scm0 ON scm0.class_descriptor = cc.superclass_descriptor JOIN method_strings ms2 ON ms2.method = scm0.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'outer' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND cm1.name = 'm' AND cc.file_id = cm.file_id AND cc.class_idx = cm.class_idx AND ms2.file_id = scm0.file_id AND ms2.method_idx = scm0.method_idx AND ms2.value = 'sc' ORDER BY cm.class_descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun classLiteralConstraintsRejectEmptyCallsAndBlocks() {
+        assertThrows(IllegalArgumentException::class.java) {
+            sqlMethod {
+                declaredClass {}
+            }
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            sqlMethod {
+                declaredClass {
+                    usingStrings()
+                }
+            }
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            sqlClass {
+                superClass {}
+            }
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            sqlMethod {
+                declaredClass {
+                    usingEqStrings("a")
+                }
+                declaredClass {
+                    usingEqStrings("b")
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // LIKE wildcard escaping (Pass B1)
+    // ------------------------------------------------------------------
+
+    @Test
+    fun methodContainsPercentLiteralUsesBackslashEscape() {
+        val query = sqlMethod {
+            usingStrings("id:50%")
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%id:50\\%%' ESCAPE '\\' ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun methodPrefixUnderscoreLiteralUsesBackslashEscape() {
+        val query = sqlMethod {
+            usingPrefixStrings("a_b")
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE 'a\\_b%' ESCAPE '\\' ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun methodSuffixBackslashLiteralIsEscaped() {
+        val query = sqlMethod {
+            usingSuffixStrings("x\\y")
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%x\\\\y' ESCAPE '\\' ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun methodPlainContainsKeepsOldBytesWithoutEscapeClause() {
+        val query = sqlMethod {
+            usingStrings("plain")
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value LIKE '%plain%' ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun methodEqualityLiteralsKeepWildcardsAndBracketsRaw() {
+        val query = sqlMethod {
+            usingEqStrings("loadData[0]", "a%b")
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'loadData[0]' AND ms1.file_id = m.file_id AND ms1.method_idx = m.method_idx AND ms1.value = 'a%b' ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun classLevelLiteralUsesBackslashEscape() {
+        val query = sqlClass {
+            usingStrings("a_b")
+        }
+        assertSql(
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value LIKE '%a\\_b%' ESCAPE '\\' ORDER BY cm.class_descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun declaredClassConstraintLiteralUsesBackslashEscape() {
+        val query = sqlMethod {
+            declaredClass {
+                usingPrefixStrings("a_b")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor JOIN method_strings ms0 ON ms0.method = ccm0.descriptor WHERE ccm0.file_id = m.file_id AND ccm0.class_idx = m.class_idx AND ms0.file_id = ccm0.file_id AND ms0.method_idx = ccm0.method_idx AND ms0.value LIKE 'a\\_b%' ESCAPE '\\' ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun superClassConstraintLiteralUsesBackslashEscape() {
+        val query = sqlClass {
+            superClass {
+                usingStrings("100%")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods scm0 ON scm0.class_descriptor = c.superclass_descriptor JOIN method_strings ms0 ON ms0.method = scm0.descriptor WHERE ms0.file_id = scm0.file_id AND ms0.method_idx = scm0.method_idx AND ms0.value LIKE '%100\\%%' ESCAPE '\\' ORDER BY c.descriptor;",
+            query,
+        )
+    }
+
+    // ------------------------------------------------------------------
+    // Access-flag modifiers (Pass B2)
+    // ------------------------------------------------------------------
+
+    @Test
+    fun methodModifiersEmitDecimalMaskAfterPackageCondition() {
+        val query = sqlMethod {
+            usingEqStrings("x")
+            searchPackages("com.tencent.mm")
+            modifiers = 9
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = 'x' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/%') AND ((m.access_flags & 9) = 9) ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun constructorModifiersUseFunctionForm() {
+        val query = sqlConstructor {
+            paramCount = 2
+            modifiers(8)
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.name = '<init>' AND m.param_count = 2 AND ((m.access_flags & 8) = 8) ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun methodModifiersPrecedeDeclaredClassConstraint() {
+        val query = sqlMethod {
+            modifiers = 16
+            declaredClass {
+                usingEqStrings("m")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor JOIN method_strings ms0 ON ms0.method = ccm0.descriptor WHERE ((m.access_flags & 16) = 16) AND ccm0.file_id = m.file_id AND ccm0.class_idx = m.class_idx AND ms0.file_id = ccm0.file_id AND ms0.method_idx = ccm0.method_idx AND ms0.value = 'm' ORDER BY m.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun classModifiersReuseSuperClassClassJoin() {
+        val query = sqlClass {
+            superClass = "android.app.Activity"
+            usingEqStrings("x")
+            modifiers = 1024
+        }
+        assertSql(
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN classes c ON c.descriptor = cm.class_descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'x' AND c.file_id = cm.file_id AND c.class_idx = cm.class_idx AND c.superclass_descriptor = 'Landroid/app/Activity;' AND ((c.access_flags & 1024) = 1024) ORDER BY cm.class_descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun classModifiersAddClassJoinWhenSuperClassStringAbsent() {
+        val query = sqlClass {
+            usingEqStrings("x")
+            modifiers = 6
+        }
+        assertSql(
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN classes c ON c.descriptor = cm.class_descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'x' AND c.file_id = cm.file_id AND c.class_idx = cm.class_idx AND ((c.access_flags & 6) = 6) ORDER BY cm.class_descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun bareClassModifiersEmitFlagCondition() {
+        val query = sqlClass {
+            className = "com.foo.Bar"
+            modifiers(1024)
+        }
+        assertSql(
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE c.descriptor = 'Lcom/foo/Bar;' AND ((c.access_flags & 1024) = 1024) ORDER BY c.descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun classModifiersPrecedeSuperClassConstraintBlock() {
+        val query = sqlClass {
+            usingEqStrings("x")
+            modifiers = 1
+            superClass {
+                usingEqStrings("sc")
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN classes c ON c.descriptor = cm.class_descriptor JOIN classes cc ON cc.descriptor = cm.class_descriptor JOIN methods scm0 ON scm0.class_descriptor = cc.superclass_descriptor JOIN method_strings ms1 ON ms1.method = scm0.descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'x' AND c.file_id = cm.file_id AND c.class_idx = cm.class_idx AND ((c.access_flags & 1) = 1) AND cc.file_id = cm.file_id AND cc.class_idx = cm.class_idx AND ms1.file_id = scm0.file_id AND ms1.method_idx = scm0.method_idx AND ms1.value = 'sc' ORDER BY cm.class_descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun nestedMethodUnitModifiersFollowUnitProperties() {
+        val query = sqlClass {
+            method {
+                name = "first"
+                modifiers = 8
+            }
+            method {
+                name = "second"
+                modifiers(4)
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN methods cm0 ON cm0.class_descriptor = cm.class_descriptor WHERE cm.name = 'first' AND ((cm.access_flags & 8) = 8) AND cm0.file_id = cm.file_id AND cm0.class_idx = cm.class_idx AND cm0.name = 'second' AND ((cm0.access_flags & 4) = 4) AND NOT (cm.file_id = cm0.file_id AND cm.method_idx = cm0.method_idx) ORDER BY cm.class_descriptor;",
+            query,
+        )
+    }
+
+    @Test
+    fun fieldAccessMatcherModifiersFollowAccessProperties() {
+        val query = sqlField {
+            name = "field"
+            readMethod {
+                name = "getX"
+                modifiers = 1
+            }
+        }
+        assertSql(
+            "SELECT DISTINCT f.descriptor AS descriptor FROM fields f JOIN method_field_accesses fa0 ON fa0.field = f.descriptor JOIN methods fm0 ON fm0.descriptor = fa0.method WHERE f.name = 'field' AND fa0.file_id = f.file_id AND fa0.field_idx = f.field_idx AND fm0.file_id = fa0.file_id AND fm0.method_idx = fa0.method_idx AND fa0.using_type = 'get' AND fm0.name = 'getX' AND ((fm0.access_flags & 1) = 1) ORDER BY f.descriptor;",
+            query,
+        )
+    }
+
+    // ------------------------------------------------------------------
     // Rejected declarations
     // ------------------------------------------------------------------
+
 
     @Test
     fun emptyQueriesThrow() {
