@@ -13,6 +13,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.abc.WeRequestCallback
@@ -171,15 +172,15 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     private val classReqResp by dexClass()
 
     // 关键方法 //
-    private val methodGetNetQueue by dexMethod {
-        val kernelName = WeDatabaseApi.classMmKernel.data.name
-        val queueName = WeMessageApi.classNetSceneQueue.data.name
-        matcher {
+    private val methodGetNetQueue by dexMethod(
+        sqlMethod {
+            val kernelName = WeDatabaseApi.classMmKernel.data.name
+            val queueName = WeMessageApi.classNetSceneQueue.data.name
             declaredClass = kernelName
-            modifiers = Modifier.STATIC or Modifier.PUBLIC
             returnType = queueName
-        }
-    }
+            modifiers = 9
+        },
+    )
 //    private val methodNetDispatch by dexMethod()
 
     private val cgiReqClassMap = mutableMapOf<Int, Class<*>>()
