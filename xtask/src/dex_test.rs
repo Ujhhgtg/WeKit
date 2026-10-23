@@ -785,19 +785,19 @@ fn ensure_linux_wekit_native(root: &Path) -> Result<Option<PathBuf>> {
         })
         .unwrap_or_else(|| root.join("target"));
     let library = target_dir.join("release/libwekit_native.so");
-    if !library.is_file() {
-        println!("dex-test: building host WeKit native library");
-        run_command(
-            Command::new("cargo").current_dir(root).args([
-                "build",
-                "--locked",
-                "--release",
-                "-p",
-                "wekit-native",
-            ]),
-            "build host WeKit native library",
-        )?;
-    }
+    // Always run the (incremental) build: a stale library left over from an earlier
+    // checkout would silently back the worker with an outdated native contract.
+    println!("dex-test: building host WeKit native library");
+    run_command(
+        Command::new("cargo").current_dir(root).args([
+            "build",
+            "--locked",
+            "--release",
+            "-p",
+            "wekit-native",
+        ]),
+        "build host WeKit native library",
+    )?;
     if !library.is_file() {
         bail!(
             "host WeKit native build did not produce {}",
