@@ -33,7 +33,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlField
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -142,7 +141,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     /** TalkRoomServer.exitTalkRoom() —— 终止当前「实时对讲机」. */
     private val methodExitTalkRoom by dexMethod(
         sqlMethod {
-            declaredClass(deferred { methodEnterTalkRoom.data.declaredClassName })
+            declaredClass(methodEnterTalkRoom.data.declaredClassName)
             returnType = "void"
             paramCount = 0
             usingStrings("exitTalkRoom", "exitTalkRoom: has exited")
@@ -152,7 +151,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     /** SubCoreTalkRoom 上返回 TalkRoomServer 单例的静态方法. */
     private val methodGetTalkRoomServer by dexMethod(
         sqlMethod {
-            returnType(deferred { methodEnterTalkRoom.data.declaredClassName })
+            returnType(methodEnterTalkRoom.data.declaredClassName)
             paramCount = 0
             modifiers = 9
         },
@@ -161,7 +160,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     /** TalkRoomServer 当前房间 ID; 空值表示没有正在进行的实时对讲. */
     private val fieldCurrentTalkRoom by dexField(
         sqlField {
-            declaredClass(deferred { methodEnterTalkRoom.data.declaredClassName })
+            declaredClass(methodEnterTalkRoom.data.declaredClassName)
             type = "java.lang.String"
         },
     )

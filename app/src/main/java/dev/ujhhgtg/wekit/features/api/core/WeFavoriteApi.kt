@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.FavInfoProto
@@ -57,7 +56,7 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
     /** `FavItemInfoStorage.getFirstPageList(type, limit, blockList, blockTypes, filter)`: newest first; type -1 is all. */
     private val methodFavStorageGetFirstPage by dexMethod(
         sqlMethod {
-            declaredClass(deferred { methodFavStorageGetByLocalId.data.declaredClassName })
+            declaredClass(methodFavStorageGetByLocalId.data.declaredClassName)
             usingEqStrings(
                 "MicroMsg.Fav.FavItemInfoStorage",
                 "getFirstPageList::block set contains target type, error, do return null",
@@ -68,7 +67,7 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
     /** `FavApiLogic.restartItemDownload(FavItemInfo, force)`: re-downloads a failed or done item's data. */
     private val methodRestartItemDownload by dexMethod(
         sqlMethod {
-            paramTypes(deferred { methodFavStorageGetByLocalId.data.returnTypeName }, "boolean")
+            paramTypes(methodFavStorageGetByLocalId.data.returnTypeName, "boolean")
             modifiers = 8
             usingEqStrings("status not download failed or done!")
         },
@@ -82,7 +81,7 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
                 "java.lang.String",
                 "java.lang.String",
                 "boolean",
-                deferred { methodFavStorageGetByLocalId.data.returnTypeName },
+                methodFavStorageGetByLocalId.data.returnTypeName,
                 "java.lang.Runnable",
             )
             modifiers = 8

@@ -32,7 +32,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -144,9 +143,9 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     private val methodPostToQueue by dexMethod(
         sqlMethod {
             searchPackages("com.tencent.mm.modelbase")
-            declaredClass(deferred { classNetSceneQueue.data.name })
+            declaredClass(classNetSceneQueue.data.name)
             returnType = "boolean"
-            paramTypes(deferred { classNetSceneBase.data.name })
+            paramTypes(classNetSceneBase.data.name)
             usingNumbers(0L)
         },
     )
@@ -249,7 +248,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     )
     val methodMsgInfoStorageInsertMessage by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classMsgInfoStorage.data.name })
+            declaredClass(classMsgInfoStorage.data.name)
             usingEqStrings("MsgInfo processAddMsg insert db error")
         },
     )
@@ -260,7 +259,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     )
     val methodChattingContextGetTalker by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classChattingContext.data.name })
+            declaredClass(classChattingContext.data.name)
             usingEqStrings("getTalker returns null.")
         },
     )
@@ -339,7 +338,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     )
     private val classImageServiceImpl by dexClass(
         sqlClass {
-            superClass(deferred { classMvvmBase.data.name })
+            superClass(classMvvmBase.data.name)
             usingStrings("MicroMsg.ImgUpload.MsgImgFeatureService")
         },
         allowFailure = true,
@@ -817,7 +816,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
     private val methodGetMsgInfoByTalkerAndSvrId by dexMethod(
         sqlMethod {
-            returnType(deferred { classMsgInfo.data.name })
+            returnType(classMsgInfo.data.name)
             paramTypes("java.lang.String", "long")
             usingEqStrings("msgSvrId=?")
             declaredClass {
@@ -2444,7 +2443,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
     val methodToggleMessageSelection by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classChattingDataAdapter.data.name })
+            declaredClass(classChattingDataAdapter.data.name)
             returnType = "boolean"
             usingEqStrings("msgIdTalker")
             usingNumbers(100L)

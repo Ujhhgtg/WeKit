@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -131,7 +130,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     // 网络
     val classNetScenePat by dexClass(
         sqlClass {
-            superClass(deferred { WeMessageApi.classNetSceneBase.data.name })
+            superClass(WeMessageApi.classNetSceneBase.data.name)
             usingStrings("/cgi-bin/micromsg-bin/sendpat")
             method {
                 name = "getType"

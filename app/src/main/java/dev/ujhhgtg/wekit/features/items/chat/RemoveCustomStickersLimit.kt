@@ -6,7 +6,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -46,7 +45,7 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
 
     private val methodGetMmkv by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classMmkv.data.name })
+            declaredClass(classMmkv.data.name)
             usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
         },
     )
@@ -59,8 +58,8 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
 
     private val methodCreateCgiBack by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classCgiBack.data.name })
-            returnType(deferred { classCgiBack.data.name })
+            declaredClass(classCgiBack.data.name)
+            returnType(classCgiBack.data.name)
             paramCount = 6
             modifiers = 8
         },

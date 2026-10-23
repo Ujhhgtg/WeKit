@@ -33,7 +33,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlField
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -186,7 +185,7 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     private val methodFootKeyHandler by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classFootComponent.data.name })
+            declaredClass(classFootComponent.data.name)
             returnType = "boolean"
             paramTypes("int", "android.view.KeyEvent")
             usingEqStrings("chatting onKeyDown, code:%d action:%d")

@@ -4,7 +4,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -58,7 +57,7 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
     }
     private val methodIsMultiTalking by dexMethod(
         sqlMethod {
-            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
+            declaredClass(methodIsDuringCall.data.declaredClassName)
             paramCount = 1
             usingEqStrings("MicroMsg.DeviceOccupy", "isMultiTalking")
         },
@@ -66,20 +65,20 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
 
     private val methodIsMultiTalking2 by dexMethod(
         sqlMethod {
-            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
+            declaredClass(methodIsDuringCall.data.declaredClassName)
             paramCount = 2
             usingEqStrings("MicroMsg.DeviceOccupy", "isMultiTalking")
         },
     )
     private val methodIsCameraUsing by dexMethod(
         sqlMethod {
-            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
+            declaredClass(methodIsDuringCall.data.declaredClassName)
             usingEqStrings("MicroMsg.DeviceOccupy", "isCameraUsing", "")
         },
     )
     private val methodIsCameraUsing2 by dexMethod(
         sqlMethod {
-            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
+            declaredClass(methodIsDuringCall.data.declaredClassName)
             usingEqStrings(
                 "MicroMsg.DeviceOccupy",
                 "isCameraUsing",
@@ -89,21 +88,21 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
     )
     private val methodIsVoiceUsing by dexMethod(
         sqlMethod {
-            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
+            declaredClass(methodIsDuringCall.data.declaredClassName)
             paramCount = 1
             usingEqStrings("MicroMsg.DeviceOccupy", "isVoiceUsing")
         },
     )
     private val methodIsVoiceUsing2 by dexMethod(
         sqlMethod {
-            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
+            declaredClass(methodIsDuringCall.data.declaredClassName)
             paramCount = 2
             usingEqStrings("MicroMsg.DeviceOccupy", "isVoiceUsing")
         },
     )
     private val methodCheckAppBrandVoiceUsing by dexMethod(
         sqlMethod {
-            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
+            declaredClass(methodIsDuringCall.data.declaredClassName)
             paramCount = 1
             usingEqStrings(
                 "MicroMsg.DeviceOccupy",
@@ -113,7 +112,7 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
     )
     private val methodCheckAppBrandVoiceUsing2 by dexMethod(
         sqlMethod {
-            declaredClass(deferred { methodIsDuringCall.data.declaredClassName })
+            declaredClass(methodIsDuringCall.data.declaredClassName)
             paramCount = 2
             usingEqStrings(
                 "MicroMsg.DeviceOccupy",

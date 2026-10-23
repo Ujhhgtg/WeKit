@@ -4,7 +4,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -23,7 +22,7 @@ object DisableWebViewSafetyWarnings : SwitchFeature(), IResolveDex {
     )
     private val methodGetIsUrlSafe by dexMethod(
         sqlMethod {
-            declaredClass(deferred { methodGetIsInterceptEnabled.data.declaredClassName })
+            declaredClass(methodGetIsInterceptEnabled.data.declaredClassName)
             usingEqStrings("http", "https")
         },
     )

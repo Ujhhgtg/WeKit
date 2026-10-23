@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.models.ChatroomSyncStateReadResult
@@ -44,7 +43,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     )
     val methodGetStorage by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classMmKernel.data.name })
+            declaredClass(classMmKernel.data.name)
             paramCount = 0
             modifiers = 9
             usingStrings("mCoreStorage not initialized!")

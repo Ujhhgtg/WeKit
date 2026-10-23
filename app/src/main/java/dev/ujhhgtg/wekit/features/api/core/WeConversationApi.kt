@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -44,7 +43,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     )
     val methodUpdateUnreadByTalker by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classConversationStorage.data.name })
+            declaredClass(classConversationStorage.data.name)
             usingEqStrings("MicroMsg.ConversationStorage", "updateUnreadByTalker %s")
         },
     )
@@ -54,7 +53,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     // "不显示该聊天" for a normal contact.
     private val methodDelChatContact by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classConversationStorage.data.name })
+            declaredClass(classConversationStorage.data.name)
             returnType = "void"
             paramCount = 1
             paramTypes("java.lang.String")
@@ -88,7 +87,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 //    }
     private val methodHiddenConvParent by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classConversationStorage.data.name })
+            declaredClass(classConversationStorage.data.name)
             usingEqStrings("Update rconversation set parentRef = '", "' where 1 != 1 ")
         },
     )
@@ -160,7 +159,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     // has the "placed top" high bits set. Anchored by the string it logs on a null/empty talker.
     private val methodIsPlacedTop by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classConversationStorage.data.name })
+            declaredClass(classConversationStorage.data.name)
             returnType = "boolean"
             paramCount = 1
             paramTypes("java.lang.String")
@@ -184,7 +183,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     // ConversationStorage.X(String) / unSetPlacedTop — clears the high bits, unpinning the row.
     private val methodUnSetPlacedTop by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classConversationStorage.data.name })
+            declaredClass(classConversationStorage.data.name)
             returnType = "boolean"
             paramCount = 1
             paramTypes("java.lang.String")
@@ -206,10 +205,10 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     )
     val methodNotifyConversationChanged by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classConversationStorage.data.superClass!!.name })
+            declaredClass(classConversationStorage.data.superClass!!.name)
             returnType = "void"
             paramCount = 3
-            paramTypes("int", deferred { classConversationStorage.data.superClass!!.name }, "java.lang.Object")
+            paramTypes("int", classConversationStorage.data.superClass!!.name, "java.lang.Object")
         },
         allowFailure = true,
     )
@@ -218,7 +217,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     // talker), or null. Needed to hand the conversation object to the native delete helper below.
     private val methodGetConversationByTalker by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classConversationStorage.data.name })
+            declaredClass(classConversationStorage.data.name)
             paramCount = 1
             paramTypes("java.lang.String")
             usingStrings("MicroMsg.ConversationStorage", "get null with username:")

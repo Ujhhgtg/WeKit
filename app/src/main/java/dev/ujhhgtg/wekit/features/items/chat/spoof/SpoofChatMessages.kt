@@ -31,7 +31,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -110,7 +109,7 @@ object SpoofChatMessages : ClickableFeature(), IResolveDex, WeChatMessageContext
     }
     private val methodGalleryInitImage by dexMethod(
         sqlMethod {
-            declaredClass(deferred { methodGalleryImagePath.data.declaredClassName })
+            declaredClass(methodGalleryImagePath.data.declaredClassName)
             returnType = "boolean"
             usingEqStrings("initImageView image : %s bigImgPath %s position : %s")
         },

@@ -17,7 +17,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -93,14 +92,14 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
     )
     private val methodReceiveUnionOnGYNetEnd by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classReceiveLuckyMoneyUnion.data.name })
+            declaredClass(classReceiveLuckyMoneyUnion.data.name)
             name = "onGYNetEnd"
             paramCount = 3
         },
     )
     private val methodOpenUnionOnGYNetEnd by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classOpenLuckyMoneyUnion.data.name })
+            declaredClass(classOpenLuckyMoneyUnion.data.name)
             name = "onGYNetEnd"
             paramCount = 3
         },

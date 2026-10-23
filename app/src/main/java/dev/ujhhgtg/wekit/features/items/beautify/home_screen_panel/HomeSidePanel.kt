@@ -34,7 +34,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeLauncherBackApi
@@ -122,7 +121,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             className = "com.tencent.mm.plugin.wxpay.g"
             usingEqStrings("MicroMsg.PluginWxPay")
             method {
-                returnType(deferred { classWalletCache.data.name })
+                returnType(classWalletCache.data.name)
             }
         },
     )

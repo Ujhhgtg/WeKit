@@ -6,7 +6,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.deferred
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -52,14 +51,14 @@ object WePaymentApi : ApiFeature(), IResolveDex {
     )
     val methodReceiveLuckyMoneyOnGYNetEnd by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classReceiveLuckyMoney.data.name })
+            declaredClass(classReceiveLuckyMoney.data.name)
             name = "onGYNetEnd"
             paramCount = 3
         },
     )
     val methodOpenLuckyMoneyOnGYNetEnd by dexMethod(
         sqlMethod {
-            declaredClass(deferred { classOpenLuckyMoney.data.name })
+            declaredClass(classOpenLuckyMoney.data.name)
             name = "onGYNetEnd"
             paramCount = 3
         },
