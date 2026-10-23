@@ -13,6 +13,7 @@ import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
@@ -119,42 +120,36 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
         }
     }
 
-    private val methodDownloadFile by dexMethod {
-        searchPackages("com.tencent.mm.vfs")
-        matcher {
+    private val methodDownloadFile by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.vfs")
+            returnType = "java.lang.String"
+            paramTypes("java.lang.String")
             declaredClass {
-                usingStrings("VFS.VFSStrategy", "Found wrong moving file: ", "accountSalt")
+                usingStrings("VFS.VFSStrategy")
+                usingStrings("Found wrong moving file: ")
+                usingStrings("accountSalt")
             }
-
-            paramTypes(BString)
-            returnType(BString)
-        }
-    }
-    private val methodInitDownloadAttach by dexMethod {
-        searchPackages("com.tencent.mm.pluginsdk.model.app")
-        matcher {
-            declaredClass {
-                usingStrings(
-                    "MicroMsg.AppMsgLogic",
-                    "summerbig initDownloadAttach msgLocalId[%d], msgXml[%s], downloadPath[%s]",
-                    "summerbig initDownloadAttach ret[%b], rowid[%d], field_totalLen[%d], type[%d], isLargeFile[%d], destFile[%s], msgLocalId[%s], stack[%s]"
-                )
-            }
-
+        },
+    )
+    private val methodInitDownloadAttach by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.pluginsdk.model.app")
+            returnType = "java.lang.String"
             paramTypes("long", "java.lang.String", "java.lang.String", "java.lang.String")
-            returnType(BString)
-        }
-    }
-    private val methodInsertDownloadAttach by dexMethod {
-        searchPackages("com.tencent.mm.pluginsdk.model.app")
-        matcher {
             declaredClass {
+                usingStrings("MicroMsg.AppMsgLogic")
+                usingStrings("summerbig initDownloadAttach msgLocalId[%d], msgXml[%s], downloadPath[%s]")
                 usingStrings(
-                    "MicroMsg.AppMsgLogic",
-                    "summerbig initDownloadAttach ret[%b], rowid[%d], field_totalLen[%d], type[%d], isLargeFile[%d], destFile[%s], msgLocalId[%s], stack[%s]"
+                    "summerbig initDownloadAttach ret[%b], rowid[%d], field_totalLen[%d], type[%d], isLargeFile[%d], destFile[%s], msgLocalId[%s], stack[%s]",
                 )
             }
-
+        },
+    )
+    private val methodInsertDownloadAttach by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.pluginsdk.model.app")
+            returnType = "java.lang.String"
             paramTypes(
                 "java.lang.String",
                 "long",
@@ -165,11 +160,16 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
                 "long",
                 "int",
                 "java.lang.String",
-                "int"
+                "int",
             )
-            returnType(BString)
-        }
-    }
+            declaredClass {
+                usingStrings("MicroMsg.AppMsgLogic")
+                usingStrings(
+                    "summerbig initDownloadAttach ret[%b], rowid[%d], field_totalLen[%d], type[%d], isLargeFile[%d], destFile[%s], msgLocalId[%s], stack[%s]",
+                )
+            }
+        },
+    )
 
     private fun ensureSaveDir(): String {
         val configured = File(currentSaveDir())

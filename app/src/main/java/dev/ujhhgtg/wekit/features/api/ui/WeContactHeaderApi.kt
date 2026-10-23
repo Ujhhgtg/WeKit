@@ -11,6 +11,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
@@ -30,22 +31,22 @@ object WeContactHeaderApi : ApiFeature(), IResolveDex {
     private val providers = CopyOnWriteArrayList<Provider>()
     private const val ROW_TAG = "wekit_contact_header_row"
 
-    private val bindHeader by dexMethod {
-        matcher {
+    private val bindHeader by dexMethod(
+        sqlMethod {
             declaredClass = "com.tencent.mm.plugin.profile.ui.NormalProfileHeaderPreference"
-            paramTypes(View::class.java)
             returnType = "void"
+            paramTypes("android.view.View")
             usingStrings("[onBindView] never attach!")
-        }
-    }
+        },
+    )
 
-    private val bindBizHeader by dexMethod {
-        matcher {
+    private val bindBizHeader by dexMethod(
+        sqlMethod {
             declaredClass = "com.tencent.mm.plugin.profile.ui.BizInfoHeaderPreference"
-            paramTypes(View::class.java)
             returnType = "void"
-        }
-    }
+            paramTypes("android.view.View")
+        },
+    )
 
     fun addProvider(provider: Provider) {
         providers.addIfAbsent(provider)

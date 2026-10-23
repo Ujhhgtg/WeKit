@@ -34,6 +34,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlField
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeLauncherBackApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -123,14 +124,14 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: LauncherUI.dispatchKeyEvent and the predicates it checks before HomeUI ---
 
-    private val methodLauncherDispatchKeyEvent by dexMethod {
-        matcher {
-            declaredClass = LAUNCHER_UI
+    private val methodLauncherDispatchKeyEvent by dexMethod(
+        sqlMethod {
+            declaredClass = "com.tencent.mm.ui.LauncherUI"
             name = "dispatchKeyEvent"
-            paramTypes("android.view.KeyEvent")
             returnType = "boolean"
-        }
-    }
+            paramTypes("android.view.KeyEvent")
+        },
+    )
 
     /** `VASLauncher.r7()`: a VAS pane is shown and takes every key. */
     private val methodVasPaneVisible by dexMethod()
@@ -158,14 +159,14 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: MainUI.onKeyDown closes the conversation list's pull-down header ---
 
-    private val methodMainUiOnKeyDown by dexMethod {
-        matcher {
-            declaredClass = MAIN_UI
+    private val methodMainUiOnKeyDown by dexMethod(
+        sqlMethod {
+            declaredClass = "com.tencent.mm.ui.conversation.MainUI"
             name = "onKeyDown"
-            paramTypes("int", "android.view.KeyEvent")
             returnType = "boolean"
-        }
-    }
+            paramTypes("int", "android.view.KeyEvent")
+        },
+    )
 
     /** MainUI's conversation list host (a ConversationListView, or the list-host interface on 8.0.78+). */
     private val fieldMainUiListHost by dexField()
@@ -202,16 +203,16 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: SwipeBackLayout's gesture switch (off during the chat enter animation and after pop-out) ---
 
-    private val fieldSwipeBackGestureEnabled by dexField {
-        matcher {
-            declaredClass = SWIPE_BACK_LAYOUT
+    private val fieldSwipeBackGestureEnabled by dexField(
+        sqlField {
+            declaredClass = "com.tencent.mm.ui.widget.SwipeBackLayout"
             type = "boolean"
-            addWriteMethod {
-                declaredClass = SWIPE_BACK_LAYOUT
+            writeMethod {
+                declaredClass = "com.tencent.mm.ui.widget.SwipeBackLayout"
                 name = "setEnableGesture"
             }
-        }
-    }
+        },
+    )
 
     // --- Dex: MMActivity.onKeyDown's controller collapses an expanded action-bar search on BACK ---
 
@@ -258,14 +259,18 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
      * The cover's stage: 1 collapsed, 2 pulled down, 3 animating. Read by the cover's `onBackPressed`
      * (inlined into `ImproveHeaderUIC.onBackPressed`) and set to 3 by `updateViewHeight`.
      */
-    private val fieldSnsCoverStage by dexField {
-        matcher {
-            declaredClass = SNS_COVER_LAYOUT
+    private val fieldSnsCoverStage by dexField(
+        sqlField {
+            declaredClass = "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout"
             type = "int"
-            addReadMethod { usingEqStrings("onBackPressed", SNS_COVER_LAYOUT) }
-            addWriteMethod { usingEqStrings("updateViewHeight", SNS_COVER_LAYOUT) }
-        }
-    }
+            readMethod {
+                usingEqStrings("onBackPressed", "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout")
+            }
+            writeMethod {
+                usingEqStrings("updateViewHeight", "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout")
+            }
+        },
+    )
 
     override fun resolveDex(dexKit: DexKitBridge) {
         val dispatchInvokes = methodLauncherDispatchKeyEvent.data.invokes.distinctBy { it.descriptor }

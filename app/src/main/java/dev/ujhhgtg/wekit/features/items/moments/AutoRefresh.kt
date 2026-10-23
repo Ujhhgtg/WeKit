@@ -27,6 +27,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -109,20 +110,20 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
         },
     )
 
-    private val methodDoFpList by dexMethod {
-        matcher {
-            usingEqStrings("doFpList", $$"com.tencent.mm.plugin.sns.model.SnsLogic$SnsServer")
-        }
-    }
+    private val methodDoFpList by dexMethod(
+        sqlMethod {
+            usingEqStrings("doFpList", "com.tencent.mm.plugin.sns.model.SnsLogic\$SnsServer")
+        },
+    )
 
-    private val ctorTimelineRequest by dexConstructor {
-        matcher {
+    private val ctorTimelineRequest by dexConstructor(
+        sqlConstructor {
+            paramTypes("long", "long", "int")
             declaredClass {
                 usingEqStrings("/cgi-bin/micromsg-bin/mmsnstimeline")
             }
-            paramTypes("long", "long", "int")
-        }
-    }
+        },
+    )
 
     private val methodHandleNormalResponse by dexMethod {
         matcher {

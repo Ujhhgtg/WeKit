@@ -73,42 +73,45 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
             )
         },
     )
-    private val methodImproveOnItemSelectedRegister2 by dexMethod(allowFailure = true) {
-        searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
-        matcher {
-            paramCount(2)
+    private val methodImproveOnItemSelectedRegister2 by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
+            returnType = "void"
+            paramCount = 2
             paramTypes("android.view.MenuItem", "int")
-            returnType(Void.TYPE)
             usingStrings(
                 "onMMMenuItemSelected",
-                "com.tencent.mm.plugin.sns.ui.improve.item.click.BaseImproveClick${'$'}register${'$'}2"
+                "com.tencent.mm.plugin.sns.ui.improve.item.click.BaseImproveClick\$register\$2",
             )
-        }
-    }
-    private val methodImproveOnItemSelectedRegister3 by dexMethod(allowFailure = true) {
-        searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
-        matcher {
-            paramCount(2)
+        },
+        allowFailure = true,
+    )
+    private val methodImproveOnItemSelectedRegister3 by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
+            returnType = "void"
+            paramCount = 2
             paramTypes("android.view.MenuItem", "int")
-            returnType(Void.TYPE)
             usingStrings(
                 "onMMMenuItemSelected",
-                "com.tencent.mm.plugin.sns.ui.improve.item.click.BaseImproveClick${'$'}register${'$'}3"
+                "com.tencent.mm.plugin.sns.ui.improve.item.click.BaseImproveClick\$register\$3",
             )
-        }
-    }
-    private val methodImproveMultiPhotoOnItemSelected by dexMethod(allowFailure = true) {
-        searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
-        matcher {
-            paramCount(2)
+        },
+        allowFailure = true,
+    )
+    private val methodImproveMultiPhotoOnItemSelected by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
+            returnType = "void"
+            paramCount = 2
             paramTypes("android.view.MenuItem", "int")
-            returnType(Void.TYPE)
             usingStrings(
                 "onMMMenuItemSelected",
-                "com.tencent.mm.plugin.sns.ui.improve.item.click.ImproveMultiPhotoClick${'$'}register${'$'}1${'$'}1${'$'}1"
+                "com.tencent.mm.plugin.sns.ui.improve.item.click.ImproveMultiPhotoClick\$register\$1\$1\$1",
             )
-        }
-    }
+        },
+        allowFailure = true,
+    )
     private val methodSnsInfoStorage by dexMethod(
         sqlMethod {
             returnType = "com.tencent.mm.plugin.sns.storage.SnsInfo"

@@ -51,15 +51,15 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
     private val methodAddPref by dexMethod()
 
     // modern method
-    private val classSettingItemClassesProvider by dexClass(allowFailure = true) {
-        matcher {
+    private val classSettingItemClassesProvider by dexClass(
+        sqlClass {
             usingEqStrings("Repairer_Setting")
-
             superClass {
                 usingEqStrings("type")
             }
-        }
-    }
+        },
+        allowFailure = true,
+    )
     private val classBaseSettingItem by dexClass(allowFailure = true) {
         matcher {
             usingEqStrings("", "activity", "context", "intent")
@@ -74,26 +74,24 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
             }
         }
     }
-    private val classBaseSettingSwitchItem by dexClass(allowFailure = true) {
-        matcher {
+    private val classBaseSettingSwitchItem by dexClass(
+        sqlClass {
             usingEqStrings("activity", "context", "itemView", "1", "0")
-
-            addMethod {
+            method {
                 returnType = "int"
-                usingNumbers(2)
+                usingNumbers(2L)
             }
-
-            addMethod {
+            method {
                 name = "<init>"
                 paramTypes("androidx.appcompat.app.AppCompatActivity")
-                usingNumbers(1)
+                usingNumbers(1L)
             }
-
             superClass {
                 usingEqStrings("activity")
             }
-        }
-    }
+        },
+        allowFailure = true,
+    )
     private val classSettingLocation by dexClass(
         sqlClass {
             usingEqStrings("SettingLocation(parentGroup=", ", frontItem=")

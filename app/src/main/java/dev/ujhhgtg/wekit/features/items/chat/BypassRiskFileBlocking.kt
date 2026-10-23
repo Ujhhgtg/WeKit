@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.items.chat
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import org.luckypray.dexkit.DexKitBridge
@@ -24,32 +25,30 @@ object BypassRiskFileBlocking : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_bypass_risk_file_blocking_description
 
-    private val methodRiskFileFlag by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings(
-                    "uuid",
-                    "sfn",
-                    "fold-reduce",
-                    "show-h5",
-                    "sec-ctrl-flag",
-                    "clip-len",
-                    "share-tip-url",
-                    "media-to-emoji",
-                    "block-range",
-                    "bubble-type",
-                    "preview-type",
-                    "url-click-type",
-                    "risk-file-flag",
-                    "risk-file-md5-list",
-                    "risk-warning-url",
-                    "unread-media-expired"
-                )
-            }
+    private val methodRiskFileFlag by dexMethod(
+        sqlMethod {
+            returnType = "java.lang.Integer"
             paramCount = 0
-            returnType("java.lang.Integer")
-        }
-    }
+            declaredClass {
+                usingEqStrings("uuid")
+                usingEqStrings("sfn")
+                usingEqStrings("fold-reduce")
+                usingEqStrings("show-h5")
+                usingEqStrings("sec-ctrl-flag")
+                usingEqStrings("clip-len")
+                usingEqStrings("share-tip-url")
+                usingEqStrings("media-to-emoji")
+                usingEqStrings("block-range")
+                usingEqStrings("bubble-type")
+                usingEqStrings("preview-type")
+                usingEqStrings("url-click-type")
+                usingEqStrings("risk-file-flag")
+                usingEqStrings("risk-file-md5-list")
+                usingEqStrings("risk-warning-url")
+                usingEqStrings("unread-media-expired")
+            }
+        },
+    )
 
     override fun onEnable() {
         methodRiskFileFlag.hookBefore {

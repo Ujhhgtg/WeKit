@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.android.Intent
@@ -39,45 +40,60 @@ object AlwaysShowInteractionEntry : SwitchFeature(), IResolveDex {
     private var noInteractionMessages = false
 
     /** ImproveHeaderUIC$onNotifyChange$1$1 — 有互动消息, 显示气泡并写入文案 */
-    private val methodShowNotifyBar by dexMethod {
-        matcher {
+    private val methodShowNotifyBar by dexMethod(
+        sqlMethod {
             usingEqStrings(
                 "invokeSuspend",
-                $$"com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC$onNotifyChange$1$1"
+                "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC\$onNotifyChange\$1\$1",
             )
-        }
-    }
+        },
+    )
 
     /** ImproveHeaderUIC$onNotifyChange$1$4 — 没有互动消息, 隐藏气泡 */
-    private val methodHideNotifyBar by dexMethod {
-        matcher {
+    private val methodHideNotifyBar by dexMethod(
+        sqlMethod {
             usingEqStrings(
                 "invokeSuspend",
-                $$"com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC$onNotifyChange$1$4"
+                "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC\$onNotifyChange\$1\$4",
             )
-        }
-    }
+        },
+    )
 
-    private val methodGetNotifyLayout by dexMethod {
-        matcher { usingEqStrings($$"access$getMsgNotifyLayout", HEADER_UIC) }
-    }
+    private val methodGetNotifyLayout by dexMethod(
+        sqlMethod {
+            usingEqStrings(
+                "access\$getMsgNotifyLayout",
+                "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
+            )
+        },
+    )
 
-    private val methodGetNotifyContent by dexMethod {
-        matcher { usingEqStrings($$"access$getMsgNotifyContent", HEADER_UIC) }
-    }
+    private val methodGetNotifyContent by dexMethod(
+        sqlMethod {
+            usingEqStrings(
+                "access\$getMsgNotifyContent",
+                "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
+            )
+        },
+    )
 
-    private val methodGetNotifyImg by dexMethod {
-        matcher { usingEqStrings($$"access$getMsgNotifyImg", HEADER_UIC) }
-    }
+    private val methodGetNotifyImg by dexMethod(
+        sqlMethod {
+            usingEqStrings(
+                "access\$getMsgNotifyImg",
+                "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
+            )
+        },
+    )
 
     /** ImproveHeaderUIC.gotoNotifyMsgUI() — 点击入口后的跳转 */
-    private val methodGotoNotifyMsgUI by dexMethod {
-        matcher {
-            paramCount(0)
-            returnType(Void.TYPE)
-            usingEqStrings("gotoNotifyMsgUI", HEADER_UIC)
-        }
-    }
+    private val methodGotoNotifyMsgUI by dexMethod(
+        sqlMethod {
+            returnType = "void"
+            paramCount = 0
+            usingEqStrings("gotoNotifyMsgUI", "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC")
+        },
+    )
 
     private val headerUicClass: Class<*>
         get() = methodGetNotifyLayout.method.declaringClass

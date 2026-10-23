@@ -8,6 +8,7 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -50,12 +51,15 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
         WeDatabaseListenerApi.removeListener(this)
     }
 
-    private val methodHandleSpanClick by dexMethod {
-        matcher {
-            declaredClass = $$"com.tencent.mm.app.plugin.URISpanHandlerSet$LuckyMoneyUriSpanHandler"
-            usingEqStrings("MicroMsg.URISpanHandlerSet", "LuckyMoneyUriSpanHandler handleSpanClick() clickCallback == null")
-        }
-    }
+    private val methodHandleSpanClick by dexMethod(
+        sqlMethod {
+            declaredClass = "com.tencent.mm.app.plugin.URISpanHandlerSet\$LuckyMoneyUriSpanHandler"
+            usingEqStrings(
+                "MicroMsg.URISpanHandlerSet",
+                "LuckyMoneyUriSpanHandler handleSpanClick() clickCallback == null",
+            )
+        },
+    )
 
     @SuppressLint("Range")
     override fun onUpdate(table: String, values: ContentValues, whereClause: String?, whereArgs: Array<String>?, conflictAlgorithm: Int) {

@@ -92,16 +92,12 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
     )
 
     // com.tencent.mm.ui.conversation.ConversationLongClickListener$1#onMMMenuItemSelected
-    private val methodOnItemSelected by dexMethod {
-        searchPackages("com.tencent.mm.ui.conversation")
-        matcher {
-            usingStrings(
-                "yuanbao_set_top",
-                "yuanbao_set_read",
-                "yuanbao_set_no_display"
-            )
-        }
-    }
+    private val methodOnItemSelected by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui.conversation")
+            usingStrings("yuanbao_set_top", "yuanbao_set_read", "yuanbao_set_no_display")
+        },
+    )
 
     // com.tencent.mm.ui.widget.menu.MMPopupMenu#showMenu(view, pos, id, onCreateListener, selectCb, x, y)
     // The folder container (ConvBoxServiceConversationUI) doesn't use ConversationLongClickListener;

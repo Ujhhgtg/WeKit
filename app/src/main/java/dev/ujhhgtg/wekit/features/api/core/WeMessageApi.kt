@@ -107,16 +107,14 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     // -------------------------------------------------------------------------------------
     // 基础消息类
     // -------------------------------------------------------------------------------------
-    val classNetSceneSendMsg by dexClass {
-        matcher {
-            methods {
-                add {
-                    paramCount = 1
-                    usingStrings("MicroMsg.NetSceneSendMsg", "markMsgFailed for id:%d")
-                }
+    val classNetSceneSendMsg by dexClass(
+        sqlClass {
+            method {
+                paramCount = 1
+                usingStrings("MicroMsg.NetSceneSendMsg", "markMsgFailed for id:%d")
             }
-        }
-    }
+        },
+    )
     val classNetSceneQueue by dexClass(
         sqlClass {
             searchPackages("com.tencent.mm.modelbase")
@@ -191,14 +189,15 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         },
         allowFailure = true,
     )
-    private val methodGenVideoFileName by dexMethod(allowFailure = true) {
-        matcher {
-            modifiers = Modifier.STATIC
-            usingEqStrings("yyMMddHHmmss")
-            paramTypes("java.lang.String")
+    private val methodGenVideoFileName by dexMethod(
+        sqlMethod {
             returnType = "java.lang.String"
-        }
-    }
+            paramTypes("java.lang.String")
+            modifiers = 8
+            usingEqStrings("yyMMddHHmmss")
+        },
+        allowFailure = true,
+    )
     /** Legacy ImportMultiVideo thread, removed in 8.0.79; still preferred where present. */
     private val classImportMultiVideo by dexClass(
         sqlClass {
@@ -326,9 +325,12 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         },
     )
     private val classImageSender by dexClass()
-    private val classImageTask by dexClass(allowFailure = true) {
-        matcher { usingStrings("msg_raw_img_send") }
-    }
+    private val classImageTask by dexClass(
+        sqlClass {
+            usingStrings("msg_raw_img_send")
+        },
+        allowFailure = true,
+    )
     private val classConfigLogic by dexClass(
         sqlClass {
             usingEqStrings("MicroMsg.ConfigStorageLogic", "get userinfo fail")
@@ -356,24 +358,16 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             usingStrings("MicroMsg.VFSFileOp", "Cannot resolve path or URI")
         },
     )
-    private val classPathUtil by dexClass {
-        searchPackages("com.tencent.mm.sdk.platformtools")
-        matcher {
-            methods {
-                add {
-                    modifiers = Modifier.PUBLIC or Modifier.STATIC
-                    returnType = "java.lang.String"
-                    paramTypes(
-                        "java.lang.String",
-                        "java.lang.String",
-                        "java.lang.String",
-                        "java.lang.String",
-                        "int"
-                    )
-                }
+    private val classPathUtil by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.sdk.platformtools")
+            method {
+                returnType = "java.lang.String"
+                paramTypes("java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String", "int")
+                modifiers = 9
             }
-        }
-    }
+        },
+    )
     val methodChattingDataAdapterOnBindViewHolder by dexMethod {
         matcher {
             declaredClass {

@@ -63,40 +63,40 @@ object AntiMomentsDelete : SwitchFeature(), IResolveDex {
     )
 
     // SnsInfoStorage.updateFilterTimeLine(whereSuffix): "UPDATE SnsInfo SET sourceType = sourceType & -3" + whereSuffix
-    private val methodUpdateFilterTimeLine by dexMethod {
-        matcher {
-            usingEqStrings("updateFilterTimeLine", SNS_INFO_STORAGE)
-        }
-    }
+    private val methodUpdateFilterTimeLine by dexMethod(
+        sqlMethod {
+            usingEqStrings("updateFilterTimeLine", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
+        },
+    )
 
     // SnsInfoStorage.updateFilterUserName(userName, isSelf, whereSuffix): clears bit 4 / 8
-    private val methodUpdateFilterUserName by dexMethod {
-        matcher {
-            usingEqStrings("updateFilterUserName", SNS_INFO_STORAGE)
-        }
-    }
+    private val methodUpdateFilterUserName by dexMethod(
+        sqlMethod {
+            usingEqStrings("updateFilterUserName", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
+        },
+    )
 
     // SnsInfoStorage.updateFilterTimeLineAbove(firstSeq) → updateFilterTimeLine
-    private val methodUpdateFilterTimeLineAbove by dexMethod {
-        matcher {
-            usingEqStrings("updateFilterTimeLineAbove", SNS_INFO_STORAGE)
-        }
-    }
+    private val methodUpdateFilterTimeLineAbove by dexMethod(
+        sqlMethod {
+            usingEqStrings("updateFilterTimeLineAbove", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
+        },
+    )
 
     // SnsInfoStorage.updateFilterUserNameAbove(userName, isSelf, firstSeq) → updateFilterUserName
-    private val methodUpdateFilterUserNameAbove by dexMethod {
-        matcher {
-            usingEqStrings("updateFilterUserNameAbove", SNS_INFO_STORAGE)
-        }
-    }
+    private val methodUpdateFilterUserNameAbove by dexMethod(
+        sqlMethod {
+            usingEqStrings("updateFilterUserNameAbove", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
+        },
+    )
 
     // SnsInfoStorage.delete(long snsId)
-    private val methodDeleteSnsInfo by dexMethod {
-        matcher {
+    private val methodDeleteSnsInfo by dexMethod(
+        sqlMethod {
             paramTypes("long")
-            usingEqStrings("delete", SNS_INFO_STORAGE)
-        }
-    }
+            usingEqStrings("delete", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
+        },
+    )
 
     // NetSceneSnsSync.processSnsDelAction(action, actionInfo, snsId, parentId, clientId, handler)
     private val methodProcessSnsDelAction by dexMethod(

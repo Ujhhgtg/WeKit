@@ -60,16 +60,15 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
             usingEqStrings("feed", "menu", "sheet", "holder", "KEY_FINDER_SELF_FLAG")
         },
     )
-    private val methodOnSelectMenuItem2 by dexMethod {
-        searchPackages("com.tencent.mm.plugin.finder.feed")
-        matcher {
+    private val methodOnSelectMenuItem2 by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.finder.feed")
+            usingEqStrings("getMoreMenuItemSelectedListener feed ")
             declaredClass {
                 usingEqStrings("Finder.FinderLoaderFeedUIContract.Presenter")
             }
-
-            usingEqStrings("getMoreMenuItemSelectedListener feed ")
-        }
-    }
+        },
+    )
     private val methodCreateMenu3 by dexMethod(
         sqlMethod {
             searchPackages("com.tencent.mm.plugin.finder.feed")

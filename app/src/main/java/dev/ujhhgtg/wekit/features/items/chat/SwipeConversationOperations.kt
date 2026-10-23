@@ -261,15 +261,13 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
     // returns the clickable row root and getItem(position) -> com.tencent.mm.storage.m3, and both
     // re-install their own row OnTouchListener on every bind — so we hook getView on whichever is
     // present. allowFailure so a build that only ships one of them still resolves the other.
-    private val classConversationAdapter by dexClass(allowFailure = true) {
-        searchPackages("com.tencent.mm.ui.conversation")
-        matcher {
-            usingStrings(
-                "MicroMsg.ConversationWithCacheAdapter",
-                "[getView] position="
-            )
-        }
-    }
+    private val classConversationAdapter by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.ui.conversation")
+            usingStrings("MicroMsg.ConversationWithCacheAdapter", "[getView] position=")
+        },
+        allowFailure = true,
+    )
 
     private val classMvvmConversationAdapter by dexClass(
         sqlClass {

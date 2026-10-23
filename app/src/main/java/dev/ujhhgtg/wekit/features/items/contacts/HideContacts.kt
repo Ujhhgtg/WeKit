@@ -656,15 +656,16 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * adapter and three listeners) exactly one declares a `void (List)` method: the adapter, at
      * `chatroom/ui/cc.java:96` on 8.0.76 and `chatroom/ui/tc.java:95` on 8.0.69.
      */
-    val methodSeeRoomMemberSetMemberList by dexMethod(allowFailure = true) {
-        matcher {
+    val methodSeeRoomMemberSetMemberList by dexMethod(
+        sqlMethod {
+            returnType = "void"
+            paramTypes("java.util.List")
             declaredClass {
                 usingEqStrings("MicroMsg.SeeRoomMemberUI")
             }
-            paramTypes("java.util.List")
-            returnType("void")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     /**
      * `SelectMemberUI.V6()` — the member-username list the @全体成员 / 删除成员 / 邀请 adapters load
@@ -753,15 +754,16 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * class declares only `<init>(l, FTSRequest)`, `getName()` and `p(FTSResult)`, so class anchor +
      * one parameter + `void` resolves to `p` alone. See hidecontacts/HideContactsSearch.kt.
      */
-    val methodFtsSearchChatroomMemberTask by dexMethod(allowFailure = true) {
-        matcher {
+    val methodFtsSearchChatroomMemberTask by dexMethod(
+        sqlMethod {
+            returnType = "void"
+            paramCount = 1
             declaredClass {
                 usingEqStrings("SearchChatroomMemberTask")
             }
-            paramCount = 1
-            returnType("void")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     /**
      * `fts.logic.h.p(FTSResult)` — SearchCommonChatroomUserTask, the 共同群聊好友建议 task.
@@ -772,15 +774,16 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * `getName()` and `p(FTSResult)`. NB: the neighbouring tasks `g` and `s0` both report
      * `"SearchCommonChatroomTask"` — the `User` suffix is what makes this one unambiguous.
      */
-    val methodFtsSearchCommonChatroomUserTask by dexMethod(allowFailure = true) {
-        matcher {
+    val methodFtsSearchCommonChatroomUserTask by dexMethod(
+        sqlMethod {
+            returnType = "void"
+            paramCount = 1
             declaredClass {
                 usingEqStrings("SearchCommonChatroomUserTask")
             }
-            paramCount = 1
-            returnType("void")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     /**
      * `ContactStorage.getNormalContactCount(boolean includeBlack, String[], String...) -> int`
@@ -869,15 +872,16 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * banner/notification/ringtone dispatcher. q2 declares exactly one 8-parameter method, so the
      * class anchor plus the parameter count is unambiguous.
      */
-    val methodVoipMpLaunchBanner by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.VoIPMP.Launcher", "closeReceiverBanner")
-            }
+    val methodVoipMpLaunchBanner by dexMethod(
+        sqlMethod {
+            returnType = "void"
             paramCount = 8
-            returnType("void")
-        }
-    }
+            declaredClass {
+                usingEqStrings("MicroMsg.VoIPMP.Launcher")
+                usingEqStrings("closeReceiverBanner")
+            }
+        },
+    )
 
     /** `mp5.q2.Qa()` — "rejectByShortCut", the entry WeChat's own quick-reject uses. */
     val methodVoipMpReject by dexMethod(
@@ -1030,15 +1034,17 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * `args[0]` throw on every legacy call record. The callagain URL is unique to b2 itself, and
      * `d` is the only 8-parameter method it declares.
      */
-    val methodVoipLegacyInsertMsg by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.VoipPluginManager", "weixin://voip/callagain/?username=")
-            }
+    val methodVoipLegacyInsertMsg by dexMethod(
+        sqlMethod {
+            returnType = "void"
             paramCount = 8
-            returnType("void")
-        }
-    }
+            declaredClass {
+                usingEqStrings("MicroMsg.VoipPluginManager")
+                usingEqStrings("weixin://voip/callagain/?username=")
+            }
+        },
+        allowFailure = true,
+    )
 
 //    private val classVoipService by dexClass()
 //    private val classVoipManager by dexClass()

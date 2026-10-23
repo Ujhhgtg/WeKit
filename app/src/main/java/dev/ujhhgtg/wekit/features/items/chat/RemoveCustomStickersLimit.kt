@@ -20,22 +20,22 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_remove_custom_stickers_limit_description
 
-    private val methodGetCustomEmojiMaxSize by dexMethod {
-        matcher {
+    private val methodGetCustomEmojiMaxSize by dexMethod(
+        sqlMethod {
+            returnType = "int"
+            paramCount = 0
+            modifiers = 8
             usingEqStrings("CustomEmojiMaxSize")
-            returnType(int)
-            paramCount(0)
-            modifiers = Modifier.STATIC
-        }
-    }
+        },
+    )
 
-    private val methodComputeEmojiStorageState by dexMethod {
-        matcher {
+    private val methodComputeEmojiStorageState by dexMethod(
+        sqlMethod {
+            returnType = "void"
+            paramCount = 1
             usingEqStrings("MicroMsg.EmojiStorageState", "normal_custom_size")
-            returnType(Void.TYPE)
-            paramCount(1)
-        }
-    }
+        },
+    )
 
     private val classMmkv by dexClass(
         sqlClass {
@@ -84,14 +84,14 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
         },
     )
 
-    private val methodConditionallyShowDialog by dexMethod {
-        matcher {
+    private val methodConditionallyShowDialog by dexMethod(
+        sqlMethod {
+            usingEqStrings("custom_full")
             declaredClass {
                 usingEqStrings("uninstallEmoticon Failed to send net scene: ")
             }
-            usingEqStrings("custom_full")
-        }
-    }
+        },
+    )
 
     private fun putCustomFullFalseInMmkv() {
         runCatching {

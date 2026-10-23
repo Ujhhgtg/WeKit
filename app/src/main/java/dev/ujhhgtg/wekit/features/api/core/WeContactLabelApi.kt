@@ -5,6 +5,7 @@ import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi.modifyLabel
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -25,30 +26,30 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
 
     data class ContactLabel(val labelId: Int, val labelName: String)
 
-    private val classNetSceneModifyContactLabelList by dexClass {
-        matcher {
+    private val classNetSceneModifyContactLabelList by dexClass(
+        sqlClass {
             usingEqStrings("/cgi-bin/micromsg-bin/modifycontactlabellist")
-            addMethod {
+            method {
                 name = "<init>"
-                paramTypes(LinkedList::class.java)
+                paramTypes("java.util.LinkedList")
             }
-        }
-    }
+        },
+    )
 
     /**
      * `NetSceneAddContactLabel` (e.g. `e93.a` on 8.0.74). Anchored on the unique cgi path plus its
      * single-`String` constructor, which takes the new label's name. On success the host persists
      * the label (with a server-assigned id) into the `ContactLabel` table inside `onGYNetEnd`.
      */
-    private val classNetSceneAddContactLabel by dexClass {
-        matcher {
+    private val classNetSceneAddContactLabel by dexClass(
+        sqlClass {
             usingEqStrings("/cgi-bin/micromsg-bin/addcontactlabel")
-            addMethod {
+            method {
                 name = "<init>"
-                paramTypes(String::class.java)
+                paramTypes("java.lang.String")
             }
-        }
-    }
+        },
+    )
 
     /**
      * Get all contact labels.

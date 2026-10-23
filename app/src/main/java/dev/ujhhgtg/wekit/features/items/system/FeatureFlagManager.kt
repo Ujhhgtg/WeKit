@@ -19,6 +19,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.Icon
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -121,16 +122,17 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
      * Key format: splits input key by '_', uses last segment for type dispatch.
      * Type names: "Int", "Float", "Long", "String" — matched by last _-segment.
      */
-    private val methodRepairerConfigApiGet by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("RepairerConfigThread", "ValueStrategy_")
-            }
+    private val methodRepairerConfigApiGet by dexMethod(
+        sqlMethod {
+            returnType = "java.lang.Object"
+            paramTypes("java.lang.String", "java.lang.Object")
             usingEqStrings("String", "Int", "Long", "Float", "key", "defaultValue")
-            paramTypes(String::class.java, Any::class.java)
-            returnType(Any::class.java)
-        }
-    }
+            declaredClass {
+                usingEqStrings("RepairerConfigThread")
+                usingEqStrings("ValueStrategy_")
+            }
+        },
+    )
 
     // ---------------------------------------------------------------------------
     // Flag details data model & reflective resolver

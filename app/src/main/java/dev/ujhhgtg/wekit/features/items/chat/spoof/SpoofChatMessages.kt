@@ -31,6 +31,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
@@ -113,20 +114,20 @@ object SpoofChatMessages : ClickableFeature(), IResolveDex, WeChatMessageContext
             usingEqStrings("initImageView image : %s bigImgPath %s position : %s")
         }
     }
-    private val methodChattingImageMask by dexMethod {
-        matcher {
-            modifiers(Modifier.STATIC)
-            paramTypes("android.graphics.Bitmap", "int")
+    private val methodChattingImageMask by dexMethod(
+        sqlMethod {
             returnType = "android.graphics.Bitmap"
+            paramTypes("android.graphics.Bitmap", "int")
+            modifiers = 8
             usingEqStrings("MicroMsg.BitmapUtil", "[createChattingImage] maskBitmap is null.")
-        }
-    }
-    private val methodImageViewBind by dexMethod {
-        matcher {
-            declaredClass = IMAGE_MVVM_VIEW
+        },
+    )
+    private val methodImageViewBind by dexMethod(
+        sqlMethod {
+            declaredClass = "com.tencent.mm.ui.chatting.viewitems.mvvmview.ChattingImgMvvmView"
             usingEqStrings("MicroMsg.ChattingImgMvvmView", "viewModel.thumbImgW: ")
-        }
-    }
+        },
+    )
     private val methodThumbnailSize by dexMethod()
     private val methodImageServiceGetter by dexMethod()
     private val classImageSizeService by dexClass()

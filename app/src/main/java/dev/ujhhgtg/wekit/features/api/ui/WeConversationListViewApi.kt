@@ -97,19 +97,17 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
         },
         allowFailure = true,
     )
-    val methodMvvmGetView by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings(
-                    "MicroMsg.ConversationAdapter.MvvmConversationAdapter",
-                    "Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d",
-                )
-            }
+    val methodMvvmGetView by dexMethod(
+        sqlMethod {
             name = "getView"
-            paramTypes("int", "android.view.View", "android.view.ViewGroup")
             returnType = "android.view.View"
-        }
-    }
+            paramTypes("int", "android.view.View", "android.view.ViewGroup")
+            declaredClass {
+                usingEqStrings("MicroMsg.ConversationAdapter.MvvmConversationAdapter")
+                usingEqStrings("Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d")
+            }
+        },
+    )
 
     private val methodListViewCheckEmptyFooter by dexMethod(
         sqlMethod {
@@ -140,24 +138,23 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     val methodAdapterGetItem by dexMethod()
 
     /** MainUI's common list-host wrapper, used to reach whichever view backend is active. */
-    private val classConversationListHost by dexClass(allowFailure = true) {
-        searchPackages("com.tencent.mm.ui.conversation")
-        matcher {
-            modifiers(Modifier.PUBLIC or Modifier.ABSTRACT or Modifier.INTERFACE)
-            methods {
-                add {
-                    name = "addHeaderView"
-                    paramTypes(View::class.java)
-                    returnType = "void"
-                }
-                add {
-                    name = "removeHeaderView"
-                    paramTypes(View::class.java)
-                    returnType = "void"
-                }
+    private val classConversationListHost by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.ui.conversation")
+            modifiers = 1537
+            method {
+                name = "addHeaderView"
+                returnType = "void"
+                paramTypes("android.view.View")
             }
-        }
-    }
+            method {
+                name = "removeHeaderView"
+                returnType = "void"
+                paramTypes("android.view.View")
+            }
+        },
+        allowFailure = true,
+    )
 
     private val fieldMainUiListHost by dexField()
 

@@ -33,6 +33,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoProvider
@@ -128,13 +129,13 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     private val fieldRoomId by dexField()
 
     /** TalkRoomServer.enterTalkRoom(String, int) —— 发起「实时对讲机」. */
-    private val methodEnterTalkRoom by dexMethod {
-        matcher {
-            usingStrings("enterTalkRoom %s scene %d")
+    private val methodEnterTalkRoom by dexMethod(
+        sqlMethod {
+            returnType = "void"
             paramTypes("java.lang.String", "int")
-            returnType("void")
-        }
-    }
+            usingStrings("enterTalkRoom %s scene %d")
+        },
+    )
 
     /** TalkRoomServer.exitTalkRoom() —— 终止当前「实时对讲机」. */
     private val methodExitTalkRoom by dexMethod {

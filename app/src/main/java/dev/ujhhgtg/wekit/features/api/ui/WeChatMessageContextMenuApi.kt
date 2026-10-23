@@ -127,14 +127,14 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
 
     private const val MULTI_SELECT_BAR = "com.tencent.mm.ui.chatting.ChattingFooterMoreBtnBar"
 
-    private val methodMultiSetButtonListener by dexMethod {
-        matcher {
-            declaredClass = MULTI_SELECT_BAR
-            paramTypes("int", $$"android.view.View$OnClickListener")
+    private val methodMultiSetButtonListener by dexMethod(
+        sqlMethod {
+            declaredClass = "com.tencent.mm.ui.chatting.ChattingFooterMoreBtnBar"
             returnType = "void"
+            paramTypes("int", "android.view.View\$OnClickListener")
             usingEqStrings("set button listener error button index %d")
-        }
-    }
+        },
+    )
     private val methodMultiRebuildButtons by dexMethod {
         matcher {
             declaredClass = MULTI_SELECT_BAR

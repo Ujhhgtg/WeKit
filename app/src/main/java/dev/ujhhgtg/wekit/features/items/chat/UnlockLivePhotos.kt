@@ -65,7 +65,11 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
             return super.shouldEnableOnStartup
         }
 
-    private val classCore by dexClass { matcher { className = CORE } }
+    private val classCore by dexClass(
+        sqlClass {
+            className = "com.motion.core.LivePhotoCore"
+        },
+    )
     private val classWrapper by dexClass(
         sqlClass {
             usingEqStrings(
@@ -95,22 +99,27 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
             usingEqStrings("V2GetMulitExpt result[%s] key[%s] def[%s] cost[%d] hadReport[%b %b] exptId[%d]")
         },
     )
-    private val methodRepairerGet by dexMethod {
-        matcher {
-            declaredClass { usingEqStrings("RepairerConfigThread", "ValueStrategy_") }
-            usingEqStrings("String", "Int", "Long", "Float", "key", "defaultValue")
-            paramTypes("java.lang.String", "java.lang.Object")
+    private val methodRepairerGet by dexMethod(
+        sqlMethod {
             returnType = "java.lang.Object"
-        }
-    }
-    private val methodRepairerStrategy by dexMethod {
-        matcher {
-            declaredClass { usingEqStrings("RepairerConfigThread") }
-            usingEqStrings("ValueStrategy_", "keyObj")
-            paramCount = 1
+            paramTypes("java.lang.String", "java.lang.Object")
+            usingEqStrings("String", "Int", "Long", "Float", "key", "defaultValue")
+            declaredClass {
+                usingEqStrings("RepairerConfigThread")
+                usingEqStrings("ValueStrategy_")
+            }
+        },
+    )
+    private val methodRepairerStrategy by dexMethod(
+        sqlMethod {
             returnType = "int"
-        }
-    }
+            paramCount = 1
+            usingEqStrings("ValueStrategy_", "keyObj")
+            declaredClass {
+                usingEqStrings("RepairerConfigThread")
+            }
+        },
+    )
     private val methodSnsPublish by dexMethod(
         sqlMethod {
             returnType = "boolean"

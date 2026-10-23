@@ -28,6 +28,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.TimelineObjectProto
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.buildMusicTimelineBundle
@@ -188,16 +189,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             returnType(Void.TYPE)
         }
     }
-    private val methodGetSnsInfoByLocalId by dexMethod {
-        matcher {
+    private val methodGetSnsInfoByLocalId by dexMethod(
+        sqlMethod {
+            returnType = "com.tencent.mm.plugin.sns.storage.SnsInfo"
             paramTypes("int")
-            returnType(SNS_INFO_CLASS)
-            usingStrings(
-                "getByLocalId",
-                "select *,rowid from SnsInfo  where SnsInfo.rowid="
-            )
-        }
-    }
+            usingStrings("getByLocalId", "select *,rowid from SnsInfo  where SnsInfo.rowid=")
+        },
+    )
     val methodGetSnsInfoStorage by dexMethod {
         searchPackages("com.tencent.mm.plugin.sns.model")
         matcher {
@@ -328,16 +326,15 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     }
 
     // setUploadList 的列表元素, 实况图片必须经此路径构造。
-    val classSnsUploadElement by dexClass {
-        matcher {
+    val classSnsUploadElement by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.SnsUploadElment", "path:%s model:%s")
-
-            addMethod {
+            method {
                 name = "<init>"
-                paramTypes(BString, int)
+                paramTypes("java.lang.String", "int")
             }
-        }
-    }
+        },
+    )
 
     // 媒体上传元素构造器: (path, type)。
     val ctorSnsUploadElement by dexConstructor {
@@ -525,29 +522,23 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     // 包含 mvObjectId / mvNonceId (feed 社交统计所需的身份), 这两个字段无法通过 WXMusicVideoObject 传递。
     // fy.i() 先把该 XML (Ksnsupload_music_share_object_xml) 解析为完整 xs4, 再用 WXMusicVideoObject 字段
     // 叠加覆盖, 最终提交时 mvObjectId/mvNonceId 一并写入 ContentObj — 点赞/分享/推荐数与评论因此能正确解析。
-    val methodSerializeMusicShareXml by dexMethod {
-        matcher {
-            modifiers = Modifier.STATIC
-            paramCount(1)
-            returnType(String::class.java)
+    val methodSerializeMusicShareXml by dexMethod(
+        sqlMethod {
+            returnType = "java.lang.String"
+            paramCount = 1
+            modifiers = 8
             usingEqStrings("<musicShareItem>", "</musicShareItem>", "<mvObjectId>", "<mvNonceId>", "<mid>")
-        }
-    }
+        },
+    )
 
-    val methodSerializeFinderFeed by dexMethod {
-        matcher {
-            modifiers = Modifier.STATIC
-            paramCount(1)
-            returnType(String::class.java)
-            usingEqStrings(
-                "<finderFeed>",
-                "</finderFeed>",
-                "<authIconType>",
-                "<fullClipInset>",
-                "<fullCoverUrl>"
-            )
-        }
-    }
+    val methodSerializeFinderFeed by dexMethod(
+        sqlMethod {
+            returnType = "java.lang.String"
+            paramCount = 1
+            modifiers = 8
+            usingEqStrings("<finderFeed>", "</finderFeed>", "<authIconType>", "<fullClipInset>", "<fullCoverUrl>")
+        },
+    )
 
     private val methodExportVideoToAlbum by dexMethod {
         matcher {
@@ -559,15 +550,15 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
-    private val methodExportImageToAlbum by dexMethod {
-        matcher {
-            modifiers = Modifier.STATIC
-            paramCount(3)
-            paramTypes(Context::class.java, String::class.java, String::class.java)
-            returnType(String::class.java)
+    private val methodExportImageToAlbum by dexMethod(
+        sqlMethod {
+            returnType = "java.lang.String"
+            paramCount = 3
+            paramTypes("android.content.Context", "java.lang.String", "java.lang.String")
+            modifiers = 8
             usingEqStrings("[+] Called exportImage, src: %s", "exportImageImpl")
-        }
-    }
+        },
+    )
 
     private val classGalleryEntryUi by dexClass(
         sqlClass {
@@ -661,11 +652,11 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         val size: Int
     )
 
-    private val classGalleryLivePhotoMediaItem by dexClass {
-        matcher {
-            className = $$"com.tencent.mm.plugin.gallery.model.GalleryItem$LivePhotoMediaItem"
-        }
-    }
+    private val classGalleryLivePhotoMediaItem by dexClass(
+        sqlClass {
+            className = "com.tencent.mm.plugin.gallery.model.GalleryItem\$LivePhotoMediaItem"
+        },
+    )
 
     private val galleryLivePhotoMediaItemClass: Class<*> by lazy {
         classGalleryLivePhotoMediaItem.clazz

@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -40,15 +41,12 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val classChatItemQuickSelect by dexClass {
-        searchPackages("${PackageNames.WECHAT}.ui.chatting.component")
-        matcher {
-            usingEqStrings(
-                "MicroMsg.ChatItemQuickSelectComponent",
-                "initViews: chattingQuickSelectRootUp="
-            )
-        }
-    }
+    private val classChatItemQuickSelect by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.ui.chatting.component")
+            usingEqStrings("MicroMsg.ChatItemQuickSelectComponent", "initViews: chattingQuickSelectRootUp=")
+        },
+    )
 
     /*
      * Two structurally identical setter overloads exist in the quick-select component.

@@ -10,6 +10,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.models.ChatroomSyncStateReadResult
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.api.core.models.WeChatroomSyncState
@@ -64,14 +65,15 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.SqliteDB", "sql is null ")
         },
     )
-    val methodSqliteWrapperRawQuery by dexMethod(allowFailure = true) {
-        matcher {
-            modifiers = Modifier.PUBLIC
-            usingEqStrings("sql is null ", "DB IS CLOSED ! {%s}")
+    val methodSqliteWrapperRawQuery by dexMethod(
+        sqlMethod {
+            returnType = "android.database.Cursor"
             paramTypes("java.lang.String", "java.lang.String[]", "int")
-            returnType("android.database.Cursor")
-        }
-    }
+            modifiers = 1
+            usingEqStrings("sql is null ", "DB IS CLOSED ! {%s}")
+        },
+        allowFailure = true,
+    )
 
     lateinit var db: SQLiteDatabase
 

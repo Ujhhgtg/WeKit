@@ -50,11 +50,11 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
             usingEqStrings("MicroMsg.MMAlertDialog", "dialog dismiss error!")
         },
     )
-    private val classMmProgressDialog by dexClass {
-        matcher {
-            usingEqStrings($$"com/tencent/mm/ui/widget/dialog/MMProgressDialog$Builder", "show")
-        }
-    }
+    private val classMmProgressDialog by dexClass(
+        sqlClass {
+            usingEqStrings("com/tencent/mm/ui/widget/dialog/MMProgressDialog\$Builder", "show")
+        },
+    )
     private val classMmQuickDialog by dexClass {
         matcher {
             superClass("android.app.Dialog")

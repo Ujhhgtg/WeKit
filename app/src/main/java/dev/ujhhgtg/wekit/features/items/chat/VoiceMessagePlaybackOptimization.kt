@@ -15,6 +15,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.VoiceMessagePlaybackOptimization.MODE_DISABLE
@@ -78,49 +79,53 @@ object VoiceMessagePlaybackOptimization : ClickableFeature(), IResolveDex {
      * AutoPlay 的距离传感器回调 (boolean: false=贴近耳朵 true=离开耳朵)。
      * 方法名各版本不同, 用方法体内日志常量 `onSensorEvent, isON:` 锚定。
      */
-    private val methodSensorCallback by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.AutoPlay", "onSensorEvent, isON:")
-            }
+    private val methodSensorCallback by dexMethod(
+        sqlMethod {
+            returnType = "void"
+            paramTypes("boolean")
             usingEqStrings("onSensorEvent, isON:")
-            paramTypes(bool)
-            returnType("void")
-        }
-    }
+            declaredClass {
+                usingEqStrings("MicroMsg.AutoPlay")
+                usingEqStrings("onSensorEvent, isON:")
+            }
+        },
+    )
 
     /** 切换任务入口 `onTimerExpired()`: 无参 boolean 返回, 方法名跨版本稳定。 */
-    private val methodSwitchTask by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("speaker true", "speaker off")
-            }
+    private val methodSwitchTask by dexMethod(
+        sqlMethod {
+            returnType = "boolean"
             paramCount = 0
-            returnType("boolean")
-        }
-    }
+            declaredClass {
+                usingEqStrings("speaker true")
+                usingEqStrings("speaker off")
+            }
+        },
+    )
 
     /** AutoPlay.setSpeakerOn(boolean) (8.0.65-74 G / 8.0.76 H): 记录当前扬声器状态。 */
-    private val methodSetSpeakerOn by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.AutoPlay", "onSensorEvent, isON:")
-            }
+    private val methodSetSpeakerOn by dexMethod(
+        sqlMethod {
+            paramTypes("boolean")
             usingEqStrings("speakerOn has been set %s")
-            paramTypes(bool)
-        }
-    }
+            declaredClass {
+                usingEqStrings("MicroMsg.AutoPlay")
+                usingEqStrings("onSensorEvent, isON:")
+            }
+        },
+    )
 
     /** AutoPlay.switchSpeaker() (8.0.65-74 K / 8.0.76 L): 无参切换, 内部继承播放位置。 */
-    private val methodSwitchSpeaker by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.AutoPlay", "onSensorEvent, isON:")
-            }
-            usingEqStrings("switchSpeaker, isSpeakerOn: %b, isPlaying: %b")
+    private val methodSwitchSpeaker by dexMethod(
+        sqlMethod {
             paramCount = 0
-        }
-    }
+            usingEqStrings("switchSpeaker, isSpeakerOn: %b, isPlaying: %b")
+            declaredClass {
+                usingEqStrings("MicroMsg.AutoPlay")
+                usingEqStrings("onSensorEvent, isON:")
+            }
+        },
+    )
 
     override fun onEnable() {
         // 完全禁用: 传感器事件直接丢弃, AutoPlay 不会进入任何切换逻辑。

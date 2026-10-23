@@ -65,15 +65,12 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
         }
     }
     private val methodTextStatusStorageAccessor by dexMethod()
-    private val methodLatestStatusByUsername by dexMethod {
-        matcher {
-            paramTypes(String::class.java)
-            usingEqStrings(
-                "MicroMsg.TextStatus.StatusInfoAffStorage",
-                "getLatestStatusByUserName: failed",
-            )
-        }
-    }
+    private val methodLatestStatusByUsername by dexMethod(
+        sqlMethod {
+            paramTypes("java.lang.String")
+            usingEqStrings("MicroMsg.TextStatus.StatusInfoAffStorage", "getLatestStatusByUserName: failed")
+        },
+    )
     private val methodTextStatusTopicInfo by dexMethod(
         sqlMethod {
             usingEqStrings("Super calls with default arguments not supported in this target, function: getTopicInfo")

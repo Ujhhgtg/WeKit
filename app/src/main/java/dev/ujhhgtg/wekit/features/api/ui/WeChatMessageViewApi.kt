@@ -73,14 +73,11 @@ object WeChatMessageViewApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeChatMessageViewApi"
 
-    private val methodChatItemOnBindView by dexMethod {
-        matcher {
-            usingStrings(
-                "MicroMsg.MvvmChattingItem",
-                "[onBindView]"
-            )
-        }
-    }
+    private val methodChatItemOnBindView by dexMethod(
+        sqlMethod {
+            usingStrings("MicroMsg.MvvmChattingItem", "[onBindView]")
+        },
+    )
 
     private val methodChatItemOnViewRecycled by dexMethod(
         sqlMethod {

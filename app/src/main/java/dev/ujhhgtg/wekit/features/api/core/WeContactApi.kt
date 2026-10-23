@@ -110,19 +110,17 @@ object WeContactApi : ApiFeature(), IResolveDex {
         },
     )
 
-    private val ctorNetSceneVerifyUserProbe by dexConstructor {
-        searchPackages("com.tencent.mm.pluginsdk.model")
-        matcher {
+    private val ctorNetSceneVerifyUserProbe by dexConstructor(
+        sqlConstructor {
+            searchPackages("com.tencent.mm.pluginsdk.model")
+            paramCount = 5
+            paramTypes("int", "java.util.List", "java.util.List", "java.lang.String", "java.lang.String")
             declaredClass {
-                usingEqStrings(
-                    "MicroMsg.NetSceneVerifyUser.dkverify",
-                    "This NetSceneVerifyUser init NEVER use opcode == MM_VERIFYUSER_VERIFYOK",
-                )
+                usingEqStrings("MicroMsg.NetSceneVerifyUser.dkverify")
+                usingEqStrings("This NetSceneVerifyUser init NEVER use opcode == MM_VERIFYUSER_VERIFYOK")
             }
-            paramCount(5)
-            paramTypes(int, List::class.java, List::class.java, BString, BString)
-        }
-    }
+        },
+    )
 
     override fun onEnable() {
         ctorNetSceneVerifyUserProbe.constructor.declaringClass.reflekt()

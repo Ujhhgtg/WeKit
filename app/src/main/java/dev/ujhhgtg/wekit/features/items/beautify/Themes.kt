@@ -1391,11 +1391,11 @@ object Themes : ClickableFeature(), IResolveDex {
         },
     )
 
-    private val methodMoreTabUiOnTabCreate by dexMethod {
-        matcher {
+    private val methodMoreTabUiOnTabCreate by dexMethod(
+        sqlMethod {
             usingStrings("MicroMsg.MoreTabUI", "onTabCreate:  %s")
-        }
-    }
+        },
+    )
 
     private val methodMoreTabUiHandleTabSwitchInForStatus by dexMethod(
         sqlMethod {
@@ -1409,24 +1409,23 @@ object Themes : ClickableFeature(), IResolveDex {
         },
     )
 
-    private val classEnterpriseBizViewItem by dexClass {
-        matcher {
+    private val classEnterpriseBizViewItem by dexClass(
+        sqlClass {
             usingStrings("MicroMsg.EnterpriseBizViewItem", "contact is null, %s")
-        }
-    }
+        },
+    )
 
-    private val classEnterpriseDefaultViewItem by dexClass {
-        matcher {
+    private val classEnterpriseDefaultViewItem by dexClass(
+        sqlClass {
             usingStrings("openim_acct_type_icon", "cloudim", "openim_acct_type_title")
-        }
-    }
+        },
+    )
 
-    private val classAddressItemConvert by dexClass {
-        matcher {
-            // 两个 AddressItemConvert 候选类共用日志 tag，用 addressbook_cell 消歧
+    private val classAddressItemConvert by dexClass(
+        sqlClass {
             usingStrings("MicroMsg.Mvvm.AddressItemConvert", "onBindViewHolder ", "addressbook_cell")
-        }
-    }
+        },
+    )
 
     private val classMmPopupWindow by dexClass(
         sqlClass {
@@ -1434,14 +1433,11 @@ object Themes : ClickableFeature(), IResolveDex {
         },
     )
 
-    private val classSmileyTabAdapter by dexClass {
-        matcher {
-            usingStrings(
-                "MicroMsg.emoji.SmileyPanel.SmileyTabAdapter",
-                "emoji group info is null. position:%d",
-            )
-        }
-    }
+    private val classSmileyTabAdapter by dexClass(
+        sqlClass {
+            usingStrings("MicroMsg.emoji.SmileyPanel.SmileyTabAdapter", "emoji group info is null. position:%d")
+        },
+    )
 
     // 8.0.65 中 BaseSettingConvert/setOptionView 不存在，8.0.67+ 才有
     private val classBaseSettingConvert by dexClass(

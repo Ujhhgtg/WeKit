@@ -25,13 +25,13 @@ object WeServiceApi : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_we_service_api_description
 
-    private val methodServiceManagerGetService by dexMethod {
-        matcher {
-            modifiers(Modifier.STATIC)
-            paramTypes(Class::class.java)
+    private val methodServiceManagerGetService by dexMethod(
+        sqlMethod {
+            paramTypes("java.lang.Class")
+            modifiers = 8
             usingEqStrings("calling getService(...)")
-        }
-    }
+        },
+    )
     private val classEmojiFeatureService by dexClass(
         sqlClass {
             searchPackages("com.tencent.mm.feature.emoji")

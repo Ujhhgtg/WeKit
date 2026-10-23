@@ -149,35 +149,29 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
 
     // ji1.s.og, most of com.tencent.mm.feature.avatar.w calls this,
     // e.g. Cg, ig, cg, og, rg
-    private val methodMvvmLoadAvatar1 by dexMethod(allowFailure = true) {
-        matcher {
-            paramTypes(
-                "android.widget.ImageView",
-                "java.lang.String",
-                "java.lang.String",
-                "float"
-            )
-            returnType(Void.TYPE)
+    private val methodMvvmLoadAvatar1 by dexMethod(
+        sqlMethod {
+            returnType = "void"
+            paramTypes("android.widget.ImageView", "java.lang.String", "java.lang.String", "float")
             usingEqStrings("MicroMsg.AvatarGetContactServiceHelper", "put stack into pool: ")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     // ji1.s.pg: another exception
-    private val methodMvvmLoadAvatar2 by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.AvatarGetContactServiceHelper", "put stack into pool: ")
-            }
-
+    private val methodMvvmLoadAvatar2 by dexMethod(
+        sqlMethod {
+            returnType = "void"
+            paramTypes("android.widget.ImageView", "java.lang.String")
             usingEqStrings("imageView")
-            paramTypes(
-                "android.widget.ImageView",
-                "java.lang.String",
-            )
-            returnType(Void.TYPE)
-            usingNumbers(30000)
-        }
-    }
+            usingNumbers(30000L)
+            declaredClass {
+                usingEqStrings("MicroMsg.AvatarGetContactServiceHelper")
+                usingEqStrings("put stack into pool: ")
+            }
+        },
+        allowFailure = true,
+    )
 
     private val classAvatarDrawable by dexClass(
         sqlClass {
@@ -220,26 +214,25 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
         )
     }
 
-    private val methodPluginsdkLoadAvatar by dexMethod(allowFailure = true) {
-        searchPackages("com.tencent.mm.pluginsdk.ui")
-        matcher {
-            paramTypes(
-                "android.widget.ImageView",
-                "java.lang.String"
-            )
-            returnType(Void.TYPE)
+    private val methodPluginsdkLoadAvatar by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.pluginsdk.ui")
+            returnType = "void"
+            paramTypes("android.widget.ImageView", "java.lang.String")
             usingEqStrings("MicroMsg.AvatarDrawable")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
-    private val methodHdGallerySetUsername by dexMethod(allowFailure = true) {
-        matcher {
+    private val methodHdGallerySetUsername by dexMethod(
+        sqlMethod {
             declaredClass = "com.tencent.mm.plugin.setting.ui.setting.view.GetHdHeadImageGalleryView"
             name = "setUsername"
+            returnType = "void"
             paramTypes("java.lang.String")
-            returnType(Void.TYPE)
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     private val methodRoundBitmap by dexMethod(allowFailure = true) {
         searchPackages("com.tencent.mm.sdk.platformtools")

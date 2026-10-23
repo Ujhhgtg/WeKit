@@ -4,6 +4,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.lang.reflect.Modifier
@@ -18,16 +19,17 @@ object HideOfficialAccountsUnreadDot : SwitchFeature(), IResolveDex {
     // ConversationUnreadHelper.getShowUnreadCountType(Conversation): 0 = none, 1 = dot, 2 = count.
     // Every conversation-list row (and the double-tap "jump to next unread") asks it; the
     // "officialaccounts" entry only ever gets 0 or 1, and the tab badge total already excludes it.
-    private val methodGetShowUnreadCountType by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.ConversationUnreadHelper", "getTotalUnread totalUnread:%s cost:%s")
-            }
-            modifiers = Modifier.STATIC
-            paramCount = 1
+    private val methodGetShowUnreadCountType by dexMethod(
+        sqlMethod {
             returnType = "int"
-        }
-    }
+            paramCount = 1
+            modifiers = 8
+            declaredClass {
+                usingEqStrings("MicroMsg.ConversationUnreadHelper")
+                usingEqStrings("getTotalUnread totalUnread:%s cost:%s")
+            }
+        },
+    )
 
     override fun onEnable() {
         methodGetShowUnreadCountType.hookBefore {

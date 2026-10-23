@@ -82,28 +82,30 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
     // H0 of the remote commlib reader: returns an AssetFileDescriptor for V8 to read directly,
     // which bypasses text patching. Returning null makes loadLibFiles fall back to
     // iCommLibReader.a() -> the e3.h string path.
-    private val methodPkgReaderH0 by dexMethod(allowFailure = true) {
-        searchPackages("com.tencent.mm.plugin.appbrand.appcache")
-        matcher {
+    private val methodPkgReaderH0 by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.appbrand.appcache")
+            returnType = "android.content.res.AssetFileDescriptor"
             paramTypes("java.lang.String")
-            returnType("android.content.res.AssetFileDescriptor")
             declaredClass {
                 usingEqStrings("PkgReader[%d] [%s]")
             }
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     // Same for the local assets reader (older base libraries).
-    private val methodAssetReaderH0 by dexMethod(allowFailure = true) {
-        searchPackages("com.tencent.mm.plugin.appbrand.appcache")
-        matcher {
+    private val methodAssetReaderH0 by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.appbrand.appcache")
+            returnType = "android.content.res.AssetFileDescriptor"
             paramTypes("java.lang.String")
-            returnType("android.content.res.AssetFileDescriptor")
             declaredClass {
                 usingEqStrings("AssetReader[%d][%s]")
             }
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     /** SDK file names already dumped (once per process). */
     private val dumpedNames = ConcurrentHashMap.newKeySet<String>()

@@ -16,6 +16,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -79,30 +80,31 @@ object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
     private val thanosEffects = WeakHashMap<ViewGroup, ThanosEffect>()
 
     /** 同 [MessageEntranceAnimation]: ChattingDataAdapterV3.getItem(int) -> 消息存储对象 */
-    private val methodChattingAdapterGetItem by dexMethod {
-        matcher {
+    private val methodChattingAdapterGetItem by dexMethod(
+        sqlMethod {
+            name = "getItem"
+            paramTypes("int")
             declaredClass {
                 usingEqStrings("MicroMsg.ChattingDataAdapterV3")
             }
-            name = "getItem"
-            paramTypes(Int::class.java)
-        }
-    }
+        },
+    )
 
     /**
      * MsgInfoStorageLogic 的 `static int (long msgId, String talker)`: 查出消息、发布
      * DeleteMsgEvent 后按 id 删除
      */
-    private val methodDeleteMsgById by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("MicroMsg.MsgInfoStorageLogic", "deleteMsgByTalkerSync ")
-            }
-            modifiers = Modifier.STATIC
-            paramTypes("long", "java.lang.String")
+    private val methodDeleteMsgById by dexMethod(
+        sqlMethod {
             returnType = "int"
-        }
-    }
+            paramTypes("long", "java.lang.String")
+            modifiers = 8
+            declaredClass {
+                usingEqStrings("MicroMsg.MsgInfoStorageLogic")
+                usingEqStrings("deleteMsgByTalkerSync ")
+            }
+        },
+    )
 
     override fun onEnable() {
         WeMessageApi.methodChattingDataAdapterOnBindViewHolder.hookAfter {

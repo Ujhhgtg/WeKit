@@ -109,20 +109,20 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
      * provider → loader 按 SCENE=2 重新加载消息尾部 (深历史时最新消息不在当前窗口, 必须靠
      * 它加载), presenter 再滚动到目标。两个版本的日志字符串略有差异, 用 usingStrings 取公共子串。
      */
-    private val methodLocationByMsgId by dexMethod {
-        searchPackages("com.tencent.mm.ui.chatting.component")
-        matcher {
+    private val methodLocationByMsgId by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui.chatting.component")
             usingStrings("MicroMsg.ChattingDataAdapterV3", "[locationByMsgId] position:%s mode:%s")
-        }
-    }
+        },
+    )
 
     /** ChattingDataAdapterV3.setShowHistoryMsgTipId (8.0.65 U0 / 8.0.76 V0)。 */
-    private val methodSetShowHistoryMsgTipId by dexMethod {
-        searchPackages("com.tencent.mm.ui.chatting.adapter")
-        matcher {
+    private val methodSetShowHistoryMsgTipId by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui.chatting.adapter")
             usingStrings("[setShowHistoryMsgTipId] pos:%s")
-        }
-    }
+        },
+    )
 
     override fun onEnable() {
         methodSetShowHistoryMsgTipId.hookBefore {

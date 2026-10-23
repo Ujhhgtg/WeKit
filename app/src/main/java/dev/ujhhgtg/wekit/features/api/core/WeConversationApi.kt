@@ -227,13 +227,13 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     // permanent delete with NO confirmation dialog. Its progress callback null-checks the PBool and
     // ProgressDialog, so nulls are safe; the trailing boolean starts a tablet/split-screen
     // EmptyActivity, so we pass false. Anchored by two in-method log strings unique to s1.d.
-    private val methodDoDeleteConversation by dexMethod {
-        searchPackages("com.tencent.mm.ui.conversation")
-        matcher {
-            usingStrings("MicroMsg.ConvDelLogic", "oplog modContact user:%s")
+    private val methodDoDeleteConversation by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui.conversation")
             paramCount = 6
-        }
-    }
+            usingStrings("MicroMsg.ConvDelLogic", "oplog modContact user:%s")
+        },
+    )
 //    private var ecsGiftMsgService: Any? = null
 
     val conversationStorage by lazy {

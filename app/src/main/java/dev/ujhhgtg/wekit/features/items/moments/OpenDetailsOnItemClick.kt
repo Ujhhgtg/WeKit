@@ -46,14 +46,14 @@ object OpenDetailsOnItemClick : SwitchFeature(), IResolveDex {
      * 是 `bindViewListener(itemView, item, position)`, 它每次绑定都会无条件重装 touch/click/longClick
      * 三个监听器, 把之前设的全部覆盖掉。所以直接 hook 它装上去的那个监听器, 在它派发完之后接着走。
      */
-    private val methodItemClickListenerOnClick by dexMethod {
-        matcher {
+    private val methodItemClickListenerOnClick by dexMethod(
+        sqlMethod {
             name = "onClick"
+            returnType = "void"
             paramTypes("android.view.View")
-            returnType(Void.TYPE)
-            usingEqStrings($$"com/tencent/mm/view/recyclerview/WxRecyclerAdapter$bindViewListener$2")
-        }
-    }
+            usingEqStrings("com/tencent/mm/view/recyclerview/WxRecyclerAdapter\$bindViewListener\$2")
+        },
+    )
 
     /** `ImproveSnsInfo.getLocalIDString()` — 返回 `sns_table_<rowid>` (广告为 `ad_table_`) */
     private val methodGetLocalIdString by dexMethod(

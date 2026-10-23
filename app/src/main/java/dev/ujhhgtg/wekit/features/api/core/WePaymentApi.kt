@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -21,15 +22,16 @@ object WePaymentApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WePaymentApi"
 
-    private val ctorNetSceneTransferOperation by dexConstructor {
-        searchPackages("com.tencent.mm.plugin.remittance.model")
-        matcher {
-            declaredClass {
-                usingEqStrings("Micromsg.NetSceneTenpayRemittanceConfirm", "/cgi-bin/mmpay-bin/transferoperation")
-            }
+    private val ctorNetSceneTransferOperation by dexConstructor(
+        sqlConstructor {
+            searchPackages("com.tencent.mm.plugin.remittance.model")
             usingEqStrings("account click info , key is %s, value is %s")
-        }
-    }
+            declaredClass {
+                usingEqStrings("Micromsg.NetSceneTenpayRemittanceConfirm")
+                usingEqStrings("/cgi-bin/mmpay-bin/transferoperation")
+            }
+        },
+    )
     val classReceiveLuckyMoney by dexClass(
         sqlClass {
             method {

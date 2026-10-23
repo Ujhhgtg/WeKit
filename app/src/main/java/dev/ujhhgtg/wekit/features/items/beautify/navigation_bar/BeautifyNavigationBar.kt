@@ -516,16 +516,16 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         context.finish()
     }
 
-    private val methodRecentPageHideAnimationStart by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings($$"com/tencent/mm/plugin/taskbar/ui/TaskBarAnimController$6")
-            }
+    private val methodRecentPageHideAnimationStart by dexMethod(
+        sqlMethod {
             name = "onAnimationStart"
-            paramTypes("android.animation.Animator")
             returnType = "void"
-        }
-    }
+            paramTypes("android.animation.Animator")
+            declaredClass {
+                usingEqStrings("com/tencent/mm/plugin/taskbar/ui/TaskBarAnimController\$6")
+            }
+        },
+    )
 
     private val methodRecentPageClose by dexMethod(
         sqlMethod {

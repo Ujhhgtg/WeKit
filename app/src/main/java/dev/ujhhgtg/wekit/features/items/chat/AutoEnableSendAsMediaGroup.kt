@@ -10,6 +10,8 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlField
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.bool
@@ -34,45 +36,49 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
      * 宿主自身 AOP 埋点字符串 initSendAsMediaGroupingViews），8.0.65/8.0.67 不存在，
      * 因此允许解析失败。
      */
-    private val methodInitSendAsMediaGroupingViews by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass = ALBUM_PREVIEW_UI
+    private val methodInitSendAsMediaGroupingViews by dexMethod(
+        sqlMethod {
+            declaredClass = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
             usingEqStrings("initSendAsMediaGroupingViews")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     /**
      * 选择数量变化回调（包含 updateSendAsMediaGroupViews 埋点字符串的方法）。
      * 微信在数量 < 3 时会把勾选状态重置为 false，因此需要在这里随数量重新勾选。
      */
-    private val methodUpdateSendAsMediaGroupViews by dexMethod(allowFailure = true) {
-        matcher {
-            declaredClass = ALBUM_PREVIEW_UI
+    private val methodUpdateSendAsMediaGroupViews by dexMethod(
+        sqlMethod {
+            declaredClass = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
             usingEqStrings("updateSendAsMediaGroupViews")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     /**
      * 勾选状态字段：在三个支持版本中，包含 updateSendAsMediaGroupViews 埋点字符串的方法
      * 只写入这一个 boolean 字段（选中状态重置为 false），据此唯一定位。
      */
-    private val sendAsMediaGroupField by dexField(allowFailure = true) {
-        matcher {
-            declaredClass = ALBUM_PREVIEW_UI
+    private val sendAsMediaGroupField by dexField(
+        sqlField {
+            declaredClass = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
             type = "boolean"
-            addWriteMethod {
+            writeMethod {
                 usingEqStrings("updateSendAsMediaGroupViews")
             }
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     /** AlbumPreviewUI 中唯一的 CheckBox 即「发送后合并展示」勾选框 */
-    private val sendAsMediaGroupCheckBoxField by dexField(allowFailure = true) {
-        matcher {
-            declaredClass = ALBUM_PREVIEW_UI
-            type(CheckBox::class.java)
-        }
-    }
+    private val sendAsMediaGroupCheckBoxField by dexField(
+        sqlField {
+            declaredClass = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
+            type = "android.widget.CheckBox"
+        },
+        allowFailure = true,
+    )
 
     /** The half-screen picker's data-class state, identified by its toString() literal. */
     private val classLocalPickerState by dexClass()
