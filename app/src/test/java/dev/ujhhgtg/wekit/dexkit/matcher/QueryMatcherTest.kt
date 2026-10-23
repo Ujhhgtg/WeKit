@@ -333,6 +333,101 @@ class QueryMatcherTest {
     }
 
     @Test
+    fun exactDescriptorEqualityMatchesOnlyThatMethod() {
+        assertTrue(
+            evaluator.matchesMethod(
+                helper(),
+                MethodSpec(descriptor = MatcherFixtures.ALPHA_HELPER),
+            ),
+        )
+        assertFalse(
+            evaluator.matchesMethod(
+                helper(),
+                MethodSpec(descriptor = MatcherFixtures.ALPHA_RUN),
+            ),
+        )
+    }
+
+    @Test
+    fun usingNumbersMatchLongAndDoubleOperandsInjective() {
+        assertTrue(evaluator.matchesMethod(run(), MethodSpec(usingNumbers = listOf(42L))))
+        assertTrue(evaluator.matchesMethod(run(), MethodSpec(usingNumbers = listOf(0.5))))
+        assertFalse(evaluator.matchesMethod(run(), MethodSpec(usingNumbers = listOf(7L))))
+        // A floating matcher does not match a long operand (and vice versa).
+        assertFalse(evaluator.matchesMethod(run(), MethodSpec(usingNumbers = listOf(42.0))))
+        // Injective: two identical matchers require two distinct operands.
+        assertFalse(evaluator.matchesMethod(run(), MethodSpec(usingNumbers = listOf(42L, 42L))))
+    }
+
+    @Test
+    fun callerMethodsUseInjectedRelations() {
+        val evaluator = evaluatorWithRelations()
+        assertTrue(
+            evaluator.matchesMethod(
+                run(),
+                MethodSpec(callerMethods = listOf(MethodSpec(name = NameSpec("helper")))),
+            ),
+        )
+        assertFalse(
+            evaluator.matchesMethod(
+                run(),
+                MethodSpec(callerMethods = listOf(MethodSpec(name = NameSpec("other")))),
+            ),
+        )
+        assertFalse(
+            evaluator.matchesMethod(
+                run(),
+                MethodSpec(
+                    callerMethods = listOf(
+                        MethodSpec(name = NameSpec("helper")),
+                        MethodSpec(name = NameSpec("helper")),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun fieldReadWriteMethodsUseInjectedRelations() {
+        val evaluator = evaluatorWithRelations()
+        val count = metadata.fieldInfo(MatcherFixtures.ALPHA_COUNT_FIELD)!!
+        assertTrue(
+            evaluator.matchesField(
+                count,
+                FieldSpec(readMethods = listOf(MethodSpec(name = NameSpec("run")))),
+            ),
+        )
+        assertFalse(
+            evaluator.matchesField(
+                count,
+                FieldSpec(readMethods = listOf(MethodSpec(name = NameSpec("helper")))),
+            ),
+        )
+        // The fake relation provider only reports run() as a reader, so a writer spec fails.
+        assertFalse(
+            evaluator.matchesField(
+                count,
+                FieldSpec(writeMethods = listOf(MethodSpec(name = NameSpec("run")))),
+            ),
+        )
+    }
+
+    @Test
+    fun scopeCallerFilteringUsesRelationsWithBroadFallback() {
+        val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
+        val scope = QueryMatcherScope(metadata, query, evaluatorRelations())
+        val results = scope.findMethods(
+            MethodSpec(callerMethods = listOf(MethodSpec(name = NameSpec("helper")))),
+        )
+        assertEquals(listOf(MatcherFixtures.ALPHA_RUN), results.map { it.descriptor })
+        // Caller-only specs have no cheap predicate: deterministic broad fallback.
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m ORDER BY m.descriptor;",
+            query.queries.single(),
+        )
+    }
+
+    @Test
     fun unsupportedRelationsFailLoudly() {
         assertThrows(UnsupportedOperationException::class.java) {
             evaluator.matchesMethod(run(), MethodSpec(callerMethods = listOf(MethodSpec())))
@@ -344,4 +439,15 @@ class QueryMatcherTest {
             )
         }
     }
+
+    private fun evaluatorRelations(): FakeMatcherRelations = FakeMatcherRelations(
+        metadata = metadata,
+        callersByMethod = mapOf(MatcherFixtures.ALPHA_RUN to listOf(MatcherFixtures.CALL_HELPER)),
+        fieldAccessByKey = mapOf(
+            MatcherFixtures.ALPHA_COUNT_FIELD + "|get" to listOf(MatcherFixtures.ALPHA_RUN),
+        ),
+    )
+
+    private fun evaluatorWithRelations(): DexMatcherEvaluator =
+        DexMatcherEvaluator(metadata, evaluatorRelations())
 }

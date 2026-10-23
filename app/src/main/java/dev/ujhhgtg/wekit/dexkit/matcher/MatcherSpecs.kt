@@ -49,6 +49,8 @@ data class TypeSpec(val value: String, val match: NameMatch = NameMatch.Equals) 
  * are true). [usingFields] entries are matched injectively against the candidate's field accesses.
  */
 data class MethodSpec(
+    /** Exact full method descriptor ("Lcom/x/Y;->name(I)V"); DexKit descriptor matcher. */
+    val descriptor: String? = null,
     val name: NameSpec? = null,
     /** Contains semantics: (candidate.modifiers and mask) == mask. */
     val modifiers: Int? = null,

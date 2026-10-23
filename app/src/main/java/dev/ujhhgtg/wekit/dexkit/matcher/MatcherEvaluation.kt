@@ -18,7 +18,10 @@ import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
  * Candidate pre-filtering is the caller's job ([QueryMatcherScope]); this evaluator is the
  * authoritative matcher.
  */
-internal class DexMatcherEvaluator(private val metadata: DexMetadata) {
+internal class DexMatcherEvaluator(
+    private val metadata: DexMetadata,
+    private val relations: DexMatcherRelations? = null,
+) {
 
     fun matchesClass(info: DexClassInfo, spec: ClassSpec): Boolean {
         spec.className?.let { if (!it.matches(info.name)) return false }
@@ -56,6 +59,7 @@ internal class DexMatcherEvaluator(private val metadata: DexMetadata) {
     }
 
     fun matchesMethod(info: DexMethodInfo, spec: MethodSpec): Boolean {
+        spec.descriptor?.let { if (info.descriptor != it) return false }
         spec.name?.let { if (!it.matches(info.name)) return false }
         spec.modifiers?.let { if ((info.modifiers and it) != it) return false }
         spec.paramCount?.let { if (info.paramCount !in it) return false }
@@ -79,9 +83,11 @@ internal class DexMatcherEvaluator(private val metadata: DexMetadata) {
             if (info.usingStrings.none { stringSpec.matches(it) }) return false
         }
         if (spec.usingNumbers.isNotEmpty()) {
-            throw UnsupportedOperationException(
-                "Query matcher usingNumbers is not supported yet (metadata does not expose numbers)",
-            )
+            val candidateNumbers = usingNumbers(info)
+            if (!injectiveMatch(spec.usingNumbers, candidateNumbers) { expected, actual ->
+                    matchesNumber(expected, actual)
+                }
+            ) return false
         }
         if (!injectiveMatch(spec.usingFields, info.usingFields) { fieldSpec, access ->
                 (fieldSpec.usingType == null || fieldSpec.usingType == access.usingType) &&
@@ -90,9 +96,8 @@ internal class DexMatcherEvaluator(private val metadata: DexMetadata) {
         ) return false
         if (!injectiveMatch(spec.invokeMethods, info.invokes) { s, c -> matchesMethod(c, s) }) return false
         if (spec.callerMethods.isNotEmpty()) {
-            throw UnsupportedOperationException(
-                "Query matcher callerMethods is not supported yet (metadata does not expose callers)",
-            )
+            val callers = (relations ?: missingRelations("callerMethods")).callers(info.descriptor)
+            if (!injectiveMatch(spec.callerMethods, callers) { s, c -> matchesMethod(c, s) }) return false
         }
         for (child in spec.allOf) if (!matchesMethod(info, child)) return false
         if (spec.anyOf.isNotEmpty() && spec.anyOf.none { matchesMethod(info, it) }) return false
@@ -110,13 +115,56 @@ internal class DexMatcherEvaluator(private val metadata: DexMetadata) {
         spec.declaredClass?.let { classSpec ->
             if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec)) return false
         }
-        if (spec.readMethods.isNotEmpty() || spec.writeMethods.isNotEmpty()) {
-            throw UnsupportedOperationException(
-                "Query matcher field read/write methods are not supported yet " +
-                    "(metadata does not expose field access relations)",
-            )
+        val resolvedRelations = if (spec.readMethods.isNotEmpty() || spec.writeMethods.isNotEmpty()) {
+            relations ?: missingRelations("field read/write methods")
+        } else {
+            null
+        }
+        if (spec.readMethods.isNotEmpty()) {
+            val methods = resolvedRelations!!.fieldAccessMethods(info.descriptor, "get")
+            if (!injectiveMatch(spec.readMethods, methods) { s, c -> matchesMethod(c, s) }) return false
+        }
+        if (spec.writeMethods.isNotEmpty()) {
+            val methods = resolvedRelations!!.fieldAccessMethods(info.descriptor, "put")
+            if (!injectiveMatch(spec.writeMethods, methods) { s, c -> matchesMethod(c, s) }) return false
         }
         return true
+    }
+
+    private fun missingRelations(feature: String): Nothing = throw UnsupportedOperationException(
+        "Query matcher " + feature + " require DexMatcherRelations (none configured)",
+    )
+
+    /** Parsed DexKit usingNumbers operand: engine collapses DEX literal labels to long/double. */
+    private data class CandidateNumber(val longValue: Long?, val doubleValue: Double?)
+
+    private fun usingNumbers(info: DexMethodInfo): List<CandidateNumber> {
+        val raw = info.rawJson["using_numbers"] as? kotlinx.serialization.json.JsonArray ?: return emptyList()
+        return raw.mapNotNull { element ->
+            val entry = element as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+            val kind = (entry["kind"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@mapNotNull null
+            val value = (entry["value"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@mapNotNull null
+            when (kind) {
+                "long" -> value.toLongOrNull()?.let { CandidateNumber(it, null) }
+                "double" -> value.toDoubleOrNull()?.let { CandidateNumber(null, it) }
+                else -> null
+            }
+        }
+    }
+
+    /**
+     * DexKit numeric operand matching: integer matchers compare long values exactly, floating
+     * matchers compare double values (NaN never matches; tiny epsilon for constant folding).
+     */
+    private fun matchesNumber(expected: Number, actual: CandidateNumber): Boolean {
+        return if (expected is Float || expected is Double) {
+            val expectedDouble = expected.toDouble()
+            val actualDouble = actual.doubleValue ?: return false
+            actualDouble == expectedDouble ||
+                kotlin.math.abs(actualDouble - expectedDouble) < 1e-6
+        } else {
+            actual.longValue != null && actual.longValue == expected.toLong()
+        }
     }
 
     private fun matchesClassReference(

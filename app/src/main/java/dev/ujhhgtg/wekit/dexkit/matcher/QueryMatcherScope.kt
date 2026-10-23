@@ -28,8 +28,9 @@ fun interface DexDescriptorQuery {
 class QueryMatcherScope(
     val metadata: DexMetadata,
     private val query: DexDescriptorQuery,
+    val relations: DexMatcherRelations? = null,
 ) {
-    private val evaluator = DexMatcherEvaluator(metadata)
+    private val evaluator = DexMatcherEvaluator(metadata, relations)
 
     fun findMethods(
         spec: MethodSpec,

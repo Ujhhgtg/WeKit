@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.dexkit.matcher
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadata
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadataKind
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadataProvider
+import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -66,10 +67,22 @@ internal object MatcherFixtures {
         invokes: List<JsonObject> = emptyList(),
         usingFields: List<JsonObject> = emptyList(),
         usingStrings: List<String> = emptyList(),
+        usingNumbers: List<Pair<String, String>> = emptyList(),
     ): JsonObject = buildJsonObject {
         ref.forEach { (key, value) -> put(key, value) }
         put("invokes", JsonArray(invokes))
         put("using_fields", JsonArray(usingFields))
+        put(
+            "using_numbers",
+            JsonArray(
+                usingNumbers.map { (kind, value) ->
+                    buildJsonObject {
+                        put("kind", kind)
+                        put("value", value)
+                    }
+                },
+            ),
+        )
         put(
             "using_strings",
             JsonArray(usingStrings.map { kotlinx.serialization.json.JsonPrimitive(it) }),
@@ -148,6 +161,7 @@ internal object MatcherFixtures {
                 invokes = listOf(callHelperRef),
                 usingFields = listOf(usingField(countFieldRef, "read")),
                 usingStrings = listOf("alpha marker", "second string"),
+                usingNumbers = listOf("long" to "42", "double" to "0.5"),
             ),
         )
         putEntry(
@@ -157,7 +171,7 @@ internal object MatcherFixtures {
         putEntry(DexMetadataKind.Method, ALPHA_INIT, methodDoc(initRef))
         putEntry(
             DexMetadataKind.Method, CALL_HELPER,
-            methodDoc(callHelperRef, usingStrings = listOf("call helper")),
+            methodDoc(callHelperRef, usingStrings = listOf("call helper"), usingNumbers = listOf("long" to "7")),
         )
         putEntry(DexMetadataKind.Method, GAMMA_RUN, methodDoc(
             methodRef(GAMMA_RUN, "run", "com.test.Gamma", "()V", "void", emptyList()),
@@ -207,6 +221,19 @@ internal object MatcherFixtures {
     fun methodDescriptors(): List<String> = listOf(ALPHA_RUN, ALPHA_HELPER, ALPHA_INIT, CALL_HELPER, GAMMA_RUN)
     fun classDescriptors(): List<String> = listOf(ALPHA, BASE, IFACE, GAMMA)
     fun fieldDescriptors(): List<String> = listOf(ALPHA_COUNT_FIELD, ALPHA_NAME_FIELD)
+}
+
+/** Fake relation provider for evaluator/scope tests (no DexSqlBridge needed). */
+internal class FakeMatcherRelations(
+    private val metadata: DexMetadata,
+    private val callersByMethod: Map<String, List<String>> = emptyMap(),
+    private val fieldAccessByKey: Map<String, List<String>> = emptyMap(),
+) : DexMatcherRelations {
+    override fun callers(methodDescriptor: String): List<DexMethodInfo> =
+        callersByMethod[methodDescriptor].orEmpty().mapNotNull { metadata.methodInfo(it) }
+
+    override fun fieldAccessMethods(fieldDescriptor: String, usingType: String): List<DexMethodInfo> =
+        fieldAccessByKey[fieldDescriptor + "|" + usingType].orEmpty().mapNotNull { metadata.methodInfo(it) }
 }
 
 /** Fake query executor: records every generated SQL and returns preconfigured descriptor rows. */
