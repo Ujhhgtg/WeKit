@@ -77,7 +77,13 @@
   candidate selection). There is no `allowMultiple`/`resultIndex` delegate option.
   A class query with several nested method matchers emits pairwise distinctness
   conditions because DexKit matches those methods injectively (each nested matcher
-  must bind a different method); do not remove them.
+  must bind a different method); do not remove them. Class-literal constraints
+  (method/constructor declaredClass { } and class superClass { }) are existential
+  over the constraint class's methods with one unit per literal value. Access-flag
+  constraints use modifiers(...) or modifiers = ... and compile to
+  (alias.access_flags & mask) = mask (DexKit Contains semantics). Literal LIKE
+  values only escape backslash/percent/underscore and add ESCAPE when needed;
+  equality literals stay raw.
 - UI: Jetpack Compose + Material 3; dialogs via `showComposeDialog` and `AlertDialogContent`;
   settings screens follow Material 3 UI Standards below
 - Storage: everything lives in the host's private `filesDir/wekit/`; the Room database
