@@ -17,6 +17,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -67,31 +68,27 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
         40, 0, 48, 0, 56, 0, 64, 0, 72, 0, 80, 0, 88, 0, 96, 0, 104, 0, 112, 0, 120, 0,
     )
 
-    private val classReceiveLuckyMoneyUnion by dexClass {
-        matcher {
-            methods {
-                add {
-                    name = "<init>"
-                    usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoneyUnion")
-                }
+    private val classReceiveLuckyMoneyUnion by dexClass(
+        sqlClass {
+            method {
+                name = "<init>"
+                usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoneyUnion")
             }
-        }
-    }
-    private val classOpenLuckyMoneyUnion by dexClass {
-        matcher {
-            methods {
-                add {
-                    name = "<init>"
-                    usingEqStrings("MicroMsg.NetSceneOpenLuckyMoneyUnion")
-                }
+        },
+    )
+    private val classOpenLuckyMoneyUnion by dexClass(
+        sqlClass {
+            method {
+                name = "<init>"
+                usingEqStrings("MicroMsg.NetSceneOpenLuckyMoneyUnion")
             }
-        }
-    }
-    private val classLuckyMoneyNotHookReceiveUI by dexClass {
-        matcher {
+        },
+    )
+    private val classLuckyMoneyNotHookReceiveUI by dexClass(
+        sqlClass {
             usingEqStrings("LuckyMoneyNotHookReceiveUI")
-        }
-    }
+        },
+    )
     private val methodReceiveUnionOnGYNetEnd by dexMethod {
         matcher {
             declaredClass(classReceiveLuckyMoneyUnion.data.name)

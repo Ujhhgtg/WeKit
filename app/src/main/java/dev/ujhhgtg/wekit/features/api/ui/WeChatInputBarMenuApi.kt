@@ -19,6 +19,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -63,18 +64,18 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
         providers -= provider
     }
 
-    val methodSendMessage by dexMethod {
-        searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-        matcher {
+    val methodSendMessage by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.pluginsdk.ui.chat")
             usingEqStrings("MicroMsg.ChatFooter", "send msg onClick")
-        }
-    }
-    val methodAppGridGetView by dexMethod {
-        matcher {
-            usingStrings("MicroMsg.AppGrid", "pos:", "page:")
+        },
+    )
+    val methodAppGridGetView by dexMethod(
+        sqlMethod {
             name = "getView"
-        }
-    }
+            usingStrings("MicroMsg.AppGrid", "pos:", "page:")
+        },
+    )
 
     /**
      * 在 ChatFooter 内定位原生发送按钮 (第 0 个子视图中文本为 "发送"/"send" 的 Button)。

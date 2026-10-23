@@ -24,6 +24,8 @@ import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
@@ -49,8 +51,29 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
     private val methodAddPref by dexMethod()
 
     // modern method
-    private val classSettingItemClassesProvider by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor WHERE ms0.value = 'Repairer_Setting' ORDER BY c.descriptor;""", allowFailure = true)
-    private val classBaseSettingItem by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor JOIN method_strings ms2 ON ms2.method = cm.descriptor JOIN method_strings ms3 ON ms3.method = cm.descriptor WHERE ms0.value = '' AND ms1.value = 'activity' AND ms2.value = 'context' AND ms3.value = 'intent' ORDER BY c.descriptor;""", allowFailure = true)
+    private val classSettingItemClassesProvider by dexClass(allowFailure = true) {
+        matcher {
+            usingEqStrings("Repairer_Setting")
+
+            superClass {
+                usingEqStrings("type")
+            }
+        }
+    }
+    private val classBaseSettingItem by dexClass(allowFailure = true) {
+        matcher {
+            usingEqStrings("", "activity", "context", "intent")
+
+            addMethod {
+                name = "<init>"
+                paramTypes("androidx.appcompat.app.AppCompatActivity")
+            }
+
+            addInterface {
+                className("com.tencent.mm.plugin.newtips.model", StringMatchType.StartsWith)
+            }
+        }
+    }
     private val classBaseSettingSwitchItem by dexClass(allowFailure = true) {
         matcher {
             usingEqStrings("activity", "context", "itemView", "1", "0")
@@ -71,11 +94,41 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
             }
         }
     }
-    private val classSettingLocation by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'SettingLocation(parentGroup=' AND ms1.value = ', frontItem=' ORDER BY c.descriptor;""", allowFailure = true)
-    private val methodSettingGroupAccountInfoGetStringId by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'SettingGroup_Main_AccountInfo' AND m.class_descriptor = 'Lcom/tencent/mm/plugin/setting/ui/setting_new/settings/SettingGroupAccountInfo;' AND m.return_descriptor = 'Ljava/lang/String;' ORDER BY m.descriptor;""", allowFailure = true)
-    private val methodSettingGroupAccountInfoReturns1 by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_using_numbers mn0 ON mn0.method = m.descriptor WHERE mn0.long_value = 1 AND m.class_descriptor = 'Lcom/tencent/mm/plugin/setting/ui/setting_new/settings/SettingGroupAccountInfo;' AND m.return_descriptor = 'I' ORDER BY m.descriptor;""", allowFailure = true)
-    private val methodSettingGroupPersonalInfoGetGroupNameResId by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.class_descriptor = 'Lcom/tencent/mm/plugin/setting/ui/setting_new/settings/SettingGroupPersonalInfo;' AND m.return_descriptor = 'Ljava/lang/Integer;' ORDER BY m.descriptor;""", allowFailure = true)
-    private val methodResourceHelperGetStringById by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.ResourceHelper' AND ms1.value = 'get string, resId %d, but context is null' ORDER BY m.descriptor;""", allowFailure = true)
+    private val classSettingLocation by dexClass(
+        sqlClass {
+            usingEqStrings("SettingLocation(parentGroup=", ", frontItem=")
+        },
+        allowFailure = true,
+    )
+    private val methodSettingGroupAccountInfoGetStringId by dexMethod(
+        sqlMethod {
+            declaredClass = "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
+            returnType = "java.lang.String"
+            usingEqStrings("SettingGroup_Main_AccountInfo")
+        },
+        allowFailure = true,
+    )
+    private val methodSettingGroupAccountInfoReturns1 by dexMethod(
+        sqlMethod {
+            declaredClass = "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
+            returnType = "int"
+            usingNumbers(1L)
+        },
+        allowFailure = true,
+    )
+    private val methodSettingGroupPersonalInfoGetGroupNameResId by dexMethod(
+        sqlMethod {
+            declaredClass = "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupPersonalInfo"
+            returnType = "java.lang.Integer"
+        },
+        allowFailure = true,
+    )
+    private val methodResourceHelperGetStringById by dexMethod(
+        sqlMethod {
+            usingEqStrings("MicroMsg.ResourceHelper", "get string, resId %d, but context is null")
+        },
+        allowFailure = true,
+    )
 
     private const val TAG = "WeSettingsInjector"
 
@@ -88,7 +141,7 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
             matcher { className = PREFERENCE_CLASS_NAME }
         }.single()
 
-        methodSetKey.find(dexKit, allowMultiple = true) {
+        val setKeyCandidates = dexKit.findMethod {
             searchPackages("com.tencent.mm.ui.base.preference")
             matcher {
                 declaredClass = PREFERENCE_CLASS_NAME
@@ -97,6 +150,8 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
                 usingStrings("Preference")
             }
         }
+        check(setKeyCandidates.isNotEmpty()) { "DexKit: No method found for key: methodSetKey" }
+        methodSetKey.setDescriptor(setKeyCandidates.first())
 
         val setTitleCandidates = prefClass.findMethod {
             matcher {
@@ -140,7 +195,7 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
         }.singleOrNull()
 
         if (adapterClass != null) {
-            methodAddPref.find(dexKit, allowMultiple = true) {
+            val addPrefCandidates = dexKit.findMethod {
                 searchPackages("com.tencent.mm.ui.base.preference")
                 matcher {
                     declaredClass = adapterClass.name
@@ -148,6 +203,8 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
                     returnType = "void"
                 }
             }
+            check(addPrefCandidates.isNotEmpty()) { "DexKit: No method found for key: methodAddPref" }
+            methodAddPref.setDescriptor(addPrefCandidates.first())
         }
     }
 

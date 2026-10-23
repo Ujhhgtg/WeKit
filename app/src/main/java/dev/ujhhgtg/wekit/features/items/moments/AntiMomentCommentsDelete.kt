@@ -6,6 +6,7 @@ import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -46,18 +47,18 @@ object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
     private const val ACTION_COMMENT_ID = 10
 
     // NetSceneSnsSync.processCommentDelAction(action, actionInfo, snsId, parentId, clientId, handler)
-    private val methodProcessCommentDelAction by dexMethod {
-        matcher {
+    private val methodProcessCommentDelAction by dexMethod(
+        sqlMethod {
             usingEqStrings("processCommentDelAction", "com.tencent.mm.plugin.sns.model.NetSceneSnsSync")
-        }
-    }
+        },
+    )
 
     // SnsInfoStorageLogic.checkLocalDeletedComment(SnsInfo local, SnsObject incoming)
-    private val methodCheckLocalDeletedComment by dexMethod {
-        matcher {
+    private val methodCheckLocalDeletedComment by dexMethod(
+        sqlMethod {
             usingEqStrings("checkLocalDeletedComment", "com.tencent.mm.plugin.sns.model.SnsInfoStorageLogic")
-        }
-    }
+        },
+    )
 
     override fun onEnable() {
         methodProcessCommentDelAction.hookBefore {

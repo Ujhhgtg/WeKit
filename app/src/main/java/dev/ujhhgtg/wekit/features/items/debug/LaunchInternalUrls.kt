@@ -11,6 +11,7 @@ import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -62,10 +63,10 @@ object LaunchInternalUrls : ClickableFeature(), IResolveDex {
         }
     }
 
-    private val methodOpenUrl by dexMethod {
-        searchPackages("com.tencent.mm.app.plugin")
-        matcher {
+    private val methodOpenUrl by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.app.plugin")
             usingEqStrings("MicroMsg.MMURIJumpHandler", "openSpecificUI, context is null")
-        }
-    }
+        },
+    )
 }

@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.NearbyFriendProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.WeProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -21,18 +22,20 @@ object AutoAddNearbyFriends : ClickableFeature(), IResolveDex {
     override val descriptionRes = R.string.feature_auto_add_nearby_friends_description
 
     // finder NearbyPersonFragment/NearbyPersonV1UIC were removed in 8.0.79
-    private val methodCreateMenu by dexMethod(allowFailure = true) {
-        matcher {
+    private val methodCreateMenu by dexMethod(
+        sqlMethod {
             usingEqStrings("NearbyPersonUIC", "showLiveBottomSheet create menu.")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
-    private val methodMenuOnClick by dexMethod(allowFailure = true) {
-        matcher {
-            usingEqStrings("com.tencent.mm.plugin.nearby.ui.NearbySayHiListUI")
+    private val methodMenuOnClick by dexMethod(
+        sqlMethod {
             name = "onMMMenuItemSelected"
-        }
-    }
+            usingEqStrings("com.tencent.mm.plugin.nearby.ui.NearbySayHiListUI")
+        },
+        allowFailure = true,
+    )
 
     override fun onEnable() {
         if (!methodCreateMenu.isFound || !methodMenuOnClick.isFound) return

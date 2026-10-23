@@ -34,6 +34,8 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeLauncherBackApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -108,11 +110,11 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
     override val descriptionRes = R.string.feature_home_side_panel_description
 
-    private val classWalletCache by dexClass {
-        matcher {
+    private val classWalletCache by dexClass(
+        sqlClass {
             className = "com.tencent.mm.wallet_core.model.m1"
-        }
-    }
+        },
+    )
 
     private val classWalletPayPlugin by dexClass {
         matcher {
@@ -124,31 +126,31 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val methodWalletCacheRead by dexMethod {
-        matcher {
+    private val methodWalletCacheRead by dexMethod(
+        sqlMethod {
             declaredClass = "com.tencent.mm.wallet_core.model.m1"
             name = "i"
-            paramCount = 2
             returnType = "java.lang.Object"
-        }
-    }
+            paramCount = 2
+        },
+    )
 
-    private val methodWalletCacheWrite by dexMethod {
-        matcher {
+    private val methodWalletCacheWrite by dexMethod(
+        sqlMethod {
             declaredClass = "com.tencent.mm.wallet_core.model.m1"
             name = "j"
+            returnType = "void"
             paramCount = 2
-            returnType = "void"
-        }
-    }
+        },
+    )
 
-    private val methodWalletQuery by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.QueryWeChatWalletManager", "do query wechat wallet: %s")
-            paramCount = 4
+    private val methodWalletQuery by dexMethod(
+        sqlMethod {
             returnType = "void"
-        }
-    }
+            paramCount = 4
+            usingEqStrings("MicroMsg.QueryWeChatWalletManager", "do query wechat wallet: %s")
+        },
+    )
 
     private const val TAG = "HomeSidePanel"
     private const val LAUNCHER_BOTTOM_TAB_VIEW_CLASS = "com.tencent.mm.ui.LauncherUIBottomTabView"

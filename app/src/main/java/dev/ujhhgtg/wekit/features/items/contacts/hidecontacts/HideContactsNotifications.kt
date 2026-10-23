@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.items.contacts.hidecontacts
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
@@ -105,13 +106,14 @@ object HideContactsNotifications : ApiFeature(), IResolveDex {
      * an unverified 8.0.6x build a 0-hit would mark this feature broken and pop the dex-repair dialog
      * on every launch — worse than losing the LightPush bypass while [methodDealNotify] keeps working.
      */
-    private val methodNotifyForLightPush by dexMethod(allowFailure = true) {
-        searchPackages("com.tencent.mm.booter.notification")
-        matcher {
-            paramCount(7)
+    private val methodNotifyForLightPush by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.booter.notification")
+            paramCount = 7
             usingEqStrings("notifyForLightPush push:isShake: %B, isSound: %B ctrlFlag:%s")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     /** `CoreService` — and therefore both notification paths — lives in `:push`, not in main. */
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.PUSH)

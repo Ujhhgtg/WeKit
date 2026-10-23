@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
@@ -32,11 +33,11 @@ object BlockVoipRingtone : ClickableFeature(), IResolveDex {
     private var disableOutCall by prefOption("voip_disable_ringtone_out_call", true)
     private var disableInCall by prefOption("voip_disable_ringtone_in_call", false)
 
-    private val methodPlaySound by dexMethod {
-        matcher {
+    private val methodPlaySound by dexMethod(
+        sqlMethod {
             usingEqStrings("MicroMsg.BaseSceneSetting", "playSound Failed Throwable t = ")
-        }
-    }
+        },
+    )
 
     override fun onEnable() {
         methodPlaySound.hookBefore {

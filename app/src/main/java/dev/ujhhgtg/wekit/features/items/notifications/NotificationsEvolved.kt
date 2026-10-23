@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.notifications
 
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.listDirectoryEntries
 import android.app.Notification
@@ -92,13 +93,13 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
 
     // com.tencent.mm.booter.notification.x.d(x, String talker, String content, int, int, boolean)
     // args[1] is the talker wxid. Anchored on a log string unique to that method.
-    val methodDealNotify by dexMethod {
-        searchPackages("com.tencent.mm.booter.notification")
-        matcher {
-            paramCount(6)
+    val methodDealNotify by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.booter.notification")
+            paramCount = 6
             usingEqStrings("jacks dealNotify, talker:%s, msgtype:%d, tipsFlag:%d, isRevokeMesasge:%B content:%s")
-        }
-    }
+        },
+    )
 
     // com.tencent.mm.storage.ConversationStorage#updateUnreadByTalker(talker) — same declaration
     // as ConversationAggregation.methodConversationStorageUpdateUnreadByTalker. WeChat calls it

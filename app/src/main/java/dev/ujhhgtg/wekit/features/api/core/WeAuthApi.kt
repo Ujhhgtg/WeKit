@@ -5,6 +5,7 @@ import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -23,11 +24,11 @@ object WeAuthApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeAuthApi"
 
-    val classNetSceneJSLogin by dexClass {
-        matcher {
+    val classNetSceneJSLogin by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.webview.NetSceneJSLogin", "/cgi-bin/mmbiz-bin/js-login")
-        }
-    }
+        },
+    )
 
     fun jsLogin(appId: String, onResult: (String?) -> Unit) {
         // 调用方 (WeChatService.jsLogin) 用无超时的 suspendCancellableCoroutine 包装该回调,

@@ -10,6 +10,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -73,8 +74,16 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
             )
         }
     }
-    private val methodTextStatusTopicInfo by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'Super calls with default arguments not supported in this target, function: getTopicInfo' ORDER BY m.descriptor;""")
-    private val methodSetTextStatusIcon by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'Super calls with default arguments not supported in this target, function: setIcon' ORDER BY m.descriptor;""")
+    private val methodTextStatusTopicInfo by dexMethod(
+        sqlMethod {
+            usingEqStrings("Super calls with default arguments not supported in this target, function: getTopicInfo")
+        },
+    )
+    private val methodSetTextStatusIcon by dexMethod(
+        sqlMethod {
+            usingEqStrings("Super calls with default arguments not supported in this target, function: setIcon")
+        },
+    )
     private val methodTextStatusIconHelperAccessor by dexMethod()
     private val methodTextStatusDescription by dexMethod()
     private val methodCurrentStatusActions by dexMethod()

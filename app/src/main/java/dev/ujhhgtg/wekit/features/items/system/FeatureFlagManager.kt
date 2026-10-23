@@ -18,6 +18,7 @@ import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.Icon
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -101,19 +102,19 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
      * Identified by its [i]() method containing "Int", "Float", "String", "Long", "".
      * Hierarchy: [ly4.h]->[ly4.e]->[ly4.d]->[ly4.i] (Int) or [ly4.e]->[ly4.f] (String).
      */
-    private val classFeatureFlagBase by dexClass {
-        matcher {
-            addMethod {
+    private val classFeatureFlagBase by dexClass(
+        sqlClass {
+            method {
                 usingEqStrings("Int")
             }
-            addMethod {
+            method {
                 usingEqStrings("Int", "Float", "String", "Long", "")
             }
-            addMethod {
+            method {
                 usingEqStrings("")
             }
-        }
-    }
+        },
+    )
 
     /**
      * Central API method: [fd5.d1].[b](String, Object) -> Object.

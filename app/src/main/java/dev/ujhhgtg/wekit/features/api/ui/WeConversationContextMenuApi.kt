@@ -13,6 +13,7 @@ import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -83,15 +84,12 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
     private const val AGGREGATED_MENU_ORDER = 1000
 
     // com.tencent.mm.ui.conversation.ConversationLongClickListener#onCreateContextMenu
-    private val methodOnCreateMenu by dexMethod {
-        searchPackages("com.tencent.mm.ui.conversation")
-        matcher {
-            usingStrings(
-                "MicroMsg.ConversationLongClickListener",
-                "onCreateContextMenu, contact is null"
-            )
-        }
-    }
+    private val methodOnCreateMenu by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui.conversation")
+            usingStrings("MicroMsg.ConversationLongClickListener", "onCreateContextMenu, contact is null")
+        },
+    )
 
     // com.tencent.mm.ui.conversation.ConversationLongClickListener$1#onMMMenuItemSelected
     private val methodOnItemSelected by dexMethod {

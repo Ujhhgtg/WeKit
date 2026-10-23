@@ -33,6 +33,8 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeLauncherBackApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -173,9 +175,21 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: the chat FootComponent's key handler, the only chat component that takes BACK ---
 
-    private val classFootComponent by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.ChattingUI.FootComponent' AND ms1.value = 'onNotifyChange event %s talker %s' AND (c.descriptor LIKE 'Lcom/tencent/mm/ui/chatting/component/%') ORDER BY c.descriptor;""")
+    private val classFootComponent by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.ui.chatting.component")
+            usingEqStrings("MicroMsg.ChattingUI.FootComponent", "onNotifyChange event %s talker %s")
+        },
+    )
 
-    private val methodFootKeyHandler by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'chatting onKeyDown, code:%d action:%d' AND m.return_descriptor = 'Z' AND m.param_descriptors = 'I,Landroid/view/KeyEvent;' ORDER BY m.descriptor;""")
+    private val methodFootKeyHandler by dexMethod {
+        matcher {
+            declaredClass(classFootComponent.data.name)
+            paramTypes("int", "android.view.KeyEvent")
+            returnType = "boolean"
+            usingEqStrings("chatting onKeyDown, code:%d action:%d")
+        }
+    }
 
     /** `ChatFooter`'s voice-input (speech-to-text) panel flag. */
     private val fieldFooterVoiceInput by dexField()
@@ -201,7 +215,14 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: MMActivity.onKeyDown's controller collapses an expanded action-bar search on BACK ---
 
-    private val methodControllerKeyDown by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.MMActivityController' AND ms1.value = 'dancy onKeyDown ++' AND m.return_descriptor = 'Z' AND m.param_descriptors = 'I,Landroid/view/KeyEvent;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/ui/%') ORDER BY m.descriptor;""")
+    private val methodControllerKeyDown by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui")
+            returnType = "boolean"
+            paramTypes("int", "android.view.KeyEvent")
+            usingEqStrings("MicroMsg.MMActivityController", "dancy onKeyDown ++")
+        },
+    )
 
     /** The controller's action-bar search helper. */
     private val fieldControllerSearchHelper by dexField()

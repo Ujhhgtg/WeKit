@@ -16,6 +16,7 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -46,24 +47,24 @@ object FakeLocation : ClickableFeature(), IResolveDex {
     override val descriptionRes = R.string.feature_fake_location_description
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 
-    private val methodListener by dexMethod {
-        matcher {
+    private val methodListener by dexMethod(
+        sqlMethod {
             name = "onLocationChanged"
             usingEqStrings("MicroMsg.SLocationListener")
-        }
-    }
-    private val methodListenerWgs84 by dexMethod {
-        matcher {
+        },
+    )
+    private val methodListenerWgs84 by dexMethod(
+        sqlMethod {
             name = "onLocationChanged"
             usingEqStrings("MicroMsg.SLocationListenerWgs84")
-        }
-    }
-    private val methodDefaultManager by dexMethod {
-        matcher {
+        },
+    )
+    private val methodDefaultManager by dexMethod(
+        sqlMethod {
             name = "onLocationChanged"
             usingEqStrings("MicroMsg.DefaultTencentLocationManager", "[mlocationListener]error:%d, reason:%s")
-        }
-    }
+        },
+    )
 
     private const val KEY_LAT = "fake_lat"
     private const val KEY_LNG = "fake_lng"

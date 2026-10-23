@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.items.miniapps
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcess
@@ -14,9 +15,9 @@ object SkipSplash : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)
     override val descriptionRes = R.string.feature_skip_splash_description
 
-    private val methodShowSplash by dexMethod {
-        searchPackages("com.tencent.mm.plugin.appbrand")
-        matcher {
+    private val methodShowSplash by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.appbrand")
             declaredClass = "com.tencent.mm.plugin.appbrand.AppBrandRuntime"
             returnType = "void"
             paramCount = 0
@@ -24,10 +25,10 @@ object SkipSplash : SwitchFeature(), IResolveDex {
                 "public:prepare",
                 "Loading页展示",
                 "MicroMsg.AppBrandRuntime",
-                "showSplash[AppBrandSplashAd], appId:%s, splash:%s"
+                "showSplash[AppBrandSplashAd], appId:%s, splash:%s",
             )
-        }
-    }
+        },
+    )
 
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 

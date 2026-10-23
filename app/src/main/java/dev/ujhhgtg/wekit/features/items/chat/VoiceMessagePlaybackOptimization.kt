@@ -14,6 +14,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.VoiceMessagePlaybackOptimization.MODE_DISABLE
@@ -67,11 +68,11 @@ object VoiceMessagePlaybackOptimization : ClickableFeature(), IResolveDex {
      * AutoPlay 语音播放控制器: 日志锚点 `MicroMsg.AutoPlay` + 传感器回调内的
      * `onSensorEvent, isON:` 组合定位, 各版本唯一。
      */
-    private val classAutoPlay by dexClass {
-        matcher {
+    private val classAutoPlay by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.AutoPlay", "onSensorEvent, isON:")
-        }
-    }
+        },
+    )
 
     /**
      * AutoPlay 的距离传感器回调 (boolean: false=贴近耳朵 true=离开耳朵)。

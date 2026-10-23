@@ -16,6 +16,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
@@ -83,13 +84,13 @@ object SendSecMsg : ClickableFeature(), IResolveDex {
     private var pendingSecSend = false
 
     // MsgSourceHelper 合并方法: static (msgInfo, String secXml, boolean) -> void
-    private val methodMergeSecNode by dexMethod {
-        matcher {
+    private val methodMergeSecNode by dexMethod(
+        sqlMethod {
+            returnType = "void"
+            paramCount = 3
             usingEqStrings("(?s)<sec_msg_node[^>]*>.*?</sec_msg_node>")
-            paramCount(3)
-            returnType("void")
-        }
-    }
+        },
+    )
 
     private val provider = WeChatInputBarMenuApi.IActionItemsProvider {
         if (mode != MODE_ACTIVE_MENU) return@IActionItemsProvider emptyList()

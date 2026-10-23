@@ -37,6 +37,8 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -567,24 +569,26 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
         val type: Field
     )
 
-    private val classItemFactory by dexClass(allowFailure = true) {
-        matcher {
+    private val classItemFactory by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.ItemFactoryNew", "initChattingItemConfig")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
-    private val methodMarkdownPreprocess by dexMethod(allowFailure = true) {
-        matcher {
+    private val methodMarkdownPreprocess by dexMethod(
+        sqlMethod {
             usingEqStrings(
                 "MicroMsg.ChattingItemMarkdownMvvm",
-                "[STREAM_TRACE] preDealData: msgId=%d, msgSvrId=%d, contentLen=%d, isStreaming=%b"
+                "[STREAM_TRACE] preDealData: msgId=%d, msgSvrId=%d, contentLen=%d, isStreaming=%b",
             )
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
-    private val classMsgInfoWrapper by dexClass {
-        matcher {
+    private val classMsgInfoWrapper by dexClass(
+        sqlClass {
             usingEqStrings("other", "null cannot be cast to non-null type com.tencent.mm.storage.MsgInfo")
-        }
-    }
+        },
+    )
 }

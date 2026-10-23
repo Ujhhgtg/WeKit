@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcess
@@ -42,12 +43,12 @@ object RemoveEmbeddedAds : SwitchFeature(), IResolveDex {
     }
 
     // 品牌服务 transfer 响应里的 ad_slot_data 清空。
-    private val methodBaseTransferRequestOnLoad by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.BaseTransferRequest")
+    private val methodBaseTransferRequestOnLoad by dexMethod(
+        sqlMethod {
             paramTypes("com.tencent.mm.plugin.brandservice.api.TransferResultInfo")
-        }
-    }
+            usingEqStrings("MicroMsg.BaseTransferRequest")
+        },
+    )
 
     private lateinit var protoField: Field
 

@@ -6,6 +6,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
@@ -16,21 +17,21 @@ object QuickRemoveQuote : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_quick_remove_quote_description
 
-    private val methodSupportAutoCompleteOnKey by dexMethod {
-        searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-        matcher {
+    private val methodSupportAutoCompleteOnKey by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.pluginsdk.ui.chat")
             name = "onKey"
             usingEqStrings("ChatFooterKtHelper", "supportAutoComplete err")
-        }
-    }
-    private val methodShowMsgQuoteContainer by dexMethod {
-        matcher {
+        },
+    )
+    private val methodShowMsgQuoteContainer by dexMethod(
+        sqlMethod {
             declaredClass = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
-            paramTypes("boolean", "boolean")
             returnType = "void"
+            paramTypes("boolean", "boolean")
             usingEqStrings("")
-        }
-    }
+        },
+    )
 
     override fun onEnable() {
         methodSupportAutoCompleteOnKey.hookBefore {

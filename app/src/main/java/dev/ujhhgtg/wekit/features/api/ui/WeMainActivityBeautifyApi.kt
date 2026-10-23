@@ -10,6 +10,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -27,12 +28,12 @@ object WeMainActivityBeautifyApi : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_we_main_activity_beautify_api_description
 
-    val methodDoOnCreate by dexMethod {
-        matcher {
+    val methodDoOnCreate by dexMethod(
+        sqlMethod {
             declaredClass = "com.tencent.mm.ui.MainTabUI"
             usingEqStrings("MicroMsg.LauncherUI.MainTabUI", "doOnCreate")
-        }
-    }
+        },
+    )
 
     /** Native host shared by home decorations; tab IDs are logical WeChat IDs. */
     class Home(val activity: Activity, val mainTabUI: Any, val pager: WxViewPager, val adapter: Any) {

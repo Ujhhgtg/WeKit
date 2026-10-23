@@ -4,6 +4,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -55,11 +56,11 @@ object AntiMomentsDelete : SwitchFeature(), IResolveDex {
     private const val SNS_INFO_STORAGE = "com.tencent.mm.plugin.sns.storage.SnsInfoStorage"
 
     // SnsInfoStorageLogic.insertSnsList(userName, srcType, snsObjects, maxSeq)
-    private val methodInsertSnsList by dexMethod {
-        matcher {
+    private val methodInsertSnsList by dexMethod(
+        sqlMethod {
             usingEqStrings("insertSnsList", "com.tencent.mm.plugin.sns.model.SnsInfoStorageLogic")
-        }
-    }
+        },
+    )
 
     // SnsInfoStorage.updateFilterTimeLine(whereSuffix): "UPDATE SnsInfo SET sourceType = sourceType & -3" + whereSuffix
     private val methodUpdateFilterTimeLine by dexMethod {
@@ -98,25 +99,25 @@ object AntiMomentsDelete : SwitchFeature(), IResolveDex {
     }
 
     // NetSceneSnsSync.processSnsDelAction(action, actionInfo, snsId, parentId, clientId, handler)
-    private val methodProcessSnsDelAction by dexMethod {
-        matcher {
+    private val methodProcessSnsDelAction by dexMethod(
+        sqlMethod {
             usingEqStrings("processSnsDelAction", "com.tencent.mm.plugin.sns.model.NetSceneSnsSync")
-        }
-    }
+        },
+    )
 
     // SnsResourceManager.cleanLocalResource(SnsInfo): deletes the moment's cached media
-    private val methodCleanLocalResource by dexMethod {
-        matcher {
+    private val methodCleanLocalResource by dexMethod(
+        sqlMethod {
             usingEqStrings("cleanLocalResource", "com.tencent.mm.plugin.sns.storage.SnsResourceManager")
-        }
-    }
+        },
+    )
 
     // SnsImproveStorage.deleteByLocalId(localId, snsId, createTime): removes the timeline UI row
-    private val methodImproveDeleteByLocalId by dexMethod {
-        matcher {
+    private val methodImproveDeleteByLocalId by dexMethod(
+        sqlMethod {
             usingEqStrings("deleteByLocalId", "com.tencent.mm.plugin.sns.ui.improve.repository.SnsImproveStorage")
-        }
-    }
+        },
+    )
 
     private val inInsertSnsList = ThreadLocal.withInitial { false }
     private val inFilterAbove = ThreadLocal.withInitial { false }

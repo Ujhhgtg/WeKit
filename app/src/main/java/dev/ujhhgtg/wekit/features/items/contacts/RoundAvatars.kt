@@ -13,6 +13,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.data.KvStore
@@ -35,7 +36,11 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
 
     private const val KEY_ROUND_AVATAR = "round_avatar_radius_factor"
 
-    private val ctorAvatarCreate by dexConstructor("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'workerScope' AND ms1.value = 'username' ORDER BY m.descriptor;""")
+    private val ctorAvatarCreate by dexConstructor(
+        sqlConstructor {
+            usingEqStrings("workerScope", "username")
+        },
+    )
     private val methodAvatarModify by dexMethod()
 
     private val radiusFactor: Float

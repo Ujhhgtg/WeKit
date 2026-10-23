@@ -60,6 +60,7 @@ import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
@@ -223,14 +224,14 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         }
     }
 
-    private val methodRemoveItemDecoration by dexMethod {
-        matcher {
+    private val methodRemoveItemDecoration by dexMethod(
+        sqlMethod {
             declaredClass = "androidx.recyclerview.widget.RecyclerView"
-            paramCount(1)
             returnType = "void"
+            paramCount = 1
             usingStrings("Cannot remove item decoration during a scroll  or layout")
-        }
-    }
+        },
+    )
 
     private var cornerRadiusDp by prefOption("floating_chat_header_corner_radius", DEFAULT_CORNER_RADIUS)
     private var sideMarginDp by prefOption("floating_chat_header_side_margin", DEFAULT_SIDE_MARGIN)

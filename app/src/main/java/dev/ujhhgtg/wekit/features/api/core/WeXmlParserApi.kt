@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.api.core
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -32,12 +33,12 @@ object WeXmlParserApi : ApiFeature(), IResolveDex {
         listeners.remove(listener)
     }
 
-    private val methodXmlParser by dexMethod {
-        searchPackages("com.tencent.mm.sdk.platformtools")
-        matcher {
+    private val methodXmlParser by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.sdk.platformtools")
             usingEqStrings("MicroMsg.SDK.XmlParser", "[ %s ]")
-        }
-    }
+        },
+    )
 
     override fun onEnable() {
         methodXmlParser.hookAfter {

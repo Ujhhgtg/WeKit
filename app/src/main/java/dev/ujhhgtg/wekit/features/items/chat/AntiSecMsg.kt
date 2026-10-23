@@ -4,6 +4,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
@@ -34,13 +35,13 @@ object AntiSecMsg : SwitchFeature(), IResolveDex {
 
     // 原始 sfn 检查: static (msgInfo) -> boolean, 含唯一的
     // ".msgsource.sec_msg_node.sfn" 字符串字面量
-    private val methodRawSfnCheck by dexMethod {
-        matcher {
-            usingEqStrings(".msgsource.sec_msg_node.sfn")
+    private val methodRawSfnCheck by dexMethod(
+        sqlMethod {
+            returnType = "boolean"
             paramCount = 1
-            returnType("boolean")
-        }
-    }
+            usingEqStrings(".msgsource.sec_msg_node.sfn")
+        },
+    )
 
     // 完整判定: 同类、static (msgInfo) -> boolean、内部调用原始 sfn 检查
     // (8.0.65 为 z, 8.0.67+ 为 A, 方法名不参与匹配)

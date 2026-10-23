@@ -11,6 +11,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
@@ -137,11 +138,11 @@ object BlockMessages : ClickableFeature(), IResolveDex {
     private const val TAG = "BlockMessages"
 
     /** `MessageSyncExtension.processAddMsg(AddMsg, …)`: parses, stores and notifies one synced message. */
-    private val methodProcessAddMsg by dexMethod {
-        matcher {
+    private val methodProcessAddMsg by dexMethod(
+        sqlMethod {
             usingEqStrings("processAddMsg insert db error")
-        }
-    }
+        },
+    )
 
     override fun onEnable() {
         BlockMessagesAutomation.store.snapshot()

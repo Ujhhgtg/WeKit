@@ -8,6 +8,8 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.FavInfoProto
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -38,18 +40,18 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
     private const val VOICE_DOWNLOAD_POLLS = 120
     private const val VOICE_DOWNLOAD_POLL_MS = 500L
 
-    private val classPluginFav by dexClass {
-        matcher {
+    private val classPluginFav by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.Fav.PluginFav", "init fav storage")
-        }
-    }
+        },
+    )
 
     /** `FavItemInfoStorage.getByLocalId(long)`; the WCDB storage implements the same interface method. */
-    private val methodFavStorageGetByLocalId by dexMethod {
-        matcher {
+    private val methodFavStorageGetByLocalId by dexMethod(
+        sqlMethod {
             usingEqStrings("MicroMsg.Fav.FavItemInfoStorage", "getBtLocalId, but db is null, return")
-        }
-    }
+        },
+    )
 
     /** `FavItemInfoStorage.getFirstPageList(type, limit, blockList, blockTypes, filter)`: newest first; type -1 is all. */
     private val methodFavStorageGetFirstPage by dexMethod {

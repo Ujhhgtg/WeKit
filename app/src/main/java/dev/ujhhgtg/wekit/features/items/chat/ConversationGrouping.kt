@@ -130,6 +130,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -1191,7 +1192,12 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
 
     private val fieldRecyclerLoading by dexField()
 
-    private val methodOnTabCreate by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.MainUI' AND ms1.value = 'onTabCreate, %d' AND m.class_descriptor = 'Lcom/tencent/mm/ui/conversation/MainUI;' ORDER BY m.descriptor;""")
+    private val methodOnTabCreate by dexMethod(
+        sqlMethod {
+            declaredClass = "com.tencent.mm.ui.conversation.MainUI"
+            usingEqStrings("MicroMsg.MainUI", "onTabCreate, %d")
+        },
+    )
 
     override fun resolveDex(dexKit: DexKitBridge) {
         DexResolutionContext.ensureResolved(WeConversationListViewApi.classConversationRecyclerAdapter)

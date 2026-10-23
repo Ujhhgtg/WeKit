@@ -4,6 +4,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -23,9 +24,9 @@ object WeNetSceneApi : ApiFeature(), IResolveDex {
         methodAddNetSceneToQueue.method.invoke(queue, netScene, 0)
     }
 
-    val methodAddNetSceneToQueue by dexMethod {
-        matcher {
+    val methodAddNetSceneToQueue by dexMethod(
+        sqlMethod {
             usingEqStrings("MicroMsg.NetSceneQueue", "forbid in waiting: type=", "forbid in running: type=")
-        }
-    }
+        },
+    )
 }

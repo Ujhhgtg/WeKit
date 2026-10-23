@@ -26,6 +26,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.DexClassDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -270,11 +271,12 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
         }
     }
 
-    private val classMvvmConversationAdapter by dexClass(allowFailure = true) {
-        matcher {
+    private val classMvvmConversationAdapter by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.ConversationAdapter.MvvmConversationAdapter")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     override fun onEnable() {
         hookAdapter(classConversationAdapter)

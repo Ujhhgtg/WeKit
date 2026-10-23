@@ -30,6 +30,8 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -100,13 +102,25 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
     // container only sees MOVE events after it intercepts them — which is why we must hook
     // onInterceptTouchEvent here rather than rely on an OnTouchListener alone. Scoping the hook to
     // this one class (instead of global ViewGroup) keeps the blast radius tiny.
-    private val classChattingItemContainer by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.ChattingItemContainer' AND ms1.value = 'warn!!! cacheSize:%s sysSize:%s' AND (c.descriptor LIKE 'Lcom/tencent/mm/ui/chatting/viewitems/%') ORDER BY c.descriptor;""")
+    private val classChattingItemContainer by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.ui.chatting.viewitems")
+            usingEqStrings("MicroMsg.ChattingItemContainer", "warn!!! cacheSize:%s sysSize:%s")
+        },
+    )
 
     // ChattingUIFragment installs this listener on the chat list. On ACTION_DOWN it asks the
     // current ChatFooter to close the keyboard/panel, then returns false so normal list handling
     // continues. A blank-area DOWN claimed by our row never reaches that listener, so resolve the
     // exact ChatFooter call and mirror it at the point where we claim the stream.
-    private val methodChatListOnTouch by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'onTouch: touch down' AND ms1.value = 'onTouch: touch up' AND m.return_descriptor = 'Z' AND m.param_descriptors = 'Landroid/view/View;,Landroid/view/MotionEvent;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/%') ORDER BY m.descriptor;""")
+    private val methodChatListOnTouch by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui.chatting")
+            returnType = "boolean"
+            paramTypes("android.view.View", "android.view.MotionEvent")
+            usingEqStrings("onTouch: touch down", "onTouch: touch up")
+        },
+    )
 
     private val methodHideChatInput by dexMethod()
 
@@ -647,7 +661,17 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
         QuickRevokeAndEdit.quickRevokeAndEdit(view.context, msgInfo)
     }
 
-    private val classChattingUiFootComponent by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value = 'MicroMsg.ChattingUI.FootComponent' AND ms1.value = 'onNotifyChange event %s talker %s' AND (c.descriptor LIKE 'Lcom/tencent/mm/ui/chatting/component/%') ORDER BY c.descriptor;""")
+    private val classChattingUiFootComponent by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.ui.chatting.component")
+            usingEqStrings("MicroMsg.ChattingUI.FootComponent", "onNotifyChange event %s talker %s")
+        },
+    )
 
-    private val methodGetMsgInfo by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'ItemDataTag' AND ms1.value = 'getCurrentMsg2 err' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/ui/chatting/viewitems/%') ORDER BY m.descriptor;""")
+    private val methodGetMsgInfo by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui.chatting.viewitems")
+            usingEqStrings("ItemDataTag", "getCurrentMsg2 err")
+        },
+    )
 }

@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -27,21 +28,31 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
     private val methodSendAppMsg by dexMethod()  // k0.J(...)
     private val fieldQuoteItem by dexField()
     private val fieldQuoteMsgSource by dexField()
-    private val classAppMsgContent by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value LIKE '%<appmsg appid="%' AND ms1.value LIKE '%parse amessage xml failed%' ORDER BY c.descriptor;""")
-    private val classAppMsgLogic by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN method_strings ms1 ON ms1.method = cm.descriptor WHERE ms0.value LIKE '%MicroMsg.AppMsgLogic%' AND ms1.value LIKE '%summerbig sendAppMsg attachFilePath%' ORDER BY c.descriptor;""")
+    private val classAppMsgContent by dexClass(
+        sqlClass {
+            usingStrings("<appmsg appid=\"", "parse amessage xml failed")
+        },
+    )
+    private val classAppMsgLogic by dexClass(
+        sqlClass {
+            usingStrings("MicroMsg.AppMsgLogic", "summerbig sendAppMsg attachFilePath")
+        },
+    )
 
     private const val TAG = "WeAppMsgApi"
 
     override fun resolveDex(dexKit: DexKitBridge) {
-        methodParseXml.find(dexKit, true) {
-            matcher {
-                declaredClass = classAppMsgContent.data.name
-                modifiers = Modifier.PUBLIC or Modifier.STATIC
-                paramTypes(String::class.java.name)
-                returnType = classAppMsgContent.data.name
-                usingStrings("parse msg failed")
-            }
-        }
+        methodParseXml.setDescriptor(
+            dexKit.findMethod {
+                matcher {
+                    declaredClass = classAppMsgContent.data.name
+                    modifiers = Modifier.PUBLIC or Modifier.STATIC
+                    paramTypes(String::class.java.name)
+                    returnType = classAppMsgContent.data.name
+                    usingStrings("parse msg failed")
+                }
+            }.first()
+        )
 
         methodSendAppMsg.find(dexKit) {
             matcher {

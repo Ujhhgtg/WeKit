@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.models.ChatroomSyncStateReadResult
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.api.core.models.WeChatroomSyncState
@@ -34,11 +35,11 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_we_database_api_description
 
-    val classMmKernel by dexClass {
-        matcher {
+    val classMmKernel by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.MMKernel", "Kernel not null, has initialized.")
-        }
-    }
+        },
+    )
     val methodGetStorage by dexMethod {
         matcher {
             declaredClass(classMmKernel.data.name)
@@ -47,25 +48,22 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             usingStrings("mCoreStorage not initialized!")
         }
     }
-    private val classCoreStorage by dexClass {
-        matcher {
-            usingEqStrings(
-                "MMKernel.CoreStorage",
-                "CheckData path[%s] blocksize:%s blockcount:%s availcount:%s"
-            )
-        }
-    }
-    private val classConfigStorage by dexClass {
-        searchPackages("com.tencent.mm.storage")
-        matcher {
+    private val classCoreStorage by dexClass(
+        sqlClass {
+            usingEqStrings("MMKernel.CoreStorage", "CheckData path[%s] blocksize:%s blockcount:%s availcount:%s")
+        },
+    )
+    private val classConfigStorage by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.storage")
             usingEqStrings("MicroMsg.ConfigStorage", "shouldProcessEvent db is close :%s")
-        }
-    }
-    private val classSqliteDbWrapper by dexClass {
-        matcher {
+        },
+    )
+    private val classSqliteDbWrapper by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.SqliteDB", "sql is null ")
-        }
-    }
+        },
+    )
     val methodSqliteWrapperRawQuery by dexMethod(allowFailure = true) {
         matcher {
             modifiers = Modifier.PUBLIC

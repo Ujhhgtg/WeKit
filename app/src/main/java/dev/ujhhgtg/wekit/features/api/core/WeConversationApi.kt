@@ -7,6 +7,8 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -33,12 +35,12 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 //    private const val ATTR_FLAG_8071_8072_RED_PACKET_BITS = 33280
 //    private const val TABLE_RCONVERSATION = "rconversation"
 //    private const val TABLE_ECS_CONVERSATION_RECORD = "EcsConversationRecord"
-    val classConversationStorage by dexClass {
-        searchPackages("com.tencent.mm.storage")
-        matcher {
+    val classConversationStorage by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.storage")
             usingEqStrings("rconversation", "PRAGMA table_info( rconversation)")
-        }
-    }
+        },
+    )
     val methodUpdateUnreadByTalker by dexMethod {
         matcher {
             declaredClass(classConversationStorage.data.name)
@@ -103,47 +105,55 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 //            paramTypes(methodGetConvByName.method.returnType, String::class.java)
 //        }
 //    }
-    val methodChatroomStorageGetMemberCount by dexMethod {
-        searchPackages("com.tencent.mm.storage")
-        matcher {
+    val methodChatroomStorageGetMemberCount by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.storage")
             usingEqStrings("MicroMsg.ChatroomStorage", "[getMemberCount] cost:%sms")
-        }
-    }
-    private val classChatroomMember by dexClass {
-        searchPackages("com.tencent.mm.storage")
-        matcher {
+        },
+    )
+    private val classChatroomMember by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.storage")
             usingEqStrings("MicroMsg.ChatRoomMember", "service is null")
-        }
-    }
-    private val methodSetDnd by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.OpenImOpLogLogic", "OpenImOpLogLogic OpenIMModContactMuteOplog username:%s switch add")
-        }
-    }
-    private val methodSetNoDnd by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.OpenImOpLogLogic", "OpenImOpLogLogic OpenIMModContactMuteOplog username:%s switch cancel")
-        }
-    }
+        },
+    )
+    private val methodSetDnd by dexMethod(
+        sqlMethod {
+            usingEqStrings(
+                "MicroMsg.OpenImOpLogLogic",
+                "OpenImOpLogLogic OpenIMModContactMuteOplog username:%s switch add",
+            )
+        },
+    )
+    private val methodSetNoDnd by dexMethod(
+        sqlMethod {
+            usingEqStrings(
+                "MicroMsg.OpenImOpLogLogic",
+                "OpenImOpLogLogic OpenIMModContactMuteOplog username:%s switch cancel",
+            )
+        },
+    )
 
     // RoomServiceFactory.get(roomId) (`ed0.e.hj` on 8.0.76) -> the room service for that room's
     // suffix (`@chatroom`, `@im.chatroom`, ...), which builds the room oplog operations. Anchored
     // on the log it emits for a room id without a suffix.
-    private val methodGetRoomService by dexMethod(allowFailure = true) {
-        matcher {
+    private val methodGetRoomService by dexMethod(
+        sqlMethod {
             usingEqStrings("MicroMsg.RoomServiceFactory", "get NotNullChatRoom %s")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     // RoomOpLogCallbackFactory.request() (`com.tencent.mm.roomsdk.model.factory.f.b`) — hands the
     // operation built by the room service to the oplog queue, i.e. actually sends it. 8.0.69+ logs
     // "request oplog with result %s" and older builds "request oplog %s", so match the prefix.
-    private val methodRoomOpLogRequest by dexMethod(allowFailure = true) {
-        matcher {
-            usingStrings("MicroMsg.RoomCallbackFactory", "request oplog")
+    private val methodRoomOpLogRequest by dexMethod(
+        sqlMethod {
             paramCount = 0
-        }
-    }
+            usingStrings("MicroMsg.RoomCallbackFactory", "request oplog")
+        },
+        allowFailure = true,
+    )
 
     // ConversationStorage.M(String) / isPlacedTop — returns true when the conversation's flag
     // has the "placed top" high bits set. Anchored by the string it logs on a null/empty talker.
@@ -183,14 +193,14 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     // ContactStorageLogic.toModContactOplog(z3) -> the `tn4` modContact proto WeChat sends as
     // oplog cmd 2 to sync a contact's flags (mute/top/...) to the server. Reusing WeChat's own
     // builder guarantees the ~80-field proto (including BitMask/BitVal and remark) is byte-perfect.
-    private val methodBuildModContactOplog by dexMethod {
-        matcher {
+    private val methodBuildModContactOplog by dexMethod(
+        sqlMethod {
             usingEqStrings(
                 "MicroMsg.ContactStorageLogic",
-                "oplog modContact user:%s remark:%s BitVal:%d BitValue2:%s isInConvBox:%s isTop:%s isMute:%s"
+                "oplog modContact user:%s remark:%s BitVal:%d BitValue2:%s isInConvBox:%s isTop:%s isMute:%s",
             )
-        }
-    }
+        },
+    )
     val methodNotifyConversationChanged by dexMethod(allowFailure = true) {
         matcher {
             declaredClass(classConversationStorage.data.superClass!!.name)

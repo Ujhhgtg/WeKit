@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -45,12 +46,12 @@ object CustomSourceApp : ClickableFeature(), IResolveDex {
 
     private data class SourceApp(val appId: String, val appName: String)
 
-    private val methodSnsUploadUIInitView by dexMethod {
-        matcher {
+    private val methodSnsUploadUIInitView by dexMethod(
+        sqlMethod {
             declaredClass = "com.tencent.mm.plugin.sns.ui.SnsUploadUI"
             usingEqStrings("initView", "customizeInputView", "com.tencent.mm.plugin.sns.ui.SnsUploadUI")
-        }
-    }
+        },
+    )
 
     private var appId by prefOption("custom_app_id", "")
     private var appName by prefOption("custom_app_name", "")

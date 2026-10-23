@@ -4,6 +4,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcess
@@ -49,12 +50,12 @@ object SpoofHostVersion : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val ctorCgiLaunchWxaAppFunc1122 by dexConstructor {
-        matcher {
+    private val ctorCgiLaunchWxaAppFunc1122 by dexConstructor(
+        sqlConstructor {
             usingEqStrings(
                 "MicroMsg.AppBrand.CgiLaunchWxaApp|func:1122",
-                "<init> cgiHash[%d], username[%s] appId[%s] sync[%b] sessionId[%s] instanceId[%s] libVersion[%d], source:%s, launchMode:%d, migrate:%b, fallback:%b"
+                "<init> cgiHash[%d], username[%s] appId[%s] sync[%b] sessionId[%s] instanceId[%s] libVersion[%d], source:%s, launchMode:%d, migrate:%b, fallback:%b",
             )
-        }
-    }
+        },
+    )
 }

@@ -31,6 +31,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
@@ -96,17 +97,17 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
     private val camera2HookBypass = ThreadLocal.withInitial { false }
 
-    private val methodLaunchVoipPage by dexMethod {
-        matcher {
+    private val methodLaunchVoipPage by dexMethod(
+        sqlMethod {
             usingEqStrings("MicroMsg.VoIPMP.Launcher", "launch page ")
-        }
-    }
+        },
+    )
 
-    private val methodStartCamera by dexMethod {
-        matcher {
+    private val methodStartCamera by dexMethod(
+        sqlMethod {
             usingEqStrings("MicroMsg.ILinkVoIPCameraHelper", "old startCamera abandon")
-        }
-    }
+        },
+    )
 
     private val isVideoPortrait: Boolean
         get() {

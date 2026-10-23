@@ -4,6 +4,7 @@ import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.classNetSceneTenpayRemittanceGen
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.onEnable
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.pendingPlaceOrders
@@ -30,15 +31,15 @@ object WeTransferApi : ApiFeature(), IResolveDex {
     private const val TAG = "WeTransferApi"
 
     /** com.tencent.mm.plugin.remittance.model.q0 — NetSceneTenpayRemittanceGen (transferplaceorder). */
-    val classNetSceneTenpayRemittanceGen by dexClass {
-        searchPackages("com.tencent.mm.plugin.remittance.model")
-        matcher {
+    val classNetSceneTenpayRemittanceGen by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.plugin.remittance.model")
             usingEqStrings(
                 "Micromsg.NetSceneTenpayRemittanceGen",
-                "payScene: %s, channel: %s dynamicCodeUrl: %s mch_name: %s nickname: %s receiver_true_name %s placeorder_reserves: %s unpayType: %s cancel_outtradeno:%s cancel_reason:%s placeorderAttach:%s"
+                "payScene: %s, channel: %s dynamicCodeUrl: %s mch_name: %s nickname: %s receiver_true_name %s placeorder_reserves: %s unpayType: %s cancel_outtradeno:%s cancel_reason:%s placeorderAttach:%s",
             )
-        }
-    }
+        },
+    )
 
     /**
      * Maps an in-flight [classNetSceneTenpayRemittanceGen] instance we created to the deferred

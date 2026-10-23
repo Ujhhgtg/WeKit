@@ -17,6 +17,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
@@ -58,11 +59,11 @@ object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDa
         $$"$fileCount"
     )
 
-    private val methodChatFooterCanSend by dexMethod {
-        matcher {
+    private val methodChatFooterCanSend by dexMethod(
+        sqlMethod {
             usingEqStrings("MicroMsg.ChatFooter", "canSend true ! sendBtn is visible")
-        }
-    }
+        },
+    )
 
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)

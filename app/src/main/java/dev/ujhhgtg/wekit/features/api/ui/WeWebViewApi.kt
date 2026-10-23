@@ -56,8 +56,32 @@ object WeWebViewApi : ApiFeature(), IResolveDex {
     /** A snapshot of all currently-live tracked WebViews (dead entries already evicted by GC). */
     fun snapshot(): List<Any> = synchronized(lock) { tracked.filterNotNull() }
 
-    val xwebOnPageFinished by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = 'V' AND m.param_descriptors = 'Lcom/tencent/xweb/WebView;,Ljava/lang/String;,Landroid/graphics/Bitmap;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/appbrand/page/%') ORDER BY m.descriptor;""")
-    val androidOnPageFinished by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = 'V' AND m.param_count = 2 AND (m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/appbrand/page/%') ORDER BY m.descriptor;""")
+    val xwebOnPageFinished by dexMethod {
+        searchPackages("com.tencent.mm.plugin.appbrand.page")
+        matcher {
+            declaredClass {
+                usingEqStrings(
+                    "MicroMsg.AppBrandWebView",
+                    "onReceivedHttpError, WebResourceRequest url = %s, ErrWebResourceResponse mimeType = %s, status = %d"
+                )
+                superClass {
+                    className("com.tencent.xweb", StringMatchType.StartsWith)
+                }
+            }
+            paramTypes("com.tencent.xweb.WebView", "java.lang.String", "android.graphics.Bitmap")
+            returnType = "void"
+        }
+    }
+    val androidOnPageFinished by dexMethod {
+        searchPackages("com.tencent.mm.plugin.appbrand.page")
+        matcher {
+            declaredClass {
+                superClass = "android.webkit.WebViewClient"
+            }
+            paramCount = 2
+            returnType = "void"
+        }
+    }
 
     override fun onEnable() {
         xwebOnPageFinished.hookAfter {

@@ -27,6 +27,7 @@ import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -111,18 +112,18 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
     private fun currentMenuItems(): List<MenuItem> =
         providers.flatMap(IMenuItemsProvider::getMenuItems)
 
-    val methodCreateMenu by dexMethod {
-        searchPackages("com.tencent.mm.ui.chatting.viewitems")
-        matcher {
+    val methodCreateMenu by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui.chatting.viewitems")
             usingEqStrings("MicroMsg.ChattingItem", "msg is null!")
-        }
-    }
-    private val methodSelectMenuItem by dexMethod {
-        searchPackages("com.tencent.mm.ui.chatting.viewitems")
-        matcher {
+        },
+    )
+    private val methodSelectMenuItem by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui.chatting.viewitems")
             usingEqStrings("MicroMsg.ChattingItem", "context item select failed, null dataTag")
-        }
-    }
+        },
+    )
 
     private const val MULTI_SELECT_BAR = "com.tencent.mm.ui.chatting.ChattingFooterMoreBtnBar"
 

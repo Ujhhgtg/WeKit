@@ -14,6 +14,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookHandle
@@ -61,21 +62,18 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
 
     private val fakeResIdToResMap = mutableIntObjectMapOf<Drawable>()
 
-    val methodAddItem by dexMethod {
-        searchPackages("com.tencent.mm.ui")
-        matcher {
-            usingEqStrings(
-                "MicroMsg.PlusSubMenuHelper",
-                "dyna plus config is null, we use default one"
-            )
-        }
-    }
-    val methodHandleItemClick by dexMethod {
-        searchPackages("com.tencent.mm.ui")
-        matcher {
+    val methodAddItem by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui")
+            usingEqStrings("MicroMsg.PlusSubMenuHelper", "dyna plus config is null, we use default one")
+        },
+    )
+    val methodHandleItemClick by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui")
             usingEqStrings("MicroMsg.PlusSubMenuHelper", "processOnItemClick")
-        }
-    }
+        },
+    )
     private val classMenuItemData by dexClass {
         searchPackages("com.tencent.mm.ui")
         matcher {

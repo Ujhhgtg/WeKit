@@ -9,6 +9,7 @@ import androidx.core.view.isVisible
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -30,7 +31,11 @@ object ForceTabletMode : SwitchFeature(), IResolveDex {
 //            usingEqStrings("MicroMsg.UIUtils", "isRoyoleFoldableDevice!!!")
 //        }
 //    }
-    private val methodOtherDeviceLoginButtonIsVisible by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.value = 'loginAsOtherDeviceBtn' ORDER BY m.descriptor;""")
+    private val methodOtherDeviceLoginButtonIsVisible by dexMethod(
+        sqlMethod {
+            usingEqStrings("loginAsOtherDeviceBtn")
+        },
+    )
 //    private val methodCgiCheckLoginAsPad by dexMethod {
 //        matcher {
 //            usingEqStrings("MicroMsg.CgiCheckLoginAsPad", "/cgi-bin/micromsg-bin/checkloginaspad")

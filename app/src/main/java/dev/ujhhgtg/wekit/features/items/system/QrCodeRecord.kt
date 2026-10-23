@@ -7,6 +7,7 @@ import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -123,7 +124,11 @@ object QrCodeRecord : ClickableFeature(), IResolveDex, WeHomeScreenPopupMenuApi.
         KvStore.remove(KEY_RECORDS)
     }
 
-    val methodQBarString by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.QBarStringHandler' AND ms1.value = 'key_offline_scan_show_tips' ORDER BY m.descriptor;""")
+    val methodQBarString by dexMethod(
+        sqlMethod {
+            usingEqStrings("MicroMsg.QBarStringHandler", "key_offline_scan_show_tips")
+        },
+    )
 
     override fun resolveDex(dexKit: DexKitBridge) {
     }

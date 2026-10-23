@@ -6,6 +6,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.bool
@@ -18,15 +19,12 @@ object EnableWebViewFeatures : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_enable_web_view_features_description
 
-    private val methodInitWebViewFeatures by dexMethod {
-        matcher {
+    private val methodInitWebViewFeatures by dexMethod(
+        sqlMethod {
             declaredClass = "com.tencent.mm.plugin.webview.ui.tools.WebViewUI"
-            usingEqStrings(
-                "banRightBtn:%b, showFixToolsBtn:%b",
-                "MicroMsg.WebViewFtsQuickHelper"
-            )
-        }
-    }
+            usingEqStrings("banRightBtn:%b, showFixToolsBtn:%b", "MicroMsg.WebViewFtsQuickHelper")
+        },
+    )
 
     override fun onEnable() {
         WebViewUI::class.reflekt().apply {

@@ -17,6 +17,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
@@ -184,11 +185,11 @@ object SuperConversationPinning : SwitchFeature(),
 //        }
 //    }
 
-    private val classConversation by dexClass {
-        matcher {
+    private val classConversation by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.Conversation", "[%s}]get mmkv editmsg is [%s],get conv editmsg is [%s]")
-        }
-    }
+        },
+    )
 
     private val classMvvmConversationAdapter by dexClass {
         matcher {

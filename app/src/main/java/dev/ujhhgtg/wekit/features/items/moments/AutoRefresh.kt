@@ -27,6 +27,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -102,11 +103,11 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
     private val pendingRefresh = AtomicReference<RefreshRequest?>()
     private val submittingRefresh = ThreadLocal<RefreshRequest>()
 
-    private val methodGetSnsCore by dexMethod {
-        matcher {
+    private val methodGetSnsCore by dexMethod(
+        sqlMethod {
             usingEqStrings("getCore", "com.tencent.mm.plugin.sns.model.SnsCore")
-        }
-    }
+        },
+    )
 
     private val methodDoFpList by dexMethod {
         matcher {

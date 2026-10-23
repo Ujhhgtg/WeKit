@@ -37,7 +37,38 @@ object RemoveMenuLimits : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val methodGetMenuItemVisibility1 by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = 'Lcom/tencent/mm/plugin/appbrand/menu;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/appbrand/menu/%') ORDER BY m.descriptor;""")
+    private val methodGetMenuItemVisibility1 by dexMethod {
+        searchPackages("com.tencent.mm.plugin.appbrand.menu")
 
-    private val methodGetMenuItemVisibility2 by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.return_descriptor = 'Lcom/tencent/mm/plugin/appbrand/menu;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/appbrand/menu/%') ORDER BY m.descriptor;""")
+        matcher {
+            declaredClass {
+                superClass {
+                    modifiers(AccessFlagsMatcher(Modifier.ABSTRACT))
+                }
+
+                addMethod {
+                    usingNumbers(39)
+                }
+            }
+
+            returnType("com.tencent.mm.plugin.appbrand.menu", StringMatchType.Contains)
+        }
+    }
+
+    private val methodGetMenuItemVisibility2 by dexMethod {
+        searchPackages("com.tencent.mm.plugin.appbrand.menu")
+        matcher {
+            declaredClass {
+                superClass {
+                    modifiers(AccessFlagsMatcher(Modifier.ABSTRACT))
+                }
+
+                addMethod {
+                    usingNumbers(30)
+                }
+            }
+
+            returnType("com.tencent.mm.plugin.appbrand.menu", StringMatchType.Contains)
+        }
+    }
 }

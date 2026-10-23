@@ -18,6 +18,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -85,23 +86,23 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
      * HistoryMsgTongueComponent 的初始化方法 (8.0.65 叫 a(), 8.0.76 叫 b()):
      * 在这里把组件实例与它的气泡 View 关联起来, 用稳定日志/追踪字符串锚定。
      */
-    private val methodComponentInit by dexMethod {
-        searchPackages("com.tencent.mm.ui.chatting.component")
-        matcher {
+    private val methodComponentInit by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui.chatting.component")
             usingStrings("HistoryMsgTongueComponent", "onChattingInit")
-        }
-    }
+        },
+    )
 
     /**
      * 微信存储的全量消息数: 8.0.65 是 f8.Xa, 8.0.76 是 f9.S7, 共用同一日志字符串
      * ("select msgCount from rconversation")。滚进历史后 adapter 只保留已加载窗口,
      * 只有这个存储计数能给出"最后一条消息"的全量位置; 微信每次加载/更新舌头都会调它。
      */
-    private val methodGetMsgCount by dexMethod {
-        matcher {
+    private val methodGetMsgCount by dexMethod(
+        sqlMethod {
             usingEqStrings("MicroMsg.MsgInfoStorage", "getMsgCount conversationStorage.getMsgCountByUsername count:%d")
-        }
-    }
+        },
+    )
 
     /**
      * HistoryMsgTongueComponent.m0/p0 (locationByMsgId) —— 「x条新消息」点击的完整加载链路:

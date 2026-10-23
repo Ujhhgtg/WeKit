@@ -15,6 +15,8 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -36,15 +38,12 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
     private var messageListDirectJump by prefOption("chat_quoted_direct_jump_message_list", true)
     private var inputBoxDirectJump by prefOption("chat_quoted_direct_jump_input_box", true)
 
-    private val methodClickEvent by dexMethod {
-        searchPackages("com.tencent.mm.ui.chatting.viewitems")
-        matcher {
-            usingEqStrings(
-                "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
-                "handleItemClickEvent,quotedMsg is null!"
-            )
-        }
-    }
+    private val methodClickEvent by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui.chatting.viewitems")
+            usingEqStrings("MicroMsg.msgquote.QuoteMsgSourceClickLogic", "handleItemClickEvent,quotedMsg is null!")
+        },
+    )
     private val methodClickToPositionEvent by dexMethod {
         matcher {
             declaredClass(methodClickEvent.data.declaredClassName)
@@ -63,11 +62,12 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
             )
         }
     }
-    private val classEnumQuoteJumpToPositionSource by dexClass(allowFailure = true) {
-        matcher {
+    private val classEnumQuoteJumpToPositionSource by dexClass(
+        sqlClass {
             usingEqStrings("QuoteLongClickFromQuoteView", "QuoteClickFromTextPreviewLocateView")
-        }
-    }
+        },
+        allowFailure = true,
+    )
     override fun onEnable() {
         methodClickEvent.hookBefore {
             val isInputBox = args[1] == null

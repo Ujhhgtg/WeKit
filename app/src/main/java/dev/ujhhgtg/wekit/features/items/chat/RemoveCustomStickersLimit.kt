@@ -6,6 +6,8 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.int
@@ -35,11 +37,11 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val classMmkv by dexClass {
-        matcher {
+    private val classMmkv by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
-        }
-    }
+        },
+    )
 
     private val methodGetMmkv by dexMethod {
         matcher {
@@ -48,11 +50,11 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val classCgiBack by dexClass {
-        matcher {
+    private val classCgiBack by dexClass(
+        sqlClass {
             usingEqStrings("CgiBack{errType=")
-        }
-    }
+        },
+    )
 
     private val methodCreateCgiBack by dexMethod {
         matcher {
@@ -63,24 +65,24 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val methodAddEmojiOnSceneEnd by dexMethod {
-        matcher {
+    private val methodAddEmojiOnSceneEnd by dexMethod(
+        sqlMethod {
             usingEqStrings("CgiBackupEmojiOperate onResult: errType=")
-        }
-    }
+        },
+    )
 
-    private val methodNetSceneBackupEmojiOperateOnGYNetEnd by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.emoji.NetSceneBackupEmojiOperate", "errType:%d, errCode:%d")
+    private val methodNetSceneBackupEmojiOperateOnGYNetEnd by dexMethod(
+        sqlMethod {
             name = "onGYNetEnd"
-        }
-    }
+            usingEqStrings("MicroMsg.emoji.NetSceneBackupEmojiOperate", "errType:%d, errCode:%d")
+        },
+    )
 
-    private val methodChattingUiEmoji by dexMethod {
-        matcher {
+    private val methodChattingUiEmoji by dexMethod(
+        sqlMethod {
             usingEqStrings("addToCustom. over max size.")
-        }
-    }
+        },
+    )
 
     private val methodConditionallyShowDialog by dexMethod {
         matcher {

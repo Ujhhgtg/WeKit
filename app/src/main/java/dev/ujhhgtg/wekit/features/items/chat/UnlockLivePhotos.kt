@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -21,6 +22,8 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -63,18 +66,58 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
         }
 
     private val classCore by dexClass { matcher { className = CORE } }
-    private val classWrapper by dexClass("""SELECT ms.method_class AS descriptor FROM method_strings ms WHERE ms.value IN ('MicroMsg.MMLivePhotoCore', 'initCore >> init result: ', 'getLivePhotoMediaData >> parse data json error') GROUP BY ms.method_class HAVING COUNT(DISTINCT ms.value) = 3 ORDER BY ms.method_class;""")
+    private val classWrapper by dexClass(
+        sqlClass {
+            usingEqStrings(
+                "MicroMsg.MMLivePhotoCore",
+                "initCore >> init result: ",
+                "getLivePhotoMediaData >> parse data json error",
+            )
+        },
+    )
     private val fieldCore by dexField()
     private val fieldCoreVersion by dexField()
     private val fieldSysVersion by dexField()
     private val fieldSupport by dexField()
     private val fieldSnsSave by dexField()
 
-    private val methodExpt by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('V2GetExpt result[%s] exptId[%d] key[%s] defStr[%s] cost[%d]') AND m.return_descriptor = 'Ljava/lang/String;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
-    private val methodMultiExpt by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('V2GetMulitExpt result[%s] key[%s] def[%s] cost[%d] hadReport[%b %b] exptId[%d]') AND m.return_descriptor = 'Ljava/lang/String;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 1 ORDER BY ms.method;""")
-    private val methodRepairerGet by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('RepairerConfigThread', 'ValueStrategy_', 'String', 'Int', 'Long', 'Float', 'key', 'defaultValue') AND m.return_descriptor = 'Ljava/lang/Object;' GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 8 ORDER BY ms.method;""")
-    private val methodRepairerStrategy by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('RepairerConfigThread', 'ValueStrategy_', 'keyObj') AND m.return_descriptor = 'I' AND m.param_count = 1 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 3 ORDER BY ms.method;""")
-    private val methodSnsPublish by dexMethod("""SELECT DISTINCT ms.method AS method FROM method_strings ms JOIN methods m ON m.descriptor = ms.method WHERE ms.value IN ('enablePublishLivePhoto', 'SnsLivePhoto.ServerPublishConfig') AND m.return_descriptor = 'Z' AND m.param_count = 0 GROUP BY ms.method HAVING COUNT(DISTINCT ms.value) = 2 ORDER BY ms.method;""")
+    private val methodExpt by dexMethod(
+        sqlMethod {
+            returnType = "java.lang.String"
+            paramTypes("java.lang.String", "java.lang.String", "boolean")
+            usingEqStrings("V2GetExpt result[%s] exptId[%d] key[%s] defStr[%s] cost[%d]")
+        },
+    )
+    private val methodMultiExpt by dexMethod(
+        sqlMethod {
+            returnType = "java.lang.String"
+            paramTypes("java.lang.String", "java.lang.String", "boolean", "boolean")
+            usingEqStrings("V2GetMulitExpt result[%s] key[%s] def[%s] cost[%d] hadReport[%b %b] exptId[%d]")
+        },
+    )
+    private val methodRepairerGet by dexMethod {
+        matcher {
+            declaredClass { usingEqStrings("RepairerConfigThread", "ValueStrategy_") }
+            usingEqStrings("String", "Int", "Long", "Float", "key", "defaultValue")
+            paramTypes("java.lang.String", "java.lang.Object")
+            returnType = "java.lang.Object"
+        }
+    }
+    private val methodRepairerStrategy by dexMethod {
+        matcher {
+            declaredClass { usingEqStrings("RepairerConfigThread") }
+            usingEqStrings("ValueStrategy_", "keyObj")
+            paramCount = 1
+            returnType = "int"
+        }
+    }
+    private val methodSnsPublish by dexMethod(
+        sqlMethod {
+            returnType = "boolean"
+            paramCount = 0
+            usingEqStrings("enablePublishLivePhoto", "SnsLivePhoto.ServerPublishConfig")
+        },
+    )
 
     override fun resolveDex(dexKit: DexKitBridge) {
         val fields = classWrapper.data.fields.filter { Modifier.isStatic(it.modifiers) }
@@ -217,7 +260,7 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
         showComposeDialog(context) {
             var forced by remember { mutableStateOf(forceWeKitBackend) }
             var oplusCompatible by remember { mutableStateOf(oplusCompatibility) }
-            var vivoMode by remember { mutableStateOf(vivoCompatibility) }
+            var vivoMode by remember { mutableIntStateOf(vivoCompatibility) }
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_unlock_live_photos_name)) },
                 text = {

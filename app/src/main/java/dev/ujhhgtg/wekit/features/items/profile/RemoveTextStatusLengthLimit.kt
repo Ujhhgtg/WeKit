@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import org.luckypray.dexkit.DexKitBridge
@@ -18,7 +19,15 @@ object RemoveTextStatusLengthLimit : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.PROFILE)
     override val descriptionRes = R.string.feature_remove_text_status_length_limit_description
 
-    private val methodStatusTextChanged by dexMethod("""SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor JOIN method_strings ms1 ON ms1.method = m.descriptor WHERE ms0.value = 'MicroMsg.TextStatus.TextStatusDoWhatActivityV2' AND ms1.value = 'afterTextChanged inputCount:' AND m.name = 'afterTextChanged' AND m.return_descriptor = 'V' AND m.param_descriptors = 'Landroid/text/Editable;' AND (m.class_descriptor LIKE 'Lcom/tencent/mm/plugin/textstatus/ui/%') ORDER BY m.descriptor;""")
+    private val methodStatusTextChanged by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.plugin.textstatus.ui")
+            name = "afterTextChanged"
+            returnType = "void"
+            paramTypes("android.text.Editable")
+            usingEqStrings("MicroMsg.TextStatus.TextStatusDoWhatActivityV2", "afterTextChanged inputCount:")
+        },
+    )
     private val fieldStatusTextLengthLimit by dexField()
 
     override fun resolveDex(dexKit: DexKitBridge) {

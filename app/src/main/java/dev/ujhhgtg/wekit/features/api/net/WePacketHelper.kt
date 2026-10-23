@@ -12,6 +12,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.abc.WeRequestCallback
@@ -39,7 +40,15 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
 
     // 核心 Protobuf 类
-    private val classProtoBase by dexClass("""SELECT DISTINCT c.descriptor AS descriptor FROM classes c JOIN methods cm ON cm.class_descriptor = c.descriptor JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = c.descriptor WHERE ms0.value = 'Cannot use this method' AND cm1.name = 'op' AND cm1.param_descriptors = 'I,[Ljava/lang/Object;' ORDER BY c.descriptor;""")
+    private val classProtoBase by dexClass(
+        sqlClass {
+            usingEqStrings("Cannot use this method")
+            method {
+                name = "op"
+                paramTypes("int", "java.lang.Object[]")
+            }
+        },
+    )
     private val classRawReq by dexClass {
         matcher {
             fields {

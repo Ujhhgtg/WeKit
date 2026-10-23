@@ -13,6 +13,7 @@ import com.composables.icons.materialsymbols.outlined.Alternate_email
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -75,13 +76,13 @@ object MentionMembers : SwitchFeature(), IResolveDex {
     private var pendingStealthAt: Pair<String, String>? = null
 
     // MsgSourceHelper 节点合并方法: static (msgInfo, String nodeXml, boolean) -> void
-    private val methodMergeMsgSourceNode by dexMethod {
-        matcher {
+    private val methodMergeMsgSourceNode by dexMethod(
+        sqlMethod {
+            returnType = "void"
+            paramCount = 3
             usingEqStrings("(?s)<alnode[^>]*>.*?</alnode>")
-            paramCount(3)
-            returnType("void")
-        }
-    }
+        },
+    )
 
     private fun showSettingsDialog(context: Context) {
         showComposeDialog(context) {

@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -29,26 +30,22 @@ object WePaymentApi : ApiFeature(), IResolveDex {
             usingEqStrings("account click info , key is %s, value is %s")
         }
     }
-    val classReceiveLuckyMoney by dexClass {
-        matcher {
-            methods {
-                add {
-                    name = "<init>"
-                    usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoney")
-                }
+    val classReceiveLuckyMoney by dexClass(
+        sqlClass {
+            method {
+                name = "<init>"
+                usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoney")
             }
-        }
-    }
-    val classOpenLuckyMoney by dexClass {
-        matcher {
-            methods {
-                add {
-                    name = "<init>"
-                    usingEqStrings("MicroMsg.NetSceneOpenLuckyMoney")
-                }
+        },
+    )
+    val classOpenLuckyMoney by dexClass(
+        sqlClass {
+            method {
+                name = "<init>"
+                usingEqStrings("MicroMsg.NetSceneOpenLuckyMoney")
             }
-        }
-    }
+        },
+    )
     val methodReceiveLuckyMoneyOnGYNetEnd by dexMethod {
         matcher {
             declaredClass(classReceiveLuckyMoney.data.name)

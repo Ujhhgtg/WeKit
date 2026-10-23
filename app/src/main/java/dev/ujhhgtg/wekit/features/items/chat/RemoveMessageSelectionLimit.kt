@@ -10,6 +10,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import org.luckypray.dexkit.DexKitBridge
 import dev.ujhhgtg.wekit.utils.HookCallback
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.hookDirectly
@@ -49,29 +50,14 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val methodSetQuickSelectViewEnabled1 by dexMethod(
-        allowMultiple = true,
-        resultIndex = 0
-    ) {
-        matcher {
-            declaredClass(classChatItemQuickSelect.data.name)
-            usingNumbers(SELECTION_LIMIT)
-            paramTypes(bool)
-            returnType(void)
-        }
-    }
-
-    private val methodSetQuickSelectViewEnabled2 by dexMethod(
-        allowMultiple = true,
-        resultIndex = 1
-    ) {
-        matcher {
-            declaredClass(classChatItemQuickSelect.data.name)
-            usingNumbers(SELECTION_LIMIT)
-            paramTypes(bool)
-            returnType(void)
-        }
-    }
+    /*
+     * Two structurally identical setter overloads exist in the quick-select component.
+     * The matcher cannot be expressed as a single-row DexSQL query (it targets a class
+     * resolved at runtime), so resolve all candidates once and assign them explicitly
+     * instead of relaxing uniqueness. Ordering is DexKit's deterministic result order.
+     */
+    private val methodSetQuickSelectViewEnabled1 by dexMethod()
+    private val methodSetQuickSelectViewEnabled2 by dexMethod()
 
     private val selectedMessagesField: Field by lazy {
         WeMessageApi.methodToggleMessageSelection.method.declaringClass.declaredFields.single {
@@ -85,6 +71,22 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
     )
 
     private val selectedMessageCountOverride = ThreadLocal<Int>()
+
+    override fun resolveDex(dexKit: DexKitBridge) {
+        val candidates = dexKit.findMethod {
+            matcher {
+                declaredClass(classChatItemQuickSelect.data.name)
+                usingNumbers(SELECTION_LIMIT)
+                paramTypes(bool)
+                returnType(void)
+            }
+        }
+        check(candidates.size >= 2) {
+            "DexKit: Expected two quick-select setter candidates, found ${candidates.size}"
+        }
+        methodSetQuickSelectViewEnabled1.setDescriptor(candidates[0])
+        methodSetQuickSelectViewEnabled2.setDescriptor(candidates[1])
+    }
 
     override fun onEnable() {
         listOf(

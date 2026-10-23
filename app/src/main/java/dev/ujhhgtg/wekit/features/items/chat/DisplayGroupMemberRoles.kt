@@ -37,6 +37,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.items.contacts.GroupMemberRoleSpan
@@ -62,11 +63,11 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_display_group_member_roles_description
 
-    private val methodGetChatroomData by dexMethod {
-        matcher {
+    private val methodGetChatroomData by dexMethod(
+        sqlMethod {
             usingEqStrings("MicroMsg.ChatRoomMember", "getChatroomData hashMap is null!")
-        }
-    }
+        },
+    )
 
     override fun onEnable() {
         WeChatMessageViewApi.addListener(this)

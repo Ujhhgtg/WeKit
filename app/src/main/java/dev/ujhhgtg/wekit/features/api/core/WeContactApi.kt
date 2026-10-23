@@ -4,6 +4,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
+import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.WeContactApi.deleteContact
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
@@ -102,12 +103,12 @@ object WeContactApi : ApiFeature(), IResolveDex {
             }
         }
 
-    private val ctorNetSceneVerifyUser by dexConstructor {
-        searchPackages("com.tencent.mm.pluginsdk.model")
-        matcher {
+    private val ctorNetSceneVerifyUser by dexConstructor(
+        sqlConstructor {
+            searchPackages("com.tencent.mm.pluginsdk.model")
             usingEqStrings("MicroMsg.NetSceneVerifyUser.dkverify", "getLabelIdList, %s")
-        }
-    }
+        },
+    )
 
     private val ctorNetSceneVerifyUserProbe by dexConstructor {
         searchPackages("com.tencent.mm.pluginsdk.model")

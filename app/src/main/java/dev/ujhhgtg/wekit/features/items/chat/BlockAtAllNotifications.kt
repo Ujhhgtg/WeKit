@@ -16,6 +16,7 @@ import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -161,27 +162,23 @@ object BlockAtAllNotificationsRuntime : ApiFeature(), IResolveDex {
     private val pendingLock = Any()
     private val pendingByGroup = HashMap<String, ArrayDeque<PendingAtAll>>()
 
-    private val methodDealNotify by dexMethod {
-        searchPackages("com.tencent.mm.booter.notification")
-        matcher {
-            paramCount(6)
+    private val methodDealNotify by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.booter.notification")
             returnType = "void"
-            usingEqStrings(
-                "jacks dealNotify, talker:%s, msgtype:%d, tipsFlag:%d, isRevokeMesasge:%B content:%s"
-            )
-        }
-    }
+            paramCount = 6
+            usingEqStrings("jacks dealNotify, talker:%s, msgtype:%d, tipsFlag:%d, isRevokeMesasge:%B content:%s")
+        },
+    )
 
-    private val methodNotifyForLightPush by dexMethod {
-        searchPackages("com.tencent.mm.booter.notification")
-        matcher {
-            paramCount(7)
+    private val methodNotifyForLightPush by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.booter.notification")
             returnType = "void"
-            usingEqStrings(
-                "LightPush [NO NOTIFICATION] Util.isNullOrNil(userName) || Util.isNullOrNil(nickName)"
-            )
-        }
-    }
+            paramCount = 7
+            usingEqStrings("LightPush [NO NOTIFICATION] Util.isNullOrNil(userName) || Util.isNullOrNil(nickName)")
+        },
+    )
 
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.PUSH)
 

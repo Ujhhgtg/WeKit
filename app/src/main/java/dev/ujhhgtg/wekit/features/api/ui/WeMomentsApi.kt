@@ -27,6 +27,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.TimelineObjectProto
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.buildMusicTimelineBundle
@@ -143,29 +144,26 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     private const val SNS_INFO_CLASS = "com.tencent.mm.plugin.sns.storage.SnsInfo"
     private const val LIKE_COMMENT_TYPE = 1
 
-    private val classSnsService by dexClass {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
-            usingEqStrings(
-                "MicroMsg.SnsService",
-                "can not add Comment"
-            )
-        }
-    }
+    private val classSnsService by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.plugin.sns.model")
+            usingEqStrings("MicroMsg.SnsService", "can not add Comment")
+        },
+    )
 
     // --- used by AutoMomentsBase ---
 
-    val classImproveSnsInfo by dexClass {
-        matcher {
+    val classImproveSnsInfo by dexClass(
+        sqlClass {
             usingEqStrings("ImproveInfo(name=")
-        }
-    }
+        },
+    )
 
-    val classImproveInteractionLayout by dexClass {
-        matcher {
+    val classImproveInteractionLayout by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.Improve.InteractionLayout")
-        }
-    }
+        },
+    )
 
     val fieldInteractionSnsInfo by dexField {
         matcher {
@@ -246,18 +244,21 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }.self
     }
 
-    val classUploadPackHelper by dexClass {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
+    val classUploadPackHelper by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.plugin.sns.model")
             usingEqStrings("MicroMsg.UploadPackHelper", "commit sns info ret %d, typeFlag %d sightMd5 %s")
-        }
-    }
+        },
+    )
 
-    val classSnsMediaObj by dexClass {
-        matcher {
-            usingEqStrings("MicroMsg.snsMediaStorage", "convertImg2WxamWithoutZip origPath:%s OutOfMemoryError! rollback")
-        }
-    }
+    val classSnsMediaObj by dexClass(
+        sqlClass {
+            usingEqStrings(
+                "MicroMsg.snsMediaStorage",
+                "convertImg2WxamWithoutZip origPath:%s OutOfMemoryError! rollback",
+            )
+        },
+    )
 
     val ctorUploadPackHelper by dexConstructor {
         searchPackages("com.tencent.mm.plugin.sns.model")
@@ -347,11 +348,11 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
-    val classSnsUtil by dexClass {
-        matcher {
+    val classSnsUtil by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.SnsUtil", "getSnsBigName")
-        }
-    }
+        },
+    )
 
     val methodGetSnsBigName by dexMethod {
         matcher {
@@ -367,11 +368,11 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
-    val classSnsPathHelper by dexClass {
-        matcher {
+    val classSnsPathHelper by dexClass(
+        sqlClass {
             usingEqStrings("getImageFilePath", "com.tencent.mm.plugin.sns.model.SnsPathHelper")
-        }
-    }
+        },
+    )
 
     val methodGetMediaFilePath by dexMethod {
         matcher {
@@ -380,11 +381,11 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
-    val classSnsVideoLogic by dexClass {
-        matcher {
+    val classSnsVideoLogic by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.SnsVideoLogic", "getSnsVideoPath", "com.tencent.mm.plugin.sns.model.SnsVideoLogic")
-        }
-    }
+        },
+    )
 
     val methodGetSnsVideoPath by dexMethod {
         matcher {
@@ -439,11 +440,11 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
-    val classSnsCore by dexClass {
-        matcher {
+    val classSnsCore by dexClass(
+        sqlClass {
             usingEqStrings("com.tencent.mm.plugin.sns.model.SnsCore", "getSnsInfoStorage")
-        }
-    }
+        },
+    )
 
     val methodGetAccSnsPath by dexMethod {
         matcher {
@@ -476,12 +477,12 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     // 朋友圈图片下载服务 (DownloadManager), 相当于视频的 SnsVideoService。
     // 点击查看大图时微信正是走这里从 CDN 拉取大图到本地 image2/。
-    val classSnsDownloadManager by dexClass {
-        searchPackages("com.tencent.mm.plugin.sns.model")
-        matcher {
+    val classSnsDownloadManager by dexClass(
+        sqlClass {
+            searchPackages("com.tencent.mm.plugin.sns.model")
             usingEqStrings("MicroMsg.DownloadManager", "addBatchDownloadSns do not need download.")
-        }
-    }
+        },
+    )
 
     // SnsCore.getSnsDownManager(): 取 DownloadManager 单例, 与 getSnsVideoService 同构。
     val methodGetSnsDownManager by dexMethod {
@@ -505,20 +506,20 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     }
 
     // 图片来源场景枚举 (com.tencent.mm.storage.t6): 朋友圈图片用 "timeline" 实例。
-    val classSnsSourceScene by dexClass {
-        matcher {
+    val classSnsSourceScene by dexClass(
+        sqlClass {
             usingEqStrings("timeline", "album_friend", "album_self", "album_stranger", "comment_detail")
-        }
-    }
+        },
+    )
 
     // 富媒体音乐元数据对象 (r45.xs4, proto 字段名 "singerName"/"albumName" 等):
     // 内含歌手、专辑、歌词、musicId 等字段; 从 ContentObj.f387092w (字段 17) 反射取出。
     // 通过这几个在构造函数中出现的唯一字符串定位类, 避免依赖混淆类名。
-    val classXs4 by dexClass {
-        matcher {
+    val classXs4 by dexClass(
+        sqlClass {
             usingEqStrings("singerName", "albumName", "musicOperationUrl", "albumCoverUrl")
-        }
-    }
+        },
+    )
 
     // zy2.pc.a(xs4): xs4 → <musicShareItem>...</musicShareItem> XML。
     // 包含 mvObjectId / mvNonceId (feed 社交统计所需的身份), 这两个字段无法通过 WXMusicVideoObject 传递。
@@ -568,27 +569,23 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
-    private val classGalleryEntryUi by dexClass {
-        matcher {
+    private val classGalleryEntryUi by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.GalleryEntryUI", "query souce: ", "doRedirect %s")
-        }
-    }
+        },
+    )
 
-    private val classSnsUploadUi by dexClass {
-        matcher {
+    private val classSnsUploadUi by dexClass(
+        sqlClass {
             usingEqStrings("MicroMsg.SnsUploadUI", "customizeInputView", "initView")
-        }
-    }
+        },
+    )
 
-    private val classSnsUiAction by dexClass {
-        matcher {
-            usingEqStrings(
-                "MicroMsg.SnsActivity",
-                "onAcvityResult requestCode:",
-                "KTouchCameraTime"
-            )
-        }
-    }
+    private val classSnsUiAction by dexClass(
+        sqlClass {
+            usingEqStrings("MicroMsg.SnsActivity", "onAcvityResult requestCode:", "KTouchCameraTime")
+        },
+    )
 
     private val methodSnsUiActionOnActivityResult by dexMethod {
         matcher {
