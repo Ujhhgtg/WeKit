@@ -1,0 +1,233 @@
+{
+  "class": {
+    "Lcom/tencent/mm/pluginsdk/model/app/c0;": {
+      "descriptor": "Lcom/tencent/mm/pluginsdk/model/app/c0;",
+      "name": "com.tencent.mm.pluginsdk.model.app.c0",
+      "simple_name": "c0",
+      "source_file": "SourceFile",
+      "modifiers": 1,
+      "access_flags": 1,
+      "is_array": false,
+      "super_class": {
+        "descriptor": "Ljava/lang/Object;",
+        "name": "java.lang.Object"
+      },
+      "interfaces": [
+        {
+          "descriptor": "Ljava/lang/Runnable;",
+          "name": "java.lang.Runnable"
+        }
+      ],
+      "methods": [
+        {
+          "descriptor": "Lcom/tencent/mm/pluginsdk/model/app/c0;-><init>(Lcom/tencent/mm/storage/e9;)V",
+          "name": "<init>",
+          "declared_class_name": "com.tencent.mm.pluginsdk.model.app.c0",
+          "method_sign": "(Lcom/tencent/mm/storage/e9;)V",
+          "modifiers": 1,
+          "access_flags": 65537,
+          "return_type_name": "void",
+          "param_type_names": [
+            "com.tencent.mm.storage.e9"
+          ],
+          "param_count": 1,
+          "is_constructor": true,
+          "is_static_initializer": false,
+          "is_method": false
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/pluginsdk/model/app/c0;->run()V",
+          "name": "run",
+          "declared_class_name": "com.tencent.mm.pluginsdk.model.app.c0",
+          "method_sign": "()V",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "void",
+          "param_type_names": [],
+          "param_count": 0,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        }
+      ],
+      "fields": [
+        {
+          "descriptor": "Lcom/tencent/mm/pluginsdk/model/app/c0;->d:Lcom/tencent/mm/storage/e9;",
+          "name": "d",
+          "declared_class_name": "com.tencent.mm.pluginsdk.model.app.c0",
+          "type_name": "com.tencent.mm.storage.e9",
+          "modifiers": 4113,
+          "access_flags": 4113
+        }
+      ]
+    }
+  },
+  "method": {
+    "Lcom/tencent/mm/ui/chatting/x0;->G(Z)V": {
+      "descriptor": "Lcom/tencent/mm/ui/chatting/x0;->G(Z)V",
+      "name": "G",
+      "declared_class_name": "com.tencent.mm.ui.chatting.x0",
+      "method_sign": "(Z)V",
+      "modifiers": 1,
+      "access_flags": 1,
+      "return_type_name": "void",
+      "param_type_names": [
+        "boolean"
+      ],
+      "param_count": 1,
+      "is_constructor": false,
+      "is_static_initializer": false,
+      "is_method": true,
+      "invokes": [
+        {
+          "descriptor": "Ljava/lang/Boolean;->valueOf(Z)Ljava/lang/Boolean;",
+          "name": "valueOf",
+          "declared_class_name": "java.lang.Boolean",
+          "method_sign": "(Z)Ljava/lang/Boolean;",
+          "modifiers": 0,
+          "access_flags": 0,
+          "return_type_name": "java.lang.Boolean",
+          "param_type_names": [
+            "boolean"
+          ],
+          "param_count": 1,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/sdk/platformtools/Log;->c(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V",
+          "name": "c",
+          "declared_class_name": "com.tencent.mm.sdk.platformtools.Log",
+          "method_sign": "(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V",
+          "modifiers": 137,
+          "access_flags": 137,
+          "return_type_name": "void",
+          "param_type_names": [
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.Object[]"
+          ],
+          "param_count": 3,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        }
+      ],
+      "using_fields": [
+        {
+          "field": {
+            "descriptor": "Lcom/tencent/mm/ui/chatting/x0;->w:Z",
+            "name": "w",
+            "declared_class_name": "com.tencent.mm.ui.chatting.x0",
+            "type_name": "boolean",
+            "modifiers": 1,
+            "access_flags": 1
+          },
+          "using_type": "Write"
+        }
+      ],
+      "using_strings": [
+        "MicroMsg.AutoPlay",
+        "speakerOn has been set %s"
+      ]
+    },
+    "Lcom/tencent/mm/plugin/ipcall/IPCallManager$3;->callback(Lcom/tencent/mm/sdk/event/IEvent;)Z": {
+      "descriptor": "Lcom/tencent/mm/plugin/ipcall/IPCallManager$3;->callback(Lcom/tencent/mm/sdk/event/IEvent;)Z",
+      "name": "callback",
+      "declared_class_name": "com.tencent.mm.plugin.ipcall.IPCallManager$3",
+      "method_sign": "(Lcom/tencent/mm/sdk/event/IEvent;)Z",
+      "modifiers": 1,
+      "access_flags": 1,
+      "return_type_name": "boolean",
+      "param_type_names": [
+        "com.tencent.mm.sdk.event.IEvent"
+      ],
+      "param_count": 1,
+      "is_constructor": false,
+      "is_static_initializer": false,
+      "is_method": true,
+      "invokes": [],
+      "using_fields": [
+        {
+          "field": {
+            "descriptor": "Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;->g:Lfm/f10;",
+            "name": "g",
+            "declared_class_name": "com.tencent.mm.autogen.events.VoipCheckIsDeviceUsingEvent",
+            "type_name": "fm.f10",
+            "modifiers": 17,
+            "access_flags": 17
+          },
+          "using_type": "Read"
+        },
+        {
+          "field": {
+            "descriptor": "Lfm/f10;->a:Z",
+            "name": "a",
+            "declared_class_name": "fm.f10",
+            "type_name": "boolean",
+            "modifiers": 1,
+            "access_flags": 1
+          },
+          "using_type": "Write"
+        },
+        {
+          "field": {
+            "descriptor": "Lfm/f10;->b:Z",
+            "name": "b",
+            "declared_class_name": "fm.f10",
+            "type_name": "boolean",
+            "modifiers": 1,
+            "access_flags": 1
+          },
+          "using_type": "Write"
+        },
+        {
+          "field": {
+            "descriptor": "Lfm/f10;->c:Z",
+            "name": "c",
+            "declared_class_name": "fm.f10",
+            "type_name": "boolean",
+            "modifiers": 1,
+            "access_flags": 1
+          },
+          "using_type": "Write"
+        },
+        {
+          "field": {
+            "descriptor": "Lfm/f10;->d:Ljava/lang/String;",
+            "name": "d",
+            "declared_class_name": "fm.f10",
+            "type_name": "java.lang.String",
+            "modifiers": 1,
+            "access_flags": 1
+          },
+          "using_type": "Write"
+        }
+      ],
+      "using_strings": [
+        ""
+      ]
+    }
+  },
+  "field": {
+    "Lwp/b;->c:I": {
+      "descriptor": "Lwp/b;->c:I",
+      "name": "c",
+      "declared_class_name": "wp.b",
+      "type_name": "int",
+      "type_descriptor": "I",
+      "modifiers": 9,
+      "access_flags": 9
+    },
+    "Lcom/tencent/mm/ui/conversation/ConversationListView;->C:Landroid/view/View;": {
+      "descriptor": "Lcom/tencent/mm/ui/conversation/ConversationListView;->C:Landroid/view/View;",
+      "name": "C",
+      "declared_class_name": "com.tencent.mm.ui.conversation.ConversationListView",
+      "type_name": "android.view.View",
+      "type_descriptor": "Landroid/view/View;",
+      "modifiers": 1,
+      "access_flags": 1
+    }
+  }
+}
