@@ -1,8 +1,13 @@
 # Linux DexKit 解析器测试
 
-本仓库提供了一个桌面端兼容性测试工具，用于运行与 Android 缓存流程相同的 DexKit
-解析器代码。它不会安装微信或执行 Hook，只会检查当前源码中的匹配器能否在各 APK 的
-DEX 文件中解析出目标。
+本仓库提供了一个桌面端兼容性测试工具，用于运行与 Android 缓存流程相同的 DexKit/DexSQL
+解析器代码。它不会安装微信或执行 Hook，只会检查当前源码中的匹配器或 SQL 查询能否在
+各 APK 的 DEX 文件中解析出目标。
+
+选中特性包含 SQL 委托时，工具会先增量构建宿主端 `libwekit_native`（等价于
+`cargo build --locked --release -p wekit-native`），JVM 工作进程再通过 JNI 加载并执行与
+设备端相同的查询。DexSQL 引擎只执行只读 SQL；行选择与“空结果是否属于预期失败”等解析器
+状态判定由 WeKit 侧负责。
 
 ```bash
 ./x dex-test

@@ -57,14 +57,27 @@
   `displayOrder`. Both are auto-discovered by KSP from their source subtype at compile time.
 - Base classes: `SwitchFeature` (toggle), `ClickableFeature` (toggle + onClick), `ApiFeature`
   (always-on), `BaseFeature` (abstract base, do not use directly)
-- DEX analysis via DexKit with `IResolveDex`; resolver bodies are MD5-hashed as the cache key
-  (`GenerateMethodHashesTask`)
+- DEX analysis is migrating from DexKit matchers to DexSQL queries. Both paths live behind
+  `IResolveDex` delegates; resolver bodies and delegate blocks are MD5-hashed as the cache key
+  (`GenerateMethodHashesTask`). The embedded `dexsql` Rust crate only executes read-only SQL —
+  row selection and resolver-state classification are WeKit responsibilities.
 - If any started feature needs Dex resolution, no feature starts (in any process); the dialog
   resolves and restarts WeChat. Failures are persisted per resolver hash. A feature with
   `BaseFeature.errors` (own/transitive-dependency Dex state or `declaredErrors`) never starts
   and can't be enabled — declare host restrictions via `declaredErrors`, not toasts in `onEnable`
 - DEX-resolved targets DSL: `val methodTarget by dexMethod()` / `val classTarget by dexClass()` →
   `methodTarget.hookBefore { ... }`, `methodTarget.method`, `classTarget.clazz`
+- SQL query delegates use the matcher-shaped builder instead of a raw SQL string:
+  `by dexMethod(sqlMethod { declaredClass = "..."; returnType = "void"; usingEqStrings("...") })`
+  (also `sqlClass`/`sqlField`/`sqlConstructor`). The builder emits canonical DexSQL text; a
+  raw `dexMethod("""SELECT ...""")` remains only as an escape hatch for queries the DSL cannot
+  express. Each SQL query must return exactly one descriptor row; multi-row results are
+  ambiguity bugs, and empty results are expected failures only when `allowFailure = true`.
+  Write the query so it selects a single member (use `limit`/`offset` for deterministic
+  candidate selection). There is no `allowMultiple`/`resultIndex` delegate option.
+  A class query with several nested method matchers emits pairwise distinctness
+  conditions because DexKit matches those methods injectively (each nested matcher
+  must bind a different method); do not remove them.
 - UI: Jetpack Compose + Material 3; dialogs via `showComposeDialog` and `AlertDialogContent`;
   settings screens follow Material 3 UI Standards below
 - Storage: everything lives in the host's private `filesDir/wekit/`; the Room database
@@ -94,8 +107,11 @@
   returning with pending delegates is `INCOMPLETE`. Initialization, worker, native-library, APK
   metadata, report, unexpected, blocked, or incomplete failures must stay visible and fail the command.
 - Desktop testing is expensive. Rerun only the affected supported APKs after changing `dexMethod`,
-  `dexClass`, `dexField`, inline matchers, or `resolveDex`/`resolveInlineDex` logic; don't rerun a
-  passed version for unrelated changes.
+  `dexClass`, `dexField`, SQL queries/DSL expressions, inline matchers, or
+  `resolveDex`/`resolveInlineDex` logic; don't rerun a passed version for unrelated changes.
+- The desktop worker only loads DexSQL when `./x dex-test` can build the host `libwekit_native.so`;
+  the task always runs the incremental host build before starting workers, so the library cannot
+  be silently stale.
 - Before reporting a Dex resolver change complete, run the affected desktop tests, any relevant
   qualifying Gradle tests (see Testing Strategy), `./x payload build`, and `git diff --check`.
 
@@ -119,10 +135,12 @@
 
 ### `allowFailure` and host compatibility paths
 
-- `allowFailure` on `dexMethod`/`dexClass`/`dexField` is ONLY for structures whose existence
-  differs across supported versions. If a resolution should succeed on every supported version,
-  don't set it — failure must be loud, not a silent no-op. Never turn exceptions or uncertain
-  matches into expected failures to get a green report. Expected failures carry no reason.
+- `allowFailure` on `dexMethod`/`dexClass`/`dexField` (DexKit or SQL) is ONLY for structures
+  whose existence differs across supported versions. If a resolution should succeed on every
+  supported version, don't set it — failure must be loud, not a silent no-op. Never turn
+  exceptions or uncertain matches into expected failures to get a green report. Expected
+  failures carry no reason. The `dexsql` crate itself has no resolver-failure policy; WeKit
+  maps an empty SQL result to an expected failure only through this delegate-level flag.
 - Prefer structure-based compatibility over host-version checks. In resolution, probe one stable
   member that exists only on the newer path; if it yields zero results, it is an expected failure;
   mark the newer path's other delegates with `markExpectedFailure()` and fall back to the older path, otherwise keep every other target on that path strict. Multiple
@@ -176,7 +194,8 @@
   (`thisObject as Activity`, `args[0] as View`), not `as?`, `args.getOrNull(0)`, `?:`, `?.` guards:
   wrong code must throw loudly into `HookUtils`' or the code's own exception handler instead of
   being silently swallowed. Genuinely reasonable guards stay.
-- You are NOT familiar with `DexKit` and `reflekt`. Read their code before using them; don't
+- You are NOT familiar with `DexKit`, `reflekt`, or the DexSQL schema/DSL. Read their code
+  (`dexkit/dsl/`, `dexkit/sql/`, and the dexsql repo's schema/tools) before using them; don't
   hallucinate APIs.
 - In Compose, `LocalContext` is always the platform context and is never localized by WeKit. Use
   standard Compose resource APIs for composable text and `LocalWeKitLocalizedContext` only for
