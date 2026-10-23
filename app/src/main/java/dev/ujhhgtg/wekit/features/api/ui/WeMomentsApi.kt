@@ -176,13 +176,14 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     )
 
     // --- end used by AutoMomentsBase ---
-    private val methodSendLike by dexMethod(allowFailure = true) {
-        matcher {
+    private val methodSendLike by dexMethod(
+        sqlMethod {
             declaredClass(classSnsService.data.name)
-            modifiers = Modifier.STATIC
-            paramTypes(SNS_INFO_CLASS, "int", null, "int")
-        }
-    }
+            paramTypes("com.tencent.mm.plugin.sns.storage.SnsInfo", "int", null, "int")
+            modifiers = 8
+        },
+        allowFailure = true,
+    )
     private val methodCancelLike by dexMethod(
         sqlMethod {
             declaredClass(classSnsService.data.name)
@@ -390,44 +391,39 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         },
     )
 
-    val methodGenCdnMediaId by dexMethod(allowFailure = true) {
-        matcher {
+    val methodGenCdnMediaId by dexMethod(
+        sqlMethod {
             declaredClass(classSnsVideoLogic.data.name)
-            modifiers = Modifier.STATIC
-            paramCount(2)
+            returnType = "java.lang.String"
+            paramCount = 2
             paramTypes("int", null)
-            returnType(String::class.java)
+            modifiers = 8
             usingEqStrings("genCdnMediaId")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
-    val methodGetSnsVideoFullPath by dexMethod {
-        matcher {
+    val methodGetSnsVideoFullPath by dexMethod(
+        sqlMethod {
             declaredClass(classSnsVideoLogic.data.name)
-            modifiers = Modifier.STATIC
-            paramCount(2)
-            paramTypes(String::class.java, null)
-            returnType(String::class.java)
-            usingEqStrings(
-                "getSnsVideoFullPath",
-                "getSnsVideoFullPath have flag %s, %s >>"
-            )
-        }
-    }
+            returnType = "java.lang.String"
+            paramCount = 2
+            paramTypes("java.lang.String", null)
+            modifiers = 8
+            usingEqStrings("getSnsVideoFullPath", "getSnsVideoFullPath have flag %s, %s >>")
+        },
+    )
 
-    val methodIsSnsVideoDownloadFinished by dexMethod {
-        matcher {
+    val methodIsSnsVideoDownloadFinished by dexMethod(
+        sqlMethod {
             declaredClass(classSnsVideoLogic.data.name)
-            modifiers = Modifier.STATIC
-            paramCount(2)
-            paramTypes(String::class.java, null)
-            returnType(String::class.java)
-            usingEqStrings(
-                "isDownloadFinish",
-                "it don't download video[%s] finish. file[%b], return null."
-            )
-        }
-    }
+            returnType = "java.lang.String"
+            paramCount = 2
+            paramTypes("java.lang.String", null)
+            modifiers = 8
+            usingEqStrings("isDownloadFinish", "it don't download video[%s] finish. file[%b], return null.")
+        },
+    )
 
     val methodGetSnsVideoThumbImagePath by dexMethod(
         sqlMethod {
@@ -461,15 +457,15 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         },
     )
 
-    val methodDownloadVideo by dexMethod {
-        matcher {
+    val methodDownloadVideo by dexMethod(
+        sqlMethod {
             declaredClass(methodGetSnsVideoService.data.returnTypeName)
-            paramCount(7)
+            returnType = "boolean"
+            paramCount = 7
             paramTypes(null, "int", "java.lang.String", "boolean", "boolean", "int", "java.lang.String")
-            returnType(bool)
             usingEqStrings("addSnsVideoTask", "com.tencent.mm.plugin.sns.model.SnsVideoService")
-        }
-    }
+        },
+    )
 
     // 朋友圈图片下载服务 (DownloadManager), 相当于视频的 SnsVideoService。
     // 点击查看大图时微信正是走这里从 CDN 拉取大图到本地 image2/。
@@ -539,15 +535,15 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         },
     )
 
-    private val methodExportVideoToAlbum by dexMethod {
-        matcher {
-            modifiers = Modifier.STATIC
-            paramCount(4)
-            paramTypes(Context::class.java, String::class.java, String::class.java, null)
-            returnType(String::class.java)
+    private val methodExportVideoToAlbum by dexMethod(
+        sqlMethod {
+            returnType = "java.lang.String"
+            paramCount = 4
+            paramTypes("android.content.Context", "java.lang.String", "java.lang.String", null)
+            modifiers = 8
             usingEqStrings("[+] Called exportVideo, src: %s", "exportVideoImpl fail")
-        }
-    }
+        },
+    )
 
     private val methodExportImageToAlbum by dexMethod(
         sqlMethod {

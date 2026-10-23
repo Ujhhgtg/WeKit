@@ -167,13 +167,13 @@ object ConversationAggregation : ClickableFeature(),
             usingStrings("MicroMsg.SelectContactMainRecycleViewUIC", "onItemClickListener data.type")
         },
     )
-    private val methodMvvmSearchItemClick by dexMethod {
-        matcher {
-            usingStrings("MicroMsg.SelectContactSearchMvvmListUIC", "onItemClick: isAlwaysCheck=")
+    private val methodMvvmSearchItemClick by dexMethod(
+        sqlMethod {
+            returnType = "void"
             paramTypes("android.view.View", null, "int")
-            returnType("void")
-        }
-    }
+            usingStrings("MicroMsg.SelectContactSearchMvvmListUIC", "onItemClick: isAlwaysCheck=")
+        },
+    )
 
     // com.tencent.mm.storage.m4 (ConversationStorage)#b0(username) — "updateUnreadByTalker".
     // The folder container (ConvBoxServiceConversationUI) sets its superUsername to our folder id

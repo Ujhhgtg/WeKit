@@ -125,14 +125,14 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
         },
     )
 
-    private val methodHandleNormalResponse by dexMethod {
-        matcher {
+    private val methodHandleNormalResponse by dexMethod(
+        sqlMethod {
             declaredClass(ctorTimelineRequest.data.declaredClassName)
-            usingEqStrings("handleNormalResp", "com.tencent.mm.plugin.sns.model.NetSceneSnsTimeLine")
+            returnType = "void"
             paramTypes("int", "int", "java.lang.String", null)
-            returnType("void")
-        }
-    }
+            usingEqStrings("handleNormalResp", "com.tencent.mm.plugin.sns.model.NetSceneSnsTimeLine")
+        },
+    )
 
     private val methodTimelineResponseEnd by dexMethod(
         sqlMethod {

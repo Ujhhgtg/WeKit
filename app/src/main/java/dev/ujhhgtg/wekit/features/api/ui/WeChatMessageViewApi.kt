@@ -85,15 +85,15 @@ object WeChatMessageViewApi : ApiFeature(), IResolveDex {
         },
     )
 
-    private val methodChatItemSetNickname by dexMethod {
-        matcher {
+    private val methodChatItemSetNickname by dexMethod(
+        sqlMethod {
+            returnType = "void"
+            paramTypes(null, "java.lang.CharSequence")
             declaredClass {
                 usingStrings("MicroMsg.ChattingItem")
             }
-            paramTypes(null, CharSequence::class.java)
-            returnType(Void.TYPE)
-        }
-    }
+        },
+    )
 
     override fun onEnable() {
         methodChatItemSetNickname.hookAfter {

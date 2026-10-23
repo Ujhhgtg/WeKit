@@ -157,18 +157,16 @@ object WePacketHelper : ApiFeature(), IResolveDex {
             }
         }
     }
-    private val classCallbackIface by dexClass {
-        matcher {
-            modifiers = Modifier.INTERFACE or Modifier.ABSTRACT
-            methods {
-                add {
-                    returnType = "int"
-                    paramCount = 5
-                    paramTypes("int", "int", "java.lang.String", null, WeMessageApi.classNetSceneBase.data.name)
-                }
+    private val classCallbackIface by dexClass(
+        sqlClass {
+            modifiers = 1536
+            method {
+                returnType = "int"
+                paramCount = 5
+                paramTypes("int", "int", "java.lang.String", null, WeMessageApi.classNetSceneBase.data.name)
             }
-        }
-    }
+        },
+    )
     private val classReqResp by dexClass()
 
     // 关键方法 //

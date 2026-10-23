@@ -215,14 +215,14 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         }
     }
 
-    private val methodTipsToFoldMode by dexMethod {
-        matcher {
-            declaredClass = TIPS_BAR_GROUP_CLASS
-            paramTypes()
+    private val methodTipsToFoldMode by dexMethod(
+        sqlMethod {
+            declaredClass = "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup"
             returnType = "void"
+            paramTypes()
             usingStrings("toFoldMode")
-        }
-    }
+        },
+    )
 
     private val methodRemoveItemDecoration by dexMethod(
         sqlMethod {

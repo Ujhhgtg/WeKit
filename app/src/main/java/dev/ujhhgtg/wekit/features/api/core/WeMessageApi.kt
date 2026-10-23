@@ -370,16 +370,16 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
         },
     )
-    val methodChattingDataAdapterOnBindViewHolder by dexMethod {
-        matcher {
+    val methodChattingDataAdapterOnBindViewHolder by dexMethod(
+        sqlMethod {
+            returnType = "void"
+            paramTypes(null, "int")
+            usingEqStrings("_onBindViewHolder[")
             declaredClass {
                 usingEqStrings("MicroMsg.ChattingDataAdapterV3")
             }
-            usingEqStrings("_onBindViewHolder[")
-            paramTypes(null, Int::class.java)
-            returnType("void")
-        }
-    }
+        },
+    )
     private val classVoiceLogic by dexClass(
         sqlClass {
             usingEqStrings("MicroMsg.VoiceLogic", "startRecord insert voicestg success")
@@ -2074,12 +2074,12 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         },
     )
 
-    val methodLoadEmojiFile by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.EmojiLoader", "load emoji file ")
+    val methodLoadEmojiFile by dexMethod(
+        sqlMethod {
             paramTypes("com.tencent.mm.storage.emotion.EmojiInfo", "boolean", null)
-        }
-    }
+            usingEqStrings("MicroMsg.EmojiLoader", "load emoji file ")
+        },
+    )
 
     // com.tencent.mm.pluginsdk.model.app 里的 "自动下载文件" Runnable (8069 为 b0, 8074 为 c0),
     // 构造参数为一个 MsgInfo, run() 会解析 appmsg XML、创建 appattach 行并向 CDN 发起下载任务。

@@ -80,25 +80,25 @@ object SpoofChatMessages : ClickableFeature(), IResolveDex, WeChatMessageContext
         "com.tencent.mm.plugin.thumbplayer.view.ThumbPlayerSurfaceView",
     )
 
-    private val methodGalleryImagePath by dexMethod {
-        searchPackages("com.tencent.mm.ui.chatting.gallery")
-        matcher {
+    private val methodGalleryImagePath by dexMethod(
+        sqlMethod {
+            searchPackages("com.tencent.mm.ui.chatting.gallery")
             returnType = "java.lang.String"
             paramTypes(WeMessageApi.classMsgInfo.data.name, null, "boolean")
             usingEqStrings(
                 "MicroMsg.ImageGalleryHolderImage",
                 "getImagePath is null because of isTryToGetProgress %s img.isGetCompleted() %s",
             )
-        }
-    }
-    private val methodGalleryPreviewPath by dexMethod {
-        matcher {
+        },
+    )
+    private val methodGalleryPreviewPath by dexMethod(
+        sqlMethod {
             declaredClass = methodGalleryImagePath.data.declaredClassName
             returnType = "java.lang.String"
             paramTypes(WeMessageApi.classMsgInfo.data.name, null)
             usingEqStrings("get previewPath img not completed")
-        }
-    }
+        },
+    )
     private val methodGalleryCachedPath by dexMethod {
         matcher {
             declaredClass = methodGalleryImagePath.data.declaredClassName

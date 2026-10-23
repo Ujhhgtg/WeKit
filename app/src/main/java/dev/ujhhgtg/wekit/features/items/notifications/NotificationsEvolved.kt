@@ -107,21 +107,20 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     // the accumulated MessagingStyle history for that talker is stale and should be dropped.
     // Locate the wording class only to preserve the host's hidden-content decision.
     // Sender/body extraction uses the original notification-text path below.
-    private val methodParseNotificationContent by dexMethod {
-        matcher {
-            returnType("java.lang.String")
-            usingEqStrings("MicroMsg.Notification.Wording", "context is null", "username is null")
-            // The newer signature adds a trailing boolean.
+    private val methodParseNotificationContent by dexMethod(
+        sqlMethod {
+            returnType = "java.lang.String"
             paramCount(13, 14)
-        }
-    }
-    private val methodHiddenNotificationContent by dexMethod {
-        matcher {
+            usingEqStrings("MicroMsg.Notification.Wording", "context is null", "username is null")
+        },
+    )
+    private val methodHiddenNotificationContent by dexMethod(
+        sqlMethod {
             declaredClass(methodParseNotificationContent.data.declaredClassName)
+            returnType = "void"
             paramTypes("android.content.Context", null, "java.lang.String", "int", "int", "int", "boolean", "boolean")
-            returnType("void")
-        }
-    }
+        },
+    )
 
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.PUSH)
 

@@ -102,18 +102,24 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
     // com.tencent.mm.ui.widget.menu.MMPopupMenu#showMenu(view, pos, id, onCreateListener, selectCb, x, y)
     // The folder container (ConvBoxServiceConversationUI) doesn't use ConversationLongClickListener;
     // its long-press menu goes through this shared popup, so AGGREGATED items are injected here.
-    private val methodShowPopupMenu by dexMethod(allowFailure = true) {
-        matcher {
+    private val methodShowPopupMenu by dexMethod(
+        sqlMethod {
+            returnType = "void"
+            paramTypes(
+                "android.view.View",
+                "int",
+                "long",
+                "android.view.View\$OnCreateContextMenuListener",
+                null,
+                "int",
+                "int",
+            )
             declaredClass {
                 usingStrings("MicroMsg.MMPopupMenu")
             }
-            paramTypes(
-                "android.view.View", "int", "long",
-                $$"android.view.View$OnCreateContextMenuListener", null, "int", "int"
-            )
-            returnType("void")
-        }
-    }
+        },
+        allowFailure = true,
+    )
 
     private fun items(scope: MenuScope) = menuItemProviders.flatMap { it.getMenuItems() }.filter { it.scope.includes(scope) }
 

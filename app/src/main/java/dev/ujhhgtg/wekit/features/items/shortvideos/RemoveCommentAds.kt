@@ -62,13 +62,14 @@ object RemoveCommentAds : SwitchFeature(), IResolveDex {
      * 足以排除类内同带该字符串的 handleFollowPatBtn
      * （(ViewHolder, View, View, 评论, FinderJumpInfo, String)）。
      */
-    private val methodBindOldComment by dexMethod(allowFailure = true) {
-        matcher {
-            usingEqStrings("com/tencent/mm/plugin/finder/convert/FinderFeedCommentConvert")
-            returnType("void")
+    private val methodBindOldComment by dexMethod(
+        sqlMethod {
+            returnType = "void"
             paramTypes(null, null, "int", "int", "boolean", "java.util.List")
-        }
-    }
+            usingEqStrings("com/tencent/mm/plugin/finder/convert/FinderFeedCommentConvert")
+        },
+        allowFailure = true,
+    )
 
     override fun onEnable() {
         if (methodBindAdComment.isFound) {
