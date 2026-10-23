@@ -60,6 +60,631 @@
           "access_flags": 4113
         }
       ]
+    },
+    "Lmg3/e;": {
+      "descriptor": "Lmg3/e;",
+      "name": "mg3.e",
+      "simple_name": "e",
+      "source_file": "SourceFile",
+      "modifiers": 1,
+      "access_flags": 1,
+      "is_array": false,
+      "super_class": {
+        "descriptor": "Lcom/tencent/mm/modelbase/n1;",
+        "name": "com.tencent.mm.modelbase.n1"
+      },
+      "interfaces": [
+        {
+          "descriptor": "Lcom/tencent/mm/network/l0;",
+          "name": "com.tencent.mm.network.l0"
+        }
+      ],
+      "methods": [
+        {
+          "descriptor": "Lmg3/e;-><init>(Ljava/util/LinkedList;)V",
+          "name": "<init>",
+          "declared_class_name": "mg3.e",
+          "method_sign": "(Ljava/util/LinkedList;)V",
+          "modifiers": 1,
+          "access_flags": 65537,
+          "return_type_name": "void",
+          "param_type_names": [
+            "java.util.LinkedList"
+          ],
+          "param_count": 1,
+          "is_constructor": true,
+          "is_static_initializer": false,
+          "is_method": false
+        },
+        {
+          "descriptor": "Lmg3/e;->doScene(Lcom/tencent/mm/network/s;Lcom/tencent/mm/modelbase/u0;)I",
+          "name": "doScene",
+          "declared_class_name": "mg3.e",
+          "method_sign": "(Lcom/tencent/mm/network/s;Lcom/tencent/mm/modelbase/u0;)I",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "int",
+          "param_type_names": [
+            "com.tencent.mm.network.s",
+            "com.tencent.mm.modelbase.u0"
+          ],
+          "param_count": 2,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        },
+        {
+          "descriptor": "Lmg3/e;->getType()I",
+          "name": "getType",
+          "declared_class_name": "mg3.e",
+          "method_sign": "()I",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "int",
+          "param_type_names": [],
+          "param_count": 0,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        },
+        {
+          "descriptor": "Lmg3/e;->onGYNetEnd(IIILjava/lang/String;Lcom/tencent/mm/network/y0;[B)V",
+          "name": "onGYNetEnd",
+          "declared_class_name": "mg3.e",
+          "method_sign": "(IIILjava/lang/String;Lcom/tencent/mm/network/y0;[B)V",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "void",
+          "param_type_names": [
+            "int",
+            "int",
+            "int",
+            "java.lang.String",
+            "com.tencent.mm.network.y0",
+            "byte[]"
+          ],
+          "param_count": 6,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        }
+      ],
+      "fields": [
+        {
+          "descriptor": "Lmg3/e;->d:Lcom/tencent/mm/modelbase/o;",
+          "name": "d",
+          "declared_class_name": "mg3.e",
+          "type_name": "com.tencent.mm.modelbase.o",
+          "modifiers": 17,
+          "access_flags": 17
+        },
+        {
+          "descriptor": "Lmg3/e;->e:Lcom/tencent/mm/modelbase/u0;",
+          "name": "e",
+          "declared_class_name": "mg3.e",
+          "type_name": "com.tencent.mm.modelbase.u0",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lmg3/e;->f:Ljava/util/LinkedList;",
+          "name": "f",
+          "declared_class_name": "mg3.e",
+          "type_name": "java.util.LinkedList",
+          "modifiers": 17,
+          "access_flags": 17
+        }
+      ]
+    },
+    "Lcom/tencent/mm/network/l0;": {
+      "descriptor": "Lcom/tencent/mm/network/l0;",
+      "name": "com.tencent.mm.network.l0",
+      "simple_name": "l0",
+      "source_file": "SourceFile",
+      "modifiers": 1537,
+      "access_flags": 1537,
+      "is_array": false,
+      "super_class": {
+        "descriptor": "Ljava/lang/Object;",
+        "name": "java.lang.Object"
+      },
+      "interfaces": [],
+      "methods": [
+        {
+          "descriptor": "Lcom/tencent/mm/network/l0;->onGYNetEnd(IIILjava/lang/String;Lcom/tencent/mm/network/y0;[B)V",
+          "name": "onGYNetEnd",
+          "declared_class_name": "com.tencent.mm.network.l0",
+          "method_sign": "(IIILjava/lang/String;Lcom/tencent/mm/network/y0;[B)V",
+          "modifiers": 1025,
+          "access_flags": 1025,
+          "return_type_name": "void",
+          "param_type_names": [
+            "int",
+            "int",
+            "int",
+            "java.lang.String",
+            "com.tencent.mm.network.y0",
+            "byte[]"
+          ],
+          "param_count": 6,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        }
+      ],
+      "fields": []
+    },
+    "Lcom/tencent/mm/plugin/luckymoney/model/i6;": {
+      "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/i6;",
+      "name": "com.tencent.mm.plugin.luckymoney.model.i6",
+      "simple_name": "i6",
+      "source_file": "SourceFile",
+      "modifiers": 1,
+      "access_flags": 1,
+      "is_array": false,
+      "super_class": {
+        "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;",
+        "name": "com.tencent.mm.plugin.luckymoney.model.h6"
+      },
+      "interfaces": [],
+      "methods": [
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/i6;-><init>(IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
+          "name": "<init>",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.i6",
+          "method_sign": "(IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
+          "modifiers": 1,
+          "access_flags": 65537,
+          "return_type_name": "void",
+          "param_type_names": [
+            "int",
+            "int",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String"
+          ],
+          "param_count": 10,
+          "is_constructor": true,
+          "is_static_initializer": false,
+          "is_method": false
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/i6;->H()Ljava/lang/String;",
+          "name": "H",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.i6",
+          "method_sign": "()Ljava/lang/String;",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "java.lang.String",
+          "param_type_names": [],
+          "param_count": 0,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/i6;->getType()I",
+          "name": "getType",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.i6",
+          "method_sign": "()I",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "int",
+          "param_type_names": [],
+          "param_count": 0,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/i6;->onGYNetEnd(ILjava/lang/String;Lorg/json/JSONObject;)V",
+          "name": "onGYNetEnd",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.i6",
+          "method_sign": "(ILjava/lang/String;Lorg/json/JSONObject;)V",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "void",
+          "param_type_names": [
+            "int",
+            "java.lang.String",
+            "org.json.JSONObject"
+          ],
+          "param_count": 3,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        }
+      ],
+      "fields": []
+    },
+    "Lcom/tencent/mm/plugin/luckymoney/model/h6;": {
+      "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;",
+      "name": "com.tencent.mm.plugin.luckymoney.model.h6",
+      "simple_name": "h6",
+      "source_file": "SourceFile",
+      "modifiers": 1,
+      "access_flags": 1,
+      "is_array": false,
+      "super_class": {
+        "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/e6;",
+        "name": "com.tencent.mm.plugin.luckymoney.model.e6"
+      },
+      "interfaces": [],
+      "methods": [
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;-><init>()V",
+          "name": "<init>",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "method_sign": "()V",
+          "modifiers": 1,
+          "access_flags": 65537,
+          "return_type_name": "void",
+          "param_type_names": [],
+          "param_count": 0,
+          "is_constructor": true,
+          "is_static_initializer": false,
+          "is_method": false
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;-><init>(IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
+          "name": "<init>",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "method_sign": "(IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
+          "modifiers": 1,
+          "access_flags": 65537,
+          "return_type_name": "void",
+          "param_type_names": [
+            "int",
+            "int",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String"
+          ],
+          "param_count": 9,
+          "is_constructor": true,
+          "is_static_initializer": false,
+          "is_method": false
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;-><init>(IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
+          "name": "<init>",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "method_sign": "(IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
+          "modifiers": 1,
+          "access_flags": 65537,
+          "return_type_name": "void",
+          "param_type_names": [
+            "int",
+            "int",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String"
+          ],
+          "param_count": 10,
+          "is_constructor": true,
+          "is_static_initializer": false,
+          "is_method": false
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->H()Ljava/lang/String;",
+          "name": "H",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "method_sign": "()Ljava/lang/String;",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "java.lang.String",
+          "param_type_names": [],
+          "param_count": 0,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->K()V",
+          "name": "K",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "method_sign": "()V",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "void",
+          "param_type_names": [],
+          "param_count": 0,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->getType()I",
+          "name": "getType",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "method_sign": "()I",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "int",
+          "param_type_names": [],
+          "param_count": 0,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->onGYNetEnd(ILjava/lang/String;Lorg/json/JSONObject;)V",
+          "name": "onGYNetEnd",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "method_sign": "(ILjava/lang/String;Lorg/json/JSONObject;)V",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "void",
+          "param_type_names": [
+            "int",
+            "java.lang.String",
+            "org.json.JSONObject"
+          ],
+          "param_count": 3,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        }
+      ],
+      "fields": [
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->h:Lcom/tencent/mm/plugin/luckymoney/model/e1;",
+          "name": "h",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "com.tencent.mm.plugin.luckymoney.model.e1",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->i:Ljava/lang/String;",
+          "name": "i",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "java.lang.String",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->m:Ljava/lang/String;",
+          "name": "m",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "java.lang.String",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->n:Ljava/lang/String;",
+          "name": "n",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "java.lang.String",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->o:Ljava/lang/String;",
+          "name": "o",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "java.lang.String",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->p:Lcom/tencent/mm/plugin/wallet_core/id_verify/util/RealnameGuideHelper;",
+          "name": "p",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "com.tencent.mm.plugin.wallet_core.id_verify.util.RealnameGuideHelper",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->q:I",
+          "name": "q",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "int",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->r:Lcom/tencent/mm/plugin/luckymoney/model/LuckyMoneyEmojiSwitch;",
+          "name": "r",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "com.tencent.mm.plugin.luckymoney.model.LuckyMoneyEmojiSwitch",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->s:Ljava/lang/String;",
+          "name": "s",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "java.lang.String",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->t:I",
+          "name": "t",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "int",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->u:Lcom/tencent/mm/plugin/wallet_core/utils/d0;",
+          "name": "u",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "com.tencent.mm.plugin.wallet_core.utils.d0",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->v:Ljava/lang/String;",
+          "name": "v",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "java.lang.String",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->w:Ljava/lang/String;",
+          "name": "w",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "java.lang.String",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->x:Lcom/tencent/mm/plugin/luckymoney/model/u4;",
+          "name": "x",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "com.tencent.mm.plugin.luckymoney.model.u4",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->y:Ljava/lang/String;",
+          "name": "y",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "java.lang.String",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/plugin/luckymoney/model/h6;->z:Z",
+          "name": "z",
+          "declared_class_name": "com.tencent.mm.plugin.luckymoney.model.h6",
+          "type_name": "boolean",
+          "modifiers": 1,
+          "access_flags": 1
+        }
+      ]
+    },
+    "Lcom/tencent/mm/modelbase/f;": {
+      "descriptor": "Lcom/tencent/mm/modelbase/f;",
+      "name": "com.tencent.mm.modelbase.f",
+      "simple_name": "f",
+      "source_file": "SourceFile",
+      "modifiers": 1,
+      "access_flags": 1,
+      "is_array": false,
+      "super_class": {
+        "descriptor": "Ljava/lang/Object;",
+        "name": "java.lang.Object"
+      },
+      "interfaces": [],
+      "methods": [
+        {
+          "descriptor": "Lcom/tencent/mm/modelbase/f;->a(IILjava/lang/String;Lcom/tencent/mm/protobuf/f;Lcom/tencent/mm/modelbase/n1;Lcom/tencent/mm/modelbase/i;)Lcom/tencent/mm/modelbase/f;",
+          "name": "a",
+          "declared_class_name": "com.tencent.mm.modelbase.f",
+          "method_sign": "(IILjava/lang/String;Lcom/tencent/mm/protobuf/f;Lcom/tencent/mm/modelbase/n1;Lcom/tencent/mm/modelbase/i;)Lcom/tencent/mm/modelbase/f;",
+          "modifiers": 9,
+          "access_flags": 9,
+          "return_type_name": "com.tencent.mm.modelbase.f",
+          "param_type_names": [
+            "int",
+            "int",
+            "java.lang.String",
+            "com.tencent.mm.protobuf.f",
+            "com.tencent.mm.modelbase.n1",
+            "com.tencent.mm.modelbase.i"
+          ],
+          "param_count": 6,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/modelbase/f;->b()Z",
+          "name": "b",
+          "declared_class_name": "com.tencent.mm.modelbase.f",
+          "method_sign": "()Z",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "boolean",
+          "param_type_names": [],
+          "param_count": 0,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/modelbase/f;->toString()Ljava/lang/String;",
+          "name": "toString",
+          "declared_class_name": "com.tencent.mm.modelbase.f",
+          "method_sign": "()Ljava/lang/String;",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "java.lang.String",
+          "param_type_names": [],
+          "param_count": 0,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        }
+      ],
+      "fields": [
+        {
+          "descriptor": "Lcom/tencent/mm/modelbase/f;->a:I",
+          "name": "a",
+          "declared_class_name": "com.tencent.mm.modelbase.f",
+          "type_name": "int",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/modelbase/f;->b:I",
+          "name": "b",
+          "declared_class_name": "com.tencent.mm.modelbase.f",
+          "type_name": "int",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/modelbase/f;->c:Ljava/lang/String;",
+          "name": "c",
+          "declared_class_name": "com.tencent.mm.modelbase.f",
+          "type_name": "java.lang.String",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/modelbase/f;->d:Lcom/tencent/mm/protobuf/f;",
+          "name": "d",
+          "declared_class_name": "com.tencent.mm.modelbase.f",
+          "type_name": "com.tencent.mm.protobuf.f",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/modelbase/f;->e:Lcom/tencent/mm/modelbase/n1;",
+          "name": "e",
+          "declared_class_name": "com.tencent.mm.modelbase.f",
+          "type_name": "com.tencent.mm.modelbase.n1",
+          "modifiers": 1,
+          "access_flags": 1
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/modelbase/f;->f:Lcom/tencent/mm/modelbase/i;",
+          "name": "f",
+          "declared_class_name": "com.tencent.mm.modelbase.f",
+          "type_name": "com.tencent.mm.modelbase.i",
+          "modifiers": 1,
+          "access_flags": 1
+        }
+      ]
     }
   },
   "method": {
@@ -208,6 +833,132 @@
       "using_strings": [
         ""
       ]
+    },
+    "Lcom/tencent/mm/modelbase/f;->a(IILjava/lang/String;Lcom/tencent/mm/protobuf/f;Lcom/tencent/mm/modelbase/n1;Lcom/tencent/mm/modelbase/i;)Lcom/tencent/mm/modelbase/f;": {
+      "descriptor": "Lcom/tencent/mm/modelbase/f;->a(IILjava/lang/String;Lcom/tencent/mm/protobuf/f;Lcom/tencent/mm/modelbase/n1;Lcom/tencent/mm/modelbase/i;)Lcom/tencent/mm/modelbase/f;",
+      "name": "a",
+      "declared_class_name": "com.tencent.mm.modelbase.f",
+      "method_sign": "(IILjava/lang/String;Lcom/tencent/mm/protobuf/f;Lcom/tencent/mm/modelbase/n1;Lcom/tencent/mm/modelbase/i;)Lcom/tencent/mm/modelbase/f;",
+      "modifiers": 9,
+      "access_flags": 9,
+      "return_type_name": "com.tencent.mm.modelbase.f",
+      "param_type_names": [
+        "int",
+        "int",
+        "java.lang.String",
+        "com.tencent.mm.protobuf.f",
+        "com.tencent.mm.modelbase.n1",
+        "com.tencent.mm.modelbase.i"
+      ],
+      "param_count": 6,
+      "is_constructor": false,
+      "is_static_initializer": false,
+      "is_method": true,
+      "invokes": [
+        {
+          "descriptor": "Lcom/tencent/mm/modelbase/f;-><init>()V",
+          "name": "<init>",
+          "declared_class_name": "com.tencent.mm.modelbase.f",
+          "method_sign": "()V",
+          "modifiers": 0,
+          "access_flags": 0,
+          "return_type_name": "void",
+          "param_type_names": [],
+          "param_count": 0,
+          "is_constructor": true,
+          "is_static_initializer": false,
+          "is_method": false
+        },
+        {
+          "descriptor": "Lcom/tencent/mm/modelbase/i;->k(IILjava/lang/String;Lcom/tencent/mm/protobuf/f;Lcom/tencent/mm/modelbase/n1;)V",
+          "name": "k",
+          "declared_class_name": "com.tencent.mm.modelbase.i",
+          "method_sign": "(IILjava/lang/String;Lcom/tencent/mm/protobuf/f;Lcom/tencent/mm/modelbase/n1;)V",
+          "modifiers": 1,
+          "access_flags": 1,
+          "return_type_name": "void",
+          "param_type_names": [
+            "int",
+            "int",
+            "java.lang.String",
+            "com.tencent.mm.protobuf.f",
+            "com.tencent.mm.modelbase.n1"
+          ],
+          "param_count": 5,
+          "is_constructor": false,
+          "is_static_initializer": false,
+          "is_method": true
+        }
+      ],
+      "using_fields": [
+        {
+          "field": {
+            "descriptor": "Lcom/tencent/mm/modelbase/f;->a:I",
+            "name": "a",
+            "declared_class_name": "com.tencent.mm.modelbase.f",
+            "type_name": "int",
+            "modifiers": 1,
+            "access_flags": 1
+          },
+          "using_type": "Write"
+        },
+        {
+          "field": {
+            "descriptor": "Lcom/tencent/mm/modelbase/f;->b:I",
+            "name": "b",
+            "declared_class_name": "com.tencent.mm.modelbase.f",
+            "type_name": "int",
+            "modifiers": 1,
+            "access_flags": 1
+          },
+          "using_type": "Write"
+        },
+        {
+          "field": {
+            "descriptor": "Lcom/tencent/mm/modelbase/f;->c:Ljava/lang/String;",
+            "name": "c",
+            "declared_class_name": "com.tencent.mm.modelbase.f",
+            "type_name": "java.lang.String",
+            "modifiers": 1,
+            "access_flags": 1
+          },
+          "using_type": "Write"
+        },
+        {
+          "field": {
+            "descriptor": "Lcom/tencent/mm/modelbase/f;->d:Lcom/tencent/mm/protobuf/f;",
+            "name": "d",
+            "declared_class_name": "com.tencent.mm.modelbase.f",
+            "type_name": "com.tencent.mm.protobuf.f",
+            "modifiers": 1,
+            "access_flags": 1
+          },
+          "using_type": "Write"
+        },
+        {
+          "field": {
+            "descriptor": "Lcom/tencent/mm/modelbase/f;->e:Lcom/tencent/mm/modelbase/n1;",
+            "name": "e",
+            "declared_class_name": "com.tencent.mm.modelbase.f",
+            "type_name": "com.tencent.mm.modelbase.n1",
+            "modifiers": 1,
+            "access_flags": 1
+          },
+          "using_type": "Write"
+        },
+        {
+          "field": {
+            "descriptor": "Lcom/tencent/mm/modelbase/f;->f:Lcom/tencent/mm/modelbase/i;",
+            "name": "f",
+            "declared_class_name": "com.tencent.mm.modelbase.f",
+            "type_name": "com.tencent.mm.modelbase.i",
+            "modifiers": 1,
+            "access_flags": 1
+          },
+          "using_type": "Write"
+        }
+      ],
+      "using_strings": []
     }
   },
   "field": {

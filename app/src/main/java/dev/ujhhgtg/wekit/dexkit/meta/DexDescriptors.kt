@@ -16,6 +16,9 @@ private val PRIMITIVE_JAVA_NAMES = mapOf(
     'D' to "double",
 )
 
+/** Java names of the primitive types and void. */
+internal val PRIMITIVE_JAVA_TYPE_NAMES: Set<String> = PRIMITIVE_JAVA_NAMES.values.toSet()
+
 /**
  * Converts a DEX type descriptor to a Java type name.
  *

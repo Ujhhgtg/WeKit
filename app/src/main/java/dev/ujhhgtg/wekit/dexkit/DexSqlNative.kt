@@ -23,5 +23,8 @@ object DexSqlNative {
     /** Returns an `{ok:true,...}` or `{ok:false,error}` JSON envelope. */
     external fun query(handle: Long, sql: String): String
 
+    /** Metadata envelope: {ok:true, metadata:<object|null>}; kind is class/method/field. */
+    external fun metadata(handle: Long, kind: String, descriptor: String): String
+
     external fun close(handle: Long)
 }

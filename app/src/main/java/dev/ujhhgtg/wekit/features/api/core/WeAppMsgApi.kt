@@ -12,7 +12,7 @@ import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.result.FieldUsingType
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 import java.lang.reflect.Modifier
 
 object WeAppMsgApi : ApiFeature(), IResolveDex {

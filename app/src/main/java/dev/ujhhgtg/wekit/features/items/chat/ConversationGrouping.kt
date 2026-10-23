@@ -171,7 +171,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.result.FieldUsingType
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported

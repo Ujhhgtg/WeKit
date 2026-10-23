@@ -60,6 +60,7 @@ import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.matchers.base.AccessFlagsMatcher
 import org.luckypray.dexkit.result.FieldUsingType
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType as MetaFieldUsingType
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
@@ -514,7 +515,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
         val appMessageName = classAppMessage.data.name
         val quoteWrites = quoteCompose.usingFields
-            .filter { it.usingType == FieldUsingType.Write }
+            .filter { it.usingType == MetaFieldUsingType.Write }
             .map { it.field }
             .distinctBy { it.descriptor }
         fieldQuoteAppTitle.setDescriptor(

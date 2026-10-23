@@ -56,10 +56,9 @@ object LocalDexResolver {
                 val failures = mutableMapOf<IResolveDex, LocalDexFailure>()
                 try {
                     if (roots.isNotEmpty()) {
-                        val needsDexSql = roots.any { item ->
-                            (item as BaseFeature).dexDelegates.any { it.dexSqlSpec != null }
-                        }
-                        val dexSql = if (needsDexSql) DexSqlBridge.openHost() else null
+                        // Metadata reads (*Data replacement) need the DexSQL dataset even when a
+                        // feature set has no SQL query delegate.
+                        val dexSql = DexSqlBridge.openHost()
                         try {
                             withDexKitSuspending { dexKit ->
                                 resolveDexBatch(

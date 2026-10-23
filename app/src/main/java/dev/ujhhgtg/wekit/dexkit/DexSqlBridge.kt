@@ -5,6 +5,8 @@ import androidx.annotation.Keep
 import dev.ujhhgtg.wekit.utils.HostInfo
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 
@@ -45,6 +47,14 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
 
     /** Exception-free convenience form for callers that already use Kotlin [Result]. */
     fun queryResult(sql: String): Result<DexSqlQueryResult> = runCatching { query(sql) }
+
+    /**
+     * Read one indexed metadata document for a class, method or field descriptor.
+     * Missing descriptors return null; malformed requests or native failures throw.
+     */
+    fun metadata(kind: String, descriptor: String): JsonObject? = withHandle { handle ->
+        decodeMetadata(DexSqlNative.metadata(handle, kind, descriptor))
+    }
 
     override fun close() {
         val writeLock = lifecycleLock.writeLock()
@@ -98,6 +108,11 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
             .filter(String::isNotEmpty)
             .distinct()
 
+        private fun decodeMetadata(raw: String): JsonObject? {
+            val response = decodeEnvelope(raw, "metadata")
+            return response.metadata as? JsonObject
+        }
+
         private fun decodeQuery(raw: String): DexSqlQueryResult {
             val response = decodeEnvelope(raw, "query")
             if (response.columns == null || response.rows == null) {
@@ -130,6 +145,7 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
         val ok: Boolean,
         val columns: List<String>? = null,
         val rows: List<List<String>>? = null,
+        val metadata: JsonElement? = null,
         val error: NativeError? = null,
     )
 

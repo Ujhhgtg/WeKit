@@ -100,7 +100,9 @@ class DexTestWorkerTest {
             DexKitBridge.create(config.apk.toString()).use { dexKit ->
                 val host = DexHostMetadata(config.versionCode, config.versionName, config.isGooglePlay)
                 val classLoader = javaClass.classLoader ?: error("worker class loader is null")
-                val dexSql = if (config.dexSqlNativeLibrary != null && hasDexSqlDelegates(entries, classLoader)) {
+                // The DexKit *Data replacement reads metadata through DexSQL, so the dataset is
+                // required for every worker, not only for feature sets with SQL query delegates.
+                val dexSql = if (config.dexSqlNativeLibrary != null) {
                     DexSqlBridge.open(listOf(config.apk.toString()))
                 } else null
                 try {

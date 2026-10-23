@@ -1,7 +1,10 @@
 package dev.ujhhgtg.wekit.dexkit.meta
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -40,9 +43,11 @@ class DexMetadataTest {
         assertEquals(2, info.methodCount)
         assertEquals(1, info.fieldCount)
 
-        // Inline members must not trigger provider queries.
+        // Inline members must not trigger provider queries; external super/interface misses are cached.
         assertEquals(1, provider.count(DexMetadataKind.Class, SnapshotFixture.SAMPLE_CLASS))
-        assertEquals(1, provider.totalQueries)
+        assertEquals(1, provider.count(DexMetadataKind.Class, "Ljava/lang/Object;"))
+        assertEquals(1, provider.count(DexMetadataKind.Class, "Ljava/lang/Runnable;"))
+        assertEquals(3, provider.totalQueries)
     }
 
     @Test
@@ -198,6 +203,84 @@ class DexMetadataTest {
         val byName = metadata.classInfoByName("com.tencent.mm.pluginsdk.model.app.c0")!!
         assertSame(byName, metadata.classInfo(SnapshotFixture.SAMPLE_CLASS))
         assertSame(byName, metadata.classInfoByName(SnapshotFixture.SAMPLE_CLASS))
+    }
+
+    @Test
+    fun definedSuperClassResolvesFullMetadataAndExternalFallsBackToShallow() {
+        val provider = CountingMetadataProvider()
+        val metadata = DexMetadata(provider)
+
+        // External superclass (java.lang.Object) -> shallow descriptor/name fallback.
+        val externalSuper = metadata.classInfo(SnapshotFixture.SAMPLE_CLASS)!!.superClass!!
+        assertEquals("Ljava/lang/Object;", externalSuper.descriptor)
+        assertEquals("java.lang.Object", externalSuper.name)
+        assertNull(externalSuper.sourceFile)
+        assertTrue(externalSuper.methods.isEmpty())
+        assertEquals(1, provider.count(DexMetadataKind.Class, "Ljava/lang/Object;"))
+
+        // Defined superclass -> full metadata through the session provider.
+        val definedSuper = metadata.classInfo(SnapshotFixture.SAMPLE_CLASS_WITH_SUPER)!!.superClass!!
+        assertEquals(SnapshotFixture.SAMPLE_SUPER_CLASS, definedSuper.descriptor)
+        assertEquals("com.tencent.mm.plugin.luckymoney.model.h6", definedSuper.name)
+        assertEquals("h6", definedSuper.simpleName)
+        assertNotNull(definedSuper.sourceFile)
+        assertEquals(7, definedSuper.methods.size)
+        assertEquals(16, definedSuper.fields.size)
+        assertSame(definedSuper, metadata.classInfo(SnapshotFixture.SAMPLE_SUPER_CLASS))
+        assertEquals(1, provider.count(DexMetadataKind.Class, SnapshotFixture.SAMPLE_SUPER_CLASS))
+    }
+
+    @Test
+    fun definedInterfaceMetadataResolvesThroughProvider() {
+        val provider = CountingMetadataProvider()
+        val metadata = DexMetadata(provider)
+
+        val interfaceInfo = metadata.classInfo(SnapshotFixture.SAMPLE_CLASS_NESTED_INTERFACE)!!
+            .interfaces.single { it.descriptor == SnapshotFixture.SAMPLE_INTERFACE }
+        assertEquals("com.tencent.mm.network.l0", interfaceInfo.name)
+        assertNotNull(interfaceInfo.sourceFile)
+        assertEquals(1, interfaceInfo.methods.size)
+        assertTrue(interfaceInfo.interfaces.isEmpty())
+        assertSame(interfaceInfo, metadata.classInfo(SnapshotFixture.SAMPLE_INTERFACE))
+        assertEquals(1, provider.count(DexMetadataKind.Class, SnapshotFixture.SAMPLE_INTERFACE))
+
+        // External interface (c0 implements java.lang.Runnable) keeps the shallow fallback.
+        val externalInterface = metadata.classInfo(SnapshotFixture.SAMPLE_CLASS)!!.interfaces.single()
+        assertEquals("java.lang.Runnable", externalInterface.name)
+        assertNull(externalInterface.sourceFile)
+    }
+
+    @Test
+    fun objectReturnTypeResolvesClassMetadata() {
+        val provider = CountingMetadataProvider()
+        val metadata = DexMetadata(provider)
+        val method = metadata.methodInfo(SnapshotFixture.SAMPLE_METHOD_OBJECT_RETURN)!!
+        assertEquals("com.tencent.mm.modelbase.f", method.returnTypeName)
+        val returnType = method.returnType!!
+        assertEquals(SnapshotFixture.SAMPLE_CLASS_OBJECT_RETURN, returnType.descriptor)
+        assertSame(returnType, metadata.classInfo(SnapshotFixture.SAMPLE_CLASS_OBJECT_RETURN))
+        assertSame(returnType, method.declaredClass)
+        assertEquals(1, provider.count(DexMetadataKind.Class, SnapshotFixture.SAMPLE_CLASS_OBJECT_RETURN))
+    }
+
+    @Test
+    fun primitiveAndArrayReturnTypesAreNullWithoutProviderLookup() {
+        val provider = CountingMetadataProvider()
+        val metadata = DexMetadata(provider)
+
+        assertNull(metadata.methodInfo(SnapshotFixture.SAMPLE_METHOD)!!.returnType) // void
+        assertNull(metadata.methodInfo(SnapshotFixture.SAMPLE_METHOD_READ_WRITE)!!.returnType) // boolean
+        val queriesBeforeArray = provider.totalQueries
+        assertEquals(2, queriesBeforeArray)
+
+        val arrayMethod = DexMethodInfo(
+            Json.parseToJsonElement(
+                """{"descriptor":"Lcom/x/Y;->bytes()[B","name":"bytes","declared_class_name":"com.x.Y","method_sign":"()[B","return_type_name":"byte[]","param_type_names":[],"param_count":0}""",
+            ).jsonObject,
+            metadata,
+        )
+        assertNull(arrayMethod.returnType)
+        assertEquals(queriesBeforeArray, provider.totalQueries)
     }
 
     @Test

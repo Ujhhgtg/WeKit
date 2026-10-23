@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use dexsql::{Engine, EngineOptions, Error as DexSqlError, IndexNeeds};
+use dexsql::{Engine, EngineOptions, Error as DexSqlError, IndexNeeds, MetaQuery};
 use jni::sys::{JNIEnv as RawJNIEnv, jlong, jobject, jobjectArray, jstring};
 use serde_json::{Value, json};
 
@@ -140,7 +140,8 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_open(
         index_needs: IndexNeeds {
             method_strings: true,
             method_numbers: true,
-            method_calls: false,
+            // Metadata reads expose invokes/callers for the DexKit *Data replacement.
+            method_calls: true,
             method_field_accesses: true,
             method_used_types: false,
         },
@@ -183,6 +184,50 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_query(
         Err(error) => engine_error(error),
     })
     .unwrap_or_else(|| failure("invalid_input", "SQL string is null or unreadable"));
+    response_string(env, response)
+}
+
+/// Read one indexed metadata document (class, method or field).
+///
+/// Java signature: (JLjava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+///
+/// kind is class, method or field; descriptor is a DEX descriptor.
+/// The envelope is {ok:true, metadata:<object|null>} or {ok:false,error}.
+#[unsafe(no_mangle)]
+pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_metadata(
+    env: *mut RawJNIEnv,
+    _thiz: jobject,
+    handle: jlong,
+    kind: jstring,
+    descriptor: jstring,
+) -> jstring {
+    let session = match session_for(handle) {
+        Ok(session) => session,
+        Err(error) => return response_string(env, failure("invalid_handle", error)),
+    };
+    let response = with_jstring(env, kind, |kind| {
+        with_jstring(env, descriptor, |descriptor| {
+            let query = match kind.to_ascii_lowercase().as_str() {
+                "class" => MetaQuery::class(descriptor),
+                "method" => MetaQuery::method(descriptor),
+                "field" => MetaQuery::field(descriptor),
+                other => {
+                    return failure("invalid_kind", format!("unknown metadata kind {}", other));
+                }
+            };
+            match session.metadata(&query) {
+                Ok(value) => success(json!({ "metadata": value })),
+                Err(error) => failure("metadata", error),
+            }
+        })
+    });
+    let response = match response {
+        Some(Some(response)) => response,
+        _ => failure(
+            "invalid_input",
+            "metadata kind or descriptor is null or unreadable",
+        ),
+    };
     response_string(env, response)
 }
 

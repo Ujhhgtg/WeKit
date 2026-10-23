@@ -59,6 +59,18 @@ class DexMethodInfo internal constructor(
         metadata.classInfoByName(declaredClassName)
     }
 
+    /**
+     * DexKit MethodData.returnType semantics: resolved class metadata for object return types,
+     * null for primitives, void and array types. Only object types trigger a metadata lookup, and
+     * the result is resolved lazily through the session cache (null for external classes).
+     */
+    val returnType: DexClassInfo? by lazy {
+        if (isPrimitiveOrArrayReturnType) null else metadata.classInfoByName(returnTypeName)
+    }
+
+    private val isPrimitiveOrArrayReturnType: Boolean =
+        returnTypeName in PRIMITIVE_JAVA_TYPE_NAMES || returnTypeName.endsWith("]")
+
     /** Methods called by this method, in code order. */
     val invokes: List<DexMethodInfo> by lazy {
         json.arrayOrEmpty("invokes").map { DexMethodInfo(it.jsonObject, metadata) }

@@ -15,6 +15,9 @@ import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.FindClass
 import org.luckypray.dexkit.query.FindField
 import org.luckypray.dexkit.query.FindMethod
+import dev.ujhhgtg.wekit.dexkit.meta.DexClassInfo
+import dev.ujhhgtg.wekit.dexkit.meta.DexFieldInfo
+import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import org.luckypray.dexkit.result.ClassData
 import org.luckypray.dexkit.result.FieldData
 import org.luckypray.dexkit.result.MethodData
@@ -139,6 +142,8 @@ class DexClassDelegate(
     fun setDescriptor(className: String) = setResolvedDescriptor(className)
 
     @Suppress("unused")
+    fun setDescriptor(c: DexClassInfo) = setDescriptor(c.descriptor)
+
     fun setDescriptor(c: ClassData) {
         setDescriptor(c.name)
     }
@@ -212,6 +217,9 @@ class DexFieldDelegate(
         get() = cachedField ?: getFieldInstance(requireDescriptor()).also { cachedField = it }
 
     fun setDescriptor(desc: String) = setResolvedDescriptor(desc)
+
+    @Suppress("unused")
+    fun setDescriptor(f: DexFieldInfo) = setDescriptor(f.descriptor)
 
     @Suppress("unused")
     fun setDescriptor(f: FieldData) {
@@ -304,6 +312,9 @@ class DexMethodDelegate(
     fun setDescriptor(desc: DexMethodDescriptor) = setResolvedDescriptor(desc.descriptor)
 
     @Suppress("NOTHING_TO_INLINE")
+    inline fun setDescriptor(m: DexMethodInfo) = setDescriptor(DexMethodDescriptor(m.className, m.methodName, m.methodSign))
+
+    @Suppress("NOTHING_TO_INLINE")
     inline fun setDescriptor(m: MethodData) = setDescriptor(DexMethodDescriptor(m.className, m.methodName, m.methodSign))
 
     fun setDescriptor(className: String, methodName: String, methodSign: String) =
@@ -388,6 +399,10 @@ class DexConstructorDelegate(
     @Suppress("unused")
     fun setDescriptor(className: String, methodSign: String) =
         setDescriptor(DexMethodDescriptor(className, "<init>", methodSign))
+
+    @Suppress("NOTHING_TO_INLINE")
+    inline fun setDescriptor(m: DexMethodInfo) =
+        setDescriptor(DexMethodDescriptor(m.className, "<init>", m.methodSign))
 
     override fun clearCachedMember() {
         cachedConstructor = null
@@ -577,28 +592,32 @@ fun dexConstructor(
 inline fun DexKitBridge.findClassData(clazz: String): ClassData? =
     getClassData(clazz)
 
-val DexClassDelegate.data: ClassData
+val DexClassDelegate.data: DexClassInfo
     get() {
         DexResolutionContext.ensureResolved(this)
-        return DexResolutionContext.dexKit.getClassData(requireDescriptor())!!
+        return DexResolutionContext.metadata.classInfoByName(requireDescriptor())
+            ?: error("DexSQL metadata missing for class " + requireDescriptor())
     }
 
-val DexMethodDelegate.data: MethodData
+val DexMethodDelegate.data: DexMethodInfo
     get() {
         DexResolutionContext.ensureResolved(this)
-        return DexResolutionContext.dexKit.getMethodData(requireDescriptor())!!
+        return DexResolutionContext.metadata.methodInfo(requireDescriptor())
+            ?: error("DexSQL metadata missing for method " + requireDescriptor())
     }
 
-val DexConstructorDelegate.data: MethodData
+val DexConstructorDelegate.data: DexMethodInfo
     get() {
         DexResolutionContext.ensureResolved(this)
-        return DexResolutionContext.dexKit.getMethodData(requireDescriptor())!!
+        return DexResolutionContext.metadata.methodInfo(requireDescriptor())
+            ?: error("DexSQL metadata missing for constructor " + requireDescriptor())
     }
 
-val DexFieldDelegate.data: FieldData
+val DexFieldDelegate.data: DexFieldInfo
     get() {
         DexResolutionContext.ensureResolved(this)
-        return DexResolutionContext.dexKit.getFieldData(requireDescriptor())!!
+        return DexResolutionContext.metadata.fieldInfo(requireDescriptor())
+            ?: error("DexSQL metadata missing for field " + requireDescriptor())
     }
 
 // ---------------------------------------------------------------------------

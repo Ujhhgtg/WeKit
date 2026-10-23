@@ -10,7 +10,7 @@ import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.result.FieldUsingType
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 
 object RemoveTextStatusLengthLimit : SwitchFeature(), IResolveDex {
 

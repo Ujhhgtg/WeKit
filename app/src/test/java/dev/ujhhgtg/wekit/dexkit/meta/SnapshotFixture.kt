@@ -18,6 +18,13 @@ internal object SnapshotFixture {
         "Lcom/tencent/mm/plugin/ipcall/IPCallManager\$3;->callback(Lcom/tencent/mm/sdk/event/IEvent;)Z"
     const val SAMPLE_FIELD = "Lwp/b;->c:I"
     const val SAMPLE_FIELD_OBJECT = "Lcom/tencent/mm/ui/conversation/ConversationListView;->C:Landroid/view/View;"
+    const val SAMPLE_CLASS_NESTED_INTERFACE = "Lmg3/e;"
+    const val SAMPLE_INTERFACE = "Lcom/tencent/mm/network/l0;"
+    const val SAMPLE_CLASS_WITH_SUPER = "Lcom/tencent/mm/plugin/luckymoney/model/i6;"
+    const val SAMPLE_SUPER_CLASS = "Lcom/tencent/mm/plugin/luckymoney/model/h6;"
+    const val SAMPLE_CLASS_OBJECT_RETURN = "Lcom/tencent/mm/modelbase/f;"
+    const val SAMPLE_METHOD_OBJECT_RETURN =
+        "Lcom/tencent/mm/modelbase/f;->a(IILjava/lang/String;Lcom/tencent/mm/protobuf/f;Lcom/tencent/mm/modelbase/n1;Lcom/tencent/mm/modelbase/i;)Lcom/tencent/mm/modelbase/f;"
 
     val root: JsonObject by lazy {
         val stream = SnapshotFixture::class.java.getResourceAsStream("/dexkit-meta/sample.json")

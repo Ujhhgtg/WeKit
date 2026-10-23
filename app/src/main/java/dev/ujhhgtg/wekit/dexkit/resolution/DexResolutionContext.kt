@@ -4,6 +4,8 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.resolveFromDexSql
 import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
+import dev.ujhhgtg.wekit.dexkit.DexSqlMetadataProvider
+import dev.ujhhgtg.wekit.dexkit.meta.DexMetadata
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import org.luckypray.dexkit.DexKitBridge
@@ -28,6 +30,7 @@ object DexResolutionContext {
         val host: DexHostMetadata,
         val coordinator: ResolutionCoordinator<BaseFeature>,
         val dexSql: DexSqlBridge?,
+        val metadata: DexMetadata? = dexSql?.let { DexMetadata(DexSqlMetadataProvider(it)) },
         val stack: MutableList<BaseFeature> = mutableListOf(),
         /** Delegates currently being resolved on demand (cycle detection). */
         val resolving: MutableList<BaseDexDelegate> = mutableListOf(),
@@ -43,6 +46,11 @@ object DexResolutionContext {
 
     val dexSql: DexSqlBridge?
         get() = current.get()?.dexSql
+
+    /** Session-scoped class/method/field metadata (the DexKit *Data replacement). */
+    val metadata: DexMetadata
+        get() = current.get()?.metadata
+            ?: error("DexSQL metadata context is not active")
 
     fun ensureResolved(delegate: BaseDexDelegate) {
         val session = current.get() ?: error("Dex resolution context is not active")

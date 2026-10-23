@@ -43,9 +43,9 @@ import dev.ujhhgtg.wekit.features.items.system.predictive_back.PredictiveBackGes
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.baseActivity
 import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.result.FieldData
-import org.luckypray.dexkit.result.FieldUsingType
-import org.luckypray.dexkit.result.MethodData
+import dev.ujhhgtg.wekit.dexkit.meta.DexFieldInfo
+import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 import java.util.ArrayDeque
 import java.util.WeakHashMap
 
@@ -349,9 +349,9 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
         })
     }
 
-    private fun MethodData.isNoArgBoolean() = paramCount == 0 && returnTypeName == "boolean"
+    private fun DexMethodInfo.isNoArgBoolean() = paramCount == 0 && returnTypeName == "boolean"
 
-    private fun MethodData.readFields(): List<FieldData> = usingFields
+    private fun DexMethodInfo.readFields(): List<DexFieldInfo> = usingFields
         .filter { it.usingType == FieldUsingType.Read }
         .map { it.field }
         .distinctBy { it.descriptor }

@@ -1,7 +1,9 @@
 package dev.ujhhgtg.wekit.dexkit.meta
 
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 
 /**
  * DexKit ClassData replacement.
@@ -15,6 +17,15 @@ class DexClassInfo internal constructor(
     private val json: JsonObject,
     private val metadata: DexMetadata,
 ) {
+    /** Shallow descriptor/name reference for classes without dataset metadata (e.g. framework). */
+    internal constructor(descriptor: String, name: String, metadata: DexMetadata) : this(
+        buildJsonObject {
+            put("descriptor", descriptor)
+            put("name", name)
+        },
+        metadata,
+    )
+
     /** Class descriptor ("Lcom/foo/Bar;"). */
     val descriptor: String = json.requiredString("descriptor")
 
@@ -36,12 +47,30 @@ class DexClassInfo internal constructor(
     /** Whether this class metadata describes an array type. */
     val isArray: Boolean = json.booleanOr("is_array", false)
 
+    /**
+     * Superclass metadata. Defined superclasses resolve full metadata through the session
+     * provider; external classes fall back to a shallow descriptor/name reference.
+     */
     val superClass: DexClassInfo? by lazy {
-        json.objectOrNull("super_class")?.let { DexClassInfo(it, metadata) }
+        json.objectOrNull("super_class")?.let { resolveReferencedClass(it) }
     }
 
+    /**
+     * Interface metadata. Defined interfaces resolve full metadata through the session provider;
+     * external ones fall back to a shallow descriptor/name reference.
+     */
     val interfaces: List<DexClassInfo> by lazy {
-        json.arrayOrEmpty("interfaces").map { DexClassInfo(it.jsonObject, metadata) }
+        json.arrayOrEmpty("interfaces").map { resolveReferencedClass(it.jsonObject) }
+    }
+
+    private fun resolveReferencedClass(reference: JsonObject): DexClassInfo {
+        val descriptor = reference.requiredString("descriptor")
+        return metadata.classInfo(descriptor)
+            ?: DexClassInfo(
+                descriptor,
+                reference.stringOrNull("name") ?: descriptorToJavaName(descriptor),
+                metadata,
+            )
     }
 
     val methods: List<DexMethodInfo> by lazy {
