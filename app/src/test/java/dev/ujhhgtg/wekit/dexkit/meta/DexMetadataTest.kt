@@ -1,7 +1,11 @@
 package dev.ujhhgtg.wekit.dexkit.meta
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -281,6 +285,89 @@ class DexMetadataTest {
         )
         assertNull(arrayMethod.returnType)
         assertEquals(queriesBeforeArray, provider.totalQueries)
+    }
+
+    @Test
+    fun usingTypeAcceptsLowercaseAndCapitalizedEngineValues() {
+        val methodJson = Json.parseToJsonElement(
+            """
+            {
+              "descriptor": "Lcom/x/Y;->m()V",
+              "name": "m",
+              "declared_class_name": "com.x.Y",
+              "method_sign": "()V",
+              "return_type_name": "void",
+              "param_type_names": [],
+              "param_count": 0,
+              "using_fields": [
+                {"field": {"descriptor": "Lcom/x/Y;->a:I", "name": "a", "declared_class_name": "com.x.Y", "type_name": "int", "modifiers": 1, "access_flags": 1}, "using_type": "read"},
+                {"field": {"descriptor": "Lcom/x/Y;->b:I", "name": "b", "declared_class_name": "com.x.Y", "type_name": "int", "modifiers": 1, "access_flags": 1}, "using_type": "write"},
+                {"field": {"descriptor": "Lcom/x/Y;->c:I", "name": "c", "declared_class_name": "com.x.Y", "type_name": "int", "modifiers": 1, "access_flags": 1}, "using_type": "Read"},
+                {"field": {"descriptor": "Lcom/x/Y;->d:I", "name": "d", "declared_class_name": "com.x.Y", "type_name": "int", "modifiers": 1, "access_flags": 1}, "using_type": "Write"}
+              ]
+            }
+            """.trimIndent(),
+        ).jsonObject
+        val method = DexMethodInfo(methodJson, DexMetadata(CountingMetadataProvider()))
+
+        assertEquals(
+            listOf(FieldUsingType.Read, FieldUsingType.Write, FieldUsingType.Read, FieldUsingType.Write),
+            method.usingFields.map { it.usingType },
+        )
+        assertEquals(2, method.readFields().size)
+        assertEquals(2, method.writeFields().size)
+    }
+
+    @Test
+    fun shallowClassMemberRelationsResolveTopLevelMethodDocumentOnce() {
+        val provider = CountingMetadataProvider()
+        val metadata = DexMetadata(provider)
+        val fullDoc = SnapshotFixture.entry(DexMetadataKind.Method, SnapshotFixture.SAMPLE_METHOD)
+        // Engine class JSON methods[] entries carry scalar fields only. Strip the relation lists to
+        // model a shallow inline member reference.
+        val shallowRef = JsonObject(
+            fullDoc.filterKeys { it != "invokes" && it != "using_fields" && it != "using_strings" },
+        )
+        val classJson = buildJsonObject {
+            put("descriptor", "Lcom/x/ShallowClass;")
+            put("name", "com.x.ShallowClass")
+            put("simple_name", "ShallowClass")
+            put("methods", JsonArray(listOf(shallowRef)))
+        }
+        val classInfo = DexClassInfo(classJson, metadata)
+
+        val member = classInfo.methods.single()
+        assertEquals(SnapshotFixture.SAMPLE_METHOD, member.descriptor)
+        assertEquals("G", member.name)
+        assertEquals("(Z)V", member.methodSign)
+
+        // Relations come from the top-level method document through the session cache.
+        assertEquals(2, member.invokes.size)
+        assertEquals("java.lang.Boolean", member.invokes[0].declaredClassName)
+        assertEquals(2, member.usingStrings.size)
+        assertEquals(FieldUsingType.Write, member.usingFields.single().usingType)
+        assertEquals("w", member.usingFields.single().field.name)
+        assertEquals(1, provider.count(DexMetadataKind.Method, SnapshotFixture.SAMPLE_METHOD))
+        assertEquals(1, provider.totalQueries)
+
+        // Repeated relation access must not issue another provider query.
+        assertEquals(2, member.invokes.size)
+        assertEquals(2, member.usingStrings.size)
+        assertEquals(1, provider.count(DexMetadataKind.Method, SnapshotFixture.SAMPLE_METHOD))
+        assertEquals(1, provider.totalQueries)
+    }
+
+    @Test
+    fun topLevelMethodRelationsDoNotTriggerProviderLookup() {
+        val provider = CountingMetadataProvider()
+        val metadata = DexMetadata(provider)
+        val method = metadata.methodInfo(SnapshotFixture.SAMPLE_METHOD)!!
+
+        assertEquals(2, method.invokes.size)
+        assertEquals(1, method.usingFields.size)
+        assertEquals(2, method.usingStrings.size)
+        assertEquals(1, provider.count(DexMetadataKind.Method, SnapshotFixture.SAMPLE_METHOD))
+        assertEquals(1, provider.totalQueries)
     }
 
     @Test

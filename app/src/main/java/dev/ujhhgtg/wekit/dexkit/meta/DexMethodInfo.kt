@@ -6,14 +6,19 @@ import kotlinx.serialization.json.jsonObject
 /**
  * DexKit MethodData replacement (method and constructor metadata).
  *
- * Invokes/usingFields/usingStrings are part of the top-level method JSON and are parsed lazily
- * without extra provider queries. [declaredClass] resolves through the session [DexMetadata] cache
- * on demand; it is null for external method references whose class metadata is not available.
+ * Invokes/usingFields/usingStrings live in the top-level method JSON. Class JSON member refs are
+ * shallow (they carry only scalar fields), so relation lists lazily resolve the full top-level
+ * method document through the session [DexMetadata] cache when absent inline. [declaredClass]
+ * resolves through the same cache on demand; it is null for external classes.
  */
 class DexMethodInfo internal constructor(
     private val json: JsonObject,
     private val metadata: DexMetadata,
 ) {
+    /** Raw JSON backing this instance (shallow class member ref or full top-level method doc). */
+    internal val rawJson: JsonObject
+        get() = json
+
     /** Full method descriptor ("Lcom/foo/Bar;->name(I)V"). */
     val descriptor: String = json.requiredString("descriptor")
 
@@ -71,19 +76,36 @@ class DexMethodInfo internal constructor(
     private val isPrimitiveOrArrayReturnType: Boolean =
         returnTypeName in PRIMITIVE_JAVA_TYPE_NAMES || returnTypeName.endsWith("]")
 
+    /**
+     * JSON that carries the relation lists. Top-level method documents include them inline;
+     * shallow class member refs resolve the full top-level document through the session cache.
+     * The self-check prevents a recursive lookup when a method document has no relation keys.
+     */
+    private val relationsJson: JsonObject by lazy {
+        if (json.hasMethodRelations()) {
+            json
+        } else {
+            val full = metadata.methodInfo(descriptor)
+            if (full != null && full !== this && full.json.hasMethodRelations()) full.json else json
+        }
+    }
+
+    private fun JsonObject.hasMethodRelations(): Boolean =
+        containsKey("invokes") || containsKey("using_fields") || containsKey("using_strings")
+
     /** Methods called by this method, in code order. */
     val invokes: List<DexMethodInfo> by lazy {
-        json.arrayOrEmpty("invokes").map { DexMethodInfo(it.jsonObject, metadata) }
+        relationsJson.arrayOrEmpty("invokes").map { DexMethodInfo(it.jsonObject, metadata) }
     }
 
     /** Fields used by this method, in code order, with read/write direction. */
     val usingFields: List<DexFieldAccess> by lazy {
-        json.arrayOrEmpty("using_fields").map { DexFieldAccess.parse(it.jsonObject, metadata) }
+        relationsJson.arrayOrEmpty("using_fields").map { DexFieldAccess.parse(it.jsonObject, metadata) }
     }
 
     /** String constants referenced by this method, in code order. */
     val usingStrings: List<String> by lazy {
-        json.arrayOrEmpty("using_strings").strings()
+        relationsJson.arrayOrEmpty("using_strings").strings()
     }
 
     /** Fields read by this method (DexKit MethodData.readFields() equivalent). */

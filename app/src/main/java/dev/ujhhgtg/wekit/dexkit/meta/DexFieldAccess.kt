@@ -25,9 +25,11 @@ class DexFieldAccess internal constructor(
         fun parse(json: JsonObject, metadata: DexMetadata): DexFieldAccess =
             DexFieldAccess(
                 field = DexFieldInfo(json.requiredObject("field"), metadata),
-                usingType = when (val value = json.requiredString("using_type")) {
-                    "Read" -> FieldUsingType.Read
-                    "Write" -> FieldUsingType.Write
+                // Engine contract is lowercase "read"/"write"; the DexKit oracle snapshot uses
+                // capitalized "Read"/"Write", so accept both.
+                usingType = when (val value = json.requiredString("using_type").lowercase()) {
+                    "read" -> FieldUsingType.Read
+                    "write" -> FieldUsingType.Write
                     else -> error("Unknown DexSQL field using_type: " + value)
                 },
             )
