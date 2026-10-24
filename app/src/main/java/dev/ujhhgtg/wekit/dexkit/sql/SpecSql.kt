@@ -220,12 +220,7 @@ internal fun MethodSpec.toSqlMethodQueryOrNull(
 }
 
 internal fun ClassSpec.toSqlClassQueryOrNull(): SqlClassQuery? {
-    if (
-        interfaces.isNotEmpty() ||
-            fields.isNotEmpty() ||
-            methodCount != null ||
-            annotations.isNotEmpty()
-    ) {
+    if (interfaces.isNotEmpty() || methodCount != null || annotations.isNotEmpty()) {
         return null
     }
     if (usingStrings.any(StringSpec::isEmptyNonEquality)) return null
@@ -260,6 +255,36 @@ internal fun ClassSpec.toSqlClassQueryOrNull(): SqlClassQuery? {
         }
         query.methods += nestedQuery
     }
+    if (fields.isNotEmpty()) {
+        // The emitter's declared-field units live on the bare-class shape; method/literal units
+        // use a methods anchor, so mixed specs keep the matcher fallback.
+        if (methods.isNotEmpty() || usingStrings.isNotEmpty() || usingNumbers.isNotEmpty()) {
+            return null
+        }
+        fields.forEach { fieldSpec ->
+            val name =
+                fieldSpec.name?.let {
+                    if (it.match != NameMatch.Equals) return null
+                    it.value
+                }
+            val fieldType =
+                fieldSpec.type?.let { typeSpec ->
+                    if (!typeSpec.isNameOnly()) return null
+                    val nameSpec = typeSpec.className ?: return null
+                    if (nameSpec.match != NameMatch.Equals) return null
+                    nameSpec.value
+                }
+            if (fieldSpec.declaredClass != null) return null
+            if (fieldSpec.readMethods.isNotEmpty() || fieldSpec.writeMethods.isNotEmpty()) {
+                return null
+            }
+            if (fieldSpec.searchPackages.isNotEmpty() || fieldSpec.excludePackages.isNotEmpty()) {
+                return null
+            }
+            if (name == null && fieldType == null && fieldSpec.modifiers == null) return null
+            query.field(name = name, fieldType = fieldType, modifiers = fieldSpec.modifiers)
+        }
+    }
     if (
         className == null &&
             superClass == null &&
@@ -270,6 +295,7 @@ internal fun ClassSpec.toSqlClassQueryOrNull(): SqlClassQuery? {
             excludePackages.isEmpty() &&
             fieldCount == null &&
             interfaceCount == null &&
+            fields.isEmpty() &&
             methods.isEmpty()
     ) {
         return null

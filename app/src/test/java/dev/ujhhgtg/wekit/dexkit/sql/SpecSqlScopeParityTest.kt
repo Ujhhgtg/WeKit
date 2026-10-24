@@ -500,6 +500,30 @@ class SpecSqlScopeParityTest {
     }
 
     @Test
+    fun classDeclaredFieldsEmitInjectiveFieldUnits() {
+        assertEquals(
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c " +
+                "JOIN class_fields cf0 ON cf0.class_descriptor = c.descriptor " +
+                "JOIN class_fields cf1 ON cf1.class_descriptor = c.descriptor " +
+                "WHERE c.descriptor = 'Lcom/test/A;' AND cf0.field_name = 'field_UserName' " +
+                "AND instr(cf0.field_descriptor, ':Ljava/lang/String;') > 0 " +
+                "AND ((cf0.access_flags & 8) = 8) AND cf1.field_name = 'field_StatusID' " +
+                "AND NOT (cf0.file_id = cf1.file_id AND cf0.field_idx = cf1.field_idx) " +
+                "ORDER BY c.descriptor;",
+            classSpec {
+                    className("com.test.A")
+                    field {
+                        name = "field_UserName"
+                        type = "java.lang.String"
+                        modifiers = 8
+                    }
+                    field { name = "field_StatusID" }
+                }
+                .toSqlOrNull(),
+        )
+    }
+
+    @Test
     fun packageExclusionsAreEmittedForEveryKind() {
         assertTrue(
             methodSpec {

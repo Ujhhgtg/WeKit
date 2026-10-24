@@ -86,7 +86,7 @@ class SpecSqlParityTest {
     @Test
     fun classMemberConstraintFallsBackToMatcher() {
         val spec = classSpec {
-            field { name("foo") }
+            field { readMethod { name("accessor") } }
             fieldCount = 2..2
         }
         assertFalse(spec.isSqlExpressible())

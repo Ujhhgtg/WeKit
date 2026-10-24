@@ -276,6 +276,13 @@ internal class SqlMethodQuery internal constructor() {
     }
 }
 
+/** One declared-field unit of a class query (DexKit fields { }); units match injectively. */
+internal class SqlClassFieldUnit(
+    val name: String? = null,
+    val fieldType: String? = null,
+    val modifiers: Int? = null,
+)
+
 /**
  * Builder for class queries ([sqlClass]).
  *
@@ -317,6 +324,7 @@ internal class SqlClassQuery internal constructor() {
 
     internal val literals = DexSqlLiterals()
     internal val methods = mutableListOf<SqlMethodQuery>()
+    internal val fields = mutableListOf<SqlClassFieldUnit>()
     internal var fieldCountRange: IntRange? = null
     internal var interfaceCountRange: IntRange? = null
 
@@ -397,6 +405,11 @@ internal class SqlClassQuery internal constructor() {
     /** Add an existential nested method matcher (DexKit methods { add { ... } }). */
     fun method(block: SqlMethodQuery.() -> Unit) {
         methods += SqlMethodQuery().apply(block)
+    }
+
+    /** Add one injectively-matched declared-field unit (DexKit fields { add { ... } }). */
+    fun field(name: String? = null, fieldType: String? = null, modifiers: Int? = null) {
+        fields += SqlClassFieldUnit(name, fieldType, modifiers)
     }
 
     /** Restrict the package, emitted against the class descriptor column. */

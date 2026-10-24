@@ -160,6 +160,48 @@ private fun countConditions(column: String, range: IntRange): List<String> =
     }
 
 /**
+ * Append injectively-matched declared-field units: one class_fields join per unit plus its
+ * predicates and pairwise identity distinctness conditions.
+ */
+private fun appendClassFieldUnits(
+    units: List<SqlClassFieldUnit>,
+    anchorColumn: String,
+    joins: MutableList<String>,
+    where: MutableList<String>,
+) {
+    val aliases = mutableListOf<String>()
+    units.forEachIndexed { index, unit ->
+        val alias = "cf$index"
+        aliases += alias
+        joins += "JOIN class_fields $alias ON $alias.class_descriptor = $anchorColumn"
+        unit.name?.let { where += alias + ".field_name = " + sqlQuote(it) }
+        unit.fieldType?.let {
+            where +=
+                "instr(" +
+                    alias +
+                    ".field_descriptor, " +
+                    sqlQuote(":" + javaType(it)) +
+                    ") > 0"
+        }
+        unit.modifiers?.let { mask -> where += "(($alias.access_flags & $mask) = $mask)" }
+    }
+    for (left in aliases.indices) {
+        for (right in left + 1 until aliases.size) {
+            where +=
+                "NOT (" +
+                    aliases[left] +
+                    ".file_id = " +
+                    aliases[right] +
+                    ".file_id AND " +
+                    aliases[left] +
+                    ".field_idx = " +
+                    aliases[right] +
+                    ".field_idx)"
+        }
+    }
+}
+
+/**
  * Render one DexKit string predicate (case-sensitive): contains uses instr(...) > 0, prefix uses
  * instr(...) = 1, suffix uses substr(column, -N) = literal with N in Unicode code points, and
  * equals keeps the raw literal. DexKit forces Equals for an empty non-equals literal.
@@ -703,7 +745,8 @@ internal fun emitClass(query: SqlClassQuery): String {
             superClassConstraint != null ||
             query.modifiers != null ||
             query.fieldCountRange != null ||
-            query.interfaceCountRange != null,
+            query.interfaceCountRange != null ||
+            query.fields.isNotEmpty(),
     ) {
         "sqlClass requires at least one predicate"
     }
@@ -720,6 +763,7 @@ internal fun emitClass(query: SqlClassQuery): String {
     }
     query.fieldCountRange?.let { where += countConditions("c.field_count", it) }
     query.interfaceCountRange?.let { where += countConditions("c.interface_count", it) }
+    appendClassFieldUnits(query.fields, "c.descriptor", joins, where)
     superClassConstraint?.let {
         appendSuperClassConstraint(it, null, 0, joins, where)
     }
