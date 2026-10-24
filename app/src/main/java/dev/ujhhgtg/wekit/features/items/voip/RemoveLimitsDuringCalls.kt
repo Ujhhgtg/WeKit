@@ -3,8 +3,13 @@ package dev.ujhhgtg.wekit.features.items.voip
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.AnnotationElementSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.AnnotationSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.AnnotationValue
+import dev.ujhhgtg.wekit.dexkit.matcher.AnnotationVisibility
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
@@ -12,6 +17,7 @@ import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.lang.reflect.Modifier
+
 
 object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
 
@@ -132,118 +138,159 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
     // com.tencent.mm.voipmp.v2 (VoIPMPCoreV2$multiTalkActionListener$1),
     // so this resolver has no result on 8.0.77 and the next one has no
     // result before it.
-    private val methodMultiTalkCallBack by dexMethod(allowFailure = true) {
-        searchPackages("com.tencent.mm.plugin.multitalk.model")
-        matcher {
-            declaredClass {
-                addAnnotation {
-                    type("dalvik.annotation.Signature")
-                    addElement {
-                        name = "value"
-                        arrayValue {
-                            add { stringValue("Lcom/tencent/mm/sdk/event/IListener<") }
-                            add { stringValue("Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;") }
-                            add { stringValue(">;") }
-                        }
-                    }
-                }
-            }
-            name = "callback"
-            paramCount = 1
-            returnType = "boolean"
-        }
+    private val methodMultiTalkCallBack by dexMethodQuery(allowFailure = true) {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(
+            annotations = listOf(
+                AnnotationSpec(
+                    type = NameSpec("dalvik.annotation.Signature"),
+                    visibility = AnnotationVisibility.System,
+                    elements = listOf(
+                        AnnotationElementSpec(
+                            name = NameSpec("value"),
+                            value = AnnotationValue.ListValue(
+                                listOf(
+                                    AnnotationValue.Text("Lcom/tencent/mm/sdk/event/IListener<"),
+        AnnotationValue.Text("Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;"),
+        AnnotationValue.Text(">;")
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+                name = NameSpec("callback"),
+                paramCount = 1..1,
+                returnType = ClassSpec(className = NameSpec("boolean")),
+            ),
+            packages = listOf("com.tencent.mm.plugin.multitalk.model"),
+        )
     }
 
-    private val methodMultiTalkCallBackV2 by dexMethod(allowFailure = true) {
-        searchPackages("com.tencent.mm.voipmp.v2")
-        // searchPackages is prefix-matched and would also hit the
-        // MultiTalkSelectContactUI listener in the multitalk.ui subpackage,
-        // which must not be hooked (its pre-8.0.77 counterpart in
-        // com.tencent.mm.plugin.multitalk.ui was never matched either).
-        excludePackages("com.tencent.mm.voipmp.v2.multitalk")
-        matcher {
-            declaredClass {
-                addAnnotation {
-                    type("dalvik.annotation.Signature")
-                    addElement {
-                        name = "value"
-                        arrayValue {
-                            add { stringValue("Lcom/tencent/mm/sdk/event/IListener<") }
-                            add { stringValue("Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;") }
-                            add { stringValue(">;") }
-                        }
-                    }
-                }
-            }
-            name = "callback"
-            paramCount = 1
-            returnType = "boolean"
-        }
+    private val methodMultiTalkCallBackV2 by dexMethodQuery(allowFailure = true) {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(
+            annotations = listOf(
+                AnnotationSpec(
+                    type = NameSpec("dalvik.annotation.Signature"),
+                    visibility = AnnotationVisibility.System,
+                    elements = listOf(
+                        AnnotationElementSpec(
+                            name = NameSpec("value"),
+                            value = AnnotationValue.ListValue(
+                                listOf(
+                                    AnnotationValue.Text("Lcom/tencent/mm/sdk/event/IListener<"),
+        AnnotationValue.Text("Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;"),
+        AnnotationValue.Text(">;")
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+                name = NameSpec("callback"),
+                paramCount = 1..1,
+                returnType = ClassSpec(className = NameSpec("boolean")),
+            ),
+            packages = listOf("com.tencent.mm.voipmp.v2"),
+            excludePackages = listOf("com.tencent.mm.voipmp.v2.multitalk"),
+        )
     }
 
-    private val methodVoipCallBack by dexMethod {
-        searchPackages("com.tencent.mm.plugin.voip.model")
-        matcher {
-            declaredClass {
-                addAnnotation {
-                    type("dalvik.annotation.Signature")
-                    addElement {
-                        name = "value"
-                        arrayValue {
-                            add { stringValue("Lcom/tencent/mm/sdk/event/IListener<") }
-                            add { stringValue("Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;") }
-                            add { stringValue(">;") }
-                        }
-                    }
-                }
-            }
-            name = "callback"
-            paramCount = 1
-            returnType = "boolean"
-        }
+    private val methodVoipCallBack by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(
+            annotations = listOf(
+                AnnotationSpec(
+                    type = NameSpec("dalvik.annotation.Signature"),
+                    visibility = AnnotationVisibility.System,
+                    elements = listOf(
+                        AnnotationElementSpec(
+                            name = NameSpec("value"),
+                            value = AnnotationValue.ListValue(
+                                listOf(
+                                    AnnotationValue.Text("Lcom/tencent/mm/sdk/event/IListener<"),
+        AnnotationValue.Text("Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;"),
+        AnnotationValue.Text(">;")
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+                name = NameSpec("callback"),
+                paramCount = 1..1,
+                returnType = ClassSpec(className = NameSpec("boolean")),
+            ),
+            packages = listOf("com.tencent.mm.plugin.voip.model"),
+        )
     }
 
-    private val methodIpCallCallBack by dexMethod {
-        searchPackages("com.tencent.mm.plugin.ipcall")
-        matcher {
-            declaredClass {
-                addAnnotation {
-                    type("dalvik.annotation.Signature")
-                    addElement {
-                        name = "value"
-                        arrayValue {
-                            add { stringValue("Lcom/tencent/mm/sdk/event/IListener<") }
-                            add { stringValue("Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;") }
-                            add { stringValue(">;") }
-                        }
-                    }
-                }
-            }
-            name = "callback"
-            paramCount = 1
-            returnType = "boolean"
-        }
+    private val methodIpCallCallBack by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(
+            annotations = listOf(
+                AnnotationSpec(
+                    type = NameSpec("dalvik.annotation.Signature"),
+                    visibility = AnnotationVisibility.System,
+                    elements = listOf(
+                        AnnotationElementSpec(
+                            name = NameSpec("value"),
+                            value = AnnotationValue.ListValue(
+                                listOf(
+                                    AnnotationValue.Text("Lcom/tencent/mm/sdk/event/IListener<"),
+        AnnotationValue.Text("Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;"),
+        AnnotationValue.Text(">;")
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+                name = NameSpec("callback"),
+                paramCount = 1..1,
+                returnType = ClassSpec(className = NameSpec("boolean")),
+            ),
+            packages = listOf("com.tencent.mm.plugin.ipcall"),
+        )
     }
 
-    private val methodFlutterLinkVoipCallBack by dexMethod {
-        searchPackages("com.tencent.mm.voipmp.helper", "com.tencent.mm.plugin_flutter_ilinkvoip.helper")
-        matcher {
-            declaredClass {
-                addAnnotation {
-                    type("dalvik.annotation.Signature")
-                    addElement {
-                        name = "value"
-                        arrayValue {
-                            add { stringValue("Lcom/tencent/mm/sdk/event/IListener<") }
-                            add { stringValue("Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;") }
-                            add { stringValue(">;") }
-                        }
-                    }
-                }
-            }
-            name = "callback"
-            paramCount = 1
-            returnType = "boolean"
-        }
+    private val methodFlutterLinkVoipCallBack by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(
+            annotations = listOf(
+                AnnotationSpec(
+                    type = NameSpec("dalvik.annotation.Signature"),
+                    visibility = AnnotationVisibility.System,
+                    elements = listOf(
+                        AnnotationElementSpec(
+                            name = NameSpec("value"),
+                            value = AnnotationValue.ListValue(
+                                listOf(
+                                    AnnotationValue.Text("Lcom/tencent/mm/sdk/event/IListener<"),
+        AnnotationValue.Text("Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;"),
+        AnnotationValue.Text(">;")
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+                name = NameSpec("callback"),
+                paramCount = 1..1,
+                returnType = ClassSpec(className = NameSpec("boolean")),
+            ),
+            packages = listOf("com.tencent.mm.voipmp.helper", "com.tencent.mm.plugin_flutter_ilinkvoip.helper"),
+        )
     }
 }

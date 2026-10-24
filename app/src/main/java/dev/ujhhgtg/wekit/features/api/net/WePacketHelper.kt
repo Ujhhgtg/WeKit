@@ -11,7 +11,15 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.OpcodeMatchType
+import dev.ujhhgtg.wekit.dexkit.matcher.OpcodeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -22,6 +30,10 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import dev.ujhhgtg.wekit.utils.reflection.bool
+import java.lang.reflect.InvocationHandler
+import java.lang.reflect.Method
+import java.lang.reflect.Modifier
+import java.lang.reflect.Proxy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,16 +41,7 @@ import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.OpCodeMatchType
 import org.luckypray.dexkit.query.matchers.base.IntRange
-import java.lang.reflect.InvocationHandler
-import java.lang.reflect.Method
-import java.lang.reflect.Modifier
-import java.lang.reflect.Proxy
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
+
 
 object WePacketHelper : ApiFeature(), IResolveDex {
 
@@ -56,66 +59,65 @@ object WePacketHelper : ApiFeature(), IResolveDex {
             }
         },
     )
-    private val classRawReq by dexClass {
-        matcher {
-            fields {
-                count(1)
-                add { type = "byte[]" }
-            }
-
-            methods {
-                add {
-                    name = "<init>"
-                    paramTypes("byte[]")
-                }
-
-                add {
-                    name = "op"
-                    paramTypes("int", "java.lang.Object[]")
-                    returnType = "int"
-                    opNames(
-                        opNames = emptyList(),
-                        matchType = OpCodeMatchType.Contains,
-                        opCodeSize = IntRange(0, 10)
-                    )
-                }
-
-                add {
-                    name = "toByteArray"
-                    returnType = "byte[]"
-                    invokeMethods {
-                        add {
-                            declaredClass = "java.lang.System"
-                            name = "arraycopy"
-                        }
-                    }
-                }
-            }
-        }
+    private val classRawReq by dexClassQuery {
+        uniqueClass(
+            ClassSpec(
+                fields = listOf(FieldSpec(type = ClassSpec(className = NameSpec("byte[]")))),
+                fieldCount = 1..1,
+                methods = listOf(
+                    MethodSpec(
+                        name = NameSpec("<init>"),
+                        paramTypes = listOf(TypeSpec("byte[]")),
+                    ),
+                    MethodSpec(
+                        name = NameSpec("op"),
+                        paramTypes = listOf(TypeSpec("int"), TypeSpec("java.lang.Object[]")),
+                        returnType = ClassSpec(className = NameSpec("int")),
+                        opcodes = OpcodeSpec(
+                            names = emptyList(),
+                            matchType = OpcodeMatchType.Contains,
+                            count = 0..10,
+                        ),
+                    ),
+                    MethodSpec(
+                        name = NameSpec("toByteArray"),
+                        returnType = ClassSpec(className = NameSpec("byte[]")),
+                        invokeMethods = listOf(
+                            MethodSpec(
+                                declaredClass = ClassSpec(className = NameSpec("java.lang.System")),
+                                name = NameSpec("arraycopy"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
     }
-    private val classGenericResp by dexClass {
-        matcher {
-            fields {
-                countMax(1)
-            }
-
-            methods {
-                add {
-                    name = "<init>"
-                    opNames(listOf("new-instance"), OpCodeMatchType.Contains)
-                }
-                add {
-                    name = "op"
-                    paramTypes("int", "java.lang.Object[]")
-                    returnType = "int"
-                    opNames(
-                        opNames = emptyList(),
-                        matchType = OpCodeMatchType.Contains,
-                        opCodeSize = IntRange(0, 10)
-                    )
-                }
-            }
-        }
+    private val classGenericResp by dexClassQuery {
+        uniqueClass(
+            ClassSpec(
+                fieldCount = 0..1,
+                methods = listOf(
+                    MethodSpec(
+                        name = NameSpec("<init>"),
+                        opcodes = OpcodeSpec(
+                            names = listOf("new-instance"),
+                            matchType = OpcodeMatchType.Contains,
+                        ),
+                    ),
+                    MethodSpec(
+                        name = NameSpec("op"),
+                        paramTypes = listOf(TypeSpec("int"), TypeSpec("java.lang.Object[]")),
+                        returnType = ClassSpec(className = NameSpec("int")),
+                        opcodes = OpcodeSpec(
+                            names = emptyList(),
+                            matchType = OpcodeMatchType.Contains,
+                            count = 0..10,
+                        ),
+                    ),
+                ),
+            ),
+        )
     }
     private val classConfigBuilder by dexClassQuery {
         uniqueClass(
