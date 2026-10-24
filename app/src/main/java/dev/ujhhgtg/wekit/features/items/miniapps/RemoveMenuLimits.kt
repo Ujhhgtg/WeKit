@@ -41,7 +41,7 @@ object RemoveMenuLimits : SwitchFeature(), IResolveDex {
         searchPackages("com.tencent.mm.plugin.appbrand.menu")
         declaredClass {
             superClass {
-                modifiers = java.lang.reflect.Modifier.ABSTRACT
+                modifiers = Modifier.ABSTRACT
             }
             method {
                 usingNumbers(39)
@@ -56,7 +56,7 @@ object RemoveMenuLimits : SwitchFeature(), IResolveDex {
         searchPackages("com.tencent.mm.plugin.appbrand.menu")
         declaredClass {
             superClass {
-                modifiers = java.lang.reflect.Modifier.ABSTRACT
+                modifiers = Modifier.ABSTRACT
             }
             method {
                 usingNumbers(30)

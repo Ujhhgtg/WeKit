@@ -59,7 +59,7 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
         }
         field {
             type = "int"
-            modifiers = java.lang.reflect.Modifier.STATIC or java.lang.reflect.Modifier.FINAL
+            modifiers = Modifier.STATIC or Modifier.FINAL
         }
         field {
             type {
@@ -77,7 +77,7 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
         }
         field {
             type = "boolean"
-            modifiers = java.lang.reflect.Modifier.FINAL
+            modifiers = Modifier.FINAL
         }
     }
 

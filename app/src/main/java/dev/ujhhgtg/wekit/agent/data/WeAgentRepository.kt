@@ -55,7 +55,7 @@ object WeAgentRepository {
         db.bridgeToolAuditDao()
             .insert(
                 dev.ujhhgtg.wekit.agent.data.entity.BridgeToolAuditEntity(
-                    id = java.util.UUID.randomUUID().toString(),
+                    id = UUID.randomUUID().toString(),
                     sessionId = entry.sessionId,
                     environmentId = entry.environmentId,
                     parentToolCallId = entry.parentToolCallId,
@@ -65,7 +65,7 @@ object WeAgentRepository {
                     approvalStatus = entry.approvalStatus,
                     executionOutcome = entry.executionOutcome,
                     result = entry.result,
-                    executedAt = java.time.Instant.now(),
+                    executedAt = Instant.now(),
                 ),
             )
     }
@@ -134,8 +134,8 @@ object WeAgentRepository {
     /** Records a model-visible environment transition exactly once for a session. */
     suspend fun announceEffectiveLinuxEnvironment(
         sessionId: String,
-        environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot,
-        previousEnvironment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot? = null,
+        environment: EnvironmentSnapshot,
+        previousEnvironment: EnvironmentSnapshot? = null,
     ): Boolean = db.withTransaction {
         val session = db.sessionDao().getById(sessionId) ?: return@withTransaction false
         if (session.lastEffectiveLinuxEnvironmentId == environment.id) return@withTransaction false
@@ -154,8 +154,8 @@ object WeAgentRepository {
     }
 
     private fun environmentReminder(
-        previous: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot?,
-        environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot,
+        previous: EnvironmentSnapshot?,
+        environment: EnvironmentSnapshot,
     ): String =
         "[系统提醒] 当前 Linux 环境已切换为「${environment.displayName}」(${environment.type.name})。" +
             "工作目录：${environment.workingDirectory}；Shell：${environment.shell}；" +

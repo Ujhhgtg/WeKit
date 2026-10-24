@@ -43,9 +43,9 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
 
     private val methodIsDuringCall by dexMethod {
         declaredClass {
-            modifiers = java.lang.reflect.Modifier.ABSTRACT
+            modifiers = Modifier.ABSTRACT
         }
-        modifiers = java.lang.reflect.Modifier.STATIC
+        modifiers = Modifier.STATIC
         paramCount = 0
         returnType = "boolean"
         invokeMethod {

@@ -57,8 +57,8 @@ class ConversationGroupTabsHost(
         (conversationView.parent as ViewGroup).addView(
             this,
             ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT,
             ),
         )
     }

@@ -206,8 +206,7 @@ class DexMethodDelegate(
     fun setDescriptor(desc: String) = setResolvedDescriptor(desc)
 
     @Suppress("NOTHING_TO_INLINE")
-    inline fun setDescriptor(m: DexMethodInfo) =
-        setDescriptor("${m.declaredClassName}->${m.name}${m.methodSign}")
+    inline fun setDescriptor(m: DexMethodInfo) = setDescriptor(m.descriptor)
 
     override fun clearCachedMember() {
         cachedMethod = null
@@ -241,8 +240,7 @@ class DexConstructorDelegate(
     fun setDescriptor(desc: String) = setResolvedDescriptor(desc)
 
     @Suppress("NOTHING_TO_INLINE")
-    inline fun setDescriptor(m: DexMethodInfo) =
-        setDescriptor("${m.declaredClassName}-><init>${m.methodSign}")
+    inline fun setDescriptor(m: DexMethodInfo) = setDescriptor(m.descriptor)
 
     override fun clearCachedMember() {
         cachedConstructor = null

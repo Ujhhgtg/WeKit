@@ -330,7 +330,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
     private val methodSetVoice by dexMethod {
         declaredClass = classVoiceLogic.data.name
-        modifiers = java.lang.reflect.Modifier.STATIC
+        modifiers = Modifier.STATIC
         returnType = "boolean"
         anyOf {
             paramTypes("java.lang.String", "int", "int", classMsgInfo.data.name)

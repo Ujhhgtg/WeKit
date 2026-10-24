@@ -111,7 +111,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     }
     private val classNetDispatcher by dexClass()
     private val classIOnSceneEnd by dexClass {
-        modifiers = java.lang.reflect.Modifier.INTERFACE
+        modifiers = Modifier.INTERFACE
         interfaceCount = 0
         methodCount = 1
         method {
