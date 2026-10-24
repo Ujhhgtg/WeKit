@@ -32,6 +32,12 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.UsingFieldSpec
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -275,17 +281,17 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.TransformComponent", "[onChattingPause]")
         },
     )
-    val methodGetIsTransformed by dexMethod {
-        matcher {
-            declaredClass(classMsgInfo.data.name)
-            usingNumbers(64, 0)
-            usingFields {
-                add {
-                    type = "int"
-                }
-            }
-            returnType = "boolean"
-        }
+    val methodGetIsTransformed by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(classMsgInfo.data.name)),
+                returnType = ClassSpec(className = NameSpec("boolean")),
+                usingNumbers = listOf<Number>(64, 0),
+                usingFields = listOf(
+                    UsingFieldSpec(field = FieldSpec(type = ClassSpec(className = NameSpec("int")))),
+                ),
+            ),
+        )
     }
 
     // -------------------------------------------------------------------------------------

@@ -31,6 +31,11 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -99,13 +104,22 @@ object SpoofChatMessages : ClickableFeature(), IResolveDex, WeChatMessageContext
             usingEqStrings("get previewPath img not completed")
         },
     )
-    private val methodGalleryCachedPath by dexMethod {
-        matcher {
-            declaredClass = methodGalleryImagePath.data.declaredClassName
-            returnType = "java.lang.String"
-            paramTypes(WeMessageApi.classMsgInfo.data.name, null, "boolean")
-            addInvoke(methodGalleryImagePath.data.descriptor)
-        }
+    private val methodGalleryCachedPath by dexMethodQuery {
+        val target = methodGalleryImagePath.data
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(target.declaredClassName)),
+                returnType = ClassSpec(className = NameSpec("java.lang.String")),
+                paramTypes = listOf(
+                    TypeSpec(WeMessageApi.classMsgInfo.data.name),
+                    null,
+                    TypeSpec("boolean"),
+                ),
+                invokeMethods = listOf(
+                    MethodSpec(descriptor = methodGalleryImagePath.data.descriptor),
+                ),
+            ),
+        )
     }
     private val methodGalleryInitImage by dexMethod(
         sqlMethod {

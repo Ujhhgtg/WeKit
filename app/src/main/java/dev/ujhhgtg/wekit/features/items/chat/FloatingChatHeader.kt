@@ -60,6 +60,12 @@ import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -150,69 +156,89 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** 置顶消息等提示条的宿主 (ViewStub p2f 展开, s3.xml)。 */
     private const val TIPS_BAR_GROUP_CLASS = "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup"
 
-    private val methodTipsExpandAnimationUpdate by dexMethod {
-        searchPackages("com.tencent.mm.ui.tipsbar")
-        matcher {
-            name = "onAnimationUpdate"
-            paramTypes("android.animation.ValueAnimator")
-            returnType = "void"
-            declaredClass {
-                addInterface {
-                    className = "android.animation.ValueAnimator\$AnimatorUpdateListener"
-                }
-                addFieldForType(TIPS_BAR_GROUP_CLASS)
-                addFieldForType(int)
-                fieldCount(2)
-            }
-            addInvoke {
-                declaredClass = "android.animation.ValueAnimator"
-                name = "getAnimatedFraction"
-                paramTypes()
-            }
-            addInvoke {
-                declaredClass = "android.view.View"
-                name = "setOutlineProvider"
-                paramTypes("android.view.ViewOutlineProvider")
-            }
-            addInvoke {
-                declaredClass = "android.view.View"
-                name = "invalidate"
-                paramTypes()
-            }
-        }
+    private val methodTipsExpandAnimationUpdate by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                name = NameSpec("onAnimationUpdate"),
+                paramTypes = listOf(TypeSpec("android.animation.ValueAnimator")),
+                returnType = ClassSpec(className = NameSpec("void")),
+                declaredClass = ClassSpec(
+                    interfaces = listOf(
+                        ClassSpec(
+                            className = NameSpec(
+                                "android.animation.ValueAnimator\$AnimatorUpdateListener",
+                            ),
+                        ),
+                    ),
+                    fields = listOf(
+                        FieldSpec(type = ClassSpec(className = NameSpec(TIPS_BAR_GROUP_CLASS))),
+                        FieldSpec(type = ClassSpec(className = NameSpec("int"))),
+                    ),
+                    fieldCount = 2..2,
+                ),
+                invokeMethods = listOf(
+                    MethodSpec(
+                        declaredClass = ClassSpec(className = NameSpec("android.animation.ValueAnimator")),
+                        name = NameSpec("getAnimatedFraction"),
+                        paramTypes = emptyList(),
+                    ),
+                    MethodSpec(
+                        declaredClass = ClassSpec(className = NameSpec("android.view.View")),
+                        name = NameSpec("setOutlineProvider"),
+                        paramTypes = listOf(TypeSpec("android.view.ViewOutlineProvider")),
+                    ),
+                    MethodSpec(
+                        declaredClass = ClassSpec(className = NameSpec("android.view.View")),
+                        name = NameSpec("invalidate"),
+                        paramTypes = emptyList(),
+                    ),
+                ),
+            ),
+            packages = listOf("com.tencent.mm.ui.tipsbar"),
+        )
     }
 
-    private val methodTipsFoldAnimationUpdate by dexMethod {
-        searchPackages("com.tencent.mm.ui.tipsbar")
-        matcher {
-            name = "onAnimationUpdate"
-            paramTypes("android.animation.ValueAnimator")
-            returnType = "void"
-            declaredClass {
-                addInterface {
-                    className = "android.animation.ValueAnimator\$AnimatorUpdateListener"
-                }
-                addFieldForType(TIPS_BAR_GROUP_CLASS)
-                addFieldForType(int)
-                addFieldForType(int)
-                fieldCount(3)
-            }
-            addInvoke {
-                declaredClass = "android.animation.ValueAnimator"
-                name = "getAnimatedFraction"
-                paramTypes()
-            }
-            addInvoke {
-                declaredClass = "android.view.View"
-                name = "setOutlineProvider"
-                paramTypes("android.view.ViewOutlineProvider")
-            }
-            addInvoke {
-                declaredClass = "android.view.View"
-                name = "invalidate"
-                paramTypes()
-            }
-        }
+    private val methodTipsFoldAnimationUpdate by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                name = NameSpec("onAnimationUpdate"),
+                paramTypes = listOf(TypeSpec("android.animation.ValueAnimator")),
+                returnType = ClassSpec(className = NameSpec("void")),
+                declaredClass = ClassSpec(
+                    interfaces = listOf(
+                        ClassSpec(
+                            className = NameSpec(
+                                "android.animation.ValueAnimator\$AnimatorUpdateListener",
+                            ),
+                        ),
+                    ),
+                    fields = listOf(
+                        FieldSpec(type = ClassSpec(className = NameSpec(TIPS_BAR_GROUP_CLASS))),
+                        FieldSpec(type = ClassSpec(className = NameSpec("int"))),
+                        FieldSpec(type = ClassSpec(className = NameSpec("int"))),
+                    ),
+                    fieldCount = 3..3,
+                ),
+                invokeMethods = listOf(
+                    MethodSpec(
+                        declaredClass = ClassSpec(className = NameSpec("android.animation.ValueAnimator")),
+                        name = NameSpec("getAnimatedFraction"),
+                        paramTypes = emptyList(),
+                    ),
+                    MethodSpec(
+                        declaredClass = ClassSpec(className = NameSpec("android.view.View")),
+                        name = NameSpec("setOutlineProvider"),
+                        paramTypes = listOf(TypeSpec("android.view.ViewOutlineProvider")),
+                    ),
+                    MethodSpec(
+                        declaredClass = ClassSpec(className = NameSpec("android.view.View")),
+                        name = NameSpec("invalidate"),
+                        paramTypes = emptyList(),
+                    ),
+                ),
+            ),
+            packages = listOf("com.tencent.mm.ui.tipsbar"),
+        )
     }
 
     private val methodTipsToFoldMode by dexMethod(

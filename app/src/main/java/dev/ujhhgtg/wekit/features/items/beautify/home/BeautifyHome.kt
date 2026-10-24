@@ -13,6 +13,12 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlField
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -50,16 +56,22 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
             usingEqStrings("MicroMsg.MainUI", "setListMargin isInMultiWindowMode: %b")
         },
     )
-    val methodNativeTitleView by dexMethod {
-        searchPackages("androidx.appcompat.app")
-        matcher {
-            paramCount = 0
-            returnType = "android.view.View"
-            addCaller {
-                declaredClass = "com.tencent.mm.ui.HomeUI"
-                usingEqStrings("[initActionBar] mActionBar == null")
-            }
-        }
+    val methodNativeTitleView by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                paramCount = 0..0,
+                returnType = ClassSpec(className = NameSpec("android.view.View")),
+                callerMethods = listOf(
+                    MethodSpec(
+                        declaredClass = ClassSpec(className = NameSpec("com.tencent.mm.ui.HomeUI")),
+                        usingStrings = listOf(
+                            StringSpec("[initActionBar] mActionBar == null", NameMatch.Equals),
+                        ),
+                    ),
+                ),
+            ),
+            packages = listOf("androidx.appcompat.app"),
+        )
     }
     val methodStatusBarHeight by dexMethod {
         matcher {

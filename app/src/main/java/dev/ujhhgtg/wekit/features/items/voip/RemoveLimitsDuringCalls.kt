@@ -4,6 +4,10 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -40,20 +44,22 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val methodIsDuringCall by dexMethod {
-        matcher {
-            declaredClass {
-                modifiers(Modifier.ABSTRACT)
-            }
-
-            modifiers(Modifier.STATIC)
-            paramCount = 0
-            returnType = "boolean"
-
-            addInvoke {
-                declaredClass = "com.tencent.mm.autogen.events.MultiTalkActionEvent"
-            }
-        }
+    private val methodIsDuringCall by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(modifiers = java.lang.reflect.Modifier.ABSTRACT),
+                modifiers = java.lang.reflect.Modifier.STATIC,
+                paramCount = 0..0,
+                returnType = ClassSpec(className = NameSpec("boolean")),
+                invokeMethods = listOf(
+                    MethodSpec(
+                        declaredClass = ClassSpec(
+                            className = NameSpec("com.tencent.mm.autogen.events.MultiTalkActionEvent"),
+                        ),
+                    ),
+                ),
+            ),
+        )
     }
     private val methodIsMultiTalking by dexMethod(
         sqlMethod {

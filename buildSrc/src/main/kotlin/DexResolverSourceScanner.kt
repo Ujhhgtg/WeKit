@@ -7,6 +7,10 @@ internal enum class ResolveBlockKind {
     INLINE_METHOD,
     INLINE_CONSTRUCTOR,
     INLINE_SQL,
+    INLINE_QUERY_CLASS,
+    INLINE_QUERY_FIELD,
+    INLINE_QUERY_METHOD,
+    INLINE_QUERY_CONSTRUCTOR,
 }
 
 internal data class ResolveSourceBlock(
@@ -108,6 +112,16 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
             addBlock(ResolveBlockKind.INLINE_SQL, match.range.first, end)
         }
     }
+    clean.findAllCode(INLINE_QUERY_DELEGATE).filter(::isDirectMember).forEach { match ->
+        val startScan = match.range.last + 1
+        val nextOpenBrace = clean.indexOfCode('{', startScan)
+        if (nextOpenBrace != -1 && !clean.containsCodeMatch(separatorRegex, startScan, nextOpenBrace)) {
+            val end = clean.findBlockEnd(nextOpenBrace)
+            if (end != -1 && end < classBodyEnd) {
+                addBlock(match.groupValues[1].toQueryResolveBlockKind(), nextOpenBrace, end)
+            }
+        }
+    }
     clean.findAllCode(INLINE_DELEGATE).filter(::isDirectMember).forEach { match ->
         val startScan = match.range.last + 1
         val nextOpenBrace = clean.indexOfCode('{', startScan)
@@ -160,9 +174,18 @@ private fun String.toResolveBlockKind(): ResolveBlockKind = when (this) {
     else -> error("Unsupported dex resolver delegate kind: $this")
 }
 
+private fun String.toQueryResolveBlockKind(): ResolveBlockKind = when (this) {
+    "Class" -> ResolveBlockKind.INLINE_QUERY_CLASS
+    "Field" -> ResolveBlockKind.INLINE_QUERY_FIELD
+    "Method" -> ResolveBlockKind.INLINE_QUERY_METHOD
+    "Constructor" -> ResolveBlockKind.INLINE_QUERY_CONSTRUCTOR
+    else -> error("Unsupported dex query resolver delegate kind: $this")
+}
+
 private val SQL_INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\s*\(""")
 private val SQL_DSL_CALL = Regex("""sql(?:Method|Class|Field|Constructor)\b""")
 private val INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\b""")
+private val INLINE_QUERY_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)Query\b""")
 private val LIVE_HOST_ACCESS = Regex("""\b(?:class|method|field|ctor)[A-Za-z0-9_]*\.(clazz|method|field|constructor)\b""")
 private val HOST_VERSION_ACCESS = Regex("""\bHostInfo\.(versionCode|versionName|isHostGooglePlay)\b""")
 private val TECHNICAL_ID = Regex("""\btechnicalId\s*=\s*"((?:[^"\\\n]|\\.)*)"""")

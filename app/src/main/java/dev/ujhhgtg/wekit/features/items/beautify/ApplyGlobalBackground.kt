@@ -34,6 +34,10 @@ import coil3.load
 import coil3.request.crossfade
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.activity.TransparentActivity
@@ -72,16 +76,22 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
 
     private const val TAG = "ApplyGlobalBackground"
 
-    private val methodInitImageView by dexMethod {
-        matcher {
-            declaredClass = "com.tencent.mm.ui.base.MultiTouchImageView"
-            modifiers(Modifiers.FINAL)
-            returnType = "void"
-            addInvoke {
-                declaredClass = "android.widget.ImageView"
-                name = "setScaleType"
-            }
-        }
+    private val methodInitImageView by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec("com.tencent.mm.ui.base.MultiTouchImageView"),
+                ),
+                modifiers = java.lang.reflect.Modifier.FINAL,
+                returnType = ClassSpec(className = NameSpec("void")),
+                invokeMethods = listOf(
+                    MethodSpec(
+                        declaredClass = ClassSpec(className = NameSpec("android.widget.ImageView")),
+                        name = NameSpec("setScaleType"),
+                    ),
+                ),
+            ),
+        )
     }
 
     private var backgroundUri by prefOption("global_bg_uri", nul<String>())

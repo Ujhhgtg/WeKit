@@ -39,6 +39,11 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -77,17 +82,18 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
     private const val MOTION_THRESHOLD = 2.0f
     private const val TAG = "EmojiGameControl"
 
-    private val methodRandom by dexMethod {
-        searchPackages("com.tencent.mm.sdk.platformtools")
-        matcher {
-            returnType(Int::class.java)
-            paramTypes(Int::class.java, Int::class.java)
-            invokeMethods {
-                add { name = "currentTimeMillis" }
-                add { name = "nextInt" }
-                matchType = MatchType.Contains
-            }
-        }
+    private val methodRandom by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                returnType = ClassSpec(className = NameSpec("int")),
+                paramTypes = listOf(TypeSpec("int"), TypeSpec("int")),
+                invokeMethods = listOf(
+                    MethodSpec(name = NameSpec("currentTimeMillis")),
+                    MethodSpec(name = NameSpec("nextInt")),
+                ),
+            ),
+            packages = listOf("com.tencent.mm.sdk.platformtools"),
+        )
     }
     private val methodPanelClick by dexMethod(
         sqlMethod {

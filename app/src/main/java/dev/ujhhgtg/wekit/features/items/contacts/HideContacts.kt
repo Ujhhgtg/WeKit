@@ -32,6 +32,11 @@ import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -736,14 +741,16 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
      * `FinderItem.getUnsignedId()` to stamp each entry with its feed id, the other never does.
      * `FinderItem` is an unobfuscated (kept) class, so that method name is stable across versions.
      */
-    val methodFinderLikeDrawerLoadMore by dexMethod(allowFailure = true) {
-        matcher {
-            usingEqStrings("Finder.DrawerPresenter", "[loadMoreData] empty!")
-            invokeMethods {
-                add { name = "getUnsignedId" }
-                matchType = MatchType.Contains
-            }
-        }
+    val methodFinderLikeDrawerLoadMore by dexMethodQuery(allowFailure = true) {
+        uniqueMethod(
+            MethodSpec(
+                usingStrings = listOf(
+                    StringSpec("Finder.DrawerPresenter", NameMatch.Equals),
+                    StringSpec("[loadMoreData] empty!", NameMatch.Equals),
+                ),
+                invokeMethods = listOf(MethodSpec(name = NameSpec("getUnsignedId"))),
+            ),
+        )
     }
 
     /**

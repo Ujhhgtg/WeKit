@@ -4,6 +4,10 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -45,17 +49,21 @@ object AntiSecMsg : SwitchFeature(), IResolveDex {
 
     // 完整判定: 同类、static (msgInfo) -> boolean、内部调用原始 sfn 检查
     // (8.0.65 为 z, 8.0.67+ 为 A, 方法名不参与匹配)
-    private val methodFullSecCheck by dexMethod {
-        matcher {
-            declaredClass(methodRawSfnCheck.data.declaredClassName)
-            paramCount = 1
-            returnType("boolean")
-
-            addInvoke {
-                declaredClass = methodRawSfnCheck.data.declaredClassName
-                name = methodRawSfnCheck.data.name
-            }
-        }
+    private val methodFullSecCheck by dexMethodQuery {
+        val raw = methodRawSfnCheck.data
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(raw.declaredClassName)),
+                paramCount = 1..1,
+                returnType = ClassSpec(className = NameSpec("boolean")),
+                invokeMethods = listOf(
+                    MethodSpec(
+                        declaredClass = ClassSpec(className = NameSpec(raw.declaredClassName)),
+                        name = NameSpec(raw.name),
+                    ),
+                ),
+            ),
+        )
     }
 
     override fun onEnable() {

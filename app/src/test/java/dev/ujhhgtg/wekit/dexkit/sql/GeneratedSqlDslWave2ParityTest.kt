@@ -11,6 +11,9 @@ import org.junit.jupiter.api.Test
  *
  * Runtime-value declarations are intentionally excluded from canonical parity: 84 declaration(s)
  * read other delegates' .data metadata, so they have no static canonical SQL text.
+ *
+ * Query-matcher-backed declarations are excluded from canonical parity: 18 declaration(s)
+ * (custom Kotlin resolvers; validated by the dex-test matrix).
  */
 class GeneratedSqlDslWave2ParityTest {
     private fun assertParity(expected: String, actual: DexSqlQuery) {
