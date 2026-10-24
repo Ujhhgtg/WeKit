@@ -10,58 +10,42 @@ package dev.ujhhgtg.wekit.python.api
 interface PythonDexHost {
     fun findClasses(
         specJson: String,
-        searchPackages: List<String>,
-        excludePackages: List<String>,
     ): List<PythonResolvedClass>
 
     fun findMethods(
         specJson: String,
-        searchPackages: List<String>,
-        excludePackages: List<String>,
     ): List<PythonResolvedMember>
 
     fun findConstructors(
         specJson: String,
-        searchPackages: List<String>,
-        excludePackages: List<String>,
     ): List<PythonResolvedMember>
 
     fun findFields(
         specJson: String,
-        searchPackages: List<String>,
-        excludePackages: List<String>,
     ): List<PythonResolvedField>
 
     fun findClass(
         specJson: String,
-        searchPackages: List<String>,
-        excludePackages: List<String>,
     ): PythonResolvedClass = findClasses(
-        specJson, searchPackages, excludePackages,
+        specJson,
     ).requireSingle("class")
 
     fun findMethod(
         specJson: String,
-        searchPackages: List<String>,
-        excludePackages: List<String>,
     ): PythonResolvedMember = findMethods(
-        specJson, searchPackages, excludePackages,
+        specJson,
     ).requireSingle("method")
 
     fun findConstructor(
         specJson: String,
-        searchPackages: List<String>,
-        excludePackages: List<String>,
     ): PythonResolvedMember = findConstructors(
-        specJson, searchPackages, excludePackages,
+        specJson,
     ).requireSingle("constructor")
 
     fun findField(
         specJson: String,
-        searchPackages: List<String>,
-        excludePackages: List<String>,
     ): PythonResolvedField = findFields(
-        specJson, searchPackages, excludePackages,
+        specJson,
     ).requireSingle("field")
 
     private fun <T> List<T>.requireSingle(kind: String): T {

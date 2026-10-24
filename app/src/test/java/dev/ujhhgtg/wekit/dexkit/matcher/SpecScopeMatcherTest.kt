@@ -51,33 +51,43 @@ class SpecScopeMatcherTest {
 
     @Test
     fun methodPackagesMatchTheDeclaringClass() {
-        assertTrue(evaluator.matchesMethod(run(), MethodSpec(packages = listOf("com.test"))))
+        assertTrue(evaluator.matchesMethod(run(), MethodSpec(searchPackages = listOf("com.test"))))
         assertTrue(
-            evaluator.matchesMethod(run(), MethodSpec(packages = listOf("com.test.Alpha"))),
+            evaluator.matchesMethod(run(), MethodSpec(searchPackages = listOf("com.test.Alpha"))),
         )
         assertTrue(
             evaluator.matchesMethod(
                 run(),
-                MethodSpec(packages = listOf("com.other", "com.test.Alpha")),
+                MethodSpec(searchPackages = listOf("com.other", "com.test.Alpha")),
             ),
         )
-        assertFalse(evaluator.matchesMethod(run(), MethodSpec(packages = listOf("com.test.Other"))))
-        assertFalse(evaluator.matchesMethod(run(), MethodSpec(packages = listOf("com.other"))))
+        assertFalse(
+            evaluator.matchesMethod(run(), MethodSpec(searchPackages = listOf("com.test.Other"))),
+        )
+        assertFalse(
+            evaluator.matchesMethod(run(), MethodSpec(searchPackages = listOf("com.other"))),
+        )
     }
 
     @Test
     fun classPackagesMatchTheClassName() {
-        assertTrue(evaluator.matchesClass(alpha(), ClassSpec(packages = listOf("com.test"))))
-        assertTrue(evaluator.matchesClass(alpha(), ClassSpec(packages = listOf("com.test.Alpha"))))
-        assertFalse(evaluator.matchesClass(alpha(), ClassSpec(packages = listOf("com.other"))))
-        assertFalse(evaluator.matchesClass(alpha(), ClassSpec(packages = listOf("com.tes"))))
+        assertTrue(evaluator.matchesClass(alpha(), ClassSpec(searchPackages = listOf("com.test"))))
+        assertTrue(
+            evaluator.matchesClass(alpha(), ClassSpec(searchPackages = listOf("com.test.Alpha"))),
+        )
+        assertFalse(
+            evaluator.matchesClass(alpha(), ClassSpec(searchPackages = listOf("com.other"))),
+        )
+        assertFalse(evaluator.matchesClass(alpha(), ClassSpec(searchPackages = listOf("com.tes"))))
     }
 
     @Test
     fun fieldPackagesMatchTheDeclaringClass() {
-        assertTrue(evaluator.matchesField(countField(), FieldSpec(packages = listOf("com.test"))))
+        assertTrue(
+            evaluator.matchesField(countField(), FieldSpec(searchPackages = listOf("com.test"))),
+        )
         assertFalse(
-            evaluator.matchesField(countField(), FieldSpec(packages = listOf("com.other"))),
+            evaluator.matchesField(countField(), FieldSpec(searchPackages = listOf("com.other"))),
         )
     }
 

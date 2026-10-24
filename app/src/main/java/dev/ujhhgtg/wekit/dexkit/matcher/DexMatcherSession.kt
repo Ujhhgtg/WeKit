@@ -38,10 +38,9 @@ class DexMatcherSession(
     private val scope =
         QueryMatcherScope(
             metadata = metadata,
-            query =
-                DexDescriptorQuery { sql ->
-                    bridge.query(sql).rows.mapNotNull { row -> row.firstOrNull() }
-                },
+            query = { sql ->
+                bridge.query(sql).rows.mapNotNull { row -> row.firstOrNull() }
+            },
             relations = relations,
             rawMetadata = metadataProvider::query,
             sessionCache = MatcherSessionCache.forSession(bridge),
@@ -52,44 +51,10 @@ class DexMatcherSession(
 
     fun findClasses(
         spec: ClassSpec,
-        packages: List<String> = emptyList(),
     ): List<DexClassInfo> =
         synchronized(lock) {
             checkOpen()
-            scope.findClasses(spec, packages)
-        }
-
-    /** Script-host overload with an explicit package exclusion list. */
-    internal fun findClasses(
-        spec: ClassSpec,
-        packages: List<String>,
-        excludePackages: List<String>,
-    ): List<DexClassInfo> =
-        synchronized(lock) {
-            checkOpen()
-            scope.findClasses(spec, packages, excludePackages)
-        }
-
-    /** Script-host overload with an explicit package exclusion list. */
-    internal fun findMethods(
-        spec: MethodSpec,
-        packages: List<String>,
-        excludePackages: List<String>,
-    ): List<DexMethodInfo> =
-        synchronized(lock) {
-            checkOpen()
-            scope.findMethods(spec, packages, excludePackages)
-        }
-
-    /** Script-host overload with an explicit package exclusion list. */
-    internal fun findFields(
-        spec: FieldSpec,
-        packages: List<String>,
-        excludePackages: List<String>,
-    ): List<DexFieldInfo> =
-        synchronized(lock) {
-            checkOpen()
-            scope.findFields(spec, packages, excludePackages)
+            scope.findClasses(spec)
         }
 
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
@@ -100,11 +65,10 @@ class DexMatcherSession(
 
     fun findMethods(
         spec: MethodSpec,
-        packages: List<String> = emptyList(),
     ): List<DexMethodInfo> =
         synchronized(lock) {
             checkOpen()
-            scope.findMethods(spec, packages)
+            scope.findMethods(spec)
         }
 
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
@@ -115,11 +79,10 @@ class DexMatcherSession(
 
     fun findFields(
         spec: FieldSpec,
-        packages: List<String> = emptyList(),
     ): List<DexFieldInfo> =
         synchronized(lock) {
             checkOpen()
-            scope.findFields(spec, packages)
+            scope.findFields(spec)
         }
 
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */

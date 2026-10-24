@@ -343,18 +343,14 @@ class QueryMatcherTest {
     }
 
     @Test
-    fun packagesAndExcludePackagesFilterCandidates() {
+    fun searchPackagesFilterCandidates() {
         val scope = scope()
         val inPackage =
-            scope.findMethods(MethodSpec(paramCount = 0..10), packages = listOf("com.test"))
+            scope.findMethods(MethodSpec(paramCount = 0..10, searchPackages = listOf("com.test")))
         assertEquals(MatcherFixtures.methodDescriptors().size, inPackage.size)
-        val excluded =
-            scope.findMethods(
-                MethodSpec(paramCount = 0..10),
-                packages = listOf("com.test"),
-                excludePackages = listOf("com.test"),
-            )
-        assertTrue(excluded.isEmpty())
+        val outsidePackage =
+            scope.findMethods(MethodSpec(paramCount = 0..10, searchPackages = listOf("com.other")))
+        assertTrue(outsidePackage.isEmpty())
     }
 
     @Test

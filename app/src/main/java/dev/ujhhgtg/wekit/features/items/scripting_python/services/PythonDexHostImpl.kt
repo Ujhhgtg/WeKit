@@ -30,78 +30,50 @@ import java.util.concurrent.Executors
 class PythonDexHostImpl(private val scope: PythonPluginScope) : PythonDexHost {
     override fun findClasses(
         specJson: String,
-        searchPackages: List<String>,
-        excludePackages: List<String>,
     ): List<PythonResolvedClass> = dexQuery { session ->
-        session
-            .findClasses(
-                MatcherSpecJson.classSpec(specJson),
-                searchPackages,
-                excludePackages,
+        session.findClasses(MatcherSpecJson.classSpec(specJson)).map { info ->
+            PythonResolvedClass(
+                name = info.name,
+                descriptor = info.descriptor,
+                modifiers = info.modifiers,
+                hostVersion = hostVersion,
+                hostBuildTag = WeChatBuildConfig.BUILD_TAG,
             )
-            .map { info ->
-                PythonResolvedClass(
-                    name = info.name,
-                    descriptor = info.descriptor,
-                    modifiers = info.modifiers,
-                    hostVersion = hostVersion,
-                    hostBuildTag = WeChatBuildConfig.BUILD_TAG,
-                )
-            }
+        }
     }
 
     override fun findMethods(
         specJson: String,
-        searchPackages: List<String>,
-        excludePackages: List<String>,
     ): List<PythonResolvedMember> = dexQuery { session ->
-        session
-            .findMethods(
-                MatcherSpecJson.methodSpec(specJson),
-                searchPackages,
-                excludePackages,
-            )
-            .map { info -> info.toResolved(PythonMemberKind.METHOD) }
+        session.findMethods(MatcherSpecJson.methodSpec(specJson)).map { info ->
+            info.toResolved(PythonMemberKind.METHOD)
+        }
     }
 
     override fun findConstructors(
         specJson: String,
-        searchPackages: List<String>,
-        excludePackages: List<String>,
     ): List<PythonResolvedMember> = dexQuery { session ->
         val spec = MatcherSpecJson.methodSpec(specJson)
         session
-            .findMethods(
-                spec.copy(name = NameSpec("<init>")),
-                searchPackages,
-                excludePackages,
-            )
+            .findMethods(spec.copy(name = NameSpec("<init>")))
             .filter { it.isConstructor }
             .map { info -> info.toResolved(PythonMemberKind.CONSTRUCTOR) }
     }
 
     override fun findFields(
         specJson: String,
-        searchPackages: List<String>,
-        excludePackages: List<String>,
     ): List<PythonResolvedField> = dexQuery { session ->
-        session
-            .findFields(
-                MatcherSpecJson.fieldSpec(specJson),
-                searchPackages,
-                excludePackages,
+        session.findFields(MatcherSpecJson.fieldSpec(specJson)).map { info ->
+            PythonResolvedField(
+                descriptor = info.descriptor,
+                name = info.name,
+                declaredClass = info.declaredClassName,
+                typeName = info.typeName,
+                modifiers = info.modifiers,
+                hostVersion = hostVersion,
+                hostBuildTag = WeChatBuildConfig.BUILD_TAG,
             )
-            .map { info ->
-                PythonResolvedField(
-                    descriptor = info.descriptor,
-                    name = info.name,
-                    declaredClass = info.declaredClassName,
-                    typeName = info.typeName,
-                    modifiers = info.modifiers,
-                    hostVersion = hostVersion,
-                    hostBuildTag = WeChatBuildConfig.BUILD_TAG,
-                )
-            }
+        }
     }
 
     private fun DexMethodInfo.toResolved(kind: PythonMemberKind): PythonResolvedMember =

@@ -180,19 +180,10 @@ def list_value(*values: object) -> Spec: ...
 def nested_value(annotation: Spec) -> Spec: ...
 def find_classes(
     spec: Spec,
-    *,
-    search_packages: Sequence[str] = (),
-    exclude_packages: Sequence[str] = (),
 ) -> list[ResolvedClass]: ...
 def find_methods(
     spec: Spec,
-    *,
-    search_packages: Sequence[str] = (),
-    exclude_packages: Sequence[str] = (),
 ) -> list[ResolvedMethod]: ...
 def find_fields(
     spec: Spec,
-    *,
-    search_packages: Sequence[str] = (),
-    exclude_packages: Sequence[str] = (),
 ) -> list[ResolvedField]: ...

@@ -414,7 +414,7 @@ class DescriptorSafetyTest {
             method { returnType { usingString("alpha marker") } }
             method { returnType { usingString("other") } }
         }
-        scope.findClasses(spec, packages = listOf("com.test"))
+        scope.findClasses(spec.copy(searchPackages = listOf("com.test")))
         assertEquals(0, methodDocumentQueries)
     }
 

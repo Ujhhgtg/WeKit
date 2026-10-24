@@ -149,7 +149,7 @@ data class MethodSpec(
      * `searchPackages` delegate call: a class matches a package when its name equals the package or
      * starts with the package plus '.'.
      */
-    val packages: List<String> = emptyList(),
+    val searchPackages: List<String> = emptyList(),
 )
 
 /** One field access matcher (DexKit UsingFieldMatcher); null [usingType] means any direction. */
@@ -191,7 +191,7 @@ data class ClassSpec(
      * `searchPackages` delegate call: a class matches a package when its name equals the package or
      * starts with the package plus '.'.
      */
-    val packages: List<String> = emptyList(),
+    val searchPackages: List<String> = emptyList(),
     /**
      * Bound on the number of annotations declared on the class (DexKit annotationCount). Stored as
      * an inclusive range; builders accept both an Int and an IntRange assignment.
@@ -219,5 +219,5 @@ data class FieldSpec(
      * `searchPackages` delegate call: a class matches a package when its name equals the package or
      * starts with the package plus '.'.
      */
-    val packages: List<String> = emptyList(),
+    val searchPackages: List<String> = emptyList(),
 )

@@ -5,7 +5,6 @@ import dev.ujhhgtg.wekit.dexkit.meta.DexMetadata
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadataKind
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadataProvider
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -656,12 +655,12 @@ class StructuralCandidateTest {
             scopeFor(query)
                 .findClasses(
                     classSpec {
+                        searchPackages("com.test")
                         field { type { className("java.lang.String") } }
                         field { type { className("int") } }
                         fieldCount = 2..2
                         method { usingEqString("") }
                     },
-                    packages = listOf("com.test"),
                 )
         val sql = query.queries.single()
         // The fieldCount constraint is now a canonical classes.field_count candidate and wins over
@@ -700,8 +699,10 @@ class StructuralCandidateTest {
         val results =
             scopeFor(query)
                 .findClasses(
-                    classSpec { method { name("run") } },
-                    packages = listOf("com.test"),
+                    classSpec {
+                        searchPackages("com.test")
+                        method { name("run") }
+                    },
                 )
         assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
         val sql = query.queries.single()
@@ -714,8 +715,10 @@ class StructuralCandidateTest {
         val (scope, query) = classScope()
         val results =
             scope.findClasses(
-                classSpec { methodCount = 3..3 },
-                packages = listOf("com.test"),
+                classSpec {
+                    searchPackages("com.test")
+                    methodCount = 3..3
+                },
             )
         assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
         val sql = query.queries.single()
@@ -826,13 +829,10 @@ class StructuralCandidateTest {
     @Test
     fun uniqueStopsEvaluatingAfterSecondMethodMatch() {
         var methodDocumentFetches = 0
-        val countingProvider =
-            object : DexMetadataProvider {
-                override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? {
-                    if (kind == DexMetadataKind.Method) methodDocumentFetches++
-                    return MatcherFixtures.provider.query(kind, descriptor)
-                }
-            }
+        val countingProvider = DexMetadataProvider { kind, descriptor ->
+            if (kind == DexMetadataKind.Method) methodDocumentFetches++
+            MatcherFixtures.provider.query(kind, descriptor)
+        }
         val metadata = DexMetadata(countingProvider)
         val query = RecordingDescriptorQuery {
             listOf(
@@ -856,13 +856,10 @@ class StructuralCandidateTest {
         // distinct class descriptors: early exit must stop before the whole candidate set is
         // visited.
         val classDescriptorsFetched = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
-        val countingProvider =
-            object : DexMetadataProvider {
-                override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? {
-                    if (kind == DexMetadataKind.Class) classDescriptorsFetched += descriptor
-                    return MatcherFixtures.provider.query(kind, descriptor)
-                }
-            }
+        val countingProvider = DexMetadataProvider { kind, descriptor ->
+            if (kind == DexMetadataKind.Class) classDescriptorsFetched += descriptor
+            MatcherFixtures.provider.query(kind, descriptor)
+        }
         val metadata = DexMetadata(countingProvider)
         val query = RecordingDescriptorQuery { MatcherFixtures.classDescriptors() }
         val scope = QueryMatcherScope(metadata, query, rawMetadata = countingProvider::query)
@@ -926,15 +923,12 @@ class StructuralCandidateTest {
 
     @Test
     fun arrayClassMethodCandidatesAreSkippedBeforeMetadataLookup() {
-        val throwingProvider =
-            object : DexMetadataProvider {
-                override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? {
-                    if (descriptor.startsWith("[")) {
-                        throw IllegalArgumentException("malformed class descriptor " + descriptor)
-                    }
-                    return MatcherFixtures.provider.query(kind, descriptor)
-                }
+        val throwingProvider = DexMetadataProvider { kind, descriptor ->
+            if (descriptor.startsWith("[")) {
+                throw IllegalArgumentException("malformed class descriptor " + descriptor)
             }
+            MatcherFixtures.provider.query(kind, descriptor)
+        }
         val metadata = DexMetadata(throwingProvider)
         val query = RecordingDescriptorQuery {
             listOf(
@@ -949,15 +943,12 @@ class StructuralCandidateTest {
 
     @Test
     fun arrayClassMemberRefsDoNotBreakClassLevelUsingStrings() {
-        val throwingProvider =
-            object : DexMetadataProvider {
-                override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? {
-                    if (descriptor.startsWith("[")) {
-                        throw IllegalArgumentException("malformed class descriptor " + descriptor)
-                    }
-                    return MatcherFixtures.provider.query(kind, descriptor)
-                }
+        val throwingProvider = DexMetadataProvider { kind, descriptor ->
+            if (descriptor.startsWith("[")) {
+                throw IllegalArgumentException("malformed class descriptor " + descriptor)
             }
+            MatcherFixtures.provider.query(kind, descriptor)
+        }
         val metadata = DexMetadata(throwingProvider)
         val arrayMember = buildJsonObject {
             put("descriptor", "[Lcom/test/Arg;->clone()Ljava/lang/Object;")

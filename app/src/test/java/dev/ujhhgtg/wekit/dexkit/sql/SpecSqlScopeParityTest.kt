@@ -56,7 +56,7 @@ class SpecSqlScopeParityTest {
         )
         assertMethodParity(
             old,
-            methodSpec { packages(listOf("com.tencent.mm.ui")) },
+            methodSpec { searchPackages(listOf("com.tencent.mm.ui")) },
         )
     }
 
@@ -401,18 +401,18 @@ class SpecSqlScopeParityTest {
     fun jsonCodecParsesScopeExtensions() {
         val method =
             MatcherSpecJson.methodSpec(
-                """{"name":"run","packages":["com.tencent.mm","com.tencent.mm.ui"]}""",
+                """{"name":"run","search_packages":["com.tencent.mm","com.tencent.mm.ui"]}""",
             )
-        assertEquals(listOf("com.tencent.mm", "com.tencent.mm.ui"), method.packages)
+        assertEquals(listOf("com.tencent.mm", "com.tencent.mm.ui"), method.searchPackages)
 
         val classSpec =
             MatcherSpecJson.classSpec(
-                """{"packages":["com.tencent.mm"],"using_numbers":[42,0.5]}""",
+                """{"search_packages":["com.tencent.mm"],"using_numbers":[42,0.5]}""",
             )
-        assertEquals(listOf("com.tencent.mm"), classSpec.packages)
+        assertEquals(listOf("com.tencent.mm"), classSpec.searchPackages)
         assertEquals(listOf<Number>(42L, 0.5), classSpec.usingNumbers)
 
-        val field = MatcherSpecJson.fieldSpec("""{"packages":["com.tencent.mm"]}""")
-        assertEquals(listOf("com.tencent.mm"), field.packages)
+        val field = MatcherSpecJson.fieldSpec("""{"search_packages":["com.tencent.mm"]}""")
+        assertEquals(listOf("com.tencent.mm"), field.searchPackages)
     }
 }

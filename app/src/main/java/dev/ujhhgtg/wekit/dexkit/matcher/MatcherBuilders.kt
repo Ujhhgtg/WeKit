@@ -220,7 +220,7 @@ class ClassMatcher internal constructor() {
     val methods = mutableListOf<MethodSpec>()
     val usingStrings = mutableListOf<StringSpec>()
     val usingNumbers = mutableListOf<Number>()
-    val packages = mutableListOf<String>()
+    val searchPackages = mutableListOf<String>()
 
     /**
      * DexKit annotation constraints (evaluation-only keywords; candidate generation ignores them).
@@ -379,11 +379,11 @@ class ClassMatcher internal constructor() {
     }
 
     fun searchPackages(vararg values: String) {
-        packages += values
+        searchPackages += values
     }
 
     fun searchPackages(values: List<String>) {
-        packages += values
+        searchPackages += values
     }
 
     fun annotation(spec: AnnotationSpec) {
@@ -412,7 +412,7 @@ class ClassMatcher internal constructor() {
         usingStrings.addAll(base.usingStrings)
         annotations = base.annotations
         usingNumbers.addAll(base.usingNumbers)
-        packages.addAll(base.packages)
+        searchPackages.addAll(base.searchPackages)
     }
 
     fun build(): ClassSpec =
@@ -429,7 +429,7 @@ class ClassMatcher internal constructor() {
             usingStrings = usingStrings.toList(),
             annotations = annotations,
             usingNumbers = usingNumbers.toList(),
-            packages = packages.toList(),
+            searchPackages = searchPackages.toList(),
             annotationCount = annotationCountRange,
         )
 }
@@ -487,7 +487,7 @@ class MethodMatcher internal constructor() {
 
     val usingStrings = mutableListOf<StringSpec>()
     val usingNumbers = mutableListOf<Number>()
-    val packages = mutableListOf<String>()
+    val searchPackages = mutableListOf<String>()
     val usingFields = mutableListOf<UsingFieldSpec>()
     val invokeMethods = mutableListOf<MethodSpec>()
     val callerMethods = mutableListOf<MethodSpec>()
@@ -659,18 +659,12 @@ class MethodMatcher internal constructor() {
     }
 
     fun searchPackages(vararg values: String) {
-        packages += values
+        searchPackages += values
     }
 
     fun searchPackages(values: List<String>) {
-        packages += values
+        searchPackages += values
     }
-
-    /** Alias of [searchPackages]. */
-    fun packages(vararg values: String) = searchPackages(*values)
-
-    /** Alias of [searchPackages]. */
-    fun packages(values: List<String>) = searchPackages(values)
 
     fun usingField(spec: UsingFieldSpec) {
         usingFields += spec
@@ -743,7 +737,7 @@ class MethodMatcher internal constructor() {
         paramCount = base.paramCount
         usingStrings.addAll(base.usingStrings)
         usingNumbers.addAll(base.usingNumbers)
-        packages.addAll(base.packages)
+        searchPackages.addAll(base.searchPackages)
         usingFields.addAll(base.usingFields)
         invokeMethods.addAll(base.invokeMethods)
         callerMethods.addAll(base.callerMethods)
@@ -771,7 +765,7 @@ class MethodMatcher internal constructor() {
             allOf = allOf.toList(),
             opcodes = opcodes,
             annotations = annotations,
-            packages = packages.toList(),
+            searchPackages = searchPackages.toList(),
         )
 }
 
@@ -808,7 +802,7 @@ class FieldMatcher internal constructor() {
 
     val readMethods = mutableListOf<MethodSpec>()
     val writeMethods = mutableListOf<MethodSpec>()
-    val packages = mutableListOf<String>()
+    val searchPackages = mutableListOf<String>()
 
     fun name(value: String, match: NameMatch = NameMatch.Equals) {
         name = NameSpec(value, match)
@@ -867,18 +861,12 @@ class FieldMatcher internal constructor() {
     }
 
     fun searchPackages(vararg values: String) {
-        packages += values
+        searchPackages += values
     }
 
     fun searchPackages(values: List<String>) {
-        packages += values
+        searchPackages += values
     }
-
-    /** Alias of [searchPackages]. */
-    fun packages(vararg values: String) = searchPackages(*values)
-
-    /** Alias of [searchPackages]. */
-    fun packages(values: List<String>) = searchPackages(values)
 
     fun applyBase(base: FieldSpec) {
         name = base.name
@@ -887,7 +875,7 @@ class FieldMatcher internal constructor() {
         declaredClass = base.declaredClass
         readMethods.addAll(base.readMethods)
         writeMethods.addAll(base.writeMethods)
-        packages.addAll(base.packages)
+        searchPackages.addAll(base.searchPackages)
     }
 
     fun build(): FieldSpec =
@@ -898,6 +886,6 @@ class FieldMatcher internal constructor() {
             declaredClass = declaredClassValue,
             readMethods = readMethods.toList(),
             writeMethods = writeMethods.toList(),
-            packages = packages.toList(),
+            searchPackages = searchPackages.toList(),
         )
 }

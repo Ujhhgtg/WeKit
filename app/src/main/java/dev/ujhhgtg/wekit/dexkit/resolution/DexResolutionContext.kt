@@ -69,9 +69,6 @@ object DexResolutionContext {
     val host: DexHostMetadata
         get() = current.get()?.host ?: error("Dex resolution context is not active")
 
-    val dexSql: DexSqlBridge?
-        get() = current.get()?.dexSql
-
     /** Session-scoped class/method/field metadata (the DexKit *Data replacement). */
     val metadata: DexMetadata
         get() = current.get()?.metadata ?: error("DexSQL metadata context is not active")
@@ -82,8 +79,7 @@ object DexResolutionContext {
 
     fun findClasses(
         spec: ClassSpec,
-        packages: List<String> = emptyList(),
-    ): List<DexClassInfo> = matcher.findClasses(spec, packages)
+    ): List<DexClassInfo> = matcher.findClasses(spec)
 
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
     fun findClasses(block: ClassMatcher.() -> Unit): List<DexClassInfo> {
@@ -93,8 +89,7 @@ object DexResolutionContext {
 
     fun findMethods(
         spec: MethodSpec,
-        packages: List<String> = emptyList(),
-    ): List<DexMethodInfo> = matcher.findMethods(spec, packages)
+    ): List<DexMethodInfo> = matcher.findMethods(spec)
 
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
     fun findMethods(block: MethodMatcher.() -> Unit): List<DexMethodInfo> {
@@ -104,8 +99,7 @@ object DexResolutionContext {
 
     fun findFields(
         spec: FieldSpec,
-        packages: List<String> = emptyList(),
-    ): List<DexFieldInfo> = matcher.findFields(spec, packages)
+    ): List<DexFieldInfo> = matcher.findFields(spec)
 
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
     fun findFields(block: FieldMatcher.() -> Unit): List<DexFieldInfo> {
@@ -144,15 +138,6 @@ object DexResolutionContext {
         }
         session.resolving += delegate
         try {
-            val spec =
-                delegate.dexSqlSpec
-                    ?: error(
-                        "Dex delegate " +
-                            delegate.owner.technicalPath +
-                            "#" +
-                            delegate.key +
-                            " has no SQL plan (DexKit inline matchers were removed)",
-                    )
             val dexSql =
                 session.dexSql
                     ?: error(

@@ -52,58 +52,34 @@ class Dex(Protocol):
     def class_(
         self,
         spec: Mapping[str, Any],
-        *,
-        search_packages: Sequence[str] = ...,
-        exclude_packages: Sequence[str] = ...,
     ) -> ResolvedClass: ...
     def classes(
         self,
         spec: Mapping[str, Any],
-        *,
-        search_packages: Sequence[str] = ...,
-        exclude_packages: Sequence[str] = ...,
     ) -> list[ResolvedClass]: ...
     def method(
         self,
         spec: Mapping[str, Any],
-        *,
-        search_packages: Sequence[str] = ...,
-        exclude_packages: Sequence[str] = ...,
     ) -> ResolvedMethod: ...
     def methods(
         self,
         spec: Mapping[str, Any],
-        *,
-        search_packages: Sequence[str] = ...,
-        exclude_packages: Sequence[str] = ...,
     ) -> list[ResolvedMethod]: ...
     def constructor(
         self,
         spec: Mapping[str, Any],
-        *,
-        search_packages: Sequence[str] = ...,
-        exclude_packages: Sequence[str] = ...,
     ) -> ResolvedMethod: ...
     def constructors(
         self,
         spec: Mapping[str, Any],
-        *,
-        search_packages: Sequence[str] = ...,
-        exclude_packages: Sequence[str] = ...,
     ) -> list[ResolvedMethod]: ...
     def field(
         self,
         spec: Mapping[str, Any],
-        *,
-        search_packages: Sequence[str] = ...,
-        exclude_packages: Sequence[str] = ...,
     ) -> ResolvedField: ...
     def fields(
         self,
         spec: Mapping[str, Any],
-        *,
-        search_packages: Sequence[str] = ...,
-        exclude_packages: Sequence[str] = ...,
     ) -> list[ResolvedField]: ...
 
 class TaskHandle(Protocol):

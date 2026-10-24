@@ -234,8 +234,11 @@ internal class SqlMethodQuery internal constructor() {
      */
     fun usingNumbers(vararg values: Any) = literals.usingNumbers(*values)
 
-    /** Restrict the declaring class package; several packages are OR-joined inside parentheses. */
-    fun searchPackages(vararg packages: String) = literals.searchPackages(*packages)
+    /**
+     * Restrict the declaring class package; several searchPackages are OR-joined inside
+     * parentheses.
+     */
+    fun searchPackages(vararg searchPackages: String) = literals.searchPackages(*searchPackages)
 
     /** Append LIMIT n after ORDER BY. */
     fun limit(value: Int) = literals.setLimit(value)
@@ -343,7 +346,7 @@ internal class SqlClassQuery internal constructor() {
     }
 
     /** Restrict the package, emitted against the class descriptor column. */
-    fun searchPackages(vararg packages: String) = literals.searchPackages(*packages)
+    fun searchPackages(vararg searchPackages: String) = literals.searchPackages(*searchPackages)
 
     /** Append LIMIT n after ORDER BY. */
     fun limit(value: Int) = literals.setLimit(value)
@@ -397,7 +400,7 @@ internal class SqlFieldQuery internal constructor() {
     }
 
     /** Restrict the declaring class package, emitted as (f.class_descriptor LIKE 'Lpackage/%'). */
-    fun searchPackages(vararg packages: String) = literals.searchPackages(*packages)
+    fun searchPackages(vararg searchPackages: String) = literals.searchPackages(*searchPackages)
 
     /** Append LIMIT n after ORDER BY. */
     fun limit(value: Int) = literals.setLimit(value)

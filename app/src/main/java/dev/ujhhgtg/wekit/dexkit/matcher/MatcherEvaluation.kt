@@ -44,7 +44,7 @@ internal class DexMatcherEvaluator(
             // External classes have no dataset metadata: DexKit only matches their names; any
             // structural/count/member constraint cannot be satisfied.
             return spec.className != null &&
-                matchesPackages(info.name, spec.packages) &&
+                matchesPackages(info.name, spec.searchPackages) &&
                 spec.superClass == null &&
                 spec.interfaces.isEmpty() &&
                 spec.fields.isEmpty() &&
@@ -57,8 +57,8 @@ internal class DexMatcherEvaluator(
                 spec.usingNumbers.isEmpty() &&
                 spec.annotations.isEmpty()
         }
-        if (!matchesPackages(info.name, spec.packages)) return false
-        spec.modifiers?.let { if ((info.modifiers and it) != it) return false }
+        if (!matchesPackages(info.name, spec.searchPackages)) return false
+        spec.modifiers?.let { if (info.modifiers and it != it) return false }
         spec.interfaceCount?.let { if (info.interfaces.size !in it) return false }
         spec.methodCount?.let { if (info.methods.size !in it) return false }
         spec.fieldCount?.let { if (info.fields.size !in it) return false }
@@ -78,12 +78,9 @@ internal class DexMatcherEvaluator(
         // member filter selected nothing (defensive: never silently drop class-level strings), fall
         // back to the weaker array-ref filter; classMethodUsingStrings ignores unreadable
         // documents.
-        val classMemberMethods =
-            if (realMethods.isNotEmpty()) {
-                realMethods
-            } else {
-                info.methods.filterNot { it.descriptor.startsWith("[") }
-            }
+        val classMemberMethods = realMethods.ifEmpty {
+            info.methods.filterNot { it.descriptor.startsWith("[") }
+        }
         for (stringSpec in spec.usingStrings) {
             val matched =
                 classUsingString?.invoke(info, stringSpec)
@@ -100,13 +97,8 @@ internal class DexMatcherEvaluator(
             }
             if (!matched) return false
         }
-        if (
-            spec.annotations.isNotEmpty() &&
-                !matchesAnnotations(info.rawJson["annotations"], spec.annotations)
-        ) {
-            return false
-        }
-        return true
+        return !(spec.annotations.isNotEmpty() &&
+            !matchesAnnotations(info.rawJson["annotations"], spec.annotations))
     }
 
     /**
@@ -120,7 +112,7 @@ internal class DexMatcherEvaluator(
         val full =
             try {
                 metadata.methodInfo(method.descriptor)
-            } catch (e: DexSqlException) {
+            } catch (_: DexSqlException) {
                 null
             }
         if (full != null) {
@@ -131,14 +123,14 @@ internal class DexMatcherEvaluator(
             val resolved =
                 try {
                     full.usingStrings
-                } catch (e: DexSqlException) {
+                } catch (_: DexSqlException) {
                     emptyList()
                 }
             if (resolved.isNotEmpty()) return resolved
         }
         return try {
             method.usingStrings
-        } catch (e: DexSqlException) {
+        } catch (_: DexSqlException) {
             emptyList()
         }
     }
@@ -146,7 +138,7 @@ internal class DexMatcherEvaluator(
     fun matchesMethod(info: DexMethodInfo, spec: MethodSpec): Boolean {
         spec.descriptor?.let { if (info.descriptor != it) return false }
         spec.name?.let { if (!it.matches(info.name)) return false }
-        spec.modifiers?.let { if ((info.modifiers and it) != it) return false }
+        spec.modifiers?.let { if (info.modifiers and it != it) return false }
         spec.paramCount?.let { if (info.paramCount !in it) return false }
         spec.paramTypes?.let { types ->
             if (types.isEmpty()) {
@@ -162,7 +154,7 @@ internal class DexMatcherEvaluator(
                 }
             }
         }
-        if (!matchesPackages(info.declaredClassName, spec.packages)) return false
+        if (!matchesPackages(info.declaredClassName, spec.searchPackages)) return false
         spec.declaredClass?.let { classSpec ->
             if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec))
                 return false
@@ -209,19 +201,14 @@ internal class DexMatcherEvaluator(
         spec.opcodes?.let { opcodeSpec ->
             if (!matchesOpcodes(fullMethodJson(info), opcodeSpec)) return false
         }
-        if (
-            spec.annotations.isNotEmpty() &&
-                !matchesAnnotations(fullMethodJson(info)["annotations"], spec.annotations)
-        ) {
-            return false
-        }
-        return true
+        return !(spec.annotations.isNotEmpty() &&
+            !matchesAnnotations(fullMethodJson(info)["annotations"], spec.annotations))
     }
 
     fun matchesField(info: DexFieldInfo, spec: FieldSpec): Boolean {
         spec.name?.let { if (!it.matches(info.name)) return false }
-        if (!matchesPackages(info.declaredClassName, spec.packages)) return false
-        spec.modifiers?.let { if ((info.modifiers and it) != it) return false }
+        if (!matchesPackages(info.declaredClassName, spec.searchPackages)) return false
+        spec.modifiers?.let { if (info.modifiers and it != it) return false }
         spec.type?.let { typeSpec ->
             if (!matchesFieldType(info.typeName, typeSpec)) return false
         }
@@ -250,24 +237,18 @@ internal class DexMatcherEvaluator(
 
     private fun missingRelations(feature: String): Nothing =
         throw UnsupportedOperationException(
-            "Query matcher " + feature + " require DexMatcherRelations (none configured)",
+            "Query matcher $feature require DexMatcherRelations (none configured)",
         )
 
     /** Parsed DexKit usingNumbers operand: engine collapses DEX literal labels to long/double. */
     private data class CandidateNumber(val longValue: Long?, val doubleValue: Double?)
 
     private fun usingNumbers(info: DexMethodInfo): List<CandidateNumber> {
-        val raw =
-            numbersJson(info)["using_numbers"] as? kotlinx.serialization.json.JsonArray
-                ?: return emptyList()
+        val raw = numbersJson(info)["using_numbers"] as? JsonArray ?: return emptyList()
         return raw.mapNotNull { element ->
-            val entry = element as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
-            val kind =
-                (entry["kind"] as? kotlinx.serialization.json.JsonPrimitive)?.content
-                    ?: return@mapNotNull null
-            val value =
-                (entry["value"] as? kotlinx.serialization.json.JsonPrimitive)?.content
-                    ?: return@mapNotNull null
+            val entry = element as? JsonObject ?: return@mapNotNull null
+            val kind = (entry["kind"] as? JsonPrimitive)?.content ?: return@mapNotNull null
+            val value = (entry["value"] as? JsonPrimitive)?.content ?: return@mapNotNull null
             when (kind) {
                 "long" -> value.toLongOrNull()?.let { CandidateNumber(it, null) }
                 "double" -> value.toDoubleOrNull()?.let { CandidateNumber(null, it) }
@@ -303,7 +284,7 @@ internal class DexMatcherEvaluator(
         }
         return try {
             metadata.methodInfo(info.descriptor)?.rawJson ?: shallow
-        } catch (e: DexSqlException) {
+        } catch (_: DexSqlException) {
             shallow
         }
     }
@@ -327,7 +308,7 @@ internal class DexMatcherEvaluator(
 
     private fun matchesAnnotations(actual: JsonElement?, specs: List<AnnotationSpec>): Boolean {
         val array = actual as? JsonArray ?: return false
-        val annotations = array.mapNotNull { it as? JsonObject }
+        val annotations = array.filterIsInstance<JsonObject>()
         return injectiveMatch(specs, annotations) { spec, annotation ->
             matchesAnnotation(annotation, spec)
         }
@@ -347,14 +328,14 @@ internal class DexMatcherEvaluator(
         }
         if (spec.elements.isNotEmpty()) {
             val elements =
-                (annotation["elements"] as? JsonArray)?.mapNotNull { it as? JsonObject }
+                (annotation["elements"] as? JsonArray)?.filterIsInstance<JsonObject>()
                     ?: return false
-            for (elementSpec in spec.elements) {
+            for ((nameSpec, value) in spec.elements) {
                 val matched = elements.any { element ->
                     val name =
                         (element["name"] as? JsonPrimitive)?.contentOrNull ?: return@any false
-                    nameSpecMatchesJavaName(elementSpec.name, name) &&
-                        matchesAnnotationValue(element["value"], elementSpec.value)
+                    nameSpecMatchesJavaName(nameSpec, name) &&
+                        matchesAnnotationValue(element["value"], value)
                 }
                 if (!matched) return false
             }
@@ -429,7 +410,7 @@ internal class DexMatcherEvaluator(
         val nameSpec = spec.className ?: return false
         if (nameSpec.match != NameMatch.Equals) return false
         if (javaTypeNameOf(actualName) != javaTypeNameOf(nameSpec.value)) return false
-        return spec.packages.isEmpty() &&
+        return spec.searchPackages.isEmpty() &&
             spec.superClass == null &&
             spec.interfaces.isEmpty() &&
             spec.fields.isEmpty() &&
@@ -451,7 +432,7 @@ internal class DexMatcherEvaluator(
         // External/non-dataset class: only the name is available (mirrors DexKit's name-only path).
         val nameSpec = spec.className ?: return false
         return nameSpecMatchesJavaName(nameSpec, fallbackName) &&
-            matchesPackages(fallbackName, spec.packages) &&
+            matchesPackages(fallbackName, spec.searchPackages) &&
             spec.superClass == null &&
             spec.interfaces.isEmpty() &&
             spec.fields.isEmpty() &&
@@ -468,7 +449,7 @@ internal class DexMatcherEvaluator(
      * DexSQL searchPackages semantics: class name equals one of [packages] or starts with it + '.'.
      */
     private fun matchesPackages(javaName: String, packages: List<String>): Boolean =
-        packages.isEmpty() || packages.any { javaName == it || javaName.startsWith(it + ".") }
+        packages.isEmpty() || packages.any { javaName == it || javaName.startsWith("$it.") }
 
     /** True when this instance is the shallow fallback produced for a non-dataset class. */
     private fun isShallow(info: DexClassInfo): Boolean = metadata.classInfo(info.descriptor) == null

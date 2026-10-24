@@ -406,38 +406,23 @@ def to_resolved_field(value: object) -> ResolvedField:
 
 def find_classes(
     spec: dict[str, Any],
-    *,
-    search_packages: Sequence[str] = (),
-    exclude_packages: Sequence[str] = (),
 ) -> list[ResolvedClass]:
     return _context().dex.classes(
         spec,
-        search_packages=search_packages,
-        exclude_packages=exclude_packages,
     )
 
 
 def find_methods(
     spec: dict[str, Any],
-    *,
-    search_packages: Sequence[str] = (),
-    exclude_packages: Sequence[str] = (),
 ) -> list[ResolvedMethod]:
     return _context().dex.methods(
         spec,
-        search_packages=search_packages,
-        exclude_packages=exclude_packages,
     )
 
 
 def find_fields(
     spec: dict[str, Any],
-    *,
-    search_packages: Sequence[str] = (),
-    exclude_packages: Sequence[str] = (),
 ) -> list[ResolvedField]:
     return _context().dex.fields(
         spec,
-        search_packages=search_packages,
-        exclude_packages=exclude_packages,
     )

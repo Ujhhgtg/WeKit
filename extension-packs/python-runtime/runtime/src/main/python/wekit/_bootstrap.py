@@ -315,124 +315,84 @@ class _Dex:
     def class_(
         self,
         spec: dict[str, Any],
-        *,
-        search_packages: Sequence[str] = (),
-        exclude_packages: Sequence[str] = (),
     ) -> ResolvedClass:
         return to_resolved_class(
             self._delegate.findClass(
                 self._json(spec),
-                list(search_packages),
-                list(exclude_packages),
             )
         )
 
     def classes(
         self,
         spec: dict[str, Any],
-        *,
-        search_packages: Sequence[str] = (),
-        exclude_packages: Sequence[str] = (),
     ) -> list[ResolvedClass]:
         return [
             to_resolved_class(item)
             for item in self._delegate.findClasses(
                 self._json(spec),
-                list(search_packages),
-                list(exclude_packages),
             )
         ]
 
     def method(
         self,
         spec: dict[str, Any],
-        *,
-        search_packages: Sequence[str] = (),
-        exclude_packages: Sequence[str] = (),
     ) -> ResolvedMethod:
         return to_resolved_method(
             self._delegate.findMethod(
                 self._json(spec),
-                list(search_packages),
-                list(exclude_packages),
             )
         )
 
     def methods(
         self,
         spec: dict[str, Any],
-        *,
-        search_packages: Sequence[str] = (),
-        exclude_packages: Sequence[str] = (),
     ) -> list[ResolvedMethod]:
         return [
             to_resolved_method(item)
             for item in self._delegate.findMethods(
                 self._json(spec),
-                list(search_packages),
-                list(exclude_packages),
             )
         ]
 
     def constructor(
         self,
         spec: dict[str, Any],
-        *,
-        search_packages: Sequence[str] = (),
-        exclude_packages: Sequence[str] = (),
     ) -> ResolvedMethod:
         return to_resolved_method(
             self._delegate.findConstructor(
                 self._json(spec),
-                list(search_packages),
-                list(exclude_packages),
             )
         )
 
     def constructors(
         self,
         spec: dict[str, Any],
-        *,
-        search_packages: Sequence[str] = (),
-        exclude_packages: Sequence[str] = (),
     ) -> list[ResolvedMethod]:
         return [
             to_resolved_method(item)
             for item in self._delegate.findConstructors(
                 self._json(spec),
-                list(search_packages),
-                list(exclude_packages),
             )
         ]
 
     def field(
         self,
         spec: dict[str, Any],
-        *,
-        search_packages: Sequence[str] = (),
-        exclude_packages: Sequence[str] = (),
     ) -> ResolvedField:
         return to_resolved_field(
             self._delegate.findField(
                 self._json(spec),
-                list(search_packages),
-                list(exclude_packages),
             )
         )
 
     def fields(
         self,
         spec: dict[str, Any],
-        *,
-        search_packages: Sequence[str] = (),
-        exclude_packages: Sequence[str] = (),
     ) -> list[ResolvedField]:
         return [
             to_resolved_field(item)
             for item in self._delegate.findFields(
                 self._json(spec),
-                list(search_packages),
-                list(exclude_packages),
             )
         ]
 

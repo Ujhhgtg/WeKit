@@ -31,13 +31,14 @@ internal enum class SqlNameLiteralKind {
  * Shared predicate storage for the public builders.
  *
  * [strings] and [numberCalls] keep declaration order because every literal becomes its own relation
- * alias; [packages] and the range are shared by method, class and field queries. Number values keep
- * their call grouping because one class-level usingNumbers(...) call is one existential unit.
+ * alias; [searchPackages] and the range are shared by method, class and field queries. Number
+ * values keep their call grouping because one class-level usingNumbers(...) call is one existential
+ * unit.
  */
 internal class DexSqlLiterals {
     val strings = mutableListOf<SqlStringLiteral>()
     val numberCalls = mutableListOf<List<Any>>()
-    val packages = mutableListOf<String>()
+    val searchPackages = mutableListOf<String>()
     var limit: Int? = null
         private set
 
@@ -60,7 +61,7 @@ internal class DexSqlLiterals {
         if (values.isNotEmpty()) numberCalls += values.toList()
     }
 
-    fun searchPackages(vararg values: String) = values.forEach { packages += it }
+    fun searchPackages(vararg values: String) = values.forEach { searchPackages += it }
 
     fun setLimit(value: Int) {
         limit = value
@@ -132,10 +133,11 @@ internal fun sqlQuote(value: String): String = "'" + value.replace("'", "''") + 
 private fun packageDescriptor(packageName: String): String =
     "L" + packageName.replace('.', '/').trim('/') + "/"
 
-/** Search-packages prefix condition: case-sensitive instr(...) = 1, OR-grouped. */
-private fun packageCondition(column: String, packages: List<String>): String? {
-    if (packages.isEmpty()) return null
-    return packages.joinToString(separator = " OR ", prefix = "(", postfix = ")") { packageName ->
+/** Search-searchPackages prefix condition: case-sensitive instr(...) = 1, OR-grouped. */
+private fun packageCondition(column: String, searchPackages: List<String>): String? {
+    if (searchPackages.isEmpty()) return null
+    return searchPackages.joinToString(separator = " OR ", prefix = "(", postfix = ")") {
+        packageName ->
         "instr(" + column + ", " + sqlQuote(packageDescriptor(packageName)) + ") = 1"
     }
 }
@@ -525,7 +527,7 @@ internal fun emitMethod(query: SqlMethodQuery, constructor: Boolean): String {
     val result = methodJoins(query.literals.strings, query.literals.numberCalls, "m", 0, properties)
     val joins = result.joins.toMutableList()
     where += result.where
-    packageCondition("m.class_descriptor", query.literals.packages)?.let { where += it }
+    packageCondition("m.class_descriptor", query.literals.searchPackages)?.let { where += it }
     query.modifiers?.let { mask ->
         where += "((m.access_flags & $mask) = $mask)"
     }
@@ -622,7 +624,7 @@ internal fun emitClass(query: SqlClassQuery): String {
             classesJoined = true
             where += nameMatchCondition("c.superclass_descriptor", it, SqlNameLiteralKind.Class)
         }
-        packageCondition("cm.class_descriptor", query.literals.packages)?.let { where += it }
+        packageCondition("cm.class_descriptor", query.literals.searchPackages)?.let { where += it }
         query.modifiers?.let { mask ->
             if (!classesJoined) {
                 joins += "JOIN classes c ON c.descriptor = cm.class_descriptor"
@@ -653,7 +655,7 @@ internal fun emitClass(query: SqlClassQuery): String {
     require(
         classNameMatch != null ||
             superClassMatch != null ||
-            query.literals.packages.isNotEmpty() ||
+            query.literals.searchPackages.isNotEmpty() ||
             superClassConstraint != null ||
             query.modifiers != null,
     ) {
@@ -665,7 +667,7 @@ internal fun emitClass(query: SqlClassQuery): String {
     superClassMatch?.let {
         where += nameMatchCondition("c.superclass_descriptor", it, SqlNameLiteralKind.Class)
     }
-    packageCondition("c.descriptor", query.literals.packages)?.let { where += it }
+    packageCondition("c.descriptor", query.literals.searchPackages)?.let { where += it }
     query.modifiers?.let { mask ->
         where += "((c.access_flags & $mask) = $mask)"
     }
@@ -688,7 +690,7 @@ internal fun emitField(query: SqlFieldQuery): String {
     query.name?.let { where += "f.name = " + sqlQuote(it) }
     query.declaredClass?.let { where += "f.class_descriptor = " + sqlQuote(classDescriptor(it)) }
     query.type?.let { where += "f.type_descriptor = " + sqlQuote(javaType(it)) }
-    packageCondition("f.class_descriptor", query.literals.packages)?.let { where += it }
+    packageCondition("f.class_descriptor", query.literals.searchPackages)?.let { where += it }
     // Access aliases are positional; literal aliases start after the previous unit's aliases.
     var aliasCounter = 0
     query.accesses.forEachIndexed { index, access ->
@@ -757,7 +759,7 @@ private fun methodMatcherDistinctnessConditions(aliases: List<String>): List<Str
 
 /** Nested method matchers only carry matcher predicates, never query-level options. */
 private fun requireNestedMethod(query: SqlMethodQuery) {
-    require(query.literals.packages.isEmpty()) {
+    require(query.literals.searchPackages.isEmpty()) {
         "Nested method matchers cannot declare searchPackages"
     }
     require(query.literals.limit == null && query.literals.offset == null) {

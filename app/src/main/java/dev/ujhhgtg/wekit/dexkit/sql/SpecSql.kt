@@ -99,13 +99,13 @@ private fun ClassSpec.isNameOnly(): Boolean =
         usingStrings.isEmpty() &&
         annotations.isEmpty() &&
         usingNumbers.isEmpty() &&
-        packages.isEmpty()
+        searchPackages.isEmpty()
 
 /**
  * True when this class spec is fully representable by a [SqlClassLiteralConstraint] (a method
  * declaredClass{} or a class superClass{} block): a name match plus class-level string/number
- * literal units. Structural member constraints, modifiers, annotations and packages have no SQL
- * class-literal form and force the matcher fallback.
+ * literal units. Structural member constraints, modifiers, annotations and searchPackages have no
+ * SQL class-literal form and force the matcher fallback.
  */
 private fun ClassSpec.isClassLiteralConstraintExpressible(): Boolean =
     superClass == null &&
@@ -117,7 +117,7 @@ private fun ClassSpec.isClassLiteralConstraintExpressible(): Boolean =
         interfaceCount == null &&
         modifiers == null &&
         annotations.isEmpty() &&
-        packages.isEmpty() &&
+        searchPackages.isEmpty() &&
         (className != null || usingStrings.isNotEmpty() || usingNumbers.isNotEmpty()) &&
         usingStrings.none(StringSpec::isEmptyNonEquality)
 
@@ -128,7 +128,7 @@ internal fun MethodSpec.toSqlMethodQueryOrNull(
     nested: Boolean = false,
 ): SqlMethodQuery? {
     if (descriptor != null) return null
-    if (nested && packages.isNotEmpty()) return null
+    if (nested && searchPackages.isNotEmpty()) return null
     if (
         usingFields.isNotEmpty() ||
             invokeMethods.isNotEmpty() ||
@@ -179,7 +179,7 @@ internal fun MethodSpec.toSqlMethodQueryOrNull(
     opcodes?.count?.let { query.opcodeCount(it) }
     usingStrings.forEach { it.toSqlMethodLiteral(query) }
     if (usingNumbers.isNotEmpty()) query.usingNumbers(*usingNumbers.toTypedArray())
-    if (packages.isNotEmpty()) query.searchPackages(*packages.toTypedArray())
+    if (searchPackages.isNotEmpty()) query.searchPackages(*searchPackages.toTypedArray())
     return query
 }
 
@@ -211,7 +211,7 @@ internal fun ClassSpec.toSqlClassQueryOrNull(): SqlClassQuery? {
     modifiers?.let { query.modifiers = it }
     usingStrings.forEach { it.toSqlClassLiteral(query) }
     if (usingNumbers.isNotEmpty()) query.usingNumbers(*usingNumbers.toTypedArray())
-    if (packages.isNotEmpty()) query.searchPackages(*packages.toTypedArray())
+    if (searchPackages.isNotEmpty()) query.searchPackages(*searchPackages.toTypedArray())
     methods.forEach { methodSpec ->
         val nestedQuery = methodSpec.toSqlMethodQueryOrNull(nested = true) ?: return null
         if (
@@ -229,7 +229,7 @@ internal fun ClassSpec.toSqlClassQueryOrNull(): SqlClassQuery? {
             modifiers == null &&
             usingStrings.isEmpty() &&
             usingNumbers.isEmpty() &&
-            packages.isEmpty() &&
+            searchPackages.isEmpty() &&
             methods.isEmpty()
     ) {
         return null
@@ -247,7 +247,7 @@ private fun MethodSpec.hasMatcherPredicates(): Boolean =
         opcodes?.count != null ||
         usingStrings.isNotEmpty() ||
         usingNumbers.isNotEmpty() ||
-        packages.isNotEmpty()
+        searchPackages.isNotEmpty()
 
 private fun SqlMethodQuery.hasMatcherPredicates(): Boolean =
     name != null ||
@@ -259,7 +259,7 @@ private fun SqlMethodQuery.hasMatcherPredicates(): Boolean =
         opcodeCountRange != null ||
         literals.strings.isNotEmpty() ||
         literals.numberCalls.isNotEmpty() ||
-        literals.packages.isNotEmpty()
+        literals.searchPackages.isNotEmpty()
 
 internal fun FieldSpec.toSqlFieldQueryOrNull(): SqlFieldQuery? {
     val query = SqlFieldQuery()
@@ -291,13 +291,13 @@ internal fun FieldSpec.toSqlFieldQueryOrNull(): SqlFieldQuery? {
         if (!nested.hasMatcherPredicates()) return null
         query.accesses += SqlFieldAccess(nested, usingType)
     }
-    if (packages.isNotEmpty()) query.searchPackages(*packages.toTypedArray())
+    if (searchPackages.isNotEmpty()) query.searchPackages(*searchPackages.toTypedArray())
     if (
         query.name == null &&
             query.declaredClass == null &&
             query.type == null &&
             query.accesses.isEmpty() &&
-            query.literals.packages.isEmpty()
+            query.literals.searchPackages.isEmpty()
     ) {
         return null
     }
