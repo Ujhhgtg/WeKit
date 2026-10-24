@@ -10,7 +10,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.DexMethodDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -57,78 +56,60 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
         val source: Any? = null,
     )
 
-    private val methodOnCreateMenu by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.sns.ui.listener")
-                usingStrings(
-                    "MicroMsg.TimelineOnCreateContextMenuListener",
-                    "onMMCreateContextMenu error",
-                )
-            },
+    private val methodOnCreateMenu by dexMethod {
+        searchPackages("com.tencent.mm.plugin.sns.ui.listener")
+        usingStrings(
+            "MicroMsg.TimelineOnCreateContextMenuListener",
+            "onMMCreateContextMenu error",
         )
-    private val methodOnItemSelected by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.sns.ui.listener")
-                usingStrings(
-                    "delete comment fail!!! snsInfo is null",
-                    "send photo fail, mediaObj is null",
-                    "mediaObj is null, send failed!",
-                )
-            },
+    }
+    private val methodOnItemSelected by dexMethod {
+        searchPackages("com.tencent.mm.plugin.sns.ui.listener")
+        usingStrings(
+            "delete comment fail!!! snsInfo is null",
+            "send photo fail, mediaObj is null",
+            "mediaObj is null, send failed!",
         )
+    }
     private val methodImproveOnItemSelectedRegister2 by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
-                returnType = "void"
-                paramCount = 2
-                paramTypes("android.view.MenuItem", "int")
-                usingStrings(
-                    "onMMMenuItemSelected",
-                    "com.tencent.mm.plugin.sns.ui.improve.item.click.BaseImproveClick\$register\$2",
-                )
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
+            returnType = "void"
+            paramCount = 2
+            paramTypes("android.view.MenuItem", "int")
+            usingStrings(
+                "onMMMenuItemSelected",
+                "com.tencent.mm.plugin.sns.ui.improve.item.click.BaseImproveClick\$register\$2",
+            )
+        }
     private val methodImproveOnItemSelectedRegister3 by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
-                returnType = "void"
-                paramCount = 2
-                paramTypes("android.view.MenuItem", "int")
-                usingStrings(
-                    "onMMMenuItemSelected",
-                    "com.tencent.mm.plugin.sns.ui.improve.item.click.BaseImproveClick\$register\$3",
-                )
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
+            returnType = "void"
+            paramCount = 2
+            paramTypes("android.view.MenuItem", "int")
+            usingStrings(
+                "onMMMenuItemSelected",
+                "com.tencent.mm.plugin.sns.ui.improve.item.click.BaseImproveClick\$register\$3",
+            )
+        }
     private val methodImproveMultiPhotoOnItemSelected by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
-                returnType = "void"
-                paramCount = 2
-                paramTypes("android.view.MenuItem", "int")
-                usingStrings(
-                    "onMMMenuItemSelected",
-                    "com.tencent.mm.plugin.sns.ui.improve.item.click.ImproveMultiPhotoClick\$register\$1\$1\$1",
-                )
-            },
-            allowFailure = true,
-        )
-    private val methodSnsInfoStorage by
-        dexMethod(
-            sqlMethod {
-                returnType = "com.tencent.mm.plugin.sns.storage.SnsInfo"
-                paramCount = 1
-                paramTypes("java.lang.String")
-                usingStrings("getByLocalId", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
-            },
-        )
+        dexMethod(allowFailure = true) {
+            searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
+            returnType = "void"
+            paramCount = 2
+            paramTypes("android.view.MenuItem", "int")
+            usingStrings(
+                "onMMMenuItemSelected",
+                "com.tencent.mm.plugin.sns.ui.improve.item.click.ImproveMultiPhotoClick\$register\$1\$1\$1",
+            )
+        }
+    private val methodSnsInfoStorage by dexMethod {
+        returnType = "com.tencent.mm.plugin.sns.storage.SnsInfo"
+        paramCount = 1
+        paramTypes("java.lang.String")
+        usingStrings("getByLocalId", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
+    }
 
     override fun onEnable() {
         methodOnCreateMenu.method.hookAfter {

@@ -42,8 +42,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.sql.sqlField
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoProvider
@@ -135,44 +133,32 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     private val fieldRoomId by dexField()
 
     /** TalkRoomServer.enterTalkRoom(String, int) —— 发起「实时对讲机」. */
-    private val methodEnterTalkRoom by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramTypes("java.lang.String", "int")
-                usingStrings("enterTalkRoom %s scene %d")
-            },
-        )
+    private val methodEnterTalkRoom by dexMethod {
+        returnType = "void"
+        paramTypes("java.lang.String", "int")
+        usingStrings("enterTalkRoom %s scene %d")
+    }
 
     /** TalkRoomServer.exitTalkRoom() —— 终止当前「实时对讲机」. */
-    private val methodExitTalkRoom by
-        dexMethod(
-            sqlMethod {
-                declaredClass(methodEnterTalkRoom.data.declaredClassName)
-                returnType = "void"
-                paramCount = 0
-                usingStrings("exitTalkRoom", "exitTalkRoom: has exited")
-            },
-        )
+    private val methodExitTalkRoom by dexMethod {
+        declaredClass(methodEnterTalkRoom.data.declaredClassName)
+        returnType = "void"
+        paramCount = 0
+        usingStrings("exitTalkRoom", "exitTalkRoom: has exited")
+    }
 
     /** SubCoreTalkRoom 上返回 TalkRoomServer 单例的静态方法. */
-    private val methodGetTalkRoomServer by
-        dexMethod(
-            sqlMethod {
-                returnType(methodEnterTalkRoom.data.declaredClassName)
-                paramCount = 0
-                modifiers = 9
-            },
-        )
+    private val methodGetTalkRoomServer by dexMethod {
+        returnType(methodEnterTalkRoom.data.declaredClassName)
+        paramCount = 0
+        modifiers = 9
+    }
 
     /** TalkRoomServer 当前房间 ID; 空值表示没有正在进行的实时对讲. */
-    private val fieldCurrentTalkRoom by
-        dexField(
-            sqlField {
-                declaredClass(methodEnterTalkRoom.data.declaredClassName)
-                type = "java.lang.String"
-            },
-        )
+    private val fieldCurrentTalkRoom by dexField {
+        declaredClass(methodEnterTalkRoom.data.declaredClassName)
+        type = "java.lang.String"
+    }
 
     override fun resolveDex() {
         val subCoreMultiTalkClasses =

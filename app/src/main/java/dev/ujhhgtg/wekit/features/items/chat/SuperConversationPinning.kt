@@ -24,7 +24,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
@@ -203,15 +202,12 @@ object SuperConversationPinning :
     //        }
     //    }
 
-    private val classConversation by
-        dexClass(
-            sqlClass {
-                usingEqStrings(
-                    "MicroMsg.Conversation",
-                    "[%s}]get mmkv editmsg is [%s],get conv editmsg is [%s]",
-                )
-            },
+    private val classConversation by dexClass {
+        usingEqStrings(
+            "MicroMsg.Conversation",
+            "[%s}]get mmkv editmsg is [%s],get conv editmsg is [%s]",
         )
+    }
 
     private val classMvvmConversationAdapter by dexClassQuery {
         uniqueClass(

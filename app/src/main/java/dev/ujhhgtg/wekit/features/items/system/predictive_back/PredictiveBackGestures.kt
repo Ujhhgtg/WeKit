@@ -42,9 +42,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.meta.DexFieldInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlField
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeLauncherBackApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -146,15 +143,12 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: LauncherUI.dispatchKeyEvent and the predicates it checks before HomeUI ---
 
-    private val methodLauncherDispatchKeyEvent by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.LauncherUI"
-                name = "dispatchKeyEvent"
-                returnType = "boolean"
-                paramTypes("android.view.KeyEvent")
-            },
-        )
+    private val methodLauncherDispatchKeyEvent by dexMethod {
+        declaredClass = "com.tencent.mm.ui.LauncherUI"
+        name = "dispatchKeyEvent"
+        returnType = "boolean"
+        paramTypes("android.view.KeyEvent")
+    }
 
     /** `VASLauncher.r7()`: a VAS pane is shown and takes every key. */
     private val methodVasPaneVisible by dexMethod()
@@ -185,15 +179,12 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: MainUI.onKeyDown closes the conversation list's pull-down header ---
 
-    private val methodMainUiOnKeyDown by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.conversation.MainUI"
-                name = "onKeyDown"
-                returnType = "boolean"
-                paramTypes("int", "android.view.KeyEvent")
-            },
-        )
+    private val methodMainUiOnKeyDown by dexMethod {
+        declaredClass = "com.tencent.mm.ui.conversation.MainUI"
+        name = "onKeyDown"
+        returnType = "boolean"
+        paramTypes("int", "android.view.KeyEvent")
+    }
 
     /**
      * MainUI's conversation list host (a ConversationListView, or the list-host interface on
@@ -206,26 +197,20 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: the chat FootComponent's key handler, the only chat component that takes BACK ---
 
-    private val classFootComponent by
-        dexClass(
-            sqlClass {
-                searchPackages("com.tencent.mm.ui.chatting.component")
-                usingEqStrings(
-                    "MicroMsg.ChattingUI.FootComponent",
-                    "onNotifyChange event %s talker %s",
-                )
-            },
+    private val classFootComponent by dexClass {
+        searchPackages("com.tencent.mm.ui.chatting.component")
+        usingEqStrings(
+            "MicroMsg.ChattingUI.FootComponent",
+            "onNotifyChange event %s talker %s",
         )
+    }
 
-    private val methodFootKeyHandler by
-        dexMethod(
-            sqlMethod {
-                declaredClass(classFootComponent.data.name)
-                returnType = "boolean"
-                paramTypes("int", "android.view.KeyEvent")
-                usingEqStrings("chatting onKeyDown, code:%d action:%d")
-            },
-        )
+    private val methodFootKeyHandler by dexMethod {
+        declaredClass(classFootComponent.data.name)
+        returnType = "boolean"
+        paramTypes("int", "android.view.KeyEvent")
+        usingEqStrings("chatting onKeyDown, code:%d action:%d")
+    }
 
     /** `ChatFooter`'s voice-input (speech-to-text) panel flag. */
     private val fieldFooterVoiceInput by dexField()
@@ -239,30 +224,24 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
     // --- Dex: SwipeBackLayout's gesture switch (off during the chat enter animation and after
     // pop-out) ---
 
-    private val fieldSwipeBackGestureEnabled by
-        dexField(
-            sqlField {
-                declaredClass = "com.tencent.mm.ui.widget.SwipeBackLayout"
-                type = "boolean"
-                writeMethod {
-                    declaredClass = "com.tencent.mm.ui.widget.SwipeBackLayout"
-                    name = "setEnableGesture"
-                }
-            },
-        )
+    private val fieldSwipeBackGestureEnabled by dexField {
+        declaredClass = "com.tencent.mm.ui.widget.SwipeBackLayout"
+        type = "boolean"
+        writeMethod {
+            declaredClass = "com.tencent.mm.ui.widget.SwipeBackLayout"
+            name = "setEnableGesture"
+        }
+    }
 
     // --- Dex: MMActivity.onKeyDown's controller collapses an expanded action-bar search on BACK
     // ---
 
-    private val methodControllerKeyDown by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui")
-                returnType = "boolean"
-                paramTypes("int", "android.view.KeyEvent")
-                usingEqStrings("MicroMsg.MMActivityController", "dancy onKeyDown ++")
-            },
-        )
+    private val methodControllerKeyDown by dexMethod {
+        searchPackages("com.tencent.mm.ui")
+        returnType = "boolean"
+        paramTypes("int", "android.view.KeyEvent")
+        usingEqStrings("MicroMsg.MMActivityController", "dancy onKeyDown ++")
+    }
 
     /** The controller's action-bar search helper. */
     private val fieldControllerSearchHelper by dexField()
@@ -308,25 +287,22 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
      * `onBackPressed` (inlined into `ImproveHeaderUIC.onBackPressed`) and set to 3 by
      * `updateViewHeight`.
      */
-    private val fieldSnsCoverStage by
-        dexField(
-            sqlField {
-                declaredClass = "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout"
-                type = "int"
-                readMethod {
-                    usingEqStrings(
-                        "onBackPressed",
-                        "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout",
-                    )
-                }
-                writeMethod {
-                    usingEqStrings(
-                        "updateViewHeight",
-                        "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout",
-                    )
-                }
-            },
-        )
+    private val fieldSnsCoverStage by dexField {
+        declaredClass = "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout"
+        type = "int"
+        readMethod {
+            usingEqStrings(
+                "onBackPressed",
+                "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout",
+            )
+        }
+        writeMethod {
+            usingEqStrings(
+                "updateViewHeight",
+                "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout",
+            )
+        }
+    }
 
     override fun resolveDex() {
         val dispatchInvokes =

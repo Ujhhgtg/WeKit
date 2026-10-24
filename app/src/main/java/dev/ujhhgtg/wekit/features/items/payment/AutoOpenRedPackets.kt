@@ -18,8 +18,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WePaymentApi
@@ -173,46 +171,31 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
             0,
         )
 
-    private val classReceiveLuckyMoneyUnion by
-        dexClass(
-            sqlClass {
-                method {
-                    name = "<init>"
-                    usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoneyUnion")
-                }
-            },
-        )
-    private val classOpenLuckyMoneyUnion by
-        dexClass(
-            sqlClass {
-                method {
-                    name = "<init>"
-                    usingEqStrings("MicroMsg.NetSceneOpenLuckyMoneyUnion")
-                }
-            },
-        )
-    private val classLuckyMoneyNotHookReceiveUI by
-        dexClass(
-            sqlClass {
-                usingEqStrings("LuckyMoneyNotHookReceiveUI")
-            },
-        )
-    private val methodReceiveUnionOnGYNetEnd by
-        dexMethod(
-            sqlMethod {
-                declaredClass(classReceiveLuckyMoneyUnion.data.name)
-                name = "onGYNetEnd"
-                paramCount = 3
-            },
-        )
-    private val methodOpenUnionOnGYNetEnd by
-        dexMethod(
-            sqlMethod {
-                declaredClass(classOpenLuckyMoneyUnion.data.name)
-                name = "onGYNetEnd"
-                paramCount = 3
-            },
-        )
+    private val classReceiveLuckyMoneyUnion by dexClass {
+        method {
+            name = "<init>"
+            usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoneyUnion")
+        }
+    }
+    private val classOpenLuckyMoneyUnion by dexClass {
+        method {
+            name = "<init>"
+            usingEqStrings("MicroMsg.NetSceneOpenLuckyMoneyUnion")
+        }
+    }
+    private val classLuckyMoneyNotHookReceiveUI by dexClass {
+        usingEqStrings("LuckyMoneyNotHookReceiveUI")
+    }
+    private val methodReceiveUnionOnGYNetEnd by dexMethod {
+        declaredClass(classReceiveLuckyMoneyUnion.data.name)
+        name = "onGYNetEnd"
+        paramCount = 3
+    }
+    private val methodOpenUnionOnGYNetEnd by dexMethod {
+        declaredClass(classOpenLuckyMoneyUnion.data.name)
+        name = "onGYNetEnd"
+        paramCount = 3
+    }
 
     private val currentRedPacketMap = ConcurrentHashMap<String, RedPacketInfo>()
 

@@ -18,7 +18,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -84,52 +83,40 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
      * HistoryMsgTongueComponent 的初始化方法 (8.0.65 叫 a(), 8.0.76 叫 b()): 在这里把组件实例与它的气泡 View 关联起来,
      * 用稳定日志/追踪字符串锚定。
      */
-    private val methodComponentInit by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui.chatting.component")
-                usingStrings("HistoryMsgTongueComponent", "onChattingInit")
-            },
-        )
+    private val methodComponentInit by dexMethod {
+        searchPackages("com.tencent.mm.ui.chatting.component")
+        usingStrings("HistoryMsgTongueComponent", "onChattingInit")
+    }
 
     /**
      * 微信存储的全量消息数: 8.0.65 是 f8.Xa, 8.0.76 是 f9.S7, 共用同一日志字符串 ("select msgCount from
      * rconversation")。滚进历史后 adapter 只保留已加载窗口, 只有这个存储计数能给出"最后一条消息"的全量位置; 微信每次加载/更新舌头都会调它。
      */
-    private val methodGetMsgCount by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.MsgInfoStorage",
-                    "getMsgCount conversationStorage.getMsgCountByUsername count:%d",
-                )
-            },
+    private val methodGetMsgCount by dexMethod {
+        usingEqStrings(
+            "MicroMsg.MsgInfoStorage",
+            "getMsgCount conversationStorage.getMsgCountByUsername count:%d",
         )
+    }
 
     /**
      * HistoryMsgTongueComponent.m0/p0 (locationByMsgId) —— 「x条新消息」点击的完整加载链路: provider → loader 按
      * SCENE=2 重新加载消息尾部 (深历史时最新消息不在当前窗口, 必须靠 它加载), presenter 再滚动到目标。两个版本的日志字符串略有差异, 用 usingStrings
      * 取公共子串。
      */
-    private val methodLocationByMsgId by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui.chatting.component")
-                usingStrings(
-                    "MicroMsg.ChattingDataAdapterV3",
-                    "[locationByMsgId] position:%s mode:%s",
-                )
-            },
+    private val methodLocationByMsgId by dexMethod {
+        searchPackages("com.tencent.mm.ui.chatting.component")
+        usingStrings(
+            "MicroMsg.ChattingDataAdapterV3",
+            "[locationByMsgId] position:%s mode:%s",
         )
+    }
 
     /** ChattingDataAdapterV3.setShowHistoryMsgTipId (8.0.65 U0 / 8.0.76 V0)。 */
-    private val methodSetShowHistoryMsgTipId by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui.chatting.adapter")
-                usingStrings("[setShowHistoryMsgTipId] pos:%s")
-            },
-        )
+    private val methodSetShowHistoryMsgTipId by dexMethod {
+        searchPackages("com.tencent.mm.ui.chatting.adapter")
+        usingStrings("[setShowHistoryMsgTipId] pos:%s")
+    }
 
     override fun onEnable() {
         methodSetShowHistoryMsgTipId.hookBefore {

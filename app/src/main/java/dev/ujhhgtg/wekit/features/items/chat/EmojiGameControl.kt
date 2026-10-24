@@ -45,7 +45,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -95,12 +94,9 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
             packages = listOf("com.tencent.mm.sdk.platformtools"),
         )
     }
-    private val methodPanelClick by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("MicroMsg.EmojiPanelClickListener")
-            },
-        )
+    private val methodPanelClick by dexMethod {
+        usingEqStrings("MicroMsg.EmojiPanelClickListener")
+    }
 
     private var valMorra = 0
     private var valDice = 0

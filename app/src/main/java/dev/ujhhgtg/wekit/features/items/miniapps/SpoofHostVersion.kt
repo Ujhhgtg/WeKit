@@ -4,8 +4,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcess
@@ -48,22 +46,16 @@ object SpoofHostVersion : SwitchFeature(), IResolveDex {
             "https://szsupport.weixin.qq.com/update",
         )
 
-    private val methodPrivateOpenUrl by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramTypes(null, "org.json.JSONObject", "int")
-                usingEqStrings("private_openUrl", "rawUrl", "geta8key_open_webview_appid")
-            },
-        )
+    private val methodPrivateOpenUrl by dexMethod {
+        returnType = "void"
+        paramTypes(null, "org.json.JSONObject", "int")
+        usingEqStrings("private_openUrl", "rawUrl", "geta8key_open_webview_appid")
+    }
 
-    private val ctorCgiLaunchWxaAppFunc1122 by
-        dexConstructor(
-            sqlConstructor {
-                usingEqStrings(
-                    "MicroMsg.AppBrand.CgiLaunchWxaApp|func:1122",
-                    "<init> cgiHash[%d], username[%s] appId[%s] sync[%b] sessionId[%s] instanceId[%s] libVersion[%d], source:%s, launchMode:%d, migrate:%b, fallback:%b",
-                )
-            },
+    private val ctorCgiLaunchWxaAppFunc1122 by dexConstructor {
+        usingEqStrings(
+            "MicroMsg.AppBrand.CgiLaunchWxaApp|func:1122",
+            "<init> cgiHash[%d], username[%s] appId[%s] sync[%b] sessionId[%s] instanceId[%s] libVersion[%d], source:%s, launchMode:%d, migrate:%b, fallback:%b",
         )
+    }
 }

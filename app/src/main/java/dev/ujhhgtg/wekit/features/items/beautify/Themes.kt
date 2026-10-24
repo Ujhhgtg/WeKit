@@ -74,8 +74,6 @@ import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
@@ -1443,118 +1441,76 @@ object Themes : ClickableFeature(), IResolveDex {
     // Dex 解析（cherrywechat FK.cachedMethods 对应项，8.0.65–8.0.76 均存在）
     // ------------------------------------------------------------------
 
-    private val methodChattingBackgroundComponentInitBg by
-        dexMethod(
-            sqlMethod {
-                usingStrings("MicroMsg.ChattingUI.ChattingBackgroundComponent", "initBackground:")
-            },
-        )
+    private val methodChattingBackgroundComponentInitBg by dexMethod {
+        usingStrings("MicroMsg.ChattingUI.ChattingBackgroundComponent", "initBackground:")
+    }
 
-    private val methodHistoryMsgTongueShow1 by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.HistoryMsgTongueComponent",
-                    "[update] mGoBackToHistoryMsgLayout VISIBLE",
-                )
-            },
+    private val methodHistoryMsgTongueShow1 by dexMethod {
+        usingEqStrings(
+            "MicroMsg.HistoryMsgTongueComponent",
+            "[update] mGoBackToHistoryMsgLayout VISIBLE",
         )
+    }
 
-    private val methodHistoryMsgTongueShow2 by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.HistoryMsgTongueComponent",
-                    "[showMsgAtSomeoneTongue] has show!!!",
-                )
-            },
+    private val methodHistoryMsgTongueShow2 by dexMethod {
+        usingEqStrings(
+            "MicroMsg.HistoryMsgTongueComponent",
+            "[showMsgAtSomeoneTongue] has show!!!",
         )
+    }
 
-    private val methodHomeUiUpdateStatusBar by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("MicroMsg.LauncherUI.HomeUI", "updateStatusBar %s")
-            },
-        )
+    private val methodHomeUiUpdateStatusBar by dexMethod {
+        usingEqStrings("MicroMsg.LauncherUI.HomeUI", "updateStatusBar %s")
+    }
 
-    private val methodHomeUiSetActionBarColor by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("com/tencent/mm/ui/HomeUI", "setActionBarColor")
-            },
-        )
+    private val methodHomeUiSetActionBarColor by dexMethod {
+        usingEqStrings("com/tencent/mm/ui/HomeUI", "setActionBarColor")
+    }
 
-    private val methodMoreTabUiOnTabCreate by
-        dexMethod(
-            sqlMethod {
-                usingStrings("MicroMsg.MoreTabUI", "onTabCreate:  %s")
-            },
-        )
+    private val methodMoreTabUiOnTabCreate by dexMethod {
+        usingStrings("MicroMsg.MoreTabUI", "onTabCreate:  %s")
+    }
 
-    private val methodMoreTabUiHandleTabSwitchInForStatus by
-        dexMethod(
-            sqlMethod {
-                usingStrings("MicroMsg.MoreTabUI", "handleTabSwitchInForStatus wiht no status")
-            },
-        )
+    private val methodMoreTabUiHandleTabSwitchInForStatus by dexMethod {
+        usingStrings("MicroMsg.MoreTabUI", "handleTabSwitchInForStatus wiht no status")
+    }
 
-    private val methodFMessageContactViewInitView by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("MicroMsg.FMessageContactView", "initNoNew failed. context is null.")
-            },
-        )
+    private val methodFMessageContactViewInitView by dexMethod {
+        usingEqStrings("MicroMsg.FMessageContactView", "initNoNew failed. context is null.")
+    }
 
-    private val classEnterpriseBizViewItem by
-        dexClass(
-            sqlClass {
-                usingStrings("MicroMsg.EnterpriseBizViewItem", "contact is null, %s")
-            },
-        )
+    private val classEnterpriseBizViewItem by dexClass {
+        usingStrings("MicroMsg.EnterpriseBizViewItem", "contact is null, %s")
+    }
 
-    private val classEnterpriseDefaultViewItem by
-        dexClass(
-            sqlClass {
-                usingStrings("openim_acct_type_icon", "cloudim", "openim_acct_type_title")
-            },
-        )
+    private val classEnterpriseDefaultViewItem by dexClass {
+        usingStrings("openim_acct_type_icon", "cloudim", "openim_acct_type_title")
+    }
 
-    private val classAddressItemConvert by
-        dexClass(
-            sqlClass {
-                usingStrings(
-                    "MicroMsg.Mvvm.AddressItemConvert",
-                    "onBindViewHolder ",
-                    "addressbook_cell",
-                )
-            },
+    private val classAddressItemConvert by dexClass {
+        usingStrings(
+            "MicroMsg.Mvvm.AddressItemConvert",
+            "onBindViewHolder ",
+            "addressbook_cell",
         )
+    }
 
-    private val classMmPopupWindow by
-        dexClass(
-            sqlClass {
-                usingStrings("MicroMsg.MMPopupWindow", "dismiss exception, e = ")
-            },
-        )
+    private val classMmPopupWindow by dexClass {
+        usingStrings("MicroMsg.MMPopupWindow", "dismiss exception, e = ")
+    }
 
-    private val classSmileyTabAdapter by
-        dexClass(
-            sqlClass {
-                usingStrings(
-                    "MicroMsg.emoji.SmileyPanel.SmileyTabAdapter",
-                    "emoji group info is null. position:%d",
-                )
-            },
+    private val classSmileyTabAdapter by dexClass {
+        usingStrings(
+            "MicroMsg.emoji.SmileyPanel.SmileyTabAdapter",
+            "emoji group info is null. position:%d",
         )
+    }
 
     // 8.0.65 中 BaseSettingConvert/setOptionView 不存在，8.0.67+ 才有
     private val classBaseSettingConvert by
-        dexClass(
-            sqlClass {
-                usingStrings("BaseSettingConvert", "setOptionView")
-            },
-            allowFailure = true,
-        )
+        dexClass(allowFailure = true) {
+            usingStrings("BaseSettingConvert", "setOptionView")
+        }
 
     // ------------------------------------------------------------------
     // Hook 入口（cherrywechat P5 全部 11 组 + EJ + C0465dy）

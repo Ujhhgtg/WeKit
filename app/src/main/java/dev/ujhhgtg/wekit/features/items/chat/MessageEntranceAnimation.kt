@@ -24,7 +24,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -138,16 +137,13 @@ object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
      * ChattingDataAdapterV3.getItem(int) -> 消息存储对象 (f8/d8/f9/e9, 各版本不同), 用于读取稳定的 `field_msgId` /
      * `field_createTime` / `field_isSend` 字段。 所有支持版本均存在, 按项目约定不加 allowFailure。
      */
-    private val methodChattingAdapterGetItem by
-        dexMethod(
-            sqlMethod {
-                name = "getItem"
-                paramTypes("int")
-                declaredClass {
-                    usingEqStrings("MicroMsg.ChattingDataAdapterV3")
-                }
-            },
-        )
+    private val methodChattingAdapterGetItem by dexMethod {
+        name = "getItem"
+        paramTypes("int")
+        declaredClass {
+            usingEqStrings("MicroMsg.ChattingDataAdapterV3")
+        }
+    }
 
     override fun onEnable() {
         WeMessageApi.methodChattingDataAdapterOnBindViewHolder.hookAfter {

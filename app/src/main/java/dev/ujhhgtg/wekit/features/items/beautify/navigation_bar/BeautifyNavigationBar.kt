@@ -18,7 +18,6 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -580,64 +579,43 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         context.finish()
     }
 
-    private val methodRecentPageHideAnimationStart by
-        dexMethod(
-            sqlMethod {
-                name = "onAnimationStart"
-                returnType = "void"
-                paramTypes("android.animation.Animator")
-                declaredClass {
-                    usingEqStrings("com/tencent/mm/plugin/taskbar/ui/TaskBarAnimController\$6")
-                }
-            },
-        )
+    private val methodRecentPageHideAnimationStart by dexMethod {
+        name = "onAnimationStart"
+        returnType = "void"
+        paramTypes("android.animation.Animator")
+        declaredClass {
+            usingEqStrings("com/tencent/mm/plugin/taskbar/ui/TaskBarAnimController\$6")
+        }
+    }
 
-    private val methodRecentPageClose by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramTypes("boolean")
-                usingEqStrings("com/tencent/mm/plugin/taskbar/ui/TaskBarAnimController", "onClose")
-            },
-        )
+    private val methodRecentPageClose by dexMethod {
+        returnType = "void"
+        paramTypes("boolean")
+        usingEqStrings("com/tencent/mm/plugin/taskbar/ui/TaskBarAnimController", "onClose")
+    }
 
-    private val methodUpdateTabUnread by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
-                usingEqStrings("MicroMsg.LauncherUITabView", "updateMainTabUnread %d")
-            },
-        )
+    private val methodUpdateTabUnread by dexMethod {
+        declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
+        usingEqStrings("MicroMsg.LauncherUITabView", "updateMainTabUnread %d")
+    }
 
-    private val methodChangeTab by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.MainTabUI"
-                usingEqStrings("change tab to %d, cur tab %d, has init tab %B, tab cache size %d")
-            },
-        )
+    private val methodChangeTab by dexMethod {
+        declaredClass = "com.tencent.mm.ui.MainTabUI"
+        usingEqStrings("change tab to %d, cur tab %d, has init tab %B, tab cache size %d")
+    }
 
-    private val methodUpdateFriendTabUnread by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
-                usingEqStrings("[updateFriendTabUnread] unread : ")
-            },
-        )
+    private val methodUpdateFriendTabUnread by dexMethod {
+        declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
+        usingEqStrings("[updateFriendTabUnread] unread : ")
+    }
 
-    private val methodShowFriendPoint by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
-                usingEqStrings("[showFriendPoint] show : ")
-            },
-        )
+    private val methodShowFriendPoint by dexMethod {
+        declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
+        usingEqStrings("[showFriendPoint] show : ")
+    }
 
-    private val methodUpdateContactTabUnread by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
-                usingEqStrings("[updateContactTabUnread] unread : ")
-            },
-        )
+    private val methodUpdateContactTabUnread by dexMethod {
+        declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
+        usingEqStrings("[updateContactTabUnread] unread : ")
+    }
 }

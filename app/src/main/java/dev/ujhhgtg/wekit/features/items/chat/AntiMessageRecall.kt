@@ -28,8 +28,6 @@ import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeXmlParserApi
@@ -121,30 +119,24 @@ object AntiMessageRecall :
     // this device never parses a revoke sysmsg — the scene rewrites the message row in place at
     // scene end (notice converter, isSend reset, row update), so the XML parser hook never sees it.
     // The constructor receives the target message; capture it for the scene-end hook.
-    private val methodRevokeMsgSceneInit by
-        dexConstructor(
-            sqlConstructor {
-                paramCount = 3
-                declaredClass {
-                    usingEqStrings(
-                        "<sysmsg type=\"invokeMessage\"><invokeMessage><text><![CDATA[%s]]></text><timestamp><![CDATA[%s]]></timestamp><link><text><![CDATA[%s]]></text></link><preContent><![CDATA[%s]]></preContent><type><![CDATA[%s]]></type><msgSource><![CDATA[%s]]></msgSource></invokeMessage></sysmsg>",
-                    )
-                }
-            },
-        )
+    private val methodRevokeMsgSceneInit by dexConstructor {
+        paramCount = 3
+        declaredClass {
+            usingEqStrings(
+                "<sysmsg type=\"invokeMessage\"><invokeMessage><text><![CDATA[%s]]></text><timestamp><![CDATA[%s]]></timestamp><link><text><![CDATA[%s]]></text></link><preContent><![CDATA[%s]]></preContent><type><![CDATA[%s]]></type><msgSource><![CDATA[%s]]></msgSource></invokeMessage></sysmsg>",
+            )
+        }
+    }
 
-    private val methodRevokeMsgSceneEnd by
-        dexMethod(
-            sqlMethod {
-                name = "onGYNetEnd"
-                paramCount = 6
-                declaredClass {
-                    usingEqStrings(
-                        "<sysmsg type=\"invokeMessage\"><invokeMessage><text><![CDATA[%s]]></text><timestamp><![CDATA[%s]]></timestamp><link><text><![CDATA[%s]]></text></link><preContent><![CDATA[%s]]></preContent><type><![CDATA[%s]]></type><msgSource><![CDATA[%s]]></msgSource></invokeMessage></sysmsg>",
-                    )
-                }
-            },
-        )
+    private val methodRevokeMsgSceneEnd by dexMethod {
+        name = "onGYNetEnd"
+        paramCount = 6
+        declaredClass {
+            usingEqStrings(
+                "<sysmsg type=\"invokeMessage\"><invokeMessage><text><![CDATA[%s]]></text><timestamp><![CDATA[%s]]></timestamp><link><text><![CDATA[%s]]></text></link><preContent><![CDATA[%s]]></preContent><type><![CDATA[%s]]></type><msgSource><![CDATA[%s]]></msgSource></invokeMessage></sysmsg>",
+            )
+        }
+    }
 
     override fun onEnable() {
         recalledKeyCache = recalledRecords

@@ -18,7 +18,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
@@ -62,12 +61,9 @@ object CustomChatInputBarPlaceholderText :
             $$"$fileCount",
         )
 
-    private val methodChatFooterCanSend by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("MicroMsg.ChatFooter", "canSend true ! sendBtn is visible")
-            },
-        )
+    private val methodChatFooterCanSend by dexMethod {
+        usingEqStrings("MicroMsg.ChatFooter", "canSend true ! sendBtn is visible")
+    }
 
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)

@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -71,14 +70,11 @@ object MentionMembers : SwitchFeature(), IResolveDex {
     @Volatile private var pendingStealthAt: Pair<String, String>? = null
 
     // MsgSourceHelper 节点合并方法: static (msgInfo, String nodeXml, boolean) -> void
-    private val methodMergeMsgSourceNode by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramCount = 3
-                usingEqStrings("(?s)<alnode[^>]*>.*?</alnode>")
-            },
-        )
+    private val methodMergeMsgSourceNode by dexMethod {
+        returnType = "void"
+        paramCount = 3
+        usingEqStrings("(?s)<alnode[^>]*>.*?</alnode>")
+    }
 
     private fun showSettingsDialog(context: Context) {
         showComposeDialog(context) {

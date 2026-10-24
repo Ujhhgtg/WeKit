@@ -37,7 +37,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
@@ -109,13 +108,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
     private var aliasTextPref by KvStore.prefOption(KEY_ALIAS_TEXT, "")
     private var signatureTextPref by KvStore.prefOption(KEY_SIGNATURE_TEXT, "")
 
-    private val methodBindAccountInfo by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.pluginsdk.ui.preference.AccountInfoPreference"
-                paramTypes("android.view.View")
-            },
-        )
+    private val methodBindAccountInfo by dexMethod {
+        declaredClass = "com.tencent.mm.pluginsdk.ui.preference.AccountInfoPreference"
+        paramTypes("android.view.View")
+    }
 
     override fun onEnable() {
         methodBindAccountInfo.hookAfter {

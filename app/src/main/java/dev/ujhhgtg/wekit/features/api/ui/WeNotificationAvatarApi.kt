@@ -7,7 +7,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.CustomLocalFriendAvatars
@@ -31,14 +30,11 @@ object WeNotificationAvatarApi : ApiFeature(), IResolveDex {
 
     // WeChat's notification avatar loader. The declaring class is obfuscated and changes between
     // host versions, so it is resolved by the stable NotificationAvatar implementation markers.
-    private val methodLoadNotificationAvatar by
-        dexMethod(
-            sqlMethod {
-                returnType = "android.graphics.Bitmap"
-                paramTypes("android.content.Context", "java.lang.String", "java.lang.String")
-                usingEqStrings("MicroMsg.NotificationAvatar", "wcf://avatar/")
-            },
-        )
+    private val methodLoadNotificationAvatar by dexMethod {
+        returnType = "android.graphics.Bitmap"
+        paramTypes("android.content.Context", "java.lang.String", "java.lang.String")
+        usingEqStrings("MicroMsg.NotificationAvatar", "wcf://avatar/")
+    }
 
     private data class CachedAvatar(
         val bitmap: Bitmap,

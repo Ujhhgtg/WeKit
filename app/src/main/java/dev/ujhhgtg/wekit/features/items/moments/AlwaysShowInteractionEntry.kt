@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.android.Intent
@@ -37,69 +36,51 @@ object AlwaysShowInteractionEntry : SwitchFeature(), IResolveDex {
     @Volatile private var noInteractionMessages = false
 
     /** ImproveHeaderUIC$onNotifyChange$1$1 — 有互动消息, 显示气泡并写入文案 */
-    private val methodShowNotifyBar by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "invokeSuspend",
-                    "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC\$onNotifyChange\$1\$1",
-                )
-            },
+    private val methodShowNotifyBar by dexMethod {
+        usingEqStrings(
+            "invokeSuspend",
+            "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC\$onNotifyChange\$1\$1",
         )
+    }
 
     /** ImproveHeaderUIC$onNotifyChange$1$4 — 没有互动消息, 隐藏气泡 */
-    private val methodHideNotifyBar by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "invokeSuspend",
-                    "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC\$onNotifyChange\$1\$4",
-                )
-            },
+    private val methodHideNotifyBar by dexMethod {
+        usingEqStrings(
+            "invokeSuspend",
+            "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC\$onNotifyChange\$1\$4",
         )
+    }
 
-    private val methodGetNotifyLayout by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "access\$getMsgNotifyLayout",
-                    "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
-                )
-            },
+    private val methodGetNotifyLayout by dexMethod {
+        usingEqStrings(
+            "access\$getMsgNotifyLayout",
+            "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
         )
+    }
 
-    private val methodGetNotifyContent by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "access\$getMsgNotifyContent",
-                    "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
-                )
-            },
+    private val methodGetNotifyContent by dexMethod {
+        usingEqStrings(
+            "access\$getMsgNotifyContent",
+            "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
         )
+    }
 
-    private val methodGetNotifyImg by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "access\$getMsgNotifyImg",
-                    "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
-                )
-            },
+    private val methodGetNotifyImg by dexMethod {
+        usingEqStrings(
+            "access\$getMsgNotifyImg",
+            "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
         )
+    }
 
     /** ImproveHeaderUIC.gotoNotifyMsgUI() — 点击入口后的跳转 */
-    private val methodGotoNotifyMsgUI by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramCount = 0
-                usingEqStrings(
-                    "gotoNotifyMsgUI",
-                    "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
-                )
-            },
+    private val methodGotoNotifyMsgUI by dexMethod {
+        returnType = "void"
+        paramCount = 0
+        usingEqStrings(
+            "gotoNotifyMsgUI",
+            "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
         )
+    }
 
     private val headerUicClass: Class<*>
         get() = methodGetNotifyLayout.method.declaringClass

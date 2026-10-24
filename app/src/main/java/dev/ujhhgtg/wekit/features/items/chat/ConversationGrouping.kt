@@ -140,7 +140,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -1421,13 +1420,10 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
 
     private val fieldRecyclerLoading by dexField()
 
-    private val methodOnTabCreate by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.conversation.MainUI"
-                usingEqStrings("MicroMsg.MainUI", "onTabCreate, %d")
-            },
-        )
+    private val methodOnTabCreate by dexMethod {
+        declaredClass = "com.tencent.mm.ui.conversation.MainUI"
+        usingEqStrings("MicroMsg.MainUI", "onTabCreate, %d")
+    }
 
     override fun resolveDex() {
         DexResolutionContext.ensureResolved(

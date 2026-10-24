@@ -4,7 +4,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
@@ -103,14 +102,11 @@ object HideContactsNotifications : ApiFeature(), IResolveDex {
      * [methodDealNotify] keeps working.
      */
     private val methodNotifyForLightPush by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.booter.notification")
-                paramCount = 7
-                usingEqStrings("notifyForLightPush push:isShake: %B, isSound: %B ctrlFlag:%s")
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            searchPackages("com.tencent.mm.booter.notification")
+            paramCount = 7
+            usingEqStrings("notifyForLightPush push:isShake: %B, isSound: %B ctrlFlag:%s")
+        }
 
     /** `CoreService` — and therefore both notification paths — lives in `:push`, not in main. */
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.PUSH)

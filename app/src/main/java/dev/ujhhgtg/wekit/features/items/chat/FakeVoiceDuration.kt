@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -27,16 +26,13 @@ object FakeVoiceDuration : ClickableFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_fake_voice_duration_description
 
-    private val methodVoiceRecorderGetLength by
-        dexMethod(
-            sqlMethod {
-                returnType = "long"
-                declaredClass {
-                    usingEqStrings("MicroMsg.SceneVoice.Recorder")
-                    usingEqStrings("Stop file success: ")
-                }
-            },
-        )
+    private val methodVoiceRecorderGetLength by dexMethod {
+        returnType = "long"
+        declaredClass {
+            usingEqStrings("MicroMsg.SceneVoice.Recorder")
+            usingEqStrings("Stop file success: ")
+        }
+    }
     private const val KEY_DURATION = "fake_voice_duration"
 
     override fun onEnable() {

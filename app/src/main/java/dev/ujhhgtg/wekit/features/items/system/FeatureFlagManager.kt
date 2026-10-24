@@ -51,8 +51,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.meta.dottedClassNameToDescriptor
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.dexkit.withDexSql
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -102,38 +100,32 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
      * [i]() method containing "Int", "Float", "String", "Long", "". Hierarchy:
      * [ly4.h]->[ly4.e]->[ly4.d]->[ly4.i] (Int) or [ly4.e]->[ly4.f] (String).
      */
-    private val classFeatureFlagBase by
-        dexClass(
-            sqlClass {
-                method {
-                    usingEqStrings("Int")
-                }
-                method {
-                    usingEqStrings("Int", "Float", "String", "Long", "")
-                }
-                method {
-                    usingEqStrings("")
-                }
-            },
-        )
+    private val classFeatureFlagBase by dexClass {
+        method {
+            usingEqStrings("Int")
+        }
+        method {
+            usingEqStrings("Int", "Float", "String", "Long", "")
+        }
+        method {
+            usingEqStrings("")
+        }
+    }
 
     /**
      * Central API method: [fd5.d1].[b](String, Object) -> Object. Key format: splits input key by
      * '_', uses last segment for type dispatch. Type names: "Int", "Float", "Long", "String" —
      * matched by last _-segment.
      */
-    private val methodRepairerConfigApiGet by
-        dexMethod(
-            sqlMethod {
-                returnType = "java.lang.Object"
-                paramTypes("java.lang.String", "java.lang.Object")
-                usingEqStrings("String", "Int", "Long", "Float", "key", "defaultValue")
-                declaredClass {
-                    usingEqStrings("RepairerConfigThread")
-                    usingEqStrings("ValueStrategy_")
-                }
-            },
-        )
+    private val methodRepairerConfigApiGet by dexMethod {
+        returnType = "java.lang.Object"
+        paramTypes("java.lang.String", "java.lang.Object")
+        usingEqStrings("String", "Int", "Long", "Float", "key", "defaultValue")
+        declaredClass {
+            usingEqStrings("RepairerConfigThread")
+            usingEqStrings("ValueStrategy_")
+        }
+    }
 
     // ---------------------------------------------------------------------------
     // Flag details data model & reflective resolver

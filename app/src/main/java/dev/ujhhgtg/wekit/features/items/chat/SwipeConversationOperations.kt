@@ -27,7 +27,6 @@ import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.DexClassDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -277,21 +276,15 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
     // re-install their own row OnTouchListener on every bind — so we hook getView on whichever is
     // present. allowFailure so a build that only ships one of them still resolves the other.
     private val classConversationAdapter by
-        dexClass(
-            sqlClass {
-                searchPackages("com.tencent.mm.ui.conversation")
-                usingStrings("MicroMsg.ConversationWithCacheAdapter", "[getView] position=")
-            },
-            allowFailure = true,
-        )
+        dexClass(allowFailure = true) {
+            searchPackages("com.tencent.mm.ui.conversation")
+            usingStrings("MicroMsg.ConversationWithCacheAdapter", "[getView] position=")
+        }
 
     private val classMvvmConversationAdapter by
-        dexClass(
-            sqlClass {
-                usingEqStrings("MicroMsg.ConversationAdapter.MvvmConversationAdapter")
-            },
-            allowFailure = true,
-        )
+        dexClass(allowFailure = true) {
+            usingEqStrings("MicroMsg.ConversationAdapter.MvvmConversationAdapter")
+        }
 
     override fun onEnable() {
         hookAdapter(classConversationAdapter)

@@ -51,7 +51,6 @@ import dev.ujhhgtg.wekit.data.structured.ConversationFolder as ChatFolder
 import dev.ujhhgtg.wekit.data.structured.ConversationFolderType as FolderType
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -118,31 +117,25 @@ object ConversationAggregation :
     private const val CONTAINER_UI_NAME =
         "com.tencent.mm.ui.conversation.ConvBoxServiceConversationUI"
     private val methodConversationStorageQueryByParent by
-        dexMethod(
-            sqlMethod {
-                returnType = "android.database.Cursor"
-                paramTypes("int", "java.util.List", "java.lang.String", "int")
-                usingStrings(
-                    "select * from rconversation where ",
-                    " order by flag desc, conversationTime desc",
-                )
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            returnType = "android.database.Cursor"
+            paramTypes("int", "java.util.List", "java.lang.String", "int")
+            usingStrings(
+                "select * from rconversation where ",
+                " order by flag desc, conversationTime desc",
+            )
+        }
 
     // Both homepage adapters hide the tapped row's unread views before/after startChatting.
     // Intercept the shared click listener before those normal-chat side effects run.
-    private val methodConversationItemClick by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramTypes("android.widget.AdapterView", "android.view.View", "int", "long")
-                usingEqStrings(
-                    "MicroMsg.ConversationClickListener",
-                    "[onItemClick] position:%s [%s,%s]",
-                )
-            },
+    private val methodConversationItemClick by dexMethod {
+        returnType = "void"
+        paramTypes("android.widget.AdapterView", "android.view.View", "int", "long")
+        usingEqStrings(
+            "MicroMsg.ConversationClickListener",
+            "[onItemClick] position:%s [%s,%s]",
         )
+    }
 
     // SelectConversationUI#doClickUser(username) — the single entry point for all conversation
     // taps in the "share to conversation" picker. WeChat only intercepts known virtual usernames
@@ -150,14 +143,11 @@ object ConversationAggregation :
     // Our folder rows (wekit_folder_XXX) pass those guards and reach the share machinery, which
     // tries to open a chat thread for a non-existent contact → crash.
     private val methodSelectConversationDoClickUser by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramTypes("java.lang.String")
-                usingEqStrings("MicroMsg.SelectConversationUI", "doClickUser=%s")
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            returnType = "void"
+            paramTypes("java.lang.String")
+            usingEqStrings("MicroMsg.SelectConversationUI", "doClickUser=%s")
+        }
 
     // The MVVM "select contact" picker (com.tencent.mm.ui.mvvm.MvvmContactListUI) used for in-app
     // forwarding routes every row tap through its list item-click listener cj5.g2#g(View, item,
@@ -166,26 +156,20 @@ object ConversationAggregation :
     // state center, which sets the "Select_Conv_User" result extra and finishes. Our folder rows
     // (wekit_folder_XXX) reach that same path with a non-existent username → crash downstream.
     // We match the two concrete listeners (main list + search results) by their unique log tags.
-    private val methodMvvmMainListItemClick by
-        dexMethod(
-            sqlMethod {
-                usingStrings(
-                    "MicroMsg.SelectContactMainRecycleViewUIC",
-                    "onItemClickListener data.type",
-                )
-            },
+    private val methodMvvmMainListItemClick by dexMethod {
+        usingStrings(
+            "MicroMsg.SelectContactMainRecycleViewUIC",
+            "onItemClickListener data.type",
         )
-    private val methodMvvmSearchItemClick by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramTypes("android.view.View", null, "int")
-                usingStrings(
-                    "MicroMsg.SelectContactSearchMvvmListUIC",
-                    "onItemClick: isAlwaysCheck=",
-                )
-            },
+    }
+    private val methodMvvmSearchItemClick by dexMethod {
+        returnType = "void"
+        paramTypes("android.view.View", null, "int")
+        usingStrings(
+            "MicroMsg.SelectContactSearchMvvmListUIC",
+            "onItemClick: isAlwaysCheck=",
         )
+    }
 
     // com.tencent.mm.storage.m4 (ConversationStorage)#b0(username) — "updateUnreadByTalker".
     // The folder container (ConvBoxServiceConversationUI) sets its superUsername to our folder id

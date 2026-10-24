@@ -9,8 +9,6 @@ import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -32,14 +30,11 @@ object OpenDetailsOnItemClick : SwitchFeature(), IResolveDex {
      * 朋友圈条目根 View (`ImproveTimelineItemClick`, 一个 LinearLayout 子类)。 头像/昵称/图片/视频/评论按钮/地点/卡片等子 View
      * 都注册了自己的点击监听, 正文是 longClickable, 都会自行消费触摸; 只有它们都没吃掉的"空白"触摸才会冒泡到根 View。
      */
-    private val classImproveTimelineItem by
-        dexClass(
-            sqlClass {
-                usingEqStrings(
-                    "com.tencent.mm.plugin.sns.ui.improve.item.click.ImproveTimelineItemClick",
-                )
-            },
+    private val classImproveTimelineItem by dexClass {
+        usingEqStrings(
+            "com.tencent.mm.plugin.sns.ui.improve.item.click.ImproveTimelineItemClick",
         )
+    }
 
     /**
      * `WxRecyclerAdapter$bindViewListener$2.onClick` — 微信自己挂在条目根 View 上的点击监听。
@@ -48,30 +43,24 @@ object OpenDetailsOnItemClick : SwitchFeature(), IResolveDex {
      * `bindViewListener(itemView, item, position)`, 它每次绑定都会无条件重装 touch/click/longClick 三个监听器,
      * 把之前设的全部覆盖掉。所以直接 hook 它装上去的那个监听器, 在它派发完之后接着走。
      */
-    private val methodItemClickListenerOnClick by
-        dexMethod(
-            sqlMethod {
-                name = "onClick"
-                returnType = "void"
-                paramTypes("android.view.View")
-                usingEqStrings(
-                    "com/tencent/mm/view/recyclerview/WxRecyclerAdapter\$bindViewListener\$2",
-                )
-            },
+    private val methodItemClickListenerOnClick by dexMethod {
+        name = "onClick"
+        returnType = "void"
+        paramTypes("android.view.View")
+        usingEqStrings(
+            "com/tencent/mm/view/recyclerview/WxRecyclerAdapter\$bindViewListener\$2",
         )
+    }
 
     /** `ImproveSnsInfo.getLocalIDString()` — 返回 `sns_table_<rowid>` (广告为 `ad_table_`) */
-    private val methodGetLocalIdString by
-        dexMethod(
-            sqlMethod {
-                returnType = "java.lang.String"
-                paramCount = 0
-                usingEqStrings(
-                    "getLocalIDString",
-                    "com.tencent.mm.plugin.sns.ui.improve.model.ImproveSnsInfo",
-                )
-            },
+    private val methodGetLocalIdString by dexMethod {
+        returnType = "java.lang.String"
+        paramCount = 0
+        usingEqStrings(
+            "getLocalIDString",
+            "com.tencent.mm.plugin.sns.ui.improve.model.ImproveSnsInfo",
         )
+    }
 
     private lateinit var getImproveListItemMethod: Method
     private lateinit var getImproveSnsInfoMethod: Method

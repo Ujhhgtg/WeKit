@@ -20,7 +20,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookHandle
@@ -67,23 +66,17 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
 
     private val fakeResIdToResMap = mutableIntObjectMapOf<Drawable>()
 
-    val methodAddItem by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui")
-                usingEqStrings(
-                    "MicroMsg.PlusSubMenuHelper",
-                    "dyna plus config is null, we use default one",
-                )
-            },
+    val methodAddItem by dexMethod {
+        searchPackages("com.tencent.mm.ui")
+        usingEqStrings(
+            "MicroMsg.PlusSubMenuHelper",
+            "dyna plus config is null, we use default one",
         )
-    val methodHandleItemClick by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui")
-                usingEqStrings("MicroMsg.PlusSubMenuHelper", "processOnItemClick")
-            },
-        )
+    }
+    val methodHandleItemClick by dexMethod {
+        searchPackages("com.tencent.mm.ui")
+        usingEqStrings("MicroMsg.PlusSubMenuHelper", "processOnItemClick")
+    }
     private val classMenuItemData by dexClassQuery {
         uniqueClass(
             ClassSpec(

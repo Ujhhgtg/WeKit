@@ -8,8 +8,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WePaymentApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -35,22 +33,16 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
 
     private const val TAG = "DisplayRedPacketDetails"
 
-    private val methodOnBindListView by
-        dexMethod(
-            sqlMethod {
-                usingStrings("MicroMsg.LuckyMoneyDetailUI", "try get user contact: %s")
-            },
-        )
+    private val methodOnBindListView by dexMethod {
+        usingStrings("MicroMsg.LuckyMoneyDetailUI", "try get user contact: %s")
+    }
 
-    private val classNetSceneLuckyMoneyDetail by
-        dexClass(
-            sqlClass {
-                usingStrings(
-                    "MicroMsg.NetSceneLuckyMoneyDetail",
-                    "/cgi-bin/mmpay-bin/qrydetailwxhb",
-                )
-            },
+    private val classNetSceneLuckyMoneyDetail by dexClass {
+        usingStrings(
+            "MicroMsg.NetSceneLuckyMoneyDetail",
+            "/cgi-bin/mmpay-bin/qrydetailwxhb",
         )
+    }
 
     override fun onEnable() {
         methodOnBindListView.hookAfter {

@@ -4,7 +4,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -61,102 +60,75 @@ object AntiMomentsDelete : SwitchFeature(), IResolveDex {
     private const val SNS_INFO_STORAGE = "com.tencent.mm.plugin.sns.storage.SnsInfoStorage"
 
     // SnsInfoStorageLogic.insertSnsList(userName, srcType, snsObjects, maxSeq)
-    private val methodInsertSnsList by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "insertSnsList",
-                    "com.tencent.mm.plugin.sns.model.SnsInfoStorageLogic",
-                )
-            },
+    private val methodInsertSnsList by dexMethod {
+        usingEqStrings(
+            "insertSnsList",
+            "com.tencent.mm.plugin.sns.model.SnsInfoStorageLogic",
         )
+    }
 
     // SnsInfoStorage.updateFilterTimeLine(whereSuffix): "UPDATE SnsInfo SET sourceType = sourceType
     // & -3" + whereSuffix
-    private val methodUpdateFilterTimeLine by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "updateFilterTimeLine",
-                    "com.tencent.mm.plugin.sns.storage.SnsInfoStorage",
-                )
-            },
+    private val methodUpdateFilterTimeLine by dexMethod {
+        usingEqStrings(
+            "updateFilterTimeLine",
+            "com.tencent.mm.plugin.sns.storage.SnsInfoStorage",
         )
+    }
 
     // SnsInfoStorage.updateFilterUserName(userName, isSelf, whereSuffix): clears bit 4 / 8
-    private val methodUpdateFilterUserName by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "updateFilterUserName",
-                    "com.tencent.mm.plugin.sns.storage.SnsInfoStorage",
-                )
-            },
+    private val methodUpdateFilterUserName by dexMethod {
+        usingEqStrings(
+            "updateFilterUserName",
+            "com.tencent.mm.plugin.sns.storage.SnsInfoStorage",
         )
+    }
 
     // SnsInfoStorage.updateFilterTimeLineAbove(firstSeq) → updateFilterTimeLine
-    private val methodUpdateFilterTimeLineAbove by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "updateFilterTimeLineAbove",
-                    "com.tencent.mm.plugin.sns.storage.SnsInfoStorage",
-                )
-            },
+    private val methodUpdateFilterTimeLineAbove by dexMethod {
+        usingEqStrings(
+            "updateFilterTimeLineAbove",
+            "com.tencent.mm.plugin.sns.storage.SnsInfoStorage",
         )
+    }
 
     // SnsInfoStorage.updateFilterUserNameAbove(userName, isSelf, firstSeq) → updateFilterUserName
-    private val methodUpdateFilterUserNameAbove by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "updateFilterUserNameAbove",
-                    "com.tencent.mm.plugin.sns.storage.SnsInfoStorage",
-                )
-            },
+    private val methodUpdateFilterUserNameAbove by dexMethod {
+        usingEqStrings(
+            "updateFilterUserNameAbove",
+            "com.tencent.mm.plugin.sns.storage.SnsInfoStorage",
         )
+    }
 
     // SnsInfoStorage.delete(long snsId)
-    private val methodDeleteSnsInfo by
-        dexMethod(
-            sqlMethod {
-                paramTypes("long")
-                usingEqStrings("delete", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
-            },
-        )
+    private val methodDeleteSnsInfo by dexMethod {
+        paramTypes("long")
+        usingEqStrings("delete", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
+    }
 
     // NetSceneSnsSync.processSnsDelAction(action, actionInfo, snsId, parentId, clientId, handler)
-    private val methodProcessSnsDelAction by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "processSnsDelAction",
-                    "com.tencent.mm.plugin.sns.model.NetSceneSnsSync",
-                )
-            },
+    private val methodProcessSnsDelAction by dexMethod {
+        usingEqStrings(
+            "processSnsDelAction",
+            "com.tencent.mm.plugin.sns.model.NetSceneSnsSync",
         )
+    }
 
     // SnsResourceManager.cleanLocalResource(SnsInfo): deletes the moment's cached media
-    private val methodCleanLocalResource by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "cleanLocalResource",
-                    "com.tencent.mm.plugin.sns.storage.SnsResourceManager",
-                )
-            },
+    private val methodCleanLocalResource by dexMethod {
+        usingEqStrings(
+            "cleanLocalResource",
+            "com.tencent.mm.plugin.sns.storage.SnsResourceManager",
         )
+    }
 
     // SnsImproveStorage.deleteByLocalId(localId, snsId, createTime): removes the timeline UI row
-    private val methodImproveDeleteByLocalId by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "deleteByLocalId",
-                    "com.tencent.mm.plugin.sns.ui.improve.repository.SnsImproveStorage",
-                )
-            },
+    private val methodImproveDeleteByLocalId by dexMethod {
+        usingEqStrings(
+            "deleteByLocalId",
+            "com.tencent.mm.plugin.sns.ui.improve.repository.SnsImproveStorage",
         )
+    }
 
     private val inInsertSnsList = ThreadLocal.withInitial { false }
     private val inFilterAbove = ThreadLocal.withInitial { false }

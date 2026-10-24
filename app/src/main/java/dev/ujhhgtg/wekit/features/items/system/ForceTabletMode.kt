@@ -16,7 +16,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -37,12 +36,9 @@ object ForceTabletMode : SwitchFeature(), IResolveDex {
     //            usingEqStrings("MicroMsg.UIUtils", "isRoyoleFoldableDevice!!!")
     //        }
     //    }
-    private val methodOtherDeviceLoginButtonIsVisible by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("loginAsOtherDeviceBtn")
-            },
-        )
+    private val methodOtherDeviceLoginButtonIsVisible by dexMethod {
+        usingEqStrings("loginAsOtherDeviceBtn")
+    }
 
     //    private val methodCgiCheckLoginAsPad by dexMethod {
     //        matcher {

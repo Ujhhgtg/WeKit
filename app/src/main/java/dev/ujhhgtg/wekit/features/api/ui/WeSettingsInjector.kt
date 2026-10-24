@@ -31,8 +31,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
@@ -57,15 +55,12 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
 
     // modern method
     private val classSettingItemClassesProvider by
-        dexClass(
-            sqlClass {
-                usingEqStrings("Repairer_Setting")
-                superClass {
-                    usingEqStrings("type")
-                }
-            },
-            allowFailure = true,
-        )
+        dexClass(allowFailure = true) {
+            usingEqStrings("Repairer_Setting")
+            superClass {
+                usingEqStrings("type")
+            }
+        }
     private val classBaseSettingItem by
         dexClassQuery(allowFailure = true) {
             uniqueClass(
@@ -99,70 +94,52 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
             )
         }
     private val classBaseSettingSwitchItem by
-        dexClass(
-            sqlClass {
-                usingEqStrings("activity", "context", "itemView", "1", "0")
-                method {
-                    returnType = "int"
-                    usingNumbers(2L)
-                }
-                method {
-                    name = "<init>"
-                    paramTypes("androidx.appcompat.app.AppCompatActivity")
-                    usingNumbers(1L)
-                }
-                superClass {
-                    usingEqStrings("activity")
-                }
-            },
-            allowFailure = true,
-        )
-    private val classSettingLocation by
-        dexClass(
-            sqlClass {
-                usingEqStrings("SettingLocation(parentGroup=", ", frontItem=")
-            },
-            allowFailure = true,
-        )
-    private val methodSettingGroupAccountInfoGetStringId by
-        dexMethod(
-            sqlMethod {
-                declaredClass =
-                    "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
-                returnType = "java.lang.String"
-                usingEqStrings("SettingGroup_Main_AccountInfo")
-            },
-            allowFailure = true,
-        )
-    private val methodSettingGroupAccountInfoReturns1 by
-        dexMethod(
-            sqlMethod {
-                declaredClass =
-                    "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
+        dexClass(allowFailure = true) {
+            usingEqStrings("activity", "context", "itemView", "1", "0")
+            method {
                 returnType = "int"
+                usingNumbers(2L)
+            }
+            method {
+                name = "<init>"
+                paramTypes("androidx.appcompat.app.AppCompatActivity")
                 usingNumbers(1L)
-            },
-            allowFailure = true,
-        )
+            }
+            superClass {
+                usingEqStrings("activity")
+            }
+        }
+    private val classSettingLocation by
+        dexClass(allowFailure = true) {
+            usingEqStrings("SettingLocation(parentGroup=", ", frontItem=")
+        }
+    private val methodSettingGroupAccountInfoGetStringId by
+        dexMethod(allowFailure = true) {
+            declaredClass =
+                "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
+            returnType = "java.lang.String"
+            usingEqStrings("SettingGroup_Main_AccountInfo")
+        }
+    private val methodSettingGroupAccountInfoReturns1 by
+        dexMethod(allowFailure = true) {
+            declaredClass =
+                "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
+            returnType = "int"
+            usingNumbers(1L)
+        }
     private val methodSettingGroupPersonalInfoGetGroupNameResId by
-        dexMethod(
-            sqlMethod {
-                declaredClass =
-                    "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupPersonalInfo"
-                returnType = "java.lang.Integer"
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            declaredClass =
+                "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupPersonalInfo"
+            returnType = "java.lang.Integer"
+        }
     private val methodResourceHelperGetStringById by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.ResourceHelper",
-                    "get string, resId %d, but context is null",
-                )
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            usingEqStrings(
+                "MicroMsg.ResourceHelper",
+                "get string, resId %d, but context is null",
+            )
+        }
 
     private const val TAG = "WeSettingsInjector"
 

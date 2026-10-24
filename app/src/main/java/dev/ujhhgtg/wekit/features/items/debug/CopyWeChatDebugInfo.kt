@@ -9,7 +9,6 @@ import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
@@ -63,16 +62,13 @@ object CopyWeChatDebugInfo : ClickableFeature(), IResolveDex {
         unhook.unhook()
     }
 
-    private val methodOnClick by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.setting.ui.setting")
-                name = "onClick"
-                usingEqStrings(
-                    "com/tencent/mm/plugin/setting/ui/setting/SettingsAboutMMHeaderPreference\$1",
-                    "android/view/View\$OnClickListener",
-                    "onClick",
-                )
-            },
+    private val methodOnClick by dexMethod {
+        searchPackages("com.tencent.mm.plugin.setting.ui.setting")
+        name = "onClick"
+        usingEqStrings(
+            "com/tencent/mm/plugin/setting/ui/setting/SettingsAboutMMHeaderPreference\$1",
+            "android/view/View\$OnClickListener",
+            "onClick",
         )
+    }
 }

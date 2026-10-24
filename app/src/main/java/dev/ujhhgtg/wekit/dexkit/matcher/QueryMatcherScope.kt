@@ -481,7 +481,7 @@ class QueryMatcherScope(
         }
         val json =
             try {
-                cachedRawDocument("method|" + descriptor, DexMetadataKind.Method, descriptor)
+                cachedRawDocument("method|$descriptor", DexMetadataKind.Method, descriptor)
                     ?: return null
             } catch (e: DexSqlException) {
                 return null
@@ -503,7 +503,7 @@ class QueryMatcherScope(
         }
         val json =
             try {
-                cachedRawDocument("class|" + descriptor, DexMetadataKind.Class, descriptor)
+                cachedRawDocument("class|$descriptor", DexMetadataKind.Class, descriptor)
                     ?: return null
             } catch (e: DexSqlException) {
                 return null
@@ -523,7 +523,7 @@ class QueryMatcherScope(
         }
         val json =
             try {
-                cachedRawDocument("field|" + descriptor, DexMetadataKind.Field, descriptor)
+                cachedRawDocument("field|$descriptor", DexMetadataKind.Field, descriptor)
                     ?: return null
             } catch (e: DexSqlException) {
                 return null
@@ -1256,11 +1256,11 @@ private fun matchesPackages(
     excludePackages: List<String>,
 ): Boolean {
     if (
-        packages.isNotEmpty() && packages.none { javaName == it || javaName.startsWith(it + ".") }
+        packages.isNotEmpty() && packages.none { javaName == it || javaName.startsWith("$it.") }
     ) {
         return false
     }
-    if (excludePackages.any { javaName == it || javaName.startsWith(it + ".") }) {
+    if (excludePackages.any { javaName == it || javaName.startsWith("$it.") }) {
         return false
     }
     return true
@@ -1272,7 +1272,7 @@ private fun matchesPackages(
 
 private fun pagedSql(sql: String, pageSize: Int, offset: Int): String {
     val base = sql.trim().removeSuffix(";")
-    return base + " LIMIT " + pageSize + " OFFSET " + offset + ";"
+    return "$base LIMIT $pageSize OFFSET $offset;"
 }
 
 private fun JsonObject.stringValue(key: String): String? =
@@ -1289,7 +1289,7 @@ private fun JsonObject.objectValue(key: String): JsonObject? = this[key] as? Jso
 private fun JsonObject.nameMatchesPackages(key: String, packages: List<String>): Boolean {
     if (packages.isEmpty()) return true
     val name = stringValue(key) ?: return false
-    return packages.any { name == it || name.startsWith(it + ".") }
+    return packages.any { name == it || name.startsWith("$it.") }
 }
 
 /** Cheap necessary-condition prefilter on the raw method document (no model construction). */

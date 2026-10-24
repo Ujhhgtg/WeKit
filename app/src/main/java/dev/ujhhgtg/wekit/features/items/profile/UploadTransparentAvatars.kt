@@ -5,7 +5,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.int
@@ -24,12 +23,9 @@ object UploadTransparentAvatars : SwitchFeature(), IResolveDex {
             "PhotoCropActivity",
         )
 
-    private val classMediaTailor by
-        dexClass(
-            sqlClass {
-                usingEqStrings("Rect width or height contains zero. contentRect: ")
-            },
-        )
+    private val classMediaTailor by dexClass {
+        usingEqStrings("Rect width or height contains zero. contentRect: ")
+    }
 
     override fun onEnable() {
         Bitmap::class.reflekt()

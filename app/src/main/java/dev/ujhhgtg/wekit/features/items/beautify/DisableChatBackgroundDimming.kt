@@ -7,7 +7,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
@@ -18,15 +17,12 @@ object DisableChatBackgroundDimming : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
     override val descriptionRes = R.string.feature_disable_chat_background_dimming_description
 
-    private val methodSetChatBackground by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.ChattingUI.ChattingBackgroundComponent",
-                    "initBackground: info:%s bgId:%s",
-                )
-            },
+    private val methodSetChatBackground by dexMethod {
+        usingEqStrings(
+            "MicroMsg.ChattingUI.ChattingBackgroundComponent",
+            "initBackground: info:%s bgId:%s",
         )
+    }
 
     override fun onEnable() {
         methodSetChatBackground.hookAfter {

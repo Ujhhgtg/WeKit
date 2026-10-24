@@ -23,9 +23,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlField
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -43,24 +40,18 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
     override val descriptionRes = R.string.feature_beautify_home_description
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
 
-    private val methodConversationReady by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.conversation.MainUI"
-                returnType = "void"
-                paramTypes("android.os.Bundle")
-                usingEqStrings("MicroMsg.MainUI", "main ui init view")
-            },
-        )
-    private val methodListMargins by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.conversation.MainUI"
-                returnType = "void"
-                paramTypes("int", "int")
-                usingEqStrings("MicroMsg.MainUI", "setListMargin isInMultiWindowMode: %b")
-            },
-        )
+    private val methodConversationReady by dexMethod {
+        declaredClass = "com.tencent.mm.ui.conversation.MainUI"
+        returnType = "void"
+        paramTypes("android.os.Bundle")
+        usingEqStrings("MicroMsg.MainUI", "main ui init view")
+    }
+    private val methodListMargins by dexMethod {
+        declaredClass = "com.tencent.mm.ui.conversation.MainUI"
+        returnType = "void"
+        paramTypes("int", "int")
+        usingEqStrings("MicroMsg.MainUI", "setListMargin isInMultiWindowMode: %b")
+    }
     val methodNativeTitleView by dexMethodQuery {
         uniqueMethod(
             MethodSpec(
@@ -110,48 +101,36 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
             ),
         )
     }
-    val fieldListActionBar by
-        dexField(
-            sqlField {
-                declaredClass = "com.tencent.mm.ui.conversation.ConversationListView"
-                type = "android.view.View"
-                readMethod {
-                    usingEqStrings("resetActionBarView")
-                }
-            },
-        )
+    val fieldListActionBar by dexField {
+        declaredClass = "com.tencent.mm.ui.conversation.ConversationListView"
+        type = "android.view.View"
+        readMethod {
+            usingEqStrings("resetActionBarView")
+        }
+    }
     val fieldListSpacer by dexField()
-    val fieldMainStatusMask by
-        dexField(
-            sqlField {
-                declaredClass = "com.tencent.mm.ui.conversation.MainUI"
-                type = "android.view.View"
-                readMethod {
-                    usingEqStrings("setListMargin isInMultiWindowMode: %b")
-                }
-            },
-        )
+    val fieldMainStatusMask by dexField {
+        declaredClass = "com.tencent.mm.ui.conversation.MainUI"
+        type = "android.view.View"
+        readMethod {
+            usingEqStrings("setListMargin isInMultiWindowMode: %b")
+        }
+    }
 
     val classRecyclerView by
-        dexClass(
-            sqlClass {
-                className = "com.tencent.mm.ui.conversation.recycler.ConversationRecyclerView"
-            },
-            allowFailure = true,
-        )
+        dexClass(allowFailure = true) {
+            className = "com.tencent.mm.ui.conversation.recycler.ConversationRecyclerView"
+        }
     val fieldRecyclerActionBar by dexField()
     val fieldRecyclerSpacer by dexField()
 
-    private val fieldPlusItem by
-        dexField(
-            sqlField {
-                declaredClass = "com.tencent.mm.ui.HomeUI"
-                type = "android.view.MenuItem"
-                readMethod {
-                    usingEqStrings("bindPlusItemActionView plusActionView")
-                }
-            },
-        )
+    private val fieldPlusItem by dexField {
+        declaredClass = "com.tencent.mm.ui.HomeUI"
+        type = "android.view.MenuItem"
+        readMethod {
+            usingEqStrings("bindPlusItemActionView plusActionView")
+        }
+    }
     val fieldSearchItem by dexField()
     val methodShowPlusMenu by dexMethod()
 

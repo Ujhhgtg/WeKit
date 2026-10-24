@@ -7,8 +7,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
@@ -20,19 +18,13 @@ object DisableLowAvailableStorageDetection : SwitchFeature(), IResolveDex {
     override val descriptionRes =
         R.string.feature_disable_low_available_storage_detection_description
 
-    private val methodSplashActivitySplashFinished by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.splash.SplashActivity"
-                usingEqStrings("WxSplash.SplashActivity", "Call splashFinished.")
-            },
-        )
-    private val classStaticValuesHolder by
-        dexClass(
-            sqlClass {
-                usingEqStrings("UIPageFragmentActivity", "LuckyMoneyNewPrepareUI", "RemittanceUI")
-            },
-        )
+    private val methodSplashActivitySplashFinished by dexMethod {
+        declaredClass = "com.tencent.mm.splash.SplashActivity"
+        usingEqStrings("WxSplash.SplashActivity", "Call splashFinished.")
+    }
+    private val classStaticValuesHolder by dexClass {
+        usingEqStrings("UIPageFragmentActivity", "LuckyMoneyNewPrepareUI", "RemittanceUI")
+    }
 
     override fun onEnable() {
         methodSplashActivitySplashFinished.hookBefore {

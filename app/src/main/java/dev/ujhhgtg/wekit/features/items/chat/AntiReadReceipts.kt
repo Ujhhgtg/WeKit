@@ -4,7 +4,6 @@ import androidx.core.net.toUri
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -23,14 +22,11 @@ object AntiReadReceipts : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_anti_read_receipts_description
 
-    private val methodLoadFinderImage by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramTypes("java.lang.String", "android.widget.ImageView", null)
-                usingEqStrings("FinderLoaderApi", "#loadImage url=")
-            },
-        )
+    private val methodLoadFinderImage by dexMethod {
+        returnType = "void"
+        paramTypes("java.lang.String", "android.widget.ImageView", null)
+        usingEqStrings("FinderLoaderApi", "#loadImage url=")
+    }
 
     override fun onEnable() {
         methodLoadFinderImage.hookBefore {

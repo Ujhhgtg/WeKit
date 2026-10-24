@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -124,12 +123,9 @@ object QrCodeRecord : ClickableFeature(), IResolveDex, WeHomeScreenPopupMenuApi.
         KvStore.remove(KEY_RECORDS)
     }
 
-    val methodQBarString by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("MicroMsg.QBarStringHandler", "key_offline_scan_show_tips")
-            },
-        )
+    val methodQBarString by dexMethod {
+        usingEqStrings("MicroMsg.QBarStringHandler", "key_offline_scan_show_tips")
+    }
 
     override fun resolveDex() {}
 }

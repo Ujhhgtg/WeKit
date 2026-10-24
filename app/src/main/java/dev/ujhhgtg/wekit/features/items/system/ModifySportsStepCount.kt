@@ -25,7 +25,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -49,26 +48,20 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_modify_sports_step_count_description
 
-    private val methodGetSteps by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.sport.model")
-                usingEqStrings(
-                    "MicroMsg.Sport.DeviceStepManager",
-                    "get today step from %s todayStep %d",
-                )
-            },
+    private val methodGetSteps by dexMethod {
+        searchPackages("com.tencent.mm.plugin.sport.model")
+        usingEqStrings(
+            "MicroMsg.Sport.DeviceStepManager",
+            "get today step from %s todayStep %d",
         )
-    private val methodUploadSteps by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.sport.model")
-                usingEqStrings(
-                    "MicroMsg.Sport.DeviceStepManager",
-                    "update device Step time: %s stepCount: %s",
-                )
-            },
+    }
+    private val methodUploadSteps by dexMethod {
+        searchPackages("com.tencent.mm.plugin.sport.model")
+        usingEqStrings(
+            "MicroMsg.Sport.DeviceStepManager",
+            "update device Step time: %s stepCount: %s",
         )
+    }
 
     override fun onEnable() {
         methodGetSteps.hookAfter {

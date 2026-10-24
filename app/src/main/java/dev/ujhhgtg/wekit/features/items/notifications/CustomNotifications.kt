@@ -28,7 +28,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -104,55 +103,40 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
 
     // com.tencent.mm.booter.notification.NotificationItem#notify(Context): posts one built
     // notification.
-    private val methodNotificationItemNotify by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.booter.notification.NotificationItem"
-                usingEqStrings("error, notify but mNotification == null")
-            },
-        )
+    private val methodNotificationItemNotify by dexMethod {
+        declaredClass = "com.tencent.mm.booter.notification.NotificationItem"
+        usingEqStrings("error, notify but mNotification == null")
+    }
 
     // dealNotify(x, talker, content, msgType, tipsFlag, isRevoke): entry of both the system
     // notification and the in-app (foreground) sound for one message.
-    private val methodDealNotify by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.booter.notification")
-                paramCount = 6
-                usingEqStrings(
-                    "jacks dealNotify, talker:%s, msgtype:%d, tipsFlag:%d, isRevokeMesasge:%B content:%s",
-                )
-            },
+    private val methodDealNotify by dexMethod {
+        searchPackages("com.tencent.mm.booter.notification")
+        paramCount = 6
+        usingEqStrings(
+            "jacks dealNotify, talker:%s, msgtype:%d, tipsFlag:%d, isRevokeMesasge:%B content:%s",
         )
+    }
 
-    private val methodNotifyForLightPush by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.booter.notification")
-                returnType = "void"
-                paramCount = 7
-                usingEqStrings(
-                    "LightPush [NO NOTIFICATION] Util.isNullOrNil(userName) || Util.isNullOrNil(nickName)",
-                )
-            },
+    private val methodNotifyForLightPush by dexMethod {
+        searchPackages("com.tencent.mm.booter.notification")
+        returnType = "void"
+        paramCount = 7
+        usingEqStrings(
+            "LightPush [NO NOTIFICATION] Util.isNullOrNil(userName) || Util.isNullOrNil(nickName)",
         )
+    }
 
     // Notification sound players (base and "fixed" subclass), play(soundUri, ?, ?).
-    private val methodPlaySound by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("MicroMsg.Notification.Tool.Sound", "playSound playHandler == null")
-            },
+    private val methodPlaySound by dexMethod {
+        usingEqStrings("MicroMsg.Notification.Tool.Sound", "playSound playHandler == null")
+    }
+    private val methodPlaySoundFixed by dexMethod {
+        usingEqStrings(
+            "MicroMsg.Notification.Tool.SoundFixed",
+            "playSound playHandler == null",
         )
-    private val methodPlaySoundFixed by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.Notification.Tool.SoundFixed",
-                    "playSound playHandler == null",
-                )
-            },
-        )
+    }
 
     /** What WeKit knows about a stored message, keyed for the notification hooks that follow. */
     private data class MessageFacts(

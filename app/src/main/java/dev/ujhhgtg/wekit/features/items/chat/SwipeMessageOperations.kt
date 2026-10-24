@@ -31,8 +31,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -103,27 +101,21 @@ object SwipeMessageOperations :
     // container only sees MOVE events after it intercepts them — which is why we must hook
     // onInterceptTouchEvent here rather than rely on an OnTouchListener alone. Scoping the hook to
     // this one class (instead of global ViewGroup) keeps the blast radius tiny.
-    private val classChattingItemContainer by
-        dexClass(
-            sqlClass {
-                searchPackages("com.tencent.mm.ui.chatting.viewitems")
-                usingEqStrings("MicroMsg.ChattingItemContainer", "warn!!! cacheSize:%s sysSize:%s")
-            },
-        )
+    private val classChattingItemContainer by dexClass {
+        searchPackages("com.tencent.mm.ui.chatting.viewitems")
+        usingEqStrings("MicroMsg.ChattingItemContainer", "warn!!! cacheSize:%s sysSize:%s")
+    }
 
     // ChattingUIFragment installs this listener on the chat list. On ACTION_DOWN it asks the
     // current ChatFooter to close the keyboard/panel, then returns false so normal list handling
     // continues. A blank-area DOWN claimed by our row never reaches that listener, so resolve the
     // exact ChatFooter call and mirror it at the point where we claim the stream.
-    private val methodChatListOnTouch by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui.chatting")
-                returnType = "boolean"
-                paramTypes("android.view.View", "android.view.MotionEvent")
-                usingEqStrings("onTouch: touch down", "onTouch: touch up")
-            },
-        )
+    private val methodChatListOnTouch by dexMethod {
+        searchPackages("com.tencent.mm.ui.chatting")
+        returnType = "boolean"
+        paramTypes("android.view.View", "android.view.MotionEvent")
+        usingEqStrings("onTouch: touch down", "onTouch: touch up")
+    }
 
     private val methodHideChatInput by dexMethod()
 
@@ -705,22 +697,16 @@ object SwipeMessageOperations :
         QuickRevokeAndEdit.quickRevokeAndEdit(view.context, msgInfo)
     }
 
-    private val classChattingUiFootComponent by
-        dexClass(
-            sqlClass {
-                searchPackages("com.tencent.mm.ui.chatting.component")
-                usingEqStrings(
-                    "MicroMsg.ChattingUI.FootComponent",
-                    "onNotifyChange event %s talker %s",
-                )
-            },
+    private val classChattingUiFootComponent by dexClass {
+        searchPackages("com.tencent.mm.ui.chatting.component")
+        usingEqStrings(
+            "MicroMsg.ChattingUI.FootComponent",
+            "onNotifyChange event %s talker %s",
         )
+    }
 
-    private val methodGetMsgInfo by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui.chatting.viewitems")
-                usingEqStrings("ItemDataTag", "getCurrentMsg2 err")
-            },
-        )
+    private val methodGetMsgInfo by dexMethod {
+        searchPackages("com.tencent.mm.ui.chatting.viewitems")
+        usingEqStrings("ItemDataTag", "getCurrentMsg2 err")
+    }
 }

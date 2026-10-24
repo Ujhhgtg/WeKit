@@ -13,7 +13,6 @@ import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -88,25 +87,19 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
     private const val AGGREGATED_MENU_ORDER = 1000
 
     // com.tencent.mm.ui.conversation.ConversationLongClickListener#onCreateContextMenu
-    private val methodOnCreateMenu by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui.conversation")
-                usingStrings(
-                    "MicroMsg.ConversationLongClickListener",
-                    "onCreateContextMenu, contact is null",
-                )
-            },
+    private val methodOnCreateMenu by dexMethod {
+        searchPackages("com.tencent.mm.ui.conversation")
+        usingStrings(
+            "MicroMsg.ConversationLongClickListener",
+            "onCreateContextMenu, contact is null",
         )
+    }
 
     // com.tencent.mm.ui.conversation.ConversationLongClickListener$1#onMMMenuItemSelected
-    private val methodOnItemSelected by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui.conversation")
-                usingStrings("yuanbao_set_top", "yuanbao_set_read", "yuanbao_set_no_display")
-            },
-        )
+    private val methodOnItemSelected by dexMethod {
+        searchPackages("com.tencent.mm.ui.conversation")
+        usingStrings("yuanbao_set_top", "yuanbao_set_read", "yuanbao_set_no_display")
+    }
 
     // com.tencent.mm.ui.widget.menu.MMPopupMenu#showMenu(view, pos, id, onCreateListener, selectCb,
     // x, y)
@@ -114,24 +107,21 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
     // ConversationLongClickListener;
     // its long-press menu goes through this shared popup, so AGGREGATED items are injected here.
     private val methodShowPopupMenu by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramTypes(
-                    "android.view.View",
-                    "int",
-                    "long",
-                    "android.view.View\$OnCreateContextMenuListener",
-                    null,
-                    "int",
-                    "int",
-                )
-                declaredClass {
-                    usingStrings("MicroMsg.MMPopupMenu")
-                }
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            returnType = "void"
+            paramTypes(
+                "android.view.View",
+                "int",
+                "long",
+                "android.view.View\$OnCreateContextMenuListener",
+                null,
+                "int",
+                "int",
+            )
+            declaredClass {
+                usingStrings("MicroMsg.MMPopupMenu")
+            }
+        }
 
     private fun items(scope: MenuScope) =
         menuItemProviders.flatMap { it.getMenuItems() }.filter { it.scope.includes(scope) }

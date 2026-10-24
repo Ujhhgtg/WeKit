@@ -27,8 +27,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -103,52 +101,37 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
     private val pendingRefresh = AtomicReference<RefreshRequest?>()
     private val submittingRefresh = ThreadLocal<RefreshRequest>()
 
-    private val methodGetSnsCore by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("getCore", "com.tencent.mm.plugin.sns.model.SnsCore")
-            },
-        )
+    private val methodGetSnsCore by dexMethod {
+        usingEqStrings("getCore", "com.tencent.mm.plugin.sns.model.SnsCore")
+    }
 
-    private val methodDoFpList by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("doFpList", "com.tencent.mm.plugin.sns.model.SnsLogic\$SnsServer")
-            },
-        )
+    private val methodDoFpList by dexMethod {
+        usingEqStrings("doFpList", "com.tencent.mm.plugin.sns.model.SnsLogic\$SnsServer")
+    }
 
-    private val ctorTimelineRequest by
-        dexConstructor(
-            sqlConstructor {
-                paramTypes("long", "long", "int")
-                declaredClass {
-                    usingEqStrings("/cgi-bin/micromsg-bin/mmsnstimeline")
-                }
-            },
-        )
+    private val ctorTimelineRequest by dexConstructor {
+        paramTypes("long", "long", "int")
+        declaredClass {
+            usingEqStrings("/cgi-bin/micromsg-bin/mmsnstimeline")
+        }
+    }
 
-    private val methodHandleNormalResponse by
-        dexMethod(
-            sqlMethod {
-                declaredClass(ctorTimelineRequest.data.declaredClassName)
-                returnType = "void"
-                paramTypes("int", "int", "java.lang.String", null)
-                usingEqStrings(
-                    "handleNormalResp",
-                    "com.tencent.mm.plugin.sns.model.NetSceneSnsTimeLine",
-                )
-            },
+    private val methodHandleNormalResponse by dexMethod {
+        declaredClass(ctorTimelineRequest.data.declaredClassName)
+        returnType = "void"
+        paramTypes("int", "int", "java.lang.String", null)
+        usingEqStrings(
+            "handleNormalResp",
+            "com.tencent.mm.plugin.sns.model.NetSceneSnsTimeLine",
         )
+    }
 
-    private val methodTimelineResponseEnd by
-        dexMethod(
-            sqlMethod {
-                declaredClass(ctorTimelineRequest.data.declaredClassName)
-                name = "onGYNetEnd"
-                returnType = "void"
-                paramCount = 6
-            },
-        )
+    private val methodTimelineResponseEnd by dexMethod {
+        declaredClass(ctorTimelineRequest.data.declaredClassName)
+        name = "onGYNetEnd"
+        returnType = "void"
+        paramCount = 6
+    }
 
     override fun onEnable() {
         // The type=1 doFpList branch constructs its scene synchronously before enqueueing it.

@@ -6,7 +6,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -41,55 +40,37 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
         menuItems.remove(provider)
     }
 
-    private val methodCreateMenu1 by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.finder.feed")
-                name = "onCreateMMMenu"
-                usingEqStrings("pos is error ")
-            },
-        )
-    private val methodOnSelectMenuItem1 by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.finder.feed")
-                name = "onMMMenuItemSelected"
-                usingEqStrings("[getMoreMenuItemSelectedListener] feed ")
-            },
-        )
-    private val methodCreateMenu2 by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.finder.feed")
-                usingEqStrings("feed", "menu", "sheet", "holder", "KEY_FINDER_SELF_FLAG")
-            },
-        )
-    private val methodOnSelectMenuItem2 by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.finder.feed")
-                usingEqStrings("getMoreMenuItemSelectedListener feed ")
-                declaredClass {
-                    usingEqStrings("Finder.FinderLoaderFeedUIContract.Presenter")
-                }
-            },
-        )
-    private val methodCreateMenu3 by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.finder.feed")
-                name = "onCreateMMMenu"
-                usingEqStrings("getCreateSecondMoreMenuListener: username=")
-            },
-        )
-    private val methodOnSelectMenuItem3 by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.finder.feed")
-                name = "onMMMenuItemSelected"
-                usingEqStrings("button_speedplay", "ref_eid")
-            },
-        )
+    private val methodCreateMenu1 by dexMethod {
+        searchPackages("com.tencent.mm.plugin.finder.feed")
+        name = "onCreateMMMenu"
+        usingEqStrings("pos is error ")
+    }
+    private val methodOnSelectMenuItem1 by dexMethod {
+        searchPackages("com.tencent.mm.plugin.finder.feed")
+        name = "onMMMenuItemSelected"
+        usingEqStrings("[getMoreMenuItemSelectedListener] feed ")
+    }
+    private val methodCreateMenu2 by dexMethod {
+        searchPackages("com.tencent.mm.plugin.finder.feed")
+        usingEqStrings("feed", "menu", "sheet", "holder", "KEY_FINDER_SELF_FLAG")
+    }
+    private val methodOnSelectMenuItem2 by dexMethod {
+        searchPackages("com.tencent.mm.plugin.finder.feed")
+        usingEqStrings("getMoreMenuItemSelectedListener feed ")
+        declaredClass {
+            usingEqStrings("Finder.FinderLoaderFeedUIContract.Presenter")
+        }
+    }
+    private val methodCreateMenu3 by dexMethod {
+        searchPackages("com.tencent.mm.plugin.finder.feed")
+        name = "onCreateMMMenu"
+        usingEqStrings("getCreateSecondMoreMenuListener: username=")
+    }
+    private val methodOnSelectMenuItem3 by dexMethod {
+        searchPackages("com.tencent.mm.plugin.finder.feed")
+        name = "onMMMenuItemSelected"
+        usingEqStrings("button_speedplay", "ref_eid")
+    }
 
     override fun onEnable() {
         methodCreateMenu1.hookBefore {

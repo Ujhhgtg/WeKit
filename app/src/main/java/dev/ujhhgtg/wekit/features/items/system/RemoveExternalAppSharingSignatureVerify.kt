@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.system
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
@@ -15,13 +14,10 @@ object RemoveExternalAppSharingSignatureVerify : SwitchFeature(), IResolveDex {
     override val descriptionRes =
         R.string.feature_remove_external_app_sharing_signature_verify_description
 
-    private val methodSignCheck by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.pluginsdk.model.app")
-                usingEqStrings("checkAppSignature get local signature failed")
-            },
-        )
+    private val methodSignCheck by dexMethod {
+        searchPackages("com.tencent.mm.pluginsdk.model.app")
+        usingEqStrings("checkAppSignature get local signature failed")
+    }
 
     override fun onEnable() {
         methodSignCheck.hookBefore {

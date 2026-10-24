@@ -86,7 +86,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
@@ -168,23 +167,17 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
     private const val QUICK_REPLY_NAME = "快捷回复"
     private const val WEAGENT_NAME = "WeAgent"
 
-    private val methodAppPanelInitAppGrid by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.pluginsdk.ui.chat.AppPanel"
-                usingEqStrings("MicroMsg.AppPanel", "initAppGrid()")
-            },
+    private val methodAppPanelInitAppGrid by dexMethod {
+        declaredClass = "com.tencent.mm.pluginsdk.ui.chat.AppPanel"
+        usingEqStrings("MicroMsg.AppPanel", "initAppGrid()")
+    }
+    private val methodAppPanelOnMeasure by dexMethod {
+        searchPackages("com.tencent.mm.pluginsdk.ui.chat")
+        usingEqStrings(
+            "MicroMsg.AppPanel",
+            "onMeasure width: %d, heigth:%d, isMeasured:%b, gridWidth:%d, gridHeight:%d",
         )
-    private val methodAppPanelOnMeasure by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-                usingEqStrings(
-                    "MicroMsg.AppPanel",
-                    "onMeasure width: %d, heigth:%d, isMeasured:%b, gridWidth:%d, gridHeight:%d",
-                )
-            },
-        )
+    }
 
     private data class MenuItem(
         val name: String,

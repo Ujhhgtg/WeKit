@@ -6,8 +6,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.int
@@ -19,91 +17,61 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_remove_custom_stickers_limit_description
 
-    private val methodGetCustomEmojiMaxSize by
-        dexMethod(
-            sqlMethod {
-                returnType = "int"
-                paramCount = 0
-                modifiers = 8
-                usingEqStrings("CustomEmojiMaxSize")
-            },
-        )
+    private val methodGetCustomEmojiMaxSize by dexMethod {
+        returnType = "int"
+        paramCount = 0
+        modifiers = 8
+        usingEqStrings("CustomEmojiMaxSize")
+    }
 
-    private val methodComputeEmojiStorageState by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramCount = 1
-                usingEqStrings("MicroMsg.EmojiStorageState", "normal_custom_size")
-            },
-        )
+    private val methodComputeEmojiStorageState by dexMethod {
+        returnType = "void"
+        paramCount = 1
+        usingEqStrings("MicroMsg.EmojiStorageState", "normal_custom_size")
+    }
 
-    private val classMmkv by
-        dexClass(
-            sqlClass {
-                usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
-            },
-        )
+    private val classMmkv by dexClass {
+        usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
+    }
 
-    private val methodGetMmkv by
-        dexMethod(
-            sqlMethod {
-                declaredClass(classMmkv.data.name)
-                usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
-            },
-        )
+    private val methodGetMmkv by dexMethod {
+        declaredClass(classMmkv.data.name)
+        usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
+    }
 
-    private val classCgiBack by
-        dexClass(
-            sqlClass {
-                usingEqStrings("CgiBack{errType=")
-            },
-        )
+    private val classCgiBack by dexClass {
+        usingEqStrings("CgiBack{errType=")
+    }
 
-    private val methodCreateCgiBack by
-        dexMethod(
-            sqlMethod {
-                declaredClass(classCgiBack.data.name)
-                returnType(classCgiBack.data.name)
-                paramCount = 6
-                modifiers = 8
-            },
-        )
+    private val methodCreateCgiBack by dexMethod {
+        declaredClass(classCgiBack.data.name)
+        returnType(classCgiBack.data.name)
+        paramCount = 6
+        modifiers = 8
+    }
 
-    private val methodAddEmojiOnSceneEnd by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("CgiBackupEmojiOperate onResult: errType=")
-            },
-        )
+    private val methodAddEmojiOnSceneEnd by dexMethod {
+        usingEqStrings("CgiBackupEmojiOperate onResult: errType=")
+    }
 
-    private val methodNetSceneBackupEmojiOperateOnGYNetEnd by
-        dexMethod(
-            sqlMethod {
-                name = "onGYNetEnd"
-                usingEqStrings(
-                    "MicroMsg.emoji.NetSceneBackupEmojiOperate",
-                    "errType:%d, errCode:%d",
-                )
-            },
+    private val methodNetSceneBackupEmojiOperateOnGYNetEnd by dexMethod {
+        name = "onGYNetEnd"
+        usingEqStrings(
+            "MicroMsg.emoji.NetSceneBackupEmojiOperate",
+            "errType:%d, errCode:%d",
         )
+    }
 
-    private val methodChattingUiEmoji by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("addToCustom. over max size.")
-            },
-        )
+    private val methodChattingUiEmoji by dexMethod {
+        usingEqStrings("addToCustom. over max size.")
+    }
 
-    private val methodConditionallyShowDialog by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("custom_full")
-                declaredClass {
-                    usingEqStrings("uninstallEmoticon Failed to send net scene: ")
-                }
-            },
-        )
+    private val methodConditionallyShowDialog by dexMethod {
+        usingEqStrings("custom_full")
+        declaredClass {
+            usingEqStrings("uninstallEmoticon Failed to send net scene: ")
+        }
+    }
 
     private fun putCustomFullFalseInMmkv() {
         runCatching {

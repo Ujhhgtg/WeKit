@@ -38,8 +38,6 @@ import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -617,31 +615,22 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
     )
 
     private val classItemFactory by
-        dexClass(
-            sqlClass {
-                usingEqStrings("MicroMsg.ItemFactoryNew", "initChattingItemConfig")
-            },
-            allowFailure = true,
-        )
+        dexClass(allowFailure = true) {
+            usingEqStrings("MicroMsg.ItemFactoryNew", "initChattingItemConfig")
+        }
 
     private val methodMarkdownPreprocess by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.ChattingItemMarkdownMvvm",
-                    "[STREAM_TRACE] preDealData: msgId=%d, msgSvrId=%d, contentLen=%d, isStreaming=%b",
-                )
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            usingEqStrings(
+                "MicroMsg.ChattingItemMarkdownMvvm",
+                "[STREAM_TRACE] preDealData: msgId=%d, msgSvrId=%d, contentLen=%d, isStreaming=%b",
+            )
+        }
 
-    private val classMsgInfoWrapper by
-        dexClass(
-            sqlClass {
-                usingEqStrings(
-                    "other",
-                    "null cannot be cast to non-null type com.tencent.mm.storage.MsgInfo",
-                )
-            },
+    private val classMsgInfoWrapper by dexClass {
+        usingEqStrings(
+            "other",
+            "null cannot be cast to non-null type com.tencent.mm.storage.MsgInfo",
         )
+    }
 }

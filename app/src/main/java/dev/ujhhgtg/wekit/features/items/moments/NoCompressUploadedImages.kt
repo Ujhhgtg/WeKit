@@ -17,7 +17,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -43,39 +42,30 @@ object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
 
     private var selectedMode by KvStore.prefOption("no_compress_mode", MODE_CONVERT)
 
-    private val methodImagePreviewSend by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.plugin.gallery.ui.ImagePreviewUI"
-                returnType = "void"
-                paramTypes("android.content.Intent", "boolean", "boolean")
-                usingEqStrings("CropImage_OutputPath_List", "key_select_video_list")
-            },
-        )
+    private val methodImagePreviewSend by dexMethod {
+        declaredClass = "com.tencent.mm.plugin.gallery.ui.ImagePreviewUI"
+        returnType = "void"
+        paramTypes("android.content.Intent", "boolean", "boolean")
+        usingEqStrings("CropImage_OutputPath_List", "key_select_video_list")
+    }
 
-    private val methodCreatePic by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.snsMediaStorage",
-                    "SnsCompressResolutionFor2G",
-                    "SnsCompressResolutionFor3G",
-                    "SnsCompressResolutionFor4G",
-                    "SnsCompressResolutionForWifi",
-                )
-            },
+    private val methodCreatePic by dexMethod {
+        usingEqStrings(
+            "MicroMsg.snsMediaStorage",
+            "SnsCompressResolutionFor2G",
+            "SnsCompressResolutionFor3G",
+            "SnsCompressResolutionFor4G",
+            "SnsCompressResolutionForWifi",
         )
+    }
 
-    private val methodConvertImg2WxamWithoutZip by
-        dexMethod(
-            sqlMethod {
-                paramTypes("java.lang.String", "java.lang.String")
-                usingEqStrings(
-                    "MicroMsg.snsMediaStorage",
-                    "convertImg2WxamWithoutZip origPath:%s OutOfMemoryError! rollback",
-                )
-            },
+    private val methodConvertImg2WxamWithoutZip by dexMethod {
+        paramTypes("java.lang.String", "java.lang.String")
+        usingEqStrings(
+            "MicroMsg.snsMediaStorage",
+            "convertImg2WxamWithoutZip origPath:%s OutOfMemoryError! rollback",
         )
+    }
 
     private val vfsGetCachePathMethod by lazy {
         WeMessageApi.classVfs.reflekt().firstMethod {

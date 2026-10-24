@@ -5,7 +5,6 @@ import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -20,13 +19,10 @@ object ChatFooterHooks : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_chat_footer_hooks_description
 
-    private val methodInitSmileyBtn by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-                usingEqStrings("initSmileyBtn")
-            },
-        )
+    private val methodInitSmileyBtn by dexMethod {
+        searchPackages("com.tencent.mm.pluginsdk.ui.chat")
+        usingEqStrings("initSmileyBtn")
+    }
 
     override fun onEnable() {
         methodInitSmileyBtn.hookAfter {

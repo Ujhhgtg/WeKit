@@ -27,8 +27,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -67,77 +65,56 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
             return super.shouldEnableOnStartup
         }
 
-    private val classCore by
-        dexClass(
-            sqlClass {
-                className = "com.motion.core.LivePhotoCore"
-            },
+    private val classCore by dexClass {
+        className = "com.motion.core.LivePhotoCore"
+    }
+    private val classWrapper by dexClass {
+        usingEqStrings(
+            "MicroMsg.MMLivePhotoCore",
+            "initCore >> init result: ",
+            "getLivePhotoMediaData >> parse data json error",
         )
-    private val classWrapper by
-        dexClass(
-            sqlClass {
-                usingEqStrings(
-                    "MicroMsg.MMLivePhotoCore",
-                    "initCore >> init result: ",
-                    "getLivePhotoMediaData >> parse data json error",
-                )
-            },
-        )
+    }
     private val fieldCore by dexField()
     private val fieldCoreVersion by dexField()
     private val fieldSysVersion by dexField()
     private val fieldSupport by dexField()
     private val fieldSnsSave by dexField()
 
-    private val methodExpt by
-        dexMethod(
-            sqlMethod {
-                returnType = "java.lang.String"
-                paramTypes("java.lang.String", "java.lang.String", "boolean")
-                usingEqStrings("V2GetExpt result[%s] exptId[%d] key[%s] defStr[%s] cost[%d]")
-            },
+    private val methodExpt by dexMethod {
+        returnType = "java.lang.String"
+        paramTypes("java.lang.String", "java.lang.String", "boolean")
+        usingEqStrings("V2GetExpt result[%s] exptId[%d] key[%s] defStr[%s] cost[%d]")
+    }
+    private val methodMultiExpt by dexMethod {
+        returnType = "java.lang.String"
+        paramTypes("java.lang.String", "java.lang.String", "boolean", "boolean")
+        usingEqStrings(
+            "V2GetMulitExpt result[%s] key[%s] def[%s] cost[%d] hadReport[%b %b] exptId[%d]",
         )
-    private val methodMultiExpt by
-        dexMethod(
-            sqlMethod {
-                returnType = "java.lang.String"
-                paramTypes("java.lang.String", "java.lang.String", "boolean", "boolean")
-                usingEqStrings(
-                    "V2GetMulitExpt result[%s] key[%s] def[%s] cost[%d] hadReport[%b %b] exptId[%d]",
-                )
-            },
-        )
-    private val methodRepairerGet by
-        dexMethod(
-            sqlMethod {
-                returnType = "java.lang.Object"
-                paramTypes("java.lang.String", "java.lang.Object")
-                usingEqStrings("String", "Int", "Long", "Float", "key", "defaultValue")
-                declaredClass {
-                    usingEqStrings("RepairerConfigThread")
-                    usingEqStrings("ValueStrategy_")
-                }
-            },
-        )
-    private val methodRepairerStrategy by
-        dexMethod(
-            sqlMethod {
-                returnType = "int"
-                paramCount = 1
-                usingEqStrings("ValueStrategy_", "keyObj")
-                declaredClass {
-                    usingEqStrings("RepairerConfigThread")
-                }
-            },
-        )
-    private val methodSnsPublish by
-        dexMethod(
-            sqlMethod {
-                returnType = "boolean"
-                paramCount = 0
-                usingEqStrings("enablePublishLivePhoto", "SnsLivePhoto.ServerPublishConfig")
-            },
-        )
+    }
+    private val methodRepairerGet by dexMethod {
+        returnType = "java.lang.Object"
+        paramTypes("java.lang.String", "java.lang.Object")
+        usingEqStrings("String", "Int", "Long", "Float", "key", "defaultValue")
+        declaredClass {
+            usingEqStrings("RepairerConfigThread")
+            usingEqStrings("ValueStrategy_")
+        }
+    }
+    private val methodRepairerStrategy by dexMethod {
+        returnType = "int"
+        paramCount = 1
+        usingEqStrings("ValueStrategy_", "keyObj")
+        declaredClass {
+            usingEqStrings("RepairerConfigThread")
+        }
+    }
+    private val methodSnsPublish by dexMethod {
+        returnType = "boolean"
+        paramCount = 0
+        usingEqStrings("enablePublishLivePhoto", "SnsLivePhoto.ServerPublishConfig")
+    }
 
     override fun resolveDex() {
         val fields = classWrapper.data.fields.filter { Modifier.isStatic(it.modifiers) }

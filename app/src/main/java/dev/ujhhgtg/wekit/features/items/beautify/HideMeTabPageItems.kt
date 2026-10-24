@@ -18,7 +18,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -42,13 +41,10 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
     private var hideCards by KvStore.prefOption("hide_me_cards", false)
     private var hideEmoji by KvStore.prefOption("hide_me_emoji", false)
 
-    private val methodOnViewCreated by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.MoreTabUI"
-                name = "onViewCreated"
-            },
-        )
+    private val methodOnViewCreated by dexMethod {
+        declaredClass = "com.tencent.mm.ui.MoreTabUI"
+        name = "onViewCreated"
+    }
 
     override fun onEnable() {
         methodOnViewCreated.hookAfter {

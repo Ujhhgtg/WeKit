@@ -19,7 +19,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.extensions.ScriptDepsPack
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -81,12 +80,9 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
         val enabled: Boolean,
     )
 
-    private val methodPayMsg by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("[onRecv PayerMsg]，newMsg.msgType：%s")
-            },
-        )
+    private val methodPayMsg by dexMethod {
+        usingEqStrings("[onRecv PayerMsg]，newMsg.msgType：%s")
+    }
 
     override fun onEnable() {
         val generation =

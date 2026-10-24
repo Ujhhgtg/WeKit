@@ -30,7 +30,6 @@ import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -91,16 +90,13 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
 
     // com.tencent.mm.booter.notification.x.d(x, String talker, String content, int, int, boolean)
     // args[1] is the talker wxid. Anchored on a log string unique to that method.
-    val methodDealNotify by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.booter.notification")
-                paramCount = 6
-                usingEqStrings(
-                    "jacks dealNotify, talker:%s, msgtype:%d, tipsFlag:%d, isRevokeMesasge:%B content:%s",
-                )
-            },
+    val methodDealNotify by dexMethod {
+        searchPackages("com.tencent.mm.booter.notification")
+        paramCount = 6
+        usingEqStrings(
+            "jacks dealNotify, talker:%s, msgtype:%d, tipsFlag:%d, isRevokeMesasge:%B content:%s",
         )
+    }
 
     // com.tencent.mm.storage.ConversationStorage#updateUnreadByTalker(talker) — same declaration
     // as ConversationAggregation.methodConversationStorageUpdateUnreadByTalker. WeChat calls it
@@ -108,35 +104,29 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     // the accumulated MessagingStyle history for that talker is stale and should be dropped.
     // Locate the wording class only to preserve the host's hidden-content decision.
     // Sender/body extraction uses the original notification-text path below.
-    private val methodParseNotificationContent by
-        dexMethod(
-            sqlMethod {
-                returnType = "java.lang.String"
-                paramCount(13, 14)
-                usingEqStrings(
-                    "MicroMsg.Notification.Wording",
-                    "context is null",
-                    "username is null",
-                )
-            },
+    private val methodParseNotificationContent by dexMethod {
+        returnType = "java.lang.String"
+        paramCount(13, 14)
+        usingEqStrings(
+            "MicroMsg.Notification.Wording",
+            "context is null",
+            "username is null",
         )
-    private val methodHiddenNotificationContent by
-        dexMethod(
-            sqlMethod {
-                declaredClass(methodParseNotificationContent.data.declaredClassName)
-                returnType = "void"
-                paramTypes(
-                    "android.content.Context",
-                    null,
-                    "java.lang.String",
-                    "int",
-                    "int",
-                    "int",
-                    "boolean",
-                    "boolean",
-                )
-            },
+    }
+    private val methodHiddenNotificationContent by dexMethod {
+        declaredClass(methodParseNotificationContent.data.declaredClassName)
+        returnType = "void"
+        paramTypes(
+            "android.content.Context",
+            null,
+            "java.lang.String",
+            "int",
+            "int",
+            "int",
+            "boolean",
+            "boolean",
         )
+    }
 
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.PUSH)
 

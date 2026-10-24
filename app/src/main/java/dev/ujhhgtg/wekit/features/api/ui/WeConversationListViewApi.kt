@@ -28,9 +28,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlField
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
@@ -92,56 +89,44 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
     private var latestBackend: Backend? = null
 
     val methodLegacyGetView by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui.conversation")
-                name = "getView"
-                returnType = "android.view.View"
-                paramTypes("int", "android.view.View", "android.view.ViewGroup")
-                usingEqStrings(
-                    "MicroMsg.ConversationWithCacheAdapter",
-                    "Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d",
-                )
-            },
-            allowFailure = true,
-        )
-    val methodMvvmGetView by
-        dexMethod(
-            sqlMethod {
-                name = "getView"
-                returnType = "android.view.View"
-                paramTypes("int", "android.view.View", "android.view.ViewGroup")
-                declaredClass {
-                    usingEqStrings("MicroMsg.ConversationAdapter.MvvmConversationAdapter")
-                    usingEqStrings(
-                        "Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d",
-                    )
-                }
-            },
-        )
+        dexMethod(allowFailure = true) {
+            searchPackages("com.tencent.mm.ui.conversation")
+            name = "getView"
+            returnType = "android.view.View"
+            paramTypes("int", "android.view.View", "android.view.ViewGroup")
+            usingEqStrings(
+                "MicroMsg.ConversationWithCacheAdapter",
+                "Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d",
+            )
+        }
+    val methodMvvmGetView by dexMethod {
+        name = "getView"
+        returnType = "android.view.View"
+        paramTypes("int", "android.view.View", "android.view.ViewGroup")
+        declaredClass {
+            usingEqStrings("MicroMsg.ConversationAdapter.MvvmConversationAdapter")
+            usingEqStrings(
+                "Get Item duplicated: positionMaps: %s username [%s, %d] Map: %s datas: %d",
+            )
+        }
+    }
 
-    private val methodListViewCheckEmptyFooter by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.conversation.ConversationListView"
-                returnType = "void"
-                paramCount = 0
-                usingEqStrings("[checkEmptyFooter] isRealFull:", "[checkEmptyFooter] setSelection")
-            },
-        )
+    private val methodListViewCheckEmptyFooter by dexMethod {
+        declaredClass = "com.tencent.mm.ui.conversation.ConversationListView"
+        returnType = "void"
+        paramCount = 0
+        usingEqStrings("[checkEmptyFooter] isRealFull:", "[checkEmptyFooter] setSelection")
+    }
 
-    private val fieldListViewActionBar by
-        dexField(
-            sqlField {
-                declaredClass = "com.tencent.mm.ui.conversation.ConversationListView"
-                type = "android.view.View"
-                readMethod {
-                    returnType = "void"
-                    paramCount = 0
-                    usingEqStrings("resetActionBarView")
-                }
-            },
-        )
+    private val fieldListViewActionBar by dexField {
+        declaredClass = "com.tencent.mm.ui.conversation.ConversationListView"
+        type = "android.view.View"
+        readMethod {
+            returnType = "void"
+            paramCount = 0
+            usingEqStrings("resetActionBarView")
+        }
+    }
 
     /** Common host interface implemented by both the ListView and RecyclerView adapters. */
     val classConversationAdapter by dexClass()
@@ -152,23 +137,20 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
 
     /** MainUI's common list-host wrapper, used to reach whichever view backend is active. */
     private val classConversationListHost by
-        dexClass(
-            sqlClass {
-                searchPackages("com.tencent.mm.ui.conversation")
-                modifiers = 1537
-                method {
-                    name = "addHeaderView"
-                    returnType = "void"
-                    paramTypes("android.view.View")
-                }
-                method {
-                    name = "removeHeaderView"
-                    returnType = "void"
-                    paramTypes("android.view.View")
-                }
-            },
-            allowFailure = true,
-        )
+        dexClass(allowFailure = true) {
+            searchPackages("com.tencent.mm.ui.conversation")
+            modifiers = 1537
+            method {
+                name = "addHeaderView"
+                returnType = "void"
+                paramTypes("android.view.View")
+            }
+            method {
+                name = "removeHeaderView"
+                returnType = "void"
+                paramTypes("android.view.View")
+            }
+        }
 
     private val fieldMainUiListHost by dexField()
 
@@ -178,12 +160,9 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
 
     /** 8.0.78's optional RecyclerView conversation-list path. */
     val classConversationRecyclerAdapter by
-        dexClass(
-            sqlClass {
-                usingEqStrings("MicroMsg.ConversationRecyclerAdapter", "loadFirstPage size:")
-            },
-            allowFailure = true,
-        )
+        dexClass(allowFailure = true) {
+            usingEqStrings("MicroMsg.ConversationRecyclerAdapter", "loadFirstPage size:")
+        }
 
     private val methodRecyclerConversationBind by dexMethod()
 

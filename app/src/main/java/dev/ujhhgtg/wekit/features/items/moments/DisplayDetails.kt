@@ -33,8 +33,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlField
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -314,46 +312,31 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
             .replace(PH_USER_NAME, userName)
     }
 
-    private val fieldSnsId by
-        dexField(
-            sqlField {
-                name = "field_snsId"
-                declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
-            },
-        )
+    private val fieldSnsId by dexField {
+        name = "field_snsId"
+        declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
+    }
 
-    private val fieldUserName by
-        dexField(
-            sqlField {
-                name = "field_userName"
-                declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
-            },
-        )
+    private val fieldUserName by dexField {
+        name = "field_userName"
+        declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
+    }
 
-    private val fieldCreateTime by
-        dexField(
-            sqlField {
-                name = "field_createTime"
-                declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
-            },
-        )
+    private val fieldCreateTime by dexField {
+        name = "field_createTime"
+        declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
+    }
 
-    private val fieldType by
-        dexField(
-            sqlField {
-                name = "field_type"
-                declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
-            },
-        )
+    private val fieldType by dexField {
+        name = "field_type"
+        declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
+    }
 
     private val methodGetTimeString by
-        dexMethod(
-            sqlMethod {
-                declaredClass(WeMomentsApi.classImproveSnsInfo.data.name)
-                usingEqStrings("getTimeString")
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            declaredClass(WeMomentsApi.classImproveSnsInfo.data.name)
+            usingEqStrings("getTimeString")
+        }
 
     private fun locateSnsInfo(itemView: View): Any? {
         val interactionView =

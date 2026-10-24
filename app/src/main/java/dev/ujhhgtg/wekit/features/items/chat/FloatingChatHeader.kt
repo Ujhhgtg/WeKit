@@ -66,7 +66,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -259,25 +258,19 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         )
     }
 
-    private val methodTipsToFoldMode by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup"
-                returnType = "void"
-                paramTypes()
-                usingStrings("toFoldMode")
-            },
-        )
+    private val methodTipsToFoldMode by dexMethod {
+        declaredClass = "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup"
+        returnType = "void"
+        paramTypes()
+        usingStrings("toFoldMode")
+    }
 
-    private val methodRemoveItemDecoration by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "androidx.recyclerview.widget.RecyclerView"
-                returnType = "void"
-                paramCount = 1
-                usingStrings("Cannot remove item decoration during a scroll  or layout")
-            },
-        )
+    private val methodRemoveItemDecoration by dexMethod {
+        declaredClass = "androidx.recyclerview.widget.RecyclerView"
+        returnType = "void"
+        paramCount = 1
+        usingStrings("Cannot remove item decoration during a scroll  or layout")
+    }
 
     private var cornerRadiusDp by
         prefOption("floating_chat_header_corner_radius", DEFAULT_CORNER_RADIUS)

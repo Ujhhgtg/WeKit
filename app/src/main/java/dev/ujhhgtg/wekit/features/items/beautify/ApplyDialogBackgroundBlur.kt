@@ -24,7 +24,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -49,18 +48,12 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
     const val KEY_BLUR_RADIUS = "blur_radius"
     const val DEFAULT_BLUR_RADIUS = 20
 
-    private val classMmAlertDialog by
-        dexClass(
-            sqlClass {
-                usingEqStrings("MicroMsg.MMAlertDialog", "dialog dismiss error!")
-            },
-        )
-    private val classMmProgressDialog by
-        dexClass(
-            sqlClass {
-                usingEqStrings("com/tencent/mm/ui/widget/dialog/MMProgressDialog\$Builder", "show")
-            },
-        )
+    private val classMmAlertDialog by dexClass {
+        usingEqStrings("MicroMsg.MMAlertDialog", "dialog dismiss error!")
+    }
+    private val classMmProgressDialog by dexClass {
+        usingEqStrings("com/tencent/mm/ui/widget/dialog/MMProgressDialog\$Builder", "show")
+    }
     private val classMmQuickDialog by dexClassQuery {
         uniqueClass(
             ClassSpec(

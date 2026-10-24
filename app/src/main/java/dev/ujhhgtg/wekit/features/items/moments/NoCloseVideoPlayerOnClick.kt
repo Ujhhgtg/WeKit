@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
@@ -78,16 +77,13 @@ object NoCloseVideoPlayerOnClick : SwitchFeature(), IResolveDex {
         )
     }
 
-    private val methodVideoOnTouchListenerOnTouch by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.sns.ui")
-                name = "onTouch"
-                usingEqStrings(
-                    "com/tencent/mm/plugin/sns/ui/SnsOnlineVideoActivity\$5",
-                    "android/view/View\$OnTouchListener",
-                    "onTouch",
-                )
-            },
+    private val methodVideoOnTouchListenerOnTouch by dexMethod {
+        searchPackages("com.tencent.mm.plugin.sns.ui")
+        name = "onTouch"
+        usingEqStrings(
+            "com/tencent/mm/plugin/sns/ui/SnsOnlineVideoActivity\$5",
+            "android/view/View\$OnTouchListener",
+            "onTouch",
         )
+    }
 }

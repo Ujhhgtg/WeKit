@@ -16,8 +16,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -38,43 +36,31 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
     private var messageListDirectJump by prefOption("chat_quoted_direct_jump_message_list", true)
     private var inputBoxDirectJump by prefOption("chat_quoted_direct_jump_input_box", true)
 
-    private val methodClickEvent by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui.chatting.viewitems")
-                usingEqStrings(
-                    "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
-                    "handleItemClickEvent,quotedMsg is null!",
-                )
-            },
+    private val methodClickEvent by dexMethod {
+        searchPackages("com.tencent.mm.ui.chatting.viewitems")
+        usingEqStrings(
+            "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
+            "handleItemClickEvent,quotedMsg is null!",
         )
-    private val methodClickToPositionEvent by
-        dexMethod(
-            sqlMethod {
-                declaredClass(methodClickEvent.data.declaredClassName)
-                usingEqStrings(
-                    "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
-                    "handleItemClickToPositionEvent,quotedMsg is null!",
-                )
-            },
+    }
+    private val methodClickToPositionEvent by dexMethod {
+        declaredClass(methodClickEvent.data.declaredClassName)
+        usingEqStrings(
+            "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
+            "handleItemClickToPositionEvent,quotedMsg is null!",
         )
-    private val methodGetQuoteMessageInfo by
-        dexMethod(
-            sqlMethod {
-                declaredClass(methodClickEvent.data.declaredClassName)
-                usingStrings(
-                    "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
-                    "%s msgId:%s msgSvrId:%s",
-                )
-            },
+    }
+    private val methodGetQuoteMessageInfo by dexMethod {
+        declaredClass(methodClickEvent.data.declaredClassName)
+        usingStrings(
+            "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
+            "%s msgId:%s msgSvrId:%s",
         )
+    }
     private val classEnumQuoteJumpToPositionSource by
-        dexClass(
-            sqlClass {
-                usingEqStrings("QuoteLongClickFromQuoteView", "QuoteClickFromTextPreviewLocateView")
-            },
-            allowFailure = true,
-        )
+        dexClass(allowFailure = true) {
+            usingEqStrings("QuoteLongClickFromQuoteView", "QuoteClickFromTextPreviewLocateView")
+        }
 
     override fun onEnable() {
         methodClickEvent.hookBefore {

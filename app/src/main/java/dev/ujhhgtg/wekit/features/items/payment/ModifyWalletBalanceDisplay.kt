@@ -31,7 +31,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -72,15 +71,12 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
     private const val VALUE_VARIABLE = "value"
     private const val TAG = "ModifyWalletBalanceDisplay"
 
-    private val tickerSetTextAnimated by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.robinhood.ticker.TickerView"
-                returnType = "void"
-                paramTypes("java.lang.String", "boolean")
-                usingEqStrings("Need to call #setCharacterLists first.")
-            },
-        )
+    private val tickerSetTextAnimated by dexMethod {
+        declaredClass = "com.robinhood.ticker.TickerView"
+        returnType = "void"
+        paramTypes("java.lang.String", "boolean")
+        usingEqStrings("Need to call #setCharacterLists first.")
+    }
 
     private var balanceExpression by prefOption(KEY_EXPRESSION_BALANCE, "value")
     private var lqtExpression by prefOption(KEY_EXPRESSION_LQT, "value")

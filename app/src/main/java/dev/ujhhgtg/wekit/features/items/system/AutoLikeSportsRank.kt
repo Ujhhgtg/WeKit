@@ -24,7 +24,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
-import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -62,14 +61,11 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex, WeDatabaseListenerA
     private const val MESSAGE_MAX_AGE_MS = 15 * 60 * 1000L
     private const val LIKE_DELAY_MS = 60_000L
 
-    private val ctorSportsRankLike by
-        dexConstructor(
-            sqlConstructor {
-                paramCount = 4
-                paramTypes("java.lang.String", "java.lang.String", "int", "java.lang.String")
-                usingEqStrings("/cgi-bin/mmbiz-bin/rank/addlike")
-            },
-        )
+    private val ctorSportsRankLike by dexConstructor {
+        paramCount = 4
+        paramTypes("java.lang.String", "java.lang.String", "int", "java.lang.String")
+        usingEqStrings("/cgi-bin/mmbiz-bin/rank/addlike")
+    }
 
     private var minScore by KvStore.prefOption("sports_rank_min_score", 0)
     private var useWhitelist by KvStore.prefOption("sports_rank_use_whitelist", false)

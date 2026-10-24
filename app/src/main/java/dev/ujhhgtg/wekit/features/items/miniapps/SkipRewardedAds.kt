@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.miniapps
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcess
@@ -72,43 +71,34 @@ object SkipRewardedAds : SwitchFeature(), IResolveDex {
 
     // The real SDK injection site: the script text read by loadLibFiles is compiled/evaluated here.
     // e3.h(f9, jsruntime.t, path, name, version, ctxId, script, i3, b3)
-    private val methodInjectLibScript by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.appbrand.utils")
-                usingEqStrings("MicroMsg.JsValidationInjector", "hy: injecting file %s")
-            },
-        )
+    private val methodInjectLibScript by dexMethod {
+        searchPackages("com.tencent.mm.plugin.appbrand.utils")
+        usingEqStrings("MicroMsg.JsValidationInjector", "hy: injecting file %s")
+    }
 
     // H0 of the remote commlib reader: returns an AssetFileDescriptor for V8 to read directly,
     // which bypasses text patching. Returning null makes loadLibFiles fall back to
     // iCommLibReader.a() -> the e3.h string path.
     private val methodPkgReaderH0 by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.appbrand.appcache")
-                returnType = "android.content.res.AssetFileDescriptor"
-                paramTypes("java.lang.String")
-                declaredClass {
-                    usingEqStrings("PkgReader[%d] [%s]")
-                }
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            searchPackages("com.tencent.mm.plugin.appbrand.appcache")
+            returnType = "android.content.res.AssetFileDescriptor"
+            paramTypes("java.lang.String")
+            declaredClass {
+                usingEqStrings("PkgReader[%d] [%s]")
+            }
+        }
 
     // Same for the local assets reader (older base libraries).
     private val methodAssetReaderH0 by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.appbrand.appcache")
-                returnType = "android.content.res.AssetFileDescriptor"
-                paramTypes("java.lang.String")
-                declaredClass {
-                    usingEqStrings("AssetReader[%d][%s]")
-                }
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            searchPackages("com.tencent.mm.plugin.appbrand.appcache")
+            returnType = "android.content.res.AssetFileDescriptor"
+            paramTypes("java.lang.String")
+            declaredClass {
+                usingEqStrings("AssetReader[%d][%s]")
+            }
+        }
 
     /** SDK file names already dumped (once per process). */
     private val dumpedNames = ConcurrentHashMap.newKeySet<String>()

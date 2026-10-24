@@ -18,7 +18,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -40,12 +39,9 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
 
     private const val KEY_ROUND_AVATAR = "round_avatar_radius_factor"
 
-    private val ctorAvatarCreate by
-        dexConstructor(
-            sqlConstructor {
-                usingEqStrings("workerScope", "username")
-            },
-        )
+    private val ctorAvatarCreate by dexConstructor {
+        usingEqStrings("workerScope", "username")
+    }
     private val methodAvatarModify by dexMethod()
 
     private val radiusFactor: Float

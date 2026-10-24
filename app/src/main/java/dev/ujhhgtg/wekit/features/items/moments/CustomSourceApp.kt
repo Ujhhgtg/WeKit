@@ -22,7 +22,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -46,17 +45,14 @@ object CustomSourceApp : ClickableFeature(), IResolveDex {
 
     private data class SourceApp(val appId: String, val appName: String)
 
-    private val methodSnsUploadUIInitView by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.plugin.sns.ui.SnsUploadUI"
-                usingEqStrings(
-                    "initView",
-                    "customizeInputView",
-                    "com.tencent.mm.plugin.sns.ui.SnsUploadUI",
-                )
-            },
+    private val methodSnsUploadUIInitView by dexMethod {
+        declaredClass = "com.tencent.mm.plugin.sns.ui.SnsUploadUI"
+        usingEqStrings(
+            "initView",
+            "customizeInputView",
+            "com.tencent.mm.plugin.sns.ui.SnsUploadUI",
         )
+    }
 
     private var appId by prefOption("custom_app_id", "")
     private var appName by prefOption("custom_app_name", "")

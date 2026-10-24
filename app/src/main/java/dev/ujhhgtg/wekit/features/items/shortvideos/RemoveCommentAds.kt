@@ -7,7 +7,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -37,16 +36,13 @@ object RemoveCommentAds : SwitchFeature(), IResolveDex {
      * 一致）。该转换器绑定的条目全是广告； 带该字符串的 6 参数 void 方法在全 dex 内唯一，可直接内联命中。
      */
     private val methodBindAdComment by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramCount = 6
-                usingEqStrings(
-                    "com/tencent/mm/plugin/finder/convert/comment/FinderAdCommentConvert",
-                )
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            returnType = "void"
+            paramCount = 6
+            usingEqStrings(
+                "com/tencent/mm/plugin/finder/convert/comment/FinderAdCommentConvert",
+            )
+        }
 
     /**
      * 旧版评论转换器 `com.tencent.mm.plugin.finder.convert.FinderFeedCommentConvert`
@@ -55,14 +51,11 @@ object RemoveCommentAds : SwitchFeature(), IResolveDex {
      * 足以排除类内同带该字符串的 handleFollowPatBtn （(ViewHolder, View, View, 评论, FinderJumpInfo, String)）。
      */
     private val methodBindOldComment by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramTypes(null, null, "int", "int", "boolean", "java.util.List")
-                usingEqStrings("com/tencent/mm/plugin/finder/convert/FinderFeedCommentConvert")
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            returnType = "void"
+            paramTypes(null, null, "int", "int", "boolean", "java.util.List")
+            usingEqStrings("com/tencent/mm/plugin/finder/convert/FinderFeedCommentConvert")
+        }
 
     override fun onEnable() {
         if (methodBindAdComment.isFound) {

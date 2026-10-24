@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
@@ -18,19 +17,16 @@ object RemoveTextStatusLengthLimit : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.PROFILE)
     override val descriptionRes = R.string.feature_remove_text_status_length_limit_description
 
-    private val methodStatusTextChanged by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.textstatus.ui")
-                name = "afterTextChanged"
-                returnType = "void"
-                paramTypes("android.text.Editable")
-                usingEqStrings(
-                    "MicroMsg.TextStatus.TextStatusDoWhatActivityV2",
-                    "afterTextChanged inputCount:",
-                )
-            },
+    private val methodStatusTextChanged by dexMethod {
+        searchPackages("com.tencent.mm.plugin.textstatus.ui")
+        name = "afterTextChanged"
+        returnType = "void"
+        paramTypes("android.text.Editable")
+        usingEqStrings(
+            "MicroMsg.TextStatus.TextStatusDoWhatActivityV2",
+            "afterTextChanged inputCount:",
         )
+    }
     private val fieldStatusTextLengthLimit by dexField()
 
     override fun resolveDex() {

@@ -36,7 +36,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
@@ -88,27 +87,21 @@ object SpoofChatMessages :
             "com.tencent.mm.plugin.thumbplayer.view.ThumbPlayerSurfaceView",
         )
 
-    private val methodGalleryImagePath by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui.chatting.gallery")
-                returnType = "java.lang.String"
-                paramTypes(WeMessageApi.classMsgInfo.data.name, null, "boolean")
-                usingEqStrings(
-                    "MicroMsg.ImageGalleryHolderImage",
-                    "getImagePath is null because of isTryToGetProgress %s img.isGetCompleted() %s",
-                )
-            },
+    private val methodGalleryImagePath by dexMethod {
+        searchPackages("com.tencent.mm.ui.chatting.gallery")
+        returnType = "java.lang.String"
+        paramTypes(WeMessageApi.classMsgInfo.data.name, null, "boolean")
+        usingEqStrings(
+            "MicroMsg.ImageGalleryHolderImage",
+            "getImagePath is null because of isTryToGetProgress %s img.isGetCompleted() %s",
         )
-    private val methodGalleryPreviewPath by
-        dexMethod(
-            sqlMethod {
-                declaredClass = methodGalleryImagePath.data.declaredClassName
-                returnType = "java.lang.String"
-                paramTypes(WeMessageApi.classMsgInfo.data.name, null)
-                usingEqStrings("get previewPath img not completed")
-            },
-        )
+    }
+    private val methodGalleryPreviewPath by dexMethod {
+        declaredClass = methodGalleryImagePath.data.declaredClassName
+        returnType = "java.lang.String"
+        paramTypes(WeMessageApi.classMsgInfo.data.name, null)
+        usingEqStrings("get previewPath img not completed")
+    }
     private val methodGalleryCachedPath by dexMethodQuery {
         val target = methodGalleryImagePath.data
         uniqueMethod(
@@ -128,30 +121,21 @@ object SpoofChatMessages :
             ),
         )
     }
-    private val methodGalleryInitImage by
-        dexMethod(
-            sqlMethod {
-                declaredClass(methodGalleryImagePath.data.declaredClassName)
-                returnType = "boolean"
-                usingEqStrings("initImageView image : %s bigImgPath %s position : %s")
-            },
-        )
-    private val methodChattingImageMask by
-        dexMethod(
-            sqlMethod {
-                returnType = "android.graphics.Bitmap"
-                paramTypes("android.graphics.Bitmap", "int")
-                modifiers = 8
-                usingEqStrings("MicroMsg.BitmapUtil", "[createChattingImage] maskBitmap is null.")
-            },
-        )
-    private val methodImageViewBind by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.chatting.viewitems.mvvmview.ChattingImgMvvmView"
-                usingEqStrings("MicroMsg.ChattingImgMvvmView", "viewModel.thumbImgW: ")
-            },
-        )
+    private val methodGalleryInitImage by dexMethod {
+        declaredClass(methodGalleryImagePath.data.declaredClassName)
+        returnType = "boolean"
+        usingEqStrings("initImageView image : %s bigImgPath %s position : %s")
+    }
+    private val methodChattingImageMask by dexMethod {
+        returnType = "android.graphics.Bitmap"
+        paramTypes("android.graphics.Bitmap", "int")
+        modifiers = 8
+        usingEqStrings("MicroMsg.BitmapUtil", "[createChattingImage] maskBitmap is null.")
+    }
+    private val methodImageViewBind by dexMethod {
+        declaredClass = "com.tencent.mm.ui.chatting.viewitems.mvvmview.ChattingImgMvvmView"
+        usingEqStrings("MicroMsg.ChattingImgMvvmView", "viewModel.thumbImgW: ")
+    }
     private val methodThumbnailSize by dexMethod()
     private val methodImageServiceGetter by dexMethod()
     private val classImageSizeService by dexClass()

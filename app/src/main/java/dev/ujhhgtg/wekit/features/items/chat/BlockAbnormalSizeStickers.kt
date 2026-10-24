@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.chat
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
-import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -44,14 +43,11 @@ object BlockAbnormalSizeStickers : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val ctorMmWxgfDrawable by
-        dexConstructor(
-            sqlConstructor {
-                searchPackages("com.tencent.mm.plugin.gif")
-                usingEqStrings(
-                    "MicroMsg.GIF.MMWXGFDrawable",
-                    "Cpan WXGF get option failed. result:%d",
-                )
-            },
+    private val ctorMmWxgfDrawable by dexConstructor {
+        searchPackages("com.tencent.mm.plugin.gif")
+        usingEqStrings(
+            "MicroMsg.GIF.MMWXGFDrawable",
+            "Cpan WXGF get option failed. result:%d",
         )
+    }
 }

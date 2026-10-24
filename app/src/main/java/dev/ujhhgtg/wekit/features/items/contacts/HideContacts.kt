@@ -43,7 +43,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -666,13 +665,10 @@ object HideContacts :
      * `AddressLiveList.e(List snapshotList)` — the 通讯录 MvvmList preprocessor. See
      * hidecontacts/HideContactsLists.kt for why this is the right cut point.
      */
-    val methodAddressMvvmListPreprocessList by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.contact.address.AddressLiveList"
-                usingEqStrings("snapshotList")
-            },
-        )
+    val methodAddressMvvmListPreprocessList by dexMethod {
+        declaredClass = "com.tencent.mm.ui.contact.address.AddressLiveList"
+        usingEqStrings("snapshotList")
+    }
 
     /**
      * `AtSomeoneLiveList.e(List snapshotList)` — the @成员选择器's MvvmList preprocessor, structurally
@@ -688,13 +684,10 @@ object HideContacts :
      * for the whole feature and take every other hidden-contact surface down with it.
      */
     val methodAtSomeoneMvvmListPreprocessList by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.ui.chatting.atsomeone.AtSomeoneLiveList"
-                usingEqStrings("snapshotList")
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            declaredClass = "com.tencent.mm.ui.chatting.atsomeone.AtSomeoneLiveList"
+            usingEqStrings("snapshotList")
+        }
 
     /**
      * `cc.d(List usernames)` — `SeeRoomMemberUI`'s adapter rebuild (`tc.d` on 8.0.69).
@@ -704,16 +697,13 @@ object HideContacts :
      * `chatroom/ui/cc.java:96` on 8.0.76 and `chatroom/ui/tc.java:95` on 8.0.69.
      */
     val methodSeeRoomMemberSetMemberList by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramTypes("java.util.List")
-                declaredClass {
-                    usingEqStrings("MicroMsg.SeeRoomMemberUI")
-                }
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            returnType = "void"
+            paramTypes("java.util.List")
+            declaredClass {
+                usingEqStrings("MicroMsg.SeeRoomMemberUI")
+            }
+        }
 
     /**
      * `SelectMemberUI.V6()` — the member-username list the @全体成员 / 删除成员 / 邀请 adapters load from
@@ -724,14 +714,11 @@ object HideContacts :
      * arity + return type is unambiguous without needing the obfuscated method name.
      */
     val methodSelectMemberUiGetMemberList by
-        dexMethod(
-            sqlMethod {
-                declaredClass = "com.tencent.mm.chatroom.ui.SelectMemberUI"
-                returnType = "java.util.List"
-                paramCount = 0
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            declaredClass = "com.tencent.mm.chatroom.ui.SelectMemberUI"
+            returnType = "java.util.List"
+            paramCount = 0
+        }
 
     /**
      * `c.r(List)` — `FavoriteAdapter`'s single data-list setter (`c.t(List)` on 8.0.69).
@@ -743,14 +730,11 @@ object HideContacts :
      * uses no string constants at all.
      */
     val methodFavoriteAdapterSetDataList by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramTypes("java.util.List")
-                usingEqStrings("MicroMsg.FavoriteAdapter")
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            returnType = "void"
+            paramTypes("java.util.List")
+            usingEqStrings("MicroMsg.FavoriteAdapter")
+        }
 
     /**
      * The 视频号 like-drawer *refresh* callback — `jd.call(Object)` on 8.0.76
@@ -766,16 +750,13 @@ object HideContacts :
      * feature down.
      */
     val methodFinderLikeDrawerRefresh by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "Finder.DrawerPresenter",
-                    "[refreshData] Cost=",
-                    "com/tencent/mm/plugin/finder/view/builder/FinderLikeDrawerBuilder",
-                )
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            usingEqStrings(
+                "Finder.DrawerPresenter",
+                "[refreshData] Cost=",
+                "com/tencent/mm/plugin/finder/view/builder/FinderLikeDrawerBuilder",
+            )
+        }
 
     /**
      * The 视频号 like-drawer *load-more* callback — `yc.call(Object)` on 8.0.76
@@ -812,16 +793,13 @@ object HideContacts :
      * hidecontacts/HideContactsSearch.kt.
      */
     val methodFtsSearchChatroomMemberTask by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramCount = 1
-                declaredClass {
-                    usingEqStrings("SearchChatroomMemberTask")
-                }
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            returnType = "void"
+            paramCount = 1
+            declaredClass {
+                usingEqStrings("SearchChatroomMemberTask")
+            }
+        }
 
     /**
      * `fts.logic.h.p(FTSResult)` — SearchCommonChatroomUserTask, the 共同群聊好友建议 task.
@@ -833,16 +811,13 @@ object HideContacts :
      * one unambiguous.
      */
     val methodFtsSearchCommonChatroomUserTask by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramCount = 1
-                declaredClass {
-                    usingEqStrings("SearchCommonChatroomUserTask")
-                }
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            returnType = "void"
+            paramCount = 1
+            declaredClass {
+                usingEqStrings("SearchCommonChatroomUserTask")
+            }
+        }
 
     /**
      * `ContactStorage.getNormalContactCount(boolean includeBlack, String[], String...) -> int`
@@ -855,15 +830,12 @@ object HideContacts :
      * do nothing. See hidecontacts/HideContactsLists.kt.
      */
     val methodNormalContactCount by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.ContactStorage",
-                    "getNormalContactCount, sql:%s, result:%d, includeBlack:%s, time:%d",
-                )
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            usingEqStrings(
+                "MicroMsg.ContactStorage",
+                "getNormalContactCount, sql:%s, result:%d, includeBlack:%s, time:%d",
+            )
+        }
 
     /**
      * `PatMsgExtension.insertPatMsg(String talker, String fromUser, String pattedUser, String
@@ -874,12 +846,9 @@ object HideContacts :
      * `ti3/l.java:320`); pairing it with the class tag keeps the match method-local.
      */
     val methodPatMsgInsert by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings("MicroMsg.PatMsgExtension", "insert pat msg %d %s %s")
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            usingEqStrings("MicroMsg.PatMsgExtension", "insert pat msg %d %s %s")
+        }
 
     /**
      * `fb4.z0.D0(SnsInfo, SnsObject, Context, rs, boolean, d8, String, Map, Map, List)` —
@@ -887,16 +856,13 @@ object HideContacts :
      * struct for every Moments renderer. See hidecontacts/HideContactsMoments.kt for why this is
      * the right chokepoint for a hidden contact's inline likes/comments on someone else's post.
      */
-    val methodSnsInfoToSnsStruct by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "snsInfoToSnsStruct",
-                    "com.tencent.mm.plugin.sns.data.SnsUtil",
-                    "mSnsInfo is null, why?",
-                )
-            },
+    val methodSnsInfoToSnsStruct by dexMethod {
+        usingEqStrings(
+            "snsInfoToSnsStruct",
+            "com.tencent.mm.plugin.sns.data.SnsUtil",
+            "mSnsInfo is null, why?",
         )
+    }
 
     /**
      * `static void c3.H(c3 netSceneSnsSync, SnsObject snsObject)` (8.0.76; the same method is
@@ -917,15 +883,12 @@ object HideContacts :
      * method shape — `static void (c3, SnsObject)` — is identical on both trees, so the hook body
      * needs no per-version branching.
      */
-    val methodSnsSyncUpdateRedDotCache by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "updateSyncDataCache",
-                    "com.tencent.mm.plugin.sns.model.NetSceneSnsSync",
-                )
-            },
+    val methodSnsSyncUpdateRedDotCache by dexMethod {
+        usingEqStrings(
+            "updateSyncDataCache",
+            "com.tencent.mm.plugin.sns.model.NetSceneSnsSync",
         )
+    }
 
     // ── VoIPMP / ILink (the stack that actually runs on 8.0.7x) ──────────────────────────────
     // See hidecontacts/HideContactsVoip.kt for how these fit together.
@@ -933,68 +896,53 @@ object HideContacts :
     /**
      * `ZIDL_ibmKH7hbMB.ZIDL_FBV(long, int, int, long, long, byte[] username, byte[][], boolean)`
      */
-    val methodVoipMpLaunchIncomingCard by
-        dexMethod(
-            sqlMethod {
-                usingStrings("MicroMsg.VoIPMP.CoreV2", "launchInComingCardAsync: ")
-            },
-        )
+    val methodVoipMpLaunchIncomingCard by dexMethod {
+        usingStrings("MicroMsg.VoIPMP.CoreV2", "launchInComingCardAsync: ")
+    }
 
     /**
      * `mp5.q2.qa(Context, int, is4.r, long, long, String username, ArrayList, boolean)` — the
      * banner/notification/ringtone dispatcher. q2 declares exactly one 8-parameter method, so the
      * class anchor plus the parameter count is unambiguous.
      */
-    val methodVoipMpLaunchBanner by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramCount = 8
-                declaredClass {
-                    usingEqStrings("MicroMsg.VoIPMP.Launcher")
-                    usingEqStrings("closeReceiverBanner")
-                }
-            },
-        )
+    val methodVoipMpLaunchBanner by dexMethod {
+        returnType = "void"
+        paramCount = 8
+        declaredClass {
+            usingEqStrings("MicroMsg.VoIPMP.Launcher")
+            usingEqStrings("closeReceiverBanner")
+        }
+    }
 
     /** `mp5.q2.Qa()` — "rejectByShortCut", the entry WeChat's own quick-reject uses. */
     val methodVoipMpReject by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramCount = 0
-                usingEqStrings("MicroMsg.VoIPMP.CoreV2", "rejectByShortCut")
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            returnType = "void"
+            paramCount = 0
+            usingEqStrings("MicroMsg.VoIPMP.CoreV2", "rejectByShortCut")
+        }
 
     /**
      * `nq5.e.a(String username, boolean videoCall, boolean outCall, long, boolean)` — the incoming
      * ringtone. NB: this is NOT the old `MicroMsg.RingPlayer` / "playSound, type: ..." match, which
      * resolved to the call-ENDED tone and therefore never silenced anything.
      */
-    val methodVoipMpStartRing by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.VoIPMPRingtoneController",
-                    "startRing() called with: username = ",
-                )
-            },
+    val methodVoipMpStartRing by dexMethod {
+        usingEqStrings(
+            "MicroMsg.VoIPMPRingtoneController",
+            "startRing() called with: username = ",
         )
+    }
 
     /**
      * `xp5.b.d(String username, boolean, boolean, boolean)` — starts the VoIP foreground service.
      */
-    val methodVoipMpStartFgs by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.VoIPMPVoIPNotificationHelper",
-                    "startFGS isBindVoIPForegroundService ",
-                )
-            },
+    val methodVoipMpStartFgs by dexMethod {
+        usingEqStrings(
+            "MicroMsg.VoIPMPVoIPNotificationHelper",
+            "startFGS isBindVoIPForegroundService ",
         )
+    }
 
     /** `mp5.q2.Ii(String toUser, ...)` — VoIPMP call-record insertion (未接听 / 已取消 / duration). */
     val methodVoipMpInsertMsg by dexMethodQuery {
@@ -1084,13 +1032,10 @@ object HideContacts :
     /**
      * `nr4.y.x(...)` — the incoming float card. Shared by both stacks, so live on 8.0.76 as well.
      */
-    val methodVoipShowFloatingCard by
-        dexMethod(
-            sqlMethod {
-                paramCount = 8
-                usingEqStrings(".ui.voip.VoipFloatView")
-            },
-        )
+    val methodVoipShowFloatingCard by dexMethod {
+        paramCount = 8
+        usingEqStrings(".ui.voip.VoipFloatView")
+    }
 
     /**
      * `nr4.y.z(Context, String toUser)` — AnimatedVoipBaseFloatCardManager.showFinishCard, the
@@ -1102,56 +1047,38 @@ object HideContacts :
      * carry longer `...$showFinishCard$3$2$...` constants, which `usingEqStrings` will not match).
      */
     val methodVoipShowFinishCard by
-        dexMethod(
-            sqlMethod {
-                paramCount = 2
-                usingEqStrings("showFinishCard", "(Landroid/content/Context;Ljava/lang/String;)V")
-            },
-            allowFailure = true,
+        dexMethod(allowFailure = true) {
+            paramCount = 2
+            usingEqStrings("showFinishCard", "(Landroid/content/Context;Ljava/lang/String;)V")
+        }
+    val methodVoipAcceptIncomingCall by dexMethod {
+        searchPackages("com.tencent.mm.plugin.voip")
+        usingEqStrings("MicroMsg.VoipIncomingCallManager", "acceptIncomingCal, roomInfo:")
+    }
+    val methodVoipStartAcceptVoip by dexMethod {
+        searchPackages("com.tencent.mm.plugin.voip")
+        usingEqStrings("MicroMsg.VoipIncomingCallManager", "startAcceptVoIP, roomInfo:")
+    }
+    val methodVoipServiceExSetInviteContent by dexMethod {
+        usingEqStrings(
+            "MicroMsg.Voip.VoipServiceEx",
+            "Failed to setInviteContent during calling, status =",
         )
-    val methodVoipAcceptIncomingCall by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.voip")
-                usingEqStrings("MicroMsg.VoipIncomingCallManager", "acceptIncomingCal, roomInfo:")
-            },
+    }
+    val methodVoipServiceExReject by dexMethod {
+        usingEqStrings(
+            "MicroMsg.Voip.VoipServiceEx",
+            "Failed to reject with calling, status =",
         )
-    val methodVoipStartAcceptVoip by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.plugin.voip")
-                usingEqStrings("MicroMsg.VoipIncomingCallManager", "startAcceptVoIP, roomInfo:")
-            },
-        )
-    val methodVoipServiceExSetInviteContent by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.Voip.VoipServiceEx",
-                    "Failed to setInviteContent during calling, status =",
-                )
-            },
-        )
-    val methodVoipServiceExReject by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.Voip.VoipServiceEx",
-                    "Failed to reject with calling, status =",
-                )
-            },
-        )
+    }
 
     /** `j0.j(String content, a65.j4 addMsg)` — server-pushed `<voipmsg>` bubble (msg type 50). */
-    val methodVoipBubbleHandle by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "MicroMsg.VoIPBubbleHelper",
-                    "handlerBubbleMsg: parse bubble info error",
-                )
-            },
+    val methodVoipBubbleHandle by dexMethod {
+        usingEqStrings(
+            "MicroMsg.VoIPBubbleHelper",
+            "handlerBubbleMsg: parse bubble info error",
         )
+    }
 
     /**
      * `b2.d(String talker, String, int, int, String, boolean, k0, f16.l)` — legacy call-record
@@ -1163,17 +1090,14 @@ object HideContacts :
      * `d` is the only 8-parameter method it declares.
      */
     val methodVoipLegacyInsertMsg by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramCount = 8
-                declaredClass {
-                    usingEqStrings("MicroMsg.VoipPluginManager")
-                    usingEqStrings("weixin://voip/callagain/?username=")
-                }
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            returnType = "void"
+            paramCount = 8
+            declaredClass {
+                usingEqStrings("MicroMsg.VoipPluginManager")
+                usingEqStrings("weixin://voip/callagain/?username=")
+            }
+        }
 
     //    private val classVoipService by dexClass()
     //    private val classVoipManager by dexClass()

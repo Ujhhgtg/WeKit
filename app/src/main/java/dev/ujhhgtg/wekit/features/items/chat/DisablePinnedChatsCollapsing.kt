@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.chat
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
@@ -17,31 +16,25 @@ object DisablePinnedChatsCollapsing : SwitchFeature(), IResolveDex {
     // Both folder helpers fold pinned chats only while this pinned-count threshold holds. Once it
     // fails, WeChat's own fold check skips adding the fold item and deletes an existing one,
     // restoring the folded chats' parentRef and the fold state.
-    private val methodShouldFold by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui.conversation")
-                returnType = "boolean"
-                paramTypes("int")
-                declaredClass {
-                    usingEqStrings("MicroMsg.FolderHelper")
-                    usingEqStrings("fold item exist")
-                }
-            },
-        )
+    private val methodShouldFold by dexMethod {
+        searchPackages("com.tencent.mm.ui.conversation")
+        returnType = "boolean"
+        paramTypes("int")
+        declaredClass {
+            usingEqStrings("MicroMsg.FolderHelper")
+            usingEqStrings("fold item exist")
+        }
+    }
 
     private val methodRecyclerShouldFold by
-        dexMethod(
-            sqlMethod {
-                returnType = "boolean"
-                paramTypes("int")
-                declaredClass {
-                    usingEqStrings("MicroMsg.RecyclerFolderHelper")
-                    usingEqStrings("performFoldItemClick: not ready")
-                }
-            },
-            allowFailure = true,
-        )
+        dexMethod(allowFailure = true) {
+            returnType = "boolean"
+            paramTypes("int")
+            declaredClass {
+                usingEqStrings("MicroMsg.RecyclerFolderHelper")
+                usingEqStrings("performFoldItemClick: not ready")
+            }
+        }
 
     override fun onEnable() {
         methodShouldFold.hookBefore {

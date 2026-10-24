@@ -4,7 +4,6 @@ import android.view.View
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
@@ -15,18 +14,15 @@ object HideOtherDevicesBanner : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
     override val descriptionRes = R.string.feature_hide_other_devices_banner_description
 
-    private val methodSetOtherOnlineBannerVisibility by
-        dexMethod(
-            sqlMethod {
-                searchPackages("com.tencent.mm.ui.conversation.banner")
-                returnType = "void"
-                paramTypes("int")
-                usingEqStrings(
-                    "com/tencent/mm/ui/conversation/banner/OtherOnlineBanner",
-                    "setVisibility",
-                )
-            },
+    private val methodSetOtherOnlineBannerVisibility by dexMethod {
+        searchPackages("com.tencent.mm.ui.conversation.banner")
+        returnType = "void"
+        paramTypes("int")
+        usingEqStrings(
+            "com/tencent/mm/ui/conversation/banner/OtherOnlineBanner",
+            "setVisibility",
         )
+    }
 
     override fun onEnable() {
         methodSetOtherOnlineBannerVisibility.hookBefore {
