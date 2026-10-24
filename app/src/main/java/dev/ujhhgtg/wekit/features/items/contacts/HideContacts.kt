@@ -48,8 +48,8 @@ import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.installVoipHooks
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.rewriteMomentsFeedSql
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.showSchedulesDialog
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.uninstallSchedules
-import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -68,7 +68,6 @@ import java.lang.ref.WeakReference
 import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
-import java.lang.reflect.Modifier as JavaModifier
 
 
 object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputBarListener,
@@ -89,14 +88,14 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     private const val KEY_LEGACY_MIGRATED = "hidden_parentref_migrated"
 
     var hiddenContacts
-        get() = WePrefs.getStringSetOrDef(KEY_CONTACTS, emptySet())
+        get() = KvStore.getStringSetOrDef(KEY_CONTACTS, emptySet())
         set(value) {
             // Muting is a server-synced oplog (OpenImOpLogLogic), so only send it for contacts that
             // were just added — the previous version re-sent it for the entire set on every save.
             // NB: un-hiding deliberately does NOT restore the prior mute state; doing so would
             // overwrite a mute the user set themselves. See the design doc.
-            val newlyHidden = value - WePrefs.getStringSetOrDef(KEY_CONTACTS, emptySet())
-            WePrefs.putStringSet(KEY_CONTACTS, value)
+            val newlyHidden = value - KvStore.getStringSetOrDef(KEY_CONTACTS, emptySet())
+            KvStore.putStringSet(KEY_CONTACTS, value)
             for (convId in newlyHidden) {
                 WeConversationApi.setDnd(convId, true)
             }
@@ -310,7 +309,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
         // CoreService, which the host manifest pins to :push — a process this feature never loads
         // in — so a dealNotify hook registered from here would never fire where it matters. Both
         // notification hooks now live in HideContactsNotifications, which loads in main + push and
-        // reads this feature's persisted state out of WePrefs.
+        // reads this feature's persisted state out of KvStore.
 
         // --- 定时显示/隐藏 ---
         //
@@ -417,11 +416,11 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     // it from our set and never touched parentRef. Scoped to our hidden set so we don't disturb rows
     // hidden by 显隐全部对话 (ToggleAllConversationsVisibility), which shares the same marker.
     private fun migrateLegacyHiddenParentRef() {
-        if (WePrefs.getBoolOrFalse(KEY_LEGACY_MIGRATED)) return
+        if (KvStore.getBoolOrFalse(KEY_LEGACY_MIGRATED)) return
 
         val hidden = hiddenContacts
         if (hidden.isEmpty()) {
-            WePrefs.putBool(KEY_LEGACY_MIGRATED, true)
+            KvStore.putBool(KEY_LEGACY_MIGRATED, true)
             return
         }
 
@@ -435,7 +434,7 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
                         "WHERE parentRef = '$LEGACY_HIDDEN_PARENT_REF' " +
                         "AND username IN ($inClause)"
             )
-            WePrefs.putBool(KEY_LEGACY_MIGRATED, true)
+            KvStore.putBool(KEY_LEGACY_MIGRATED, true)
             WeLogger.d(TAG, "cleared legacy hidden parentRef markers for ${hidden.size} chats")
         } catch (ex: Exception) {
             WeLogger.w(TAG, "failed to clear legacy hidden parentRef markers", ex)

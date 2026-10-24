@@ -13,8 +13,8 @@ import kotlin.io.path.div
 import kotlin.io.path.isRegularFile
 
 object PanelPaths {
-    val stickerPanelDir: Path by lazy { (KnownPaths.moduleData / "sticker_panel").createDirsSafe() }
-    val voicePanelDir: Path by lazy { (KnownPaths.moduleData / "voice_panel").createDirsSafe() }
+    val stickerPanelDir: Path by lazy { (KnownPaths.moduleRoot / "sticker_panel").createDirsSafe() }
+    val voicePanelDir: Path by lazy { (KnownPaths.moduleRoot / "voice_panel").createDirsSafe() }
     val cloneVoiceDir: Path by lazy { (voicePanelDir / "clone_voices").createDirsSafe() }
     val panelCacheDir: Path by lazy { (KnownPaths.moduleCache / "panels").createDirsSafe() }
     val telegramStickerImportDir: Path by lazy {

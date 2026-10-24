@@ -33,7 +33,7 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferReqProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferRespProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -97,11 +97,11 @@ object DetectDeletedFriends : ClickableFeature() {
         data object RateLimited : DetectionOutcome
     }
 
-    private var detectionModeName by WePrefs.prefOption(
+    private var detectionModeName by KvStore.prefOption(
         "detect_deleted_friends_mode",
         DetectionMode.BEFORE_TRANSFER.name,
     )
-    private var requestDelaySeconds by WePrefs.prefOption(
+    private var requestDelaySeconds by KvStore.prefOption(
         "detect_deleted_friends_delay_seconds",
         "2",
     )

@@ -22,8 +22,8 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -154,9 +154,9 @@ object ReadReceipts : ClickableFeature(),
     private fun migrateLegacyConfiguration(): ReadReceiptsConfiguration {
         return ReadReceiptsConfiguration(
             thirdPartyUrl = normalizeThirdPartyReadReceiptEndpoint(
-                WePrefs.getStringOrDef("read_receipts_third_party_url", ""),
+                KvStore.getStringOrDef("read_receipts_third_party_url", ""),
             ) ?: "",
-            pollIntervalSecs = WePrefs.getIntOrDef("read_receipts_poll_interval", 5)
+            pollIntervalSecs = KvStore.getIntOrDef("read_receipts_poll_interval", 5)
                 .takeIf { it > 0 } ?: 5,
         )
     }

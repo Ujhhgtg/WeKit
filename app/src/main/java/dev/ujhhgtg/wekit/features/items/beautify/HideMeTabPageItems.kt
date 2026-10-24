@@ -19,7 +19,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -37,10 +37,10 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
     override val descriptionRes = R.string.feature_hide_me_tab_page_items_description
 
-    private var hideMoments by WePrefs.prefOption("hide_me_moments", false)
-    private var hideFinder by WePrefs.prefOption("hide_me_finder", false)
-    private var hideCards by WePrefs.prefOption("hide_me_cards", false)
-    private var hideEmoji by WePrefs.prefOption("hide_me_emoji", false)
+    private var hideMoments by KvStore.prefOption("hide_me_moments", false)
+    private var hideFinder by KvStore.prefOption("hide_me_finder", false)
+    private var hideCards by KvStore.prefOption("hide_me_cards", false)
+    private var hideEmoji by KvStore.prefOption("hide_me_emoji", false)
 
     private val methodOnViewCreated by dexMethod {
         matcher {
