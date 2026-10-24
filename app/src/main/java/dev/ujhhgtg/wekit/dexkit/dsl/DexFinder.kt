@@ -28,7 +28,7 @@ fun DexClassDelegate.find(
     block: ClassMatcher.() -> Unit,
 ): Boolean {
     val matcher = ClassMatcher().apply(block)
-    return find(matcher.build(), emptyList(), allowFailure)
+    return find(matcher.build(), allowFailure)
 }
 
 fun DexMethodDelegate.find(
@@ -36,7 +36,7 @@ fun DexMethodDelegate.find(
     block: MethodMatcher.() -> Unit,
 ): Boolean {
     val matcher = MethodMatcher().apply(block)
-    return find(matcher.build(), emptyList(), allowFailure)
+    return find(matcher.build(), allowFailure)
 }
 
 fun DexConstructorDelegate.find(
@@ -44,7 +44,7 @@ fun DexConstructorDelegate.find(
     block: MethodMatcher.() -> Unit,
 ): Boolean {
     val matcher = MethodMatcher().apply(block)
-    return find(matcher.build(), emptyList(), allowFailure)
+    return find(matcher.build(), allowFailure)
 }
 
 fun DexFieldDelegate.find(
@@ -52,19 +52,18 @@ fun DexFieldDelegate.find(
     block: FieldMatcher.() -> Unit,
 ): Boolean {
     val matcher = FieldMatcher().apply(block)
-    return find(matcher.build(), emptyList(), allowFailure)
+    return find(matcher.build(), allowFailure)
 }
 
 internal fun DexClassDelegate.find(
     spec: ClassSpec,
-    excludePackages: List<String> = emptyList(),
     allowFailure: Boolean = false,
 ): Boolean =
     resolveMatcher(
         key = key,
         kind = "class",
         allowFailure = allowFailure,
-        query = { DexResolutionContext.matcher.findClasses(spec, emptyList(), excludePackages) },
+        query = { DexResolutionContext.matcher.findClasses(spec) },
         descriptor = DexClassInfo::descriptor,
         set = { info -> this.setDescriptor(info) },
         markExpectedFailure = ::markExpectedFailure,
@@ -73,14 +72,13 @@ internal fun DexClassDelegate.find(
 
 internal fun DexMethodDelegate.find(
     spec: MethodSpec,
-    excludePackages: List<String> = emptyList(),
     allowFailure: Boolean = false,
 ): Boolean =
     resolveMatcher(
         key = key,
         kind = "method",
         allowFailure = allowFailure,
-        query = { DexResolutionContext.matcher.findMethods(spec, emptyList(), excludePackages) },
+        query = { DexResolutionContext.matcher.findMethods(spec) },
         descriptor = DexMethodInfo::descriptor,
         set = ::setDescriptor,
         markExpectedFailure = ::markExpectedFailure,
@@ -89,7 +87,6 @@ internal fun DexMethodDelegate.find(
 
 internal fun DexConstructorDelegate.find(
     spec: MethodSpec,
-    excludePackages: List<String> = emptyList(),
     allowFailure: Boolean = false,
 ): Boolean =
     resolveMatcher(
@@ -99,8 +96,6 @@ internal fun DexConstructorDelegate.find(
         query = {
             DexResolutionContext.matcher.findMethods(
                 spec.copy(name = NameSpec("<init>", NameMatch.Equals)),
-                emptyList(),
-                excludePackages,
             )
         },
         descriptor = DexMethodInfo::descriptor,
@@ -111,14 +106,13 @@ internal fun DexConstructorDelegate.find(
 
 internal fun DexFieldDelegate.find(
     spec: FieldSpec,
-    excludePackages: List<String> = emptyList(),
     allowFailure: Boolean = false,
 ): Boolean =
     resolveMatcher(
         key = key,
         kind = "field",
         allowFailure = allowFailure,
-        query = { DexResolutionContext.matcher.findFields(spec, emptyList(), excludePackages) },
+        query = { DexResolutionContext.matcher.findFields(spec) },
         descriptor = DexFieldInfo::descriptor,
         set = ::setDescriptor,
         markExpectedFailure = ::markExpectedFailure,

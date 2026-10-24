@@ -16,11 +16,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.asClass
 import dev.ujhhgtg.wekit.dexkit.asConstructor
 import dev.ujhhgtg.wekit.dexkit.asMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.DexMatcherSession
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.withDexSql
 import dev.ujhhgtg.wekit.extensions.ScriptDepsPack
 import dev.ujhhgtg.wekit.features.api.core.WeApi
@@ -1860,14 +1856,9 @@ object JavaEngine {
                             withDexSql { runtime ->
                                 DexMatcherSession(runtime.bridge, runtime.metadata).use { session ->
                                     session
-                                        .findClasses(
-                                            ClassSpec(
-                                                usingStrings =
-                                                    usingStrings.map {
-                                                        StringSpec(it, NameMatch.Contains)
-                                                    },
-                                            ),
-                                        )
+                                        .findClasses {
+                                            usingStringValues(usingStrings)
+                                        }
                                         .map { info -> info.asClass }
                                 }
                             }
@@ -1882,14 +1873,9 @@ object JavaEngine {
                             withDexSql { runtime ->
                                 DexMatcherSession(runtime.bridge, runtime.metadata).use { session ->
                                     session
-                                        .findMethods(
-                                            MethodSpec(
-                                                usingStrings =
-                                                    usingStrings.map {
-                                                        StringSpec(it, NameMatch.Contains)
-                                                    },
-                                            ),
-                                        )
+                                        .findMethods {
+                                            usingStringValues(usingStrings)
+                                        }
                                         .mapNotNull { info ->
                                             if (info.name == "<init>" || info.name == "<clinit>") {
                                                 info.asConstructor

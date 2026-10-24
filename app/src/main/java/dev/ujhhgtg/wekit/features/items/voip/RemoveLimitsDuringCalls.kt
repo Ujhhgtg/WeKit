@@ -4,11 +4,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.AnnotationElementSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.AnnotationSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.AnnotationValue
 import dev.ujhhgtg.wekit.dexkit.matcher.AnnotationVisibility
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.lang.reflect.Modifier
@@ -117,31 +113,16 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
         dexMethod(allowFailure = true) {
             searchPackages("com.tencent.mm.plugin.multitalk.model")
             declaredClass {
-                annotations =
-                    listOf(
-                        AnnotationSpec(
-                            type = NameSpec("dalvik.annotation.Signature"),
-                            visibility = AnnotationVisibility.System,
-                            elements =
-                                listOf(
-                                    AnnotationElementSpec(
-                                        name = NameSpec("value"),
-                                        value =
-                                            AnnotationValue.ListValue(
-                                                listOf(
-                                                    AnnotationValue.Text(
-                                                        "Lcom/tencent/mm/sdk/event/IListener<",
-                                                    ),
-                                                    AnnotationValue.Text(
-                                                        "Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;",
-                                                    ),
-                                                    AnnotationValue.Text(">;"),
-                                                ),
-                                            ),
-                                    ),
-                                ),
-                        ),
+                annotation {
+                    type = "dalvik.annotation.Signature"
+                    visibility = AnnotationVisibility.System
+                    elements(
+                        "value",
+                        "Lcom/tencent/mm/sdk/event/IListener<",
+                        "Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;",
+                        ">;",
                     )
+                }
             }
             name = "callback"
             paramCount = 1
@@ -152,31 +133,16 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
         dexMethod(allowFailure = true) {
             searchPackages("com.tencent.mm.voipmp.v2")
             declaredClass {
-                annotations =
-                    listOf(
-                        AnnotationSpec(
-                            type = NameSpec("dalvik.annotation.Signature"),
-                            visibility = AnnotationVisibility.System,
-                            elements =
-                                listOf(
-                                    AnnotationElementSpec(
-                                        name = NameSpec("value"),
-                                        value =
-                                            AnnotationValue.ListValue(
-                                                listOf(
-                                                    AnnotationValue.Text(
-                                                        "Lcom/tencent/mm/sdk/event/IListener<",
-                                                    ),
-                                                    AnnotationValue.Text(
-                                                        "Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;",
-                                                    ),
-                                                    AnnotationValue.Text(">;"),
-                                                ),
-                                            ),
-                                    ),
-                                ),
-                        ),
+                annotation {
+                    type = "dalvik.annotation.Signature"
+                    visibility = AnnotationVisibility.System
+                    elements(
+                        "value",
+                        "Lcom/tencent/mm/sdk/event/IListener<",
+                        "Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;",
+                        ">;",
                     )
+                }
             }
             name = "callback"
             paramCount = 1
@@ -186,31 +152,16 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
     private val methodVoipCallBack by dexMethod {
         searchPackages("com.tencent.mm.plugin.voip.model")
         declaredClass {
-            annotations =
-                listOf(
-                    AnnotationSpec(
-                        type = NameSpec("dalvik.annotation.Signature"),
-                        visibility = AnnotationVisibility.System,
-                        elements =
-                            listOf(
-                                AnnotationElementSpec(
-                                    name = NameSpec("value"),
-                                    value =
-                                        AnnotationValue.ListValue(
-                                            listOf(
-                                                AnnotationValue.Text(
-                                                    "Lcom/tencent/mm/sdk/event/IListener<",
-                                                ),
-                                                AnnotationValue.Text(
-                                                    "Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;",
-                                                ),
-                                                AnnotationValue.Text(">;"),
-                                            ),
-                                        ),
-                                ),
-                            ),
-                    ),
+            annotation {
+                type = "dalvik.annotation.Signature"
+                visibility = AnnotationVisibility.System
+                elements(
+                    "value",
+                    "Lcom/tencent/mm/sdk/event/IListener<",
+                    "Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;",
+                    ">;",
                 )
+            }
         }
         name = "callback"
         paramCount = 1
@@ -220,31 +171,16 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
     private val methodIpCallCallBack by dexMethod {
         searchPackages("com.tencent.mm.plugin.ipcall")
         declaredClass {
-            annotations =
-                listOf(
-                    AnnotationSpec(
-                        type = NameSpec("dalvik.annotation.Signature"),
-                        visibility = AnnotationVisibility.System,
-                        elements =
-                            listOf(
-                                AnnotationElementSpec(
-                                    name = NameSpec("value"),
-                                    value =
-                                        AnnotationValue.ListValue(
-                                            listOf(
-                                                AnnotationValue.Text(
-                                                    "Lcom/tencent/mm/sdk/event/IListener<",
-                                                ),
-                                                AnnotationValue.Text(
-                                                    "Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;",
-                                                ),
-                                                AnnotationValue.Text(">;"),
-                                            ),
-                                        ),
-                                ),
-                            ),
-                    ),
+            annotation {
+                type = "dalvik.annotation.Signature"
+                visibility = AnnotationVisibility.System
+                elements(
+                    "value",
+                    "Lcom/tencent/mm/sdk/event/IListener<",
+                    "Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;",
+                    ">;",
                 )
+            }
         }
         name = "callback"
         paramCount = 1
@@ -257,31 +193,16 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
             "com.tencent.mm.plugin_flutter_ilinkvoip.helper",
         )
         declaredClass {
-            annotations =
-                listOf(
-                    AnnotationSpec(
-                        type = NameSpec("dalvik.annotation.Signature"),
-                        visibility = AnnotationVisibility.System,
-                        elements =
-                            listOf(
-                                AnnotationElementSpec(
-                                    name = NameSpec("value"),
-                                    value =
-                                        AnnotationValue.ListValue(
-                                            listOf(
-                                                AnnotationValue.Text(
-                                                    "Lcom/tencent/mm/sdk/event/IListener<",
-                                                ),
-                                                AnnotationValue.Text(
-                                                    "Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;",
-                                                ),
-                                                AnnotationValue.Text(">;"),
-                                            ),
-                                        ),
-                                ),
-                            ),
-                    ),
+            annotation {
+                type = "dalvik.annotation.Signature"
+                visibility = AnnotationVisibility.System
+                elements(
+                    "value",
+                    "Lcom/tencent/mm/sdk/event/IListener<",
+                    "Lcom/tencent/mm/autogen/events/VoipCheckIsDeviceUsingEvent;",
+                    ">;",
                 )
+            }
         }
         name = "callback"
         paramCount = 1

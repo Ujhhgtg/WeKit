@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.matcher.OpcodeMatchType
-import dev.ujhhgtg.wekit.dexkit.matcher.OpcodeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -58,12 +57,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
             name = "op"
             paramTypes("int", "java.lang.Object[]")
             returnType = "int"
-            opcodes =
-                OpcodeSpec(
-                    names = emptyList(),
-                    matchType = OpcodeMatchType.Contains,
-                    count = 0..10,
-                )
+            opcodes(names = emptyList(), matchType = OpcodeMatchType.Contains, count = 0..10)
         }
         method {
             name = "toByteArray"
@@ -78,22 +72,13 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         fieldCount = 0..1
         method {
             name = "<init>"
-            opcodes =
-                OpcodeSpec(
-                    names = listOf("new-instance"),
-                    matchType = OpcodeMatchType.Contains,
-                )
+            opcodes(names = listOf("new-instance"), matchType = OpcodeMatchType.Contains)
         }
         method {
             name = "op"
             paramTypes("int", "java.lang.Object[]")
             returnType = "int"
-            opcodes =
-                OpcodeSpec(
-                    names = emptyList(),
-                    matchType = OpcodeMatchType.Contains,
-                    count = 0..10,
-                )
+            opcodes(names = emptyList(), matchType = OpcodeMatchType.Contains, count = 0..10)
         }
     }
     private val classConfigBuilder by dexClass {

@@ -111,6 +111,55 @@ private fun normalizeParamTypes(owner: String, value: Any?): List<TypeSpec?>? =
             )
     }
 
+/** DexKit-style annotation constraint builder used by class/method matcher blocks. */
+class AnnotationMatcher internal constructor() {
+    /** Annotation type (dotted or descriptor form). */
+    var type: String? = null
+
+    var visibility: AnnotationVisibility? = null
+
+    private val elements = mutableListOf<AnnotationElementSpec>()
+
+    fun type(value: String) {
+        type = value
+    }
+
+    fun visibility(value: AnnotationVisibility) {
+        visibility = value
+    }
+
+    /** Add one annotation element; accepted values: String, List<String>, Number, Boolean. */
+    fun element(name: String, value: Any?) {
+        elements += AnnotationElementSpec(NameSpec(name), annotationValue(value))
+    }
+
+    /** Add one annotation element whose value is an array of strings. */
+    fun elements(name: String, vararg values: String) {
+        element(name, values.toList())
+    }
+
+    internal fun build(): AnnotationSpec =
+        AnnotationSpec(
+            type = NameSpec(requireNotNull(type) { "annotation type must be set" }),
+            visibility = visibility ?: AnnotationVisibility.Runtime,
+            elements = elements.toList(),
+        )
+}
+
+private fun annotationValue(value: Any?): AnnotationValue =
+    when (value) {
+        null -> error("Annotation element value must not be null")
+        is String -> AnnotationValue.Text(value)
+        is Boolean -> AnnotationValue.BooleanValue(value)
+        is Int -> AnnotationValue.NumberValue(value.toLong())
+        is Long -> AnnotationValue.NumberValue(value)
+        is List<*> -> AnnotationValue.ListValue(value.map(::annotationValue))
+        else -> error("Unsupported annotation element value: " + value::class.java.name)
+    }
+
+internal fun buildAnnotation(block: AnnotationMatcher.() -> Unit): AnnotationSpec =
+    AnnotationMatcher().apply(block).build()
+
 class ClassMatcher internal constructor() {
     private var classNameValue: NameSpec? = null
 
@@ -341,6 +390,10 @@ class ClassMatcher internal constructor() {
         annotations = annotations + spec
     }
 
+    fun annotation(block: AnnotationMatcher.() -> Unit) {
+        annotations = annotations + buildAnnotation(block)
+    }
+
     fun annotations(specs: List<AnnotationSpec>) {
         annotations = annotations + specs
     }
@@ -538,6 +591,10 @@ class MethodMatcher internal constructor() {
 
     fun annotation(spec: AnnotationSpec) {
         annotations = annotations + spec
+    }
+
+    fun annotation(block: AnnotationMatcher.() -> Unit) {
+        annotations = annotations + buildAnnotation(block)
     }
 
     fun annotations(specs: List<AnnotationSpec>) {

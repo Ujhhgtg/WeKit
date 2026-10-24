@@ -14,10 +14,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.find
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
@@ -157,20 +153,16 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
 
         val buildMenu = WeHomeScreenPopupMenuApi.methodAddItem.data
         val plusMenuClass = WeHomeScreenPopupMenuApi.methodHandleItemClick.data.declaredClass!!
-        val caller = MethodSpec(descriptor = buildMenu.descriptor)
-        val baseSpec =
-            MethodSpec(
-                declaredClass = ClassSpec(className = NameSpec(plusMenuClass.superClass!!.name)),
-                returnType = ClassSpec(className = NameSpec("boolean")),
-                callerMethods = listOf(caller),
-            )
-        val plusMenuSpec =
+        methodShowPlusMenu.find {
+            declaredClass = plusMenuClass.superClass!!.name
+            returnType = "boolean"
+            callerMethod { descriptor = buildMenu.descriptor }
             if (buildMenu.declaredClassName == "com.tencent.mm.ui.HomeUI") {
-                baseSpec.copy(paramTypes = listOf(TypeSpec("int")))
+                paramTypes("int")
             } else {
-                baseSpec.copy(paramCount = 0..0)
+                paramCount = 0
             }
-        methodShowPlusMenu.find(plusMenuSpec)
+        }
     }
 
     private val handler by lazy { Handler(Looper.getMainLooper()) }
